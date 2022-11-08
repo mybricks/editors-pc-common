@@ -1,6 +1,7 @@
 import React, { useCallback, useMemo } from 'react';
-import { Modal } from 'antd';
+import { Drawer } from 'antd';
 import * as icons from '@ant-design/icons';
+import { CloseOutlined } from '@ant-design/icons';
 import { isValid } from '../utils';
 import { useComputed, useObservable } from '@mybricks/rxui';
 // import { EditorProps } from '../index'
@@ -23,7 +24,7 @@ const Icon = (props: any) => {
   if (!RenderIcon) return <></>
 
   return <RenderIcon
-    style={{fontSize, color}}
+    style={{ fontSize, color }}
     spin={spin}
     className={className}
     rotate={rotate}
@@ -49,9 +50,9 @@ export default function ({ editConfig }): any {
     visible: false,
   });
 
-  const open = useCallback(() => {
+  const toggle = useCallback(() => {
     if (readonly) return;
-    modalContext.visible = true;
+    modalContext.visible = !modalContext.visible;
     setTimeout(() => {
       model.length = renderIcons.length;
     }, 0);
@@ -82,7 +83,7 @@ export default function ({ editConfig }): any {
     <div className={css['editor-icon']}>
       <button
         className={css['editor-icon__button']}
-        onClick={open}
+        onClick={toggle}
         style={{ cursor: readonly ? 'defatult' : 'pointer' }}
       >
         {readonly ? (
@@ -93,31 +94,40 @@ export default function ({ editConfig }): any {
               type={model.val}
               className={css['editor-icon__button-editIcon']}
             />
-            打开图标选择器
+            {`${modalContext.visible ? '关闭' : '打开'}`}图标选择器
           </span>
         )}
       </button>
-      <Modal
-        wrapClassName={css.wrap}
-        visible={modalContext.visible}
-        title='选择图标'
-        width='505px'
-        footer={null}
+      <Drawer
+        className={`${css.iconBody} fangzhou-theme`}
         bodyStyle={{
-          maxHeight: 800,
-          overflowY: 'auto',
-          display: 'flex',
-          flexWrap: 'wrap',
+          padding: 0,
+          borderLeft: '1px solid #bbb',
+          backgroundColor: '#F7F7F7',
+          overflow: 'hidden'
         }}
-        style={{ top: 38 }}
-        className={css.iconBody}
-        maskClosable={false}
+        placement="right"
+        mask={false}
+        closable={false}
         destroyOnClose={true}
-        onCancel={close}
-        getContainer={() => document.body}
+        visible={modalContext.visible}
+        onClose={close}
+        width={390}
+        getContainer={() => document.querySelector('div[class^="lyStage-"]')}
+        style={{ position: 'absolute' }}
       >
-        {renderIcons.slice(0, model.length)}
-      </Modal>
-    </div>
+        <div
+          className={css['drawerTitle']}
+        >
+          {'选择图标'}
+          <CloseOutlined onClick={close} />
+        </div>
+        <div
+          className={css.iconWrapper}
+        >
+          {renderIcons.slice(0, model.length)}
+        </div>
+      </Drawer>
+    </div >
   );
 }
