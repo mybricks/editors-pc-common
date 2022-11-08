@@ -7,7 +7,7 @@ function getFakeColor(color: string) {
   if (arr) {
     const name = arr[1];
     return (
-      getComputedStyle(document.body).getPropertyValue(name) || "transparent"
+      getComputedStyle(document.body).getPropertyValue(name) || "#FFFFFF00"
     );
   } else {
     return color;
@@ -29,7 +29,7 @@ export default function (props: {
     []
   );
 
-  const rawColor = getFakeColor(color || "transparent");
+  const rawColor = getFakeColor(color || "#FFFFFF00");
 
   return (
     <div className={css.colorPicker}>
