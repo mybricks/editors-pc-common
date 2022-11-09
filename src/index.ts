@@ -26,6 +26,7 @@ import { typeCheck } from "./utils";
 import EditorRender from "./editorRender";
 import EditorValueSelect from "./valueSelect";
 import Expression from "./expression";
+import ComSelector from "./comSelector";
 import "./index.less";
 export { config } from "./configProvider";
 
@@ -56,6 +57,7 @@ const PcEditorMap: any = {
   MAPCHECKBOX: EditorMapCheckbox,
   EDITORRENDER: EditorRender,
   EXPRESSION: Expression,
+  COMSELECTOR: ComSelector
 };
 
 function PcEditor(props: EditorProps): any {
