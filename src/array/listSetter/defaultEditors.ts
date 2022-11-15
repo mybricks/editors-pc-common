@@ -8,6 +8,8 @@ import EditorSlider from "./../../slider"
 import Expression from './../../expression'
 import EditorValueSelect from './../../valueSelect'
 import EditorCode from './../../jsCoder'
+import EditorImageSelector from "../../imageSelector";
+import EditorStyle from "../../style";
 
 import { typeCheck } from "./../../utils"
 
@@ -22,6 +24,8 @@ const PcEditorMap: any = {
   EXPRESSION: Expression,
   VALUESELECT: EditorValueSelect,
   CODE: EditorCode,
+  IMAGESELECTOR: EditorImageSelector,
+  STYLE: EditorStyle,
 };
 
 export default function PcEditor(props: any): any {
