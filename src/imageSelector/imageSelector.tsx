@@ -194,10 +194,30 @@ export default function ({ editConfig }: EditorProps): any {
         title="上传图片"
         visible={modalContext.visible}
         onOk={(url) => {
-          if (!url?.length) return;
-          model.val = url;
-          model.value.set(model.val);
-          modalContext.visible = false;
+          const type = Object.prototype.toString.call(url);
+          
+          let val;
+
+          switch (type) {
+            case '[object String]':
+              if (url.length) {
+                val = url;
+              }
+              break;
+            case '[object Object]':
+              if (typeof url.b64 === "string") {
+                val = url.b64;
+              }
+              break;
+            default:
+              break;
+          }
+
+          if (val) {
+            model.val = val;
+            model.value.set(model.val);
+            modalContext.visible = false;
+          }
         }}
         onCancel={() => {
           modalContext.visible = false;
