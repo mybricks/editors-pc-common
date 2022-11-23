@@ -1,6 +1,6 @@
 {
   "name": "@mybricks/editors-pc-common",
-  "version": "0.0.11",
+  "version": "0.0.12",
   "description": "",
   "main": "lib/index.js",
   "scripts": {
@@ -19,11 +19,10 @@
   "homepage": "https://github.com/mybricks/editors-pc-common#readme",
   "dependencies": {
     "@mybricks/code-editor": "1.0.2",
-    "@mybricks/color-picker": "^1.0.2",
+    "@mybricks/color-picker": "^1.0.4",
     "@tinymce/tinymce-react": "3.13.1"
   },
   "devDependencies": {
-    "@uiw/react-color-sketch": "^1.1.0",
     "@ant-design/icons": "4.7.0",
     "@babel/core": "7.15.0",
     "@babel/plugin-proposal-class-properties": "7.14.5",
@@ -39,6 +38,7 @@
     "@types/react-color": "3.0.6",
     "@types/react-dom": "17.0.7",
     "@types/tinycolor2": "1.4.3",
+    "@uiw/react-color-sketch": "^1.1.0",
     "antd": "4.16.13",
     "babel-loader": "8.2.2",
     "babel-plugin-import": "1.13.3",
