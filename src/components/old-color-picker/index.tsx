@@ -1,4 +1,4 @@
-import Sketch from '@uiw/react-color-sketch';
+import Sketch from '@mybricks/color-picker';
 import React, { useCallback, useMemo } from 'react';
 import css from './index.less';
 
