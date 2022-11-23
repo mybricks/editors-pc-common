@@ -1,5 +1,5 @@
 import React, { useCallback, } from "react";
-import Sketch from "@uiw/react-color-sketch";
+import Sketch from "@mybricks/color-picker";
 
 import css from "./style.less";
 function getFakeColor(color: string) {
