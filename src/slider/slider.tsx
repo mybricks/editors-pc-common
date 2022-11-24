@@ -6,7 +6,8 @@ import { isValid, typeCheck } from '../utils';
 import { EditorProps } from '../interface';
 import css from './index.less';
 
-const getOptions = (options: any) => {
+const getOptions = (opt: any) => {
+  const options = typeof opt === 'function' ? opt().options || opt() : opt;
   return Array.isArray(options) ? options.find(def => typeCheck(def, 'OBJECT')) : options;
 }
 
