@@ -7,7 +7,7 @@ function getFakeColor(color: string) {
   if (arr) {
     const name = arr[1];
     return (
-      getComputedStyle(document.body).getPropertyValue(name) || "#FFFFFF00"
+      getComputedStyle(document.body).getPropertyValue(name) || "transparent"
     );
   } else {
     return color;

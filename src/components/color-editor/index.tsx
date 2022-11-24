@@ -36,7 +36,7 @@ function isTheme(color: string) {
 }
 
 export default function ColorEditor({
-  value = "#FFFFFF00",
+  value = "transparent",
   onChange,
 
   style,
