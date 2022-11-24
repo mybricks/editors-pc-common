@@ -25,7 +25,6 @@ export default function ({ editConfig, injectEditors, ...extraContext }: { editC
     }
     return opt
   }, [options])
-  console.log(opt.addable, opt.deletable, 'xxxxxxxxxxx')
   return (
     <AryContext.Provider value={{ injectEditors }}>
       <ListSetter
