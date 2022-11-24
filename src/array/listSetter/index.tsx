@@ -30,6 +30,8 @@ type ListSetterProps = {
   draggable: boolean
   editable: boolean
   selectable: boolean
+  deletable: boolean
+  addable: boolean
   addText?: string
   customOptRender?: any
   extraContext?: any
@@ -78,25 +80,25 @@ const SortableList = SortableContainer(({ children }) => {
 })
 
 const SortableItem = SortableElement(
-  ({ children, className = '', onClick = () => {} }) => (
+  ({ children, className = '', onClick = () => { } }) => (
     <div className={`${css.listItem} ${className}`} onClick={onClick}>
       {children}
     </div>
   )
 )
 
-const DragHandle = SortableHandle(({}) => (
+const DragHandle = SortableHandle(({ }) => (
   // [TODO] 用 Tooltip 好像antd版本的会死循环，别问为什么
   // <Tooltip
   //   placement="left"
   //   title={'拖动当前项'}
   //   overlayInnerStyle={{ fontSize: 12 }}
   // >
-    <div className={css.grab} title="拖动当前项">
-      <svg viewBox="0 0 20 20" width="12">
-        <path d="M7 2a2 2 0 1 0 .001 4.001A2 2 0 0 0 7 2zm0 6a2 2 0 1 0 .001 4.001A2 2 0 0 0 7 8zm0 6a2 2 0 1 0 .001 4.001A2 2 0 0 0 7 14zm6-8a2 2 0 1 0-.001-4.001A2 2 0 0 0 13 6zm0 2a2 2 0 1 0 .001 4.001A2 2 0 0 0 13 8zm0 6a2 2 0 1 0 .001 4.001A2 2 0 0 0 13 14z"></path>
-      </svg>
-    </div>
+  <div className={css.grab} title="拖动当前项">
+    <svg viewBox="0 0 20 20" width="12">
+      <path d="M7 2a2 2 0 1 0 .001 4.001A2 2 0 0 0 7 2zm0 6a2 2 0 1 0 .001 4.001A2 2 0 0 0 7 8zm0 6a2 2 0 1 0 .001 4.001A2 2 0 0 0 7 14zm6-8a2 2 0 1 0-.001-4.001A2 2 0 0 0 13 6zm0 2a2 2 0 1 0 .001 4.001A2 2 0 0 0 13 8zm0 6a2 2 0 1 0 .001 4.001A2 2 0 0 0 13 14z"></path>
+    </svg>
+  </div>
   // </Tooltip>
 ))
 
@@ -111,6 +113,8 @@ export default function ({
   draggable = true,
   editable = true,
   selectable = false,
+  deletable = true,
+  addable = true,
   addText = '添加一项',
   customOptRender,
   extraContext,
@@ -306,13 +310,12 @@ export default function ({
             <SortableItem
               key={item._id}
               index={index}
-              className={`${
-                _selectable
-                  ? activeId === item._id
-                    ? `${css.listItemSelect} ${css.active}`
-                    : css.listItemSelect
-                  : ''
-              }`}
+              className={`${_selectable
+                ? activeId === item._id
+                  ? `${css.listItemSelect} ${css.active}`
+                  : css.listItemSelect
+                : ''
+                }`}
               onClick={() => {
                 if (!_selectable) {
                   return
@@ -390,35 +393,36 @@ export default function ({
                     </div>
                   )}
                   {customOptRender
-                  ? customOptRender({ item, index, setList })
-                  : null}
-                  <div
-                    className={css.delete}
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      if (activeId === item._id) {
-                        setSubFormVisible(false)
-                        setActiveId(list.find((t) => t._id)._id)
-                      }
-                      if (editId === item._id) {
-                        setEditId(null)
-                      }
-                      listModel.remove(item._id)
-                      // 务必放在后面
-                      typeof onRemove === 'function' && onRemove(item._id)
-                    }}
-                  >
-                    <svg viewBox="0 0 1049 1024" width="14" height="14">
-                      <path
-                        d="M524.816493 830.218181a35.83281 35.83281 0 0 0 35.788334-35.803159v-412.292279a35.803159 35.803159 0 0 0-71.591493 0v412.292279A35.83281 35.83281 0 0 0 524.816493 830.218181zM705.374122 830.218181a35.83281 35.83281 0 0 0 35.788334-35.803159v-412.292279a35.803159 35.803159 0 0 0-71.591493 0v412.292279A35.83281 35.83281 0 0 0 705.374122 830.218181zM344.199563 830.218181a35.83281 35.83281 0 0 0 35.788334-35.803159v-412.292279a35.803159 35.803159 0 0 0-71.591493 0v412.292279c0.756092 19.688031 16.826743 35.803159 35.803159 35.803159z"
-                        p-id="9568"
-                      ></path>
-                      <path
-                        d="M1013.770526 128.639342H766.721316V86.920879A87.00983 87.00983 0 0 0 679.800437 0H370.633117a87.00983 87.00983 0 0 0-86.906054 86.920879v41.718463H35.788334a35.788334 35.788334 0 0 0 0 71.576668H154.183377V885.071883a139.031895 139.031895 0 0 0 138.868816 138.868816h463.439649A139.031895 139.031895 0 0 0 895.360658 885.071883V199.400617h118.409868A35.83281 35.83281 0 0 0 1049.632986 163.612283c0-19.613905-15.803796-34.972941-35.86246-34.972941zM354.414211 86.920879A15.996525 15.996525 0 0 1 370.633117 70.761275h309.16732a15.996525 15.996525 0 0 1 16.159604 16.159604v41.718463H354.414211zM823.769165 885.071883a67.35145 67.35145 0 0 1-67.277323 67.277323H293.067018A67.366275 67.366275 0 0 1 225.774869 885.071883V199.400617h597.994296z"
-                        p-id="9569"
-                      ></path>
-                    </svg>
-                  </div>
+                    ? customOptRender({ item, index, setList })
+                    : null}
+                  {deletable &&
+                    <div
+                      className={css.delete}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        if (activeId === item._id) {
+                          setSubFormVisible(false)
+                          setActiveId(list.find((t) => t._id)._id)
+                        }
+                        if (editId === item._id) {
+                          setEditId(null)
+                        }
+                        listModel.remove(item._id)
+                        // 务必放在后面
+                        typeof onRemove === 'function' && onRemove(item._id)
+                      }}
+                    >
+                      <svg viewBox="0 0 1049 1024" width="14" height="14">
+                        <path
+                          d="M524.816493 830.218181a35.83281 35.83281 0 0 0 35.788334-35.803159v-412.292279a35.803159 35.803159 0 0 0-71.591493 0v412.292279A35.83281 35.83281 0 0 0 524.816493 830.218181zM705.374122 830.218181a35.83281 35.83281 0 0 0 35.788334-35.803159v-412.292279a35.803159 35.803159 0 0 0-71.591493 0v412.292279A35.83281 35.83281 0 0 0 705.374122 830.218181zM344.199563 830.218181a35.83281 35.83281 0 0 0 35.788334-35.803159v-412.292279a35.803159 35.803159 0 0 0-71.591493 0v412.292279c0.756092 19.688031 16.826743 35.803159 35.803159 35.803159z"
+                          p-id="9568"
+                        ></path>
+                        <path
+                          d="M1013.770526 128.639342H766.721316V86.920879A87.00983 87.00983 0 0 0 679.800437 0H370.633117a87.00983 87.00983 0 0 0-86.906054 86.920879v41.718463H35.788334a35.788334 35.788334 0 0 0 0 71.576668H154.183377V885.071883a139.031895 139.031895 0 0 0 138.868816 138.868816h463.439649A139.031895 139.031895 0 0 0 895.360658 885.071883V199.400617h118.409868A35.83281 35.83281 0 0 0 1049.632986 163.612283c0-19.613905-15.803796-34.972941-35.86246-34.972941zM354.414211 86.920879A15.996525 15.996525 0 0 1 370.633117 70.761275h309.16732a15.996525 15.996525 0 0 1 16.159604 16.159604v41.718463H354.414211zM823.769165 885.071883a67.35145 67.35145 0 0 1-67.277323 67.277323H293.067018A67.366275 67.366275 0 0 1 225.774869 885.071883V199.400617h597.994296z"
+                          p-id="9569"
+                        ></path>
+                      </svg>
+                    </div>}
                 </div>
                 {expandable && editId === item._id && SubEditors}
               </div>
@@ -460,18 +464,19 @@ export default function ({
           {!expandable && SubEditors}
         </Drawer>
       )}
-      <div
-        className={css.btnAdd}
-        onClick={() => {
-          const uid = getUid()
-          return listModel.add({
-            _id: uid,
-            ...(typeof onAdd === 'function' ? onAdd(uid) || {} : {}),
-          })
-        }}
-      >
-        {addText}
-      </div>
+      {addable &&
+        <div
+          className={css.btnAdd}
+          onClick={() => {
+            const uid = getUid()
+            return listModel.add({
+              _id: uid,
+              ...(typeof onAdd === 'function' ? onAdd(uid) || {} : {}),
+            })
+          }}
+        >
+          {addText}
+        </div>}
     </div>
   )
 }
