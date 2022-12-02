@@ -48,7 +48,7 @@ export default ({
     return injectEditors || DefaultEditors
   }, [injectEditors, DefaultEditors])
 
-  const Component = Editors({
+  const editorProps = {
     editConfig: {
       ...editConfig,
       // [TODO] 临时把array的text转到textinput里
@@ -60,7 +60,9 @@ export default ({
       value: model,
     },
     ...(extraContext || {}),
-  });
+  }
+
+  const Component = window?.__editorAppender__?.(editorProps) ?? Editors(editorProps);
 
   return (
     <div className={css.item}>
