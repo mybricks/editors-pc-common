@@ -214,7 +214,6 @@ export default function ({ editConfig, env }: any): JSX.Element {
     commentVisible = true,
     enableFullscreen = true,
   } = options;
-  options.commentsLineNumber = getLinenumbers(comments);
 
   const model: any = useObservable({
     value,
