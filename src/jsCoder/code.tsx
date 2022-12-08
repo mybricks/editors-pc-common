@@ -227,8 +227,8 @@ export default function ({ editConfig, env }: any): JSX.Element {
   });
 
   const updateVal = useCallback(
-    () => {
-      model.value.set(formatValue(model.val, options));
+    (val) => {
+      model.value.set(formatValue(val, options));
     },
     []
   );
@@ -245,10 +245,6 @@ export default function ({ editConfig, env }: any): JSX.Element {
   const onClose = () => {
     model.iconsVisible = false;
     modalContext.visible = false;
-    if (editorRef.current) {
-      model.val = editorRef.current.getValue();
-      // model.value.set(formatValue(model.val, options));
-    }
   };
 
   const onCommentIconClick = useCallback(() => {
@@ -322,6 +318,17 @@ export default function ({ editConfig, env }: any): JSX.Element {
     [options.fnParams]
   );
 
+  const onBlur = useCallback((editor, monaco, container) => {
+    setTimeout(() => {
+      if (monaco) {
+        updateVal(editor.getValue())
+      }
+      if (options.onBlur) {
+        options.onBlur(editor, monaco, container)
+      }
+    });
+  }, []);
+
   const open = useCallback(() => {
     if (!modalContext.visible) {
       modalContext.visible = true;
@@ -343,10 +350,11 @@ export default function ({ editConfig, env }: any): JSX.Element {
                   >
                     <MonacoEditor
                       onMounted={onMonacoMounted}
-                      value={model.val}
+                      value={getVal(value)}
                       readOnly={readonly}
                       onChange={onChange}
                       {...options}
+                      onBlur={onBlur}
                       fnParams={options.fnParams}
                       extraLib={`${schemaExtraLib}${options.extraLib || ''}`}
                       height='100%'
@@ -409,9 +417,10 @@ export default function ({ editConfig, env }: any): JSX.Element {
   }, []);
 
   const onChange: any = useCallback((v: string, e: any) => {
-    model.val = v;
-    updateVal();
+    // model.val = v;
+    // updateVal(v);
   }, []);
+
   const RenderInEditView: JSX.Element = useMemo(() => {
     const { title } = model;
     if (displayType === 'button') {
@@ -436,10 +445,11 @@ export default function ({ editConfig, env }: any): JSX.Element {
               {fnBodyRender(css['mockFn-header__min'])}
               <MonacoEditor
                 onMounted={onMonacoMounted}
-                value={model.val}
+                value={getVal(value)}
                 readOnly={readonly}
                 onChange={onChange}
                 {...options}
+                onBlur={onBlur}
                 fnParams={options.fnParams}
                 extraLib={`${schemaExtraLib}${options.extraLib || ''}`}
                 width='100%'
