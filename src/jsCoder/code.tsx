@@ -319,14 +319,12 @@ export default function ({ editConfig, env }: any): JSX.Element {
   );
 
   const onBlur = useCallback((editor, monaco, container) => {
-    setTimeout(() => {
-      if (monaco) {
-        updateVal(editor.getValue())
-      }
-      if (options.onBlur) {
-        options.onBlur(editor, monaco, container)
-      }
-    });
+    if (monaco) {
+      updateVal(editor.getValue())
+    }
+    if (options.onBlur) {
+      options.onBlur(editor, monaco, container)
+    }
   }, []);
 
   const open = useCallback(() => {
@@ -418,7 +416,7 @@ export default function ({ editConfig, env }: any): JSX.Element {
 
   const onChange: any = useCallback((v: string, e: any) => {
     // model.val = v;
-    // updateVal(v);
+    updateVal(v);
   }, []);
 
   const RenderInEditView: JSX.Element = useMemo(() => {
