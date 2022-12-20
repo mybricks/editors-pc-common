@@ -34,7 +34,7 @@ const defaultJustifyContent = [
         <Icon name="space-between-column" />
       ),
   },
-  
+
 ];
 
 export default ({
@@ -66,17 +66,17 @@ export default ({
   return layout !== "absolute" ? (
     <>
       <div className={styles.justifyWrap}>
-        {defaultJustifyContent.map(({ title, value, render }, index) => (
+        {defaultJustifyContent.map(({ title, value, render }) => (
           <Tooltip
             title={title}
             overlayInnerStyle={{ fontSize: "12px" }}
+            key={`${value}-tooltip`}
           >
             <div
-              key={index}
-              className={`${styles.svgWrapper} ${
-                justifyContent === value ? styles["justifyContent-select"] : ""
-              }`}
-              onClick={() => onSelect(value)}
+              key={value}
+              className={`${styles.svgWrapper} ${justifyContent === value ? styles["justifyContent-select"] : ""
+                }`}
+              onClick={() => onSelect(justifyContent === value ? "normal" : value)}
             >
               {render(flexDirection)}
             </div>

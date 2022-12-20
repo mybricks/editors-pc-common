@@ -1,6 +1,7 @@
 import React, { CSSProperties, useContext } from "react";
 import { Tooltip } from "antd";
 import FlexContext from "../ItemContext";
+import { extraJustifyContent } from "../../constant";
 import styles from "./index.less";
 
 type Params = {
@@ -50,6 +51,17 @@ const Point = () => {
 
 const getTitle = ({ flexItem, flexDirection }: Params) => {
   let { justifyContent, alignItems } = flexItem;
+  if (extraJustifyContent.includes(justifyContent as string)) {
+    if (flexDirection === "row") {
+      if (alignItems === "flex-start") return "top";
+      if (alignItems === "center") return "center";
+      if (alignItems === "flex-end") return "bottom";
+    } else {
+      if (alignItems === "flex-start") return "left";
+      if (alignItems === "center") return "center";
+      if (alignItems === "flex-end") return "right";
+    }
+  }
   if (justifyContent !== "center") {
     justifyContent =
       flexDirection === "row"

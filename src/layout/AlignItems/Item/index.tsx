@@ -36,7 +36,7 @@ export default ({
           alignItems: "center",
           cursor: "pointer"
         }}
-        onMouseEnter={() => setHover(true)}
+        onMouseOver={() => setHover(true)}
         onMouseLeave={() => setHover(false)}
         onClick={() => onSelected(flexItem)}
       >

@@ -1,84 +1,16 @@
-import React from "react";
+import React, { useMemo } from "react";
 import FlexItem, { FlexItemProps } from "./Item";
+import {
+  rowItems,
+  columnItems,
+  spaceAroundItems,
+  spaceBetweenItems,
+  normalGridStyle,
+  rowExtraStyle,
+  columnExtraStyle,
+  extraJustifyContent,
+} from "./constant";
 import styles from "./index.less";
-
-const rowItems = [
-  {
-    justifyContent: "flex-start",
-    alignItems: "flex-start",
-  },
-  {
-    justifyContent: "center",
-    alignItems: "flex-start",
-  },
-  {
-    justifyContent: "flex-end",
-    alignItems: "flex-start",
-  },
-  {
-    justifyContent: "flex-start",
-    alignItems: "center",
-  },
-  {
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  {
-    justifyContent: "flex-end",
-    alignItems: "center",
-  },
-  {
-    justifyContent: "flex-start",
-    alignItems: "flex-end",
-  },
-  {
-    justifyContent: "center",
-    alignItems: "flex-end",
-  },
-  {
-    justifyContent: "flex-end",
-    alignItems: "flex-end",
-  },
-];
-
-const columnItems = [
-  {
-    justifyContent: "flex-start",
-    alignItems: "flex-start",
-  },
-  {
-    justifyContent: "flex-start",
-    alignItems: "center",
-  },
-  {
-    justifyContent: "flex-start",
-    alignItems: "flex-end",
-  },
-  {
-    justifyContent: "center",
-    alignItems: "flex-start",
-  },
-  {
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  {
-    justifyContent: "center",
-    alignItems: "flex-end",
-  },
-  {
-    justifyContent: "flex-end",
-    alignItems: "flex-start",
-  },
-  {
-    justifyContent: "flex-end",
-    alignItems: "center",
-  },
-  {
-    justifyContent: "flex-end",
-    alignItems: "flex-end",
-  },
-];
 
 export default ({
   flexDirection,
@@ -86,13 +18,34 @@ export default ({
   alignItems,
   onSelected,
 }: Omit<FlexItemProps, "flexItem">) => {
-  const activeItems = flexDirection === "row" ? rowItems : columnItems;
+  const gridItems = useMemo(() => {
+    if (justifyContent === "space-around") {
+      return spaceAroundItems;
+    }
+    if (justifyContent === "space-between") {
+      return spaceBetweenItems;
+    }
+    return flexDirection === "row" ? rowItems : columnItems;
+  }, [justifyContent, flexDirection]);
+
+  const gridStyle = useMemo(() => {
+    if (extraJustifyContent.includes(justifyContent as string)) {
+      if (flexDirection === "row") {
+        return rowExtraStyle;
+      } else {
+        return columnExtraStyle;
+      }
+    } else {
+      return normalGridStyle;
+    }
+  }, [justifyContent, flexDirection]);
+  
   return (
     <div className={styles.container}>
-      <div className={styles.grid}>
-        {activeItems.map((item, index) => (
+      <div className={styles.grid} style={gridStyle}>
+        {gridItems.map((item) => (
           <FlexItem
-            key={index}
+            key={`${item.justifyContent}-${item.alignItems}`}
             flexDirection={flexDirection}
             justifyContent={justifyContent}
             alignItems={alignItems}

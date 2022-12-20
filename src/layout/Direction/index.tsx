@@ -30,14 +30,15 @@ const defaultFlexFlow = [
 export default ({ layout, onSelect }: AlignItemsProps) => {
   return (
     <div className={styles["flex-direction"]}>
-      {defaultFlexFlow.map(({ title, value, render }, index) => (
+      {defaultFlexFlow.map(({ title, value, render }) => (
         <Tooltip
           title={title}
           placement="top"
           overlayInnerStyle={{ fontSize: 12 }}
+          key={`${value}-tooltip`}
         >
           <div
-            key={index}
+            key={value}
             className={`${styles["direction"]} ${layout === value ? styles["direction-active"] : ""
               }`}
             onClick={() => onSelect(value as Layout)}
