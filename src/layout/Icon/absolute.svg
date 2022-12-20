@@ -1,8 +1,4 @@
-import React from "react";
-
-export default function () {
-  return (
-    <svg
+<svg
       width="14px"
       height="14px"
       viewBox="50 0 600 600"
@@ -15,5 +11,3 @@ export default function () {
         />
       </g>
     </svg>
-  );
-}

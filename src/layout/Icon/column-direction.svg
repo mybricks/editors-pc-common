@@ -1,9 +1,4 @@
-import React from "react";
-
-const IconColumnDirection = () => {
-  return (
-    <>
-      <svg
+ <svg
         width="8"
         height="11"
         viewBox="0 0 8 11"
@@ -17,8 +12,3 @@ const IconColumnDirection = () => {
           stroke="none"
         ></path>
       </svg>
-    </>
-  );
-};
-
-export default IconColumnDirection;

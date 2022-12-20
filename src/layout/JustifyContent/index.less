@@ -1,0 +1,29 @@
+.flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.selected {
+  background-color: #e6e6e6;
+  border-radius: 2px;
+  border: 1px solid transparent;
+}
+.unselected {
+  width: 24px;
+  height: 24px;
+  .flex-center;
+}
+.justifyWrap {
+  display: flex;
+  justify-content: flex-start;
+  .svgWrapper {
+    margin-right: 5px;
+    .unselected;
+  }
+  .justifyContent-select {
+    .selected;
+  }
+}
+.wrap {
+  .unselected;
+}

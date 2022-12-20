@@ -84,6 +84,27 @@ module.exports = {
         ],
       },
       {
+        test: /\.svg(\?v=\d+\.\d+\.\d+)?$/,
+        use: [
+          {
+            loader: 'babel-loader',
+            options: {
+              presets: [
+                '@babel/preset-env',
+                '@babel/preset-react'
+              ],
+            }
+          },
+          {
+            loader: '@svgr/webpack',
+            options: {
+              babel: false,
+              icon: true,
+            },
+          },
+        ],
+      },
+      {
         test: /\.d.ts$/i,
         use: [{ loader: 'raw-loader' }],
       },

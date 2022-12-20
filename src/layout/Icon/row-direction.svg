@@ -1,9 +1,4 @@
-import React from "react";
-
-const IconRowDirection = () => {
-  return (
-    <>
-      <svg
+<svg
         width="11"
         height="7"
         viewBox="0 0 11 7"
@@ -17,8 +12,3 @@ const IconRowDirection = () => {
           stroke="none"
         ></path>
       </svg>
-    </>
-  );
-};
-
-export default IconRowDirection;
