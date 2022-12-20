@@ -89,17 +89,17 @@ export default ({
   const activeItems = flexDirection === "row" ? rowItems : columnItems;
   return (
     <div className={styles.container}>
-        <div className={styles.grid}>
-          {activeItems.map((item) => (
-            <FlexItem
-              key={`${item.alignItems}_${item.justifyContent}`}
-              flexDirection={flexDirection}
-              justifyContent={justifyContent}
-              alignItems={alignItems}
-              flexItem={item}
-              onSelected={onSelected}
-            />
-          ))}
+      <div className={styles.grid}>
+        {activeItems.map((item, index) => (
+          <FlexItem
+            key={index}
+            flexDirection={flexDirection}
+            justifyContent={justifyContent}
+            alignItems={alignItems}
+            flexItem={item}
+            onSelected={onSelected}
+          />
+        ))}
       </div>
     </div>
   );

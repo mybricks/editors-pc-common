@@ -1,6 +1,5 @@
 import { EditorProps } from "@/interface";
 import React, { CSSProperties, useCallback, useState } from "react";
-import { getOptionsFromEditor } from "../utils";
 import Direction from "./Direction";
 import AlignItems from "./AlignItems";
 import JustifyContent from "./JustifyContent";
@@ -15,29 +14,7 @@ interface LayoutProps {
 }
 
 export default function ({ editConfig }: EditorProps): JSX.Element {
-  const { value, options } = editConfig;
-
-  const { options: layoutOptions } = getOptionsFromEditor(options) as {
-    options: Layout[];
-  };
-
-  let layoutProps: any = {};
-
-  if (
-    layoutOptions &&
-    Array.isArray(layoutOptions) &&
-    layoutOptions.length !== 0
-  ) {
-    layoutProps = layoutOptions.reduce(
-      (map, item) => ({ ...map, [item]: true }),
-      {
-        absolute: false,
-        "flex-column": false,
-        "flex-row": false,
-      }
-    ) as any;
-  }
-
+  const { value } = editConfig;
   const _value = value.get();
 
   const [model, setModel] = useState<LayoutProps>({

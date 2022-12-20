@@ -1,4 +1,4 @@
-import React, { CSSProperties } from "react";
+import React from "react";
 import { Tooltip } from "antd";
 import { Layout } from "../types";
 import Icon from '../Icon'

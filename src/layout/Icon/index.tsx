@@ -10,14 +10,14 @@ import spaceBetweenRow from "./space-between-row.svg";
 import wrap from "./wrap.svg";
 
 const icons = {
-  absolute: absolute,
+  'absolute': absolute,
   "row-direction": rowDirection,
   "column-direction": columnDirection,
   "space-around-column": spaceAroundColumn,
   "space-around-row": spaceAroundRow,
   "space-between-column": spaceBetweenColumn,
   "space-between-row": spaceBetweenRow,
-  wrap: wrap,
+  'wrap': wrap,
 };
 
 export default ({
