@@ -1,23 +1,145 @@
 import React, { CSSProperties } from "react";
-import Icon from "@ant-design/icons";
-import absolute from "./absolute.svg";
-import rowDirection from "./row-direction.svg";
-import columnDirection from "./column-direction.svg";
-import spaceAroundColumn from "./space-around-column.svg";
-import spaceAroundRow from "./space-around-row.svg";
-import spaceBetweenColumn from "./space-between-column.svg";
-import spaceBetweenRow from "./space-between-row.svg";
-import wrap from "./wrap.svg";
+import styles from './index.less'
 
 const icons = {
-  'absolute': absolute,
-  "row-direction": rowDirection,
-  "column-direction": columnDirection,
-  "space-around-column": spaceAroundColumn,
-  "space-around-row": spaceAroundRow,
-  "space-between-column": spaceBetweenColumn,
-  "space-between-row": spaceBetweenRow,
-  'wrap': wrap,
+  absolute: (
+    <svg
+      width="14px"
+      height="14px"
+      viewBox="50 0 600 600"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <g>
+        <path
+          xmlns="http://www.w3.org/2000/svg"
+          d="m554.01 196.39c-4.4609-5.4297-11.48-8.0703-18.418-6.9219-6.9336 1.1484-12.73 5.9102-15.203 12.488-2.4727 6.5781-1.25 13.98 3.2148 19.41l32.312 39.199h-186.31v-181.38l39.199 32.312c3.9766 3.5234 9.2109 5.2812 14.512 4.875 5.2969-0.41016 10.199-2.9531 13.59-7.0469 3.3867-4.0938 4.9648-9.3906 4.375-14.668-0.58594-5.2812-3.2969-10.098-7.5-13.344l-71.289-58.914c-3.5156-2.9023-7.9297-4.4922-12.488-4.4922s-8.9727 1.5898-12.488 4.4922l-71.121 58.859c-4.2031 3.2461-6.9141 8.0586-7.5 13.34-0.58984 5.2812 0.98828 10.574 4.375 14.668 3.3906 4.0938 8.293 6.6367 13.59 7.0469 5.3008 0.41016 10.535-1.3477 14.512-4.8711l39.199-32.312v181.27h-186.7l32.312-39.199c4.1836-5.418 5.2344-12.625 2.7773-19.012-2.457-6.3906-8.0703-11.031-14.805-12.25-6.7344-1.2188-13.617 1.1641-18.156 6.2852l-58.855 71.289c-2.9062 3.5156-4.4922 7.9297-4.4922 12.488s1.5859 8.9727 4.4922 12.488l58.855 71.121c3.3125 4.0312 8.0898 6.582 13.285 7.0938 5.1914 0.50781 10.375-1.0664 14.406-4.3789s6.5859-8.0898 7.0938-13.285c0.50781-5.1914-1.0664-10.375-4.3789-14.406l-32.312-39.199h186.31v181.38l-39.199-32.312c-3.9766-3.5234-9.2109-5.2812-14.512-4.875-5.2969 0.41016-10.199 2.9531-13.59 7.0469-3.3867 4.0938-4.9648 9.3906-4.375 14.668 0.58594 5.2812 3.2969 10.098 7.5 13.344l71.289 58.914c3.5156 2.9023 7.9297 4.4922 12.488 4.4922s8.9727-1.5898 12.488-4.4922l71.121-58.855v-0.003906c4.2031-3.2461 6.9141-8.0586 7.5-13.34 0.58984-5.2812-0.98828-10.574-4.375-14.668-3.3906-4.0938-8.293-6.6367-13.59-7.0469-5.3008-0.41016-10.535 1.3477-14.512 4.8711l-39.199 32.312v-181.27h186.7l-32.312 39.199c-4.1836 5.418-5.2344 12.625-2.7773 19.012 2.457 6.3906 8.0703 11.031 14.805 12.25 6.7344 1.2188 13.617-1.1641 18.156-6.2852l58.855-71.121c2.9062-3.5156 4.4922-7.9297 4.4922-12.488 0-4.5586-1.5859-8.9727-4.4922-12.488z"
+        />
+      </g>
+    </svg>
+  ),
+  "row-direction": (
+    <svg
+      width="11"
+      height="7"
+      viewBox="0 0 11 7"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path
+        d="M10.707 3.5L7.354.146l-.708.708L8.793 3H.5v1h8.293L6.646 6.146l.708.708L10.707 3.5z"
+        fill-rule="evenodd"
+        fill-opacity="1"
+        fill="#000"
+        stroke="none"
+      ></path>
+    </svg>
+  ),
+  "column-direction": (
+    <svg
+      width="8"
+      height="11"
+      viewBox="0 0 8 11"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path
+        d="M4 10.207L.646 6.854l.708-.708L3.5 8.293V0h1v8.293l2.146-2.147.708.708L4 10.207z"
+        fill-rule="evenodd"
+        fill-opacity="1"
+        fill="#000"
+        stroke="none"
+      ></path>
+    </svg>
+  ),
+  "space-around-column": (
+    <svg
+      viewBox="0 0 1024 1024"
+      version="1.1"
+      xmlns="http://www.w3.org/2000/svg"
+      p-id="5666"
+      width="200"
+      height="200"
+    >
+      <path
+        d="M160 320V192H0V128h160V0h704v128h160v64h-160v128H160z m0 704v-128H0v-64h160v-128h704v128h160v64h-160v128H160z"
+        fill="#000000"
+        fill-opacity=".65"
+        p-id="5667"
+      ></path>
+    </svg>
+  ),
+  "space-around-row": (
+    <svg
+      viewBox="0 0 1024 1024"
+      version="1.1"
+      xmlns="http://www.w3.org/2000/svg"
+      p-id="2424"
+      width="200"
+      height="200"
+    >
+      <path
+        d="M320 864H192v160H128v-160H0V160h128V0h64v160h128v704z m704 0h-128v160h-64v-160h-128V160h128V0h64v160h128v704z"
+        fill="#000000"
+        fill-opacity=".65"
+        p-id="2425"
+      ></path>
+    </svg>
+  ),
+  "space-between-column": (
+    <svg
+      viewBox="0 0 1024 1024"
+      version="1.1"
+      xmlns="http://www.w3.org/2000/svg"
+      p-id="5302"
+      width="200"
+      height="200"
+    >
+      <path
+        d="M0 64V0h1024v64H0z m160 384V128h704v320H160z m0 448V576h704v320H160z m-160 128v-64h1024v64H0z"
+        fill="#000000"
+        fill-opacity=".65"
+        p-id="5303"
+      ></path>
+    </svg>
+  ),
+  "space-between-row": (
+    <svg
+      viewBox="0 0 1024 1024"
+      version="1.1"
+      xmlns="http://www.w3.org/2000/svg"
+      p-id="5129"
+      width="200"
+      height="200"
+    >
+      <path
+        d="M64 1024H0V0h64v1024z m384-160H128V160h320v704z m448 0H576V160h320v704z m128 160h-64V0h64v1024z"
+        fill="#000000"
+        fill-opacity=".65"
+        p-id="5130"
+      ></path>
+    </svg>
+  ),
+  wrap: (
+    <svg
+      viewBox="0 0 1024 1024"
+      version="1.1"
+      xmlns="http://www.w3.org/2000/svg"
+      p-id="1538"
+      width="200"
+      height="200"
+    >
+      <path
+        d="M64 64h704v192H64zM62.72 764.416H960V960H62.72z"
+        fill="#555555"
+        p-id="1539"
+        data-spm-anchor-id="a313x.7781069.0.i0"
+      ></path>
+      <path
+        d="M895.872 64v403.904H320.128V399.488L191.872 501.504 320.128 608V535.168h639.744V64z"
+        fill="#555555"
+        p-id="1540"
+        data-spm-anchor-id="a313x.7781069.0.i2"
+      ></path>
+    </svg>
+  ),
 };
 
 export default ({
@@ -27,5 +149,5 @@ export default ({
   name: keyof typeof icons;
   style?: CSSProperties;
 }) => {
-  return <Icon style={style} component={icons[name]} />;
+  return <span style={style} className={styles.anticon} >{icons[name]}</span>;
 };
