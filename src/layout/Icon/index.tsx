@@ -29,8 +29,8 @@ const icons = {
     >
       <path
         d="M10.707 3.5L7.354.146l-.708.708L8.793 3H.5v1h8.293L6.646 6.146l.708.708L10.707 3.5z"
-        fill-rule="evenodd"
-        fill-opacity="1"
+        fillRule="evenodd"
+        fillOpacity="1"
         fill="#555555"
         stroke="none"
       ></path>
@@ -45,8 +45,8 @@ const icons = {
     >
       <path
         d="M4 10.207L.646 6.854l.708-.708L3.5 8.293V0h1v8.293l2.146-2.147.708.708L4 10.207z"
-        fill-rule="evenodd"
-        fill-opacity="1"
+        fillRule="evenodd"
+        fillOpacity="1"
         fill="#555555"
         stroke="none"
       ></path>
@@ -64,7 +64,7 @@ const icons = {
       <path
         d="M160 320V192H0V128h160V0h704v128h160v64h-160v128H160z m0 704v-128H0v-64h160v-128h704v128h160v64h-160v128H160z"
         fill="#555555"
-        fill-opacity=".65"
+        fillOpacity=".65"
         p-id="5667"
       ></path>
     </svg>
@@ -81,7 +81,7 @@ const icons = {
       <path
         d="M320 864H192v160H128v-160H0V160h128V0h64v160h128v704z m704 0h-128v160h-64v-160h-128V160h128V0h64v160h128v704z"
         fill="#555555"
-        fill-opacity=".65"
+        fillOpacity=".65"
         p-id="2425"
       ></path>
     </svg>
@@ -98,7 +98,7 @@ const icons = {
       <path
         d="M0 64V0h1024v64H0z m160 384V128h704v320H160z m0 448V576h704v320H160z m-160 128v-64h1024v64H0z"
         fill="#555555"
-        fill-opacity=".65"
+        fillOpacity=".65"
         p-id="5303"
       ></path>
     </svg>
@@ -115,7 +115,7 @@ const icons = {
       <path
         d="M64 1024H0V0h64v1024z m384-160H128V160h320v704z m448 0H576V160h320v704z m128 160h-64V0h64v1024z"
         fill="#555555"
-        fill-opacity=".65"
+        fillOpacity=".65"
         p-id="5130"
       ></path>
     </svg>
