@@ -116,7 +116,7 @@ const getExtraLibBySchema = (schema: any) => {
         break;
       case 'object':
         appendToList(list, `: {`);
-        Object.keys(schema.properties).forEach((key) => {
+        Object.keys(schema.properties || {}).forEach((key) => {
           list.push(`${key}`);
           dfs(schema.properties[key]);
         });
@@ -202,9 +202,9 @@ export default function ({ editConfig, env }: any): JSX.Element {
     }
   }, []);
 
-  const schemaExtraLib = useMemo(() => {
-    return getExtraLibBySchema(options.schema);
-  }, [options.schema]);
+  // const schemaExtraLib = useMemo(() => {
+  //   return getExtraLibBySchema(options.schema);
+  // }, [options.schema]);
 
   const {
     language = 'javascript',
@@ -354,7 +354,7 @@ export default function ({ editConfig, env }: any): JSX.Element {
                       {...options}
                       onBlur={onBlur}
                       fnParams={options.fnParams}
-                      extraLib={`${schemaExtraLib}${options.extraLib || ''}`}
+                      extraLib={`${options.extraLib || ''}`}
                       height='100%'
                       width='100%'
                       env={env}
@@ -449,7 +449,7 @@ export default function ({ editConfig, env }: any): JSX.Element {
                 {...options}
                 onBlur={onBlur}
                 fnParams={options.fnParams}
-                extraLib={`${schemaExtraLib}${options.extraLib || ''}`}
+                extraLib={`$${options.extraLib || ''}`}
                 width='100%'
                 height='100%'
                 env={env}
