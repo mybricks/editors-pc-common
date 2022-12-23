@@ -34,12 +34,16 @@
   .iconWrapper {
     display: flex;
     flex-wrap: wrap;
-    padding-bottom: 20px;
+    padding-top: 10px;
     height: 100%;
     overflow-y: auto;
+    :hover{
+      background-color: #FA6400;
+      color: #fff;
+      border-radius: 4px;
+    }
 
     .icon {
-      // margin: 0px 18px 18px 18px;
       margin: 0px 8px 8px 8px;
       overflow: hidden;
       display: flex;
@@ -72,4 +76,28 @@
   font-weight: 700;
   font-size: 14px;
   color: #333;
+}
+
+.classTitle {
+  padding: 10px 10px;
+  width: 100%;
+  height: 42px;
+  text-align: center;
+  border-bottom: 1px solid #d8d8d8;
+  font-weight: 700;
+  font-size: 14px;
+  color: #333;
+}
+
+.sticky {
+  position: sticky;
+  z-index: 1020;
+  top: 0;
+  background-color: rgb(247, 247, 247);
+}
+
+.styleChoose{
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 10px 0 10px
 }
