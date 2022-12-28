@@ -1,11 +1,9 @@
 import React, { CSSProperties } from "react";
 import { Tooltip } from "antd";
-import { Layout } from "../types";
 import Icon from "../Icon";
 import styles from "./index.less";
 
 export interface JustifyContentProps {
-  layout: Layout;
   flexDirection: CSSProperties["flexDirection"];
   justifyContent: CSSProperties["justifyContent"];
   flexWrap: CSSProperties["flexWrap"];
@@ -34,11 +32,9 @@ const defaultJustifyContent = [
         <Icon name="space-between-column" />
       ),
   },
-
 ];
 
 export default ({
-  layout,
   flexDirection,
   justifyContent,
   flexWrap,
@@ -54,7 +50,9 @@ export default ({
         overlayInnerStyle={{ fontSize: "12px" }}
       >
         <div
-          className={`${styles.wrap} ${flexWrap === "wrap" ? styles.selected : ""}`}
+          className={`${styles.wrap} ${
+            flexWrap === "wrap" ? styles.selected : ""
+          }`}
           onClick={() => onWrapToggle(flexWrap === "wrap" ? "nowrap" : "wrap")}
         >
           <Icon name="wrap" />
@@ -63,7 +61,7 @@ export default ({
     );
   };
 
-  return layout !== "absolute" ? (
+  return (
     <>
       <div className={styles.justifyWrap}>
         {defaultJustifyContent.map(({ title, value, render }) => (
@@ -74,9 +72,12 @@ export default ({
           >
             <div
               key={value}
-              className={`${styles.svgWrapper} ${justifyContent === value ? styles["justifyContent-select"] : ""
-                }`}
-              onClick={() => onSelect(justifyContent === value ? "normal" : value)}
+              className={`${styles.svgWrapper} ${
+                justifyContent === value ? styles["justifyContent-select"] : ""
+              }`}
+              onClick={() =>
+                onSelect(justifyContent === value ? "normal" : value)
+              }
             >
               {render(flexDirection)}
             </div>
@@ -85,5 +86,5 @@ export default ({
       </div>
       {renderWrap()}
     </>
-  ) : null;
+  );
 };

@@ -1,11 +1,12 @@
-import React from "react";
+import React, { CSSProperties } from "react";
 import { Tooltip } from "antd";
-import { Layout } from "../types";
-import Icon from '../Icon'
+import Icon from "../Icon";
+import { Layout } from '../types'
 import styles from "./index.less";
 
 export interface AlignItemsProps {
-  layout: Layout;
+  position?: CSSProperties["position"];
+  flexDirection: CSSProperties["flexDirection"];
   onSelect: (layout: Layout) => void;
 }
 
@@ -17,17 +18,25 @@ const defaultFlexFlow = [
   },
   {
     title: "横向排列",
-    value: "flex-row",
+    value: "row",
     render: () => <Icon name="row-direction" />,
   },
   {
     title: "纵向排列",
-    value: "flex-column",
+    value: "column",
     render: () => <Icon name="column-direction" />,
   },
 ];
 
-export default ({ layout, onSelect }: AlignItemsProps) => {
+export default ({ position, flexDirection, onSelect }: AlignItemsProps) => {
+  const isAbsolute = position === "absolute";
+
+  const isActive = (value: Layout) => {
+    return (
+      (isAbsolute && value === "absolute") ||
+      (!isAbsolute && value === flexDirection)
+    );
+  };
   return (
     <div className={styles["flex-direction"]}>
       {defaultFlexFlow.map(({ title, value, render }) => (
@@ -39,8 +48,9 @@ export default ({ layout, onSelect }: AlignItemsProps) => {
         >
           <div
             key={value}
-            className={`${styles["direction"]} ${layout === value ? styles["direction-active"] : ""
-              }`}
+            className={`${styles["direction"]} ${
+              isActive(value as Layout) ? styles["direction-active"] : ""
+            }`}
             onClick={() => onSelect(value as Layout)}
           >
             {render()}

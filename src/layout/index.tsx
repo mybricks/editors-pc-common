@@ -6,7 +6,8 @@ import JustifyContent from "./JustifyContent";
 import { Layout } from "./types";
 import styles from "./index.less";
 interface LayoutProps {
-  layout: Layout;
+  display?: CSSProperties["display"];
+  position?: CSSProperties["position"];
   flexDirection: CSSProperties["flexDirection"];
   alignItems: CSSProperties["alignItems"];
   justifyContent: CSSProperties["justifyContent"];
@@ -18,22 +19,27 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
   const _value = value.get();
 
   const [model, setModel] = useState<LayoutProps>({
-    layout: "flex-row",
+    display: "flex",
+    position: "inherit",
     flexDirection: "row",
     alignItems: "flex-start",
     justifyContent: "flex-start",
     flexWrap: "nowrap",
-    ..._value
+    ..._value,
   });
 
   const updateValue = useCallback(
     (
       style: Partial<
-        | Pick<
+        Pick<
           CSSProperties,
-          "justifyContent" | "alignItems" | "flexDirection" | "flexWrap"
+          | "justifyContent"
+          | "alignItems"
+          | "flexDirection"
+          | "flexWrap"
+          | "display"
+          | "position"
         >
-        | { layout: Layout }
       >
     ) => {
       value.set({ ...model, ...style });
@@ -43,14 +49,27 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
 
   const renderFlexDirection = () => {
     const onSelect = (layout: Layout) => {
-      const flexDirection =
-        layout === "absolute"
-          ? model.flexDirection
-          : (layout.split("-")[1] as CSSProperties["flexDirection"]);
-      setModel((pre) => ({ ...pre, layout, flexDirection }));
-      updateValue({ layout, flexDirection });
+      const isAbsolute = layout === "absolute";
+      const flexDirection = !isAbsolute ? layout : model.flexDirection;
+      setModel((pre) => ({
+        ...pre,
+        flexDirection,
+        display: isAbsolute ? "block" : "flex",
+        position: isAbsolute ? layout : "inherit",
+      }));
+      updateValue({
+        flexDirection,
+        display: isAbsolute ? "block" : "flex",
+        position: isAbsolute ? layout : "inherit",
+      });
     };
-    return <Direction layout={model.layout} onSelect={onSelect} />;
+    return (
+      <Direction
+        position={model.position}
+        flexDirection={model.flexDirection}
+        onSelect={onSelect}
+      />
+    );
   };
 
   const renderJustifyContent = () => {
@@ -62,9 +81,8 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
       setModel((pre) => ({ ...pre, flexWrap }));
       updateValue({ flexWrap });
     };
-    return model.layout !== "absolute" ? (
+    return model.position !== "absolute" ? (
       <JustifyContent
-        layout={model.layout}
         flexDirection={model.flexDirection}
         justifyContent={model.justifyContent}
         flexWrap={model.flexWrap}
@@ -86,7 +104,7 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
       }));
       updateValue({ justifyContent, alignItems });
     };
-    return model.layout !== "absolute" ? (
+    return model.position !== "absolute" ? (
       <AlignItems
         flexDirection={model?.flexDirection}
         justifyContent={model.justifyContent}
