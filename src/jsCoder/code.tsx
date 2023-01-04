@@ -429,7 +429,7 @@ export default function ({ editConfig, env }: any): JSX.Element {
         <div className={css['editor-code__modal']}>
           <div className={css['editor-code__header']}>
             {renderToolbar}
-            <p className={css['editor-code__title']}>{title}</p>
+            <div className={css['editor-code__title']}>{title}</div>
             {enableFullscreen && (
               <div>
                 <div className={css.action} onClick={open}>
