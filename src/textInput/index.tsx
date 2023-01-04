@@ -30,7 +30,6 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
     debouncedSetVal();
   }, []);
 
-
   return (
     <div className={css['editor-textArea']}>
       <Input
