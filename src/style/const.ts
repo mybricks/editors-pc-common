@@ -1,25 +1,26 @@
-import { AnyMap, SelectOptions } from './types';
+import {AnyMap, SelectOptions} from './types';
 
 // font-family选择项
 export const FontFamilyOptions: SelectOptions = [
-  { label: '默认', value: '' },
+  {label: '默认', value: ''},
   {
     label: 'system-ui',
     value:
       "system-ui, -apple-system, BlinkMacSystemFont, 'PingFang SC', miui, Roboto, Helvetica Neue, Helvetica, sans-serif",
   },
-  { label: 'din', value: 'DIN' },
-  { label: 'AvenirNext', value: 'AvenirNext, AvenirNext-BoldItalic' },
+  {label: 'din', value: 'DIN'},
+  {label: 'AvenirNext', value: 'AvenirNext, AvenirNext-BoldItalic'},
 ];
 
 // font-weight选择项
 export const FontWeightOptions: SelectOptions = [
-  { label: '极细', value: '100' },
-  { label: '特细', value: '200' },
-  { label: '细', value: '300' },
-  { label: '标准', value: '400' },
-  { label: '中黑', value: '500' },
-  { label: '中粗', value: '600' },
+  {label: '极细', value: '100'},
+  {label: '特细', value: '200'},
+  {label: '细', value: '300'},
+  {label: '标准', value: '400'},
+  {label: '中黑', value: '500'},
+  {label: '中粗', value: '700'},
+  {label: '特粗', value: '900'},
   // { label: '100', value: '100' },
   // { label: '200', value: '200' },
   // { label: '300', value: '300' },
@@ -37,15 +38,23 @@ export const FontWeightOptions: SelectOptions = [
 
 // font-style选择项
 export const FontStyleOptions: SelectOptions = [
-  { label: '默认', value: 'normal' },
-  { label: '斜体', value: 'italic' },
+  {label: '默认', value: 'normal'},
+  {label: '斜体', value: 'italic'}
+];
+
+export const TextDecoratioin: SelectOptions = [
+  {label: '默认', value: 'normal'},
+  {label: '下划线', value: 'underline'},
+  {label: '上划线', value: 'overline'},
+  {label: '中划线', value: 'line-through'},
+  // {label: '闪烁', value: 'blink'},
 ];
 
 // border-style选择项
 export const BorderStyleOptions: SelectOptions = [
-  { label: '实线', value: 'solid' },
-  { label: '虚线', value: 'dashed' },
-  { label: '无', value: 'none' },
+  {label: '实线', value: 'solid'},
+  {label: '虚线', value: 'dashed'},
+  {label: '无', value: 'none'},
   // {label: 'hidden', value: 'hidden'},
   // {label: 'dotted', value: 'dotted'},
   // {label: 'double', value: 'double'},
@@ -57,30 +66,30 @@ export const BorderStyleOptions: SelectOptions = [
 
 // background-size选择项
 export const BackgroundSizeOptions: SelectOptions = [
-  { label: '适应', value: 'contain' },
-  { label: '填充', value: 'cover' },
-  { label: '铺满', value: '100% 100%' },
-  { label: '铺满x轴', value: '100% auto' },
-  { label: '铺满y轴', value: 'auto 100%' },
+  {label: '适应', value: 'contain'},
+  {label: '填充', value: 'cover'},
+  {label: '铺满', value: '100% 100%'},
+  {label: '铺满x轴', value: '100% auto'},
+  {label: '铺满y轴', value: 'auto 100%'},
 ];
 
 // background-repeat选择项
 export const BackgroundRepeatOptions: SelectOptions = [
-  { label: '平铺', value: 'repeat' },
-  { label: '不平铺', value: 'no-repeat' },
+  {label: '平铺', value: 'repeat'},
+  {label: '不平铺', value: 'no-repeat'},
 ];
 
 // background-position选择项
 export const BackgroundPositionOptions: SelectOptions = [
-  { label: '居上', value: 'center top' },
-  { label: '居中', value: 'center center' },
-  { label: '居下', value: 'center bottom' },
-  { label: '居左', value: 'left center' },
-  { label: '居右', value: 'right center' },
-  { label: '左上', value: 'left top' },
-  { label: '左下', value: 'left bottom' },
-  { label: '右上', value: 'right top' },
-  { label: '右下', value: 'right bottom' },
+  {label: '居上', value: 'center top'},
+  {label: '居中', value: 'center center'},
+  {label: '居下', value: 'center bottom'},
+  {label: '居左', value: 'left center'},
+  {label: '居右', value: 'right center'},
+  {label: '左上', value: 'left top'},
+  {label: '左下', value: 'left bottom'},
+  {label: '右上', value: 'right top'},
+  {label: '右下', value: 'right bottom'},
 ];
 
 // 默认配色
@@ -113,6 +122,7 @@ export const presetColors: Array<string> = [
 
 export const OptionsMap = {
   fontStyle: FontStyleOptions,
+  textDecoration: TextDecoratioin,
   fontWeight: FontWeightOptions,
   fontFamily: FontFamilyOptions,
   borderStyle: BorderStyleOptions,
@@ -204,6 +214,7 @@ export const Sequence: Array<string> = [
   // 'WIDTH',
   // 'HEIGHT',
   'FONT',
+  'ALIGN',
   'TEXTSHADOW',
   'BORDER',
   'BGCOLOR',
@@ -217,6 +228,7 @@ export const TitleMap: { [key: string]: string } = {
   // 'WIDTH': '宽',
   // 'HEIGHT': '高',
   FONT: '字体',
+  ALIGN: '对齐',
   BORDER: '边框',
   BGCOLOR: '背景色',
   BGIMAGE: '背景图',

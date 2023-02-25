@@ -18,7 +18,9 @@
   --box-shadow: 0 0 0 2px #fa640033;
   --box-shadow-primary: 0 2px 8px rgba(0, 0, 0, 0.15); // 浮层阴影
   --box-shadow-hover: 0 3px 6px rgba(208, 2, 27, 0.16),
-    0 3px 6px rgba(208, 2, 27, 0.23); // hover阴影
+  0 3px 6px rgba(208, 2, 27, 0.23); // hover阴影
+
+  --antd-wave-shadow-color: #f55753;
 }
 
 // .custom_antd_input {
@@ -50,16 +52,34 @@
 //   }
 // }
 
+:global{
+  ::selection {
+    color: #fff;
+    background: #fa6400;
+  }
+
+  .ant-select:not(.ant-select-customize-input) .ant-select-selector {
+    border: 1px solid #EEE;
+  }
+
+  .ant-select-arrow .anticon > svg {
+    vertical-align: top;
+    max-width: 10px;
+  }
+}
+
 .custom_antd_button {
   :global {
     .ant-btn {
       font-size: 12px;
       width: 100%;
     }
+
     .ant-btn:focus {
       color: rgba(0, 0, 0, 0.85);
       border: 1px solid #d9d9d9;
     }
+
     .ant-btn:hover:not([disabled]) {
       color: var(--primary-color);
       border-color: var(--primary-color);

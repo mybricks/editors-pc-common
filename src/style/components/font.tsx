@@ -1,11 +1,11 @@
-import React, { useMemo } from 'react';
+import React, {useMemo} from 'react';
 import ColorEditor from '../../components/color-editor';
-import { Ctx } from '../Style';
+import {Ctx} from '../Style';
 import RenderSelect from './select';
-import { SelectOptions } from '../types';
+import {SelectOptions} from '../types';
 import GreyContainer from './greyContainer';
-import { FontFamilyOptions } from '../const';
-import { observe, useObservable } from '@mybricks/rxui';
+import {FontFamilyOptions} from '../const';
+import {observe, useObservable} from '@mybricks/rxui';
 
 import css from './index.less';
 
@@ -25,13 +25,13 @@ class EditCtx {
   projectData: any;
 }
 
-export const Font = function ({ hasLetterSpace = false }) {
-  const ctx: Ctx = observe(Ctx, { from: 'parents' });
+export const Font = function ({hasLetterSpace = false}) {
+  const ctx: Ctx = observe(Ctx, {from: 'parents'});
   const editCtx: EditCtx = useObservable(EditCtx, (next) => {
     // const pubFontFamily = decodeURIComponent(ctx.projectData.pubFontFamily);
     // const fontFamilyAry = pubFontFamily.match(fontFamilyRegex);
     const otherOptions: SelectOptions = (ctx.projectData.fontfaces || []).map((item: any) => {
-      const { label } = item
+      const {label} = item
       return {
         label,
         value: label
@@ -39,7 +39,7 @@ export const Font = function ({ hasLetterSpace = false }) {
     });
 
     const defaultOptions: SelectOptions = (ctx.projectData.defaultFontfaces || []).map((item: any) => {
-      const { label } = item
+      const {label} = item
       return {
         label,
         value: label
@@ -61,6 +61,7 @@ export const Font = function ({ hasLetterSpace = false }) {
       color: ctx.val.color,
       fontSize: ctx.val.fontSize,
       fontStyle: ctx.val.fontStyle,
+      textDecoration: ctx.val.textDecoration,
       fontWeight: ctx.val.fontWeight,
       fontFamily: ctx.val.fontFamily,
       lineHeight: ctx.val.lineHeight,
@@ -78,37 +79,40 @@ export const Font = function ({ hasLetterSpace = false }) {
             options={editCtx.fontFamilyOptions}
             defaultValue={editCtx.fontFamily}
             onChange={(fontFamily) => {
-              ctx.set({ fontFamily });
+              ctx.set({fontFamily});
             }}
           />
           :
           <></>}
         <div className={css.toolbar}>
-          <ColorEditor
-            value={editCtx.color}
-            onChange={(color: string) => {
-              ctx.set({ color });
-            }}
-            style={{ marginRight: 7, minWidth: 72, maxWidth: 72 }}
-          />
+          <div className={css.item}>
+            <ColorEditor
+              value={editCtx.color}
+              onChange={(color: string) => {
+                ctx.set({color});
+              }}
+              style={{marginRight: 7, minWidth: 72, maxWidth: 72}}
+            />
+            <label className={css.label}>颜色</label>
+          </div>
           <GreyContainer
             label="粗体"
             type="select"
             optionsKey="fontWeight"
-            style={{ marginRight: 7, flex: 1, cursor: 'pointer' }}
+            style={{marginRight: 7, flex: 1, cursor: 'pointer'}}
             defaultValue={editCtx.fontWeight}
             onChange={(fontWeight) => {
-              ctx.set({ fontWeight });
+              ctx.set({fontWeight});
             }}
           />
           <GreyContainer
-            label="风格"
+            label="斜体"
             type="select"
             optionsKey="fontStyle"
-            style={{ minWidth: 55, flex: 1, cursor: 'pointer' }}
+            style={{minWidth: 55, flex: 1, cursor: 'pointer'}}
             defaultValue={editCtx.fontStyle}
-            onChange={(fontStyle) => {
-              ctx.set({ fontStyle });
+            onChange={(value) => {
+              ctx.set({fontStyle: value})
             }}
           />
         </div>
@@ -118,7 +122,7 @@ export const Font = function ({ hasLetterSpace = false }) {
             label="大小(px)"
             onBlurFnKey=">0"
             regexFnKey="number"
-            style={{ marginRight: 7, minWidth: 72, maxWidth: 72 }}
+            style={{marginRight: 7, minWidth: 72, maxWidth: 72}}
             defaultValue={parseInt(editCtx.fontSize)}
             onChange={(value) => {
               const lineHeight =
@@ -140,34 +144,46 @@ export const Font = function ({ hasLetterSpace = false }) {
             type="input"
             onBlurFnKey="default"
             regexFnKey="number"
-            style={{ marginRight: 7, flex: 1 }}
+            style={{marginRight: 7, flex: 1}}
             defaultValue={
-              parseInt(editCtx.lineHeight) - parseInt(editCtx.fontSize)
+              //parseInt(editCtx.lineHeight) - parseInt(editCtx.fontSize)
+              parseInt(editCtx.lineHeight)
             }
             onChange={(value) => {
-              const lineHeight = parseInt(editCtx.fontSize) + Number(value) + 'px';
+              //const lineHeight = parseInt(editCtx.fontSize) + Number(value) + 'px';
+              const lineHeight = Number(value) + 'px';
               editCtx.lineHeight = lineHeight;
               ctx.set({
                 lineHeight,
               });
             }}
           />
-          {hasLetterSpace ? (
+          <GreyContainer
+            label="下划线"
+            type="select"
+            optionsKey="textDecoration"
+            style={{minWidth: 55, flex: 1, cursor: 'pointer'}}
+            defaultValue={editCtx.fontStyle}
+            onChange={(value) => {
+              ctx.set({textDecoration: value})
+            }}
+          />
+        </div>
+        {hasLetterSpace ? (
+          <div className={css.toolbar}>
             <GreyContainer
               label="字间距(px)"
               type="input"
               onBlurFnKey="default"
               regexFnKey="number"
-              style={{ flex: 1 }}
+              style={{flex: 1}}
               defaultValue={parseInt(editCtx.letterSpacing)}
               onChange={(letterSpacing) => {
-                ctx.set({ letterSpacing: letterSpacing + 'px' });
+                ctx.set({letterSpacing: letterSpacing + 'px'});
               }}
             />
-          ) : (
-            <div style={{ flex: 1 }}></div>
-          )}
-        </div>
+          </div>
+        ) : null}
       </div>
     );
   }, [hasLetterSpace]);
@@ -175,4 +191,4 @@ export const Font = function ({ hasLetterSpace = false }) {
   return Render;
 };
 
-export default () => <Font hasLetterSpace={false} />;
+export default () => <Font hasLetterSpace={false}/>;

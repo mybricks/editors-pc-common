@@ -19,6 +19,7 @@ import {
   Shadow,
   TextShadow,
   Font,
+  Align,
   FontWidthSpace,
   Border,
   Bgcolor,
@@ -59,6 +60,7 @@ const EditorsMap: {
   // WIDTH: () => JSX.Element
   // HEIGHT: () => JSX.Element
   FONT: () => JSX.Element;
+  ALIGN: () => JSX.Element;
   BORDER: () => JSX.Element;
   BGCOLOR: () => JSX.Element;
   BGIMAGE: () => JSX.Element;
@@ -69,6 +71,7 @@ const EditorsMap: {
   // WIDTH: Width,
   // HEIGHT: Height,
   FONT: Font,
+  ALIGN: Align,
   BORDER: Border,
   BGCOLOR: Bgcolor,
   BGIMAGE: Bgimage,

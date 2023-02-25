@@ -3,6 +3,7 @@ import Padding from './padding';
 // import Width from './width'
 // import Height from './height'
 import Font from './font';
+import Align from './Align'
 import FontWidthSpace from './fontWithSpace';
 import Border from './border';
 import Bgcolor from './bgcolor';
@@ -18,6 +19,7 @@ export {
   Shadow,
   TextShadow,
   Font,
+  Align,
   FontWidthSpace,
   Border,
   Bgcolor,

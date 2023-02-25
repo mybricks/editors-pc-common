@@ -1,13 +1,13 @@
-import React, { useCallback } from 'react';
+import React, {useCallback} from 'react';
 
-import { Select } from 'antd';
-import { useObservable } from '@mybricks/rxui';
+import {Select} from 'antd';
+import {useObservable} from '@mybricks/rxui';
 
-import { EditorProps } from '../interface';
-import { getOptionsFromEditor } from '../utils';
+import {EditorProps} from '../interface';
+import {getOptionsFromEditor} from '../utils';
 
 import css from './index.less';
-import { editorsConfigKey } from '../constant';
+import {editorsConfigKey} from '../constant';
 
 interface Item {
   value: any;
@@ -32,32 +32,41 @@ class Ctx {
 };
 
 function getRelOptions(options: Function) {
-  const {
-    options: selectOptions,
-    showSearch = false,
-    useAnyToEnter = false,
-    ...res
-  } = getOptionsFromEditor(options);
+  const opts = getOptionsFromEditor(options);
+  if (opts) {
+    const {
+      options: selectOptions,
+      showSearch = false,
+      useAnyToEnter = false,
+      ...res
+    } = opts
+    const relSelectOptions = Array.isArray(selectOptions) ? selectOptions.filter(option => {
+      if (!option) return false;
 
-  const relSelectOptions = Array.isArray(selectOptions) ? selectOptions.filter(option => {
-    if (!option) return false;
+      const {label, value, options} = option;
 
-    const { label, value } = option;
+      return typeof label === 'string' && (typeof value !== 'undefined' || typeof options !== 'undefined');
+    }) : [];
 
-    return typeof label === 'string' && typeof value !== 'undefined';
-  }) : [];
-
-  return {
-    selectOptions: relSelectOptions,
-    defaultSelectOptions: relSelectOptions,
-    showSearch,
-    useAnyToEnter,
-    otherConfig: res
-  };
+    return {
+      selectOptions: relSelectOptions,
+      defaultSelectOptions: relSelectOptions,
+      showSearch,
+      useAnyToEnter,
+      otherConfig: res
+    };
+  } else {
+    return {
+      selectOptions: [],
+      defaultSelectOptions: [],
+      showSearch: false,
+      useAnyToEnter: false
+    }
+  }
 };
 
-export default function ({ editConfig }: EditorProps): any {
-  const { value, options } = editConfig;
+export default function ({editConfig}: EditorProps): any {
+  const {value, options} = editConfig;
   const model: Ctx = useObservable(Ctx, next => {
     // 获取初始化配置
     const val = value.get();
@@ -78,29 +87,29 @@ export default function ({ editConfig }: EditorProps): any {
   }, []);
 
   const onSearch: (input: string) => void = useCallback((input) => {
-    const { otherConfig, useAnyToEnter, defaultSelectOptions } = model.relOptions;
+    const {otherConfig, useAnyToEnter, defaultSelectOptions} = model.relOptions;
 
     let hasSameOption = false;
 
     // 没有配置filterOption函数并缺useAnyToEnter为真时
     if (typeof otherConfig.filterOption !== 'function' && useAnyToEnter) {
-      const options: SelectOptions = defaultSelectOptions.filter(({ label }) => {
+      const options: SelectOptions = defaultSelectOptions.filter(({label}) => {
         const relLabel = label.toLowerCase();
         const relInput = input.toLowerCase();
 
         if (!hasSameOption && label === input) {
           hasSameOption = true;
-        };
+        }
 
         return relLabel.indexOf(relInput) >= 0;
       });
 
       if (!hasSameOption && input) {
-        options.unshift({ label: input, value: input });
-      };
+        options.unshift({label: input, value: input});
+      }
 
       model.relOptions.selectOptions = options;
-    };
+    }
   }, []);
 
   const showSearch = model.relOptions.showSearch || model.relOptions.useAnyToEnter;
@@ -110,7 +119,7 @@ export default function ({ editConfig }: EditorProps): any {
       <Select
         size={(window as any)[editorsConfigKey]?.size || 'small'}
         showSearch={showSearch}
-        onSearch={ showSearch ? onSearch : void 0 }
+        onSearch={showSearch ? onSearch : void 0}
         optionFilterProp='label'
         {...model.relOptions.otherConfig}
         value={model.val}
