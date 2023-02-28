@@ -60,7 +60,7 @@ const EditorsMap: {
   // WIDTH: () => JSX.Element
   // HEIGHT: () => JSX.Element
   FONT: () => JSX.Element;
-  ALIGN: () => JSX.Element;
+  // ALIGN: () => JSX.Element;
   BORDER: () => JSX.Element;
   BGCOLOR: () => JSX.Element;
   BGIMAGE: () => JSX.Element;
@@ -71,7 +71,7 @@ const EditorsMap: {
   // WIDTH: Width,
   // HEIGHT: Height,
   FONT: Font,
-  ALIGN: Align,
+  // ALIGN: Align,
   BORDER: Border,
   BGCOLOR: Bgcolor,
   BGIMAGE: Bgimage,
@@ -86,7 +86,7 @@ const render = ({ editConfig, projectData }: EditorProps): JSX.Element => {
     Ctx,
     (next) => {
       const val = getVal(value.get());
-      let fontProps;
+      let fontProps = {};
 
       // let unfold = val.styleEditorUnfold
       let opts = Sequence;
@@ -94,7 +94,7 @@ const render = ({ editConfig, projectData }: EditorProps): JSX.Element => {
       if (typeCheck(options, 'array')) {
         opts = options;
       } else if (typeCheck(options, 'object')) {
-        const { defaultOpen = true, plugins = Sequence } = options;
+        const { defaultOpen = true, plugins = Sequence, items } = options;
 
         // 字间距特殊逻辑，只有配置这个属性才显示，因为字间距本身有bug，需要特殊实现
         if (options.fontProps) {
@@ -113,6 +113,25 @@ const render = ({ editConfig, projectData }: EditorProps): JSX.Element => {
 
         if (typeCheck(plugins, 'array')) {
           opts = plugins;
+        }
+
+        /** 新版更加语义化的API */
+        if (Array.isArray(items)) {
+          opts = items.map((attr: any) => {
+            if (typeCheck(attr, 'string')) {
+              return attr
+            }
+            if (typeCheck(attr?.use, 'string')) {
+              switch (true) {
+                case attr.use === 'font': {
+                  fontProps = { ...fontProps, ...(attr?.option ?? {}) }
+                  break
+                }
+              }
+              return attr?.use
+            }
+            return
+          }).filter((t: string | undefined) => t)
         }
       }
 

@@ -294,6 +294,56 @@
   }
 }
 
+// 文字布局
+.fontLayout {
+  width: 100%;
+
+  display: flex;
+  align-items: center;
+  margin-top: 10px;
+
+  .layoutDesc {
+    font-size: 10px;
+    color: #aaaaaa;
+    margin-right: 8px;
+  }
+
+  .layoutContent {
+    display: flex;
+    align-items: center;
+    flex: 1;
+    justify-content: space-between;
+    margin-left: 5px;
+  }
+
+  .aligns {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 40%;
+
+    .alignItem {
+      cursor: pointer;
+      border-radius: 5px;
+      padding: 3px;
+      width: 24px;
+      height: 24px;
+
+      display: flex;
+      align-items: center;
+      justify-content: center;
+
+      &:hover {
+        background-color: #e7e7e7;
+      }
+
+      &.active {
+        background-color: #e7e7e7;
+      }
+    }
+  }
+}
+
 // ================公用================
 .label {
   font-size: 10px;
