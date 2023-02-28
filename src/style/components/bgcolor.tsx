@@ -81,8 +81,8 @@ export default function (): JSX.Element {
         {editCtx.showText ? (
           <Input
             size="small"
-            defaultValue={editCtx.bgColor}
-            onBlur={onInput}
+            value={editCtx.bgColor}
+            onChange={onInput}
             style={{ height: '24px' }}
           />
         ) : (
@@ -93,6 +93,7 @@ export default function (): JSX.Element {
               editCtx.hex = hex;
               editCtx.alpha = alpha;
               editCtx.isTheme = isTheme;
+              editCtx.bgColor = color;
               ctx.updateBgColor(color);
             }}
           />
