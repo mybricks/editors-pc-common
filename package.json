@@ -1,6 +1,6 @@
 {
   "name": "@mybricks/editors-pc-common",
-  "version": "1.0.13",
+  "version": "1.0.14",
   "description": "",
   "main": "lib/index.js",
   "scripts": {
@@ -20,7 +20,7 @@
   "dependencies": {
     "@mybricks/code-editor": "1.1.1",
     "@mybricks/color-picker": "^1.0.7",
-    "@mybricks/style-editor": "^1.0.5",
+    "@mybricks/style-editor": "^1.0.7",
     "@tinymce/tinymce-react": "3.13.1"
   },
   "devDependencies": {
