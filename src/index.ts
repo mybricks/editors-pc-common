@@ -18,7 +18,6 @@ import EditorRichText from "./richText";
 import EditorDragList from "./draglist";
 import EditorSlider from "./slider";
 import EditorArray from "./array";
-import Style from "./style";
 import expressionCodeEditor from "./expressionCode";
 import EditorArrayCheckbox from "./arrayCheckbox";
 import EditorMapCheckbox from "./mapCheckbox";
@@ -28,6 +27,7 @@ import EditorValueSelect from "./valueSelect";
 import Expression from "./expression";
 import ComSelector from "./comSelector";
 import EditorLayout from "./layout";
+import EditorStyleProperties from "./styleProperties";
 import "./index.less";
 export { config } from "./configProvider";
 
@@ -52,14 +52,14 @@ const PcEditorMap: any = {
   IMAGESELECTOR: EditorImageSelector,
   INPUTNUMBER: EditorInputNumber,
   SLIDER: EditorSlider,
-  STYLE: Style,
+  STYLE: EditorStyleProperties,
   VALUESELECT: EditorValueSelect,
   ARRAYCHECKBOX: EditorArrayCheckbox,
   MAPCHECKBOX: EditorMapCheckbox,
   EDITORRENDER: EditorRender,
   EXPRESSION: Expression,
   COMSELECTOR: ComSelector,
-  LAYOUT: EditorLayout
+  LAYOUT: EditorLayout,
 };
 
 function PcEditor(props: EditorProps): any {
