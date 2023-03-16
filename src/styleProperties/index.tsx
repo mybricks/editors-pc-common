@@ -4,8 +4,6 @@ import StyleEditor from "@mybricks/style-editor";
 export default function ({ editConfig, env, ...rest }: any) {
   const { value, options = {} } = editConfig;
 
-  const { plugins = ["background", "border", "padding", "font"] } = options;
-
   const [style, setStyle] = useState(value.get() || {});
 
   const onChange = (style: CSSProperties) => {
@@ -13,11 +11,5 @@ export default function ({ editConfig, env, ...rest }: any) {
     value.set(style);
   };
 
-  return (
-    <StyleEditor
-      options={{ presets: [], plugins }}
-      value={style}
-      onChange={onChange}
-    />
-  );
+  return <StyleEditor options={options} value={style} onChange={onChange} />;
 }
