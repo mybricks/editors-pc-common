@@ -21,6 +21,7 @@ module.exports = {
       "@mybricks/rxui": "@mybricks/rxui",
       "@ant-design/icons": "@ant-design/icons",
       antd: "antd",
+      "@mybricks/expression-editor": "CodeEditor"
     },
   ],
   resolve: {
