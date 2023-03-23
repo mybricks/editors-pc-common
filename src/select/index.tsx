@@ -67,6 +67,7 @@ function getRelOptions(options: Function) {
 
 export default function ({editConfig}: EditorProps): any {
   const {value, options} = editConfig;
+  const realOptions = getRelOptions(options)
   const model: Ctx = useObservable(Ctx, next => {
     // 获取初始化配置
     const val = value.get();
@@ -75,7 +76,7 @@ export default function ({editConfig}: EditorProps): any {
       anyOption: null,
       val,
       value,
-      relOptions: getRelOptions(options)
+      relOptions: realOptions
     });
   });
 
