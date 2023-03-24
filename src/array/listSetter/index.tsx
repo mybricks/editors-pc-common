@@ -169,12 +169,6 @@ export default function ({
       },
     }
   }, [])
-	
-	
-	/** 响应外层值变化 */
-	useEffect(() => {
-		setList(initData(value));
-	}, [JSON.stringify(value)]);
 
   useEffect(() => {
     if (!didMount.current) {
