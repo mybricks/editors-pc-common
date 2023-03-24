@@ -88,7 +88,7 @@ export default function ({editConfig}: EditorProps): any {
 	/** 响应外层值变化 */
 	useEffect(() => {
 		model.val = value.get();
-	}, [value.get()]);
+	}, [JSON.stringify(value.get())]);
 
   const onChange: (val: any) => void = useCallback((val) => {
     model.val = val;

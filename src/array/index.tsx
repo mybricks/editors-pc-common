@@ -21,7 +21,7 @@ export default function ({ editConfig, injectEditors, ...extraContext }: { editC
 	/** 响应外层值变化 */
 	useEffect(() => {
 		model.val = value.get();
-	}, [value.get()]);
+	}, [JSON.stringify(value.get())]);
 
   const opt = useMemo(() => {
     const opt = getOptionsFromEditor(options)
