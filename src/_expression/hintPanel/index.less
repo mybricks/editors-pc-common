@@ -15,14 +15,9 @@
   .marker {
     background-color: rgb(255, 243, 241);
     padding: 8px;
-    .title {
-      font-size: 14px;
-      margin-bottom: 8px;
-      font-weight: 400;
-      .icon {
-        color: red;
-        margin-right: 8px;
-      }
+    .icon {
+      color: red;
+      font-size: 12px;
     }
     ul {
       list-style: none;
@@ -32,17 +27,23 @@
   .result {
     background-color: rgb(239, 249, 246);
     padding: 8px;
-    .title {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-size: 14px;
-      margin-bottom: 8px;
-      font-weight: 400;
-      .icon {
-        color: green;
-        margin-right: 8px;
-      }
+    .icon {
+      color: green;
+      font-size: 12px;
     }
+  }
+}
+
+.title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 14px;
+  margin-bottom: 8px;
+  font-weight: 400;
+  .type {
+    display: flex;
+    align-items: center;
+    gap: 6px;
   }
 }

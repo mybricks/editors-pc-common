@@ -1,25 +1,14 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { CodeEditor } from "@mybricks/expression-editor";
 import HintPanel from "./hintPanel";
 import { EditorProps } from "../interface";
+import debounce from 'lodash/debounce'
 import styles from "./index.less";
-
-function debounce<T>(fn: (params: T) => void, delay: number) {
-  let timer: NodeJS.Timeout;
-  return function () {
-    let context = this;
-    let arg = arguments;
-    timer && clearTimeout(timer);
-    timer = setTimeout(function () {
-      fn.apply(context, arg);
-    }, delay);
-  };
-}
 
 export default ({ editConfig }: EditorProps) => {
   const { value, options = {} } = editConfig;
   const valConfig = value.get();
-  const { runCode, suggestions: completions = [] } = options;
+  const { placeholder, runCode, suggestions: completions = [] } = options;
   const [_value, setValue] = useState<string>(
     typeof valConfig === "string" ? valConfig : valConfig?.value
   );
@@ -33,11 +22,11 @@ export default ({ editConfig }: EditorProps) => {
 
   useEffect(() => {
     const closePanel = () => {
-        setShowPanel(false)
+      setShowPanel(false)
     }
     document.body.addEventListener('click', closePanel, false)
     return () => {
-        document.body.removeEventListener('click', closePanel)
+      document.body.removeEventListener('click', closePanel)
     }
   }, [])
 
@@ -51,12 +40,12 @@ export default ({ editConfig }: EditorProps) => {
     setMarkers(markers);
   };
 
-  const runExpression = debounce<string>((expression: string) => {
+  const runExpression = debounce((expression: string) => {
     if (!!expression) {
       try {
         if ("function" === typeof runCode) {
           const { success, error } = runCode(expression);
-          if (Array.isArray(error) && !!error.length) {
+          if (!!error && JSON.stringify(error) !== '[]') {
             setHintModel(true, void 0, error);
             return;
           }
@@ -68,12 +57,12 @@ export default ({ editConfig }: EditorProps) => {
           setHintModel(false, void 0, void 0);
         }
       } catch (error: any) {
-        setHintModel(true, void 0, [error]);
+        setHintModel(true, void 0, error);
       }
     } else {
       setHintModel(false, void 0, void 0);
     }
-  }, 200);
+  }, 200, { leading: true });
 
   const onChange = (_value: string) => {
     value.set(_value);
@@ -82,12 +71,15 @@ export default ({ editConfig }: EditorProps) => {
   return (
     <div className={styles.wrap}>
       <CodeEditor
+        placeholder={placeholder}
         value={_value}
         onChange={onChange}
         completions={completions}
-        theme={{ focused: {
+        theme={{
+          focused: {
             outline: "1px solid #fa6400",
-        } }}
+          }
+        }}
       />
       <HintPanel showPanel={showPanel} result={result} markers={markers} />
     </div>

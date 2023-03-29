@@ -3,14 +3,14 @@ import { message } from "antd";
 import { CheckCircleFilled, CloseCircleFilled } from "@ant-design/icons";
 import styles from "./index.less";
 
+type Marker = Partial<{
+  message: string;
+}>;
+
 export interface PanelProps {
   showPanel: boolean;
   result?: Record<string, any>;
-  markers?: Array<
-    Partial<{
-      message: string;
-    }>
-  >;
+  markers?: Array<Marker> | Marker;
 }
 
 const Icon = (
@@ -47,13 +47,11 @@ const SuccessPanel = ({ result }: Pick<PanelProps, "result">) => {
   return (
     <div className={styles.result}>
       <div className={styles.title}>
-        <span>
+        <div className={styles.type}>
           <CheckCircleFilled className={styles.icon} />
-          Success
-        </span>
-        <span onClick={() => onClipboard(result)}>
-          {Icon}
-        </span>
+          <span>Success</span>
+        </div>
+        <span onClick={() => onClipboard(result)}>{Icon}</span>
       </div>
       <div>{JSON.stringify(result)}</div>
     </div>
@@ -64,31 +62,37 @@ const ErrorPanel = ({ markers = [] }: Pick<PanelProps, "markers">) => {
   return (
     <div className={styles.marker}>
       <div className={styles.title}>
-        <span>
-          <CloseCircleFilled className={styles.icon} /> Error
-        </span>
-        <span onClick={() => onClipboard(markers)}>
-          {Icon}
-        </span>
+        <div className={styles.type}>
+          <CloseCircleFilled className={styles.icon} />
+          <span>Error</span>
+        </div>
+        <span onClick={() => onClipboard(markers)}>{Icon}</span>
       </div>
-      <ul>
-        {markers.map((marker, index) => (
-          <li key={index}>{marker?.message}</li>
-        ))}
-      </ul>
+      {Array.isArray(markers) ? (
+        <ul>
+          {markers.map((marker, index) => (
+            <li key={index}>{marker?.message}</li>
+          ))}
+        </ul>
+      ) : (
+        <div>{markers.message}</div>
+      )}
     </div>
   );
 };
 
 const Panel = ({ showPanel, markers, result }: PanelProps) => {
+  const hasMarkers = !!markers && JSON.stringify(markers) !== "[]";
   return showPanel ? (
     <div className={styles.drapDown}>
       {!!result && <SuccessPanel result={result} />}
-      {Array.isArray(markers) && !!markers.length && (
-        <ErrorPanel markers={markers} />
-      )}
+      {hasMarkers && <ErrorPanel markers={markers} />}
     </div>
   ) : null;
 };
+
+Panel.SuccessPanel = SuccessPanel;
+
+Panel.ErrorPanel = ErrorPanel;
 
 export default Panel;
