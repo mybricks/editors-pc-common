@@ -1,4 +1,4 @@
-import React, {useCallback} from 'react';
+import React, {useCallback, useEffect} from 'react';
 
 import {Select} from 'antd';
 import {useObservable} from '@mybricks/rxui';
@@ -12,7 +12,7 @@ import {editorsConfigKey} from '../constant';
 interface Item {
   value: any;
   label: string;
-};
+}
 
 type SelectOptions = Array<Item>;
 
@@ -29,7 +29,7 @@ class Ctx {
     defaultSelectOptions: SelectOptions;
     otherConfig: { [key: string]: any };
   };
-};
+}
 
 function getRelOptions(options: Function) {
   const opts = getOptionsFromEditor(options);
@@ -63,10 +63,11 @@ function getRelOptions(options: Function) {
       useAnyToEnter: false
     }
   }
-};
+}
 
 export default function ({editConfig}: EditorProps): any {
   const {value, options} = editConfig;
+  const realOptions = getRelOptions(options)
   const model: Ctx = useObservable(Ctx, next => {
     // 获取初始化配置
     const val = value.get();
@@ -75,9 +76,19 @@ export default function ({editConfig}: EditorProps): any {
       anyOption: null,
       val,
       value,
-      relOptions: getRelOptions(options)
+      relOptions: realOptions
     });
   });
+	
+	/** 响应外层 options 变化 */
+	useEffect(() => {
+		model.relOptions = realOptions;
+	}, [JSON.stringify(realOptions)]);
+	
+	/** 响应外层值变化 */
+	useEffect(() => {
+		model.val = value.get();
+	}, [JSON.stringify(value.get())]);
 
   const onChange: (val: any) => void = useCallback((val) => {
     model.val = val;

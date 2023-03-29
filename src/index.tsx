@@ -27,6 +27,7 @@ import EditorValueSelect from "./valueSelect";
 import Expression from "./expression";
 import ComSelector from "./comSelector";
 import EditorLayout from "./layout";
+import EditorStyle from "./style";
 import EditorStyleProperties from "./styleProperties";
 import "./index.less";
 export { config } from "./configProvider";
@@ -52,7 +53,8 @@ const PcEditorMap: any = {
   IMAGESELECTOR: EditorImageSelector,
   INPUTNUMBER: EditorInputNumber,
   SLIDER: EditorSlider,
-  STYLE: EditorStyleProperties,
+  STYLE:EditorStyle,
+  //STYLE: EditorStyleProperties,
   VALUESELECT: EditorValueSelect,
   ARRAYCHECKBOX: EditorArrayCheckbox,
   MAPCHECKBOX: EditorMapCheckbox,
