@@ -11,3 +11,5 @@ declare module "*.svg" {
 declare module "mp4box";
 
 declare module "css-background-parser";
+
+declare module "@mybricks/expression-editor"
