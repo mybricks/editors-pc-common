@@ -119,12 +119,14 @@ export default function ({
   customOptRender,
   extraContext,
 }: ListSetterProps) {
-  const [list, setList] = useState(initData(value) || [])
+  const [list, setList] = useState([])
   //[TODO] activeId 和 editId 为了支持这个交互不得已做的，写的太乱了
   const [activeId, setActiveId] = useState<ActiveId>(null)
   const [editId, setEditId] = useState<EditId>(null)
   const [subFormVisible, setSubFormVisible] = useState(false)
   const listRef = useRef(null)
+	/** 数据变化来自外部 */
+  const changeFromOuter = useRef(true);
 
   const didMount = useRef(false)
 
@@ -169,17 +171,35 @@ export default function ({
       },
     }
   }, [])
+	
+	useEffect(() => {
+		const curList = list.map((t) => {
+			const { _id, ...other } = t;
+			return other;
+		});
+		
+		if (JSON.stringify(curList) !== JSON.stringify(value)) {
+			changeFromOuter.current = true;
+			setList(initData(value));
+		}
+	}, [JSON.stringify(value)]);
 
   useEffect(() => {
     if (!didMount.current) {
       return
     }
+		if (changeFromOuter.current) {
+			changeFromOuter.current = false;
+			return;
+		}
     typeof onChange === 'function' &&
       onChange(
         JSON.parse(
           JSON.stringify(
             list.map((t) => {
-              return { ...t }
+	            const { _id, ...other } = t;
+							
+              return other;
             })
           )
         )
