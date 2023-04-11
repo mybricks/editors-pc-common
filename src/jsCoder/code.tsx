@@ -6,7 +6,7 @@ import React, {
   useState,
 } from 'react';
 import { isValid, safeDecodeURIComponent } from '../utils';
-import { useObservable, getPosition, dragable } from '@mybricks/rxui';
+import { useObservable,useComputed, getPosition, dragable } from '@mybricks/rxui';
 import { FullscreenOutlined } from '@ant-design/icons';
 import MonacoEditor from '@mybricks/code-editor';
 import { transformCodeByBabel } from './utils';
@@ -84,19 +84,6 @@ const getFnString = (fnBody: string, fnParams: string[]) => {
 
 const appendToList = (list: any[], value: string) => {
   list[list.length - 1] = `${list[list.length - 1]}${value}`;
-};
-const getVal = (value: any) => {
-  return isValid(value.get())
-    ? String(
-        safeDecodeURIComponent(
-          `${
-            typeof value.get() === 'string'
-              ? value.get()
-              : value.get()?.code || ''
-          }`
-        )
-      )
-    : '';
 };
 
 const getExtraLibBySchema = (schema: any) => {
@@ -190,6 +177,21 @@ export default function ({ editConfig, env }: any): JSX.Element {
 
   const forceRender = useCallback(() => setRender(Math.random()), []);
 
+  const getVal = useComputed(() => {
+    const val = value.get()
+    return isValid(val)
+      ? String(
+        safeDecodeURIComponent(
+          `${
+            typeof val === 'string'
+              ? val
+              : val?.code || ''
+          }`
+        )
+      )
+      : '';
+  })
+
   useEffect(() => {
     if (options.forceRender) {
       Object.defineProperty(options.forceRender, 'run', {
@@ -217,14 +219,14 @@ export default function ({ editConfig, env }: any): JSX.Element {
 
   const model: any = useObservable({
     value,
-    val: getVal(value),
+    val: getVal,
     fullScreen: false,
     width: options.width,
     title: options.title || '编辑代码',
     commentHeight: comments ? 400 : 0,
     icon: 'min',
     iconsVisible: false,
-  });
+  },[getVal]);
 
   const updateVal = useCallback(
     (val) => {
@@ -348,7 +350,7 @@ export default function ({ editConfig, env }: any): JSX.Element {
                   >
                     <MonacoEditor
                       onMounted={onMonacoMounted}
-                      value={getVal(value)}
+                      value={getVal}
                       readOnly={readonly}
                       onChange={onChange}
                       {...options}
@@ -443,7 +445,7 @@ export default function ({ editConfig, env }: any): JSX.Element {
               {fnBodyRender(css['mockFn-header__min'])}
               <MonacoEditor
                 onMounted={onMonacoMounted}
-                value={getVal(value)}
+                value={getVal}
                 readOnly={readonly}
                 onChange={onChange}
                 {...options}
