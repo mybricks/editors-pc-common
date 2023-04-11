@@ -276,7 +276,7 @@ export default function ({ editConfig, env }: any): JSX.Element {
   };
 
   const onFormatIconClick = useCallback(() => {
-    editorRef.current?.getAction(['editor.action.formatDocument'])._run();
+    editorRef.current?.getAction?.(['editor.action.formatDocument'])._run();
   }, [editorRef.current]);
 
   const renderToolbar = useMemo(() => {
@@ -426,6 +426,10 @@ export default function ({ editConfig, env }: any): JSX.Element {
     if (displayType === 'button') {
       return <button onClick={open}>{title}</button>;
     }
+    // TODO: 看一下@mybricks/code-editor的实现，是否可以在更新value后自动格式化
+    setTimeout(() => {
+      onFormatIconClick() 
+    }, 100)
     return (
       <div className={css['editor-code__container']}>
         <div className={css['editor-code__modal']}>
