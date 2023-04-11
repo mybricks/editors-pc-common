@@ -464,7 +464,7 @@ export default function ({ editConfig, env }: any): JSX.Element {
         </div>
       </div>
     );
-  }, [modalContext.visible, render]);
+  }, [modalContext.visible, render, model.val]);
 
   return <div className={css['editor-code']}>{RenderInEditView}</div>;
 }
