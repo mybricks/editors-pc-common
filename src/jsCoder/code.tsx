@@ -169,12 +169,25 @@ const formatValue = (val: string, options?: any) => {
   return val;
 };
 
+const getComputedValue = (
+  value: string | { code: string; transformCode: string }
+) => {
+  return isValid(value)
+    ? String(
+        safeDecodeURIComponent(
+          `${typeof value === "string" ? value : value?.code || ""}`
+        )
+      )
+    : "";
+};
+
 export default function ({ editConfig, env }: any): JSX.Element {
   const { value, options = {}, spaCtx } = editConfig;
   const commentRef: any = useRef();
   const editorRef = useRef({});
   const [render, setRender] = useState(0);
 
+  const codeStr = useMemo(() => getComputedValue(value.get()), [value.get()])
   const forceRender = useCallback(() => setRender(Math.random()), []);
 
   const getVal = useComputed(() => {
@@ -219,14 +232,14 @@ export default function ({ editConfig, env }: any): JSX.Element {
 
   const model: any = useObservable({
     value,
-    val: getVal,
+    val: codeStr,
     fullScreen: false,
     width: options.width,
     title: options.title || '编辑代码',
     commentHeight: comments ? 400 : 0,
     icon: 'min',
     iconsVisible: false,
-  },[getVal]);
+  },[codeStr]);
 
   const updateVal = useCallback(
     (val) => {
@@ -350,7 +363,7 @@ export default function ({ editConfig, env }: any): JSX.Element {
                   >
                     <MonacoEditor
                       onMounted={onMonacoMounted}
-                      value={getVal}
+                      value={codeStr}
                       readOnly={readonly}
                       onChange={onChange}
                       {...options}
@@ -445,7 +458,7 @@ export default function ({ editConfig, env }: any): JSX.Element {
               {fnBodyRender(css['mockFn-header__min'])}
               <MonacoEditor
                 onMounted={onMonacoMounted}
-                value={getVal}
+                value={codeStr}
                 readOnly={readonly}
                 onChange={onChange}
                 {...options}
