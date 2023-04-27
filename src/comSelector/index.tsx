@@ -146,10 +146,11 @@ function ComSelectView ({onClick, show, schema}: any): JSX.Element {
     >
       <div className={css.coms}>
         {componentOptions.map((componentOption: any) => {
-          const { title, icon, preview } = componentOption;
+          const { namespace, title, icon, preview } = componentOption;
 
           return (
             <div
+              key={namespace}
               className={css.item}
               onClick={() => onClick(componentOption)}
             >
