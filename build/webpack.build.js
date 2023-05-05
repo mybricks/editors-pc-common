@@ -20,8 +20,7 @@ module.exports = {
       "react-dom": "react-dom",
       "@mybricks/rxui": "@mybricks/rxui",
       "@ant-design/icons": "@ant-design/icons",
-      antd: "antd",
-      "@mybricks/expression-editor": "CodeEditor"
+      antd: "antd"
     },
   ],
   resolve: {
