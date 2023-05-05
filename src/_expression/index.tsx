@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { CodeEditor } from "@mybricks/expression-editor";
 import HintPanel from "./hintPanel";
 import { EditorProps } from "../interface";
@@ -8,7 +8,13 @@ import styles from "./index.less";
 export default ({ editConfig }: EditorProps) => {
   const { value, options = {} } = editConfig;
   const valConfig = value.get();
-  const { placeholder, runCode, suggestions: completions = [] } = options;
+  const { placeholder, runCode, suggestions: completions = [] } = useMemo(() => {
+    if (typeof options === 'function') {
+      return options.apply(null)
+    } else {
+      return options
+    }
+  }, [options]);
   const [_value, setValue] = useState<string>(
     typeof valConfig === "string" ? valConfig : valConfig?.value
   );
@@ -50,7 +56,7 @@ export default ({ editConfig }: EditorProps) => {
             return;
           }
           if (success !== undefined) {
-            setHintModel(true, success, markers);
+            setHintModel(true, success, void 0);
             return;
           }
         } else {
