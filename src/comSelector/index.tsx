@@ -139,12 +139,11 @@ export default function (props: Props) {
     let jsx = <></>
 
     switch (options.type) {
-      case 'select':
-        jsx = <SelectComponent defaultValue={value.get()} onClick={handleClick} popView={popView} components={components}/>
-        break
       case 'add':
-      default:
         jsx = <AddComponent onClick={handleClick} popView={popView} components={components}/>
+        break
+      default:
+        jsx = <SelectComponent defaultValue={value.get()} onClick={handleClick} popView={popView} components={components}/>
         break
     }
 
@@ -157,8 +156,6 @@ export default function (props: Props) {
 
   return render
 }
-
-
 
 function PopView ({components, onClick}: {components: Components, onClick: (component: Component) => void}) {
   const [list, setList] = useState(components)
