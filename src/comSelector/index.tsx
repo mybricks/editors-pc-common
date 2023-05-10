@@ -3,14 +3,13 @@ import React, {
   useState,
   useEffect,
   useCallback
-} from "react";
-import { Drawer } from "antd";
-import DeleteOutlined from "@ant-design/icons/DeleteOutlined"
+} from 'react'
+import DeleteOutlined from '@ant-design/icons/DeleteOutlined'
 
-import css from "./index.less";
+import css from './index.less'
 
 function windowComlibsEdit () {
-  return (window as any)["__comlibs_edit_"];
+  return (window as any)['__comlibs_edit_']
 }
 
 async function getComponentWithNamespace (namespace: any) {
@@ -57,7 +56,7 @@ function deepFind(ary: any, cb: any) {
 function getComponentsWithSchema (schema: string | string[]): string[] {
   const schemaType = Object.prototype.toString.call(schema);
 
-  if (!["[object String]", "[object Array]"].includes(schemaType)) return [];
+  if (!['[object String]', '[object Array]'].includes(schemaType)) return [];
 
   const comlibs = windowComlibsEdit();
   const rst: string[] = [];
@@ -100,178 +99,203 @@ function getComponentsWithSchema (schema: string | string[]): string[] {
   return rst;
 }
 
-export default function ({ editConfig }: any) {
-  const { value, options } = editConfig;
-  const { schema, type } = options;
-
-  const TypeRender = useMemo(() => {
-    if (type === "add") {
-      return <TypeAdd value={value} schema={schema}/>;
-    } else {
-      return <TypeSelect value={value} schema={schema}/>;
-    }
-  }, [])
-
-  return (
-    <div className={css.container}>
-      {TypeRender}
-    </div>
-  );
+interface Options {
+  type: string
+  schema: string
 }
 
-function ComSelectView ({onClick, show, schema}: any): JSX.Element {
-  if (!show) return <></>;
+type PopView = (title: string, fn: ({close}: {close: () => void}) => JSX.Element, options: {width: number, beforeEditView: boolean}) => void
 
-  const componentOptions = getComponentsWithSchema(schema);
-
-  return (
-    <Drawer
-      className={css.drawer}
-      width={440}
-      bodyStyle={{
-        borderLeft: '1px solid #bbb',
-        backgroundColor: '#F7F7F7',
-        padding: 5,
-      }}
-      visible={show}
-      closable={false}
-      mask={false}
-      placement="right"
-      // @ts-ignore
-      getContainer={() =>
-        document.querySelector('div[class^="lyStage-"]') ||
-        document.querySelector('#root div[class^="sketchSection"]')
-      }
-      style={{ position: 'absolute' }}
-    >
-      <div className={css.coms}>
-        {componentOptions.map((componentOption: any) => {
-          const { namespace, title, icon, preview } = componentOption;
-
-          return (
-            <div
-              key={namespace}
-              className={css.item}
-              onClick={() => onClick(componentOption)}
-            >
-              <div style={{overflow: 'hidden'}}>
-                <div className={css.content}>
-                  <RenderImg icon={icon} title={title} preview={preview}/>
-                </div>
-                <div className={css.itemTitle}>
-                  {title}
-                </div>
-              </div>
-            </div>
-          )
-        })}
-      </div>
-    </Drawer>
-  );
+interface EditConfig {
+  options: Options
+  popView: PopView
+  value: {
+    set: (namespace: string | null) => void
+    get: () => string | null
+  }
 }
 
-function TypeSelect ({value, schema}: any): JSX.Element {
-  const [componentSelectViewOpen, setComponentSelectViewOpen] = useState(false);
-  const [selectedComponentInfo, setSelectedComponentInfo] = useState(null);
+interface Props {
+  editConfig: EditConfig
+}
 
-  const ComponentBox = useMemo(() => {
-    if (!selectedComponentInfo) {
-      return <div>点击选择组件</div>;
+interface Component {
+  title: string
+  namespace: string
+  icon: string
+  preview: string
+}
+
+type Components = Component[]
+
+export default function (props: Props) {
+  const render = useMemo(() => {
+    const { options, popView, value } = props.editConfig
+    const components = getComponentsWithSchema(options.schema)
+    const handleClick = (component: Component | null) => {
+      value.set(component ? component.namespace : null)
     }
+    
+    let jsx = <></>
 
-    const { icon, title, preview } = selectedComponentInfo as {icon?: string, title?: string, preview?: string};
-
-    return <RenderImg icon={icon} title={title} preview={preview}/>
-  }, [selectedComponentInfo]);
-
-  const setComponentNamespace = useCallback((ComponentInfo) => {
-    const { namespace } = ComponentInfo;
-
-    value.set(namespace);
-    setSelectedComponentInfo(ComponentInfo);
-    setComponentSelectViewOpen(false);
-  }, []);
-
-  const deleteComponentNamespace = useCallback(() => {
-    value.set("");
-    setSelectedComponentInfo(null);
-  }, []);
-
-  const switchComponentSelectView = useCallback(() => {
-    setComponentSelectViewOpen(!componentSelectViewOpen);
-  }, [componentSelectViewOpen]);
-
-  const DeleteComponentIcon = useMemo(() => {
-    if (!selectedComponentInfo) return <></>;
+    switch (options.type) {
+      case 'select':
+        jsx = <SelectComponent defaultValue={value.get()} onClick={handleClick} popView={popView} components={components}/>
+        break
+      case 'add':
+      default:
+        jsx = <AddComponent onClick={handleClick} popView={popView} components={components}/>
+        break
+    }
 
     return (
-      <div
-        className={css.delete}
-        onClick={deleteComponentNamespace}
-      >
-        <DeleteOutlined/>
+      <div className={css.container}>
+        {jsx}
       </div>
     )
-  }, [selectedComponentInfo]);
+  }, [])
 
-  const RenderComSelectView = useMemo(() => {
-    if (!componentSelectViewOpen) return <></>;
+  return render
+}
 
-    return <ComSelectView show={componentSelectViewOpen} schema={schema} onClick={setComponentNamespace}/>
-  }, [componentSelectViewOpen]);
 
-  useEffect(() => {
-    const namespace = value.get();
 
-    getComponentWithNamespace(namespace).then((r: any) => {
-      setSelectedComponentInfo(r);
-    });
-  }, []);
+function PopView ({components, onClick}: {components: Components, onClick: (component: Component) => void}) {
+  const [list, setList] = useState(components)
+
+  const handleSearchInputChange = useCallback((e) => {
+    const value = e.target.value.toLowerCase()
+
+    if (!value) {
+      setList(components)
+    } else {
+      setList(components.filter(({title}) => {
+        return title.toLowerCase().indexOf(value) !== -1
+      }))
+    }
+
+  }, [])
+
+  const searchInput = useMemo(() => {
+    return (
+      <div className={css.search}>
+        <svg viewBox='0 0 1057 1024' version='1.1' xmlns='http://www.w3.org/2000/svg' p-id='6542' width='16' height='16'><path d='M835.847314 455.613421c0-212.727502-171.486774-385.271307-383.107696-385.271307C241.135212 70.35863 69.648437 242.869403 69.648437 455.613421c0 212.760534 171.486774 385.271307 383.091181 385.271307 109.666973 0 211.769567-46.525883 283.961486-126.645534a384.891436 384.891436 0 0 0 99.14621-258.625773zM1045.634948 962.757107c33.560736 32.421125-14.583725 83.257712-48.144461 50.853103L763.176429 787.28995a449.79975 449.79975 0 0 1-310.436811 123.953408C202.735255 911.243358 0 707.269395 0 455.613421S202.735255 0 452.739618 0C702.760497 0 905.495752 203.957447 905.495752 455.613421a455.662969 455.662969 0 0 1-95.330989 279.716846l235.486702 227.42684z' p-id='6543'></path></svg>
+        <input placeholder='搜索' onChange={handleSearchInputChange}/>
+      </div>
+    )
+  }, [])
+
+  const componentList = useMemo(() => {
+    return (
+      <div className={css.list}>
+        {list.map((component) => {
+          const { namespace, title, icon, preview } = component;
+            return (
+              <div
+                key={namespace}
+                className={css.item}
+                onClick={() => onClick(component)}
+              >
+                <div style={{overflow: 'hidden'}}>
+                  <div className={css.content}>
+                    <RenderImg icon={icon} title={title} preview={preview}/>
+                  </div>
+                  <div className={css.itemTitle}>
+                    {title}
+                  </div>
+                </div>
+              </div>
+            )
+        })}
+      </div>
+    )
+  }, [list])
 
   return (
-    <div className={css.action}>
-      <div
-        className={css.tplWrapper}
-        onClick={switchComponentSelectView}
-      >
-        {ComponentBox}
-      </div>
-      {DeleteComponentIcon}
-      {RenderComSelectView}
+    <div className={css.popView}>
+      {searchInput}
+      {componentList}
     </div>
   )
 }
 
-function TypeAdd ({value, schema}: any) {
-  const [componentSelectViewOpen, setComponentSelectViewOpen] = useState(false);
-
-  const setComponentNamespace = useCallback((ComponentInfo) => {
-    const { namespace } = ComponentInfo;
-
-    value.set(namespace);
-    setComponentSelectViewOpen(false);
-  }, []);
-
-  const switchComponentSelectView = useCallback(() => {
-    setComponentSelectViewOpen(!componentSelectViewOpen);
-  }, [componentSelectViewOpen]);
-
-  const RenderComSelectView = useMemo(() => {
-    if (!componentSelectViewOpen) return <></>;
-
-    return <ComSelectView show={componentSelectViewOpen} schema={schema} onClick={setComponentNamespace}/>
-  }, [componentSelectViewOpen])
-
-  const AddButton = useMemo(() => {
-    return <button className={css.button} onClick={switchComponentSelectView}>点击选择组件</button>;
-  }, []);
+function AddComponent ({onClick, popView, components}: {onClick: ({ namespace }: Component) => void, popView: PopView, components: any[]}) {
+  const handleClick = useCallback(() => {
+    popView('选择组件', ({close}) => {
+      return (
+        <PopView
+          components={components}
+          onClick={(component: Component) => {
+            onClick(component)
+            close()
+          }}
+        />
+      )
+    }, {width: 350, beforeEditView: true})
+  },[])
 
   return (
-    <>
-      {AddButton}
-      {RenderComSelectView}
-    </>
-  );
+    <button onClick={handleClick}>添加组件</button>
+  )
+}
+
+function SelectComponent ({defaultValue, onClick, popView, components}: {defaultValue: string | null,onClick: (arg0: Component | null) => void, popView: PopView, components: any[]}) {
+  const [component, setComponent] = useState<Component | null>(null)
+
+  const handleClick = useCallback(() => {
+    popView('选择组件', ({close}) => {
+      return (
+        <PopView
+          components={components}
+          onClick={(component: Component) => {
+            onClick(component)
+            setComponent(component)
+            close()
+          }}
+        />
+      )
+    }, {width: 350, beforeEditView: true})
+  },[])
+
+  const handleDeleteClick = useCallback(() => {
+    onClick(null)
+    setComponent(null)
+  }, [])
+  
+  const componentBox = useMemo(() => {
+    let jsx = <div>点击选择组件</div>
+
+    if (component) {
+      jsx = <RenderImg {...component}/>
+    }
+    
+    return (
+      <>
+        <div className={css.box} onClick={handleClick}>
+          {jsx}
+        </div>
+        <div
+          className={css.delete}
+          style={{visibility: component ? 'visible' : 'hidden'}}
+          onClick={handleDeleteClick}
+        >
+          <DeleteOutlined/>
+        </div>
+      </>
+    )
+  }, [component])
+
+  useEffect(() => {
+    getComponentWithNamespace(defaultValue).then((component) => {
+      setComponent(component as Component)
+    })
+  }, [])
+
+  return (
+    <div className={css.selectContainer}>
+      {componentBox}
+    </div>
+  )
 }
 
 function ifSlotSchemaMatch(parentSchema: string | string[], comSchema: string): boolean {
