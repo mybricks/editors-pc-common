@@ -182,7 +182,7 @@ const getComputedValue = (
 };
 
 export default function ({ editConfig, env }: any): JSX.Element {
-  const { value, options = {}, spaCtx } = editConfig;
+  const { value, options = {}, popView } = editConfig;
   const commentRef: any = useRef();
   const editorRef = useRef({});
   const [render, setRender] = useState(0);
@@ -345,7 +345,7 @@ export default function ({ editConfig, env }: any): JSX.Element {
   const open = useCallback(() => {
     if (!modalContext.visible) {
       modalContext.visible = true;
-      spaCtx.popView(
+      popView(
         model.title,
         () => {
           return (
