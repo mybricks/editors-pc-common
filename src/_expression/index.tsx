@@ -32,7 +32,7 @@ export default ({ editConfig }: EditorProps) => {
     const name: string = "CodeEditor";
     setLoading(true);
     loadPkg(
-      "http://f2.beckwai.com/udata/pkg/eshop/fangzhou/pub/pkg/codemirror/1.0.13/index.min.js",
+      "//f2.beckwai.com/udata/pkg/eshop/fangzhou/pub/pkg/codemirror/1.0.13/index.min.js",
       name
     )
       .then((res: any) => {
