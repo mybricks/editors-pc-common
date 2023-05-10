@@ -64,22 +64,24 @@
   }
 }
 
-.popView {
-  margin-top: 45px;
-  background-color: #F7F7F7;
-  height: 100%;
-  overflow: hidden;
+.searchContainer {
+  height: 45px;
+  width: 100%;
+  padding-left: 100px;
+  padding-right: 12px;
+  display: flex;
+  align-items: center;
 
   .search {
+    width: 100%;
     border-radius: 3px;
     border: 1px solid #EEE;
     height: 27px;
     padding: 0 5px 0 11px;
     background: #FFF;
-    margin: 10px;
     display: flex;
     align-items: center;
-
+  
     svg {
       width: 13px;
     }
@@ -89,6 +91,12 @@
       padding: 0px 5px;
     }
   }
+}
+
+.popView {
+  background-color: #F7F7F7;
+  height: 100%;
+  overflow: hidden;
   
   .list {
     width: 100%;
