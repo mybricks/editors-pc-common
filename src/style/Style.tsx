@@ -1,25 +1,20 @@
-import React, { useMemo, useCallback, useEffect } from 'react';
+import React, { useMemo, useCallback } from 'react';
 
 import css from './Style.less';
-import Container from './portal';
 import { EditorProps } from '@/interface';
-import { deepCopy, typeCheck } from '../utils';
-import MonacoEditor from '../components/code-editor';
+import { typeCheck } from '../utils';
 import CaretDownOutlined from '@ant-design/icons/CaretDownOutlined';
 import CaretLeftOutlined from '@ant-design/icons/CaretLeftOutlined';
-import { TitleMap, Sequence, DefaultConfigMap } from './const';
+import { TitleMap, Sequence } from './const';
 // @ts-ignore
-import { evt, useComputed, useObservable } from '@mybricks/rxui';
+import { useComputed, useObservable } from '@mybricks/rxui';
 
 import {
   Size,
   Padding,
-  // Width,
-  // Height,
   Shadow,
   TextShadow,
   Font,
-  Align,
   FontWidthSpace,
   Border,
   Bgcolor,
@@ -27,14 +22,13 @@ import {
 } from './components';
 
 import { AnyMap } from './types';
-import { bg2Arr, bgParse, bgStringify, setBgColor, setBgImage } from './utils';
+import { setBgColor, setBgImage } from './utils';
 
 export class Ctx {
   val: any;
   value: any;
   title!: string;
   projectData: any;
-  // unfold!: boolean
   options!: Array<string>;
   visible!: () => void;
   set!: (arg: object) => void;
@@ -43,24 +37,10 @@ export class Ctx {
   delete!: (ary: string[]) => void;
 }
 
-class CodeEditCtx {
-  value: string = '{}';
-  visible: boolean = false;
-  fullScreen: boolean = false;
-
-  open!: () => void;
-  close!: () => void;
-  setFullScreen!: () => void;
-  onChange!: (...args: any) => void;
-}
-
 const EditorsMap: {
   SIZE: () => JSX.Element;
   PADDING: () => JSX.Element;
-  // WIDTH: () => JSX.Element
-  // HEIGHT: () => JSX.Element
   FONT: () => JSX.Element;
-  // ALIGN: () => JSX.Element;
   BORDER: () => JSX.Element;
   BGCOLOR: () => JSX.Element;
   BGIMAGE: () => JSX.Element;
@@ -68,10 +48,7 @@ const EditorsMap: {
 } = {
   SIZE: Size,
   PADDING: Padding,
-  // WIDTH: Width,
-  // HEIGHT: Height,
   FONT: Font,
-  // ALIGN: Align,
   BORDER: Border,
   BGCOLOR: Bgcolor,
   BGIMAGE: Bgimage,
@@ -87,8 +64,6 @@ const render = ({ editConfig, projectData }: EditorProps): JSX.Element => {
     (next) => {
       const val = getVal(value.get());
       let fontProps = {};
-
-      // let unfold = val.styleEditorUnfold
       let opts = Sequence;
 
       if (typeCheck(options, 'array')) {
@@ -101,15 +76,9 @@ const render = ({ editConfig, projectData }: EditorProps): JSX.Element => {
           fontProps = options.fontProps;
         }
 
-        // if (typeof unfold !== 'boolean') {
-
-        // }
-
         if (typeof val.styleEditorUnfold !== 'boolean') {
           val.styleEditorUnfold = defaultOpen;
         }
-
-        // unfold = defaultOpen
 
         if (typeCheck(plugins, 'array')) {
           opts = plugins;
@@ -150,7 +119,6 @@ const render = ({ editConfig, projectData }: EditorProps): JSX.Element => {
         val,
         value,
         title,
-        // unfold,
         projectData,
         options: opts,
         codeEditVisible: false,
@@ -170,7 +138,6 @@ const render = ({ editConfig, projectData }: EditorProps): JSX.Element => {
     },
     { to: 'children' }
   );
-
 
   const Update = useCallback((obj: AnyMap) => {
     ctx.val = { ...ctx.val, ...obj };
@@ -207,10 +174,6 @@ const render = ({ editConfig, projectData }: EditorProps): JSX.Element => {
     value.set(ctx.val);
   }, []);
 
-  // const ScreenIcon = useComputed(() => {
-  //   return codeEditCtx.fullScreen ? FullscreenExitOutlined : FullscreenOutlined
-  // })
-
   const RenderTitle: JSX.Element = useComputed(() => {
     return (
       <div className={css.titleContainer} style={{ marginBottom: ctx.val.styleEditorUnfold ? 3 : 0 }}>
@@ -221,9 +184,6 @@ const render = ({ editConfig, projectData }: EditorProps): JSX.Element => {
           </div>
         </div>
         <div className={css.actions}>
-          {/* <div style={{margin: '0px 2px'}} onClick={codeEditCtx.open}>
-            <EditOutlined style={{color: '#555'}}/>
-          </div> */}
           <div onClick={ctx.visible}>{ctx.val.styleEditorUnfold ? <CaretDownOutlined style={{ color: '#555' }} /> : <CaretLeftOutlined style={{ color: '#555' }} />}</div>
         </div>
       </div>
@@ -232,23 +192,13 @@ const render = ({ editConfig, projectData }: EditorProps): JSX.Element => {
 
   const RenderEditors: JSX.Element[] = useMemo(() => {
     const editors: JSX.Element[] = [];
-    let config = { ...ctx.val };
-
-    // const editAry: Array<string> = Sequence.filter(i => {
-    //   return ctx.options.find((o: string) => o.toLocaleUpperCase() === i)
-    // })
 
     ctx.options.forEach((t, idx) => {
       if (typeof t === 'string') {
         const T: string = t.toLocaleUpperCase();
         const Editor: () => JSX.Element = T === 'FONT' && ctx?.fontProps?.letterSpace ? FontWidthSpace : EditorsMap[T];
-        const DefaultConfig = deepCopy(DefaultConfigMap[T]);
 
-        // DefaultMap
         if (Editor) {
-          if (DefaultConfig) {
-            config = Object.assign(DefaultConfig, config);
-          }
           editors.push(
             <div
               key={t + idx}
@@ -269,8 +219,6 @@ const render = ({ editConfig, projectData }: EditorProps): JSX.Element => {
       }
     });
 
-    ctx.val = Object.assign({}, config);
-
     return editors;
   }, []);
 
@@ -279,37 +227,6 @@ const render = ({ editConfig, projectData }: EditorProps): JSX.Element => {
       {RenderTitle}
       <div style={{ display: ctx.val.styleEditorUnfold ? 'block' : 'none' }}>
         {RenderEditors}
-        {/* {codeEditCtx.visible &&
-          <Container>
-            <div className={css['editor-code']}>
-              <div className={css['editor-code__ct']}>
-                <div className={css['editor-code__mask']} onClick={codeEditCtx.close} />
-                <div
-                  className={css['editor-code__modal']}
-                  style={{ width: codeEditCtx.fullScreen ? '100%' : 600 }}
-                  // ref={moveableRef}
-                  // onMouseDown={moveEditor}
-                >
-                  <div className={css['editor-code__header']}>
-                    <p className={css['editor-code__title']}>{'样式编辑（json格式）'}</p>
-                    <div>
-                      <ScreenIcon className={css['editor-code__icon']} onClick={evt(codeEditCtx.setFullScreen).stop} />
-                      <CloseOutlined onClick={codeEditCtx.close} style={{ fontSize: 12 }} />
-                    </div>
-                  </div>
-                  <MonacoEditor
-                    value={codeEditCtx.value}
-                    onChange={codeEditCtx.onChange}
-                    fontSize={12}
-                    width='100%'
-                    height='100%'
-                    language='json'
-                  />
-                </div>
-              </div>
-            </div>
-          </Container>
-        } */}
       </div>
     </div>
   );
@@ -330,36 +247,6 @@ function getVal(rawVal: any) {
   }
 
   return val;
-
-  // let modified = false;
-  // if (val.background) {
-  //   let bgColor, bgImage;
-  //   if (val.backgroundColor) {
-  //     bgColor = val.backgroundColor;
-  //   } else {
-  //     bgColor = 'rgba(255,255,255,0)';
-  //   }
-  //   if (val.backgroundImage && val.backgroundSize && val.backgroundPosition && val.backgroundRepeat) {
-  //     bgImage = `${val.backgroundImage} ${val.backgroundPosition} / ${val.backgroundSize} ${val.backgroundRepeat}`;
-  //   } else {
-  //     bgImage = 'url() center top / 100% 100% no-repeat';
-  //   }
-  //   val.background = bgStringify({ bgColor, bgImage });
-  //   modified = true;
-  // }
-
-  // if (val.backgroundColor || val.backgroundImage) {
-  //   delete val.backgroundColor;
-  //   delete val.backgroundImage;
-  //   delete val.backgroundSize;
-  //   delete val.backgroundPosition;
-  //   delete val.backgroundRepeat;
-  //   modified = true;
-  // }
-
-  // if (modified) {
-  //   console.log('new val: ', val);
-  // }
 }
 
 // 兼容代码
