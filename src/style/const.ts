@@ -168,7 +168,7 @@ export const DefaultBorder: AnyMap = {
 
 // 背景默认样式 包括背景色、背景图
 export const DefaultBg: AnyMap = {
-  background: 'url() center top / 100% 100% no-repeat, transparent',
+  background: 'url() center top / 100% 100% no-repeat, rgba(255,255,255,1)'
 };
 
 // 背景图片默认样式
