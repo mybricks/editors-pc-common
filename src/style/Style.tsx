@@ -65,11 +65,12 @@ const render = ({ editConfig, projectData }: EditorProps): JSX.Element => {
       const val = getVal(value.get());
       let fontProps = {};
       let opts = Sequence;
+      let title: any = '';
 
       if (typeCheck(options, 'array')) {
         opts = options;
       } else if (typeCheck(options, 'object')) {
-        const { defaultOpen = true, plugins = Sequence, items } = options;
+        const { defaultOpen = true, showTitle = true, plugins = Sequence, items } = options;
 
         // 字间距特殊逻辑，只有配置这个属性才显示，因为字间距本身有bug，需要特殊实现
         if (options.fontProps) {
@@ -78,6 +79,13 @@ const render = ({ editConfig, projectData }: EditorProps): JSX.Element => {
 
         if (typeof val.styleEditorUnfold !== 'boolean') {
           val.styleEditorUnfold = defaultOpen;
+        }
+
+        if (!showTitle) {
+          title = false
+          if (!defaultOpen) {
+            val.styleEditorUnfold = true
+          }
         }
 
         if (typeCheck(plugins, 'array')) {
@@ -111,9 +119,12 @@ const render = ({ editConfig, projectData }: EditorProps): JSX.Element => {
       });
 
       const length: number = opts.length;
-      const title: string = opts.reduce((f: string, s: string, i: number) => {
-        return f + TitleMap[s.toLocaleUpperCase()] + (i === length - 1 ? '' : ',');
-      }, '');
+
+      if (typeof title === 'string') {
+        title = opts.reduce((f: string, s: string, i: number) => {
+          return f + TitleMap[s.toLocaleUpperCase()] + (i === length - 1 ? '' : ',');
+        }, '');
+      }
 
       next({
         val,
@@ -175,7 +186,7 @@ const render = ({ editConfig, projectData }: EditorProps): JSX.Element => {
   }, []);
 
   const RenderTitle: JSX.Element = useComputed(() => {
-    return (
+    return ctx.title ? (
       <div className={css.titleContainer} style={{ marginBottom: ctx.val.styleEditorUnfold ? 3 : 0 }}>
         <div className={css.title} onClick={ctx.visible}>
           <div>{editConfig.title}</div>
@@ -187,7 +198,7 @@ const render = ({ editConfig, projectData }: EditorProps): JSX.Element => {
           <div onClick={ctx.visible}>{ctx.val.styleEditorUnfold ? <CaretDownOutlined style={{ color: '#555' }} /> : <CaretLeftOutlined style={{ color: '#555' }} />}</div>
         </div>
       </div>
-    );
+    ) : <></>;
   });
 
   const RenderEditors: JSX.Element[] = useMemo(() => {
