@@ -239,7 +239,7 @@ export default function ({ editConfig, env }: any): JSX.Element {
     commentHeight: comments ? 400 : 0,
     icon: 'min',
     iconsVisible: false,
-  },[codeStr]);
+  },[codeStr, options]);
 
   const updateVal = useCallback(
     (val) => {
@@ -363,7 +363,7 @@ export default function ({ editConfig, env }: any): JSX.Element {
                   >
                     <MonacoEditor
                       onMounted={onMonacoMounted}
-                      value={codeStr}
+                      value={model.val}
                       readOnly={readonly}
                       onChange={onChange}
                       {...options}
@@ -427,7 +427,7 @@ export default function ({ editConfig, env }: any): JSX.Element {
         }
       );
     }
-  }, []);
+  }, [model, readonly, comments]);
 
   const onChange: any = useCallback((v: string, e: any) => {
     // model.val = v;
