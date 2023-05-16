@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useCallback } from 'react';
 
 import { Ctx } from '../Style';
 import GreyContainer from './greyContainer';
@@ -6,6 +6,7 @@ import { observe, useObservable } from '@mybricks/rxui';
 
 import css from './index.less';
 import ColorEditor from '../../components/color-editor';
+import { initValues } from '../utils';
 
 // 这种写法看起来只是用作defaultvalue，有感觉有点多余
 class EditCtx {
@@ -44,8 +45,17 @@ const getNewBoxShadow = (model: EditCtx, mergeModel: EditCtx) => {
 export default function () {
   const ctx: Ctx = observe(Ctx, { from: 'parents' });
   const editCtx: EditCtx = useObservable(EditCtx, (next) => {
-    next(getModelFromBoxShadow(ctx.val.boxShadow));
+    const nextValues = initValues({
+      boxShadow: '0px 0px 0px 0px #ffffff'
+    }, ctx.val)
+    next({...getModelFromBoxShadow(nextValues.boxShadow), ...nextValues});
   });
+
+  const handleChange = useCallback((config) => {
+    const value = getNewBoxShadow(editCtx.boxShadow, config)
+    editCtx.boxShadow = value.boxShadow
+    ctx.set(value);
+  }, [])
 
   return (
     <div className={css.editorContainer}>
@@ -54,9 +64,7 @@ export default function () {
         <ColorEditor
           style={{ marginRight: 3, flex: 1 }}
           value={editCtx.color}
-          onChange={(color: string) => {
-            ctx.set(getNewBoxShadow(ctx.val.boxShadow, { color }));
-          }}
+          onChange={(color: string) => handleChange({color})}
         />
         <GreyContainer
           type="input"
@@ -65,11 +73,7 @@ export default function () {
           regexFnKey="number"
           style={{ marginRight: 3, flex: 1 }}
           defaultValue={parseFloat(editCtx.shadowX) || 0}
-          onChange={(shadowX) => {
-            ctx.set(
-              getNewBoxShadow(ctx.val.boxShadow, { shadowX: shadowX + 'px' })
-            );
-          }}
+          onChange={(shadowX) => handleChange({shadowX: shadowX + 'px'})}
         />
         <GreyContainer
           type="input"
@@ -78,11 +82,7 @@ export default function () {
           regexFnKey="number"
           style={{ marginRight: 3, flex: 1 }}
           defaultValue={parseFloat(editCtx.shadowY) || 0}
-          onChange={(shadowY) => {
-            ctx.set(
-              getNewBoxShadow(ctx.val.boxShadow, { shadowY: shadowY + 'px' })
-            );
-          }}
+          onChange={(shadowY) => handleChange({shadowY: shadowY + 'px'})}
         />
         <GreyContainer
           type="input"
@@ -91,9 +91,7 @@ export default function () {
           regexFnKey="number"
           style={{ marginRight: 3, flex: 1 }}
           defaultValue={parseFloat(editCtx.blur) || 0}
-          onChange={(blur) => {
-            ctx.set(getNewBoxShadow(ctx.val.boxShadow, { blur: blur + 'px' }));
-          }}
+          onChange={(blur) => handleChange({blur: blur + 'px'})}
         />
         <GreyContainer
           type="input"
@@ -102,11 +100,7 @@ export default function () {
           regexFnKey="number"
           style={{ marginRight: 3, flex: 1 }}
           defaultValue={parseFloat(editCtx.extend) || 0}
-          onChange={(extend) => {
-            ctx.set(
-              getNewBoxShadow(ctx.val.boxShadow, { extend: extend + 'px' })
-            );
-          }}
+          onChange={(extend) => handleChange({extend: extend + 'px'})}
         />
       </div>
     </div>

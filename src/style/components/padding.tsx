@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 
 import { Ctx } from '../Style';
+import { initValues } from '../utils';
 import GreyContainer from './greyContainer';
 import { observe, useObservable } from '@mybricks/rxui';
 
@@ -16,12 +17,12 @@ class EditCtx {
 export default function () {
   const ctx: Ctx = observe(Ctx, { from: 'parents' });
   const editCtx: EditCtx = useObservable(EditCtx, (next) => {
-    next({
-      paddingTop: ctx.val.paddingTop,
-      paddingBottom: ctx.val.paddingBottom,
-      paddingLeft: ctx.val.paddingLeft,
-      paddingRight: ctx.val.paddingRight,
-    });
+    next(initValues({
+      paddingTop: '0px',
+      paddingBottom: '0px',
+      paddingLeft: '0px',
+      paddingRight: '0px'
+    }, ctx.val));
   });
 
   return (

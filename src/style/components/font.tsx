@@ -6,6 +6,7 @@ import {SelectOptions} from '../types';
 import GreyContainer from './greyContainer';
 import FontLayout from './fontLayout';
 import {FontFamilyOptions} from '../const';
+import { initValues } from '../utils';
 import {observe, useObservable} from '@mybricks/rxui';
 
 import css from './index.less';
@@ -65,15 +66,26 @@ export const Font = function ({hasLetterSpace = false}) {
     //   });
     // }
 
+    const nextValue = initValues({
+      lineHeight: '14px',
+      letterSpacing: '0px',
+      fontSize: '14px',
+      fontWeight: 400,
+      color: '#222222',
+      fontStyle: 'normal',
+      fontFamily: '',
+      textDecoration: 'normal'
+    }, ctx.val);
+
     next({
-      color: ctx.val.color,
-      fontSize: ctx.val.fontSize,
-      fontStyle: ctx.val.fontStyle,
-      textDecoration: ctx.val.textDecoration,
-      fontWeight: ctx.val.fontWeight,
-      fontFamily: ctx.val.fontFamily,
-      lineHeight: ctx.val.lineHeight,
-      letterSpacing: ctx.val.letterSpacing,
+      color: nextValue.color,
+      fontSize: nextValue.fontSize,
+      fontStyle: nextValue.fontStyle,
+      textDecoration: nextValue.textDecoration,
+      fontWeight: nextValue.fontWeight,
+      fontFamily: nextValue.fontFamily,
+      lineHeight: nextValue.lineHeight,
+      letterSpacing: nextValue.letterSpacing,
       fontFamilyOptions: otherOptions.concat(FontFamilyOptions).concat(defaultOptions),
 
       textAlign: ctx.val.textAlign,
@@ -177,7 +189,7 @@ export const Font = function ({hasLetterSpace = false}) {
             type="select"
             optionsKey="textDecoration"
             style={{minWidth: 55, flex: 1, cursor: 'pointer'}}
-            defaultValue={editCtx.fontStyle}
+            defaultValue={editCtx.textDecoration}
             onChange={(value) => {
               ctx.set({textDecoration: value})
             }}

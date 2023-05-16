@@ -1,6 +1,7 @@
 import React from 'react';
 
 import { Ctx } from '../Style';
+import { initValues } from '../utils';
 import GreyContainer from './greyContainer';
 import { observe, useObservable } from '@mybricks/rxui';
 
@@ -44,9 +45,14 @@ const styleKeyAryLength = 2;
 export default function (): JSX.Element {
   const ctx: Ctx = observe(Ctx, { from: 'parents' });
   const editCtx: EditCtx = useObservable(EditCtx, (next) => {
+    const nextValue = initValues({
+      width: 'auto',
+      height: 'auto'
+    }, ctx.val)
+
     next({
-      width: transform(ctx.val.width),
-      height: transform(ctx.val.height),
+      width: transform(nextValue.width),
+      height: transform(nextValue.height),
     });
   });
 

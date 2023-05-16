@@ -6,6 +6,7 @@ import ColorEditor from '../../components/color-editor';
 import { observe, useObservable } from '@mybricks/rxui';
 
 import css from './index.less';
+import { initValues } from '../utils';
 
 // 这种写法看起来只是用作defaultvalue，有感觉有点多余
 class EditCtx {
@@ -42,7 +43,12 @@ const getFromNewShadow = (model: EditCtx, mergeModel: EditCtx) => {
 export default function () {
   const ctx: Ctx = observe(Ctx, { from: 'parents' });
   const editCtx: EditCtx = useObservable(EditCtx, (next) => {
-    next(getModelFromShadow(ctx.val.textShadow));
+
+    const nextValue = initValues({
+      textShadow: '0px 0px 0px #000000'
+    }, ctx.val)
+
+    next(getModelFromShadow(nextValue.textShadow));
   });
 
   return (

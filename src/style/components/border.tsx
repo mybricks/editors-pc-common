@@ -8,6 +8,7 @@ import SettingOutlined from '@ant-design/icons/SettingOutlined';
 import {observe, useComputed, useObservable} from '@mybricks/rxui';
 
 import css from './index.less';
+import { initValues } from '../utils';
 
 /**
  * Radius与位置的对应
@@ -284,11 +285,18 @@ function getStyleConfig(obj: T_StringAnyMap): {
 export default function (): JSX.Element {
   const ctx: Ctx = observe(Ctx, {from: 'parents'});
   const editCtx: EditCtx = useObservable(EditCtx, (next) => {
+    const nextValue = initValues({
+      borderWidth: '0px',
+      borderRadius: '0px',
+      borderStyle: 'solid',
+      borderColor: '#ffffff'
+    }, ctx.val)
+
     const {
       borderConfig,
       borderShowConfigMap,
       defaultBorderStyle
-    } = isDiscardedStyle(ctx.val) ? getDiscardedStyleConfig(ctx.val) : getStyleConfig(ctx.val);
+    } = isDiscardedStyle(nextValue) ? getDiscardedStyleConfig(nextValue) : getStyleConfig(nextValue);
 
     next({
       borderConfig,

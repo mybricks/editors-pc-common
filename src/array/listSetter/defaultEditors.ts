@@ -5,7 +5,7 @@ import EditorTextInput from "./../../textInput"
 import EditorTextArea from "./../../textArea"
 import EditorRadio from "./../../radio"
 import EditorSlider from "./../../slider"
-import Expression from './../../expression'
+import Expression from './../../_expression'
 import EditorValueSelect from './../../valueSelect'
 import EditorCode from './../../jsCoder'
 import EditorImageSelector from "../../imageSelector";

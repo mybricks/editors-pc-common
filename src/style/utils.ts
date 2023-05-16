@@ -49,3 +49,16 @@ export function setBgImage(image: string, background: string): string {
     bgImage: image,
   });
 }
+
+interface AnyObject {
+  [key: string]: any
+}
+
+export function initValues(defaultValue: AnyObject, mergeValue: AnyObject): AnyObject {
+  const result: AnyObject = {}
+  Object.entries(defaultValue).forEach(([key, value]) => {
+    result[key] = mergeValue.hasOwnProperty(key) ? mergeValue[key] : value
+  })
+
+  return result
+}

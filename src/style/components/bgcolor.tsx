@@ -1,12 +1,14 @@
 import React, { useCallback } from 'react';
 
-import { Ctx } from '../Style';
+import { Input } from 'antd';
 import tinycolor from 'tinycolor2';
 import { observe, useObservable } from '@mybricks/rxui';
+
+import { Ctx } from '../Style';
+import { bgParse, initValues } from '../utils';
 import ColorEditor from '../../components/color-editor';
+
 import css from './index.less';
-import { bgParse } from '../utils';
-import { Input } from 'antd';
 
 class EditCtx {
   bgColor!: string;
@@ -42,7 +44,10 @@ const svg = (
 export default function (): JSX.Element {
   const ctx: Ctx = observe(Ctx, { from: 'parents' });
   const editCtx: EditCtx = useObservable(EditCtx, (next) => {
-    const { bgColor = 'transparent' } = bgParse(ctx.val.background);
+    const nextValue = initValues({
+      background: 'url() center top / 100% 100% no-repeat, rgba(255,255,255,1)'
+    }, ctx.val)
+    const { bgColor = 'transparent' } = bgParse(nextValue.background);
     const { hex, alpha, isTheme, isGradient } = getColor(bgColor);
     next({
       bgColor,

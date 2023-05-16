@@ -6,7 +6,7 @@ import React, {
   useState,
 } from 'react';
 import { isValid, safeDecodeURIComponent } from '../utils';
-import { useObservable, getPosition, dragable } from '@mybricks/rxui';
+import { useObservable,useComputed, getPosition, dragable } from '@mybricks/rxui';
 import { FullscreenOutlined } from '@ant-design/icons';
 import MonacoEditor from '@mybricks/code-editor';
 import { transformCodeByBabel } from './utils';
@@ -84,19 +84,6 @@ const getFnString = (fnBody: string, fnParams: string[]) => {
 
 const appendToList = (list: any[], value: string) => {
   list[list.length - 1] = `${list[list.length - 1]}${value}`;
-};
-const getVal = (value: any) => {
-  return isValid(value.get())
-    ? String(
-        safeDecodeURIComponent(
-          `${
-            typeof value.get() === 'string'
-              ? value.get()
-              : value.get()?.code || ''
-          }`
-        )
-      )
-    : '';
 };
 
 const getExtraLibBySchema = (schema: any) => {
@@ -182,13 +169,41 @@ const formatValue = (val: string, options?: any) => {
   return val;
 };
 
+const getComputedValue = (
+  value: string | { code: string; transformCode: string }
+) => {
+  return isValid(value)
+    ? String(
+        safeDecodeURIComponent(
+          `${typeof value === "string" ? value : value?.code || ""}`
+        )
+      )
+    : "";
+};
+
 export default function ({ editConfig, env }: any): JSX.Element {
-  const { value, options = {}, spaCtx } = editConfig;
+  const { value, options = {}, popView } = editConfig;
   const commentRef: any = useRef();
   const editorRef = useRef({});
   const [render, setRender] = useState(0);
 
+  const codeStr = useMemo(() => getComputedValue(value.get()), [value.get()])
   const forceRender = useCallback(() => setRender(Math.random()), []);
+
+  const getVal = useComputed(() => {
+    const val = value.get()
+    return isValid(val)
+      ? String(
+        safeDecodeURIComponent(
+          `${
+            typeof val === 'string'
+              ? val
+              : val?.code || ''
+          }`
+        )
+      )
+      : '';
+  })
 
   useEffect(() => {
     if (options.forceRender) {
@@ -217,14 +232,14 @@ export default function ({ editConfig, env }: any): JSX.Element {
 
   const model: any = useObservable({
     value,
-    val: getVal(value),
+    val: codeStr,
     fullScreen: false,
     width: options.width,
     title: options.title || '编辑代码',
     commentHeight: comments ? 400 : 0,
     icon: 'min',
     iconsVisible: false,
-  });
+  },[codeStr]);
 
   const updateVal = useCallback(
     (val) => {
@@ -274,7 +289,7 @@ export default function ({ editConfig, env }: any): JSX.Element {
   };
 
   const onFormatIconClick = useCallback(() => {
-    editorRef.current?.getAction(['editor.action.formatDocument'])._run();
+    editorRef.current?.getAction?.(['editor.action.formatDocument'])._run();
   }, [editorRef.current]);
 
   const renderToolbar = useMemo(() => {
@@ -330,7 +345,7 @@ export default function ({ editConfig, env }: any): JSX.Element {
   const open = useCallback(() => {
     if (!modalContext.visible) {
       modalContext.visible = true;
-      spaCtx.popView(
+      popView(
         model.title,
         () => {
           return (
@@ -348,7 +363,7 @@ export default function ({ editConfig, env }: any): JSX.Element {
                   >
                     <MonacoEditor
                       onMounted={onMonacoMounted}
-                      value={getVal(value)}
+                      value={codeStr}
                       readOnly={readonly}
                       onChange={onChange}
                       {...options}
@@ -443,7 +458,7 @@ export default function ({ editConfig, env }: any): JSX.Element {
               {fnBodyRender(css['mockFn-header__min'])}
               <MonacoEditor
                 onMounted={onMonacoMounted}
-                value={getVal(value)}
+                value={codeStr}
                 readOnly={readonly}
                 onChange={onChange}
                 {...options}
@@ -462,7 +477,7 @@ export default function ({ editConfig, env }: any): JSX.Element {
         </div>
       </div>
     );
-  }, [modalContext.visible, render]);
+  }, [modalContext.visible, render, model.val]);
 
   return <div className={css['editor-code']}>{RenderInEditView}</div>;
 }

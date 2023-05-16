@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import React from 'react';
 import { InputNumber } from 'antd';
 import { useCallback } from 'react';
 import { useComputed, useObservable } from '@mybricks/rxui';
@@ -26,7 +26,7 @@ function Fn({ options, model }) {
       {options && options.length ? (
         options?.map(
           (
-            { formatter = '', width = 212 / options.length, ...other },
+            { formatter = '', width = 66, ...other },
             index: number
           ) => {
             const defaultConfig = {

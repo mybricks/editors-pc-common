@@ -24,7 +24,7 @@ import EditorMapCheckbox from "./mapCheckbox";
 import { typeCheck } from "./utils";
 import EditorRender from "./editorRender";
 import EditorValueSelect from "./valueSelect";
-import Expression from "./expression";
+import Expression from "./_expression";
 import ComSelector from "./comSelector";
 import EditorLayout from "./layout";
 import EditorStyle from "./style";

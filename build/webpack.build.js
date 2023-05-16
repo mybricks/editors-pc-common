@@ -7,7 +7,7 @@ const { BundleAnalyzerPlugin } = require("webpack-bundle-analyzer");
 module.exports = {
   mode: "production",
   entry: {
-    index: './src/index.tsx'
+    index: './src/index.ts'
   },
   output: {
     path: path.resolve(__dirname, "../lib"),
@@ -20,8 +20,7 @@ module.exports = {
       "react-dom": "react-dom",
       "@mybricks/rxui": "@mybricks/rxui",
       "@ant-design/icons": "@ant-design/icons",
-      antd: "antd",
-      "@mybricks/expression-editor": "CodeEditor"
+      antd: "antd"
     },
   ],
   resolve: {

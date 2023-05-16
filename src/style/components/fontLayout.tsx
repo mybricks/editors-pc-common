@@ -1,5 +1,13 @@
-import React, { CSSProperties, useEffect, useMemo, useState } from 'react'
-import { Tooltip } from 'antd';
+import React, {
+  useMemo,
+  useState,
+  CSSProperties
+} from 'react'
+
+import { Tooltip } from 'antd'
+
+import { useUpdateEffect } from '../../hooks'
+
 import css from './index.less'
 
 interface OptionsItem {
@@ -103,7 +111,7 @@ export default ({ verticalAlign, horizontalAlign, value, onChange }: FontLayout)
     })
   }, [state?.display, state?.flexDirection, state?.justifyContent, state.textAlign])
 
-  useEffect(() => {
+  useUpdateEffect(() => {
     onChange?.(state)
   }, [state])
 
