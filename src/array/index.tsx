@@ -8,15 +8,9 @@ import AryContext from './context';
 export default function ({ editConfig, injectEditors, ...extraContext }: { editConfig: EditConfig }): any {
   const { value, options } = editConfig;
 
-  const model = useObservable(
-    { val: isValid(value.get()) ? value.get() : false, value },
-    [value]
-  );
-
   const updateVal = useCallback((val) => {
-    model.val = val;
-    model.value.set(model.val);
-  }, []);
+    value.set(val);
+  }, [value]);
 
   const opt = useMemo(() => {
     const opt = getOptionsFromEditor(options)
@@ -25,10 +19,11 @@ export default function ({ editConfig, injectEditors, ...extraContext }: { editC
     }
     return opt
   }, [options])
+
   return (
     <AryContext.Provider value={{ injectEditors }}>
       <ListSetter
-        value={model.val}
+        value={isValid(value.get()) ? value.get() : []}
         onChange={updateVal}
         items={opt.items}
         getTitle={opt.getTitle}
