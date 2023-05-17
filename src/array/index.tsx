@@ -9,10 +9,7 @@ export default function ({ editConfig, injectEditors, ...extraContext }: { editC
   const { value, options } = editConfig;
 
   const updateVal = useCallback((val) => {
-    value.set(val.map((t: Record<string, unknown>) => {
-	    const { _id, ...other } = t;
-	    return other;
-    }));
+    value.set(val);
   }, [value]);
 
   const opt = useMemo(() => {

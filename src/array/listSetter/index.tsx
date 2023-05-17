@@ -173,10 +173,7 @@ export default function ({
   }, [])
 	
 	useEffect(() => {
-		const curList = list.map((t) => {
-			const { _id, ...other } = t;
-			return other;
-		});
+		const curList = list;
 		
 		if (JSON.stringify(curList) !== JSON.stringify(value)) {
 			changeFromOuter.current = true;
@@ -196,11 +193,7 @@ export default function ({
       onChange(
         JSON.parse(
           JSON.stringify(
-            list.map((t) => {
-	            const { _id, ...other } = t;
-							
-              return other;
-            })
+            list
           )
         )
       )
