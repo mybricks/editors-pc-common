@@ -29,6 +29,7 @@ import ComSelector from "./comSelector";
 import EditorLayout from "./layout";
 import EditorStyle from "./style";
 import EditorStyleProperties from "./styleProperties";
+import EditorTypeChange from './_typeChange';
 import "./index.less";
 export { config } from "./configProvider";
 
@@ -62,6 +63,7 @@ const PcEditorMap: any = {
   EXPRESSION: Expression,
   COMSELECTOR: ComSelector,
   LAYOUT: EditorLayout,
+  _TYPECHANGE: EditorTypeChange
 };
 
 function PcEditor(props: EditorProps): any {

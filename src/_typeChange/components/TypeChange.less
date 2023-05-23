@@ -1,0 +1,111 @@
+.editor {
+  display: flex;
+  flex-direction: column;
+  font-size: 12px;
+  position: relative;
+  width: 100%;
+  height: 100%;
+
+  .toolbar {
+    height: 45px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    text-align: right;
+    padding-right: 5px;
+    z-index: 1;
+    background: #F7F7F7;
+    border-bottom: 1px solid #DDD;
+
+    button {
+      padding: 3px 10px;
+      border-radius: 3px;
+      margin: 5px 3px;
+      cursor: pointer;
+      box-shadow: 0 1px 4px -1px #777;
+      background: #FFF;
+    }
+  }
+
+  .content {
+    padding-top: 20px;
+    flex: 1;
+    overflow: auto;
+    user-select: text;
+
+    .scroll {
+      position: relative;
+      height: fit-content;
+      min-height: 100%;
+      display: flex;
+      flex-direction: row;
+      justify-content: space-between;
+
+      .relations {
+        pointer-events: none;
+        width: 100%;
+        height: 100%;
+        position: absolute;
+        left: 0;
+        top: 0;
+        overflow: hidden;
+
+        svg {
+          width: 100%;
+          height: 100%;
+
+          polyline {
+            cursor: pointer;
+            stroke: #fa6400;
+            stroke-width: 1px;
+          }
+        }
+
+        .conMenu {
+          display: none;
+          pointer-events: auto;
+          position: absolute;
+          background: #FFF;
+          z-index: 1000;
+          width: 80px;
+          box-shadow: #ccc 1px 2px 6px;
+
+          .menuItem {
+            padding: 5px 8px;
+            cursor: pointer;
+
+            &:hover {
+              background: #F7F7F7;
+            }
+          }
+        }
+      }
+    }
+
+    .mover {
+      background: #FFF;
+      border-radius: 5px;
+      min-height: 25px;
+      outline: 1px solid #fa6400;
+      padding: 5px 8px;
+      position: absolute;
+      z-index: 100;
+      width: fit-content;
+      user-select: none !important;
+    }
+  }
+
+  .desc {
+    height: 100px;
+    padding: 10px;
+    color: #999;
+    background: #FAFAFA;
+    border-top: 1px solid #EEE;
+
+    p {
+      font-style: italic;
+      padding: 0 0 5px 0;
+      margin: 0;
+    }
+  }
+}
