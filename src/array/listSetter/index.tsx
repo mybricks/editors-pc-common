@@ -126,7 +126,7 @@ export default function ({
   const [subFormVisible, setSubFormVisible] = useState(false)
   const listRef = useRef(null)
 	/** 数据变化来自外部 */
-  const changeFromOuter = useRef(true);
+  const changeFromOuter = useRef(false);
 
   const didMount = useRef(false)
 
