@@ -217,7 +217,7 @@ async function upload(file: any, ctx: Ctx) {
     console.log(ctx.upload, 'upload')
 
     if (typeof ctx.upload === 'function') {
-      const url = await ctx.upload([file], {compress: ctx.compress})
+      const [url] = await ctx.upload([file], {compress: ctx.compress})
       ctx.url = url
       ctx.base64 = url
       ctx.imgBlob = file
