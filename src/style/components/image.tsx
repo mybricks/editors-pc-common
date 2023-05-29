@@ -28,6 +28,7 @@ export default function ({
   onChange,
   style = {},
   monitorValue,
+  upload
 }: Props): JSX.Element {
   const imageCtx: ImageCtx = useObservable(ImageCtx, (next) => {
     next({
@@ -65,10 +66,12 @@ export default function ({
       <UploadModal
         type="image/*"
         title="上传图片"
+        upload={upload}
         visible={imageCtx.showUploadModal}
         value={((imageCtx.url || '').match(/url\((.*)\)/) || ['', ''])[1]}
         onOk={(url) => {
-          const imgUrl = `url(${url})`;
+          let finalUrl = typeof url === 'string' ? url : url.url
+          const imgUrl = `url(${finalUrl})`;
           imageCtx.url = imgUrl;
           imageCtx.showUploadModal = false;
           onChange(imgUrl);

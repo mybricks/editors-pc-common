@@ -70,6 +70,7 @@ export default function (): JSX.Element {
             editCtx.backgroundImage = backgroundImage;
             setImage();
           }}
+          upload={ctx.upload}
         />
         <GreyContainer
           label="平铺"

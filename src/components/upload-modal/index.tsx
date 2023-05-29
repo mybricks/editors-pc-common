@@ -33,9 +33,11 @@ export default function UploaderModal({
                                         visible,
                                         onOk,
                                         onCancel,
+                                        upload: PropsUpload
                                       }) {
   const ctx: Ctx = useObservable(Ctx, (next) => {
     next({
+      upload: PropsUpload,
       type,
       title,
       url: '',
@@ -147,6 +149,7 @@ export default function UploaderModal({
               />
             </div>
           )}
+          {ctx.type === 'image/*' && <Switch checked={ctx.compress} onChange={(val) => (ctx.compress = val)} checkedChildren="压缩" unCheckedChildren="原图" style={{ margin: '0 10px' }} />}
           <Button
             style={{width: 70}}
             onClick={() => {
@@ -211,13 +214,24 @@ export default function UploaderModal({
 async function upload(file: any, ctx: Ctx) {
   try {
 
-    const filePath = `images/${uuid()}.png`
+    console.log(ctx.upload, 'upload')
 
-    blobToBase64(file).then(b64 => {
-      ctx.url = filePath
-      ctx.base64 = b64
+    if (typeof ctx.upload === 'function') {
+      const url = await ctx.upload([file], {compress: ctx.compress})
+      ctx.url = url
+      ctx.base64 = url
       ctx.imgBlob = file
-    })
+    } else {
+      const filePath = `images/${uuid()}.png`
+
+      blobToBase64(file).then(b64 => {
+        ctx.url = filePath
+        ctx.base64 = b64
+        ctx.imgBlob = file
+      })
+    }
+
+   
 
     return
   } catch (e) {
