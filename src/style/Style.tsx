@@ -320,6 +320,11 @@ function getStyle(element) {
     fontFamily: computedStyle.fontFamily === bodyStyle.fontFamily ? '' : computedStyle.fontFamily,
     // TODO 拆分
     textDecoration: computedStyle.textDecorationLine === 'none' ? 'normal' : computedStyle.textDecorationLine,
+    textAlign: computedStyle.textAlign,
+    display: computedStyle.display,
+    flexDirection: computedStyle.flexDirection,
+    alignItems: computedStyle.alignItems,
+    justifyContent: computedStyle.justifyContent,
 
     // textShadow
     textShadow: computedStyle.textShadow === 'none' ? `0px 0px 0px ${computedStyle.color}` : computedStyle.textShadow,
