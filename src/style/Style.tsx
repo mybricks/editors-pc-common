@@ -157,7 +157,13 @@ const render = ({ editConfig, projectData = {} }: EditorProps): JSX.Element => {
 
   const Update = useCallback((obj: AnyMap) => {
     ctx.val = { ...ctx.val, ...obj };
-    value.set(ctx.val);
+    if (options?.targetDom) {
+      const { styleEditorUnfold, ...other } = ctx.val
+      value.set(other);
+    } else {
+      value.set(ctx.val);
+    }
+    
   }, []);
 
   const Delete = useCallback((ary: string[]) => {
