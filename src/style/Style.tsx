@@ -392,7 +392,7 @@ function getStyle(element) {
     }
     if (borderRadius) {
       // value.borderRadius = borderRadius
-      value.borderRadius = `${style.borderTopRadius} ${style.borderRightRadius} ${style.borderBottomRadius} ${style.borderLeftRadius}`
+      value.borderRadius = `${style.borderTopLeftRadius} ${style.borderTopRightRadius} ${style.borderBottomRightRadius} ${style.borderBottomLeftRadius}`
     }
     if (borderStyle) {
       // value.borderStyle = borderStyle
