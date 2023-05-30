@@ -72,7 +72,6 @@ const render = ({ editConfig, projectData = {} }: EditorProps): JSX.Element => {
       } else if (typeCheck(options, 'object')) {
         const { defaultOpen = true, showTitle = true, plugins = Sequence, items, targetDom } = options
 
-        console.log('style editor targetDom: ', targetDom)
         if (targetDom) {
           val = Object.assign(getStyle(targetDom), val)
         }
