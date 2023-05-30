@@ -163,7 +163,6 @@ const render = ({ editConfig, projectData = {} }: EditorProps): JSX.Element => {
     } else {
       value.set(ctx.val);
     }
-    
   }, []);
 
   const Delete = useCallback((ary: string[]) => {
@@ -172,7 +171,12 @@ const render = ({ editConfig, projectData = {} }: EditorProps): JSX.Element => {
       delete config[key];
     });
     ctx.val = config;
-    value.set(ctx.val);
+    if (options?.targetDom) {
+      const { styleEditorUnfold, ...other } = ctx.val
+      value.set(other);
+    } else {
+      value.set(ctx.val);
+    }
   }, []);
 
   const updateBgColor = useCallback((color: string) => {
@@ -181,7 +185,12 @@ const render = ({ editConfig, projectData = {} }: EditorProps): JSX.Element => {
       ...ctx.val,
       background: setBgColor(color, ctx.val.background),
     };
-    value.set(ctx.val);
+    if (options?.targetDom) {
+      const { styleEditorUnfold, ...other } = ctx.val
+      value.set(other);
+    } else {
+      value.set(ctx.val);
+    }
   }, []);
 
   const updateBgImage = useCallback((image: string) => {
@@ -193,7 +202,12 @@ const render = ({ editConfig, projectData = {} }: EditorProps): JSX.Element => {
       ...ctx.val,
       background: setBgImage(image, ctx.val.background),
     };
-    value.set(ctx.val);
+    if (options?.targetDom) {
+      const { styleEditorUnfold, ...other } = ctx.val
+      value.set(other);
+    } else {
+      value.set(ctx.val);
+    }
   }, []);
 
   const RenderTitle: JSX.Element = useComputed(() => {
