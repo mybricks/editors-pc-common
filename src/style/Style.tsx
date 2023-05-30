@@ -10,7 +10,7 @@ import { TitleMap, Sequence } from './const';
 import { useComputed, useObservable } from '@mybricks/rxui';
 
 import {
-  // Size,
+  Size,
   Padding,
   Shadow,
   TextShadow,
@@ -38,7 +38,7 @@ export class Ctx {
 }
 
 const EditorsMap: {
-  // SIZE: () => JSX.Element;
+  SIZE: () => JSX.Element;
   PADDING: () => JSX.Element;
   FONT: () => JSX.Element;
   BORDER: () => JSX.Element;
@@ -46,7 +46,7 @@ const EditorsMap: {
   BGIMAGE: () => JSX.Element;
   [key: string]: () => JSX.Element;
 } = {
-  // SIZE: Size,
+  SIZE: Size,
   PADDING: Padding,
   FONT: Font,
   BORDER: Border,
@@ -122,6 +122,10 @@ const render = ({ editConfig, projectData = {} }: EditorProps): JSX.Element => {
       opts = Sequence.filter((i) => {
         return opts.find((o: string) => typeof o === 'string' && o.toLocaleUpperCase() === i);
       });
+
+      if (options?.targetDom) {
+        opts = opts.filter(opt => opt !== 'SIZE')
+      }
 
       const length: number = opts.length;
 
