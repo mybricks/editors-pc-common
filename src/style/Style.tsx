@@ -330,7 +330,8 @@ function getStyle(element) {
     justifyContent: computedStyle.justifyContent,
 
     // textShadow
-    textShadow: computedStyle.textShadow === 'none' ? `0px 0px 0px ${computedStyle.color}` : computedStyle.textShadow,
+    // textShadow: computedStyle.textShadow === 'none' ? `0px 0px 0px ${computedStyle.color}` : computedStyle.textShadow,
+    textShadow: computedStyle.textShadow,
 
     // border
     borderWidth: `${computedStyle.borderTopWidth} ${computedStyle.borderRightWidth} ${computedStyle.borderBottomWidth} ${computedStyle.borderLeftWidth}`,
