@@ -91,7 +91,8 @@ export function TypeChange ({
   
   const handleConfirmClick = useCallback(() => {
     if (conAry && conAry.length > 0) {
-      let script = transScript.toString()
+      // let script = transScript.toString()
+      let script = transScript
 
       script = script.replaceAll(`__XPATH_ARRAY__`, XPATH_ARRAY)
       script = script.replaceAll(/['"]__cons__['"]/gi, JSON.stringify(conAry))

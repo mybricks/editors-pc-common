@@ -379,220 +379,436 @@ export function eventOperation (callback: Function) {
 }
 
 // TODO: script 模版
-export function transScript() {
-  return function (oriVal) {
-    const cons = '__cons__'
-    const toSchema = '__toSchema__' as any
+// export function transScript() {
+//   return function (oriVal) {
+//     const cons = '__cons__'
+//     const toSchema = '__toSchema__' as any
 
-    function getValInFrom(xpath, fromVal) {
-      const ary = xpath.split('/')
-      let tv = fromVal
-      ary.forEach(now => {
-        if (now !== '') {
-          if (tv === void 0 || typeof tv !== 'object' || Array.isArray(tv)) {
-            throw new Error('Invalid datasource type in ' + xpath)
-          }
-          tv = tv[now]
-        }
-      })
+//     function getValInFrom(xpath, fromVal) {
+//       const ary = xpath.split('/')
+//       let tv = fromVal
+//       ary.forEach(now => {
+//         if (now !== '') {
+//           if (tv === void 0 || typeof tv !== 'object' || Array.isArray(tv)) {
+//             throw new Error('Invalid datasource type in ' + xpath)
+//           }
+//           tv = tv[now]
+//         }
+//       })
 
-      return tv
-    }
+//       return tv
+//     }
 
-    function transVal(val, schema) {
-      if (schema.type.match(/object|array/)) {
-        return val
-      } else if (val === void 0 || val === null) {
-        return val
-      } else if (schema.type === 'boolean') {
-        if (typeof val === 'boolean') {
-          return val
-        } else if (typeof val === 'number') {
-          return !!val
-        } else if (typeof val === 'string') {
-          return true
-        } else {
-          return false
+//     function transVal(val, schema) {
+//       if (schema.type.match(/object|array/)) {
+//         return val
+//       } else if (val === void 0 || val === null) {
+//         return val
+//       } else if (schema.type === 'boolean') {
+//         if (typeof val === 'boolean') {
+//           return val
+//         } else if (typeof val === 'number') {
+//           return !!val
+//         } else if (typeof val === 'string') {
+//           return true
+//         } else {
+//           return false
+//         }
+//       } else if (schema.type === 'number') {
+//         if (typeof val === 'number') {
+//           return val
+//         } else if (typeof val === 'boolean') {
+//           return val ? 1 : 0
+//         } else {
+//           return 0
+//         }
+//       } else if (schema.type === 'string') {
+//         if (typeof val === 'string') {
+//           return val
+//         } else if (typeof val == 'boolean' || typeof val == 'boolean') {
+//           return String(val)
+//         } else {
+//           return val
+//         }
+//       }
+//       return val
+//     }
+
+//     function proAry({key, schema, xpath}) {
+//       let con = cons.find(con => con.to === xpath)
+//       if (con) {
+//         //return getValInFrom(xpath, oriVal)///TODO Test
+//         return getValInFrom(con.from, oriVal)
+//       }
+
+//       let oriAryVal
+
+//       //if (items.type === 'object') {//found in sub type
+//       const nXpath = xpath + '/__XPATH_ARRAY__'
+//       con = cons.find(con => con.to === nXpath)
+//       if (con) {//直接对应的情况
+//         const fromAryPath = con.from.substring(0, con.from.lastIndexOf('/__XPATH_ARRAY__'))
+//         if (fromAryPath !== '') {
+//           oriAryVal = getValInFrom(fromAryPath, oriVal)
+//           if (oriAryVal && !Array.isArray(oriAryVal)) {
+//             throw new Error(con.from + ' is not array.')
+//           }
+
+//           return oriAryVal
+//         } else {//oriVal是数组的情况
+//           const rtn = []
+//           const tpath = con.from.substring('/__XPATH_ARRAY__'.length)
+//           oriVal.forEach(oriVal => {
+//             rtn.push(getValInFrom(tpath, oriVal))
+//           })
+
+//           return rtn
+//         }
+//       }
+
+//       const items = schema.items
+//       if (items.type === 'object') {//found in sub type
+//         const props = items.properties, keys = Object.keys(props)
+//         if (keys.length > 0) {
+//           keys.find(key => {
+//             const nXpath = xpath + '/__XPATH_ARRAY__/' + key
+//             const con = cons.find(con => con.to === nXpath)
+
+//             if (con) {
+//               const fromAryPath = con.from.substring(0, con.from.lastIndexOf('/__XPATH_ARRAY__'))
+//               oriAryVal = getValInFrom(fromAryPath, oriVal)
+
+//               if (oriAryVal && !Array.isArray(oriAryVal)) {
+//                 throw new Error(con.from + ' is not array.')
+//               }
+//               return true
+//             } else {
+//               // debugger
+//               // throw new Error(nXpath + ' not found.')
+//             }
+//           })
+//         }
+
+//         if (oriAryVal) {
+//           const rtn = []
+//           oriAryVal.forEach(oriVal => {
+//             const tObj = {}
+//             for (let pro in props) {
+//               const nXpath = xpath + '/__XPATH_ARRAY__/' + pro
+//               const con = cons.find(con => con.to === nXpath)
+//               if (con) {
+//                 const subPath = con.from.substring(con.from.lastIndexOf('/__XPATH_ARRAY__') + '/__XPATH_ARRAY__/'.length)
+//                 const tVal = getValInFrom(subPath, oriVal)
+
+//                 tObj[pro] = transVal(tVal, props[pro])
+//               } else {
+//                 const nSchema = props[pro]
+//                 if (nSchema.type === 'object') {
+//                   const tVal = proObj({schema: nSchema, xpath: nXpath, curValInAry: oriVal})
+//                   tObj[pro] = transVal(tVal, nSchema)
+//                 } else if (nSchema.type === 'array') {
+//                   const tVal = proAry({schema: nSchema, xpath: nXpath})
+//                   tObj[pro] = transVal(tVal, nSchema)
+//                 } else {
+//                   // debugger
+//                   // throw new Error(nXpath + ' not found.')
+//                 }
+//               }
+//             }
+//             rtn.push(tObj)
+//           })
+
+//           return rtn
+//         }
+//       }
+//     }
+
+//     function proItem({schema, xpath}) {
+//       const con = cons.find(con => con.to === xpath)
+//       if (con) {
+//         const val = getValInFrom(con.from, oriVal)
+//         return transVal(val, schema)
+//       } else {
+//         //debugger
+//         throw new Error(xpath + ' not found')
+//       }
+//     }
+
+//     function proObj({key, schema, xpath, curValInAry}) {
+//       const obj = {}
+
+//       const con = cons.find(con => con.to === xpath)
+//       if (con) {//直接对应的情况
+//         const fromPath = con.from
+//         const oriAryVal = getValInFrom(fromPath, oriVal)
+//         if (oriAryVal && typeof oriAryVal !== 'object') {
+//           throw new Error(con.from + ' is not object.')
+//         }
+//         return oriAryVal
+//       }
+
+//       const props = schema.properties
+//       for (let nm in props) {
+//         const kv = props[nm]
+
+//         if (curValInAry) {
+//           const nXpath = xpath + '/' + nm
+//           const con = cons.find(con => con.to === nXpath)
+//           if (con) {
+//             const subPath = con.from.substring(con.from.lastIndexOf('/__XPATH_ARRAY__') + '/__XPATH_ARRAY__/'.length)
+//             const tVal = getValInFrom(subPath, curValInAry)
+
+//             obj[nm] = transVal(tVal, kv)
+//           } else {
+//             //debugger
+//             throw new Error(nXpath + ' not found')
+//           }
+//         } else {
+//           const nXpath = xpath + '/' + nm
+//           const con = cons.find(con => con.to === nXpath)
+//           let val
+//           if (con) {
+//             val = getValInFrom(con.from, oriVal)
+//             obj[nm] = transVal(val, kv)
+//           } else {
+//             if (kv.type === 'object') {
+//               const val = proObj({schema: kv, xpath: nXpath})
+//               obj[nm] = transVal(val, kv)
+//             } else if (kv.type === 'array') {
+//               const val = proAry({schema: kv, xpath: nXpath})
+//               obj[nm] = transVal(val, kv)
+//             } else {
+//               obj[nm] = transVal(undefined, kv)
+//             }
+//           }
+//         }
+//       }
+
+//       return obj
+//     }
+
+//     if (toSchema.type === 'object') {
+//       return proObj({schema: toSchema, xpath: ''})
+//     } else if (toSchema.type === 'array') {
+//       return proAry({schema: toSchema, xpath: ''})
+//     } else {
+//       return proItem({schema: toSchema, xpath: ''})
+//     }
+//   }
+// }
+
+export const transScript = `return function (oriVal) {
+  const cons = '__cons__'
+  const toSchema = '__toSchema__'
+
+  function getValInFrom(xpath, fromVal) {
+    const ary = xpath.split('/')
+    let tv = fromVal
+    ary.forEach(now => {
+      if (now !== '') {
+        if (tv === void 0 || typeof tv !== 'object' || Array.isArray(tv)) {
+          throw new Error('Invalid datasource type in ' + xpath)
         }
-      } else if (schema.type === 'number') {
-        if (typeof val === 'number') {
-          return val
-        } else if (typeof val === 'boolean') {
-          return val ? 1 : 0
-        } else {
-          return 0
-        }
-      } else if (schema.type === 'string') {
-        if (typeof val === 'string') {
-          return val
-        } else if (typeof val == 'boolean' || typeof val == 'boolean') {
-          return String(val)
-        } else {
-          return val
-        }
+        tv = tv[now]
       }
+    })
+
+    return tv
+  }
+
+  function transVal(val, schema) {
+    if (schema.type.match(/object|array/)) {
       return val
-    }
-
-    function proAry({key, schema, xpath}) {
-      let con = cons.find(con => con.to === xpath)
-      if (con) {
-        //return getValInFrom(xpath, oriVal)///TODO Test
-        return getValInFrom(con.from, oriVal)
-      }
-
-      let oriAryVal
-
-      //if (items.type === 'object') {//found in sub type
-      const nXpath = xpath + '/__XPATH_ARRAY__'
-      con = cons.find(con => con.to === nXpath)
-      if (con) {//直接对应的情况
-        const fromAryPath = con.from.substring(0, con.from.lastIndexOf('/__XPATH_ARRAY__'))
-        if (fromAryPath !== '') {
-          oriAryVal = getValInFrom(fromAryPath, oriVal)
-          if (oriAryVal && !Array.isArray(oriAryVal)) {
-            throw new Error(con.from + ' is not array.')
-          }
-
-          return oriAryVal
-        } else {//oriVal是数组的情况
-          const rtn = []
-          const tpath = con.from.substring('/__XPATH_ARRAY__'.length)
-          oriVal.forEach(oriVal => {
-            rtn.push(getValInFrom(tpath, oriVal))
-          })
-
-          return rtn
-        }
-      }
-
-      const items = schema.items
-      if (items.type === 'object') {//found in sub type
-        const props = items.properties, keys = Object.keys(props)
-        if (keys.length > 0) {
-          keys.find(key => {
-            const nXpath = xpath + '/__XPATH_ARRAY__/' + key
-            const con = cons.find(con => con.to === nXpath)
-
-            if (con) {
-              const fromAryPath = con.from.substring(0, con.from.lastIndexOf('/__XPATH_ARRAY__'))
-              oriAryVal = getValInFrom(fromAryPath, oriVal)
-
-              if (oriAryVal && !Array.isArray(oriAryVal)) {
-                throw new Error(con.from + ' is not array.')
-              }
-              return true
-            } else {
-              // debugger
-              // throw new Error(nXpath + ' not found.')
-            }
-          })
-        }
-
-        if (oriAryVal) {
-          const rtn = []
-          oriAryVal.forEach(oriVal => {
-            const tObj = {}
-            for (let pro in props) {
-              const nXpath = xpath + '/__XPATH_ARRAY__/' + pro
-              const con = cons.find(con => con.to === nXpath)
-              if (con) {
-                const subPath = con.from.substring(con.from.lastIndexOf('/__XPATH_ARRAY__') + '/__XPATH_ARRAY__/'.length)
-                const tVal = getValInFrom(subPath, oriVal)
-
-                tObj[pro] = transVal(tVal, props[pro])
-              } else {
-                const nSchema = props[pro]
-                if (nSchema.type === 'object') {
-                  const tVal = proObj({schema: nSchema, xpath: nXpath, curValInAry: oriVal})
-                  tObj[pro] = transVal(tVal, nSchema)
-                } else if (nSchema.type === 'array') {
-                  const tVal = proAry({schema: nSchema, xpath: nXpath})
-                  tObj[pro] = transVal(tVal, nSchema)
-                } else {
-                  // debugger
-                  // throw new Error(nXpath + ' not found.')
-                }
-              }
-            }
-            rtn.push(tObj)
-          })
-
-          return rtn
-        }
-      }
-    }
-
-    function proItem({schema, xpath}) {
-      const con = cons.find(con => con.to === xpath)
-      if (con) {
-        const val = getValInFrom(con.from, oriVal)
-        return transVal(val, schema)
+    } else if (val === void 0 || val === null) {
+      return val
+    } else if (schema.type === 'boolean') {
+      if (typeof val === 'boolean') {
+        return val
+      } else if (typeof val === 'number') {
+        return !!val
+      } else if (typeof val === 'string') {
+        return true
       } else {
-        //debugger
-        throw new Error(xpath + ' not found')
+        return false
+      }
+    } else if (schema.type === 'number') {
+      if (typeof val === 'number') {
+        return val
+      } else if (typeof val === 'boolean') {
+        return val ? 1 : 0
+      } else {
+        return 0
+      }
+    } else if (schema.type === 'string') {
+      if (typeof val === 'string') {
+        return val
+      } else if (typeof val == 'boolean' || typeof val == 'boolean') {
+        return String(val)
+      } else {
+        return val
+      }
+    }
+    return val
+  }
+
+  function proAry({key, schema, xpath}) {
+    let con = cons.find(con => con.to === xpath)
+    if (con) {
+      //return getValInFrom(xpath, oriVal)///TODO Test
+      return getValInFrom(con.from, oriVal)
+    }
+
+    let oriAryVal
+
+    //if (items.type === 'object') {//found in sub type
+    const nXpath = xpath + '/__XPATH_ARRAY__'
+    con = cons.find(con => con.to === nXpath)
+    if (con) {//直接对应的情况
+      const fromAryPath = con.from.substring(0, con.from.lastIndexOf('/__XPATH_ARRAY__'))
+      if (fromAryPath !== '') {
+        oriAryVal = getValInFrom(fromAryPath, oriVal)
+        if (oriAryVal && !Array.isArray(oriAryVal)) {
+          throw new Error(con.from + ' is not array.')
+        }
+
+        return oriAryVal
+      } else {//oriVal是数组的情况
+        const rtn = []
+        const tpath = con.from.substring('/__XPATH_ARRAY__'.length)
+        oriVal.forEach(oriVal => {
+          rtn.push(getValInFrom(tpath, oriVal))
+        })
+
+        return rtn
       }
     }
 
-    function proObj({key, schema, xpath, curValInAry}) {
-      const obj = {}
+    const items = schema.items
+    if (items.type === 'object') {//found in sub type
+      const props = items.properties, keys = Object.keys(props)
+      if (keys.length > 0) {
+        keys.find(key => {
+          const nXpath = xpath + '/__XPATH_ARRAY__/' + key
+          const con = cons.find(con => con.to === nXpath)
 
-      const con = cons.find(con => con.to === xpath)
-      if (con) {//直接对应的情况
-        const fromPath = con.from
-        const oriAryVal = getValInFrom(fromPath, oriVal)
-        if (oriAryVal && typeof oriAryVal !== 'object') {
-          throw new Error(con.from + ' is not object.')
-        }
-        return oriAryVal
+          if (con) {
+            const fromAryPath = con.from.substring(0, con.from.lastIndexOf('/__XPATH_ARRAY__'))
+            oriAryVal = getValInFrom(fromAryPath, oriVal)
+
+            if (oriAryVal && !Array.isArray(oriAryVal)) {
+              throw new Error(con.from + ' is not array.')
+            }
+            return true
+          } else {
+            // debugger
+            // throw new Error(nXpath + ' not found.')
+          }
+        })
       }
 
-      const props = schema.properties
-      for (let nm in props) {
-        const kv = props[nm]
+      if (oriAryVal) {
+        const rtn = []
+        oriAryVal.forEach(oriVal => {
+          const tObj = {}
+          for (let pro in props) {
+            const nXpath = xpath + '/__XPATH_ARRAY__/' + pro
+            const con = cons.find(con => con.to === nXpath)
+            if (con) {
+              const subPath = con.from.substring(con.from.lastIndexOf('/__XPATH_ARRAY__') + '/__XPATH_ARRAY__/'.length)
+              const tVal = getValInFrom(subPath, oriVal)
 
-        if (curValInAry) {
-          const nXpath = xpath + '/' + nm
-          const con = cons.find(con => con.to === nXpath)
-          if (con) {
-            const subPath = con.from.substring(con.from.lastIndexOf('/__XPATH_ARRAY__') + '/__XPATH_ARRAY__/'.length)
-            const tVal = getValInFrom(subPath, curValInAry)
-
-            obj[nm] = transVal(tVal, kv)
-          } else {
-            //debugger
-            throw new Error(nXpath + ' not found')
-          }
-        } else {
-          const nXpath = xpath + '/' + nm
-          const con = cons.find(con => con.to === nXpath)
-          let val
-          if (con) {
-            val = getValInFrom(con.from, oriVal)
-            obj[nm] = transVal(val, kv)
-          } else {
-            if (kv.type === 'object') {
-              const val = proObj({schema: kv, xpath: nXpath})
-              obj[nm] = transVal(val, kv)
-            } else if (kv.type === 'array') {
-              const val = proAry({schema: kv, xpath: nXpath})
-              obj[nm] = transVal(val, kv)
+              tObj[pro] = transVal(tVal, props[pro])
             } else {
-              obj[nm] = transVal(undefined, kv)
+              const nSchema = props[pro]
+              if (nSchema.type === 'object') {
+                const tVal = proObj({schema: nSchema, xpath: nXpath, curValInAry: oriVal})
+                tObj[pro] = transVal(tVal, nSchema)
+              } else if (nSchema.type === 'array') {
+                const tVal = proAry({schema: nSchema, xpath: nXpath})
+                tObj[pro] = transVal(tVal, nSchema)
+              } else {
+                // debugger
+                // throw new Error(nXpath + ' not found.')
+              }
             }
           }
-        }
+          rtn.push(tObj)
+        })
+
+        return rtn
       }
-
-      return obj
-    }
-
-    if (toSchema.type === 'object') {
-      return proObj({schema: toSchema, xpath: ''})
-    } else if (toSchema.type === 'array') {
-      return proAry({schema: toSchema, xpath: ''})
-    } else {
-      return proItem({schema: toSchema, xpath: ''})
     }
   }
-}
+
+  function proItem({schema, xpath}) {
+    const con = cons.find(con => con.to === xpath)
+    if (con) {
+      const val = getValInFrom(con.from, oriVal)
+      return transVal(val, schema)
+    } else {
+      //debugger
+      throw new Error(xpath + ' not found')
+    }
+  }
+
+  function proObj({key, schema, xpath, curValInAry}) {
+    const obj = {}
+
+    const con = cons.find(con => con.to === xpath)
+    if (con) {//直接对应的情况
+      const fromPath = con.from
+      const oriAryVal = getValInFrom(fromPath, oriVal)
+      if (oriAryVal && typeof oriAryVal !== 'object') {
+        throw new Error(con.from + ' is not object.')
+      }
+      return oriAryVal
+    }
+
+    const props = schema.properties
+    for (let nm in props) {
+      const kv = props[nm]
+
+      if (curValInAry) {
+        const nXpath = xpath + '/' + nm
+        const con = cons.find(con => con.to === nXpath)
+        if (con) {
+          const subPath = con.from.substring(con.from.lastIndexOf('/__XPATH_ARRAY__') + '/__XPATH_ARRAY__/'.length)
+          const tVal = getValInFrom(subPath, curValInAry)
+
+          obj[nm] = transVal(tVal, kv)
+        } else {
+          //debugger
+          throw new Error(nXpath + ' not found')
+        }
+      } else {
+        const nXpath = xpath + '/' + nm
+        const con = cons.find(con => con.to === nXpath)
+        let val
+        if (con) {
+          val = getValInFrom(con.from, oriVal)
+          obj[nm] = transVal(val, kv)
+        } else {
+          if (kv.type === 'object') {
+            const val = proObj({schema: kv, xpath: nXpath})
+            obj[nm] = transVal(val, kv)
+          } else if (kv.type === 'array') {
+            const val = proAry({schema: kv, xpath: nXpath})
+            obj[nm] = transVal(val, kv)
+          } else {
+            obj[nm] = transVal(undefined, kv)
+          }
+        }
+      }
+    }
+
+    return obj
+  }
+
+  if (toSchema.type === 'object') {
+    return proObj({schema: toSchema, xpath: ''})
+  } else if (toSchema.type === 'array') {
+    return proAry({schema: toSchema, xpath: ''})
+  } else {
+    return proItem({schema: toSchema, xpath: ''})
+  }
+}}`
