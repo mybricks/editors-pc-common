@@ -458,7 +458,7 @@ export default function ({ editConfig, env }: any): JSX.Element {
               {fnBodyRender(css['mockFn-header__min'])}
               <MonacoEditor
                 onMounted={onMonacoMounted}
-                value={codeStr}
+                value={model.val}
                 readOnly={readonly}
                 onChange={onChange}
                 {...options}

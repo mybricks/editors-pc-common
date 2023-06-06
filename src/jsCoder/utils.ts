@@ -10,16 +10,16 @@ const transformCodeByBabel = (val: string, props?: Props) => {
     errorCallback,
     babelInstance = (window as any)?.Babel
   } = props || {};
-  if (
-    typeof babelInstance?.transform !== 'function' ||
-    typeof val !== 'string'
-  ) {
-    return val;
-  }
   const res = {
     code: val,
     transformCode: ''
   };
+  if (
+    typeof babelInstance?.transform !== 'function' ||
+    typeof val !== 'string'
+  ) {
+    return res;
+  }
   try {
     let temp = decodeURIComponent(val);
     if (/export\s+default.*async.*function.*\(/g.test(temp)) {
@@ -48,7 +48,7 @@ const transformCodeByBabel = (val: string, props?: Props) => {
     if (typeof errorCallback === 'function') {
       errorCallback(e);
     }
-    return val;
+    return res;
   }
   return res;
 };
