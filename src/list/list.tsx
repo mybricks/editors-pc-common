@@ -105,6 +105,11 @@ export default function ({ editConfig }): any {
     return () => {
       const newList = model.val;
       const oldList = value.get();
+			
+			/** 当前值未变更，value.get() 获取到的值非数组 */
+			if (!newList?.length && !Array.isArray(oldList)) {
+				return;
+			}
 
       if (!Array.isArray(newList) || !Array.isArray(oldList)) {
         update();
