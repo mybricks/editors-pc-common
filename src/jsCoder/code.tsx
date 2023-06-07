@@ -186,10 +186,7 @@ export default function ({ editConfig, env }: any): JSX.Element {
   const commentRef: any = useRef();
   const editorRef = useRef<MonacoEditor>();
   const [render, setRender] = useState(0);
-
   const codeStr = useMemo(() => getComputedValue(value.get()), [value.get()])
-
-  console.log('--------render---------', value.get())
   const forceRender = useCallback(() => setRender(Math.random()), []);
 
   const getVal = useComputed(() => {
