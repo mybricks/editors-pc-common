@@ -22,7 +22,7 @@ import {
 } from './iconList'
 
 const { Search } = Input;
-const IconList = Object.keys(icons).filter(key => key.endsWith('ed'));
+const IconList = Object.keys(icons??{}).filter(key => key.endsWith('ed'));
 
 const Icon = (props: any) => {
   const {
