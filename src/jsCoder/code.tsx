@@ -184,10 +184,12 @@ const getComputedValue = (
 export default function ({ editConfig, env }: any): JSX.Element {
   const { value, options = {}, popView } = editConfig;
   const commentRef: any = useRef();
-  const editorRef = useRef({});
+  const editorRef = useRef<MonacoEditor>();
   const [render, setRender] = useState(0);
 
   const codeStr = useMemo(() => getComputedValue(value.get()), [value.get()])
+
+  console.log('--------render---------', value.get())
   const forceRender = useCallback(() => setRender(Math.random()), []);
 
   const getVal = useComputed(() => {
@@ -258,6 +260,7 @@ export default function ({ editConfig, env }: any): JSX.Element {
   };
 
   const onClose = () => {
+    updateVal(editorRef.current?.getValue())
     model.iconsVisible = false;
     modalContext.visible = false;
   };
@@ -421,9 +424,7 @@ export default function ({ editConfig, env }: any): JSX.Element {
           );
         },
         {
-          onClose() {
-            onClose();
-          },
+          onClose,
         }
       );
     }
