@@ -165,7 +165,9 @@ const formatValue = (val: string, options?: any) => {
       ),
       code: encodeURIComponent(val),
     };
-  } catch (e) {}
+  } catch (e) {
+    console.error('[format code error]:', e)
+  }
   return val;
 };
 
