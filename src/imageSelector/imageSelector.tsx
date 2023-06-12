@@ -222,6 +222,7 @@ export default function ({ editConfig }: EditorProps): any {
         onCancel={() => {
           modalContext.visible = false;
         }}
+        upload={editConfig.upload}
       />
     </div>
   );
