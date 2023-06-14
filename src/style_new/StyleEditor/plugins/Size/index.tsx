@@ -39,8 +39,13 @@ interface SizeProps {
   }
 }
 
-export function Size ({value, onChange, config}: SizeProps) {
+const DEFAULT_CONFIG = {
+  disableWidth: false,
+  disableHeight: false
+}
 
+export function Size ({value, onChange, config}: SizeProps) {
+  const [cfg] = useState(Object.assign(DEFAULT_CONFIG, config))
   const [{widthUnit, heightUnit}, setUnits] = useState(getUnits(value))
   const [inputValue, handleChange] = useInputNumberObject({width: value.width, height: value.height}, ({key, value}) => {
     onChange({key, value: WHITELIST_VALUES.includes(value) ? value : value + (key === 'width' ? widthUnit : heightUnit)})
@@ -62,36 +67,40 @@ export function Size ({value, onChange, config}: SizeProps) {
   return (
     <Panel title='尺寸'>
       <Panel.Content>
-        <Input
-          prefix={<WidthOutlined />}
-          suffix={(
-            <Select
-              style={{padding: 0}}
-              defaultValue={widthUnit}
-              options={UNIT_OPTIONS}
-              showIcon={false}
-              onChange={(value) => handleSuffixChange({key: 'widthUnit', value})}
-            />
-          )}
-          value={inputValue.width}
-          disabled={WHITELIST_VALUES.includes(widthUnit)}
-          onChange={(value) => handleChange({key: 'width', value})}
-        />
-        <Input
-          prefix={<HeightOutlined />}
-          suffix={(
-            <Select
-              style={{padding: 0}}
-              defaultValue={heightUnit}
-              options={UNIT_OPTIONS}
-              showIcon={false}
-              onChange={(value) => handleSuffixChange({key: 'heightUnit', value})}
-            />
-          )}
-          value={inputValue.height}
-          disabled={WHITELIST_VALUES.includes(heightUnit)}
-          onChange={(value) => handleChange({key: 'height', value})}
-        />
+        {cfg.disableWidth ? null : (
+          <Input
+            prefix={<WidthOutlined />}
+            suffix={(
+              <Select
+                style={{padding: 0}}
+                defaultValue={widthUnit}
+                options={UNIT_OPTIONS}
+                showIcon={false}
+                onChange={(value) => handleSuffixChange({key: 'widthUnit', value})}
+              />
+            )}
+            value={inputValue.width}
+            disabled={WHITELIST_VALUES.includes(widthUnit)}
+            onChange={(value) => handleChange({key: 'width', value})}
+          />
+        )}
+        {cfg.disableHeight ? null : (
+          <Input
+            prefix={<HeightOutlined />}
+            suffix={(
+              <Select
+                style={{padding: 0}}
+                defaultValue={heightUnit}
+                options={UNIT_OPTIONS}
+                showIcon={false}
+                onChange={(value) => handleSuffixChange({key: 'heightUnit', value})}
+              />
+            )}
+            value={inputValue.height}
+            disabled={WHITELIST_VALUES.includes(heightUnit)}
+            onChange={(value) => handleChange({key: 'height', value})}
+          />
+        )}
       </Panel.Content>
     </Panel>
   )

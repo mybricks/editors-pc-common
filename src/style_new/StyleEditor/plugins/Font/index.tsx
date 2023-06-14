@@ -1,4 +1,4 @@
-import React, { useCallback, CSSProperties } from 'react'
+import React, { useState, useCallback, CSSProperties } from 'react'
 
 import {
   Input,
@@ -39,7 +39,12 @@ const FONT_WEIGHT_OPTIONS = [
   {label: '特粗', value: '900'}
 ]
 
+const DEFAULT_CONFIG = {
+  disableTextAlign: false
+}
+
 export function Font ({value, onChange, config}: FontProps) {
+  const [cfg] = useState(Object.assign(DEFAULT_CONFIG, config))
   const [fontSize, handleFontSizeChange] = useInputNumber(value.fontSize, (value) => {
     onChange({key: 'fontSize', value: value + 'px'})
   })
@@ -105,13 +110,15 @@ export function Font ({value, onChange, config}: FontProps) {
           onChange={handleLetterSpacingChange}
         />
       </Panel.Content>
-      <Panel.Content>
-        <Toggle
-          defaultValue={value.textAlign}
-          options={getTextAlignOptions()}
-          onChange={(value) => onChange({key: 'textAlign', value})}
-        />
-      </Panel.Content>
+      {cfg.disableTextAlign ? null : (
+        <Panel.Content>
+          <Toggle
+            defaultValue={value.textAlign}
+            options={getTextAlignOptions()}
+            onChange={(value) => onChange({key: 'textAlign', value})}
+          />
+        </Panel.Content>
+      )}
     </Panel>
   )
 }
