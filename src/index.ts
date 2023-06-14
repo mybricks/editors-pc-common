@@ -33,6 +33,8 @@ import EditorTypeChange from './_typeChange';
 import "./index.less";
 export { config } from "./configProvider";
 
+import StyleNew from './style_new'
+
 const PcEditorMap: any = {
   ALIGN: EditorAlign,
   EXPCODE: expressionCodeEditor,
@@ -54,7 +56,8 @@ const PcEditorMap: any = {
   IMAGESELECTOR: EditorImageSelector,
   INPUTNUMBER: EditorInputNumber,
   SLIDER: EditorSlider,
-  STYLE:EditorStyle,
+  // STYLE:EditorStyle,
+  STYLE: StyleNew,
   //STYLE: EditorStyleProperties,
   VALUESELECT: EditorValueSelect,
   ARRAYCHECKBOX: EditorArrayCheckbox,
