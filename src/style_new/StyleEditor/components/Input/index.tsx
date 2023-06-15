@@ -9,10 +9,10 @@ import { Panel } from '../'
 
 import css from './index.less'
 
-interface InputProps {
+export interface InputProps {
   prefix?: ReactNode
   suffix?: ReactNode
-  defaultValue?: string
+  defaultValue?: string | number
   value?: string
   style?: CSSProperties
   onChange: (value: string) => void

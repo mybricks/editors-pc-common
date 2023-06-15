@@ -5,7 +5,14 @@
  * @param {string} value - 要拆分的字符串
  * @return {string[]} 一个包含两个元素的数组，数值和单位
  */
-export function splitValueAndUnit (value: string) {
+export function splitValueAndUnit (value: string | number) {
+  if (typeof value === 'number') {
+    if (!!isNaN(value)) {
+      return [String(value), null]
+    }
+    return [null, null]
+  }
+
   let num: number | string = parseInt(value)
 
   if (isNaN(num)) {
