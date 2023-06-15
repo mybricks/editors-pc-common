@@ -692,10 +692,11 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration) 
 
 function getStyleRules (element: HTMLElement, selector: string | null) {
   const finalRules = []
+  const root = document.getElementById('_mybricks-geo-webview_')?.shadowRoot || document
 
-  for (let i = 0; i < document.styleSheets.length; i++) {
+  for (let i = 0; i < root.styleSheets.length; i++) {
     try {
-      const sheet = document.styleSheets[i]
+      const sheet = root.styleSheets[i]
       const rules = sheet.cssRules ? sheet.cssRules : sheet.rules
   
       for (let j = 0; j < rules.length; j++) {
