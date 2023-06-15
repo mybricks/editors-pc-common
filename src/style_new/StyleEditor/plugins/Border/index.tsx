@@ -128,7 +128,7 @@ export function Border ({value, onChange, config}: BorderProps) {
                 <BorderTopWidthOutlined />
               </div>
               <InputNumber
-                style={{padding: 0, minWidth: 45, maxWidth: 45}}
+                style={{padding: 0, fontSize: 10, minWidth: 45, maxWidth: 45}}
                 defaultValue={borderValue.borderTopWidth}
                 suffix={'px'}
                 onChange={(value) => handleChange({borderTopWidth: value})}
@@ -153,7 +153,7 @@ export function Border ({value, onChange, config}: BorderProps) {
                 <BorderRightWidthOutlined />
               </div>
               <InputNumber
-                style={{padding: 0, minWidth: 45, maxWidth: 45}}
+                style={{padding: 0, fontSize: 10, minWidth: 45, maxWidth: 45}}
                 defaultValue={borderValue.borderRightWidth}
                 suffix={'px'}
                 onChange={(value) => handleChange({borderRightWidth: value})}
@@ -178,7 +178,7 @@ export function Border ({value, onChange, config}: BorderProps) {
                 <BorderBottomWidthOutlined />
               </div>
               <InputNumber
-                style={{padding: 0, minWidth: 45, maxWidth: 45}}
+                style={{padding: 0, fontSize: 10, minWidth: 45, maxWidth: 45}}
                 defaultValue={borderValue.borderBottomWidth}
                 suffix={'px'}
                 onChange={(value) => handleChange({borderBottomWidth: value})}
@@ -203,7 +203,7 @@ export function Border ({value, onChange, config}: BorderProps) {
                 <BorderLeftWidthOutlined />
               </div>
               <InputNumber
-                style={{padding: 0, minWidth: 45, maxWidth: 45}}
+                style={{padding: 0, fontSize: 10, minWidth: 45, maxWidth: 45}}
                 defaultValue={borderValue.borderLeftWidth}
                 suffix={'px'}
                 onChange={(value) => handleChange({borderLeftWidth: value})}
@@ -236,7 +236,7 @@ export function Border ({value, onChange, config}: BorderProps) {
               <BorderRadiusSplitOutlined />
             </div>
             <InputNumber
-              style={{padding: 0, minWidth: 45, maxWidth: 45}}
+              style={{padding: 0, fontSize: 10, minWidth: 45, maxWidth: 45}}
               defaultValue={borderValue.borderTopLeftRadius}
               unitOptions={UNIT_OPTIONS}
               onChange={(value) => handleChange({
@@ -257,28 +257,28 @@ export function Border ({value, onChange, config}: BorderProps) {
               {splitRadiusIcon}
             </div>
             <InputNumber
-              style={{padding: 0, minWidth: 45, maxWidth: 45}}
+              style={{padding: 0, fontSize: 10, minWidth: 45, maxWidth: 45}}
               defaultValue={borderValue.borderTopLeftRadius}
               unitOptions={UNIT_OPTIONS}
               onChange={(value) => handleChange({borderTopLeftRadius: value})}
               onFocus={() => setSplitRadiusIcon(<BorderTopLeftRadiusOutlined />)}
             />
             <InputNumber
-              style={{padding: 0, minWidth: 45, maxWidth: 45}}
+              style={{padding: 0, fontSize: 10, minWidth: 45, maxWidth: 45}}
               defaultValue={borderValue.borderTopRightRadius}
               unitOptions={UNIT_OPTIONS}
               onChange={(value) => handleChange({borderTopRightRadius: value})}
               onFocus={() => setSplitRadiusIcon(<BorderTopRightRadiusOutlined />)}
             />
             <InputNumber
-              style={{padding: 0, minWidth: 45, maxWidth: 45}}
+              style={{padding: 0, fontSize: 10, minWidth: 45, maxWidth: 45}}
               defaultValue={borderValue.borderBottomLeftRadius}
               unitOptions={UNIT_OPTIONS}
               onChange={(value) => handleChange({borderBottomLeftRadius: value})}
               onFocus={() => setSplitRadiusIcon(<BorderBottomLeftRadiusOutlined />)}
             />
             <InputNumber
-              style={{padding: 0, minWidth: 45, maxWidth: 45}}
+              style={{padding: 0, fontSize: 10, minWidth: 45, maxWidth: 45}}
               defaultValue={borderValue.borderBottomRightRadius}
               unitOptions={UNIT_OPTIONS}
               onChange={(value) => handleChange({borderBottomRightRadius: value})}

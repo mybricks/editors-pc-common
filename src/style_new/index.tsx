@@ -102,15 +102,16 @@ function getDefaultConfiguration ({value, options}: GetDefaultConfigurationProps
         let type, config
 
         if (typeof option === 'string') {
-          type = option
+          type = option.toLowerCase()
           config = {}
         } else {
-          type = option.type
+          type = option.type.toLowerCase()
           config = option.config || {}
         }
 
+        // @ts-ignore
         if (DEFAULT_OPTIONS.includes(type)) {
-          // @ts-ignore
+          // @ts-ignore TODO: 类型补全
           Object.assign(defaultValue, getDefaultValueFunctionMap[type](styleValues, config))
         }
       })
