@@ -20,10 +20,12 @@ export function InputNumber ({
   onChange,
   // value,
   prefix,
+  suffix: customSuffix,
   style = {},
   disabled = false,
   unitOptions,
-  unitDisabledList = []
+  unitDisabledList = [],
+  onFocus
 }: InputNumberProps) {
   const [unit, setUnit] = useState(getUnit(defaultValue))
   const [number, handleNumberChange] = useInputNumber(defaultValue)
@@ -34,14 +36,15 @@ export function InputNumber ({
   }, [unit, disabled])
 
   const suffix = useMemo(() => {
-    if (Array.isArray(unitOptions)) {
+    if (customSuffix) {
+      return customSuffix
+    } else if (Array.isArray(unitOptions)) {
       return (
         <Select
-          style={{padding: 0}}
+          style={{padding: 0, fontSize: 10}}
           defaultValue={unit}
           options={unitOptions}
           showIcon={false}
-          // onChange={(value) => handleSuffixChange({key: 'widthUnit', value})}
           onChange={setUnit}
         />
       )
@@ -64,11 +67,13 @@ export function InputNumber ({
 
   return (
     <Input
+      style={style}
       prefix={prefix}
       value={displayValue}
       onChange={handleNumberChange}
       suffix={suffix}
       disabled={isDisabledUnit()}
+      onFocus={onFocus}
     />
   )
 }

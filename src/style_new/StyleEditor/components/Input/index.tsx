@@ -17,6 +17,7 @@ export interface InputProps {
   style?: CSSProperties
   onChange: (value: string) => void
   disabled?: boolean
+  onFocus?: React.FocusEventHandler<HTMLInputElement>
 }
 
 export function Input ({
@@ -26,7 +27,8 @@ export function Input ({
   prefix,
   suffix,
   style = {},
-  disabled = false
+  disabled = false,
+  onFocus
 }: InputProps) {
   const [inputValue, setInputValue] = useState(defaultValue)
 
@@ -45,6 +47,7 @@ export function Input ({
           value={value || inputValue}
           onChange={handleInputChange}
           disabled={disabled}
+          onFocus={(e) => onFocus && onFocus(e)}
         />
         {suffix && <div className={css.suffix}>{suffix}</div>}
       </div>

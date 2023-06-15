@@ -25,7 +25,7 @@ export default function ({editConfig}: EditorProps) {
   }, [])
 
   const handleChange: ChangeEvent = useCallback((value) => {
-    console.log('handleChange value: ', value)
+    // console.log('handleChange value: ', value)
     if (Array.isArray(value)) {
       value.forEach(({key, value}) => {
         // @ts-ignore
@@ -37,7 +37,7 @@ export default function ({editConfig}: EditorProps) {
       // defaultValue[value.key] = value.value
       setValue[value.key] = value.value
     }
-    console.log('set setValue: ', setValue)
+    // console.log('set setValue: ', setValue)
     // editConfig.value.set(defaultValue)
     editConfig.value.set(setValue)
   }, [])
@@ -78,7 +78,7 @@ export default function ({editConfig}: EditorProps) {
  * 获取默认的配置项和样式
  */
 function getDefaultConfiguration ({value, options}: GetDefaultConfigurationProps) {
-  console.log('options: ', options)
+  // console.log('options: ', options)
 
   let finalOptions
   let defaultValue: CSSProperties = {}
@@ -94,9 +94,9 @@ function getDefaultConfiguration ({value, options}: GetDefaultConfigurationProps
     // 这里还要再处理一下 
     finalOptions = plugins || DEFAULT_OPTIONS
     if (targetDom) {
-      console.time('遍历stylesheets')
+      // console.time('遍历stylesheets')
       const styleValues = getStyleValues(targetDom, selector)
-      console.timeEnd('遍历stylesheets')
+      // console.timeEnd('遍历stylesheets')
 
       finalOptions.forEach((option) => {
         let type, config
@@ -115,8 +115,8 @@ function getDefaultConfiguration ({value, options}: GetDefaultConfigurationProps
         }
       })
 
-      console.log('计算得到的默认值: ', JSON.parse(JSON.stringify(defaultValue)))
-      console.log('value.get()得到的值: ', value.get())
+      // console.log('计算得到的默认值: ', JSON.parse(JSON.stringify(defaultValue)))
+      // console.log('value.get()得到的值: ', value.get())
     }
   }
 
@@ -146,12 +146,18 @@ const getDefaultValueFunctionMap = {
   },
   border(values: CSSProperties, config: any) {
     return {
-      borderColor: values.borderColor,
+      borderTopColor: values.borderTopColor,
+      borderBottomColor: values.borderBottomColor,
+      borderRightColor: values.borderRightColor,
+      borderLeftColor: values.borderLeftColor,
       borderTopLeftRadius: values.borderTopLeftRadius,
       borderTopRightRadius: values.borderTopRightRadius,
       borderBottomRightRadius: values.borderBottomRightRadius,
       borderBottomLeftRadius: values.borderBottomLeftRadius,
-      borderStyle: values.borderStyle,
+      borderTopStyle: values.borderTopStyle,
+      borderBottomStyle: values.borderBottomStyle,
+      borderRightStyle: values.borderRightStyle,
+      borderLeftStyle: values.borderLeftStyle,
       borderTopWidth: values.borderTopWidth,
       borderBottomWidth: values.borderBottomWidth,
       borderLeftWidth: values.borderLeftWidth,
@@ -320,12 +326,18 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration) 
   /** background */
 
   /** border */
-  let borderColor // 非继承属性
+  let borderTopColor // 非继承属性
+  let borderRightColor // 非继承属性
+  let borderBottomColor // 非继承属性
+  let borderLeftColor // 非继承属性
   let borderTopLeftRadius // 非继承属性
   let borderTopRightRadius // 非继承属性
   let borderBottomRightRadius // 非继承属性
   let borderBottomLeftRadius // 非继承属性
-  let borderStyle // 非继承属性
+  let borderTopStyle // 非继承属性
+  let borderRightStyle // 非继承属性
+  let borderBottomStyle // 非继承属性
+  let borderLeftStyle // 非继承属性
   let borderTopWidth // 非继承属性
   let borderBottomWidth // 非继承属性
   let borderLeftWidth // 非继承属性
@@ -426,20 +438,35 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration) 
 
     /** border */
     const {
-      borderColor: styleBorderColor,
+      borderTopColor: styleBorderTopColor,
+      borderRightColor: styleBorderRightColor,
+      borderBottomColor: styleBorderBottomColor,
+      borderLeftColor: styleBorderLeftColor,
       borderTopLeftRadius: styleBorderTopLeftRadius,
       borderTopRightRadius: styleBorderTopRightRadius,
       borderBottomRightRadius: styleBorderBottomRightRadius,
       borderBottomLeftRadius: styleBorderBottomLeftRadius,
-      borderStyle: styleBorderStyle,
+      borderTopStyle: styleBorderTopStyle,
+      borderRightStyle: styleBorderRightStyle,
+      borderBottomStyle: styleBorderBottomStyle,
+      borderLeftStyle: styleBorderLeftStyle,
       borderTopWidth: styleBorderTopWidth,
       borderBottomWidth: styleBorderBottomWidth,
       borderLeftWidth: styleBorderLeftWidth,
       borderRightWidth: styleBorderRightWidth
     } = style
     if (!index) {
-      if (styleBorderColor) {
-        borderColor = styleBorderColor
+      if (styleBorderTopColor) {
+        borderTopColor = styleBorderTopColor
+      }
+      if (styleBorderRightColor) {
+        borderRightColor = styleBorderRightColor
+      }
+      if (styleBorderBottomColor) {
+        borderBottomColor = styleBorderBottomColor
+      }
+      if (styleBorderLeftColor) {
+        borderLeftColor = styleBorderLeftColor
       }
       if (styleBorderTopLeftRadius) {
         borderTopLeftRadius = styleBorderTopLeftRadius
@@ -453,8 +480,17 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration) 
       if (styleBorderBottomLeftRadius) {
         borderBottomLeftRadius = styleBorderBottomLeftRadius
       }
-      if (styleBorderStyle) {
-        borderStyle = styleBorderStyle
+      if (styleBorderTopStyle) {
+        borderTopStyle = styleBorderTopStyle
+      }
+      if (styleBorderRightStyle) {
+        borderRightStyle = styleBorderRightStyle
+      }
+      if (styleBorderBottomStyle) {
+        borderBottomStyle = styleBorderBottomStyle
+      }
+      if (styleBorderLeftStyle) {
+        borderLeftStyle = styleBorderLeftStyle
       }
       if (styleBorderTopWidth) {
         borderTopWidth = styleBorderTopWidth
@@ -553,8 +589,17 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration) 
   /** background */
 
   /** border */
-  if (!borderColor) {
-    borderColor = computedValues.borderColor // 默认使用当前元素color,否则为浏览器默认颜色
+  if (!borderTopColor) {
+    borderTopColor = computedValues.borderTopColor // 默认使用当前元素color,否则为浏览器默认颜色
+  }
+  if (!borderRightColor) {
+    borderRightColor = computedValues.borderRightColor
+  }
+  if (!borderBottomColor) {
+    borderBottomColor = computedValues.borderBottomColor
+  }
+  if (!borderLeftColor) {
+    borderLeftColor = computedValues.borderLeftColor
   }
   if (!borderTopLeftRadius) {
     borderTopLeftRadius = computedValues.borderTopLeftRadius
@@ -568,8 +613,17 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration) 
   if (!borderBottomLeftRadius) {
     borderBottomLeftRadius = computedValues.borderBottomLeftRadius
   }
-  if (!borderStyle) {
-    borderStyle = computedValues.borderStyle
+  if (!borderTopStyle) {
+    borderTopStyle = computedValues.borderTopStyle
+  }
+  if (!borderRightStyle) {
+    borderRightStyle = computedValues.borderRightStyle
+  }
+  if (!borderBottomStyle) {
+    borderBottomStyle = computedValues.borderBottomStyle
+  }
+  if (!borderLeftStyle) {
+    borderLeftStyle = computedValues.borderLeftStyle
   }
   if (!borderTopWidth) {
     borderTopWidth = computedValues.borderTopWidth
@@ -587,10 +641,10 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration) 
 
   /** size */
   if (!width) {
-    width = 'inherit'
+    width = 'auto'
   }
   if (!height) {
-    height = 'inherit'
+    height = 'auto'
   }
   /** size */
 
@@ -614,12 +668,18 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration) 
     backgroundPosition,
     backgroundSize,
 
-    borderColor,
+    borderTopColor,
+    borderBottomColor,
+    borderLeftColor,
+    borderRightColor,
     borderTopLeftRadius,
     borderTopRightRadius,
     borderBottomRightRadius,
     borderBottomLeftRadius,
-    borderStyle,
+    borderTopStyle,
+    borderRightStyle,
+    borderBottomStyle,
+    borderLeftStyle,
     borderTopWidth,
     borderBottomWidth,
     borderLeftWidth,
@@ -642,8 +702,6 @@ function getStyleRules (element: HTMLElement, selector: string | null) {
         const rule = rules[j]
         if (rule instanceof CSSStyleRule) {
           const { selectorText } = rule
-
-          // 获取所有作用到当前dom和父节点的样式信息
           if (element.matches(selectorText) || selector === selectorText) {
             finalRules.push(rule)
           }

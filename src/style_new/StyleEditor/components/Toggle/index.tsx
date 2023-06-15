@@ -8,6 +8,7 @@ import React, {
 import { Panel } from '../'
 
 import css from './index.less'
+import { useUpdateEffect } from '../../hooks'
 
 interface ToggleProps {
   defaultValue?: any
@@ -24,14 +25,13 @@ export function Toggle ({
 }: ToggleProps) {
   const [toggleIndex, setToggleIndex] = useState(options.findIndex(({value}) => value === defaultValue))
 
-  const handleItemClick = useCallback((clickValue, clickIndex) => {
-    setToggleIndex((toggleIndex) => {
-      if (toggleIndex !== clickIndex) {
-        onChange(clickValue)
-      }
-      return clickIndex
-    })
+  const handleItemClick = useCallback((index) => {
+    setToggleIndex(index)
   }, [])
+
+  useUpdateEffect(() => {
+    onChange(options[toggleIndex].value)
+  }, [toggleIndex])
 
   return (
     <Panel.Item style={{padding: 2, ...style}}>
@@ -42,7 +42,7 @@ export function Toggle ({
             <div
               key={index}
               className={css.item}
-              onClick={() => handleItemClick(value, index)}
+              onClick={() => handleItemClick(index)}
             >
               {!index && <MoveBlock index={toggleIndex}/>}
               <div className={css.label}>{label}</div>

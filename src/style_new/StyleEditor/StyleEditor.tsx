@@ -25,13 +25,8 @@ const PLUGINS_MAP = {
 }
 
 export default function ({defaultValue, options, onChange}: StyleEditorProps) {
-
-  useMemo(() => {
-    // console.log('options: ', options)
-    // console.log('defaultValue: ', defaultValue)
-  }, [])
   
-  const handleValueChange = useCallback((value) => {
+  const handleValueChange: StyleEditorProps['onChange'] = useCallback((value) => {
     onChange(value)
   }, [])
 

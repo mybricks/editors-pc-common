@@ -41,7 +41,7 @@ export function Select ({
   return (
     <Panel.Item style={style}>
       <Dropdown options={options} value={value} onClick={handleDropDownClick}>
-        <div className={css.select} style={showIcon ? {} : {padding: 0, fontSize: 10}}>
+        <div className={css.select} style={showIcon ? {} : {padding: 0}}>
           <div className={css.value}>{label}</div>
           {showIcon && <span className={css.icon}>
             <DownOutlined />
