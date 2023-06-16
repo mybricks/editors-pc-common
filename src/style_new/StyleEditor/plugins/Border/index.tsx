@@ -28,6 +28,7 @@ import {
 import type { ChangeEvent } from '../../type'
 
 import css from './index.less'
+import { useUpdateEffect } from '../../hooks'
 
 interface BorderProps {
   value: CSSProperties
@@ -78,151 +79,181 @@ export function Border ({value, onChange, config}: BorderProps) {
   const borderConfig = useMemo(() => {
     if (borderToggleValue === 'all') {
       return (
-        <Panel.Content>
-          <Panel.Item className={css.editArea}>
-            <div className={css.icon}>
-              <BorderAllOutlined />
-            </div>
-            <InputNumber
-              style={{padding: 0, fontSize: 10, minWidth: 45, maxWidth: 45}}
-              defaultValue={borderValue.borderTopWidth}
-              suffix={'px'}
-              onChange={(value) => handleChange({
-                borderTopWidth: value,
-                borderRightWidth: value,
-                borderBottomWidth: value,
-                borderLeftWidth: value,
-              })}
-            />
-            <ColorEditor
-              style={{padding: 0}}
-              defaultValue={borderValue.borderTopColor}
-              onChange={(value) => handleChange({
-                borderTopColor: value,
-                borderRightColor: value,
-                borderBottomColor: value,
-                borderLeftColor: value,
-              })}
-            />
-            <Select
-              style={{padding: 0, width: 40}}
-              defaultValue={borderValue.borderTopStyle}
-              options={BORDER_STYLE_OPTIONS}
-              showIcon={false}
-              onChange={(value) => handleChange({
-                borderTopStyle: value,
-                borderRightStyle: value,
-                borderBottomStyle: value,
-                borderLeftStyle: value,
-              })}
-            />
-          </Panel.Item>
-        </Panel.Content>
-      )
-    } else {
-      return (
-        <>
-          <Panel.Content>
-            <Panel.Item className={css.editArea}>
+        <div className={css.row}>
+          <Panel.Content style={{padding: 3}}>
+            <Panel.Item className={css.editArea} style={{padding: '0px 4px 0px 3px'}}>
               <div className={css.icon}>
-                <BorderTopWidthOutlined />
+                <BorderAllOutlined />
               </div>
               <InputNumber
-                style={{padding: 0, fontSize: 10, minWidth: 45, maxWidth: 45}}
+                style={{padding: 0, fontSize: 10, minWidth: 45, maxWidth: 45, marginLeft: 4}}
                 defaultValue={borderValue.borderTopWidth}
                 suffix={'px'}
-                onChange={(value) => handleChange({borderTopWidth: value})}
+                onChange={(value) => handleChange({
+                  borderTopWidth: value,
+                  borderRightWidth: value,
+                  borderBottomWidth: value,
+                  borderLeftWidth: value,
+                })}
               />
               <ColorEditor
-                style={{padding: 0}}
+                style={{padding: 0, marginLeft: 9}}
                 defaultValue={borderValue.borderTopColor}
-                onChange={(value) => handleChange({borderTopColor: value})}
+                onChange={(value) => handleChange({
+                  borderTopColor: value,
+                  borderRightColor: value,
+                  borderBottomColor: value,
+                  borderLeftColor: value,
+                })}
               />
               <Select
-                style={{padding: 0, width: 40}}
+                style={{padding: 0, width: 40, textAlign: 'right'}}
                 defaultValue={borderValue.borderTopStyle}
                 options={BORDER_STYLE_OPTIONS}
                 showIcon={false}
-                onChange={(value) => handleChange({borderTopStyle: value})}
+                onChange={(value) => handleChange({
+                  borderTopStyle: value,
+                  borderRightStyle: value,
+                  borderBottomStyle: value,
+                  borderLeftStyle: value,
+                })}
               />
             </Panel.Item>
           </Panel.Content>
-          <Panel.Content>
-            <Panel.Item className={css.editArea}>
-              <div className={css.icon}>
-                <BorderRightWidthOutlined />
+          <div
+            className={css.actionIcon}
+            onClick={() => handleToggleChange({key: 'borderToggleValue', value: 'split'})}
+          >
+            <BorderAllOutlined />
+          </div>
+        </div>
+      )
+    } else {
+      return (
+        <div className={css.row}>
+          <div className={css.col}>
+            <div className={css.row}>
+              <Panel.Content style={{padding: 3}}>
+                <Panel.Item className={css.editArea} style={{padding: '0px 4px 0px 3px'}}>
+                  <div className={css.icon}>
+                    <BorderTopWidthOutlined />
+                  </div>
+                  <InputNumber
+                    style={{padding: 0, fontSize: 10, minWidth: 45, maxWidth: 45, marginLeft: 4}}
+                    defaultValue={borderValue.borderTopWidth}
+                    suffix={'px'}
+                    onChange={(value) => handleChange({borderTopWidth: value})}
+                  />
+                  <ColorEditor
+                    style={{padding: 0, marginLeft: 9}}
+                    defaultValue={borderValue.borderTopColor}
+                    onChange={(value) => handleChange({borderTopColor: value})}
+                  />
+                  <Select
+                    style={{padding: 0, width: 40}}
+                    defaultValue={borderValue.borderTopStyle}
+                    options={BORDER_STYLE_OPTIONS}
+                    showIcon={false}
+                    onChange={(value) => handleChange({borderTopStyle: value})}
+                  />
+                </Panel.Item>
+              </Panel.Content>
+              <div
+                className={css.actionIcon}
+                onClick={() => handleToggleChange({key: 'borderToggleValue', value: 'all'})}
+              >
+                <BorderSplitOutlined />
               </div>
-              <InputNumber
-                style={{padding: 0, fontSize: 10, minWidth: 45, maxWidth: 45}}
-                defaultValue={borderValue.borderRightWidth}
-                suffix={'px'}
-                onChange={(value) => handleChange({borderRightWidth: value})}
-              />
-              <ColorEditor
-                style={{padding: 0}}
-                defaultValue={borderValue.borderRightColor}
-                onChange={(value) => handleChange({borderRightColor: value})}
-              />
-              <Select
-                style={{padding: 0, width: 40}}
-                defaultValue={borderValue.borderRightStyle}
-                options={BORDER_STYLE_OPTIONS}
-                showIcon={false}
-                onChange={(value) => handleChange({borderRightStyle: value})}
-              />
-            </Panel.Item>
-          </Panel.Content>
-          <Panel.Content>
-            <Panel.Item className={css.editArea}>
-              <div className={css.icon}>
-                <BorderBottomWidthOutlined />
-              </div>
-              <InputNumber
-                style={{padding: 0, fontSize: 10, minWidth: 45, maxWidth: 45}}
-                defaultValue={borderValue.borderBottomWidth}
-                suffix={'px'}
-                onChange={(value) => handleChange({borderBottomWidth: value})}
-              />
-              <ColorEditor
-                style={{padding: 0}}
-                defaultValue={borderValue.borderBottomColor}
-                onChange={(value) => handleChange({borderBottomColor: value})}
-              />
-              <Select
-                style={{padding: 0, width: 40}}
-                defaultValue={borderValue.borderBottomStyle}
-                options={BORDER_STYLE_OPTIONS}
-                showIcon={false}
-                onChange={(value) => handleChange({borderBottomStyle: value})}
-              />
-            </Panel.Item>
-          </Panel.Content>
-          <Panel.Content>
-            <Panel.Item className={css.editArea}>
-              <div className={css.icon}>
-                <BorderLeftWidthOutlined />
-              </div>
-              <InputNumber
-                style={{padding: 0, fontSize: 10, minWidth: 45, maxWidth: 45}}
-                defaultValue={borderValue.borderLeftWidth}
-                suffix={'px'}
-                onChange={(value) => handleChange({borderLeftWidth: value})}
-              />
-              <ColorEditor
-                style={{padding: 0}}
-                defaultValue={borderValue.borderLeftColor}
-                onChange={(value) => handleChange({borderLeftColor: value})}
-              />
-              <Select
-                style={{padding: 0, width: 40}}
-                defaultValue={borderValue.borderLeftStyle}
-                options={BORDER_STYLE_OPTIONS}
-                showIcon={false}
-                onChange={(value) => handleChange({borderLeftStyle: value})}
-              />
-            </Panel.Item>
-          </Panel.Content>
-        </>
+            </div>
+
+            <div className={css.row}>
+              <Panel.Content style={{padding: 3}}>
+                <Panel.Item className={css.editArea} style={{padding: '0px 4px 0px 3px'}}>
+                  <div className={css.icon}>
+                    <BorderRightWidthOutlined />
+                  </div>
+                  <InputNumber
+                    style={{padding: 0, fontSize: 10, minWidth: 45, maxWidth: 45, marginLeft: 4}}
+                    defaultValue={borderValue.borderRightWidth}
+                    suffix={'px'}
+                    onChange={(value) => handleChange({borderRightWidth: value})}
+                  />
+                  <ColorEditor
+                    style={{padding: 0, marginLeft: 9}}
+                    defaultValue={borderValue.borderRightColor}
+                    onChange={(value) => handleChange({borderRightColor: value})}
+                  />
+                  <Select
+                    style={{padding: 0, width: 40}}
+                    defaultValue={borderValue.borderRightStyle}
+                    options={BORDER_STYLE_OPTIONS}
+                    showIcon={false}
+                    onChange={(value) => handleChange({borderRightStyle: value})}
+                  />
+                </Panel.Item>
+              </Panel.Content>
+              <div className={css.icon} />
+            </div>
+
+            <div className={css.row}>
+              <Panel.Content style={{padding: 3}}>
+                <Panel.Item className={css.editArea} style={{padding: '0px 4px 0px 3px'}}>
+                  <div className={css.icon}>
+                    <BorderBottomWidthOutlined />
+                  </div>
+                  <InputNumber
+                    style={{padding: 0, fontSize: 10, minWidth: 45, maxWidth: 45, marginLeft: 4}}
+                    defaultValue={borderValue.borderBottomWidth}
+                    suffix={'px'}
+                    onChange={(value) => handleChange({borderBottomWidth: value})}
+                  />
+                  <ColorEditor
+                    style={{padding: 0, marginLeft: 9}}
+                    defaultValue={borderValue.borderBottomColor}
+                    onChange={(value) => handleChange({borderBottomColor: value})}
+                  />
+                  <Select
+                    style={{padding: 0, width: 40}}
+                    defaultValue={borderValue.borderBottomStyle}
+                    options={BORDER_STYLE_OPTIONS}
+                    showIcon={false}
+                    onChange={(value) => handleChange({borderBottomStyle: value})}
+                  />
+                </Panel.Item>
+              </Panel.Content>
+              <div className={css.icon} />
+            </div>
+            
+            <div className={css.row}>
+              <Panel.Content style={{padding: 3}}>
+                <Panel.Item className={css.editArea} style={{padding: '0px 4px 0px 3px'}}>
+                  <div className={css.icon}>
+                    <BorderLeftWidthOutlined />
+                  </div>
+                  <InputNumber
+                    style={{padding: 0, fontSize: 10, minWidth: 45, maxWidth: 45, marginLeft: 4}}
+                    defaultValue={borderValue.borderLeftWidth}
+                    suffix={'px'}
+                    onChange={(value) => handleChange({borderLeftWidth: value})}
+                  />
+                  <ColorEditor
+                    style={{padding: 0, marginLeft: 9}}
+                    defaultValue={borderValue.borderLeftColor}
+                    onChange={(value) => handleChange({borderLeftColor: value})}
+                  />
+                  <Select
+                    style={{padding: 0, width: 40}}
+                    defaultValue={borderValue.borderLeftStyle}
+                    options={BORDER_STYLE_OPTIONS}
+                    showIcon={false}
+                    onChange={(value) => handleChange({borderLeftStyle: value})}
+                  />
+                </Panel.Item>
+              </Panel.Content>
+              <div className={css.icon} />
+            </div>
+          </div>
+        </div>
       )
     }
   }, [borderToggleValue])
@@ -230,90 +261,87 @@ export function Border ({value, onChange, config}: BorderProps) {
   const radiusConfig = useMemo(() => {
     if (radiusToggleValue === 'all') {
       return (
-        <Panel.Content>
-          <Panel.Item className={css.editArea}>
-            <div className={css.icon}>
-              <BorderRadiusSplitOutlined />
-            </div>
-            <InputNumber
-              style={{padding: 0, fontSize: 10, minWidth: 45, maxWidth: 45}}
-              defaultValue={borderValue.borderTopLeftRadius}
-              unitOptions={UNIT_OPTIONS}
-              onChange={(value) => handleChange({
-                borderTopLeftRadius: value,
-                borderBottomLeftRadius: value,
-                borderBottomRightRadius: value,
-                borderTopRightRadius: value
-              })}
-            />
-          </Panel.Item>
-        </Panel.Content>
+        <div className={css.row}>
+          <Panel.Content style={{padding: 3}}>
+            <Panel.Item className={css.editArea} style={{padding: '0px 4px 0px 3px'}}>
+              <div className={css.icon}>
+                <BorderRadiusSplitOutlined />
+              </div>
+              <InputNumber
+                style={{padding: 0, fontSize: 10, minWidth: 45, maxWidth: 45, marginLeft: 4}}
+                defaultValue={borderValue.borderTopLeftRadius}
+                unitOptions={UNIT_OPTIONS}
+                onChange={(value) => handleChange({
+                  borderTopLeftRadius: value,
+                  borderBottomLeftRadius: value,
+                  borderBottomRightRadius: value,
+                  borderTopRightRadius: value
+                })}
+              />
+            </Panel.Item>
+          </Panel.Content>
+          <div
+            className={css.actionIcon}
+            onClick={() => handleToggleChange({key: 'radiusToggleValue', value: 'split'})}
+          >
+            <BorderRadiusSplitOutlined />
+          </div>
+        </div>
       )
     } else {
+      const style = {
+        padding: 0, fontSize: 10, 
+        minWidth: 45, maxWidth: 45, marginLeft: 4
+      }
       return (
-        <Panel.Content>
-          <Panel.Item className={css.editArea}>
-            <div className={css.icon}>
-              {splitRadiusIcon}
-            </div>
-            <InputNumber
-              style={{padding: 0, fontSize: 10, minWidth: 45, maxWidth: 45}}
-              defaultValue={borderValue.borderTopLeftRadius}
-              unitOptions={UNIT_OPTIONS}
-              onChange={(value) => handleChange({borderTopLeftRadius: value})}
-              onFocus={() => setSplitRadiusIcon(<BorderTopLeftRadiusOutlined />)}
-            />
-            <InputNumber
-              style={{padding: 0, fontSize: 10, minWidth: 45, maxWidth: 45}}
-              defaultValue={borderValue.borderTopRightRadius}
-              unitOptions={UNIT_OPTIONS}
-              onChange={(value) => handleChange({borderTopRightRadius: value})}
-              onFocus={() => setSplitRadiusIcon(<BorderTopRightRadiusOutlined />)}
-            />
-            <InputNumber
-              style={{padding: 0, fontSize: 10, minWidth: 45, maxWidth: 45}}
-              defaultValue={borderValue.borderBottomLeftRadius}
-              unitOptions={UNIT_OPTIONS}
-              onChange={(value) => handleChange({borderBottomLeftRadius: value})}
-              onFocus={() => setSplitRadiusIcon(<BorderBottomLeftRadiusOutlined />)}
-            />
-            <InputNumber
-              style={{padding: 0, fontSize: 10, minWidth: 45, maxWidth: 45}}
-              defaultValue={borderValue.borderBottomRightRadius}
-              unitOptions={UNIT_OPTIONS}
-              onChange={(value) => handleChange({borderBottomRightRadius: value})}
-              onFocus={() => setSplitRadiusIcon(<BorderBottomRightRadiusOutlined />)}
-            />
-          </Panel.Item>
-        </Panel.Content>
+        <div className={css.row}>
+          <Panel.Content style={{padding: 3}}>
+            <Panel.Item className={css.editArea} style={{padding: '0px 4px 0px 3px'}}>
+              <div className={css.icon}>
+                {splitRadiusIcon}
+              </div>
+              <InputNumber
+                style={style}
+                defaultValue={borderValue.borderTopLeftRadius}
+                unitOptions={UNIT_OPTIONS}
+                onChange={(value) => handleChange({borderTopLeftRadius: value})}
+                onFocus={() => setSplitRadiusIcon(<BorderTopLeftRadiusOutlined />)}
+              />
+              <InputNumber
+                style={style}
+                defaultValue={borderValue.borderTopRightRadius}
+                unitOptions={UNIT_OPTIONS}
+                onChange={(value) => handleChange({borderTopRightRadius: value})}
+                onFocus={() => setSplitRadiusIcon(<BorderTopRightRadiusOutlined />)}
+              />
+              <InputNumber
+                style={style}
+                defaultValue={borderValue.borderBottomLeftRadius}
+                unitOptions={UNIT_OPTIONS}
+                onChange={(value) => handleChange({borderBottomLeftRadius: value})}
+                onFocus={() => setSplitRadiusIcon(<BorderBottomLeftRadiusOutlined />)}
+              />
+              <InputNumber
+                style={style}
+                defaultValue={borderValue.borderBottomRightRadius}
+                unitOptions={UNIT_OPTIONS}
+                onChange={(value) => handleChange({borderBottomRightRadius: value})}
+                onFocus={() => setSplitRadiusIcon(<BorderBottomRightRadiusOutlined />)}
+              />
+            </Panel.Item>
+          </Panel.Content>
+          <div
+            className={css.actionIcon}
+            onClick={() => handleToggleChange({key: 'radiusToggleValue', value: 'all'})}
+          >
+            <BorderTopLeftRadiusOutlined />
+          </div>
+        </div>
       )
     }
   }, [radiusToggleValue, splitRadiusIcon])
 
   const handleToggleChange = useCallback(({key, value}) => {
-    if (key === 'borderToggleValue') {
-      handleChange({
-        borderTopColor: borderValue.borderTopColor,
-        borderRightColor: borderValue.borderTopColor,
-        borderBottomColor: borderValue.borderTopColor,
-        borderLeftColor: borderValue.borderTopColor,
-        borderTopStyle: borderValue.borderTopStyle,
-        borderRightStyle: borderValue.borderTopStyle,
-        borderBottomStyle: borderValue.borderTopStyle,
-        borderLeftStyle: borderValue.borderTopStyle,
-        borderTopWidth: borderValue.borderTopWidth,
-        borderRightWidth: borderValue.borderTopWidth,
-        borderBottomWidth: borderValue.borderTopWidth,
-        borderLeftWidth: borderValue.borderTopWidth
-      })
-    } else {
-      handleChange({
-        borderTopLeftRadius: borderValue.borderTopLeftRadius,
-        borderTopRightRadius: borderValue.borderTopLeftRadius,
-        borderBottomLeftRadius: borderValue.borderTopLeftRadius,
-        borderBottomRightRadius: borderValue.borderTopLeftRadius
-      })
-    }
     setToggleValue((val) => {
       return {
         ...val,
@@ -322,20 +350,34 @@ export function Border ({value, onChange, config}: BorderProps) {
     })
   }, [borderValue])
 
+  useUpdateEffect(() => {
+    handleChange({
+      borderTopColor: borderValue.borderTopColor,
+      borderRightColor: borderValue.borderTopColor,
+      borderBottomColor: borderValue.borderTopColor,
+      borderLeftColor: borderValue.borderTopColor,
+      borderTopStyle: borderValue.borderTopStyle,
+      borderRightStyle: borderValue.borderTopStyle,
+      borderBottomStyle: borderValue.borderTopStyle,
+      borderLeftStyle: borderValue.borderTopStyle,
+      borderTopWidth: borderValue.borderTopWidth,
+      borderRightWidth: borderValue.borderTopWidth,
+      borderBottomWidth: borderValue.borderTopWidth,
+      borderLeftWidth: borderValue.borderTopWidth
+    })
+  }, [borderToggleValue])
+
+  useUpdateEffect(() => {
+    handleChange({
+      borderTopLeftRadius: borderValue.borderTopLeftRadius,
+      borderTopRightRadius: borderValue.borderTopLeftRadius,
+      borderBottomLeftRadius: borderValue.borderTopLeftRadius,
+      borderBottomRightRadius: borderValue.borderTopLeftRadius
+    })
+  }, [radiusToggleValue])
+
   return (
     <Panel title='描边'>
-      <Panel.Content>
-        <Toggle
-          defaultValue={borderToggleValue}
-          options={BORDER_OPTIONS}
-          onChange={(value) => handleToggleChange({key: 'borderToggleValue', value})}
-        />
-        <Toggle
-          defaultValue={radiusToggleValue}
-          options={RADIUS_OPTIONS}
-          onChange={(value) => handleToggleChange({key: 'radiusToggleValue', value})}
-        />
-      </Panel.Content>
       {borderConfig}
       {radiusConfig}
     </Panel>

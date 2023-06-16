@@ -9,6 +9,7 @@ interface PanelProps {
 interface ContentProps {
   style?: CSSProperties
   children: ReactNode
+  className?: string
 }
 interface ItemProps {
   children: ReactNode
@@ -30,9 +31,9 @@ export function Panel ({title, children}: PanelProps) {
   )
 }
 
-function Content ({style = {}, children}: ContentProps) {
+function Content ({style = {}, children, className}: ContentProps) {
   return (
-    <div className={css.panelContent} style={style}>
+    <div className={`${css.panelContent}${className ? ` ${className}` : ''}`} style={style}>
       {children}
     </div>
   )
