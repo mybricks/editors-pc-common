@@ -95,7 +95,7 @@ function getDefaultConfiguration ({value, options}: GetDefaultConfigurationProps
     finalOptions = plugins || DEFAULT_OPTIONS
     if (targetDom) {
       // console.time('遍历stylesheets')
-      const styleValues = getStyleValues(targetDom, selector)
+      const styleValues = getStyleValues(targetDom, Array.isArray(selector) ? selector[0] : selector)
       // console.timeEnd('遍历stylesheets')
 
       finalOptions.forEach((option) => {
