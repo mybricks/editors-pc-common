@@ -13,7 +13,7 @@ export function splitValueAndUnit (value: string | number) {
     return [null, null]
   }
 
-  let num: number | string = parseInt(value)
+  let num: number | string = parseFloat(value)
 
   if (isNaN(num)) {
     return [null, null]

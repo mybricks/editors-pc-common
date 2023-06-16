@@ -14,7 +14,7 @@ export function useInputNumberObject(defaultValue:{[key: string]: any}, onChange
     } else if (!value) {
       changeValue = '0'
     } else {
-      const number = parseInt(value)
+      const number = parseFloat(value)
       if (!isNaN(number) && number >= 0) {
         changeValue = String(number)
       }

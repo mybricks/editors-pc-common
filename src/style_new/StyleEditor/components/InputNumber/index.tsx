@@ -11,6 +11,7 @@ import { useInputNumber, useUpdateEffect } from '../../hooks'
 import type { InputProps } from '..'
 
 interface InputNumberProps extends InputProps {
+  defaultUnitValue?: string
   unitDisabledList?: Array<string> 
   unitOptions?: Array<{label: string, value: string}>
 }
@@ -25,9 +26,10 @@ export function InputNumber ({
   disabled = false,
   unitOptions,
   unitDisabledList = [],
+  defaultUnitValue,
   onFocus
 }: InputNumberProps) {
-  const [unit, setUnit] = useState(getUnit(defaultValue))
+  const [unit, setUnit] = useState<string>(getUnit(defaultValue, defaultUnitValue))
   const [number, handleNumberChange] = useInputNumber(defaultValue)
   const [displayValue, setDisplayValue] = useState(unit === defaultValue ? unit : number)
 
@@ -54,13 +56,13 @@ export function InputNumber ({
   }, [])
 
   useUpdateEffect(() => {
-    let changeValue = number
+    let changeValue = String(parseFloat(number))
     if (unitDisabledList.includes(unit)) {
       setDisplayValue(unit)
       changeValue = unit
     } else {
       setDisplayValue(number)
-      changeValue = number + unit
+      changeValue = changeValue + unit
     }
     onChange(changeValue)
   }, [unit, number])
@@ -78,8 +80,8 @@ export function InputNumber ({
   )
 }
 
-function getUnit (value: any) {
+function getUnit (value: any, defaultUnitValue?: string) {
   const [, unit] = splitValueAndUnit(value)
 
-  return unit || value
+  return unit || (typeof defaultUnitValue !== 'undefined' ? defaultUnitValue : value)
 }

@@ -134,7 +134,6 @@ function getDefaultConfiguration ({value, options}: GetDefaultConfigurationProps
 
 const getDefaultValueFunctionMap = {
   font(values: CSSProperties, config: any) {
-    // 搞定
     return {
       color: values.color,
       fontSize: values.fontSize,

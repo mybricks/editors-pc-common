@@ -6,6 +6,7 @@ import {
   Color,
   Select,
   Toggle,
+  InputNumber,
   FontSizeOutlined,
   LineHeightOutlined,
   LetterSpacingOutlined,
@@ -39,21 +40,25 @@ const FONT_WEIGHT_OPTIONS = [
   {label: '特粗', value: '900'}
 ]
 
+const LINEHEIGHT_UNIT_OPTIONS = [
+  {label: '默认', value: 'normal'},
+  {label: '倍数', value: ''},
+  {label: 'px', value: 'px'},
+  {label: '%', value: '%'}
+]
+const LINEHEIGHT_UNIT_DISABLED_LIST = ['normal']
+const LETTERSPACING_UNIT_OPTIONS = [
+  {label: '默认', value: 'normal'},
+  {label: 'px', value: 'px'}
+]
+const LETTERSPACING_UNIT_DISABLED_LIST = ['normal']
+
 const DEFAULT_CONFIG = {
   disableTextAlign: false
 }
 
 export function Font ({value, onChange, config}: FontProps) {
   const [cfg] = useState(Object.assign(DEFAULT_CONFIG, config))
-  const [fontSize, handleFontSizeChange] = useInputNumber(value.fontSize, (value) => {
-    onChange({key: 'fontSize', value: value + 'px'})
-  })
-  const [lineHeight, handleLineHeightChange] = useInputNumber(value.lineHeight, (value) => {
-    onChange({key: 'lineHeight', value: value + 'px'})
-  })
-  const [letterSpacing, handleLetterSpacingChange] = useInputNumber(value.letterSpacing, (value) => {
-    onChange({key: 'letterSpacing', value: value + 'px'})
-  })
 
   const fontFamilyOptions = useCallback(() => {
     return FONT_FAMILY_OPTIONS
@@ -91,23 +96,28 @@ export function Font ({value, onChange, config}: FontProps) {
           options={FONT_WEIGHT_OPTIONS}
           onChange={(value) => onChange({key: 'fontWeight', value})}
         />
-        <Input
+        <InputNumber
           style={{width: 60}}
           prefix={<FontSizeOutlined />}
-          value={fontSize}
-          onChange={handleFontSizeChange}
+          defaultValue={value.fontSize}
+          onChange={(value) => onChange({key: 'fontSize', value})}
         />
       </Panel.Content>
       <Panel.Content>
-        <Input
+        <InputNumber
           prefix={<LineHeightOutlined />}
-          value={lineHeight}
-          onChange={handleLineHeightChange}
+          defaultValue={value.lineHeight}
+          defaultUnitValue=''
+          unitOptions={LINEHEIGHT_UNIT_OPTIONS}
+          unitDisabledList={LINEHEIGHT_UNIT_DISABLED_LIST}
+          onChange={(value) => onChange({key: 'lineHeight', value})}
         />
-        <Input
+        <InputNumber
           prefix={<LetterSpacingOutlined />}
-          value={letterSpacing}
-          onChange={handleLetterSpacingChange}
+          defaultValue={value.letterSpacing}
+          unitOptions={LETTERSPACING_UNIT_OPTIONS}
+          unitDisabledList={LETTERSPACING_UNIT_DISABLED_LIST}
+          onChange={(value) => onChange({key: 'letterSpacing', value})}
         />
       </Panel.Content>
       {cfg.disableTextAlign ? null : (

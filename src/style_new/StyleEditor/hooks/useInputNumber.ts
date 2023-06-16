@@ -12,9 +12,10 @@ export function useInputNumber<D>(defaultValue?: D, onChange?: (value: string) =
     if (!value) {
       changeValue = '0'
     } else {
-      const number = parseInt(value)
+      const number = parseFloat(value)
+      // 合法数字且>0
       if (!isNaN(number) && number >= 0) {
-        changeValue = String(number)
+        changeValue = /^(0|[1-9]\d*)?(\.\d*)?$/.test(value) ? value : String(number)
       }
     }
 
@@ -28,7 +29,7 @@ export function useInputNumber<D>(defaultValue?: D, onChange?: (value: string) =
 }
 
 export function getInitValue (defaultValue: any): string {
-  const value = parseInt(defaultValue)
+  const value = parseFloat(defaultValue)
   if (!isNaN(value) && value > 0) {
     return String(value)
   }
