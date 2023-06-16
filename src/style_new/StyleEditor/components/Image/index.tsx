@@ -53,7 +53,6 @@ export function Image ({
         [value.key]: value.value
       }
     })
-    console.log('handleChange value: ', value)// 
   }, [])
 
   const handleClick = useCallback((event) => {

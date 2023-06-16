@@ -1,8 +1,9 @@
-import React, { CSSProperties, useState } from 'react'
+import React, { useState, CSSProperties } from 'react'
 
+import { getRealKey } from '../../utils'
+import { useStyleEditorContext } from '../..'
 import { Panel, Image, ColorEditor } from '../../components'
 
-import { useStyleEditorContext } from '../..'
 
 interface BackgroundProps {
   value: CSSProperties
@@ -14,24 +15,25 @@ interface BackgroundProps {
 
 const DEFAULT_CONFIG = {
   disableBackgroundColor: false,
-  disableBackgroundImage: false
+  disableBackgroundImage: false,
+  keyMap: {}
 }
 
 export function Background ({value, onChange, config}: BackgroundProps) {
   const context = useStyleEditorContext()
-  const [cfg] = useState(Object.assign(DEFAULT_CONFIG, config))
+  const [{disableBackgroundColor, disableBackgroundImage, keyMap}] = useState(Object.assign(DEFAULT_CONFIG, config))
 
   return (
     <Panel title='背景'>
-      {cfg.disableBackgroundColor ? null : (
+      {disableBackgroundColor ? null : (
         <Panel.Content>
           <ColorEditor
             defaultValue={value.backgroundColor}
-            onChange={(value) => onChange({key: 'backgroundColor', value})}
+            onChange={(value) => onChange({key: getRealKey(keyMap, 'backgroundColor'), value})}
           />
         </Panel.Content>
       )}
-      {cfg.disableBackgroundImage ? null : (
+      {disableBackgroundImage ? null : (
         <Panel.Content>
           <Image
             defaultValue={{
@@ -40,7 +42,7 @@ export function Background ({value, onChange, config}: BackgroundProps) {
               backgroundPosition: value.backgroundPosition,
               backgroundSize: value.backgroundSize
             }}
-            onChange={onChange}
+            onChange={(value) => onChange({key: getRealKey(keyMap, value.key), value: value.value})}
             upload={context.upload}
           />
         </Panel.Content>
