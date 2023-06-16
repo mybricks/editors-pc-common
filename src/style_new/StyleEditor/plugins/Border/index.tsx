@@ -81,7 +81,7 @@ export function Border ({value, onChange, config}: BorderProps) {
       return (
         <div className={css.row}>
           <Panel.Content style={{padding: 3}}>
-            <Panel.Item className={css.editArea} style={{padding: '0px 4px 0px 3px'}}>
+            <Panel.Item className={css.editArea} style={{padding: '0px 4px 0px 8px'}}>
               <div className={css.icon}>
                 <BorderAllOutlined />
               </div>
@@ -134,7 +134,7 @@ export function Border ({value, onChange, config}: BorderProps) {
           <div className={css.col}>
             <div className={css.row}>
               <Panel.Content style={{padding: 3}}>
-                <Panel.Item className={css.editArea} style={{padding: '0px 4px 0px 3px'}}>
+                <Panel.Item className={css.editArea} style={{padding: '0px 4px 0px 8px'}}>
                   <div className={css.icon}>
                     <BorderTopWidthOutlined />
                   </div>
@@ -168,7 +168,7 @@ export function Border ({value, onChange, config}: BorderProps) {
 
             <div className={css.row}>
               <Panel.Content style={{padding: 3}}>
-                <Panel.Item className={css.editArea} style={{padding: '0px 4px 0px 3px'}}>
+                <Panel.Item className={css.editArea} style={{padding: '0px 4px 0px 8px'}}>
                   <div className={css.icon}>
                     <BorderRightWidthOutlined />
                   </div>
@@ -197,7 +197,7 @@ export function Border ({value, onChange, config}: BorderProps) {
 
             <div className={css.row}>
               <Panel.Content style={{padding: 3}}>
-                <Panel.Item className={css.editArea} style={{padding: '0px 4px 0px 3px'}}>
+                <Panel.Item className={css.editArea} style={{padding: '0px 4px 0px 8px'}}>
                   <div className={css.icon}>
                     <BorderBottomWidthOutlined />
                   </div>
@@ -226,7 +226,7 @@ export function Border ({value, onChange, config}: BorderProps) {
             
             <div className={css.row}>
               <Panel.Content style={{padding: 3}}>
-                <Panel.Item className={css.editArea} style={{padding: '0px 4px 0px 3px'}}>
+                <Panel.Item className={css.editArea} style={{padding: '0px 4px 0px 8px'}}>
                   <div className={css.icon}>
                     <BorderLeftWidthOutlined />
                   </div>
@@ -263,7 +263,7 @@ export function Border ({value, onChange, config}: BorderProps) {
       return (
         <div className={css.row}>
           <Panel.Content style={{padding: 3}}>
-            <Panel.Item className={css.editArea} style={{padding: '0px 4px 0px 3px'}}>
+            <Panel.Item className={css.editArea} style={{padding: '0px 4px 0px 8px'}}>
               <div className={css.icon}>
                 <BorderRadiusSplitOutlined />
               </div>
@@ -296,7 +296,7 @@ export function Border ({value, onChange, config}: BorderProps) {
       return (
         <div className={css.row}>
           <Panel.Content style={{padding: 3}}>
-            <Panel.Item className={css.editArea} style={{padding: '0px 4px 0px 3px'}}>
+            <Panel.Item className={css.editArea} style={{padding: '0px 4px 0px 8px'}}>
               <div className={css.icon}>
                 {splitRadiusIcon}
               </div>
