@@ -298,13 +298,13 @@ export function Border ({value, onChange, config}: BorderProps) {
         borderBottomColor: borderValue.borderTopColor,
         borderLeftColor: borderValue.borderTopColor,
         borderTopStyle: borderValue.borderTopStyle,
-        borderRightStyle: borderValue.borderRightStyle,
-        borderBottomStyle: borderValue.borderBottomStyle,
-        borderLeftStyle: borderValue.borderLeftStyle,
+        borderRightStyle: borderValue.borderTopStyle,
+        borderBottomStyle: borderValue.borderTopStyle,
+        borderLeftStyle: borderValue.borderTopStyle,
         borderTopWidth: borderValue.borderTopWidth,
-        borderRightWidth: borderValue.borderRightWidth,
-        borderBottomWidth: borderValue.borderBottomWidth,
-        borderLeftWidth: borderValue.borderLeftWidth
+        borderRightWidth: borderValue.borderTopWidth,
+        borderBottomWidth: borderValue.borderTopWidth,
+        borderLeftWidth: borderValue.borderTopWidth
       })
     } else {
       handleChange({
