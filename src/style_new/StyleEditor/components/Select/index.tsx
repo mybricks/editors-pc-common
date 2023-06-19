@@ -15,6 +15,7 @@ interface SelectProps {
   options: Array<{value: any, label: string | number}>
   /** 是否展示下拉的icon */
   showIcon?: boolean
+  labelClassName?: string
 }
 
 export function Select ({
@@ -22,7 +23,8 @@ export function Select ({
   style = {},
   onChange,
   options,
-  showIcon = true
+  showIcon = true,
+  labelClassName
 }: SelectProps) {
   const [label, setLabel] = useState(options.find(({value}) => value === defaultValue)?.label || defaultValue)
   const [value, setValue] = useState(defaultValue)
@@ -42,7 +44,7 @@ export function Select ({
     <Panel.Item style={style}>
       <Dropdown options={options} value={value} onClick={handleDropDownClick}>
         <div className={css.select} style={showIcon ? {} : {padding: 0}}>
-          <div className={css.value}>{label}</div>
+          <div className={`${css.value}${labelClassName ? ` ${labelClassName}` : ''}`}>{label}</div>
           {showIcon && <span className={css.icon}>
             <DownOutlined />
           </span>}

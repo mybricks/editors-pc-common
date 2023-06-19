@@ -86,7 +86,7 @@ export function Border ({value, onChange, config}: BorderProps) {
                 <BorderAllOutlined />
               </div>
               <InputNumber
-                style={{padding: 0, fontSize: 10, minWidth: 45, maxWidth: 45, marginLeft: 4}}
+                style={{padding: 0, fontSize: 10, minWidth: 44, maxWidth: 44, marginLeft: 4}}
                 defaultValue={borderValue.borderTopWidth}
                 suffix={'px'}
                 onChange={(value) => handleChange({
@@ -108,6 +108,7 @@ export function Border ({value, onChange, config}: BorderProps) {
               />
               <Select
                 style={{padding: 0, width: 40, textAlign: 'right'}}
+                labelClassName={css.label}
                 defaultValue={borderValue.borderTopStyle}
                 options={BORDER_STYLE_OPTIONS}
                 showIcon={false}
@@ -139,7 +140,7 @@ export function Border ({value, onChange, config}: BorderProps) {
                     <BorderTopWidthOutlined />
                   </div>
                   <InputNumber
-                    style={{padding: 0, fontSize: 10, minWidth: 45, maxWidth: 45, marginLeft: 4}}
+                    style={{padding: 0, fontSize: 10, minWidth: 44, maxWidth: 44, marginLeft: 4}}
                     defaultValue={borderValue.borderTopWidth}
                     suffix={'px'}
                     onChange={(value) => handleChange({borderTopWidth: value})}
@@ -151,6 +152,7 @@ export function Border ({value, onChange, config}: BorderProps) {
                   />
                   <Select
                     style={{padding: 0, width: 40}}
+                    labelClassName={css.label}
                     defaultValue={borderValue.borderTopStyle}
                     options={BORDER_STYLE_OPTIONS}
                     showIcon={false}
@@ -173,7 +175,7 @@ export function Border ({value, onChange, config}: BorderProps) {
                     <BorderRightWidthOutlined />
                   </div>
                   <InputNumber
-                    style={{padding: 0, fontSize: 10, minWidth: 45, maxWidth: 45, marginLeft: 4}}
+                    style={{padding: 0, fontSize: 10, minWidth: 44, maxWidth: 44, marginLeft: 4}}
                     defaultValue={borderValue.borderRightWidth}
                     suffix={'px'}
                     onChange={(value) => handleChange({borderRightWidth: value})}
@@ -185,6 +187,7 @@ export function Border ({value, onChange, config}: BorderProps) {
                   />
                   <Select
                     style={{padding: 0, width: 40}}
+                    labelClassName={css.label}
                     defaultValue={borderValue.borderRightStyle}
                     options={BORDER_STYLE_OPTIONS}
                     showIcon={false}
@@ -202,7 +205,7 @@ export function Border ({value, onChange, config}: BorderProps) {
                     <BorderBottomWidthOutlined />
                   </div>
                   <InputNumber
-                    style={{padding: 0, fontSize: 10, minWidth: 45, maxWidth: 45, marginLeft: 4}}
+                    style={{padding: 0, fontSize: 10, minWidth: 44, maxWidth: 44, marginLeft: 4}}
                     defaultValue={borderValue.borderBottomWidth}
                     suffix={'px'}
                     onChange={(value) => handleChange({borderBottomWidth: value})}
@@ -214,6 +217,7 @@ export function Border ({value, onChange, config}: BorderProps) {
                   />
                   <Select
                     style={{padding: 0, width: 40}}
+                    labelClassName={css.label}
                     defaultValue={borderValue.borderBottomStyle}
                     options={BORDER_STYLE_OPTIONS}
                     showIcon={false}
@@ -231,7 +235,7 @@ export function Border ({value, onChange, config}: BorderProps) {
                     <BorderLeftWidthOutlined />
                   </div>
                   <InputNumber
-                    style={{padding: 0, fontSize: 10, minWidth: 45, maxWidth: 45, marginLeft: 4}}
+                    style={{padding: 0, fontSize: 10, minWidth: 44, maxWidth: 44, marginLeft: 4}}
                     defaultValue={borderValue.borderLeftWidth}
                     suffix={'px'}
                     onChange={(value) => handleChange({borderLeftWidth: value})}
@@ -243,6 +247,7 @@ export function Border ({value, onChange, config}: BorderProps) {
                   />
                   <Select
                     style={{padding: 0, width: 40}}
+                    labelClassName={css.label}
                     defaultValue={borderValue.borderLeftStyle}
                     options={BORDER_STYLE_OPTIONS}
                     showIcon={false}
@@ -268,7 +273,7 @@ export function Border ({value, onChange, config}: BorderProps) {
                 <BorderRadiusSplitOutlined />
               </div>
               <InputNumber
-                style={{padding: 0, fontSize: 10, minWidth: 45, maxWidth: 45, marginLeft: 4}}
+                style={{padding: 0, fontSize: 10, minWidth: 44, maxWidth: 44, marginLeft: 4}}
                 defaultValue={borderValue.borderTopLeftRadius}
                 unitOptions={UNIT_OPTIONS}
                 onChange={(value) => handleChange({
@@ -291,7 +296,7 @@ export function Border ({value, onChange, config}: BorderProps) {
     } else {
       const style = {
         padding: 0, fontSize: 10, 
-        minWidth: 45, maxWidth: 45, marginLeft: 4
+        minWidth: 44, maxWidth: 44, marginLeft: 4
       }
       return (
         <div className={css.row}>
