@@ -37,6 +37,15 @@ export function InputNumber ({
     return (unitDisabledList && unit) ? unitDisabledList.includes(unit) : disabled
   }, [unit, disabled])
 
+  const onKeyDown = useCallback((e) => {
+    const code = e.code
+
+    if (['ArrowUp', 'ArrowDown'].includes(code)) {
+      e.preventDefault()
+      handleNumberChange(incrementDecrement(number, code))
+    }
+  }, [number])
+
   const suffix = useMemo(() => {
     if (customSuffix) {
       return customSuffix
@@ -76,6 +85,7 @@ export function InputNumber ({
       suffix={suffix}
       disabled={isDisabledUnit()}
       onFocus={onFocus}
+      onKeyDown={onKeyDown}
     />
   )
 }
@@ -84,4 +94,29 @@ function getUnit (value: any, defaultUnitValue?: string) {
   const [, unit] = splitValueAndUnit(value)
 
   return unit || (typeof defaultUnitValue !== 'undefined' ? defaultUnitValue : value)
+}
+
+function incrementDecrement(inputNumber: string, keyEvent: 'ArrowUp' | 'ArrowDown') {
+  if (inputNumber.includes('.')) {
+    var decimalPlaces = inputNumber.split('.')[1].length
+    var increment = Math.pow(10, -decimalPlaces)
+
+    if (keyEvent === 'ArrowUp') {
+      var updatedNumber = (parseFloat(inputNumber) + increment).toFixed(decimalPlaces)
+    } else if (keyEvent === 'ArrowDown') {
+      var updatedNumber = (parseFloat(inputNumber) - increment).toFixed(decimalPlaces)
+    } else {
+      var updatedNumber = inputNumber
+    }
+  } else {
+    if (keyEvent === 'ArrowUp') {
+      var updatedNumber = (parseFloat(inputNumber) + 1).toString()
+    } else if (keyEvent === 'ArrowDown') {
+      var updatedNumber = (parseFloat(inputNumber) - 1).toString()
+    } else {
+      var updatedNumber = inputNumber
+    }
+  }
+
+  return updatedNumber
 }

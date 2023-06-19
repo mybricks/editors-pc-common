@@ -18,6 +18,7 @@ export interface InputProps {
   onChange: (value: string) => void
   disabled?: boolean
   onFocus?: React.FocusEventHandler<HTMLInputElement>
+  onKeyDown?: React.KeyboardEventHandler<HTMLInputElement>
 }
 
 export function Input ({
@@ -28,7 +29,8 @@ export function Input ({
   suffix,
   style = {},
   disabled = false,
-  onFocus
+  onFocus = () => {},
+  onKeyDown = () => {}
 }: InputProps) {
   const [inputValue, setInputValue] = useState(defaultValue)
 
@@ -47,7 +49,8 @@ export function Input ({
           value={value || inputValue}
           onChange={handleInputChange}
           disabled={disabled}
-          onFocus={(e) => onFocus && onFocus(e)}
+          onFocus={onFocus}
+          onKeyDown={onKeyDown}
         />
         {suffix && <div className={css.suffix}>{suffix}</div>}
       </div>
