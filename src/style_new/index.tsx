@@ -550,20 +550,20 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration) 
 
   /** padding */
   if (!paddingTop) {
-    // paddingTop = computedValues.paddingTop
-    paddingTop = '0px'
+    paddingTop = computedValues.paddingTop
+    // paddingTop = '0px'
   }
   if (!paddingRight) {
-    // paddingRight = computedValues.paddingRight
-    paddingRight = '0px'
+    paddingRight = computedValues.paddingRight
+    // paddingRight = '0px'
   }
   if (!paddingBottom) {
-    // paddingBottom = computedValues.paddingBottom
-    paddingBottom = '0px'
+    paddingBottom = computedValues.paddingBottom
+    // paddingBottom = '0px'
   }
   if (!paddingLeft) {
-    // paddingLeft = computedValues.paddingLeft
-    paddingLeft = '0px'
+    paddingLeft = computedValues.paddingLeft
+    // paddingLeft = '0px'
   }
   /** padding */
 

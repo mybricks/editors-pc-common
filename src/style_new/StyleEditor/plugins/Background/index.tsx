@@ -28,7 +28,9 @@ export function Background ({value, onChange, config}: BackgroundProps) {
       {disableBackgroundColor ? null : (
         <Panel.Content>
           <ColorEditor
-            defaultValue={value.backgroundColor}
+            // TODO
+            // @ts-ignore
+            defaultValue={value[getRealKey(keyMap, 'backgroundColor')] || value.backgroundColor}
             onChange={(value) => onChange({key: getRealKey(keyMap, 'backgroundColor'), value})}
           />
         </Panel.Content>
