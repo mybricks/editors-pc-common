@@ -8,14 +8,12 @@ import React, {
 import {
   Panel,
   Select,
-  Toggle,
   ColorEditor,
   InputNumber,
   BorderAllOutlined,
   BorderSplitOutlined,
   BorderTopWidthOutlined,
   BorderLeftWidthOutlined,
-  BorderRadiusAllOutlined,
   BorderRightWidthOutlined,
   BorderRadiusSplitOutlined,
   BorderBottomWidthOutlined,
@@ -24,11 +22,12 @@ import {
   BorderBottomLeftRadiusOutlined,
   BorderBottomRightRadiusOutlined
 } from '../../components'
+import { allEqual } from '../../utils'
+import { useUpdateEffect } from '../../hooks'
 
 import type { ChangeEvent } from '../../type'
 
 import css from './index.less'
-import { useUpdateEffect } from '../../hooks'
 
 interface BorderProps {
   value: CSSProperties
@@ -42,14 +41,6 @@ const BORDER_STYLE_OPTIONS = [
   { label: '无', value: 'none' },
   { label: '实线', value: 'solid' },
   { label: '虚线', value: 'dashed' },
-]
-const BORDER_OPTIONS = [
-  {label: <BorderAllOutlined />, value: 'all'},
-  {label: <BorderSplitOutlined />, value: 'split'}
-]
-const RADIUS_OPTIONS = [
-  {label: <BorderRadiusSplitOutlined />, value: 'all'},
-  {label: <BorderTopLeftRadiusOutlined />, value: 'split'}
 ]
 const UNIT_OPTIONS = [
   {label: 'px', value: 'px'},
@@ -397,14 +388,4 @@ function getToggleDefaultValue (value: CSSProperties) {
       allEqual([value.borderTopColor, value.borderRightColor, value.borderBottomColor, value.borderLeftColor])) ? 'all' : 'split',
     radiusToggleValue: allEqual([value.borderTopLeftRadius, value.borderTopRightRadius, value.borderBottomRightRadius, value.borderBottomLeftRadius]) ? 'all' : 'split'
   }
-}
-
-/**
- * Determines if all elements in the given array are equal.
- *
- * @param {Array<any>} arr - The array to check for equality.
- * @return {boolean} Returns true if all elements in the array are equal, false otherwise.
- */
-function allEqual(arr: Array<any>) {
-  return new Set(arr).size === 1
 }

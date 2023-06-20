@@ -1,15 +1,30 @@
-// .editArea {
-//   flex: 1;
-//   grid-template-columns: 1fr 1fr;
-//   display: grid;
-//   column-gap: 6px;
-//   row-gap: 6px;
-
-//   > div {
-//     margin-left: 0px !important;
-//   }
-// }
+.icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 15px;
+}
 
 .editArea {
   display: flex;
+  align-items: center;
+}
+
+.row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+}
+
+.col {
+  width: 100%;
+}
+
+.actionIcon {
+  .icon();
+  cursor: pointer;
+}
+
+.label {
+  text-align: right!important;
 }
