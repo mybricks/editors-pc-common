@@ -46,6 +46,13 @@ const UNIT_OPTIONS = [
   {label: 'px', value: 'px'},
   {label: '%', value: '%'}
 ]
+const DEFAULT_STYLE = {
+  padding: 0,
+  fontSize: 10,
+  minWidth: 41,
+  maxWidth: 41,
+  marginLeft: 4
+}
 
 export function Border ({value, onChange, config}: BorderProps) {
   const [{borderToggleValue, radiusToggleValue}, setToggleValue] = useState(getToggleDefaultValue(value))
@@ -72,12 +79,12 @@ export function Border ({value, onChange, config}: BorderProps) {
       return (
         <div className={css.row}>
           <Panel.Content style={{padding: 3}}>
-            <Panel.Item className={css.editArea} style={{padding: '0px 4px 0px 8px'}}>
+            <Panel.Item className={css.editArea} style={{padding: '0px 8px'}}>
               <div className={css.icon}>
                 <BorderAllOutlined />
               </div>
               <InputNumber
-                style={{padding: 0, fontSize: 10, minWidth: 44, maxWidth: 44, marginLeft: 4}}
+                style={DEFAULT_STYLE}
                 defaultValue={borderValue.borderTopWidth}
                 suffix={'px'}
                 onChange={(value) => handleChange({
@@ -126,12 +133,12 @@ export function Border ({value, onChange, config}: BorderProps) {
           <div className={css.col}>
             <div className={css.row}>
               <Panel.Content style={{padding: 3}}>
-                <Panel.Item className={css.editArea} style={{padding: '0px 4px 0px 8px'}}>
+                <Panel.Item className={css.editArea} style={{padding: '0px 8px'}}>
                   <div className={css.icon}>
                     <BorderTopWidthOutlined />
                   </div>
                   <InputNumber
-                    style={{padding: 0, fontSize: 10, minWidth: 44, maxWidth: 44, marginLeft: 4}}
+                    style={DEFAULT_STYLE}
                     defaultValue={borderValue.borderTopWidth}
                     suffix={'px'}
                     onChange={(value) => handleChange({borderTopWidth: value})}
@@ -161,12 +168,12 @@ export function Border ({value, onChange, config}: BorderProps) {
 
             <div className={css.row}>
               <Panel.Content style={{padding: 3}}>
-                <Panel.Item className={css.editArea} style={{padding: '0px 4px 0px 8px'}}>
+                <Panel.Item className={css.editArea} style={{padding: '0px 8px'}}>
                   <div className={css.icon}>
                     <BorderRightWidthOutlined />
                   </div>
                   <InputNumber
-                    style={{padding: 0, fontSize: 10, minWidth: 44, maxWidth: 44, marginLeft: 4}}
+                    style={DEFAULT_STYLE}
                     defaultValue={borderValue.borderRightWidth}
                     suffix={'px'}
                     onChange={(value) => handleChange({borderRightWidth: value})}
@@ -186,17 +193,17 @@ export function Border ({value, onChange, config}: BorderProps) {
                   />
                 </Panel.Item>
               </Panel.Content>
-              <div className={css.icon} />
+              <div className={css.actionIcon} />
             </div>
 
             <div className={css.row}>
               <Panel.Content style={{padding: 3}}>
-                <Panel.Item className={css.editArea} style={{padding: '0px 4px 0px 8px'}}>
+                <Panel.Item className={css.editArea} style={{padding: '0px 8px'}}>
                   <div className={css.icon}>
                     <BorderBottomWidthOutlined />
                   </div>
                   <InputNumber
-                    style={{padding: 0, fontSize: 10, minWidth: 44, maxWidth: 44, marginLeft: 4}}
+                    style={DEFAULT_STYLE}
                     defaultValue={borderValue.borderBottomWidth}
                     suffix={'px'}
                     onChange={(value) => handleChange({borderBottomWidth: value})}
@@ -216,17 +223,17 @@ export function Border ({value, onChange, config}: BorderProps) {
                   />
                 </Panel.Item>
               </Panel.Content>
-              <div className={css.icon} />
+              <div className={css.actionIcon} />
             </div>
             
             <div className={css.row}>
               <Panel.Content style={{padding: 3}}>
-                <Panel.Item className={css.editArea} style={{padding: '0px 4px 0px 8px'}}>
+                <Panel.Item className={css.editArea} style={{padding: '0px 8px'}}>
                   <div className={css.icon}>
                     <BorderLeftWidthOutlined />
                   </div>
                   <InputNumber
-                    style={{padding: 0, fontSize: 10, minWidth: 44, maxWidth: 44, marginLeft: 4}}
+                    style={DEFAULT_STYLE}
                     defaultValue={borderValue.borderLeftWidth}
                     suffix={'px'}
                     onChange={(value) => handleChange({borderLeftWidth: value})}
@@ -246,7 +253,7 @@ export function Border ({value, onChange, config}: BorderProps) {
                   />
                 </Panel.Item>
               </Panel.Content>
-              <div className={css.icon} />
+              <div className={css.actionIcon} />
             </div>
           </div>
         </div>
@@ -259,12 +266,12 @@ export function Border ({value, onChange, config}: BorderProps) {
       return (
         <div className={css.row}>
           <Panel.Content style={{padding: 3}}>
-            <Panel.Item className={css.editArea} style={{padding: '0px 4px 0px 8px'}}>
+            <Panel.Item className={css.editArea} style={{padding: '0px 8px'}}>
               <div className={css.icon}>
                 <BorderRadiusSplitOutlined />
               </div>
               <InputNumber
-                style={{padding: 0, fontSize: 10, minWidth: 44, maxWidth: 44, marginLeft: 4}}
+                style={DEFAULT_STYLE}
                 defaultValue={borderValue.borderTopLeftRadius}
                 unitOptions={UNIT_OPTIONS}
                 onChange={(value) => handleChange({
@@ -285,40 +292,36 @@ export function Border ({value, onChange, config}: BorderProps) {
         </div>
       )
     } else {
-      const style = {
-        padding: 0, fontSize: 10, 
-        minWidth: 44, maxWidth: 44, marginLeft: 4
-      }
       return (
         <div className={css.row}>
           <Panel.Content style={{padding: 3}}>
-            <Panel.Item className={css.editArea} style={{padding: '0px 4px 0px 8px'}}>
+            <Panel.Item className={css.editArea} style={{padding: '0px 8px'}}>
               <div className={css.icon}>
                 {splitRadiusIcon}
               </div>
               <InputNumber
-                style={style}
+                style={DEFAULT_STYLE}
                 defaultValue={borderValue.borderTopLeftRadius}
                 unitOptions={UNIT_OPTIONS}
                 onChange={(value) => handleChange({borderTopLeftRadius: value})}
                 onFocus={() => setSplitRadiusIcon(<BorderTopLeftRadiusOutlined />)}
               />
               <InputNumber
-                style={style}
+                style={DEFAULT_STYLE}
                 defaultValue={borderValue.borderTopRightRadius}
                 unitOptions={UNIT_OPTIONS}
                 onChange={(value) => handleChange({borderTopRightRadius: value})}
                 onFocus={() => setSplitRadiusIcon(<BorderTopRightRadiusOutlined />)}
               />
               <InputNumber
-                style={style}
+                style={DEFAULT_STYLE}
                 defaultValue={borderValue.borderBottomLeftRadius}
                 unitOptions={UNIT_OPTIONS}
                 onChange={(value) => handleChange({borderBottomLeftRadius: value})}
                 onFocus={() => setSplitRadiusIcon(<BorderBottomLeftRadiusOutlined />)}
               />
               <InputNumber
-                style={style}
+                style={DEFAULT_STYLE}
                 defaultValue={borderValue.borderBottomRightRadius}
                 unitOptions={UNIT_OPTIONS}
                 onChange={(value) => handleChange({borderBottomRightRadius: value})}

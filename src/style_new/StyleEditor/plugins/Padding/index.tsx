@@ -29,6 +29,14 @@ interface PaddingProps {
   }
 }
 
+const DEFAULT_STYLE = {
+  padding: 0,
+  fontSize: 10,
+  minWidth: 41,
+  maxWidth: 41,
+  marginLeft: 4
+}
+
 export function Padding ({value, onChange, config}: PaddingProps) {
   const [toggle, setToggle] = useState(getToggleDefaultValue(value))
   const [paddingValue, setPaddingValue] = useState({...value})
@@ -61,23 +69,16 @@ export function Padding ({value, onChange, config}: PaddingProps) {
   }, [toggle])
 
   const paddingConfig = useMemo(() => {
-    const style = {
-      padding: 0,
-      fontSize: 10, 
-      minWidth: 44,
-      maxWidth: 44,
-      marginLeft: 4
-    }
     if (toggle) {
       return (
         <div className={css.row}>
           <Panel.Content style={{padding: 3}}>
-            <Panel.Item className={css.editArea} style={{padding: '0px 4px 0px 8px'}}>
+            <Panel.Item className={css.editArea} style={{padding: '0px 8px'}}>
               <div className={css.icon}>
                 <PaddingAllOutlined />
               </div>
               <InputNumber
-                style={style}
+                style={DEFAULT_STYLE}
                 defaultValue={paddingValue.paddingTop}
                 suffix={'px'}
                 onChange={(value) => handleChange({
@@ -101,33 +102,33 @@ export function Padding ({value, onChange, config}: PaddingProps) {
       return (
         <div className={css.row}>
           <Panel.Content style={{padding: 3}}>
-            <Panel.Item className={css.editArea} style={{padding: '0px 4px 0px 8px'}}>
+            <Panel.Item className={css.editArea} style={{padding: '0px 8px'}}>
               <div className={css.icon}>
                 {splitPaddingIcon}
               </div>
               <InputNumber
-                style={style}
+                style={DEFAULT_STYLE}
                 defaultValue={paddingValue.paddingTop}
                 suffix={'px'}
                 onFocus={() => setSplitPaddingIcon(<PaddingTopOutlined />)}
                 onChange={(value) => handleChange({paddingTop: value})}
               />
               <InputNumber
-                style={style}
+                style={DEFAULT_STYLE}
                 defaultValue={paddingValue.paddingRight}
                 suffix={'px'}
                 onFocus={() => setSplitPaddingIcon(<PaddingRightOutlined />)}
                 onChange={(value) => handleChange({paddingRight: value})}
               />
               <InputNumber
-                style={style}
+                style={DEFAULT_STYLE}
                 defaultValue={paddingValue.paddingBottom}
                 suffix={'px'}
                 onFocus={() => setSplitPaddingIcon(<PaddingBottomOutlined />)}
                 onChange={(value) => handleChange({paddingBottom: value})}
               />
               <InputNumber
-                style={style}
+                style={DEFAULT_STYLE}
                 defaultValue={paddingValue.paddingLeft}
                 suffix={'px'}
                 onFocus={() => setSplitPaddingIcon(<PaddingLeftOutlined />)}
