@@ -648,7 +648,7 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration) 
   }
   /** size */
 
-  return {
+  return getRealValue({
     color,
     fontSize,
     textAlign,
@@ -687,7 +687,7 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration) 
 
     width,
     height
-  }
+  }, computedValues)
 }
 
 function getStyleRules (element: HTMLElement, selector: string | null) {
@@ -753,4 +753,20 @@ function getSelectorSpecificity(selector: string) {
     }
   }
   return parseInt(specificity.join(''))
+}
+
+function getRealValue(style: any, computedValues: CSSStyleDeclaration) {
+  const finalStyle: any = {}
+
+  Object.keys(style).forEach((key) => {
+    const value = style[key]
+    if (typeof value === 'string') {
+      // @ts-ignore
+      finalStyle[key] = value.startsWith('var') ? computedValues[key] : value
+    } else {
+      finalStyle[key] = value
+    }
+  })
+
+  return finalStyle
 }
