@@ -28,6 +28,7 @@ export function Background ({value, onChange, config}: BackgroundProps) {
       {disableBackgroundColor ? null : (
         <Panel.Content>
           <ColorEditor
+            tip='背景色'
             // TODO
             // @ts-ignore
             defaultValue={value[getRealKey(keyMap, 'backgroundColor')] || value.backgroundColor}
@@ -38,6 +39,7 @@ export function Background ({value, onChange, config}: BackgroundProps) {
       {disableBackgroundImage ? null : (
         <Panel.Content>
           <Image
+            tip='背景图'
             defaultValue={{
               backgroundImage: value.backgroundImage,
               backgroundRepeat: value.backgroundRepeat,

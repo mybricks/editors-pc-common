@@ -18,6 +18,7 @@ interface ImageProps {
   style?: CSSProperties
   onChange: (value: any) => void
   upload?: (files: Array<File>) => Array<string>
+  tip?: string
 }
 
 function getBackgroundImage (image: string = '') {
@@ -28,7 +29,8 @@ export function Image ({
   defaultValue,
   style = {},
   onChange,
-  upload
+  upload,
+  tip
 }: ImageProps) {
   const ref = useRef<HTMLDivElement>(null)
   const childRef = useRef<HTMLDivElement>(null)
@@ -81,16 +83,16 @@ export function Image ({
 
   return (
     <Panel.Item>
-      <div className={css.image}>
+      <div className={css.image} data-mybricks-tip={tip}>
         <div ref={ref} className={css.block}>
           <img
             onClick={handleImageClick}
             src={getBackgroundImage(value.backgroundImage)}
           />
         </div>
-        <div className={css.reset} onClick={handleReset}>
+        {/* <div className={css.reset} onClick={handleReset} data-mybricks-tip='重置'>
           <ResetOutlined />
-        </div>
+        </div> */}
       </div>
       {show && createPortal(
         <Popup

@@ -19,6 +19,7 @@ export interface InputProps {
   disabled?: boolean
   onFocus?: React.FocusEventHandler<HTMLInputElement>
   onKeyDown?: React.KeyboardEventHandler<HTMLInputElement>
+  tip?: string
 }
 
 export function Input ({
@@ -30,7 +31,8 @@ export function Input ({
   style = {},
   disabled = false,
   onFocus = () => {},
-  onKeyDown = () => {}
+  onKeyDown = () => {},
+  tip
 }: InputProps) {
   const [inputValue, setInputValue] = useState(defaultValue)
 
@@ -43,7 +45,7 @@ export function Input ({
 
   return (
     <Panel.Item style={style}>
-      <div className={css.input}>
+      <div className={css.input} data-mybricks-tip={tip}>
         {prefix && <div className={css.prefix}>{prefix}</div>}
         <input
           value={value || inputValue}

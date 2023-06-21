@@ -78,6 +78,7 @@ export function Padding ({value, onChange, config}: PaddingProps) {
                 <PaddingAllOutlined />
               </div>
               <InputNumber
+                tip='边距'
                 style={DEFAULT_STYLE}
                 defaultValue={paddingValue.paddingTop}
                 suffix={'px'}
@@ -91,6 +92,7 @@ export function Padding ({value, onChange, config}: PaddingProps) {
             </Panel.Item>
           </Panel.Content>
           <div
+            data-mybricks-tip={`{content:'四边同时配置',position:'left'}`}
             className={css.actionIcon}
             onClick={() => setToggle(false)}
           >
@@ -107,6 +109,7 @@ export function Padding ({value, onChange, config}: PaddingProps) {
                 {splitPaddingIcon}
               </div>
               <InputNumber
+                tip='上边距'
                 style={DEFAULT_STYLE}
                 defaultValue={paddingValue.paddingTop}
                 suffix={'px'}
@@ -114,6 +117,7 @@ export function Padding ({value, onChange, config}: PaddingProps) {
                 onChange={(value) => handleChange({paddingTop: value})}
               />
               <InputNumber
+                tip='右边距'
                 style={DEFAULT_STYLE}
                 defaultValue={paddingValue.paddingRight}
                 suffix={'px'}
@@ -121,6 +125,7 @@ export function Padding ({value, onChange, config}: PaddingProps) {
                 onChange={(value) => handleChange({paddingRight: value})}
               />
               <InputNumber
+                tip='下边距'
                 style={DEFAULT_STYLE}
                 defaultValue={paddingValue.paddingBottom}
                 suffix={'px'}
@@ -128,6 +133,7 @@ export function Padding ({value, onChange, config}: PaddingProps) {
                 onChange={(value) => handleChange({paddingBottom: value})}
               />
               <InputNumber
+                tip='左边距'
                 style={DEFAULT_STYLE}
                 defaultValue={paddingValue.paddingLeft}
                 suffix={'px'}
@@ -137,6 +143,7 @@ export function Padding ({value, onChange, config}: PaddingProps) {
             </Panel.Item>
           </Panel.Content>
           <div
+            data-mybricks-tip={`{content:'四边单独配置',position:'left'}`}
             className={css.actionIcon}
             onClick={() => setToggle(true)}
           >

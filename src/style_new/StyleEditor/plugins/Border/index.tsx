@@ -84,6 +84,7 @@ export function Border ({value, onChange, config}: BorderProps) {
                 <BorderAllOutlined />
               </div>
               <InputNumber
+                tip='边框宽度'
                 style={DEFAULT_STYLE}
                 defaultValue={borderValue.borderTopWidth}
                 suffix={'px'}
@@ -95,6 +96,7 @@ export function Border ({value, onChange, config}: BorderProps) {
                 })}
               />
               <ColorEditor
+                tip='边框颜色'
                 style={{padding: 0, marginLeft: 9}}
                 defaultValue={borderValue.borderTopColor}
                 onChange={(value) => handleChange({
@@ -105,6 +107,7 @@ export function Border ({value, onChange, config}: BorderProps) {
                 })}
               />
               <Select
+                tip='边框线条样式'
                 style={{padding: 0, width: 40, textAlign: 'right'}}
                 labelClassName={css.label}
                 defaultValue={borderValue.borderTopStyle}
@@ -120,6 +123,7 @@ export function Border ({value, onChange, config}: BorderProps) {
             </Panel.Item>
           </Panel.Content>
           <div
+            data-mybricks-tip={`{content:'四条边同时配置',position:'left'}`}
             className={css.actionIcon}
             onClick={() => handleToggleChange({key: 'borderToggleValue', value: 'split'})}
           >
@@ -138,17 +142,20 @@ export function Border ({value, onChange, config}: BorderProps) {
                     <BorderTopWidthOutlined />
                   </div>
                   <InputNumber
+                    tip='上边框宽度'
                     style={DEFAULT_STYLE}
                     defaultValue={borderValue.borderTopWidth}
                     suffix={'px'}
                     onChange={(value) => handleChange({borderTopWidth: value})}
                   />
                   <ColorEditor
+                    tip='上边框颜色'
                     style={{padding: 0, marginLeft: 9}}
                     defaultValue={borderValue.borderTopColor}
                     onChange={(value) => handleChange({borderTopColor: value})}
                   />
                   <Select
+                    tip='上边框线条样式'
                     style={{padding: 0, width: 40}}
                     labelClassName={css.label}
                     defaultValue={borderValue.borderTopStyle}
@@ -159,6 +166,7 @@ export function Border ({value, onChange, config}: BorderProps) {
                 </Panel.Item>
               </Panel.Content>
               <div
+                data-mybricks-tip={`{content:'四条边单独配置',position:'left'}`}
                 className={css.actionIcon}
                 onClick={() => handleToggleChange({key: 'borderToggleValue', value: 'all'})}
               >
@@ -173,17 +181,20 @@ export function Border ({value, onChange, config}: BorderProps) {
                     <BorderRightWidthOutlined />
                   </div>
                   <InputNumber
+                    tip='右边框宽度'
                     style={DEFAULT_STYLE}
                     defaultValue={borderValue.borderRightWidth}
                     suffix={'px'}
                     onChange={(value) => handleChange({borderRightWidth: value})}
                   />
                   <ColorEditor
+                    tip='右边框颜色'
                     style={{padding: 0, marginLeft: 9}}
                     defaultValue={borderValue.borderRightColor}
                     onChange={(value) => handleChange({borderRightColor: value})}
                   />
                   <Select
+                    tip='右边框线条样式'
                     style={{padding: 0, width: 40}}
                     labelClassName={css.label}
                     defaultValue={borderValue.borderRightStyle}
@@ -203,17 +214,20 @@ export function Border ({value, onChange, config}: BorderProps) {
                     <BorderBottomWidthOutlined />
                   </div>
                   <InputNumber
+                    tip='下边框宽度'
                     style={DEFAULT_STYLE}
                     defaultValue={borderValue.borderBottomWidth}
                     suffix={'px'}
                     onChange={(value) => handleChange({borderBottomWidth: value})}
                   />
                   <ColorEditor
+                    tip='下边框颜色'
                     style={{padding: 0, marginLeft: 9}}
                     defaultValue={borderValue.borderBottomColor}
                     onChange={(value) => handleChange({borderBottomColor: value})}
                   />
                   <Select
+                    tip='下边框线条样式'
                     style={{padding: 0, width: 40}}
                     labelClassName={css.label}
                     defaultValue={borderValue.borderBottomStyle}
@@ -233,17 +247,20 @@ export function Border ({value, onChange, config}: BorderProps) {
                     <BorderLeftWidthOutlined />
                   </div>
                   <InputNumber
+                    tip='左边框宽度'
                     style={DEFAULT_STYLE}
                     defaultValue={borderValue.borderLeftWidth}
                     suffix={'px'}
                     onChange={(value) => handleChange({borderLeftWidth: value})}
                   />
                   <ColorEditor
+                    tip='左边框颜色'
                     style={{padding: 0, marginLeft: 9}}
                     defaultValue={borderValue.borderLeftColor}
                     onChange={(value) => handleChange({borderLeftColor: value})}
                   />
                   <Select
+                    tip='左边框线条样式'
                     style={{padding: 0, width: 40}}
                     labelClassName={css.label}
                     defaultValue={borderValue.borderLeftStyle}
@@ -271,6 +288,7 @@ export function Border ({value, onChange, config}: BorderProps) {
                 <BorderRadiusSplitOutlined />
               </div>
               <InputNumber
+                tip='圆角半径'
                 style={DEFAULT_STYLE}
                 defaultValue={borderValue.borderTopLeftRadius}
                 unitOptions={UNIT_OPTIONS}
@@ -284,6 +302,7 @@ export function Border ({value, onChange, config}: BorderProps) {
             </Panel.Item>
           </Panel.Content>
           <div
+            data-mybricks-tip={`{content:'四角同时配置',position:'left'}`}
             className={css.actionIcon}
             onClick={() => handleToggleChange({key: 'radiusToggleValue', value: 'split'})}
           >
@@ -300,6 +319,7 @@ export function Border ({value, onChange, config}: BorderProps) {
                 {splitRadiusIcon}
               </div>
               <InputNumber
+                tip='左上角半径'
                 style={DEFAULT_STYLE}
                 defaultValue={borderValue.borderTopLeftRadius}
                 unitOptions={UNIT_OPTIONS}
@@ -307,6 +327,7 @@ export function Border ({value, onChange, config}: BorderProps) {
                 onFocus={() => setSplitRadiusIcon(<BorderTopLeftRadiusOutlined />)}
               />
               <InputNumber
+                tip='右上角半径'
                 style={DEFAULT_STYLE}
                 defaultValue={borderValue.borderTopRightRadius}
                 unitOptions={UNIT_OPTIONS}
@@ -314,22 +335,25 @@ export function Border ({value, onChange, config}: BorderProps) {
                 onFocus={() => setSplitRadiusIcon(<BorderTopRightRadiusOutlined />)}
               />
               <InputNumber
-                style={DEFAULT_STYLE}
-                defaultValue={borderValue.borderBottomLeftRadius}
-                unitOptions={UNIT_OPTIONS}
-                onChange={(value) => handleChange({borderBottomLeftRadius: value})}
-                onFocus={() => setSplitRadiusIcon(<BorderBottomLeftRadiusOutlined />)}
-              />
-              <InputNumber
+                tip='右下角半径'
                 style={DEFAULT_STYLE}
                 defaultValue={borderValue.borderBottomRightRadius}
                 unitOptions={UNIT_OPTIONS}
                 onChange={(value) => handleChange({borderBottomRightRadius: value})}
                 onFocus={() => setSplitRadiusIcon(<BorderBottomRightRadiusOutlined />)}
               />
+              <InputNumber
+                tip='左下角半径'
+                style={DEFAULT_STYLE}
+                defaultValue={borderValue.borderBottomLeftRadius}
+                unitOptions={UNIT_OPTIONS}
+                onChange={(value) => handleChange({borderBottomLeftRadius: value})}
+                onFocus={() => setSplitRadiusIcon(<BorderBottomLeftRadiusOutlined />)}
+              />
             </Panel.Item>
           </Panel.Content>
           <div
+            data-mybricks-tip={`{content:'四角单独配置',position:'left'}`}
             className={css.actionIcon}
             onClick={() => handleToggleChange({key: 'radiusToggleValue', value: 'all'})}
           >

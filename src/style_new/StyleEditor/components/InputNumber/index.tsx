@@ -27,7 +27,8 @@ export function InputNumber ({
   unitOptions,
   unitDisabledList = [],
   defaultUnitValue,
-  onFocus
+  onFocus,
+  tip
 }: InputNumberProps) {
   const [unit, setUnit] = useState<string>(getUnit(defaultValue, defaultUnitValue))
   const [number, handleNumberChange] = useInputNumber(defaultValue)
@@ -86,6 +87,7 @@ export function InputNumber ({
       disabled={isDisabledUnit()}
       onFocus={onFocus}
       onKeyDown={onKeyDown}
+      tip={tip}
     />
   )
 }

@@ -15,9 +15,15 @@ interface ColorEditorProps {
   defaultValue: any
   style?: CSSProperties
   onChange: (value: any) => void
+  tip?: string
 }
 
-export function ColorEditor ({defaultValue, style = {}, onChange}: ColorEditorProps) {
+export function ColorEditor ({
+  defaultValue,
+  style = {},
+  onChange,
+  tip
+}: ColorEditorProps) {
   const [value, setValue] = useState(getHex(defaultValue))
   const [finalValue, setFinalValue] = useState(value)
 
@@ -70,7 +76,7 @@ export function ColorEditor ({defaultValue, style = {}, onChange}: ColorEditorPr
 
   return (
     <Panel.Item style={style}>
-      <div className={css.color}>
+      <div className={css.color} data-mybricks-tip={tip}>
         {block}
         {input}
       </div>

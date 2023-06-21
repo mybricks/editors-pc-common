@@ -16,6 +16,7 @@ interface SelectProps {
   /** 是否展示下拉的icon */
   showIcon?: boolean
   labelClassName?: string
+  tip?: string
 }
 
 export function Select ({
@@ -24,7 +25,8 @@ export function Select ({
   onChange,
   options,
   showIcon = true,
-  labelClassName
+  labelClassName,
+  tip
 }: SelectProps) {
   const [label, setLabel] = useState(options.find(({value}) => value === defaultValue)?.label || defaultValue)
   const [value, setValue] = useState(defaultValue)
@@ -43,7 +45,7 @@ export function Select ({
   return (
     <Panel.Item style={style}>
       <Dropdown options={options} value={value} onClick={handleDropDownClick}>
-        <div className={css.select} style={showIcon ? {} : {padding: 0}}>
+        <div data-mybricks-tip={tip} className={css.select} style={showIcon ? {} : {padding: 0}}>
           <div className={`${css.value}${labelClassName ? ` ${labelClassName}` : ''}`}>{label}</div>
           {showIcon && <span className={css.icon}>
             <DownOutlined />

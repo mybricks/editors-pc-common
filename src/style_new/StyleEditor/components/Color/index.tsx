@@ -15,9 +15,15 @@ interface ColorProps {
   defaultValue: any
   style?: CSSProperties
   onChange: (value: any) => void
+  tip?: string
 }
 
-export function Color ({defaultValue, onChange, style = {}}: ColorProps) {
+export function Color ({
+  defaultValue,
+  onChange,
+  style = {},
+  tip
+}: ColorProps) {
   const [value, setValue] = useState(getHex(defaultValue))
   const [finalValue, setFinalValue] = useState(value)
 
@@ -69,7 +75,7 @@ export function Color ({defaultValue, onChange, style = {}}: ColorProps) {
 
   return (
     <Panel.Item style={style}>
-      <div className={css.color}>
+      <div className={css.color} data-mybricks-tip={tip}>
         {input}
         {block}
       </div>

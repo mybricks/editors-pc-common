@@ -68,9 +68,9 @@ export function Font ({value, onChange, config}: FontProps) {
     const useStart = ['start', 'end'].includes(value.textAlign as any)
 
     return [
-      { label: <TextAlignLeftOutlined />, value: useStart ? 'start' : 'left' },
-      { label: <TextAlignCenterOutlined />, value: 'center' },
-      { label: <TextAlignRightOutlined />, value: useStart ? 'end' : 'right' }
+      { label: <TextAlignLeftOutlined />, value: useStart ? 'start' : 'left', tip: '居左对齐' },
+      { label: <TextAlignCenterOutlined />, value: 'center', tip: '居中对齐' },
+      { label: <TextAlignRightOutlined />, value: useStart ? 'end' : 'right', tip: '居右对齐' }
     ]
   }, [])
 
@@ -78,12 +78,14 @@ export function Font ({value, onChange, config}: FontProps) {
     <Panel title='字体'>
       <Panel.Content>
         <Select
+          tip='字体'
           style={{flex: '1 1 0%', padding: 0}}
           defaultValue={value.fontFamily}
           options={fontFamilyOptions()}
           onChange={(value) => onChange({key: 'fontFamily', value})}
         />
         <Color
+          tip='颜色'
           style={{width: 98}}
           defaultValue={value.color}
           onChange={(value) => onChange({key: 'color', value})}
@@ -91,12 +93,14 @@ export function Font ({value, onChange, config}: FontProps) {
       </Panel.Content>
       <Panel.Content>
         <Select
+          tip='粗细'
           style={{flex: '1 1 0%', padding: 0}}
           defaultValue={value.fontWeight}
           options={FONT_WEIGHT_OPTIONS}
           onChange={(value) => onChange({key: 'fontWeight', value})}
         />
         <InputNumber
+          tip='大小'
           style={{width: 60}}
           prefix={<FontSizeOutlined />}
           defaultValue={value.fontSize}
@@ -105,6 +109,7 @@ export function Font ({value, onChange, config}: FontProps) {
       </Panel.Content>
       <Panel.Content>
         <InputNumber
+          tip='行高'
           prefix={<LineHeightOutlined />}
           defaultValue={value.lineHeight}
           defaultUnitValue=''
@@ -113,6 +118,7 @@ export function Font ({value, onChange, config}: FontProps) {
           onChange={(value) => onChange({key: 'lineHeight', value})}
         />
         <InputNumber
+          tip='间距'
           prefix={<LetterSpacingOutlined />}
           defaultValue={value.letterSpacing}
           unitOptions={LETTERSPACING_UNIT_OPTIONS}

@@ -38,6 +38,7 @@ export function Size ({value, onChange, config}: SizeProps) {
       <Panel.Content>
         {cfg.disableWidth ? null : (
           <InputNumber
+            tip='宽'
             prefix={<WidthOutlined />}
             defaultValue={value.width}
             unitOptions={UNIT_OPTIONS}
@@ -47,6 +48,7 @@ export function Size ({value, onChange, config}: SizeProps) {
         )}
         {cfg.disableHeight ? null : (
           <InputNumber
+            tip='高'
             prefix={<HeightOutlined />}
             defaultValue={value.height}
             unitOptions={UNIT_OPTIONS}

@@ -14,7 +14,7 @@ interface ToggleProps {
   defaultValue?: any
   style?: CSSProperties
   onChange: (value: any) => void
-  options: Array<{label: ReactNode, value: any}>
+  options: Array<{label: ReactNode, value: any, tip?: string}>
 }
 
 export function Toggle ({
@@ -37,9 +37,10 @@ export function Toggle ({
     <Panel.Item style={{padding: 2, ...style}}>
       <div className={css.toggle}>
         {options.map((option, index) => {
-          const { value, label } = option
+          const { value, label, tip } = option
           return (
             <div
+              data-mybricks-tip={tip}
               key={index}
               className={css.item}
               onClick={() => handleItemClick(index)}
