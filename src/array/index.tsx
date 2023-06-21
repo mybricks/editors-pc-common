@@ -1,12 +1,12 @@
-import React, { useEffect, useMemo, useCallback } from 'react';
-import { useComputed, useObservable } from '@mybricks/rxui';
-import { EditConfig } from '@/interface';
+import React, {useEffect, useMemo, useCallback} from 'react';
+import {useComputed, useObservable} from '@mybricks/rxui';
+import {EditConfig} from '@/interface';
 import ListSetter from './listSetter/index';
-import { isValid, getOptionsFromEditor } from '../utils';
+import {isValid, getOptionsFromEditor} from '../utils';
 import AryContext from './context';
 
-export default function ({ editConfig, injectEditors, ...extraContext }: { editConfig: EditConfig }): any {
-  const { value, options } = editConfig;
+export default function ({editConfig, injectEditors, ...extraContext}: { editConfig: EditConfig }): any {
+  const {value, options} = editConfig;
 
   const updateVal = useCallback((val) => {
     value.set(val);
@@ -14,14 +14,14 @@ export default function ({ editConfig, injectEditors, ...extraContext }: { editC
 
   const opt = useMemo(() => {
     const opt = getOptionsFromEditor(options)
-    if (Object.keys(opt).length === 1 && opt.options) {
+    if (opt && Object.keys(opt).length === 1 && opt.options) {
       return opt.options
     }
     return opt
   }, [options])
 
   return (
-    <AryContext.Provider value={{ injectEditors }}>
+    <AryContext.Provider value={{injectEditors}}>
       <ListSetter
         value={isValid(value.get()) ? value.get() : []}
         onChange={updateVal}

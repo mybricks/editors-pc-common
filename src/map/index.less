@@ -4,6 +4,7 @@
     display: flex;
     align-items: center;
     margin-bottom: 12px;
+
     &-v {
       width: 100%;
       flex: 1;
@@ -13,6 +14,7 @@
       border-radius: 3px;
       background-color: #ffffff;
       box-shadow: 0 0 2px 0 #666666;
+
       &::-webkit-input-placeholder {
         color: #cccccc;
       }
@@ -22,6 +24,7 @@
       .ant-select {
         width: 100% !important;
       }
+
       .ant-input {
         padding: 0 7px;
         height: 24px;
@@ -53,6 +56,7 @@
       //   }
       // }
     }
+
     &-equal {
       // margin:0 6px;
       // font-size: 20px;
@@ -61,6 +65,7 @@
       margin: 0 4px;
       color: #fb6407;
     }
+
     &-del {
       // width: 20px;
       // height: 20px;
@@ -73,9 +78,11 @@
       // cursor: pointer;
       margin-left: 4px;
       font-size: 14px;
+
       :global {
         .anticon {
           transition: all 0.3s;
+
           &:hover {
             color: #fb6407;
           }
@@ -83,13 +90,18 @@
       }
     }
   }
+
   &__add {
     display: flex;
+
     :global {
       .ant-btn {
+        transition: none;
+        height: 22px;
         font-size: 12px;
       }
     }
+
     // cursor: pointer;
     // display: block;
     // width: 50%;

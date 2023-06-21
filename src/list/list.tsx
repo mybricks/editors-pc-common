@@ -141,7 +141,7 @@ export default function ({ editConfig }): any {
 
   return (
     <div className={css['editor-list']}>
-      {model.val.map((item: string, idx: number) => {
+      {model.val&&model.val.map((item: string, idx: number) => {
         return (
           <div key={`item_${idx}`} className={css['editor-list__item']}>
             {isDrag && !readonly && (
