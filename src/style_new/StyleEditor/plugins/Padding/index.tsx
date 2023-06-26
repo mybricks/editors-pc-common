@@ -78,7 +78,6 @@ export function Padding ({value, onChange, config}: PaddingProps) {
                 <PaddingAllOutlined />
               </div>
               <InputNumber
-                tip='边距'
                 style={DEFAULT_STYLE}
                 defaultValue={paddingValue.paddingTop}
                 suffix={'px'}
