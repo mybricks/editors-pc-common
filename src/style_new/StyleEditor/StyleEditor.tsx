@@ -1,12 +1,9 @@
-import React, {
-  useMemo,
-  useCallback,
-  CSSProperties
-} from 'react'
+import React, { useMemo, useCallback } from 'react'
 
 import {
   Font,
   Size,
+  Cursor,
   Border,
   Padding,
   Background
@@ -19,6 +16,7 @@ import css from './StyleEditor.less'
 const PLUGINS_MAP = {
   FONT: Font,
   SIZE: Size,
+  CURSOR: Cursor,
   BORDER: Border,
   PADDING: Padding,
   BACKGROUND: Background

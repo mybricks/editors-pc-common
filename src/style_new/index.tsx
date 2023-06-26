@@ -187,6 +187,11 @@ const getDefaultValueFunctionMap = {
       width: values.width,
       height: values.height
     }
+  },
+  cursor(values: CSSProperties, config: any) {
+    return {
+      cursor: values.cursor
+    }
   }
 }
 
@@ -348,6 +353,10 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration) 
   let width // 非继承属性
   let height // 非继承属性
   /** size */
+
+  /** cursor */
+  let cursor // 非继承属性
+  /** cursor */
 
   rules.forEach((rule, index) => {
     // 不可继承的属性只有非index才需要处理
@@ -521,6 +530,17 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration) 
       }
     }
     /** size */
+
+    /** cursor */
+    const {
+      cursor: styleCursor
+    } = style
+    if (!index) {
+      if (styleCursor) {
+        cursor = styleCursor
+      } 
+    }
+    /** cursor */
   })
 
   /** font */
@@ -648,6 +668,12 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration) 
   }
   /** size */
 
+  /** cursor */
+  if (!cursor) {
+    cursor = 'inherit'
+  }
+  /** cursor */
+
   return getRealValue({
     color,
     fontSize,
@@ -686,7 +712,9 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration) 
     borderRightWidth,
 
     width,
-    height
+    height,
+
+    cursor
   }, computedValues)
 }
 

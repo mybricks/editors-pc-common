@@ -3,5 +3,6 @@ export const DEFAULT_OPTIONS = [
   'border',
   'background',
   'padding',
-  'size'
+  'size',
+  'cursor'
 ] as const
