@@ -113,7 +113,7 @@ interface PopupProps {
   onChange: (value: any) => void
   open: boolean
   positionElement: HTMLDivElement
-  upload?: (files: Array<File>) => Array<string>
+  upload?: (files: Array<File>, args: any) => Array<string>
 }
 
 const BACKGROUND_REPEAT_OPTIONS = [
@@ -188,7 +188,7 @@ function Popup ({
 
     if (!file) return
 
-    const [value] = await (typeof upload === 'function' ? upload([file]) : file2Base64(file))
+    const [value] = await (typeof upload === 'function' ? upload([file], {}) : file2Base64(file))
 
     onChange({key: 'backgroundImage', value: `url(${value})`})
   }, [])

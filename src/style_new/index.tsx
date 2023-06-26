@@ -78,7 +78,7 @@ export default function ({editConfig}: EditorProps) {
  * 获取默认的配置项和样式
  */
 function getDefaultConfiguration ({value, options}: GetDefaultConfigurationProps) {
-  console.log('options: ', options)
+  // console.log('options: ', options)
 
   let finalOptions
   let defaultValue: CSSProperties = {}
