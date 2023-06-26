@@ -32,7 +32,6 @@ export function Cursor ({value, onChange, config}: CursorProps) {
           onChange={(value) => onChange({key: 'cursor', value})}
         />
       </Panel.Content>
-      光标配置
     </Panel>
   )
 }
