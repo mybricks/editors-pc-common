@@ -7,7 +7,7 @@ import React, {
 
 import ColorUtil from 'color'
 
-import { Panel, Colorpicker } from '../'
+import { Panel, Colorpicker, Unbinding } from '../'
 
 import css from './index.less'
 
@@ -74,11 +74,20 @@ export function ColorEditor ({
     )
   }, [finalValue])
 
+  const theme = useMemo(() => {
+    return (
+      <div className={css.theme}>
+        <Unbinding />
+      </div>
+    );
+  }, [finalValue]);
+
   return (
     <Panel.Item style={style}>
       <div className={css.color} data-mybricks-tip={tip}>
         {block}
         {input}
+        {theme}
       </div>
     </Panel.Item>
   )

@@ -86,7 +86,7 @@ export function Border ({value, onChange, config}: BorderProps) {
               <InputNumber
                 tip='边框宽度'
                 style={DEFAULT_STYLE}
-                defaultValue={borderValue.borderTopWidth}
+                defaultValue={borderValue.borderTopWidth || 0}
                 suffix={'px'}
                 onChange={(value) => handleChange({
                   borderTopWidth: value,
@@ -106,20 +106,25 @@ export function Border ({value, onChange, config}: BorderProps) {
                   borderLeftColor: value,
                 })}
               />
-              <Select
-                tip='边框线条样式'
-                style={{padding: 0, width: 40, textAlign: 'right'}}
-                labelClassName={css.label}
-                defaultValue={borderValue.borderTopStyle}
-                options={BORDER_STYLE_OPTIONS}
-                showIcon={false}
-                onChange={(value) => handleChange({
-                  borderTopStyle: value,
-                  borderRightStyle: value,
-                  borderBottomStyle: value,
-                  borderLeftStyle: value,
-                })}
-              />
+              {config.disableBorderStyle ? null : (
+                <Select
+                  tip="边框线条样式"
+                  style={{ padding: 0, width: 40, textAlign: "right" }}
+                  labelClassName={css.label}
+                  defaultValue={borderValue.borderTopStyle}
+                  options={BORDER_STYLE_OPTIONS}
+                  showIcon={false}
+                  onChange={(value) =>
+                    handleChange({
+                      borderTopStyle: value,
+                      borderRightStyle: value,
+                      borderBottomStyle: value,
+                      borderLeftStyle: value,
+                    })
+                  }
+                />
+              )}
+              
             </Panel.Item>
           </Panel.Content>
           <div

@@ -88,7 +88,7 @@ export function Font ({value, onChange, config}: FontProps) {
         />
         <ColorEditor
           tip='颜色'
-          style={{width: 98}}
+          style={{flex: '1 1 0%'}}
           defaultValue={value.color}
           onChange={(value) => onChange({key: 'color', value})}
         />
