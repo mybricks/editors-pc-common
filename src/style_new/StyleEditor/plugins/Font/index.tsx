@@ -1,11 +1,14 @@
-import React, { useState, useCallback, CSSProperties } from 'react'
+import React, {
+  useState,
+  useCallback,
+  CSSProperties
+} from 'react'
 
 import {
-  Input,
   Panel,
-  Color,
   Select,
   Toggle,
+  ColorEditor,
   InputNumber,
   FontSizeOutlined,
   LineHeightOutlined,
@@ -14,7 +17,6 @@ import {
   TextAlignRightOutlined,
   TextAlignCenterOutlined
 } from '../../components'
-import { useInputNumber } from '../../hooks'
 
 interface FontProps {
   value: CSSProperties
@@ -84,7 +86,7 @@ export function Font ({value, onChange, config}: FontProps) {
           options={fontFamilyOptions()}
           onChange={(value) => onChange({key: 'fontFamily', value})}
         />
-        <Color
+        <ColorEditor
           tip='颜色'
           style={{width: 98}}
           defaultValue={value.color}

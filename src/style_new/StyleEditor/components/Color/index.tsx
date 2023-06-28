@@ -1,8 +1,8 @@
 import React, {
   useMemo,
   useState,
-  CSSProperties,
-  useCallback
+  useCallback,
+  CSSProperties
 } from 'react'
 
 import ColorUtil from 'color'

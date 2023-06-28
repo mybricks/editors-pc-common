@@ -6,6 +6,7 @@ import {
   Cursor,
   Border,
   Padding,
+  BoxShadow,
   Background
 } from './plugins'
 
@@ -19,6 +20,7 @@ const PLUGINS_MAP = {
   CURSOR: Cursor,
   BORDER: Border,
   PADDING: Padding,
+  BOXSHADOW: BoxShadow,
   BACKGROUND: Background
 }
 

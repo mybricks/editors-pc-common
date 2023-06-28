@@ -192,6 +192,11 @@ const getDefaultValueFunctionMap = {
     return {
       cursor: values.cursor
     }
+  },
+  boxshadow(values: CSSProperties, config: any) {
+    return {
+      boxShadow: values.boxShadow
+    }
   }
 }
 
@@ -279,31 +284,42 @@ function temporarily_compatible_with_options (options: Options): Options {
 
 function getStyleValues (element: HTMLElement, selector: string) {
   const classListValue = element.classList.value
-  const finalRules = sortCSSRulesByPriority(getStyleRules(element, classListValue.indexOf(selector) !== -1 ? null : selector))
-  const classList = classListValue.split(' ')
+  const classList = classListValue.split(' ').map((classname) => `.${classname}`)
+  const componentsRules: CSSStyleRule[] = []
+  const finalRules = sortCSSRulesByPriority(getStyleRules(element, classListValue.indexOf(selector) !== -1 ? null : selector)).filter((rule) => {
+    if (classList.includes(rule.selectorText)) {
+      componentsRules.push(rule)
+      return false
+    }
+    return true
+  }).reverse().concat(componentsRules.sort((a, b) => {
+    return classList.indexOf(a.selectorText) - classList.indexOf(b.selectorText)
+  }))
+
+  
 
   // 我们默认如果有selector, 那它一定是写在样式最后面的，那这里排序可以先去掉
-  finalRules.sort((a, b) => {
-    const bIndex = classList.indexOf(b.selectorText.slice(1))
-    const aIndex = classList.indexOf(a.selectorText.slice(1))
+  // finalRules.sort((a, b) => {
+  //   const bIndex = classList.indexOf(b.selectorText)
+  //   const aIndex = classList.indexOf(a.selectorText)
 
-    if ((aIndex === -1 && bIndex === -1) || (aIndex === -1 || bIndex === -1)) {
-      return -1
-    }
+  //   if ((aIndex === -1 && bIndex === -1) || (aIndex === -1 || bIndex === -1)) {
+  //     return -1
+  //   }
 
-    return aIndex - bIndex
-  })
+  //   return aIndex - bIndex
+  // })
   
   // 目前是最后面的权重最大
   // console.log('最终的排序 finalRules: ', finalRules)
 
   const computedValues = window.getComputedStyle(element)
-  const values = getValues(finalRules, computedValues)
+  const values = getValues(finalRules, computedValues, classList)
 
   return values
 }
 
-function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration) {
+function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration, classList: String[]) {
   // TODO: 先一个个来吧，后面改一下
   /** font */
   let color // 继承属性
@@ -358,9 +374,14 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration) 
   let cursor // 非继承属性
   /** cursor */
 
+  /** boxshadow */
+  let boxShadow // 非继承属性
+  /** boxshadow */
+
   rules.forEach((rule, index) => {
     // 不可继承的属性只有非index才需要处理
     const { style } = rule
+    const isComponentRule = classList.includes(rule.selectorText)
 
     /** font */
     const {
@@ -402,7 +423,7 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration) 
       paddingBottom: stylePaddingBottom,
       paddingLeft: stylePaddingLeft
     } = style
-    if (!index) {
+    if (isComponentRule) {
       if (stylePaddingTop) {
         paddingTop = stylePaddingTop
       }
@@ -426,7 +447,7 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration) 
       backgroundPosition: styleBackgroundPosition,
       backgroundSize: styleBackgroundSize
     } = style
-    if (!index) {
+    if (isComponentRule) {
       if (styleBackgroundColor) {
         backgroundColor = styleBackgroundColor
       }
@@ -464,7 +485,7 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration) 
       borderLeftWidth: styleBorderLeftWidth,
       borderRightWidth: styleBorderRightWidth
     } = style
-    if (!index) {
+    if (isComponentRule) {
       if (styleBorderTopColor) {
         borderTopColor = styleBorderTopColor
       }
@@ -521,7 +542,7 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration) 
       width: styleWidth,
       height: styleHeight
     } = style
-    if (!index) {
+    if (isComponentRule) {
       if (styleWidth) {
         width = styleWidth
       }
@@ -535,12 +556,23 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration) 
     const {
       cursor: styleCursor
     } = style
-    if (!index) {
+    if (isComponentRule) {
       if (styleCursor) {
         cursor = styleCursor
       } 
     }
     /** cursor */
+
+    /** boxShadow */
+    // const {
+    //   boxShadow: styleBoxShadow
+    // } = style
+    // if (isComponentRule) {
+    //   if (styleBoxShadow) {
+    //     boxShadow = styleBoxShadow
+    //   }
+    // }
+    /** boxShadow */
   })
 
   /** font */
@@ -674,6 +706,12 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration) 
   }
   /** cursor */
 
+  /** boxshadow */
+  if (!boxShadow) {
+    boxShadow = computedValues.boxShadow;
+  }
+  /** boxshadow */
+
   return getRealValue({
     color,
     fontSize,
@@ -714,7 +752,9 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration) 
     width,
     height,
 
-    cursor
+    cursor,
+
+    boxShadow
   }, computedValues)
 }
 

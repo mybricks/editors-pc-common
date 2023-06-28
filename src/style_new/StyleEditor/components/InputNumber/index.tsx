@@ -14,6 +14,7 @@ interface InputNumberProps extends InputProps {
   defaultUnitValue?: string
   unitDisabledList?: Array<string> 
   unitOptions?: Array<{label: string, value: string}>
+  allowNegative?: boolean
 }
 
 export function InputNumber ({
@@ -28,7 +29,8 @@ export function InputNumber ({
   unitDisabledList = [],
   defaultUnitValue,
   onFocus,
-  tip
+  tip,
+  allowNegative = false
 }: InputNumberProps) {
   const [unit, setUnit] = useState<string>(getUnit(defaultValue, defaultUnitValue))
   const [number, handleNumberChange] = useInputNumber(defaultValue)
