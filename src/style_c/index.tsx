@@ -2,7 +2,6 @@ import React, { useMemo, useState, useCallback, CSSProperties } from "react";
 import { StyleEditorProvider } from "../style_new/StyleEditor";
 import type { EditorProps, GetDefaultConfigurationProps } from "./type";
 import { Font, Size, Cursor, Border, Padding, BoxShadow, Background } from "../style_new/StyleEditor/plugins";
-import border from "@/style/components/border";
 
 const DEFAULT_CONFIG = {
   border: {
