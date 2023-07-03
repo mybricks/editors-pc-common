@@ -2,7 +2,6 @@ import React, { useMemo, useState, useCallback, CSSProperties } from "react";
 import { StyleEditorProvider } from "../style_new/StyleEditor";
 import type { EditorProps, GetDefaultConfigurationProps } from "./type";
 import { Font, Size, Cursor, Border, Padding, BoxShadow, Background } from "../style_new/StyleEditor/plugins";
-import border from "@/style/components/border";
 
 const DEFAULT_CONFIG = {
   border: {
@@ -39,7 +38,7 @@ export default function ({ editConfig }: EditorProps) {
       paddingBottom: "0px",
       paddingLeft: "0px",
       paddingRight: "0px",
-      fontFamily: "inhert",
+      fontFamily: "inherit",
       fontWeight: "400",
       ...editConfig.value.get(),
     };
@@ -52,7 +51,7 @@ export default function ({ editConfig }: EditorProps) {
     switch (type) {
       case "font": {
         presetValue = {
-          borderStyle: "solid",
+          // borderStyle: "solid",
         };
         break;
       }

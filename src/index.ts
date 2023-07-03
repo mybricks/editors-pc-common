@@ -28,6 +28,7 @@ import Expression from "./_expression";
 import ComSelector from "./comSelector";
 import EditorLayout from "./layout";
 import EditorStyle from "./style";
+import EditorStyleC from "./style_c";
 import EditorStyleProperties from "./styleProperties";
 import EditorTypeChange from './_typeChange';
 import "./index.less";
@@ -57,6 +58,7 @@ const PcEditorMap: any = {
   INPUTNUMBER: EditorInputNumber,
   SLIDER: EditorSlider,
   STYLE:EditorStyle,
+  STYLEC: EditorStyleC,
   STYLENEW: StyleNew,
   //STYLE: EditorStyleProperties,
   VALUESELECT: EditorValueSelect,
