@@ -6,18 +6,13 @@ import React, {
   CSSProperties,
   useRef,
 } from "react";
-
 import { createPortal } from "react-dom";
-
 import { evt, useComputed, useObservable } from "@mybricks/rxui";
-
 import ColorUtil from "color";
-
 import { Panel, Colorpicker, Unbinding } from "../";
-
 import css from "./index.less";
-
 import ThemePicker from "../ThemePicker";
+import { varToHex } from "@/utils";
 
 interface ColorEditorProps {
   defaultValue: any;
@@ -128,7 +123,23 @@ export function ColorEditor({
   useEffect(() => {
     console.log("themePickerOpen", themePickerOpen);
   }, [themePickerOpen]);
+
+
   const theme = useMemo(() => {
+    const varToHex = (color: string) => {
+      const arr = color?.match(/^var\((.*)\)$/);
+      if (arr) {
+        const name = arr[1];
+        console.log("name", name)
+        return (
+          getComputedStyle(document.body).getPropertyValue(name) ||
+          "transparent"
+        );
+      } else {
+        return color;
+      }
+    };
+
     return (
       <>
         <div
@@ -148,7 +159,7 @@ export function ColorEditor({
           onChangeComplete={(e) => {
             console.log("onChangeComplete", e);
             setThemePickerOpen(false);
-            setValue(e);
+            setValue(varToHex(e));
           }}
           onRequestClose={() => {
             console.log("onRequestClose");
@@ -164,7 +175,6 @@ export function ColorEditor({
         {block}
         {input}
         {theme}
-
       </div>
     </Panel.Item>
   );
