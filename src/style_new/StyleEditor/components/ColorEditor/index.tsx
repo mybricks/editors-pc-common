@@ -39,7 +39,9 @@ export function ColorEditor({
       const hex = getHex(value);
       setFinalValue(hex);
       onChange(hex);
-    } catch (e) {console.log(e)}
+    } catch (e) {
+      console.log(e);
+    }
   }, []);
 
   //手动input完成输入后，如果输入的值与最终值不一致，则将最终值（finalValue）赋给输入框
@@ -49,7 +51,7 @@ export function ColorEditor({
     }
   }, [value, finalValue]);
 
-
+  //通过颜色选取器获取颜色
   const handleColorpickerChange = useCallback((color) => {
     const rawhex = color.hexa;
     //对hex进行处理，使之符合规范
@@ -60,10 +62,22 @@ export function ColorEditor({
     // onChange('var(--theme-color)')
   }, []);
 
+  //通过主题选取器选取颜色
+  const handleThemePickerChange = useCallback((color) => {
+    setValue(color);
+    setFinalValue(color);
+    onChange(color);
+  }, []);
+
+
   const input = useMemo(() => {
+    let  inputValue = value;
+    if (checkIfVar(inputValue)) {
+      inputValue = varToHex(inputValue);
+    }
     return (
       <input
-        value={value}
+        value={inputValue}
         className={css.input}
         onChange={handleInputChange}
         onBlur={handleInputBlur}
@@ -72,13 +86,17 @@ export function ColorEditor({
   }, [value]);
 
   const block = useMemo(() => {
+    let pickerFinalValue = finalValue;
+    if (checkIfVar(pickerFinalValue)) {
+      pickerFinalValue = varToHex(pickerFinalValue);
+    }
     return (
-      <Colorpicker value={finalValue} onChange={handleColorpickerChange}>
+      <Colorpicker value={pickerFinalValue} onChange={handleColorpickerChange}>
         <div
           className={css.block}
           style={{
             background:
-              new ColorUtil(finalValue).alpha() !== 0
+              new ColorUtil(pickerFinalValue).alpha() !== 0
                 ? finalValue
                 : 'url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAADFJREFUOE9jZGBgEGHAD97gk2YcNYBhmIQBgWSAP52AwoAQwJvQRg1gACckQoC2gQgAIF8IscwEtKYAAAAASUVORK5CYII=") left center, white',
           }}
@@ -90,7 +108,6 @@ export function ColorEditor({
   const [themePickerOpen, setThemePickerOpen] = useState(false);
 
   useEffect(() => {
-    console.log("themePickerOpen", themePickerOpen);
     console.log("value", value);
     console.log("finalValue", finalValue);
   }, [themePickerOpen]);
@@ -114,15 +131,7 @@ export function ColorEditor({
           color=""
           onChangeComplete={(e) => {
             setThemePickerOpen(false);
-            if (e.startsWith('var')) {
-              const cssVarName = e.match(/var\((.*)\)/)[1];
-              const cssVarValue = getComputedStyle(document.querySelector("#root > div")).getPropertyValue(cssVarName).trim();
-              handleColorpickerChange({ hexa: getHex(cssVarValue) });
-              console.log("通过变脸设置上颜色", { hexa: getHex(cssVarValue) });
-            } else {
-              handleColorpickerChange({ hexa: getHex(e) });
-              console.log("通过颜色设置上颜色", { hexa: getHex(e) });
-            }
+            handleThemePickerChange(e);
           }}
           onRequestClose={() => {
             setThemePickerOpen(false);
@@ -150,7 +159,6 @@ const getHex = (str: string) => {
   return (color.alpha() === 1 ? color.hex() : color.hexa()).toLowerCase();
 };
 
-
 const varToHex = (color: string) => {
   const match = color.match(/var\((.*)\)/);
   if (match) {
@@ -163,3 +171,12 @@ const varToHex = (color: string) => {
     return color;
   }
 };
+
+const checkIfVar = (color: string) => {
+  const match = color.match(/var\((.*)\)/);
+  if (match) {
+    return true;
+  } else {
+    return false;
+  }
+}
