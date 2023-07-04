@@ -7,6 +7,7 @@ interface ThemePickerProps {
   onChangeComplete: (color: string) => void;
   open: boolean;
   onRequestClose: () => void;
+  positionElement: React.RefObject<HTMLDivElement>;
 }
 
 export default function ({
@@ -14,8 +15,27 @@ export default function ({
   onChangeComplete,
   open,
   onRequestClose,
+  positionElement,
 }: ThemePickerProps) {
   // const THEME_LIST: any[] = (window as any)['fangzhou-themes'] || [];
+  const handleClickOutside = (event:MouseEvent) => {
+    if (pickerRef.current && !pickerRef.current.contains(event.target as Node)) {
+      onRequestClose();
+    }
+  };
+
+  useEffect(() => {
+    if (open) {
+      document.addEventListener("mousedown", handleClickOutside);
+    } else {
+      document.removeEventListener("mousedown", handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [open]);
+
   //mock的数据
   const THEME_LIST: any[] = [
     {
@@ -31,21 +51,38 @@ export default function ({
   ];
 
   const pickerRef = useRef<HTMLDivElement>(null);
-  const childRef = useRef<HTMLDivElement>(null);
-  const positionElement = pickerRef.current!;
-  const ref = childRef;
-
 
   useEffect(() => {
-    if(open){
-      console.log("打开theme选择弹窗");
-    }else{
-      console.log("关闭theme选择弹窗");
-    }
-  }, [open]);
+    if (open && pickerRef.current && positionElement.current) {
+      const menusContainer = pickerRef.current;
+      const positionElementBct =
+        positionElement.current.getBoundingClientRect();
+      const menusContainerBct = menusContainer.getBoundingClientRect();
+      const totalHeight =
+        window.innerHeight || document.documentElement.clientHeight;
+      const top = positionElementBct.top + positionElementBct.height;
+      const right = positionElementBct.left + positionElementBct.width;
+      const letf = right - menusContainerBct.width;
+      const bottom = top + menusContainerBct.height;
 
+      if (bottom > totalHeight) {
+        menusContainer.style.top =
+          positionElementBct.top - menusContainerBct.height + "px";
+      } else {
+        menusContainer.style.top = top + "px";
+      }
+
+      menusContainer.style.left = letf + "px";
+      menusContainer.style.visibility = "visible";
+    } else {
+      if (pickerRef.current) {
+        pickerRef.current.style.visibility = "hidden";
+      }
+    }
+  }, [open, positionElement]);
+
+  //判断主题列表是否为空
   if (!THEME_LIST.length) {
-    console.log("THEME_LIST: ", THEME_LIST);
     return null;
   }
   const themeList = useMemo(() => {

@@ -109,7 +109,7 @@ export function Border ({value, onChange, config}: BorderProps) {
               {config.disableBorderStyle ? null : (
                 <Select
                   tip="边框线条样式"
-                  style={{ padding: 0, width: 40, textAlign: "right" }}
+                  style={{ padding: 0, width: 65, textAlign: "right" }}
                   labelClassName={css.label}
                   defaultValue={borderValue.borderTopStyle}
                   options={BORDER_STYLE_OPTIONS}
@@ -124,7 +124,6 @@ export function Border ({value, onChange, config}: BorderProps) {
                   }
                 />
               )}
-              
             </Panel.Item>
           </Panel.Content>
           <div
