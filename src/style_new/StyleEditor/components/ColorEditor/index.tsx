@@ -71,7 +71,6 @@ export function ColorEditor({
 
 
   const input = useMemo(() => {
-    console.log("value input", value);
     let  inputValue = value;
     if (checkIfVar(inputValue)) {
       inputValue = varToHex(inputValue);
@@ -108,10 +107,6 @@ export function ColorEditor({
 
   const [themePickerOpen, setThemePickerOpen] = useState(false);
 
-  useEffect(() => {
-    console.log("value", value);
-    console.log("finalValue", finalValue);
-  }, [themePickerOpen]);
 
   const theme = useMemo(() => {
     return (
@@ -165,10 +160,10 @@ const varToHex = (color: string) => {
   const match = color.match(/var\((.*)\)/);
   if (match) {
     const cssVarName = match[1];
-    const cssVarValue = getComputedStyle(
+    let cssVarValue = getComputedStyle(
       document.querySelector("#root > div")
     ).getPropertyValue(cssVarName);
-    console.log("cssVarValue", cssVarValue);
+    cssVarValue = getHex(cssVarValue)
     return cssVarValue.trim() || "transparent";
   } else {
     return color;
