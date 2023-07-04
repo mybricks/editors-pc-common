@@ -37,18 +37,7 @@ export default function ({
   }, [open]);
 
   //mock的数据
-  const THEME_LIST: any[] = [
-    {
-      id: "--theme-color",
-      name: "主题色",
-      description: "主题色",
-    },
-    {
-      id: "--theme-color-1",
-      name: "主题色1",
-      description: "主题色1",
-    },
-  ];
+  const THEME_LIST: any[] = window.getTheme?.() || [];
 
   const pickerRef = useRef<HTMLDivElement>(null);
 

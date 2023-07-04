@@ -71,6 +71,7 @@ export function ColorEditor({
 
 
   const input = useMemo(() => {
+    console.log("value input", value);
     let  inputValue = value;
     if (checkIfVar(inputValue)) {
       inputValue = varToHex(inputValue);
@@ -167,6 +168,7 @@ const varToHex = (color: string) => {
     const cssVarValue = getComputedStyle(
       document.querySelector("#root > div")
     ).getPropertyValue(cssVarName);
+    console.log("cssVarValue", cssVarValue);
     return cssVarValue.trim() || "transparent";
   } else {
     return color;
