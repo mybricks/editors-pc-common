@@ -155,6 +155,7 @@ export function ColorEditor({
 
 //补全输入过程中不完整的颜色hex值
 const getHex = (str: string) => {
+  if (checkIfVar(str)) return str;
   const color = new ColorUtil(str);
   return (color.alpha() === 1 ? color.hex() : color.hexa()).toLowerCase();
 };
@@ -173,6 +174,7 @@ const varToHex = (color: string) => {
 };
 
 const checkIfVar = (color: string) => {
+  if(color === void 0) return false;
   const match = color.match(/var\((.*)\)/);
   if (match) {
     return true;
