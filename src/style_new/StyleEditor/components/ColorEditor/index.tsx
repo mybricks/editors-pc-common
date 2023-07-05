@@ -37,16 +37,14 @@ export function ColorEditor({
       setValue(varToHex(finalValue));
       setFinalValue(varToHex(finalValue));
       setIsBinding(false);
-      return
+      return;
     }
-    if(!isBinding){
+    if (!isBinding) {
       setThemePickerOpen(true);
-      return
+      return;
     }
   };
 
-  useEffect(() => {
-  }, [value,finalValue]);
 
   //手动input输入过程中，对不完整的颜色值进行补全处理，暂存到finalValue
   const handleInputChange = useCallback((e) => {
@@ -196,6 +194,10 @@ export function ColorEditor({
 //补全输入过程中不完整的颜色hex值
 const getHex = (str: string) => {
   if (checkIfVar(str)) return str;
+  if(str === "") {
+  const color = new ColorUtil("#000000");
+  return (color.alpha() === 1 ? color.hex() : color.hexa()).toLowerCase();
+  }
   const color = new ColorUtil(str);
   return (color.alpha() === 1 ? color.hex() : color.hexa()).toLowerCase();
 };
@@ -231,5 +233,4 @@ const getVarName = (color: string) => {
   } else {
     return "";
   }
-}
-
+};
