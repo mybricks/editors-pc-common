@@ -17,9 +17,12 @@ export default function ({
   onRequestClose,
   positionElement,
 }: ThemePickerProps) {
-  // const THEME_LIST: any[] = (window as any)['fangzhou-themes'] || [];
-  const handleClickOutside = (event:MouseEvent) => {
-    if (pickerRef.current && !pickerRef.current.contains(event.target as Node)) {
+
+  const handleClickOutside = (event: MouseEvent) => {
+    if (
+      pickerRef.current &&
+      !pickerRef.current.contains(event.target as Node)
+    ) {
       onRequestClose();
     }
   };
@@ -36,7 +39,6 @@ export default function ({
     };
   }, [open]);
 
-  //mock的数据
   const THEME_LIST: any[] = window.getTheme?.() || [];
 
   const pickerRef = useRef<HTMLDivElement>(null);

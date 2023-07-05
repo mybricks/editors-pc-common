@@ -64,8 +64,8 @@ export default function ({ editConfig }: EditorProps) {
       case "background": {
         presetValue = {
           backgroundRepeat: "no-repeat",
-          backgroundPosition: "center",
-          backgroundSize: "100%, auto",
+          backgroundPosition: "center center",
+          backgroundSize: "100% auto",
         };
         break;
       }
