@@ -19,7 +19,7 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
   const editorRef = useRef<Editor>(null);
   const containerRef = useRef(null);
 
-  const { value, options } = editConfig;
+  const { value, options, upload } = editConfig;
 
   const model = useObservable({
     val: value.get(),
@@ -110,6 +110,7 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
           onCancel={() => {
             model.imgModalVisible = false;
           }}
+          upload={upload}
         />
       </div>
     );
