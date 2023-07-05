@@ -641,16 +641,16 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration, 
   /** background */
 
   /** border */
-  if (!borderTopColor) {
+  if (!borderTopColor || borderTopColor === 'initial') {
     borderTopColor = computedValues.borderTopColor // 默认使用当前元素color,否则为浏览器默认颜色
   }
-  if (!borderRightColor) {
+  if (!borderRightColor || borderRightColor === 'initial') {
     borderRightColor = computedValues.borderRightColor
   }
-  if (!borderBottomColor) {
+  if (!borderBottomColor || borderBottomColor === 'initial') {
     borderBottomColor = computedValues.borderBottomColor
   }
-  if (!borderLeftColor) {
+  if (!borderLeftColor || borderLeftColor === 'initial') {
     borderLeftColor = computedValues.borderLeftColor
   }
   if (!borderTopLeftRadius) {
@@ -677,16 +677,16 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration, 
   if (!borderLeftStyle) {
     borderLeftStyle = computedValues.borderLeftStyle
   }
-  if (!borderTopWidth) {
+  if (!borderTopWidth || borderTopWidth === 'initial') {
     borderTopWidth = computedValues.borderTopWidth
   }
-  if (!borderBottomWidth) {
+  if (!borderBottomWidth || borderBottomWidth === 'initial') {
     borderBottomWidth = computedValues.borderBottomWidth
   }
-  if (!borderLeftWidth) {
+  if (!borderLeftWidth || borderLeftWidth === 'initial') {
     borderLeftWidth = computedValues.borderLeftWidth
   }
-  if (!borderRightWidth) {
+  if (!borderRightWidth || borderRightWidth === 'initial') {
     borderRightWidth = computedValues.borderRightWidth
   }
   /** border */
