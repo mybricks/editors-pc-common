@@ -1,6 +1,6 @@
 import React, { CSSProperties, useState } from "react";
-import StyleEditor from "@mybricks/style-editor";
 
+// 已废弃
 export default function ({ editConfig, env, ...rest }: any) {
   const { value, options = {} } = editConfig;
 
@@ -11,5 +11,5 @@ export default function ({ editConfig, env, ...rest }: any) {
     value.set(style);
   };
 
-  return <StyleEditor options={options} value={style} onChange={onChange} />;
+  return <span>已废弃</span>;
 }
