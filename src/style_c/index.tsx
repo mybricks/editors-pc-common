@@ -62,6 +62,11 @@ export default function ({ editConfig }: EditorProps) {
         break;
       }
       case "background": {
+        presetValue = {
+          backgroundRepeat: "no-repeat",
+          backgroundPosition: "center",
+          backgroundSize: "100%, auto",
+        };
         break;
       }
       case "padding": {
