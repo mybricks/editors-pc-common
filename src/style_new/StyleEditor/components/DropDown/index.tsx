@@ -132,7 +132,7 @@ function Items({
   }, [open])
 
   return (
-    <div className={css.items}>
+    <div ref={ref} className={css.items}>
       {options.map(({label, value}, index) => {
         return (
           <div key={index} className={css.item} onClick={() => onClick(value)}>
