@@ -9,7 +9,7 @@ import React, {
 import { createPortal } from "react-dom";
 import { evt, useComputed, useObservable } from "@mybricks/rxui";
 import ColorUtil from "color";
-import { Panel, Colorpicker, Unbinding } from "../";
+import { Panel, Colorpicker, Unbinding, Binding } from "../";
 import css from "./index.less";
 import ThemePicker from "../ThemePicker";
 
@@ -27,9 +27,26 @@ export function ColorEditor({
   tip,
 }: ColorEditorProps) {
   const themePickerRef = useRef<HTMLDivElement>(null);
-
+  const THEME_LIST: any[] = window.getTheme?.() || [];
   const [value, setValue] = useState(getHex(defaultValue));
   const [finalValue, setFinalValue] = useState(value);
+  const [isBinding, setIsBinding] = useState(!!checkIfVar(defaultValue));
+
+  const handleBindingClick = () => {
+    if (isBinding) {
+      setValue(varToHex(finalValue));
+      setFinalValue(varToHex(finalValue));
+      setIsBinding(false);
+      return
+    }
+    if(!isBinding){
+      setThemePickerOpen(true);
+      return
+    }
+  };
+
+  useEffect(() => {
+  }, [value,finalValue]);
 
   //手动input输入过程中，对不完整的颜色值进行补全处理，暂存到finalValue
   const handleInputChange = useCallback((e) => {
@@ -51,7 +68,6 @@ export function ColorEditor({
     }
   }, [value, finalValue]);
 
-  //通过颜色选取器获取颜色
   const handleColorpickerChange = useCallback((color) => {
     const rawhex = color.hexa;
     //对hex进行处理，使之符合规范
@@ -59,19 +75,27 @@ export function ColorEditor({
     setValue(hex);
     setFinalValue(hex);
     onChange(hex);
-    // onChange('var(--theme-color)')
   }, []);
 
-  //通过主题选取器选取颜色
   const handleThemePickerChange = useCallback((color) => {
+    setIsBinding(true);
     setValue(color);
     setFinalValue(color);
     onChange(color);
   }, []);
 
 
+
   const input = useMemo(() => {
-    let  inputValue = value;
+    const style = isBinding ? { color: "#BFBFBF", cursor: "not-allowed" } : {};
+    const title = isBinding ? "颜色被绑定，请点击右侧图标解绑" : "";
+    let inputValue = value;
+    const themeItem = THEME_LIST.find((item) => {
+      return item.id === getVarName(inputValue);
+    });
+    if (themeItem) {
+      inputValue = themeItem.name;
+    }
     if (checkIfVar(inputValue)) {
       inputValue = varToHex(inputValue);
     }
@@ -81,32 +105,45 @@ export function ColorEditor({
         className={css.input}
         onChange={handleInputChange}
         onBlur={handleInputBlur}
+        disabled={isBinding}
+        style={style}
+        title={title}
       />
     );
-  }, [value]);
+  }, [value, isBinding]);
 
   const block = useMemo(() => {
     let pickerFinalValue = finalValue;
     if (checkIfVar(pickerFinalValue)) {
       pickerFinalValue = varToHex(pickerFinalValue);
     }
+    const style = isBinding
+      ? {
+          background:
+            new ColorUtil(pickerFinalValue).alpha() !== 0
+              ? pickerFinalValue
+              : 'url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAADFJREFUOE9jZGBgEGHAD97gk2YcNYBhmIQBgWSAP52AwoAQwJvQRg1gACckQoC2gQgAIF8IscwEtKYAAAAASUVORK5CYII=") left center, white',
+          cursor: "not-allowed",
+        }
+      : {
+          background:
+            new ColorUtil(pickerFinalValue).alpha() !== 0
+              ? pickerFinalValue
+              : 'url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAADFJREFUOE9jZGBgEGHAD97gk2YcNYBhmIQBgWSAP52AwoAQwJvQRg1gACckQoC2gQgAIF8IscwEtKYAAAAASUVORK5CYII=") left center, white',
+        };
+
     return (
-      <Colorpicker value={pickerFinalValue} onChange={handleColorpickerChange}>
-        <div
-          className={css.block}
-          style={{
-            background:
-              new ColorUtil(pickerFinalValue).alpha() !== 0
-                ? finalValue
-                : 'url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAADFJREFUOE9jZGBgEGHAD97gk2YcNYBhmIQBgWSAP52AwoAQwJvQRg1gACckQoC2gQgAIF8IscwEtKYAAAAASUVORK5CYII=") left center, white',
-          }}
-        />
+      <Colorpicker
+        value={pickerFinalValue}
+        onChange={handleColorpickerChange}
+        disabled={isBinding}
+      >
+        <div className={css.block} style={style} />
       </Colorpicker>
     );
-  }, [finalValue]);
+  }, [finalValue, isBinding]);
 
   const [themePickerOpen, setThemePickerOpen] = useState(false);
-
 
   const theme = useMemo(() => {
     return (
@@ -114,13 +151,20 @@ export function ColorEditor({
         <div
           ref={themePickerRef}
           className={css.theme}
-          onClick={() => {
-            setThemePickerOpen(true);
-          }}
         >
-          <div className={css.unBinding}>
-            <Unbinding />
-          </div>
+          {isBinding ? (
+            <div
+              className={css.Binding}
+              title="点击解绑"
+              onClick={handleBindingClick}
+            >
+              <Binding />
+            </div>
+          ) : (
+            <div className={css.unBinding} onClick={handleBindingClick}>
+              <Unbinding />
+            </div>
+          )}
         </div>
         <ThemePicker
           open={themePickerOpen}
@@ -143,7 +187,7 @@ export function ColorEditor({
       <div className={css.color} data-mybricks-tip={tip}>
         {block}
         {input}
-        {theme}
+        {THEME_LIST.length > 0 && theme}
       </div>
     </Panel.Item>
   );
@@ -163,7 +207,7 @@ const varToHex = (color: string) => {
     let cssVarValue = getComputedStyle(
       document.querySelector("#root > div")
     ).getPropertyValue(cssVarName);
-    cssVarValue = getHex(cssVarValue)
+    cssVarValue = getHex(cssVarValue);
     return cssVarValue.trim() || "transparent";
   } else {
     return color;
@@ -171,11 +215,21 @@ const varToHex = (color: string) => {
 };
 
 const checkIfVar = (color: string) => {
-  if(color === void 0) return false;
+  if (color === void 0) return false;
   const match = color.match(/var\((.*)\)/);
   if (match) {
     return true;
   } else {
     return false;
   }
+};
+
+const getVarName = (color: string) => {
+  const match = color.match(/var\((.*)\)/);
+  if (match) {
+    return match[1];
+  } else {
+    return "";
+  }
 }
+
