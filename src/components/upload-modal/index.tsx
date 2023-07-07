@@ -214,8 +214,6 @@ export default function UploaderModal({
 async function upload(file: any, ctx: Ctx) {
   try {
 
-    console.log(ctx.upload, 'upload')
-
     if (typeof ctx.upload === 'function') {
       const [url] = await ctx.upload([file], {compress: ctx.compress})
       ctx.url = url
