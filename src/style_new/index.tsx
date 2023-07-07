@@ -5,6 +5,7 @@ import React, {
   CSSProperties
 } from 'react'
 
+import colorUtil from 'color-string'
 import CaretDownOutlined from '@ant-design/icons/CaretDownOutlined'
 import CaretLeftOutlined from '@ant-design/icons/CaretLeftOutlined'
 
@@ -576,7 +577,7 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration, 
   })
 
   /** font */
-  if (!color) {
+  if (!color || !colorUtil.get(color)) {
     color = computedValues.color
   }
   if (!fontSize) {
@@ -621,7 +622,7 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration, 
 
 
   /** background */
-  if (!backgroundColor) {
+  if (!backgroundColor || !colorUtil.get(backgroundColor)) {
     backgroundColor = computedValues.backgroundColor
   }
   if (!backgroundImage) {
@@ -641,16 +642,16 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration, 
   /** background */
 
   /** border */
-  if (!borderTopColor || borderTopColor === 'initial') {
+  if (!borderTopColor || !colorUtil.get(borderTopColor)) {
     borderTopColor = computedValues.borderTopColor // 默认使用当前元素color,否则为浏览器默认颜色
   }
-  if (!borderRightColor || borderRightColor === 'initial') {
+  if (!borderRightColor || !colorUtil.get(borderRightColor)) {
     borderRightColor = computedValues.borderRightColor
   }
-  if (!borderBottomColor || borderBottomColor === 'initial') {
+  if (!borderBottomColor || !colorUtil.get(borderBottomColor)) {
     borderBottomColor = computedValues.borderBottomColor
   }
-  if (!borderLeftColor || borderLeftColor === 'initial') {
+  if (!borderLeftColor || !colorUtil.get(borderLeftColor)) {
     borderLeftColor = computedValues.borderLeftColor
   }
   if (!borderTopLeftRadius) {

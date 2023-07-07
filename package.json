@@ -21,7 +21,8 @@
     "@mybricks/code-editor": "1.1.4",
     "@mybricks/color-picker": "^1.0.7",
     "@tinymce/tinymce-react": "3.13.1",
-    "color": "^4.2.3"
+    "color": "^4.2.3",
+    "color-string": "^1.9.1"
   },
   "devDependencies": {
     "@ant-design/icons": "4.7.0",
