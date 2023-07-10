@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback, CSSProperties } from "react";
+import React, { useMemo, useState, useCallback, CSSProperties, useDebugValue } from "react";
 import { StyleEditorProvider } from "../style_new/StyleEditor";
 import type { EditorProps, GetDefaultConfigurationProps } from "./type";
 import { Font, Size, Cursor, Border, Padding, BoxShadow, Background } from "../style_new/StyleEditor/plugins";
@@ -40,12 +40,19 @@ export default function ({ editConfig }: EditorProps) {
       paddingRight: "0px",
       fontFamily: "inherit",
       fontWeight: "400",
+      fontSize: "12px",
+      letterSpacing: '0px',
+      lineHeight: "normal",
+      backgroundPosition: "center center",
+      backgroundRepeat: "no-repeat",
+      backgroundSize: "100% auto",
+      width: '100%',
+      height: '100%',
       ...editConfig.value.get(),
     };
   }, []);
 
   const onChange = useCallback((val, type) => {
-    console.log(val);
     let presetValue = {};
     // 更新值时，进行一些预设赋值
     switch (type) {
@@ -57,6 +64,10 @@ export default function ({ editConfig }: EditorProps) {
       }
       case "border": {
         presetValue = {
+          borderTopWidth: "0px",
+          borderBottomWidth: "0px",
+          borderLeftWidth: "0px",
+          borderRightWidth: "0px",
           borderStyle: "solid",
         };
         break;
@@ -93,7 +104,7 @@ export default function ({ editConfig }: EditorProps) {
   return (
     <StyleEditorProvider value={editConfig}>
       {options.font ? (
-        <Font value={defaultValue} onChange={(val) => onChange(val, "font")} config={options.font} />
+        <Font value={defaultValue} onChange={(val) => onChange(val, "font")} config={{...options.font, fontfaces: editConfig.fontfaces}} />
       ) : null}
       {options.border ? (
         <Border value={defaultValue} onChange={(val) => onChange(val, "border")} config={options.border} />

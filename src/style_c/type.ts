@@ -15,6 +15,7 @@ export interface EditorProps {
     }
     upload: (file: Array<File>) => Array<string>
     title: string
+    fontfaces: {label:string, value:string}[]
   }
 }
 

@@ -63,8 +63,9 @@ export function Font ({value, onChange, config}: FontProps) {
   const [cfg] = useState(Object.assign(DEFAULT_CONFIG, config))
 
   const fontFamilyOptions = useCallback(() => {
-    return FONT_FAMILY_OPTIONS
-  }, [])
+    const fontfaces = (config.fontfaces as typeof FONT_FAMILY_OPTIONS).filter((item) => item.label && item.value)
+    return [...FONT_FAMILY_OPTIONS, ...fontfaces]
+  }, [config.fontfaces])
 
   const getTextAlignOptions = useCallback(() => {
     const useStart = ['start', 'end'].includes(value.textAlign as any)
@@ -114,7 +115,7 @@ export function Font ({value, onChange, config}: FontProps) {
           tip='行高'
           prefix={<LineHeightOutlined />}
           defaultValue={value.lineHeight}
-          defaultUnitValue=''
+          defaultUnitValue='normal'
           unitOptions={LINEHEIGHT_UNIT_OPTIONS}
           unitDisabledList={LINEHEIGHT_UNIT_DISABLED_LIST}
           onChange={(value) => onChange({key: 'lineHeight', value})}
