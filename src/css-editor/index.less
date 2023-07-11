@@ -1,0 +1,39 @@
+.wrap {
+  :global {
+    .suggest-widget {
+      left: 2px !important;
+      width: 100% !important;
+    }
+  }
+}
+.inline-wrap {
+  background-color: #fff;
+  border-radius: 4px;
+  height: 100%;
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px;
+    border-bottom: 1px solid #efefef;
+    .title {
+      font-weight: 500;
+      font-size: 14px;
+    }
+    .plus {
+      cursor: pointer;
+      &:hover {
+        color: #1890ff;
+      }
+    }
+  }
+  .body {
+    height: 100%;
+    padding: 12px;
+    height: 300px;
+  }
+}
+.modal{
+  height: 100%;
+  padding: 40px 0;
+}

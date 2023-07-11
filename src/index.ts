@@ -35,6 +35,7 @@ import "./index.less";
 export { config } from "./configProvider";
 
 import StyleNew from './style_new'
+import CssEditor from './css-editor'
 
 const PcEditorMap: any = {
   ALIGN: EditorAlign,
@@ -68,7 +69,8 @@ const PcEditorMap: any = {
   EXPRESSION: Expression,
   COMSELECTOR: ComSelector,
   LAYOUT: EditorLayout,
-  _TYPECHANGE: EditorTypeChange
+  _TYPECHANGE: EditorTypeChange,
+  CSSEDITOR: CssEditor
 };
 
 function PcEditor(props: EditorProps): any {
