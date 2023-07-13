@@ -707,7 +707,9 @@ export const transScript = `return function (oriVal, cons, toSchema) {
           notFoundKeys.forEach((key) => {
             const nXpath = xpath + '/__XPATH_ARRAY__/' + key
             const con = cons.find(con => con.to.startsWith(nXpath))
-            if (con) {
+            const mapCons = cons.filter(con => con.to.startsWith(nXpath))
+
+            if (mapCons.length) {
               if (!oriAryVal) {
                 const fromAryPath = con.from.substring(0, con.from.indexOf('/__XPATH_ARRAY__'))
                 oriAryVal = getValInFrom(fromAryPath, oriVal)
@@ -717,19 +719,18 @@ export const transScript = `return function (oriVal, cons, toSchema) {
                   ...item,
                   [key]: typeChange(
                     {...item},
-                    [
-                      {
-                        from: con.from.slice(con.from.indexOf('/__XPATH_ARRAY__') + '/__XPATH_ARRAY__'.length),
-                        to: con.to.slice(con.to.indexOf('/__XPATH_ARRAY__') + '/__XPATH_ARRAY__'.length)
-                      }
-                    ],
+                    mapCons.map((con) => ({
+                      from: con.from.slice(con.from.indexOf('/__XPATH_ARRAY__') + '/__XPATH_ARRAY__'.length),
+                      to: con.to.slice(con.to.indexOf('/__XPATH_ARRAY__') + '/__XPATH_ARRAY__'.length)
+                    })),
                     schema.items
                   )[key]
                 }
               })
             }
           })
-        } else if (foundKeys.length) {
+        }
+        if (foundKeys.length && !oriAryVal) {
           foundKeys.find((key) => {
             const nXpath = xpath + '/__XPATH_ARRAY__/' + key
             const con = cons.find(con => con.to === nXpath)
