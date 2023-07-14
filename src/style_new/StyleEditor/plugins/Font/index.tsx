@@ -11,7 +11,9 @@ import {
   ColorEditor,
   InputNumber,
   FontSizeOutlined,
+  FontWeightOutlined,
   LineHeightOutlined,
+  FontFamilyOutlined,
   LetterSpacingOutlined,
   TextAlignLeftOutlined,
   TextAlignRightOutlined,
@@ -28,7 +30,7 @@ interface FontProps {
 
 /** 字体选项 */
 const FONT_FAMILY_OPTIONS = [
-  { label: '默认', value: 'inherit' }
+  { label: '继承', value: 'inherit' }
 ]
 
 /** 字体加粗(原先的需求对标的某个app，忘了) */
@@ -39,21 +41,30 @@ const FONT_WEIGHT_OPTIONS = [
   {label: '标准', value: '400'},
   {label: '中黑', value: '500'},
   {label: '中粗', value: '700'},
-  {label: '特粗', value: '900'}
+  {label: '特粗', value: '900'},
+  {label: '继承', value: 'inherit'}
 ]
 
+const FONT_SIZE_OPTIONS = [
+  {label: 'px', value: 'px'},
+  {label: '继承', value: 'inherit'},
+]
+const FONT_SIZE_DISABLED_LIST = ['inherit']
+
 const LINEHEIGHT_UNIT_OPTIONS = [
-  {label: '默认', value: 'normal'},
   {label: '倍数', value: ''},
   {label: 'px', value: 'px'},
-  {label: '%', value: '%'}
-]
-const LINEHEIGHT_UNIT_DISABLED_LIST = ['normal']
-const LETTERSPACING_UNIT_OPTIONS = [
+  {label: '%', value: '%'},
+  {label: '继承', value: 'inherit'},
   {label: '默认', value: 'normal'},
-  {label: 'px', value: 'px'}
 ]
-const LETTERSPACING_UNIT_DISABLED_LIST = ['normal']
+const LINEHEIGHT_UNIT_DISABLED_LIST = ['normal', 'inherit']
+const LETTERSPACING_UNIT_OPTIONS = [
+  {label: 'px', value: 'px'},
+  {label: '继承', value: 'inherit'},
+  {label: '默认', value: 'normal'},
+]
+const LETTERSPACING_UNIT_DISABLED_LIST = ['normal', 'inherit']
 
 const DEFAULT_CONFIG = {
   disableTextAlign: false,
@@ -83,14 +94,14 @@ export function Font ({value, onChange, config}: FontProps) {
       <Panel.Content>
         <Select
           tip='字体'
-          style={{flex: '1 1 0%', padding: 0}}
+          prefix={<FontFamilyOutlined />}
+          style={{flexBasis: '50%', padding: 0, overflow: 'hidden'}}
           defaultValue={value.fontFamily}
           options={fontFamilyOptions()}
           onChange={(value) => onChange({key: 'fontFamily', value})}
         />
         <ColorEditor
-          tip='颜色'
-          style={{flex: '1 1 0%'}}
+          style={{flexBasis: '50%'}}
           defaultValue={value.color}
           onChange={(value) => onChange({key: 'color', value})}
         />
@@ -98,16 +109,19 @@ export function Font ({value, onChange, config}: FontProps) {
       <Panel.Content>
         <Select
           tip='粗细'
-          style={{flex: '1 1 0%', padding: 0}}
+          prefix={<FontWeightOutlined />}
+          style={{flexBasis: '50%', padding: 0, overflow: 'hidden'}}
           defaultValue={value.fontWeight}
           options={FONT_WEIGHT_OPTIONS}
           onChange={(value) => onChange({key: 'fontWeight', value})}
         />
         <InputNumber
           tip='大小'
-          style={{width: 60}}
+          style={{flexBasis: '50%'}}
           prefix={<FontSizeOutlined />}
           defaultValue={value.fontSize}
+          unitOptions={FONT_SIZE_OPTIONS}
+          unitDisabledList={FONT_SIZE_DISABLED_LIST}
           onChange={(value) => onChange({key: 'fontSize', value})}
         />
       </Panel.Content>
@@ -116,7 +130,7 @@ export function Font ({value, onChange, config}: FontProps) {
           tip='行高'
           prefix={<LineHeightOutlined />}
           defaultValue={value.lineHeight}
-          defaultUnitValue='normal'
+          defaultUnitValue='inherit'
           unitOptions={LINEHEIGHT_UNIT_OPTIONS}
           unitDisabledList={LINEHEIGHT_UNIT_DISABLED_LIST}
           onChange={(value) => onChange({key: 'lineHeight', value})}

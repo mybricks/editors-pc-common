@@ -1,5 +1,6 @@
 import React, {
   useRef,
+  useMemo,
   useState,
   useEffect,
   useCallback,
@@ -7,7 +8,12 @@ import React, {
 } from 'react'
 import { createPortal } from 'react-dom'
 
-import { Panel, Select, ResetOutlined } from '..'
+import {
+  Panel,
+  Select,
+  ResetOutlined,
+  CameraOutlined
+} from '..'
 
 import css from './index.less'
 
@@ -21,8 +27,8 @@ interface ImageProps {
   tip?: string
 }
 
-function getBackgroundImage (image: string = '') {
-  return /\url\s*\(\s*["']?([^"'\r\n\)\(]+)["']?\s*\)/gi.exec(image || '')?.[1] || DEFAULT_IMAGE
+function getBackgroundImage (image: string = '', defaultValue = '') {
+  return /\url\s*\(\s*["']?([^"'\r\n\)\(]+)["']?\s*\)/gi.exec(image || '')?.[1] || defaultValue
 }
 
 export function Image ({
@@ -44,7 +50,13 @@ export function Image ({
   }, [])
 
   const handleReset = useCallback(() => {
-    console.log('TODO: 重置')
+    onChange({key: 'backgroundImage', value: 'none'})
+    setValue((val) => {
+      return {
+        ...val,
+        backgroundImage: 'none'
+      }
+    })
   }, [])
 
   const handleChange = useCallback((value) => {
@@ -81,18 +93,26 @@ export function Image ({
     }
   }, [])
 
+  const icon = useMemo(() => {
+    const src = getBackgroundImage(value.backgroundImage)
+    if (src) {
+      return (
+        <img src={src} />
+      )
+    }
+
+    return <CameraOutlined />
+  }, [value.backgroundImage])
+
   return (
     <Panel.Item>
       <div className={css.image} data-mybricks-tip={tip}>
-        <div ref={ref} className={css.block}>
-          <img
-            onClick={handleImageClick}
-            src={getBackgroundImage(value.backgroundImage)}
-          />
+        <div ref={ref} className={css.block} onClick={handleImageClick}>
+          {icon}
         </div>
-        {/* <div className={css.reset} onClick={handleReset} data-mybricks-tip='重置'>
+        <div className={css.reset} onClick={handleReset} data-mybricks-tip={'重置图片'}>
           <ResetOutlined />
-        </div> */}
+        </div>
       </div>
       {show && createPortal(
         <Popup
@@ -196,7 +216,7 @@ function Popup ({
   return (
     <div ref={ref} className={css.popup}>
       <div className={css.image}>
-        <img src={getBackgroundImage(value.backgroundImage)} onClick={handleImageClick}/>
+        <img src={getBackgroundImage(value.backgroundImage, DEFAULT_IMAGE)} onClick={handleImageClick}/>
         <input
           type='file'
           accept={'image/*'}

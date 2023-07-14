@@ -9,6 +9,7 @@ import colorUtil from 'color-string'
 import CaretDownOutlined from '@ant-design/icons/CaretDownOutlined'
 import CaretLeftOutlined from '@ant-design/icons/CaretLeftOutlined'
 
+import { deepCopy } from '../utils'
 import StyleEditor, { DEFAULT_OPTIONS, StyleEditorProvider } from './StyleEditor'
 
 import type {
@@ -18,7 +19,6 @@ import type {
 import type { Options, ChangeEvent } from './StyleEditor/type'
 
 import css from './index.less'
-
 
 export default function ({editConfig}: EditorProps) {
   const { options, setValue, defaultValue } = useMemo(() => {
@@ -40,7 +40,7 @@ export default function ({editConfig}: EditorProps) {
     }
     // console.log('set setValue: ', setValue)
     // editConfig.value.set(defaultValue)
-    editConfig.value.set(setValue)
+    editConfig.value.set(deepCopy(setValue))
   }, [])
 
   const [open, setOpen] = useState(true)
@@ -83,7 +83,9 @@ function getDefaultConfiguration ({value, options}: GetDefaultConfigurationProps
 
   let finalOptions
   let defaultValue: CSSProperties = {}
-  const setValue = value.get() || {}
+  const setValue = deepCopy(value.get() || {})
+  let getDefaultValue = true
+
   if (!options) {
     // 没有options，普通编辑器配置使用，直接使用默认的配置，展示全部
     finalOptions = DEFAULT_OPTIONS
@@ -95,6 +97,7 @@ function getDefaultConfiguration ({value, options}: GetDefaultConfigurationProps
     // 这里还要再处理一下 
     finalOptions = plugins || DEFAULT_OPTIONS
     if (targetDom) {
+      getDefaultValue = false
       // console.time('遍历stylesheets')
       const styleValues = getStyleValues(targetDom, Array.isArray(selector) ? selector[0] : selector)
       // console.timeEnd('遍历stylesheets')
@@ -120,6 +123,26 @@ function getDefaultConfiguration ({value, options}: GetDefaultConfigurationProps
       // console.log('计算得到的默认值: ', JSON.parse(JSON.stringify(defaultValue)))
       // console.log('value.get()得到的值: ', value.get())
     }
+  }
+
+  if (getDefaultValue) {
+    finalOptions.forEach((option) => {
+      let type, config
+
+      if (typeof option === 'string') {
+        type = option.toLowerCase()
+        config = {}
+      } else {
+        type = option.type.toLowerCase()
+        config = option.config || {}
+      }
+
+      // @ts-ignore
+      if (DEFAULT_OPTIONS.includes(type)) {
+        // @ts-ignore TODO: 类型补全
+        Object.assign(defaultValue, getDefaultValueFunctionMap2[type]())
+      }
+    })
   }
 
   return {
@@ -201,50 +224,72 @@ const getDefaultValueFunctionMap = {
   }
 }
 
-// const getDefaultValueFunctionMap2 = {
-//   font(domStyle: CSSStyleDeclaration, bodyStyle: CSSStyleDeclaration, config: any) {
-//     const {
-//       color,
-//       fontSize,
-//       textAlign,
-//       fontWeight,
-//       fontFamily,
-//       lineHeight,
-//       letterSpacing
-//     } = domStyle
-
-//     return {
-//       color,
-//       fontSize,
-//       fontWeight,
-//       lineHeight,
-//       // TODO: 提供切换能力？不设置或设置具体值
-//       letterSpacing: letterSpacing == 'normal' ? '0px' : letterSpacing,
-//       // 观察: 目前若是默认值，即与body上字体值相同则代表默认(默认时font-family设置失效)
-//       fontFamily: fontFamily === bodyStyle.fontFamily ? '' : fontFamily,
-//       // 观察: 基本都是使用常规的左中右
-//       textAlign: ['left', 'right', 'center'].includes(textAlign) ? textAlign : 'left',
-//     }
-//   },
-//   border() {
-//     return {}
-//   },
-//   background(domStyle: CSSStyleDeclaration, bodyStyle: CSSStyleDeclaration, config: any) {
-//     const { backgroundColor, backgroundImage } = domStyle
-//     return {
-//       backgroundColor,
-//       backgroundImage
-//     }
-//   },
-//   padding(domStyle: CSSStyleDeclaration, bodyStyle: CSSStyleDeclaration, config: any) {
-//     return {
-//       paddingTop: domStyle.paddingTop,
-//       paddingRight: domStyle.paddingRight,
-//       paddingBottom: domStyle.paddingBottom,
-//       paddingLeft: domStyle.paddingLeft
-//     }
-//   }
-// }
+const getDefaultValueFunctionMap2 = {
+  font() {
+    return {
+      color: 'inherit',
+      fontSize: 'inherit',
+      textAlign: 'start',
+      fontWeight: 'inherit',
+      fontFamily: 'inherit',
+      lineHeight: 'inherit',
+      letterSpacing: 'inherit'
+    }
+  },
+  border() {
+    return {
+      borderTopColor: 'transparent',
+      borderBottomColor: 'transparent',
+      borderRightColor: 'transparent',
+      borderLeftColor: 'transparent',
+      borderTopLeftRadius: '0px',
+      borderTopRightRadius: '0px',
+      borderBottomRightRadius: '0px',
+      borderBottomLeftRadius: '0px',
+      borderTopStyle: 'none',
+      borderBottomStyle: 'none',
+      borderRightStyle: 'none',
+      borderLeftStyle: 'none',
+      borderTopWidth: '0px',
+      borderBottomWidth: '0px',
+      borderLeftWidth: '0px',
+      borderRightWidth: '0px'
+    }
+  },
+  background() {
+    return {
+      backgroundColor: 'transparent',
+      backgroundImage: 'none',
+      backgroundRepeat: 'repeat',
+      backgroundPosition: 'left top',
+      backgroundSize: 'auto'
+    }
+  },
+  padding() {
+    return {
+      paddingTop: '0px',
+      paddingRight: '0px',
+      paddingBottom: '0px',
+      paddingLeft: '0px'
+    }
+  },
+  size() {
+    return {
+      width: 'auto',
+      height: 'auto'
+    }
+  },
+  cursor() {
+    return {
+      cursor: 'inherit'
+    }
+  },
+  boxshadow() {
+    return {
+      boxShadow: ''
+    }
+  }
+}
 
 /**
  * 临时兼容options/plugins配置，原先的“bgcolor”和“bgimage”合并为“background”

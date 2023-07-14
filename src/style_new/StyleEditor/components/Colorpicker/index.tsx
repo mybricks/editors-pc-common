@@ -16,6 +16,7 @@ interface ColorpickerProps {
   onChange(value: string): void;
   children: ReactNode;
   disabled?: boolean;
+  className?: string
 }
 
 export function Colorpicker({
@@ -23,6 +24,7 @@ export function Colorpicker({
   onChange,
   children,
   disabled,
+  className
 }: ColorpickerProps) {
 
   const ref = useRef<HTMLDivElement>(null);
@@ -69,7 +71,7 @@ export function Colorpicker({
     <>
       <div
         ref={ref}
-        className={css.Colorpicker}
+        className={className}
         onClick={handleColorpickerClick}
       >
         {children}

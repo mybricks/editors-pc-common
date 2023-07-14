@@ -1,5 +1,6 @@
 import React, {
   useState,
+  ReactNode,
   useCallback,
   CSSProperties
 } from 'react'
@@ -9,6 +10,7 @@ import { Panel, Dropdown, DownOutlined } from '../'
 import css from './index.less'
 
 interface SelectProps {
+  prefix?: ReactNode
   defaultValue: any
   style?: CSSProperties
   onChange: (value: any) => void
@@ -20,6 +22,7 @@ interface SelectProps {
 }
 
 export function Select ({
+  prefix,
   defaultValue,
   style = {},
   onChange,
@@ -46,6 +49,7 @@ export function Select ({
     <Panel.Item style={style}>
       <Dropdown options={options} value={value} onClick={handleDropDownClick}>
         <div data-mybricks-tip={tip} className={css.select} style={showIcon ? {} : {padding: 0}}>
+          {prefix && <div className={css.prefix}>{prefix}</div>}
           <div className={`${css.value}${labelClassName ? ` ${labelClassName}` : ''}`}>{label}</div>
           {showIcon && <span className={css.icon}>
             <DownOutlined />

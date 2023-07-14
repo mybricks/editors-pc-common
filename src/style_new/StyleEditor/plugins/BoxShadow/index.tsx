@@ -5,6 +5,8 @@ import {
   Select,
   ColorEditor,
   InputNumber,
+  BoxShadowInnerOutlined,
+  BoxShadowOuterOutlined,
   BoxShadowOfsetXOutlined,
   BoxShadowOfsetYOutlined,
   BoxShadowBlurRadiusOutlined,
@@ -54,6 +56,7 @@ export function BoxShadow ({value, onChange, config}: BoxShadowProps) {
           style={{width: 98, padding: 0}}
           defaultValue={boxShadowValues.inset}
           options={INSET_OPTIONS}
+          prefix={boxShadowValues.inset ? <BoxShadowInnerOutlined /> : <BoxShadowOuterOutlined />}
           onChange={(value) => setBoxShadowValues((boxShadowValues) => {
             return {
               ...boxShadowValues,
@@ -88,7 +91,7 @@ export function BoxShadow ({value, onChange, config}: BoxShadowProps) {
       </Panel.Content>
       <Panel.Content>
         <ColorEditor
-          tip='颜色'
+          // tip='颜色'
           style={{width: 98}}
           defaultValue={boxShadowValues.color}
           onChange={(value) => setBoxShadowValues((boxShadowValues) => {
@@ -131,7 +134,7 @@ function getInitValue (boxShadow: string | undefined) {
   const result = {
     inset: false,
     offsetX: '0px',
-    offsetY: '0xp',
+    offsetY: '0px',
     blurRadius: '0px',
     spreadRadius: '0px',
     color: '#ffffff'

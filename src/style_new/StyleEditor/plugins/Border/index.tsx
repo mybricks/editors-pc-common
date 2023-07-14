@@ -96,7 +96,7 @@ export function Border ({value, onChange, config}: BorderProps) {
                 })}
               />
               <ColorEditor
-                tip='边框颜色'
+                // tip='边框颜色'
                 style={{padding: 0, marginLeft: 9}}
                 defaultValue={borderValue.borderTopColor}
                 onChange={(value) => handleChange({
@@ -153,7 +153,7 @@ export function Border ({value, onChange, config}: BorderProps) {
                     onChange={(value) => handleChange({borderTopWidth: value})}
                   />
                   <ColorEditor
-                    tip='上边框颜色'
+                    // tip='上边框颜色'
                     style={{padding: 0, marginLeft: 9}}
                     defaultValue={borderValue.borderTopColor}
                     onChange={(value) => handleChange({borderTopColor: value})}
@@ -192,7 +192,7 @@ export function Border ({value, onChange, config}: BorderProps) {
                     onChange={(value) => handleChange({borderRightWidth: value})}
                   />
                   <ColorEditor
-                    tip='右边框颜色'
+                    // tip='右边框颜色'
                     style={{padding: 0, marginLeft: 9}}
                     defaultValue={borderValue.borderRightColor}
                     onChange={(value) => handleChange({borderRightColor: value})}
@@ -225,7 +225,7 @@ export function Border ({value, onChange, config}: BorderProps) {
                     onChange={(value) => handleChange({borderBottomWidth: value})}
                   />
                   <ColorEditor
-                    tip='下边框颜色'
+                    // tip='下边框颜色'
                     style={{padding: 0, marginLeft: 9}}
                     defaultValue={borderValue.borderBottomColor}
                     onChange={(value) => handleChange({borderBottomColor: value})}
@@ -258,7 +258,7 @@ export function Border ({value, onChange, config}: BorderProps) {
                     onChange={(value) => handleChange({borderLeftWidth: value})}
                   />
                   <ColorEditor
-                    tip='左边框颜色'
+                    // tip='左边框颜色'
                     style={{padding: 0, marginLeft: 9}}
                     defaultValue={borderValue.borderLeftColor}
                     onChange={(value) => handleChange({borderLeftColor: value})}

@@ -1,236 +1,220 @@
 import React, {
-  useEffect,
   useMemo,
-  useState,
+  useReducer,
   useCallback,
-  CSSProperties,
-  useRef,
-} from "react";
-import { createPortal } from "react-dom";
-import { evt, useComputed, useObservable } from "@mybricks/rxui";
-import ColorUtil from "color";
-import { Panel, Colorpicker, Unbinding, Binding } from "../";
-import css from "./index.less";
-import ThemePicker from "../ThemePicker";
+  CSSProperties
+} from 'react'
+
+import ColorUtil from 'color'
+
+import {
+  Dropdown,
+  BindingOutlined,
+  QuestionCircleOutlined,
+  TransparentColorOutlined
+} from '../../components'
+import { Panel, Colorpicker, UnbindingOutlined } from '../'
+
+import css from './index.less'
+
+type ColorOption = {
+  label: string
+  value: string
+  resetValue?: string
+}
+type ColorOptions = Array<ColorOption>
 
 interface ColorEditorProps {
-  defaultValue: any;
-  style?: CSSProperties;
-  onChange: (value: any) => void;
-  tip?: string;
+  options?: ColorOptions
+  defaultValue: any
+  style?: CSSProperties
+  onChange: (value: any) => void
 }
 
-export function ColorEditor({
-  defaultValue,
-  style = {},
-  onChange,
-  tip,
-}: ColorEditorProps) {
-  const themePickerRef = useRef<HTMLDivElement>(null);
-  const THEME_LIST: any[] = window.getTheme?.() || [];
-  const [value, setValue] = useState(getHex(defaultValue));
-  const [finalValue, setFinalValue] = useState(value);
-  const [isBinding, setIsBinding] = useState(!!checkIfVar(defaultValue));
+interface State {
+  /** 可修改值 */
+  value: string
+  /** 最终值 */
+  finalValue: string
+  /** 非色值 */
+  nonColorValue: boolean
+  /** 非色值选项 */
+  options: ColorOptions
+}
 
-  const handleBindingClick = () => {
-    if (isBinding) {
-      setValue(varToHex(finalValue));
-      setFinalValue(varToHex(finalValue));
-      setIsBinding(false);
-      return;
-    }
-    if (!isBinding) {
-      setThemePickerOpen(true);
-      return;
-    }
-  };
+function getInitialState ({value, options}: {value: string, options: ColorOptions}): State {
+  let finalValue = value
+  let nonColorValue = false
 
+  try {
+    const color = new ColorUtil(value)
+    finalValue = (color.alpha() === 1 ? color.hex() : color.hexa()).toLowerCase()
+  } catch {
+    nonColorValue = true
+  }
+  return {
+    value: finalValue,
+    finalValue: nonColorValue ? '' : finalValue,
+    nonColorValue,
+    options: options.concat(COLOR_OPTIONS)
+  }
+}
 
-  //手动input输入过程中，对不完整的颜色值进行补全处理，暂存到finalValue
+function reducer (state: State, action: any): State {
+  return {
+    ...state,
+    ...action
+  }
+}
+
+const COLOR_OPTIONS = [
+  {label: 'inherit', value: 'inherit'}
+]
+
+export function ColorEditor ({defaultValue, style = {}, onChange, options = []}: ColorEditorProps) {
+  const [state, dispatch] = useReducer(reducer, getInitialState({value: defaultValue, options}))
+
   const handleInputChange = useCallback((e) => {
-    const value = e.target.value;
-    setValue(value);
+    const value = e.target.value
+    const state: any = {
+      value
+    }
     try {
-      const hex = getHex(value);
-      setFinalValue(hex);
-      onChange(hex);
-    } catch (e) {
-      console.log(e);
-    }
-  }, []);
+      const hex = getHex(value)
+      state.finalValue = hex
+      onChange(hex)
+    } catch {}
 
-  //手动input完成输入后，如果输入的值与最终值不一致，则将最终值（finalValue）赋给输入框
+    dispatch(state)
+  }, [])
+
   const handleInputBlur = useCallback(() => {
+    const { value, finalValue } = state
+
     if (value !== finalValue) {
-      setValue(finalValue);
+      dispatch({
+        value: finalValue
+      })
     }
-  }, [value, finalValue]);
+  }, [state.value, state.finalValue])
 
   const handleColorpickerChange = useCallback((color) => {
-    const rawhex = color.hexa;
-    //对hex进行处理，使之符合规范
-    const hex = getHex(rawhex);
-    setValue(hex);
-    setFinalValue(hex);
-    onChange(hex);
-  }, []);
+    const hex = getHex(color.hexa)
 
-  const handleThemePickerChange = useCallback((color) => {
-    setIsBinding(true);
-    setValue(color);
-    setFinalValue(color);
-    onChange(color);
-  }, []);
-
-
+    dispatch({
+      value: hex,
+      finalValue: hex
+    })
+    onChange(hex)
+  }, [])
 
   const input = useMemo(() => {
-    const style = isBinding ? { color: "#BFBFBF", cursor: "not-allowed" } : {};
-    const title = isBinding ? "颜色被绑定，请点击右侧图标解绑" : "";
-    let inputValue = value;
-    const themeItem = THEME_LIST.find((item) => {
-      return item.id === getVarName(inputValue);
-    });
-    if (themeItem) {
-      inputValue = themeItem.name;
-    }
-    if (checkIfVar(inputValue)) {
-      inputValue = varToHex(inputValue);
-    }
+    const { value, nonColorValue } = state
     return (
       <input
-        value={inputValue}
+        value={value}
         className={css.input}
         onChange={handleInputChange}
         onBlur={handleInputBlur}
-        disabled={isBinding}
-        style={style}
-        title={title}
+        disabled={nonColorValue}
       />
-    );
-  }, [value, isBinding]);
+    )
+  }, [state.value, state.nonColorValue])
 
   const block = useMemo(() => {
-    let pickerFinalValue = finalValue;
-    if (checkIfVar(pickerFinalValue)) {
-      pickerFinalValue = varToHex(pickerFinalValue);
+    const { finalValue, nonColorValue } = state
+    const style = nonColorValue ? {
+      backgroundColor: finalValue || 'transparent',
+      cursor: 'not-allowed'
+    } : {
+      backgroundColor: finalValue
     }
-    const style = isBinding
-      ? {
-          background:
-            new ColorUtil(pickerFinalValue).alpha() !== 0
-              ? pickerFinalValue
-              : 'url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAADFJREFUOE9jZGBgEGHAD97gk2YcNYBhmIQBgWSAP52AwoAQwJvQRg1gACckQoC2gQgAIF8IscwEtKYAAAAASUVORK5CYII=") left center, white',
-          cursor: "not-allowed",
-        }
-      : {
-          background:
-            new ColorUtil(pickerFinalValue).alpha() !== 0
-              ? pickerFinalValue
-              : 'url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAADFJREFUOE9jZGBgEGHAD97gk2YcNYBhmIQBgWSAP52AwoAQwJvQRg1gACckQoC2gQgAIF8IscwEtKYAAAAASUVORK5CYII=") left center, white',
-        };
 
     return (
       <Colorpicker
-        value={pickerFinalValue}
+        value={finalValue}
         onChange={handleColorpickerChange}
-        disabled={isBinding}
+        disabled={nonColorValue}
+        className={css.colorPickerContainer}
       >
         <div className={css.block} style={style} />
-      </Colorpicker>
-    );
-  }, [finalValue, isBinding]);
-
-  const [themePickerOpen, setThemePickerOpen] = useState(false);
-
-  const theme = useMemo(() => {
-    return (
-      <>
-        <div
-          ref={themePickerRef}
-          className={css.theme}
-        >
-          {isBinding ? (
-            <div
-              className={css.Binding}
-              title="点击解绑"
-              onClick={handleBindingClick}
-            >
-              <Binding />
-            </div>
-          ) : (
-            <div className={css.unBinding} onClick={handleBindingClick}>
-              <Unbinding />
-            </div>
-          )}
+        <div className={css.icon}>
+          {nonColorValue ? (finalValue ? <></> : <QuestionCircleOutlined />) : <TransparentColorOutlined />}
         </div>
-        <ThemePicker
-          open={themePickerOpen}
-          color=""
-          onChangeComplete={(e) => {
-            setThemePickerOpen(false);
-            handleThemePickerChange(e);
-          }}
-          onRequestClose={() => {
-            setThemePickerOpen(false);
-          }}
-          positionElement={themePickerRef}
-        ></ThemePicker>
-      </>
-    );
-  }, [finalValue, themePickerOpen]);
+      </Colorpicker>
+    )
+  }, [state.finalValue, state.nonColorValue])
+
+  /** 绑定 */
+  const bind = useCallback((value) => {
+    const option = state.options.find((option) => option.value === value) as ColorOption
+    const { label, resetValue } = option
+
+    dispatch({
+      nonColorValue: true,
+      value: label || value,
+      finalValue: resetValue || ''
+    })
+  }, [])
+
+  /** 解除绑定 */
+  const unBind = useCallback(() => {
+    const { value, finalValue } = state
+    const option = state.options.find((option) => option.resetValue ? (option.resetValue === finalValue) : option.value === value) as ColorOption
+    const { resetValue } = option
+    const hex = getHex(resetValue || '')
+    
+    dispatch({
+      nonColorValue: false,
+      value: hex,
+      finalValue: hex
+    })
+  }, [state.nonColorValue])
+
+  /** 绑定操作按钮 */
+  const preset = useMemo(() => {
+    const { options, finalValue, nonColorValue } = state
+
+    return (
+      <div
+        className={`${css.preset} ${nonColorValue ? css.binding : css.unBinding}`}
+        data-mybricks-tip={nonColorValue ? '解除绑定' : '绑定'}
+      >
+        {nonColorValue ? (
+          <div onClick={unBind} className={css.iconContainer}>
+            <BindingOutlined /> 
+          </div>
+        ) : (
+          <Dropdown
+            className={css.iconContainer}
+            options={options}
+            value={finalValue}
+            onClick={bind}
+          >
+            <UnbindingOutlined /> 
+          </Dropdown>
+        )}
+      </div>
+    )
+  }, [state.finalValue, state.nonColorValue])
 
   return (
-    <Panel.Item style={style}>
-      <div className={css.color} data-mybricks-tip={tip}>
+    <Panel.Item style={style} className={css.container}>
+      <div className={`${css.color}${state.nonColorValue ? ` ${css.disabled}` : ''}`} >
         {block}
         {input}
-        {THEME_LIST.length > 0 && theme}
       </div>
+      {preset}
     </Panel.Item>
-  );
+  )
 }
 
-//补全输入过程中不完整的颜色hex值
 const getHex = (str: string) => {
-  if (checkIfVar(str)) return str;
-  if(str === "") {
-  const color = new ColorUtil("#000000");
-  return (color.alpha() === 1 ? color.hex() : color.hexa()).toLowerCase();
-  }
-  const color = new ColorUtil(str);
-  return (color.alpha() === 1 ? color.hex() : color.hexa()).toLowerCase();
-};
+  let finalValue = str
+  try {
+    const color = new ColorUtil(str)
+    finalValue = (color.alpha() === 1 ? color.hex() : color.hexa()).toLowerCase()
+  } catch {}
 
-const varToHex = (color: string) => {
-  const match = color.match(/var\((.*)\)/);
-  if (match) {
-    const cssVarName = match[1];
-    let cssVarValue = getComputedStyle(
-      document.querySelector("#root > div")
-    ).getPropertyValue(cssVarName);
-    cssVarValue = getHex(cssVarValue);
-    return cssVarValue.trim() || "transparent";
-  } else {
-    return color;
-  }
-};
-
-const checkIfVar = (color: string) => {
-  if (color === void 0) return false;
-  const match = color.match(/var\((.*)\)/);
-  if (match) {
-    return true;
-  } else {
-    return false;
-  }
-};
-
-const getVarName = (color: string) => {
-  const match = color.match(/var\((.*)\)/);
-  if (match) {
-    return match[1];
-  } else {
-    return "";
-  }
-};
+  return finalValue
+}

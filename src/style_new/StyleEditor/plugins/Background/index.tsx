@@ -28,7 +28,7 @@ export function Background ({value, onChange, config}: BackgroundProps) {
       {disableBackgroundColor ? null : (
         <Panel.Content>
           <ColorEditor
-            tip='背景色'
+            // tip='背景色'
             // TODO
             // @ts-ignore
             defaultValue={value[getRealKey(keyMap, 'backgroundColor')] || value.backgroundColor}

@@ -16,13 +16,15 @@ interface DropdownProps {
   options: Array<{label: string | number, value: any}>
   children: ReactNode
   onClick: (value: any) => void
+  className?: string
 }
 
 export function Dropdown ({
   value,
   options,
   children,
-  onClick
+  onClick,
+  className
 }: DropdownProps) {
   const ref = useRef<HTMLDivElement>(null)
   const [show, setShow] = useState(false)
@@ -62,7 +64,7 @@ export function Dropdown ({
     <>
       <div
         ref={ref}
-        className={css.dropDown}
+        className={`${css.dropDown}${className ? ` ${className}` : ''}`}
         onClick={handleDropDownClick}
       >
         {children}
