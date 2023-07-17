@@ -71,7 +71,7 @@ export function Image ({
 
   const handleClick = useCallback((event) => {
     // TODO: 点击弹窗内容以外的区域关闭
-    if (!childRef.current!.contains(event.target) && !event.target.className.startsWith('item-')) {
+    if (!childRef.current!.contains(event.target) && !event.target.className?.startsWith?.('item-')) {
       setOpen(false)
     }
   }, [])
