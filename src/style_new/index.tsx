@@ -21,7 +21,11 @@ import type { Options, ChangeEvent } from './StyleEditor/type'
 import css from './index.less'
 
 export default function ({editConfig}: EditorProps) {
-  const { options, setValue, defaultValue } = useMemo(() => {
+  const {
+    options,
+    setValue,
+    finalOpen,
+    defaultValue } = useMemo(() => {
     return getDefaultConfiguration(editConfig)
   }, [])
 
@@ -43,7 +47,7 @@ export default function ({editConfig}: EditorProps) {
     editConfig.value.set(deepCopy(setValue))
   }, [])
 
-  const [open, setOpen] = useState(true)
+  const [open, setOpen] = useState(finalOpen)
 
   const title = useMemo(() => {
     return (
@@ -81,6 +85,7 @@ export default function ({editConfig}: EditorProps) {
 function getDefaultConfiguration ({value, options}: GetDefaultConfigurationProps) {
   // console.log('options: ', options)
 
+  let finalOpen = true
   let finalOptions
   let defaultValue: CSSProperties = {}
   const setValue = deepCopy(value.get() || {})
@@ -93,7 +98,8 @@ function getDefaultConfiguration ({value, options}: GetDefaultConfigurationProps
     // options是一个数组，直接使用
     finalOptions = options
   } else {
-    const { plugins, selector, targetDom } = options
+    const { plugins, selector, targetDom, defaultOpen = true } = options
+    finalOpen = defaultOpen
     // 这里还要再处理一下 
     finalOptions = plugins || DEFAULT_OPTIONS
     if (targetDom) {
@@ -148,11 +154,13 @@ function getDefaultConfiguration ({value, options}: GetDefaultConfigurationProps
   return {
     options: finalOptions,
     defaultValue: Object.assign(defaultValue, setValue),
-    setValue
+    setValue,
+    finalOpen
   } as {
     options: Options,
     defaultValue: CSSProperties,
-    setValue: CSSProperties
+    setValue: CSSProperties,
+    finalOpen: boolean
   }
 }
 

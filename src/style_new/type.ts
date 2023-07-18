@@ -7,6 +7,7 @@ export interface EditorProps {
      targetDom?: HTMLDivElement
      plugins?: Options
      selector: string
+     defaultOpen?: boolean
     }
     | undefined
     value: {
