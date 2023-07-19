@@ -12,7 +12,7 @@ import {
   Panel,
   Select,
   ResetOutlined,
-  CameraOutlined
+  ImageOutlined
 } from '..'
 
 import css from './index.less'
@@ -101,7 +101,7 @@ export function Image ({
       )
     }
 
-    return <CameraOutlined />
+    return <ImageOutlined />
   }, [value.backgroundImage])
 
   return (
