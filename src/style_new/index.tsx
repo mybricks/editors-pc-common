@@ -1,13 +1,25 @@
 import React, {
+  useRef,
   useMemo,
   useState,
+  useReducer,
   useCallback,
   CSSProperties
 } from 'react'
 
 import colorUtil from 'color-string'
-import CaretDownOutlined from '@ant-design/icons/CaretDownOutlined'
-import CaretLeftOutlined from '@ant-design/icons/CaretLeftOutlined'
+// @ts-ignore
+import { toCSS, toJSON } from 'cssjson';
+
+import {
+  CodeOutlined,
+  AppstoreOutlined,
+  CaretDownOutlined,
+  CaretLeftOutlined,
+  FullscreenOutlined
+} from '@ant-design/icons'
+// @ts-ignore
+import MonacoEditor from "@mybricks/code-editor";
 
 import { deepCopy } from '../utils'
 import StyleEditor, { DEFAULT_OPTIONS, StyleEditorProvider } from './StyleEditor'
@@ -16,16 +28,93 @@ import type {
   EditorProps,
   GetDefaultConfigurationProps
 } from './type'
-import type { Options, ChangeEvent } from './StyleEditor/type'
+import type { Style, Options, ChangeEvent } from './StyleEditor/type'
 
 import css from './index.less'
 
+interface State {
+  open: boolean
+  editMode: boolean
+}
+
 export default function ({editConfig}: EditorProps) {
+  const {
+    finalOpen,
+    finalSelector
+  } = useMemo(() => {
+    return getDefaultConfiguration2(editConfig)
+  }, [])
+
+  const [state, dispatch] = useReducer((state: State, action: keyof State) => {
+    return {
+      ...state,
+      [action]: !state[action]
+    }
+  }, {
+    open: finalOpen,
+    editMode: true
+  })
+
+  const title = useMemo(() => {
+    const { open, editMode } = state
+    return (
+      <div className={css.titleContainer} style={{ marginBottom: open ? 3 : 0 }}>
+        <div className={css.title} onClick={() => dispatch('open')}>
+          <div>{editConfig.title}</div>
+        </div>
+        <div className={css.actions}>
+          <div
+            className={css.icon}
+            data-mybricks-tip={`{content:'${editMode ? '代码编辑' : '可视化编辑'}',position:'left'}`}
+            onClick={() => dispatch('editMode')}
+          >
+            {editMode ? <CodeOutlined /> : <AppstoreOutlined />}
+          </div>
+          <div
+            className={css.icon}
+            data-mybricks-tip={open ? '收起' : '展开'}
+            onClick={() => dispatch('open')}
+          >
+            {open ? <CaretDownOutlined /> : <CaretLeftOutlined />}
+          </div>
+        </div>
+      </div>
+    )
+  }, [state])
+
+  const editor = useMemo(() => {
+    if (state.editMode) {
+      return (
+        <Style editConfig={editConfig}/>
+      )
+    } else {
+      return (
+        <CssEditor {...editConfig} selector={finalSelector} onChange={(value: any) => {
+          editConfig.value.set(deepCopy(value))
+        }}/>
+      )
+    }
+  }, [state.editMode])
+
+  return {
+    render: (
+      <>
+        {title}
+        <div style={{display: state.open ? 'block' : 'none'}}>
+          {editor}
+        </div>
+      </>
+    )
+  }
+}
+
+
+function Style ({editConfig}: EditorProps) {
   const {
     options,
     setValue,
-    finalOpen,
-    defaultValue } = useMemo(() => {
+    defaultValue
+  } = useMemo(() => {
     return getDefaultConfiguration(editConfig)
   }, [])
 
@@ -47,37 +136,169 @@ export default function ({editConfig}: EditorProps) {
     editConfig.value.set(deepCopy(setValue))
   }, [])
 
-  const [open, setOpen] = useState(finalOpen)
-
-  const title = useMemo(() => {
-    return (
-      <div className={css.titleContainer} style={{ marginBottom: open ? 3 : 0 }}>
-        <div className={css.title} onClick={() => setOpen(!open)}>
-          <div>{editConfig.title}</div>
-        </div>
-        <div className={css.actions}>
-          <div onClick={() => setOpen(!open)}>{open ? <CaretDownOutlined style={{ color: '#555' }} /> : <CaretLeftOutlined style={{ color: '#555' }} />}</div>
-        </div>
-      </div>
-    )
-  }, [open])
-
-  return {
-    render: (
-      <StyleEditorProvider value={editConfig}>
-        {title}
-        <div style={{display: open ? 'block' : 'none'}}>
-          <StyleEditor
-            defaultValue={defaultValue}
-            options={options}
-            onChange={handleChange}
-          />
-        </div>
-      </StyleEditorProvider>
-    )
-  }
+  return (
+    <StyleEditorProvider value={editConfig}>
+      <StyleEditor
+        defaultValue={defaultValue}
+        options={options}
+        onChange={handleChange}
+      />
+    </StyleEditorProvider>
+  )
 }
 
+
+
+// code
+const CSS_EDITOR_TITLE = 'CSS样式编辑'
+
+function getDefaultValue({value, selector}: any) {
+  const styleValue = deepCopy(value.get() || {})
+
+  return parseToCssCode(styleValue, selector)
+}
+
+export interface StyleData {
+  styleKey: string;
+  value: string | number | boolean;
+}
+
+/**
+ * 将驼峰写法改成xx-xx的css命名写法
+ * @param styleKey
+ */
+export function toLine(styleKey: string) {
+  return styleKey.replace(/([A-Z])/g, '-$1').toLowerCase();
+}
+
+export function toHump(name: String) {
+  return name.replace(/\-(\w)/g, (all, letter) => {
+    return letter.toUpperCase();
+  });
+}
+
+
+function parseToCssCode(styleData: StyleData, selector: string) {
+  const parseStyleData: any = {};
+  for (const styleKey in styleData) {
+    // @ts-ignore
+    parseStyleData[toLine(styleKey)] = styleData[styleKey];
+  }
+
+  const cssJson = {
+    children: {
+      [selector || 'div']: {
+        children: {},
+        attributes: parseStyleData,
+      },
+    },
+  };
+
+  return toCSS(cssJson);
+}
+
+export function parseToStyleData(cssCode: string, selector: string) {
+  const styleData = {};
+  try {
+    const cssJson = toJSON(cssCode.trim().endsWith('}') ? cssCode : (cssCode + '}'));// 包bug
+    const cssJsonData = cssJson?.children?.[selector || 'div']?.attributes;
+    for (const key in cssJsonData) {
+      // @ts-ignore
+      styleData[toHump(key)] = cssJsonData[key];
+    }
+  } catch (e: any) {
+    console.error(e.message);
+  }
+
+  return styleData;
+}
+
+function CssEditor ({popView, options, value, selector, onChange: onPropsChange}: any) {
+  const [cssValue, setCssValue] = useState(getDefaultValue({value, selector}))
+  const editorRef = useRef<MonacoEditor>(null)
+
+  const onMounted = useCallback((editor) => {
+    editorRef.current = editor
+  }, [])
+
+  const onChange = useCallback((value) => {
+    const newStyleData = parseToStyleData(value, selector);
+
+    setCssValue(value);
+
+    onPropsChange(newStyleData)
+  }, [])
+
+  // const onBlur = useCallback(() => {
+  //   console.log('失去焦点')
+  // }, [])
+
+  const onFullscreen = useCallback(() => {
+    popView(
+      CSS_EDITOR_TITLE,
+      () => {
+        return <div className={css.modal}>{monaco}</div>;
+      },
+      { 
+        onClose: () => {
+          // const val = editorRef.current?.getValue();
+        }
+      }
+    )
+  }, [cssValue])
+
+  const monaco = useMemo(() => {
+    return (
+      <MonacoEditor
+        height='100%'
+        onMounted={onMounted}
+        value={cssValue}
+        onChange={onChange}
+        // onBlur={onBlur}
+        language='css'
+      />
+    )
+  }, [cssValue])
+
+  return (
+    <div className={css.codeWrap}>
+      <div className={css.inlineWrap}>
+        <div className={css.header}>
+          <span className={css.title}>{'CSS样式编辑'}</span>
+          <div data-mybricks-tip='放大编辑' className={css.plus} onClick={onFullscreen}>
+            <FullscreenOutlined />
+          </div>
+        </div>
+        <div className={css.body}>
+          {monaco}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function getDefaultConfiguration2 ({value, options}: GetDefaultConfigurationProps) {
+  let finalOpen = true
+  let finalSelector
+
+  if (!options) {
+
+  } else if (Array.isArray(options)) {
+
+  } else {
+    const { plugins, selector, targetDom, defaultOpen = true } = options
+    finalSelector = selector
+    finalOpen = defaultOpen
+  }
+
+  return {
+    finalOpen,
+    finalSelector
+  } as {
+    finalOpen: boolean,
+    finalSelector: string
+  }
+}
 
 /**
  * 获取默认的配置项和样式
@@ -88,6 +309,7 @@ function getDefaultConfiguration ({value, options}: GetDefaultConfigurationProps
   let finalOpen = true
   let finalOptions
   let defaultValue: CSSProperties = {}
+  let finalSelector
   const setValue = deepCopy(value.get() || {})
   let getDefaultValue = true
 
@@ -99,6 +321,7 @@ function getDefaultConfiguration ({value, options}: GetDefaultConfigurationProps
     finalOptions = options
   } else {
     const { plugins, selector, targetDom, defaultOpen = true } = options
+    finalSelector = selector
     finalOpen = defaultOpen
     // 这里还要再处理一下 
     finalOptions = plugins || DEFAULT_OPTIONS
@@ -155,12 +378,14 @@ function getDefaultConfiguration ({value, options}: GetDefaultConfigurationProps
     options: finalOptions,
     defaultValue: Object.assign(defaultValue, setValue),
     setValue,
-    finalOpen
+    finalOpen,
+    finalSelector
   } as {
     options: Options,
     defaultValue: CSSProperties,
     setValue: CSSProperties,
-    finalOpen: boolean
+    finalOpen: boolean,
+    finalSelector: string
   }
 }
 

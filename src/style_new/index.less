@@ -4,6 +4,7 @@
   cursor: pointer;
   align-items: center;
   justify-content: space-between;
+
   .title {
     width: 100%;
     display: flex;
@@ -11,6 +12,7 @@
     overflow: hidden;
     white-space: nowrap;
     align-items: center;
+
     .preview {
       color: #999999;
       overflow: hidden;
@@ -19,11 +21,60 @@
       text-overflow: ellipsis;
     }
   }
+
   .actions {
     display: flex;
     align-items: center;
+    color: #555;
+
     .icon {
-      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+
+      &:not(:first-child) {
+        margin-left: 2px;
+      }
     }
   }
+}
+
+.codeWrap {
+  :global {
+    .suggest-widget {
+      left: 2px !important;
+      width: 100% !important;
+    }
+  }
+}
+.inlineWrap {
+  background-color: #fff;
+  border-radius: 4px;
+  height: 100%;
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px;
+    border-bottom: 1px solid #efefef;
+    .title {
+      font-weight: 500;
+      font-size: 14px;
+    }
+    .plus {
+      cursor: pointer;
+      &:hover {
+        color: #1890ff;
+      }
+    }
+  }
+  .body {
+    height: 100%;
+    padding: 12px;
+    height: 300px;
+  }
+}
+.modal{
+  height: 100%;
+  padding: 40px 0;
 }
