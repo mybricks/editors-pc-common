@@ -79,7 +79,7 @@ export function TypeChange ({
     }
 
     setMover(void 0)
-  }, [hoverFromXpath])
+  }, [mover])
 
   const delFocusCon = useCallback(() => {
     if (focusCon) {

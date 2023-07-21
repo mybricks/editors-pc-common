@@ -113,7 +113,7 @@ function ProItem({
         setMover({
           x: ex + 3,
           y: ey - 14,
-          title: keyName as string,
+          title: (keyName || getTypeTitleBySchema(val)) as string,
           schema: val,
           xpath
         })
