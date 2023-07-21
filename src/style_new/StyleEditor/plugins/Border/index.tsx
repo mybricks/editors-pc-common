@@ -109,7 +109,7 @@ export function Border ({value, onChange, config}: BorderProps) {
               {config.disableBorderStyle ? null : (
                 <Select
                   tip="边框线条样式"
-                  style={{ padding: 0, width: 65, textAlign: "right" }}
+                  style={{padding: 0, width: 65, textAlign: 'right'}}
                   labelClassName={css.label}
                   defaultValue={borderValue.borderTopStyle}
                   options={BORDER_STYLE_OPTIONS}
@@ -160,7 +160,7 @@ export function Border ({value, onChange, config}: BorderProps) {
                   />
                   <Select
                     tip='上边框线条样式'
-                    style={{padding: 0, width: 40}}
+                    style={{padding: 0, width: 65, textAlign: 'right'}}
                     labelClassName={css.label}
                     defaultValue={borderValue.borderTopStyle}
                     options={BORDER_STYLE_OPTIONS}
@@ -199,7 +199,7 @@ export function Border ({value, onChange, config}: BorderProps) {
                   />
                   <Select
                     tip='右边框线条样式'
-                    style={{padding: 0, width: 40}}
+                    style={{padding: 0, width: 65, textAlign: 'right'}}
                     labelClassName={css.label}
                     defaultValue={borderValue.borderRightStyle}
                     options={BORDER_STYLE_OPTIONS}
@@ -232,7 +232,7 @@ export function Border ({value, onChange, config}: BorderProps) {
                   />
                   <Select
                     tip='下边框线条样式'
-                    style={{padding: 0, width: 40}}
+                    style={{padding: 0, width: 65, textAlign: 'right'}}
                     labelClassName={css.label}
                     defaultValue={borderValue.borderBottomStyle}
                     options={BORDER_STYLE_OPTIONS}
@@ -265,7 +265,7 @@ export function Border ({value, onChange, config}: BorderProps) {
                   />
                   <Select
                     tip='左边框线条样式'
-                    style={{padding: 0, width: 40}}
+                    style={{padding: 0, width: 65, textAlign: 'right'}}
                     labelClassName={css.label}
                     defaultValue={borderValue.borderLeftStyle}
                     options={BORDER_STYLE_OPTIONS}
