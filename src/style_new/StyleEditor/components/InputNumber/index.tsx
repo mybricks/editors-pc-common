@@ -34,7 +34,7 @@ export function InputNumber ({
 }: InputNumberProps) {
   const [unit, setUnit] = useState<string>(getUnit(defaultValue, defaultUnitValue))
   const [number, handleNumberChange] = useInputNumber(defaultValue)
-  const [displayValue, setDisplayValue] = useState(unit === defaultValue ? unit : number)
+  const [displayValue, setDisplayValue] = useState((typeof unit !== 'undefined' && typeof defaultValue !== 'undefined' && unit === defaultValue ? unit : number))
 
   const isDisabledUnit = useCallback(() => {
     return (unitDisabledList && unit) ? unitDisabledList.includes(unit) : disabled

@@ -54,7 +54,20 @@ const DEFAULT_STYLE = {
   marginLeft: 4
 }
 
+const DEFAULT_CONFIG = {
+  disableBorderStyle: false,
+  disableBorderWidth: false,
+  disableBorderColor: false,
+  disableBorderRadius: false
+}
+
 export function Border ({value, onChange, config}: BorderProps) {
+  const [{
+    disableBorderWidth,
+    disableBorderColor,
+    disableBorderStyle,
+    disableBorderRadius
+  }] = useState(Object.assign(DEFAULT_CONFIG, config))
   const [{borderToggleValue, radiusToggleValue}, setToggleValue] = useState(getToggleDefaultValue(value))
   const [borderValue, setBorderValue] = useState({...value})
   const [splitRadiusIcon, setSplitRadiusIcon] = useState(<BorderTopLeftRadiusOutlined />)
@@ -75,6 +88,9 @@ export function Border ({value, onChange, config}: BorderProps) {
   }, [])
 
   const borderConfig = useMemo(() => {
+    if (disableBorderWidth && disableBorderColor && disableBorderStyle) {
+      return null
+    }
     if (borderToggleValue === 'all') {
       return (
         <div className={css.row}>
@@ -83,30 +99,34 @@ export function Border ({value, onChange, config}: BorderProps) {
               <div className={css.icon}>
                 <BorderAllOutlined />
               </div>
-              <InputNumber
-                tip='边框宽度'
-                style={DEFAULT_STYLE}
-                defaultValue={borderValue.borderTopWidth || 0}
-                suffix={'px'}
-                onChange={(value) => handleChange({
-                  borderTopWidth: value,
-                  borderRightWidth: value,
-                  borderBottomWidth: value,
-                  borderLeftWidth: value,
-                })}
-              />
-              <ColorEditor
-                // tip='边框颜色'
-                style={{padding: 0, marginLeft: 9}}
-                defaultValue={borderValue.borderTopColor}
-                onChange={(value) => handleChange({
-                  borderTopColor: value,
-                  borderRightColor: value,
-                  borderBottomColor: value,
-                  borderLeftColor: value,
-                })}
-              />
-              {config.disableBorderStyle ? null : (
+              {disableBorderWidth ? null : (
+                <InputNumber
+                  tip='边框宽度'
+                  style={DEFAULT_STYLE}
+                  defaultValue={borderValue.borderTopWidth}
+                  suffix={'px'}
+                  onChange={(value) => handleChange({
+                    borderTopWidth: value,
+                    borderRightWidth: value,
+                    borderBottomWidth: value,
+                    borderLeftWidth: value,
+                  })}
+                />
+              )}
+              {disableBorderColor ? null : (
+                <ColorEditor
+                  // tip='边框颜色'
+                  style={{padding: 0, marginLeft: 9}}
+                  defaultValue={borderValue.borderTopColor}
+                  onChange={(value) => handleChange({
+                    borderTopColor: value,
+                    borderRightColor: value,
+                    borderBottomColor: value,
+                    borderLeftColor: value,
+                  })}
+                />
+              )}
+              {disableBorderStyle ? null : (
                 <Select
                   tip="边框线条样式"
                   style={{padding: 0, width: 65, textAlign: 'right'}}
@@ -145,28 +165,34 @@ export function Border ({value, onChange, config}: BorderProps) {
                   <div className={css.icon}>
                     <BorderTopWidthOutlined />
                   </div>
-                  <InputNumber
-                    tip='上边框宽度'
-                    style={DEFAULT_STYLE}
-                    defaultValue={borderValue.borderTopWidth}
-                    suffix={'px'}
-                    onChange={(value) => handleChange({borderTopWidth: value})}
-                  />
-                  <ColorEditor
-                    // tip='上边框颜色'
-                    style={{padding: 0, marginLeft: 9}}
-                    defaultValue={borderValue.borderTopColor}
-                    onChange={(value) => handleChange({borderTopColor: value})}
-                  />
-                  <Select
-                    tip='上边框线条样式'
-                    style={{padding: 0, width: 65, textAlign: 'right'}}
-                    labelClassName={css.label}
-                    defaultValue={borderValue.borderTopStyle}
-                    options={BORDER_STYLE_OPTIONS}
-                    showIcon={false}
-                    onChange={(value) => handleChange({borderTopStyle: value})}
-                  />
+                  {disableBorderWidth ? null : (
+                    <InputNumber
+                      tip='上边框宽度'
+                      style={DEFAULT_STYLE}
+                      defaultValue={borderValue.borderTopWidth}
+                      suffix={'px'}
+                      onChange={(value) => handleChange({borderTopWidth: value})}
+                    />
+                  )}
+                  {disableBorderColor ? null : (
+                    <ColorEditor
+                      // tip='上边框颜色'
+                      style={{padding: 0, marginLeft: 9}}
+                      defaultValue={borderValue.borderTopColor}
+                      onChange={(value) => handleChange({borderTopColor: value})}
+                    />
+                  )}
+                  {disableBorderStyle ? null : (
+                    <Select
+                      tip='上边框线条样式'
+                      style={{padding: 0, width: 65, textAlign: 'right'}}
+                      labelClassName={css.label}
+                      defaultValue={borderValue.borderTopStyle}
+                      options={BORDER_STYLE_OPTIONS}
+                      showIcon={false}
+                      onChange={(value) => handleChange({borderTopStyle: value})}
+                    />
+                  )}
                 </Panel.Item>
               </Panel.Content>
               <div
@@ -184,28 +210,34 @@ export function Border ({value, onChange, config}: BorderProps) {
                   <div className={css.icon}>
                     <BorderRightWidthOutlined />
                   </div>
-                  <InputNumber
-                    tip='右边框宽度'
-                    style={DEFAULT_STYLE}
-                    defaultValue={borderValue.borderRightWidth}
-                    suffix={'px'}
-                    onChange={(value) => handleChange({borderRightWidth: value})}
-                  />
-                  <ColorEditor
-                    // tip='右边框颜色'
-                    style={{padding: 0, marginLeft: 9}}
-                    defaultValue={borderValue.borderRightColor}
-                    onChange={(value) => handleChange({borderRightColor: value})}
-                  />
-                  <Select
-                    tip='右边框线条样式'
-                    style={{padding: 0, width: 65, textAlign: 'right'}}
-                    labelClassName={css.label}
-                    defaultValue={borderValue.borderRightStyle}
-                    options={BORDER_STYLE_OPTIONS}
-                    showIcon={false}
-                    onChange={(value) => handleChange({borderRightStyle: value})}
-                  />
+                  {disableBorderWidth ? null : (
+                    <InputNumber
+                      tip='右边框宽度'
+                      style={DEFAULT_STYLE}
+                      defaultValue={borderValue.borderRightWidth}
+                      suffix={'px'}
+                      onChange={(value) => handleChange({borderRightWidth: value})}
+                    />
+                  )}
+                  {disableBorderColor ? null : (
+                    <ColorEditor
+                      // tip='右边框颜色'
+                      style={{padding: 0, marginLeft: 9}}
+                      defaultValue={borderValue.borderRightColor}
+                      onChange={(value) => handleChange({borderRightColor: value})}
+                    />
+                  )}
+                  {disableBorderStyle ? null : (
+                    <Select
+                      tip='右边框线条样式'
+                      style={{padding: 0, width: 65, textAlign: 'right'}}
+                      labelClassName={css.label}
+                      defaultValue={borderValue.borderRightStyle}
+                      options={BORDER_STYLE_OPTIONS}
+                      showIcon={false}
+                      onChange={(value) => handleChange({borderRightStyle: value})}
+                    />
+                  )}
                 </Panel.Item>
               </Panel.Content>
               <div className={css.actionIcon} />
@@ -217,28 +249,34 @@ export function Border ({value, onChange, config}: BorderProps) {
                   <div className={css.icon}>
                     <BorderBottomWidthOutlined />
                   </div>
-                  <InputNumber
-                    tip='下边框宽度'
-                    style={DEFAULT_STYLE}
-                    defaultValue={borderValue.borderBottomWidth}
-                    suffix={'px'}
-                    onChange={(value) => handleChange({borderBottomWidth: value})}
-                  />
-                  <ColorEditor
-                    // tip='下边框颜色'
-                    style={{padding: 0, marginLeft: 9}}
-                    defaultValue={borderValue.borderBottomColor}
-                    onChange={(value) => handleChange({borderBottomColor: value})}
-                  />
-                  <Select
-                    tip='下边框线条样式'
-                    style={{padding: 0, width: 65, textAlign: 'right'}}
-                    labelClassName={css.label}
-                    defaultValue={borderValue.borderBottomStyle}
-                    options={BORDER_STYLE_OPTIONS}
-                    showIcon={false}
-                    onChange={(value) => handleChange({borderBottomStyle: value})}
-                  />
+                  {disableBorderWidth ? null : (
+                    <InputNumber
+                      tip='下边框宽度'
+                      style={DEFAULT_STYLE}
+                      defaultValue={borderValue.borderBottomWidth}
+                      suffix={'px'}
+                      onChange={(value) => handleChange({borderBottomWidth: value})}
+                    />
+                  )}
+                  {disableBorderColor ? null : (
+                    <ColorEditor
+                      // tip='下边框颜色'
+                      style={{padding: 0, marginLeft: 9}}
+                      defaultValue={borderValue.borderBottomColor}
+                      onChange={(value) => handleChange({borderBottomColor: value})}
+                    />
+                  )}
+                  {disableBorderStyle ? null : (
+                    <Select
+                      tip='下边框线条样式'
+                      style={{padding: 0, width: 65, textAlign: 'right'}}
+                      labelClassName={css.label}
+                      defaultValue={borderValue.borderBottomStyle}
+                      options={BORDER_STYLE_OPTIONS}
+                      showIcon={false}
+                      onChange={(value) => handleChange({borderBottomStyle: value})}
+                    />
+                  )}
                 </Panel.Item>
               </Panel.Content>
               <div className={css.actionIcon} />
@@ -250,28 +288,34 @@ export function Border ({value, onChange, config}: BorderProps) {
                   <div className={css.icon}>
                     <BorderLeftWidthOutlined />
                   </div>
-                  <InputNumber
-                    tip='左边框宽度'
-                    style={DEFAULT_STYLE}
-                    defaultValue={borderValue.borderLeftWidth}
-                    suffix={'px'}
-                    onChange={(value) => handleChange({borderLeftWidth: value})}
-                  />
-                  <ColorEditor
-                    // tip='左边框颜色'
-                    style={{padding: 0, marginLeft: 9}}
-                    defaultValue={borderValue.borderLeftColor}
-                    onChange={(value) => handleChange({borderLeftColor: value})}
-                  />
-                  <Select
-                    tip='左边框线条样式'
-                    style={{padding: 0, width: 65, textAlign: 'right'}}
-                    labelClassName={css.label}
-                    defaultValue={borderValue.borderLeftStyle}
-                    options={BORDER_STYLE_OPTIONS}
-                    showIcon={false}
-                    onChange={(value) => handleChange({borderLeftStyle: value})}
-                  />
+                  {disableBorderWidth ? null : (
+                    <InputNumber
+                      tip='左边框宽度'
+                      style={DEFAULT_STYLE}
+                      defaultValue={borderValue.borderLeftWidth}
+                      suffix={'px'}
+                      onChange={(value) => handleChange({borderLeftWidth: value})}
+                    />
+                  )}
+                  {disableBorderColor ? null : (
+                    <ColorEditor
+                      // tip='左边框颜色'
+                      style={{padding: 0, marginLeft: 9}}
+                      defaultValue={borderValue.borderLeftColor}
+                      onChange={(value) => handleChange({borderLeftColor: value})}
+                    />
+                  )}
+                  {disableBorderStyle ? null : (
+                    <Select
+                      tip='左边框线条样式'
+                      style={{padding: 0, width: 65, textAlign: 'right'}}
+                      labelClassName={css.label}
+                      defaultValue={borderValue.borderLeftStyle}
+                      options={BORDER_STYLE_OPTIONS}
+                      showIcon={false}
+                      onChange={(value) => handleChange({borderLeftStyle: value})}
+                    />
+                  )}
                 </Panel.Item>
               </Panel.Content>
               <div className={css.actionIcon} />
@@ -283,6 +327,9 @@ export function Border ({value, onChange, config}: BorderProps) {
   }, [borderToggleValue])
 
   const radiusConfig = useMemo(() => {
+    if (disableBorderRadius) {
+      return null
+    }
     if (radiusToggleValue === 'all') {
       return (
         <div className={css.row}>
