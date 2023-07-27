@@ -18,7 +18,8 @@ export default ({
 }: InputNumberProps) => {
   const handleChange = (e: any) => {
     const value = e.target.value;
-    typeof onChange === "function" && onChange(parseFloat(value));
+    typeof onChange === "function" &&
+      onChange(value.trim() ? parseFloat(value) : 0);
   };
   return (
     <div

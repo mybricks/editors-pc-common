@@ -129,7 +129,6 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
 
   const renderGap = () => {
     const onChange = (value: GapProps["value"]) => {
-      console.log(value);
       setModel((pre) => ({ ...pre, ...value }));
       updateValue({ ...value });
     };
