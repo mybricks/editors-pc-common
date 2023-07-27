@@ -1,5 +1,4 @@
 import React, { CSSProperties, useContext } from "react";
-import { Tooltip } from "antd";
 import FlexContext from "../ItemContext";
 import { extraJustifyContent } from "../../constant";
 import styles from "./index.less";
@@ -87,16 +86,14 @@ const getTitle = ({ flexItem, flexDirection }: Params) => {
 
 const Bar = ({ flexItem, flexDirection }: Params) => {
   return (
-    <Tooltip
-      title={getTitle({ flexItem, flexDirection })}
-      overlayInnerStyle={{ fontSize: 12 }}
+    <div
+      data-mybricks-tip={getTitle({ flexItem, flexDirection })}
+      style={{ display: "flex", ...flexItem, flexDirection }}
     >
-      <div style={{ display: "flex", ...flexItem, flexDirection }}>
-        <LeftBar />
-        <CenterBar />
-        <RightBar />
-      </div>
-    </Tooltip>
+      <LeftBar />
+      <CenterBar />
+      <RightBar />
+    </div>
   );
 };
 

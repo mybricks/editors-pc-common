@@ -1,5 +1,4 @@
 import React, { CSSProperties } from "react";
-import { Tooltip } from "antd";
 import Icon from "../Icon";
 import styles from "./index.less";
 
@@ -44,20 +43,15 @@ export default ({
   const renderWrap = () => {
     const title = flexWrap === "wrap" ? "换行" : "不换行";
     return (
-      <Tooltip
-        title={title}
-        placement="bottom"
-        overlayInnerStyle={{ fontSize: "12px" }}
+      <div
+        data-mybricks-tip={title}
+        className={`${styles.wrap} ${
+          flexWrap === "wrap" ? styles.selected : ""
+        }`}
+        onClick={() => onWrapToggle(flexWrap === "wrap" ? "nowrap" : "wrap")}
       >
-        <div
-          className={`${styles.wrap} ${
-            flexWrap === "wrap" ? styles.selected : ""
-          }`}
-          onClick={() => onWrapToggle(flexWrap === "wrap" ? "nowrap" : "wrap")}
-        >
-          <Icon name="wrap" />
-        </div>
-      </Tooltip>
+        <Icon name="wrap" />
+      </div>
     );
   };
 
@@ -65,23 +59,18 @@ export default ({
     <>
       <div className={styles.justifyWrap}>
         {defaultJustifyContent.map(({ title, value, render }) => (
-          <Tooltip
-            title={title}
-            overlayInnerStyle={{ fontSize: "12px" }}
-            key={`${value}-tooltip`}
+          <div
+            key={value}
+            data-mybricks-tip={title}
+            className={`${styles.svgWrapper} ${
+              justifyContent === value ? styles["justifyContent-select"] : ""
+            }`}
+            onClick={() =>
+              onSelect(justifyContent === value ? "normal" : value)
+            }
           >
-            <div
-              key={value}
-              className={`${styles.svgWrapper} ${
-                justifyContent === value ? styles["justifyContent-select"] : ""
-              }`}
-              onClick={() =>
-                onSelect(justifyContent === value ? "normal" : value)
-              }
-            >
-              {render(flexDirection)}
-            </div>
-          </Tooltip>
+            {render(flexDirection)}
+          </div>
         ))}
       </div>
       {renderWrap()}

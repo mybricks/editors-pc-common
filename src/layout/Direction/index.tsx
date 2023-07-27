@@ -1,7 +1,6 @@
 import React, { CSSProperties } from "react";
-import { Tooltip } from "antd";
 import Icon from "../Icon";
-import { Layout } from '../types'
+import { Layout } from "../types";
 import styles from "./index.less";
 
 export interface AlignItemsProps {
@@ -38,24 +37,18 @@ export default ({ position, flexDirection, onSelect }: AlignItemsProps) => {
     );
   };
   return (
-    <div className={styles["flex-direction"]}>
+    <div className={styles.directionWrap}>
       {defaultFlexFlow.map(({ title, value, render }) => (
-        <Tooltip
-          title={title}
-          placement="top"
-          overlayInnerStyle={{ fontSize: 12 }}
-          key={`${value}-tooltip`}
+        <div
+          key={value}
+          data-mybricks-tip={title}
+          className={`${styles["direction"]} ${
+            isActive(value as Layout) ? styles["direction-active"] : ""
+          }`}
+          onClick={() => onSelect(value as Layout)}
         >
-          <div
-            key={value}
-            className={`${styles["direction"]} ${
-              isActive(value as Layout) ? styles["direction-active"] : ""
-            }`}
-            onClick={() => onSelect(value as Layout)}
-          >
-            {render()}
-          </div>
-        </Tooltip>
+          {render()}
+        </div>
       ))}
     </div>
   );
