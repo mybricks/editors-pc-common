@@ -13,8 +13,8 @@ const LeftBar = () => {
   const { flexDirection, hover, active } = useContext(FlexContext);
   const style =
     flexDirection === "row"
-      ? { width: 4, height: 12 }
-      : { width: 12, height: 4 };
+      ? { width: 4, height: 14 }
+      : { width: 14, height: 4 };
   const className = active ? styles.selected : hover ? styles.hover : "";
   return (
     <div style={style} className={`${styles["align-bar"]} ${className}`} />
@@ -25,8 +25,8 @@ const CenterBar = () => {
   const { flexDirection, hover, active } = useContext(FlexContext);
   const style =
     flexDirection === "row"
-      ? { width: 4, height: 16, margin: "0 2px" }
-      : { width: 16, height: 4, margin: "2px 0" };
+      ? { width: 4, height: 18, margin: "0 2px" }
+      : { width: 18, height: 4, margin: "2px 0" };
   const className = active ? styles.selected : hover ? styles.hover : "";
   return (
     <div style={style} className={`${styles["align-bar"]} ${className}`} />
@@ -37,8 +37,8 @@ const RightBar = () => {
   const { flexDirection, hover, active } = useContext(FlexContext);
   const style =
     flexDirection === "row"
-      ? { width: 4, height: 10 }
-      : { width: 10, height: 4 };
+      ? { width: 4, height: 12 }
+      : { width: 12, height: 4 };
   const className = active ? styles.selected : hover ? styles.hover : "";
   return (
     <div style={style} className={`${styles["align-bar"]} ${className}`} />

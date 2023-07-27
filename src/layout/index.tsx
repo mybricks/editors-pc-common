@@ -3,6 +3,7 @@ import React, { CSSProperties, useCallback, useState } from "react";
 import Direction from "./Direction";
 import AlignItems from "./AlignItems";
 import JustifyContent from "./JustifyContent";
+import Gap, { GapProps } from "./Gap";
 import { Layout } from "./types";
 import styles from "./index.less";
 interface LayoutProps {
@@ -12,19 +13,29 @@ interface LayoutProps {
   alignItems: CSSProperties["alignItems"];
   justifyContent: CSSProperties["justifyContent"];
   flexWrap: CSSProperties["flexWrap"];
+  rowGap: CSSProperties["rowGap"];
+  columnGap: CSSProperties["columnGap"];
+}
+
+const defaultOptions = {
+  gap: true
 }
 
 export default function ({ editConfig }: EditorProps): JSX.Element {
-  const { value } = editConfig;
+  const { value, options } = editConfig;
+  let option = typeof options === 'function' ? options() : { ...options }
+  option = {...defaultOptions, ...option}
   const _value = value.get();
 
   const [model, setModel] = useState<LayoutProps>({
     display: "flex",
     position: "inherit",
-    flexDirection: "row",
+    flexDirection: "column",
     alignItems: "flex-start",
     justifyContent: "flex-start",
     flexWrap: "nowrap",
+    rowGap: 0,
+    columnGap: 0,
     ..._value,
   });
 
@@ -39,6 +50,8 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
           | "flexWrap"
           | "display"
           | "position"
+          | "rowGap"
+          | "columnGap"
         >
       >
     ) => {
@@ -114,11 +127,26 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
     ) : null;
   };
 
+  const renderGap = () => {
+    const onChange = (value: GapProps["value"]) => {
+      console.log(value);
+      setModel((pre) => ({ ...pre, ...value }));
+      updateValue({ ...value });
+    };
+    return model.position !== "absolute" && option.gap ? (
+      <Gap
+        value={{ rowGap: model.rowGap, columnGap: model.columnGap }}
+        onChange={onChange}
+      />
+    ) : null;
+  };
+
   return (
     <div className={styles.layout}>
       <div className={styles.left}>
         {renderFlexDirection()}
         {renderJustifyContent()}
+        {renderGap()}
       </div>
       <div className={styles.right}>{renderAlignItems()}</div>
     </div>
