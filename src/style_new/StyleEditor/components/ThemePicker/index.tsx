@@ -88,7 +88,7 @@ export default function ({
         >
           <div
             className={css.dot}
-            style={{ background: `var(${id}, rgba(0, 0, 0, 0.25))` }}
+            style={{ backgroundColor: `var(${id})` }}
           ></div>
           <div className={css.right}>
             <div className={css.text}>{name}</div>

@@ -30,13 +30,15 @@ export function ColorEditor({
   const THEME_LIST: any[] = window.getTheme?.() || [];
   const [value, setValue] = useState(getHex(defaultValue));
   const [finalValue, setFinalValue] = useState(value);
-  const [isBinding, setIsBinding] = useState(!!checkIfVar(defaultValue));
-
+  const [isBinding, setIsBinding] = useState(
+    defaultValue === void 0 ? false : !!checkIfVar(defaultValue)
+  );
   const handleBindingClick = () => {
     if (isBinding) {
       setValue(varToHex(finalValue));
       setFinalValue(varToHex(finalValue));
       setIsBinding(false);
+      onChange(varToHex(finalValue));
       return;
     }
     if (!isBinding) {
@@ -194,9 +196,9 @@ export function ColorEditor({
 //补全输入过程中不完整的颜色hex值
 const getHex = (str: string) => {
   if (checkIfVar(str)) return str;
-  if(str === "") {
-  const color = new ColorUtil("#000000");
-  return (color.alpha() === 1 ? color.hex() : color.hexa()).toLowerCase();
+  if (str === "") {
+    const color = new ColorUtil("#000000");
+    return (color.alpha() === 1 ? color.hex() : color.hexa()).toLowerCase();
   }
   const color = new ColorUtil(str);
   return (color.alpha() === 1 ? color.hex() : color.hexa()).toLowerCase();

@@ -23,7 +23,6 @@ export default function ({ editConfig }: EditorProps) {
   }, []);
 
   const defaultValue = useMemo(() => {
-    console.log("defaultValue: ", editConfig.value.get());
     return {
       borderStyle: "solid",
       borderTopWidth: "0px",
