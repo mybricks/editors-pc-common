@@ -18,24 +18,32 @@ interface LayoutProps {
 }
 
 const defaultOptions = {
-  gap: true
+  position: true,
+  direction: true,
+  align: true,
+  gap: true,
+  wrap: true,
+}
+
+const defaultValue = {
+  display: "flex",
+  position: "inherit",
+  flexDirection: "column",
+  alignItems: "flex-start",
+  justifyContent: "flex-start",
+  flexWrap: "nowrap",
+  rowGap: 0,
+  columnGap: 0
 }
 
 export default function ({ editConfig }: EditorProps): JSX.Element {
   const { value, options } = editConfig;
   let option = typeof options === 'function' ? options() : { ...options }
-  option = {...defaultOptions, ...option}
+  option = { ...defaultOptions, ...option }
   const _value = value.get();
 
   const [model, setModel] = useState<LayoutProps>({
-    display: "flex",
-    position: "inherit",
-    flexDirection: "column",
-    alignItems: "flex-start",
-    justifyContent: "flex-start",
-    flexWrap: "nowrap",
-    rowGap: 0,
-    columnGap: 0,
+    ...defaultValue,
     ..._value,
   });
 
