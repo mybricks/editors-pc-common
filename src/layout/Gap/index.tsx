@@ -20,6 +20,7 @@ export default ({ value, onChange }: GapProps) => {
         addonAfter={"px"}
         tooltip="列间距"
         className={styles.input}
+        value={value.columnGap}
         onChange={(v) => onChange({ ...value, columnGap: v })}
       />
       <InputNumber
@@ -27,6 +28,7 @@ export default ({ value, onChange }: GapProps) => {
         addonAfter={"px"}
         tooltip="行间距"
         className={styles.input}
+        value={value.rowGap}
         onChange={(v) => onChange({ ...value, rowGap: v })}
       />
     </div>

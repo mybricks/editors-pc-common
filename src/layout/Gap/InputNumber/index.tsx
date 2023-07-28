@@ -3,7 +3,7 @@ import styles from "./index.less";
 export type InputNumberProps = Partial<{
   addonBefore: React.ReactNode | string;
   addonAfter: React.ReactNode | string;
-  value: number;
+  value: number | string | undefined;
   className: string;
   tooltip: string;
   onChange: (value: number) => void;
