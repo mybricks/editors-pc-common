@@ -7,7 +7,8 @@ import {
   Border,
   Padding,
   BoxShadow,
-  Background
+  Background,
+  OverFlow
 } from './plugins'
 
 import type { StyleEditorProps } from './type'
@@ -21,7 +22,8 @@ const PLUGINS_MAP = {
   BORDER: Border,
   PADDING: Padding,
   BOXSHADOW: BoxShadow,
-  BACKGROUND: Background
+  BACKGROUND: Background,
+  OverFlow: OverFlow
 }
 
 export default function ({defaultValue, options, onChange}: StyleEditorProps) {
