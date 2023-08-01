@@ -86,10 +86,21 @@ function Item({ index, model, formatter, item, width }) {
           parser={(evt) => (evt ? evt.replace(formatter, '') : '')}
           style={{ width }}
           onChange={(evt) => {
-            if (typeof evt === 'number' && evt >= item.min && evt <= item.max) {
-              model.val[index] = evt;
-              update();
+            if (typeof evt === 'number') {
+              if (evt >= item.min && evt <= item.max) {
+                model.val[index] = evt;
+                update();
+              }
+            } else {
+              if (model.val[index] !== item.min) {
+                model.val[index] = item.min;
+                update();
+              }
             }
+            // if (typeof evt === 'number' && evt >= item.min && evt <= item.max) {
+            //   model.val[index] = evt;
+            //   update();
+            // }
           }}
 
         // onBlur={update}
