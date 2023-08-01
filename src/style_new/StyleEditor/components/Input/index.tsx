@@ -13,7 +13,7 @@ export interface InputProps {
   prefix?: ReactNode
   suffix?: ReactNode
   defaultValue?: string | number
-  value?: string
+  value?: string | number
   style?: CSSProperties
   onChange: (value: string) => void
   disabled?: boolean

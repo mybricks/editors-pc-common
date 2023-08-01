@@ -24,7 +24,7 @@ interface InputNumberProps extends InputProps {
 export function InputNumber ({
   defaultValue,
   onChange,
-  // value,
+  value,
   prefix,
   suffix: customSuffix,
   style = {},
@@ -36,9 +36,9 @@ export function InputNumber ({
   tip,
   allowNegative = false
 }: InputNumberProps) {
-  const [unit, setUnit] = useState<string>(getUnit(defaultValue, defaultUnitValue, unitOptions))
-  const [number, handleNumberChange] = useInputNumber(defaultValue)
-  const [displayValue, setDisplayValue] = useState((typeof unit !== 'undefined' && typeof defaultValue !== 'undefined' && unit === defaultValue ? unit : number))
+  const [unit, setUnit] = useState<string>(getUnit(value || defaultValue, defaultUnitValue, unitOptions))
+  const [number, handleNumberChange] = useInputNumber(value || defaultValue)
+  const [displayValue, setDisplayValue] = useState((typeof unit !== 'undefined' && typeof (value || defaultValue) !== 'undefined' && unit === (value || defaultValue) ? unit : number))
 
   const isDisabledUnit = useCallback(() => {
     return (unitDisabledList && unit) ? unitDisabledList.includes(unit) : disabled
@@ -70,6 +70,15 @@ export function InputNumber ({
 
     return null
   }, [])
+
+  useUpdateEffect(() => {
+    if (value) {
+      const unit = getUnit(value, defaultUnitValue, unitOptions)
+      setUnit(unit)
+      handleNumberChange(String(value))
+      setDisplayValue((typeof unit !== 'undefined' && typeof value !== 'undefined' && unit === value ? unit : number))
+    }
+  }, [value])
 
   useUpdateEffect(() => {
     let changeValue = String(parseFloat(number))

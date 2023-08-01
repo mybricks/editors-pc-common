@@ -19,6 +19,7 @@ import {
   TextAlignRightOutlined,
   TextAlignCenterOutlined
 } from '../../components'
+import { splitValueAndUnit } from '../../utils'
 
 interface FontProps {
   value: CSSProperties
@@ -89,6 +90,28 @@ export function Font ({value, onChange, config}: FontProps) {
     ]
   }, [])
 
+  const [lineHeight, setLineHeight] = useState<string | number>(value.lineHeight!)
+
+  const onFontSizeChange = useCallback((fontSize) => {
+    const [fontSizeValue, fontSizeUnit] = splitValueAndUnit(fontSize)
+    const [lineHeightValue, lineHeightUnit] = splitValueAndUnit(lineHeight)
+    
+    onChange({key: 'fontSize', value: fontSize})
+
+    if (fontSizeUnit === lineHeightUnit && lineHeightUnit === 'px') {
+      const fontSizeNumber = Number(fontSizeValue)
+      const lineHeightNumber = Number(lineHeightValue)
+      if (!isNaN(lineHeightNumber) && !isNaN(fontSizeNumber) && lineHeightNumber < fontSizeNumber) {
+        onLineHeightChange(fontSize)
+      } 
+    }
+  }, [lineHeight])
+
+  const onLineHeightChange = useCallback((lineHeight) => {
+    onChange({key: 'lineHeight', value: lineHeight})
+    setLineHeight(lineHeight)
+  }, [])
+
   return (
     <Panel title='字体'>
       <Panel.Content>
@@ -122,18 +145,18 @@ export function Font ({value, onChange, config}: FontProps) {
           defaultValue={value.fontSize}
           unitOptions={FONT_SIZE_OPTIONS}
           unitDisabledList={FONT_SIZE_DISABLED_LIST}
-          onChange={(value) => onChange({key: 'fontSize', value})}
+          onChange={onFontSizeChange}
         />
       </Panel.Content>
       <Panel.Content>
         <InputNumber
           tip='行高'
           prefix={<LineHeightOutlined />}
-          defaultValue={value.lineHeight}
+          value={lineHeight}
           defaultUnitValue='inherit'
           unitOptions={LINEHEIGHT_UNIT_OPTIONS}
           unitDisabledList={LINEHEIGHT_UNIT_DISABLED_LIST}
-          onChange={(value) => onChange({key: 'lineHeight', value})}
+          onChange={onLineHeightChange}
         />
         <InputNumber
           tip='间距'
