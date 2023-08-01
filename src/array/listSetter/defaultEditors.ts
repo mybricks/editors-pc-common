@@ -10,6 +10,8 @@ import EditorValueSelect from './../../valueSelect'
 import EditorCode from './../../jsCoder'
 import EditorImageSelector from "../../imageSelector";
 import EditorStyle from "../../style";
+import EditorIcon from "../../icon";
+import EditorcolorPicker from "../../colorPicker"
 
 import { typeCheck } from "./../../utils"
 
@@ -26,6 +28,8 @@ const PcEditorMap: any = {
   CODE: EditorCode,
   IMAGESELECTOR: EditorImageSelector,
   STYLE: EditorStyle,
+  ICON: EditorIcon,
+  COLORPICKER: EditorcolorPicker
 };
 
 export default function PcEditor(props: any): any {
