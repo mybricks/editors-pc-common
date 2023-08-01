@@ -10,10 +10,14 @@ import { useInputNumber, useUpdateEffect } from '../../hooks'
 
 import type { InputProps } from '..'
 
+interface UnitOption {
+  label: string;
+  value: string;
+}
 interface InputNumberProps extends InputProps {
   defaultUnitValue?: string
   unitDisabledList?: Array<string> 
-  unitOptions?: Array<{label: string, value: string}>
+  unitOptions?: Array<UnitOption>
   allowNegative?: boolean
 }
 
@@ -32,7 +36,7 @@ export function InputNumber ({
   tip,
   allowNegative = false
 }: InputNumberProps) {
-  const [unit, setUnit] = useState<string>(getUnit(defaultValue, defaultUnitValue))
+  const [unit, setUnit] = useState<string>(getUnit(defaultValue, defaultUnitValue, unitOptions))
   const [number, handleNumberChange] = useInputNumber(defaultValue)
   const [displayValue, setDisplayValue] = useState((typeof unit !== 'undefined' && typeof defaultValue !== 'undefined' && unit === defaultValue ? unit : number))
 
@@ -94,10 +98,11 @@ export function InputNumber ({
   )
 }
 
-function getUnit (value: any, defaultUnitValue?: string) {
+function getUnit (value: any, defaultUnitValue: string | undefined = void 0, unitOptions: Array<UnitOption> = []) {
   const [, unit] = splitValueAndUnit(value)
+  const unitOption = unitOptions.find((unitOption: UnitOption) => unitOption.value === unit)
 
-  return unit || (typeof defaultUnitValue !== 'undefined' ? defaultUnitValue : value)
+  return unitOption ? unitOption.value : (unit || (typeof defaultUnitValue !== 'undefined' ? defaultUnitValue : value))
 }
 
 function incrementDecrement(inputNumber: string, keyEvent: 'ArrowUp' | 'ArrowDown') {
