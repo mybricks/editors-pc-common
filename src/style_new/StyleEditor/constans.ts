@@ -5,5 +5,6 @@ export const DEFAULT_OPTIONS = [
   'padding',
   'size',
   'cursor',
-  'boxshadow'
+  'boxshadow',
+  'overflow'
 ] as const

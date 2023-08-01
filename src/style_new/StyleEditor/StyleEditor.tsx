@@ -23,7 +23,7 @@ const PLUGINS_MAP = {
   PADDING: Padding,
   BOXSHADOW: BoxShadow,
   BACKGROUND: Background,
-  OverFlow: OverFlow
+  OVERFLOW: OverFlow
 }
 
 export default function ({defaultValue, options, onChange}: StyleEditorProps) {

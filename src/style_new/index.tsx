@@ -454,6 +454,12 @@ const getDefaultValueFunctionMap = {
     return {
       boxShadow: values.boxShadow
     }
+  },
+  overflow(values: CSSProperties, config: any) {
+    return {
+      overflowX: values.overflowX,
+      overflowY: values.overflowY
+    }
   }
 }
 
@@ -520,6 +526,12 @@ const getDefaultValueFunctionMap2 = {
   boxshadow() {
     return {
       boxShadow: ''
+    }
+  },
+  overflow() {
+    return {
+      overflowX: 'visible',
+      overflowY: 'visible'
     }
   }
 }
@@ -656,6 +668,11 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration, 
   /** boxshadow */
   let boxShadow // 非继承属性
   /** boxshadow */
+
+  /** overflow */
+  let overflowX // 非继承属性
+  let overflowY // 非继承属性
+  /** overflow */
 
   rules.forEach((rule, index) => {
     // 不可继承的属性只有非index才需要处理
@@ -852,6 +869,21 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration, 
     //   }
     // }
     /** boxShadow */
+
+    /** overflow */
+    const {
+      overflowX: styleOverflowX,
+      overflowY: styleOverflowY
+    } = style
+    if (isComponentRule) {
+      if (styleOverflowX) {
+        overflowX = styleOverflowX
+      }
+      if (styleOverflowY) {
+        overflowY = styleOverflowY
+      }
+    }
+    /** overflow */
   })
 
   /** font */
@@ -991,6 +1023,15 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration, 
   }
   /** boxshadow */
 
+  /** overflow */
+  if (!overflowX) {
+    overflowX = computedValues.overflowX
+  }
+  if (!overflowY) {
+    overflowY = computedValues.overflowY
+  }
+  /** overflow */
+
   return getRealValue({
     color,
     fontSize,
@@ -1033,7 +1074,10 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration, 
 
     cursor,
 
-    boxShadow
+    boxShadow,
+
+    overflowX,
+    overflowY
   }, computedValues)
 }
 
