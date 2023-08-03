@@ -1,5 +1,10 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { Drawer } from 'antd'
+import React, { useEffect, useMemo, useRef, useState, useContext } from 'react'
+import { Drawer, Tooltip } from 'antd'
+// import {
+//   SortableContainer,
+//   SortableElement,
+//   SortableHandle,
+// } from 'react-sortable-hoc'
 import { arrayMoveImmutable } from '../../utils'
 import RenderEditor from './renderEditor'
 import { editorsConfigKey } from './../../constant'
@@ -438,7 +443,7 @@ export default function ({
           )
         })}
       </SortableList>
-      {!expandable && subFormVisible && !!editId ? (
+      {!expandable && (
         <Drawer
           className={css.drawerWrapper}
           bodyStyle={{
@@ -446,17 +451,18 @@ export default function ({
             backgroundColor: '#F7F7F7',
             padding: 0,
           }}
+          width={280}
           key={editIndex} // 用来触发forceRender，因为有些编辑器初始化后就不接收value参数了，不是完全受控的
           placement="right"
           closable={false}
           onClose={() => setSubFormVisible(false)}
           mask={false}
-          visible
+          visible={subFormVisible && !!editId}
           getContainer={() =>
-            document.querySelector('div[class^="lyStage-"]')
-            || document.querySelector('#root div[class^="sketchSection"]')
-            || document.body
+            document.querySelector('div[class^="lyStage-"]') ||
+            document.querySelector('#root div[class^="sketchSection"]')
           }
+          style={{ position: 'absolute' }}
         >
           <div>
             <Title
@@ -470,7 +476,7 @@ export default function ({
           </div>
           {!expandable && SubEditors}
         </Drawer>
-      ) : null}
+      )}
       {addable &&
         <div
           className={css.btnAdd}
