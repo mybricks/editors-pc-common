@@ -321,6 +321,7 @@ function ifSlotSchemaMatch(parentSchema: string | string[], comSchema: string): 
       }
       return ifSchemaMatch(parentSchema.toLowerCase(), sChild)
     }
+    return false
   }
 
   return true;
