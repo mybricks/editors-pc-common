@@ -10,6 +10,7 @@ import React, {
 import colorUtil from 'color-string'
 // @ts-ignore
 import { toCSS, toJSON } from 'cssjson';
+import { calculate, compare } from 'specificity';
 
 import {
   CodeOutlined,
@@ -119,20 +120,15 @@ function Style ({editConfig}: EditorProps) {
   }, [])
 
   const handleChange: ChangeEvent = useCallback((value) => {
-    // console.log('handleChange value: ', value)
     if (Array.isArray(value)) {
       value.forEach(({key, value}) => {
         // @ts-ignore
-        // defaultValue[key] = value
         setValue[key] = value
       })
     } else {
       // @ts-ignore
-      // defaultValue[value.key] = value.value
       setValue[value.key] = value.value
     }
-    // console.log('set setValue: ', setValue)
-    // editConfig.value.set(defaultValue)
     editConfig.value.set(deepCopy(setValue))
   }, [])
 
@@ -146,8 +142,6 @@ function Style ({editConfig}: EditorProps) {
     </StyleEditorProvider>
   )
 }
-
-
 
 // code
 const CSS_EDITOR_TITLE = 'CSS样式编辑'
@@ -176,7 +170,6 @@ export function toHump(name: String) {
     return letter.toUpperCase();
   });
 }
-
 
 function parseToCssCode(styleData: StyleData, selector: string) {
   const parseStyleData: any = {};
@@ -304,7 +297,7 @@ function getDefaultConfiguration2 ({value, options}: GetDefaultConfigurationProp
  * 获取默认的配置项和样式
  */
 function getDefaultConfiguration ({value, options}: GetDefaultConfigurationProps) {
-  // console.log('options: ', options)
+  console.log('options: ', options)
 
   let finalOpen = true
   let finalOptions
@@ -327,9 +320,7 @@ function getDefaultConfiguration ({value, options}: GetDefaultConfigurationProps
     finalOptions = plugins || DEFAULT_OPTIONS
     if (targetDom) {
       getDefaultValue = false
-      // console.time('遍历stylesheets')
       const styleValues = getStyleValues(targetDom, Array.isArray(selector) ? selector[0] : selector)
-      // console.timeEnd('遍历stylesheets')
 
       finalOptions.forEach((option) => {
         let type, config
@@ -348,9 +339,6 @@ function getDefaultConfiguration ({value, options}: GetDefaultConfigurationProps
           Object.assign(defaultValue, getDefaultValueFunctionMap[type](styleValues, config))
         }
       })
-
-      // console.log('计算得到的默认值: ', JSON.parse(JSON.stringify(defaultValue)))
-      // console.log('value.get()得到的值: ', value.get())
     }
   }
 
@@ -431,7 +419,6 @@ const getDefaultValueFunctionMap = {
     }
   },
   padding(values: CSSProperties, config: any) {
-    // 搞定
     return {
       paddingTop: values.paddingTop,
       paddingRight: values.paddingRight,
@@ -536,81 +523,21 @@ const getDefaultValueFunctionMap2 = {
   }
 }
 
-/**
- * 临时兼容options/plugins配置，原先的“bgcolor”和“bgimage”合并为“background”
- * 同时督促团队内同学顺手进行修改
- */
-function temporarily_compatible_with_options (options: Options): Options {
-  let useBackgroundIndex: undefined | number
-
-  const finalOptions = options.filter((option, index) => {
-
-    let type = typeof option === 'string' ? option : option.type
-
-    if (['BGCOLOR', 'BGIMAGE'].includes(type)) {
-      if (typeof useBackgroundIndex === 'undefined') {
-        useBackgroundIndex = index
-      }
-
-      return false
-    }
-   
-    return true
-  })
-
-  if (typeof useBackgroundIndex === 'number') {
-    finalOptions.splice(useBackgroundIndex, 0 , 'background')
-  }
-
-  return finalOptions
-}
-
-// function endDomLoopTraversal (element: HTMLElement) {
-//   const value = element.classList.value
-//   // 返回true，就结束遍历，只遍历至组件的父节点
-//   return !!!['com-', 'desn-', 'focus-', '-hover'].find((reg) => {
-//     return !value.match(reg)
-//   })
-// }
-
 function getStyleValues (element: HTMLElement, selector: string) {
   const classListValue = element.classList.value
-  const classList = classListValue.split(' ').map((classname) => `.${classname}`)
-  const componentsRules: CSSStyleRule[] = []
-  const finalRules = sortCSSRulesByPriority(getStyleRules(element, classListValue.indexOf(selector) !== -1 ? null : selector)).filter((rule) => {
-    if (classList.includes(rule.selectorText)) {
-      componentsRules.push(rule)
-      return false
-    }
-    return true
-  }).reverse().concat(componentsRules.sort((a, b) => {
-    return classList.indexOf(a.selectorText) - classList.indexOf(b.selectorText)
-  }))
-
-  
-
-  // 我们默认如果有selector, 那它一定是写在样式最后面的，那这里排序可以先去掉
-  // finalRules.sort((a, b) => {
-  //   const bIndex = classList.indexOf(b.selectorText)
-  //   const aIndex = classList.indexOf(a.selectorText)
-
-  //   if ((aIndex === -1 && bIndex === -1) || (aIndex === -1 || bIndex === -1)) {
-  //     return -1
-  //   }
-
-  //   return aIndex - bIndex
-  // })
-  
-  // 目前是最后面的权重最大
-  // console.log('最终的排序 finalRules: ', finalRules)
-
+  const finalRules = getStyleRules(element, classListValue.indexOf(selector) !== -1 ? null : selector).map((finalRule: any) => {
+    finalRule.tempCompare = calculate(finalRule.selectorText)
+    return finalRule
+  }).sort((a, b) => {
+    return compare(a.tempCompare, b.tempCompare)
+  })
   const computedValues = window.getComputedStyle(element)
-  const values = getValues(finalRules, computedValues, classList)
+  const values = getValues(finalRules, computedValues)
 
   return values
 }
 
-function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration, classList: String[]) {
+function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration) {
   // TODO: 先一个个来吧，后面改一下
   /** font */
   let color // 继承属性
@@ -674,10 +601,8 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration, 
   let overflowY // 非继承属性
   /** overflow */
 
-  rules.forEach((rule, index) => {
-    // 不可继承的属性只有非index才需要处理
+  rules.forEach((rule) => {
     const { style } = rule
-    const isComponentRule = classList.includes(rule.selectorText)
 
     /** font */
     const {
@@ -719,19 +644,17 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration, 
       paddingBottom: stylePaddingBottom,
       paddingLeft: stylePaddingLeft
     } = style
-    if (isComponentRule) {
-      if (stylePaddingTop) {
-        paddingTop = stylePaddingTop
-      }
-      if (stylePaddingRight) {
-        paddingRight = stylePaddingRight
-      }
-      if (stylePaddingBottom) {
-        paddingBottom = stylePaddingBottom
-      }
-      if (stylePaddingLeft) {
-        paddingLeft = stylePaddingLeft
-      }
+    if (stylePaddingTop) {
+      paddingTop = stylePaddingTop
+    }
+    if (stylePaddingRight) {
+      paddingRight = stylePaddingRight
+    }
+    if (stylePaddingBottom) {
+      paddingBottom = stylePaddingBottom
+    }
+    if (stylePaddingLeft) {
+      paddingLeft = stylePaddingLeft
     }
     /** padding */
 
@@ -743,22 +666,20 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration, 
       backgroundPosition: styleBackgroundPosition,
       backgroundSize: styleBackgroundSize
     } = style
-    if (isComponentRule) {
-      if (styleBackgroundColor) {
-        backgroundColor = styleBackgroundColor
-      }
-      if (styleBackgroundImage) {
-        backgroundImage = styleBackgroundImage
-      }
-      if (styleBackgroundRepeat) {
-        backgroundRepeat = styleBackgroundRepeat
-      }
-      if (styleBackgroundPosition) {
-        backgroundPosition = styleBackgroundPosition
-      }
-      if (styleBackgroundSize) {
-        backgroundSize = styleBackgroundSize
-      }
+    if (styleBackgroundColor) {
+      backgroundColor = styleBackgroundColor
+    }
+    if (styleBackgroundImage) {
+      backgroundImage = styleBackgroundImage
+    }
+    if (styleBackgroundRepeat) {
+      backgroundRepeat = styleBackgroundRepeat
+    }
+    if (styleBackgroundPosition) {
+      backgroundPosition = styleBackgroundPosition
+    }
+    if (styleBackgroundSize) {
+      backgroundSize = styleBackgroundSize
     }
     /** background */
 
@@ -781,55 +702,53 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration, 
       borderLeftWidth: styleBorderLeftWidth,
       borderRightWidth: styleBorderRightWidth
     } = style
-    if (isComponentRule) {
-      if (styleBorderTopColor) {
-        borderTopColor = styleBorderTopColor
-      }
-      if (styleBorderRightColor) {
-        borderRightColor = styleBorderRightColor
-      }
-      if (styleBorderBottomColor) {
-        borderBottomColor = styleBorderBottomColor
-      }
-      if (styleBorderLeftColor) {
-        borderLeftColor = styleBorderLeftColor
-      }
-      if (styleBorderTopLeftRadius) {
-        borderTopLeftRadius = styleBorderTopLeftRadius
-      }
-      if (styleBorderTopRightRadius) {
-        borderTopRightRadius = styleBorderTopRightRadius
-      }
-      if (styleBorderBottomRightRadius) {
-        borderBottomRightRadius = styleBorderBottomRightRadius
-      }
-      if (styleBorderBottomLeftRadius) {
-        borderBottomLeftRadius = styleBorderBottomLeftRadius
-      }
-      if (styleBorderTopStyle) {
-        borderTopStyle = styleBorderTopStyle
-      }
-      if (styleBorderRightStyle) {
-        borderRightStyle = styleBorderRightStyle
-      }
-      if (styleBorderBottomStyle) {
-        borderBottomStyle = styleBorderBottomStyle
-      }
-      if (styleBorderLeftStyle) {
-        borderLeftStyle = styleBorderLeftStyle
-      }
-      if (styleBorderTopWidth) {
-        borderTopWidth = styleBorderTopWidth
-      }
-      if (styleBorderBottomWidth) {
-        borderBottomWidth = styleBorderBottomWidth
-      }
-      if (styleBorderLeftWidth) {
-        borderLeftWidth = styleBorderLeftWidth
-      }
-      if (styleBorderRightWidth) {
-        borderRightWidth = styleBorderRightWidth
-      }
+    if (styleBorderTopColor) {
+      borderTopColor = styleBorderTopColor
+    }
+    if (styleBorderRightColor) {
+      borderRightColor = styleBorderRightColor
+    }
+    if (styleBorderBottomColor) {
+      borderBottomColor = styleBorderBottomColor
+    }
+    if (styleBorderLeftColor) {
+      borderLeftColor = styleBorderLeftColor
+    }
+    if (styleBorderTopLeftRadius) {
+      borderTopLeftRadius = styleBorderTopLeftRadius
+    }
+    if (styleBorderTopRightRadius) {
+      borderTopRightRadius = styleBorderTopRightRadius
+    }
+    if (styleBorderBottomRightRadius) {
+      borderBottomRightRadius = styleBorderBottomRightRadius
+    }
+    if (styleBorderBottomLeftRadius) {
+      borderBottomLeftRadius = styleBorderBottomLeftRadius
+    }
+    if (styleBorderTopStyle) {
+      borderTopStyle = styleBorderTopStyle
+    }
+    if (styleBorderRightStyle) {
+      borderRightStyle = styleBorderRightStyle
+    }
+    if (styleBorderBottomStyle) {
+      borderBottomStyle = styleBorderBottomStyle
+    }
+    if (styleBorderLeftStyle) {
+      borderLeftStyle = styleBorderLeftStyle
+    }
+    if (styleBorderTopWidth) {
+      borderTopWidth = styleBorderTopWidth
+    }
+    if (styleBorderBottomWidth) {
+      borderBottomWidth = styleBorderBottomWidth
+    }
+    if (styleBorderLeftWidth) {
+      borderLeftWidth = styleBorderLeftWidth
+    }
+    if (styleBorderRightWidth) {
+      borderRightWidth = styleBorderRightWidth
     }
     /** border */
 
@@ -838,13 +757,11 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration, 
       width: styleWidth,
       height: styleHeight
     } = style
-    if (isComponentRule) {
-      if (styleWidth) {
-        width = styleWidth
-      }
-      if (styleHeight) {
-        height = styleHeight
-      }
+    if (styleWidth) {
+      width = styleWidth
+    }
+    if (styleHeight) {
+      height = styleHeight
     }
     /** size */
 
@@ -852,22 +769,18 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration, 
     const {
       cursor: styleCursor
     } = style
-    if (isComponentRule) {
-      if (styleCursor) {
-        cursor = styleCursor
-      } 
-    }
+    if (styleCursor) {
+      cursor = styleCursor
+    } 
     /** cursor */
 
-    /** boxShadow */
+    /** boxShadow TODO:  */
     // const {
     //   boxShadow: styleBoxShadow
     // } = style
-    // if (isComponentRule) {
-    //   if (styleBoxShadow) {
+    // if (styleBoxShadow) {
     //     boxShadow = styleBoxShadow
     //   }
-    // }
     /** boxShadow */
 
     /** overflow */
@@ -875,13 +788,11 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration, 
       overflowX: styleOverflowX,
       overflowY: styleOverflowY
     } = style
-    if (isComponentRule) {
-      if (styleOverflowX) {
-        overflowX = styleOverflowX
-      }
-      if (styleOverflowY) {
-        overflowY = styleOverflowY
-      }
+    if (styleOverflowX) {
+      overflowX = styleOverflowX
+    }
+    if (styleOverflowY) {
+      overflowY = styleOverflowY
     }
     /** overflow */
   })
@@ -1105,47 +1016,7 @@ function getStyleRules (element: HTMLElement, selector: string | null) {
   return finalRules
 }
 
-function sortCSSRulesByPriority(rules: CSSStyleRule[]): CSSStyleRule[] {
-  return rules.sort((a, b) => {
-    const aPriority = getCSSRulePriority(a.selectorText)
-    const bPriority = getCSSRulePriority(b.selectorText)
-    if (aPriority > bPriority) {
-      return -1
-    } else if (aPriority < bPriority) {
-      return 1
-    } else {
-      return rules.indexOf(a) < rules.indexOf(b) ? -1 : 1
-    }
-  })
-}
-
-function getCSSRulePriority(selectorText: string) {
-  let priority = 0
-  const selectorParts = selectorText.split(',')
-  for (const part of selectorParts) {
-    const specificity = getSelectorSpecificity(part)
-    priority += specificity * 1000
-  }
-  return priority
-}
-
-function getSelectorSpecificity(selector: string) {
-  const specificity = [0, 0, 0]
-  const selectorParts = selector.split(' ')
-  for (const part of selectorParts) {
-    if (part.startsWith('.')) {
-      specificity[1]++
-    } else if (part.startsWith('[') || part.startsWith(':')) {
-      specificity[1]++
-    } else if (part.startsWith('#')) {
-      specificity[0]++
-    } else {
-      specificity[2]++
-    }
-  }
-  return parseInt(specificity.join(''))
-}
-
+// TODO: 之后的主题配置，按理说所有编辑器均需要做好兼容
 function getRealValue(style: any, computedValues: CSSStyleDeclaration) {
   const finalStyle: any = {}
 
