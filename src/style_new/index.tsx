@@ -2,7 +2,6 @@ import React, {
   useRef,
   useMemo,
   useState,
-  useReducer,
   useCallback,
   CSSProperties
 } from 'react'
@@ -46,45 +45,46 @@ export default function ({editConfig}: EditorProps) {
     return getDefaultConfiguration2(editConfig)
   }, [])
 
-  const [state, dispatch] = useReducer((state: State, action: keyof State) => {
-    return {
-      ...state,
-      [action]: !state[action]
-    }
-  }, {
-    open: finalOpen,
-    editMode: true
-  })
+  const [open, setOpen] = useState(finalOpen)
+  const [editMode, setEditMode] = useState(true)
+
+  const onOpenClick = useCallback(() => {
+    setOpen(open => !open)
+  }, [])
+
+  const onEditModeClick = useCallback(() => {
+    setEditMode(editMode => !editMode)
+    setOpen(true)
+  }, [])
 
   const title = useMemo(() => {
-    const { open, editMode } = state
     return (
       <div className={css.titleContainer} style={{ marginBottom: open ? 3 : 0 }}>
-        <div className={css.title} onClick={() => dispatch('open')}>
+        <div className={css.title} onClick={onOpenClick}>
           <div>{editConfig.title}</div>
         </div>
         <div className={css.actions}>
           <div
             className={css.icon}
             data-mybricks-tip={`{content:'${editMode ? '代码编辑' : '可视化编辑'}',position:'left'}`}
-            onClick={() => dispatch('editMode')}
+            onClick={onEditModeClick}
           >
             {editMode ? <CodeOutlined /> : <AppstoreOutlined />}
           </div>
           <div
             className={css.icon}
             data-mybricks-tip={open ? '收起' : '展开'}
-            onClick={() => dispatch('open')}
+            onClick={onOpenClick}
           >
             {open ? <CaretDownOutlined /> : <CaretLeftOutlined />}
           </div>
         </div>
       </div>
     )
-  }, [state])
+  }, [open, editMode])
 
   const editor = useMemo(() => {
-    if (state.editMode) {
+    if (editMode) {
       return (
         <Style editConfig={editConfig}/>
       )
@@ -95,13 +95,13 @@ export default function ({editConfig}: EditorProps) {
         }}/>
       )
     }
-  }, [state.editMode])
+  }, [editMode])
 
   return {
     render: (
       <>
         {title}
-        <div style={{display: state.open ? 'block' : 'none'}}>
+        <div style={{display: open ? 'block' : 'none'}}>
           {editor}
         </div>
       </>
