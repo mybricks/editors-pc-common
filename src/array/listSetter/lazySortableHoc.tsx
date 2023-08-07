@@ -42,29 +42,29 @@ export const useLazy = () => {
   return loaded
 }
 
-export const SortableContainer = (comp: FC) => {
-  return ({ children, ...props } = {}) => {
+export const SortableContainer = (comp: FC): FC<{ loaded?: boolean }> => {
+  return ({ children, loaded, ...props } = {}) => {
     const Com = useMemo(() => {
-      return (window as any)?.SortableHOC ? (window as any).SortableHOC.SortableContainer(comp) : DefaultCom;
-    }, [comp]);
+      return (window as any)?.SortableHOC ? (window as any).SortableHOC.SortableContainer(comp) : comp;
+    }, [comp, loaded]);
     return <Com {...props}>{children}</Com> 
   }
 }
 
-export const SortableElement = (comp: FC) => {
-  return ({ children, ...props } = {}) => {
+export const SortableElement = (comp: FC): FC<{ loaded?: boolean }> => {
+  return ({ children, loaded, ...props } = {}) => {
     const Com = useMemo(() => {
-      return (window as any)?.SortableHOC ? (window as any).SortableHOC.SortableElement(comp) : DefaultCom;
-    }, [comp]);
+      return (window as any)?.SortableHOC ? (window as any).SortableHOC.SortableElement(comp) : comp;
+    }, [comp, loaded]);
     return <Com {...props}>{children}</Com> 
   }
 }
 
-export const SortableHandle = (comp: FC) => {
-  return ({ children, ...props } = {}) => {
+export const SortableHandle = (comp: FC): FC<{ loaded?: boolean }> => {
+  return ({ children, loaded, ...props } = {}) => {
     const Com = useMemo(() => {
-      return (window as any)?.SortableHOC ? (window as any).SortableHOC.SortableHandle(comp) : DefaultCom;
-    }, [comp]);
+      return (window as any)?.SortableHOC ? (window as any).SortableHOC.SortableHandle(comp) : comp;
+    }, [comp, loaded]);
     return <Com {...props}>{children}</Com> 
   }
 }

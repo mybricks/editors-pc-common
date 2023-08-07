@@ -306,14 +306,11 @@ export default function ({
 
   const loaded = useLazy()
 
-  if (!loaded) {
-    return null
-  }
-
   return (
     <div className={`${css.listSetter} fangzhou-theme`} ref={listRef}>
       <SortableList
         useDragHandle
+        loaded={loaded}
         onSortEnd={handleSortEnd}
         lockAxis="y"
         helperClass={css.listItemSelect}
@@ -321,6 +318,7 @@ export default function ({
         {list.map((item, index) => {
           return (
             <SortableItem
+              loaded={loaded}
               key={item._id}
               index={index}
               className={`${_selectable
@@ -347,7 +345,7 @@ export default function ({
             >
               <div className={css.listItemCard}>
                 <div className={css.listItemCardTop}>
-                  {draggable && <DragHandle />}
+                  {draggable && <DragHandle loaded={loaded} />}
 
                   <div
                     className={css.listItemContent}
