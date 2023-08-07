@@ -105,12 +105,19 @@ export function Border ({value, onChange, config}: BorderProps) {
                   style={DEFAULT_STYLE}
                   defaultValue={borderValue.borderTopWidth}
                   suffix={'px'}
-                  onChange={(value) => handleChange({
-                    borderTopWidth: value,
-                    borderRightWidth: value,
-                    borderBottomWidth: value,
-                    borderLeftWidth: value,
-                  })}
+                  onChange={(value) => {
+                    const borderStyle = borderValue.borderTopStyle === 'none' ? 'solid' : borderValue.borderTopStyle
+                    handleChange({
+                      borderTopWidth: value,
+                      borderRightWidth: value,
+                      borderBottomWidth: value,
+                      borderLeftWidth: value,
+                      borderTopStyle: borderStyle,
+                      borderRightStyle: borderStyle,
+                      borderBottomStyle: borderStyle,
+                      borderLeftStyle: borderStyle
+                    })
+                  }}
                 />
               )}
               {disableBorderColor ? null : (
@@ -131,7 +138,7 @@ export function Border ({value, onChange, config}: BorderProps) {
                   tip="边框线条样式"
                   style={{padding: 0, width: 28, minWidth: 28, marginLeft: 0, textAlign: 'right'}}
                   labelClassName={css.label}
-                  defaultValue={borderValue.borderTopStyle}
+                  value={borderValue.borderTopStyle}
                   options={BORDER_STYLE_OPTIONS}
                   showIcon={false}
                   onChange={(value) =>
@@ -171,7 +178,7 @@ export function Border ({value, onChange, config}: BorderProps) {
                       style={DEFAULT_STYLE}
                       defaultValue={borderValue.borderTopWidth}
                       suffix={'px'}
-                      onChange={(value) => handleChange({borderTopWidth: value})}
+                      onChange={(value) => handleChange({borderTopWidth: value, borderTopStyle: borderValue.borderTopStyle === 'none' ? 'solid' : borderValue.borderTopStyle})}
                     />
                   )}
                   {disableBorderColor ? null : (
@@ -187,7 +194,7 @@ export function Border ({value, onChange, config}: BorderProps) {
                       tip='上边框线条样式'
                       style={{padding: 0, width: 28, minWidth: 28, marginLeft: 0, textAlign: 'right'}}
                       labelClassName={css.label}
-                      defaultValue={borderValue.borderTopStyle}
+                      value={borderValue.borderTopStyle}
                       options={BORDER_STYLE_OPTIONS}
                       showIcon={false}
                       onChange={(value) => handleChange({borderTopStyle: value})}
@@ -216,7 +223,7 @@ export function Border ({value, onChange, config}: BorderProps) {
                       style={DEFAULT_STYLE}
                       defaultValue={borderValue.borderRightWidth}
                       suffix={'px'}
-                      onChange={(value) => handleChange({borderRightWidth: value})}
+                      onChange={(value) => handleChange({borderRightWidth: value, borderRightStyle: borderValue.borderRightStyle === 'none' ? 'solid' : borderValue.borderRightStyle})}
                     />
                   )}
                   {disableBorderColor ? null : (
@@ -232,7 +239,7 @@ export function Border ({value, onChange, config}: BorderProps) {
                       tip='右边框线条样式'
                       style={{padding: 0, width: 28, minWidth: 28, marginLeft: 0, textAlign: 'right'}}
                       labelClassName={css.label}
-                      defaultValue={borderValue.borderRightStyle}
+                      value={borderValue.borderRightStyle}
                       options={BORDER_STYLE_OPTIONS}
                       showIcon={false}
                       onChange={(value) => handleChange({borderRightStyle: value})}
@@ -255,7 +262,7 @@ export function Border ({value, onChange, config}: BorderProps) {
                       style={DEFAULT_STYLE}
                       defaultValue={borderValue.borderBottomWidth}
                       suffix={'px'}
-                      onChange={(value) => handleChange({borderBottomWidth: value})}
+                      onChange={(value) => handleChange({borderBottomWidth: value, borderBottomStyle: borderValue.borderBottomStyle === 'none' ? 'solid' : borderValue.borderBottomStyle})}
                     />
                   )}
                   {disableBorderColor ? null : (
@@ -271,7 +278,7 @@ export function Border ({value, onChange, config}: BorderProps) {
                       tip='下边框线条样式'
                       style={{padding: 0, width: 28, minWidth: 28, marginLeft: 0, textAlign: 'right'}}
                       labelClassName={css.label}
-                      defaultValue={borderValue.borderBottomStyle}
+                      value={borderValue.borderBottomStyle}
                       options={BORDER_STYLE_OPTIONS}
                       showIcon={false}
                       onChange={(value) => handleChange({borderBottomStyle: value})}
@@ -294,7 +301,7 @@ export function Border ({value, onChange, config}: BorderProps) {
                       style={DEFAULT_STYLE}
                       defaultValue={borderValue.borderLeftWidth}
                       suffix={'px'}
-                      onChange={(value) => handleChange({borderLeftWidth: value})}
+                      onChange={(value) => handleChange({borderLeftWidth: value, borderLeftStyle: borderValue.borderLeftStyle === 'none' ? 'solid' : borderValue.borderLeftStyle})}
                     />
                   )}
                   {disableBorderColor ? null : (
@@ -310,7 +317,7 @@ export function Border ({value, onChange, config}: BorderProps) {
                       tip='左边框线条样式'
                       style={{padding: 0, width: 28, minWidth: 28, marginLeft: 0, textAlign: 'right'}}
                       labelClassName={css.label}
-                      defaultValue={borderValue.borderLeftStyle}
+                      value={borderValue.borderLeftStyle}
                       options={BORDER_STYLE_OPTIONS}
                       showIcon={false}
                       onChange={(value) => handleChange({borderLeftStyle: value})}
@@ -324,7 +331,7 @@ export function Border ({value, onChange, config}: BorderProps) {
         </div>
       )
     }
-  }, [borderToggleValue])
+  }, [borderToggleValue, borderValue])
 
   const radiusConfig = useMemo(() => {
     if (disableBorderRadius) {

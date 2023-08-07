@@ -5,13 +5,15 @@ import React, {
   CSSProperties
 } from 'react'
 
+import { useUpdateEffect } from '../../hooks'
 import { Panel, Dropdown, DownOutlined } from '../'
 
 import css from './index.less'
 
 interface SelectProps {
+  value?: any
   prefix?: ReactNode
-  defaultValue: any
+  defaultValue?: any
   style?: CSSProperties
   onChange: (value: any) => void
   options: Array<{value: any, label: string | number}>
@@ -22,6 +24,7 @@ interface SelectProps {
 }
 
 export function Select ({
+  value: propsValue,
   prefix,
   defaultValue,
   style = {},
@@ -31,8 +34,8 @@ export function Select ({
   labelClassName,
   tip
 }: SelectProps) {
-  const [label, setLabel] = useState(options.find(({value}) => value === defaultValue)?.label || defaultValue)
-  const [value, setValue] = useState(defaultValue)
+  const [value, setValue] = useState(propsValue || defaultValue)
+  const [label, setLabel] = useState(options.find(({value: optionValue}) => optionValue === value)?.label || value)
 
   const handleDropDownClick = useCallback((clickValue) => {
     setValue((value: any) => {
@@ -44,6 +47,10 @@ export function Select ({
       return clickValue
     })
   }, [])
+
+  useUpdateEffect(() => {
+    handleDropDownClick(propsValue)
+  }, [propsValue])
 
   return (
     <Panel.Item style={style}>
