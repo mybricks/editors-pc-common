@@ -90,7 +90,7 @@ export default function ({editConfig}: EditorProps) {
       )
     } else {
       return (
-        <CssEditor {...editConfig} selector={finalSelector} onChange={(value: any) => {
+        <CssEditor {...editConfig} selector={':root'} onChange={(value: any) => {
           editConfig.value.set(deepCopy(value))
         }}/>
       )
@@ -256,13 +256,16 @@ function CssEditor ({popView, options, value, selector, onChange: onPropsChange}
   return (
     <div className={css.codeWrap}>
       <div className={css.inlineWrap}>
-        <div className={css.header}>
+        {/* <div className={css.header}>
           <span className={css.title}>{'CSS样式编辑'}</span>
           <div data-mybricks-tip='放大编辑' className={css.plus} onClick={onFullscreen}>
             <FullscreenOutlined />
           </div>
-        </div>
+        </div> */}
         <div className={css.body}>
+          <div data-mybricks-tip='放大' className={css.plus} onClick={onFullscreen}>
+            <FullscreenOutlined />
+          </div>
           {monaco}
         </div>
       </div>

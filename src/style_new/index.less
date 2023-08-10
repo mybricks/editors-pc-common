@@ -70,8 +70,20 @@
   }
   .body {
     height: 100%;
-    padding: 12px;
+    padding: 0px;
     height: 300px;
+    position: relative;
+
+    .plus {
+      position: absolute;
+      top: 1px;
+      right: 4px;
+      z-index: 1;
+      cursor: pointer;
+      &:hover {
+        color: #f86508;
+      }
+    }
   }
 }
 .modal{
