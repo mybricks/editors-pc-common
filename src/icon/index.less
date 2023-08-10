@@ -44,17 +44,33 @@
     }
 
     .icon {
-      margin: 0px 8px 8px 8px;
+      margin: 0px 8px 10px 8px;
       overflow: hidden;
       display: flex;
+      flex-direction: column;
       justify-content: center;
       align-items: center;
       cursor: pointer;
-      width: 60px;
+      width: 140px;
       height: 60px;
     }
   }
 
+}
+
+.text{
+  font-family: "Lucida Console", Consolas, Monaco, "Andale Mono", "Ubuntu Mono", monospace;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 140px;
+  white-space: nowrap;
+  text-align: center;
+  padding-top: 10px;
+}
+
+.popoverText{
+  font-family: "Lucida Console", Consolas, Monaco, "Andale Mono", "Ubuntu Mono", monospace;
 }
 
 .wrap {
