@@ -14,8 +14,26 @@ export interface Options {
   value: string
 }
 
+const judgeIndex = (list:any) => {
+  let keyArr = (list).map((item:any)=>{
+    return Object.keys(item)
+  })
+  let judgeIndex = 0;
+  for(let i=0;i<keyArr.length;i++){
+    if(keyArr[i].length !== 2){
+      judgeIndex = 1;
+    }
+    if(keyArr[i].indexOf('label') === -1){
+      judgeIndex = 2;
+    }
+    if(keyArr[i].indexOf('value') === -1){
+      judgeIndex = 3;
+    }
+  }
+  return judgeIndex;
+}
 
-export default ({ onSearch, mapToOption }:any) => function ({ editConfig }: EditorProps): JSX.Element {
+export default function ({editConfig}: EditorProps): JSX.Element {
   const [option, setOption] = useState<any>([]);
   const [removeOptions, setRemoveOption] = useState<Array<any>>([]);
 
@@ -28,6 +46,10 @@ export default ({ onSearch, mapToOption }:any) => function ({ editConfig }: Edit
     [value]
   );
 
+  const { onSearch, mapToOption } = options;
+  //1、onSearch的入参是value, 出参是接口实际返回的值或给定的列表数据
+  //2、mapToOption，是实际列表=>自动完成数据源的映射函数
+
   const handel = useCallback((value: string) => {
     if (timeout) {
       clearTimeout(timeout);
@@ -37,9 +59,17 @@ export default ({ onSearch, mapToOption }:any) => function ({ editConfig }: Edit
     
     const fn = () => {
       onSearch(value).then((list:any) => {
-        setRemoveOption(list)
-        const items = list.map(mapToOption)
-        setOption(items)
+        setRemoveOption(list);
+        if(mapToOption){
+          const items = list.map(mapToOption)
+          setOption(items)
+        }else{
+          if(judgeIndex(list) === 0){
+            setOption(list)
+          }else{
+            setOption([])
+          }
+        }
       })
     }
     timeout = setTimeout(fn, 300);
@@ -48,7 +78,7 @@ export default ({ onSearch, mapToOption }:any) => function ({ editConfig }: Edit
 
   //动态态配置下拉选项
   const handleSearch = useCallback((val: string) => {
-    if (val) {
+    if (val && onSearch) {
       handel(val);
     } else {
       setOption([]);
@@ -80,7 +110,7 @@ export default ({ onSearch, mapToOption }:any) => function ({ editConfig }: Edit
   const defaultValueMap = (val: string | Options) => {
     if(typeof val === 'string'){
       return val;
-    }else{
+    }else if(val && mapToOption){
       let mapVal = [val].map(mapToOption)[0]?.value;
       return mapVal;
     }
