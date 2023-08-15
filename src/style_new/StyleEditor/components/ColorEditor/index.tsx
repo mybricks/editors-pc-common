@@ -161,7 +161,7 @@ export function ColorEditor ({defaultValue, style = {}, onChange, options = []}:
   const unBind = useCallback(() => {
     const { value, finalValue } = state
     const option = state.options.find((option) => option.resetValue ? (option.resetValue === finalValue) : option.value === value) as ColorOption
-    const { resetValue } = option
+    const resetValue = option?.resetValue || ''
     const hex = getHex(resetValue || '')
     
     dispatch({
