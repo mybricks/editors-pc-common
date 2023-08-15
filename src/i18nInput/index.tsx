@@ -14,24 +14,7 @@ export interface Options {
   value: string
 }
 
-const judgeIndex = (list:any) => {
-  let keyArr = (list).map((item:any)=>{
-    return Object.keys(item)
-  })
-  let judgeIndex = 0;
-  for(let i=0;i<keyArr.length;i++){
-    if(keyArr[i].length !== 2){
-      judgeIndex = 1;
-    }
-    if(keyArr[i].indexOf('label') === -1){
-      judgeIndex = 2;
-    }
-    if(keyArr[i].indexOf('value') === -1){
-      judgeIndex = 3;
-    }
-  }
-  return judgeIndex;
-}
+const judgeFun = (item:any) => {"lable" in item && "value" in item && Object.keys.length === 2}
 
 export default function ({editConfig}: EditorProps): JSX.Element {
   const [option, setOption] = useState<any>([]);
@@ -64,7 +47,7 @@ export default function ({editConfig}: EditorProps): JSX.Element {
           const items = list.map(mapToOption)
           setOption(items)
         }else{
-          if(judgeIndex(list) === 0){
+          if(list.every(judgeFun)){
             setOption(list)
           }else{
             setOption([])
