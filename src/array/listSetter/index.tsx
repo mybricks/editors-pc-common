@@ -227,7 +227,7 @@ export default function ({
       return
     }
     const handleClick = (e: any) => {
-      if (e.path.includes(listRef.current)) {
+      if (e?.path?.includes(listRef.current)) {
         return
       }
       setSubFormVisible((cur) => {
