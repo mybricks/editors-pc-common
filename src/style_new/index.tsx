@@ -13,6 +13,7 @@ import { calculate, compare } from 'specificity';
 
 import {
   CodeOutlined,
+  ReloadOutlined,
   AppstoreOutlined,
   CaretDownOutlined,
   CaretLeftOutlined,
@@ -47,6 +48,12 @@ export default function ({editConfig}: EditorProps) {
 
   const [open, setOpen] = useState(finalOpen)
   const [editMode, setEditMode] = useState(true)
+  const [key, setKey] = useState(0)
+
+  const refresh = useCallback(() => {
+    editConfig.value.set({})
+    setKey(key => key + 1)
+  }, [])
 
   const onOpenClick = useCallback(() => {
     setOpen(open => !open)
@@ -64,6 +71,13 @@ export default function ({editConfig}: EditorProps) {
           <div>{editConfig.title}</div>
         </div>
         <div className={css.actions}>
+          <div
+            className={css.icon}
+            data-mybricks-tip={'重置'}
+            onClick={refresh}
+          >
+            <ReloadOutlined />
+          </div>
           <div
             className={css.icon}
             data-mybricks-tip={`{content:'${editMode ? '代码编辑' : '可视化编辑'}',position:'left'}`}
@@ -101,7 +115,7 @@ export default function ({editConfig}: EditorProps) {
     render: (
       <>
         {title}
-        <div style={{display: open ? 'block' : 'none'}}>
+        <div key={key} style={{display: open ? 'block' : 'none'}}>
           {editor}
         </div>
       </>
