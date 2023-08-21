@@ -96,9 +96,14 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
               model.imgModalVisible = false;
               return;
             }
+            let finalUrl = typeof url === 'string' ? url : url.url
+            if (!finalUrl) {
+              model.imgModalVisible = false;
+              return;
+            }
             const editor = editorRef.current;
             const img = editor.dom.createHTML("img", {
-              src: url,
+              src: finalUrl,
               style: "width: 100%",
             });
             editor.selection.setContent(img);
