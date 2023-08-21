@@ -21,7 +21,7 @@ const DEFAULT_CONFIG = {
 
 export function Background ({value, onChange, config}: BackgroundProps) {
   const context = useStyleEditorContext()
-  const [{disableBackgroundColor, disableBackgroundImage, keyMap}] = useState(Object.assign(DEFAULT_CONFIG, config))
+  const [{disableBackgroundColor, disableBackgroundImage, keyMap}] = useState({ ...DEFAULT_CONFIG, ...config })
 
   return (
     <Panel title='背景'>
