@@ -58,7 +58,8 @@ const DEFAULT_CONFIG = {
   disableBorderStyle: false,
   disableBorderWidth: false,
   disableBorderColor: false,
-  disableBorderRadius: false
+  disableBorderRadius: false,
+  useImportant: false
 }
 
 export function Border ({value, onChange, config}: BorderProps) {
@@ -66,10 +67,20 @@ export function Border ({value, onChange, config}: BorderProps) {
     disableBorderWidth,
     disableBorderColor,
     disableBorderStyle,
-    disableBorderRadius
+    disableBorderRadius,
+    useImportant
   }] = useState(Object.assign(DEFAULT_CONFIG, config))
   const [{borderToggleValue, radiusToggleValue}, setToggleValue] = useState(getToggleDefaultValue(value))
-  const [borderValue, setBorderValue] = useState({...value})
+  const defaultBorderValue = useMemo(() => {
+    const defaultValue = Object.assign({}, value)
+    Object.keys(defaultValue).forEach((key) => {
+      // TODO: 全局处理
+      // @ts-ignore
+      defaultValue[key] = defaultValue[key].replace(/!.*$/, '')
+    })
+    return defaultValue
+  }, [])
+  const [borderValue, setBorderValue] = useState(defaultBorderValue)
   const [splitRadiusIcon, setSplitRadiusIcon] = useState(<BorderTopLeftRadiusOutlined />)
 
   const handleChange = useCallback((value) => {
@@ -82,7 +93,8 @@ export function Border ({value, onChange, config}: BorderProps) {
     onChange(Object.keys(value).map((key) => {
       return {
         key,
-        value: value[key]
+        // TODO
+        value: `${value[key]}${useImportant ? '!important' : ''}`
       }
     }))
   }, [])
