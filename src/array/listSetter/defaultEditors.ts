@@ -12,6 +12,7 @@ import EditorImageSelector from "../../imageSelector";
 import EditorStyle from "../../style";
 import EditorIcon from "../../icon";
 import EditorcolorPicker from "../../colorPicker"
+import EditorI18nInput from "../../i18nInput"
 
 import { typeCheck } from "./../../utils"
 
@@ -29,7 +30,8 @@ const PcEditorMap: any = {
   IMAGESELECTOR: EditorImageSelector,
   STYLE: EditorStyle,
   ICON: EditorIcon,
-  COLORPICKER: EditorcolorPicker
+  COLORPICKER: EditorcolorPicker,
+  I18NINPUT: EditorI18nInput
 };
 
 export default function PcEditor(props: any): any {
