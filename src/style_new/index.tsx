@@ -16,7 +16,7 @@ import {
   ReloadOutlined,
   AppstoreOutlined,
   CaretDownOutlined,
-  CaretLeftOutlined,
+  CaretRightOutlined,
   FullscreenOutlined
 } from '@ant-design/icons'
 // @ts-ignore
@@ -68,6 +68,12 @@ export default function ({editConfig}: EditorProps) {
     return (
       <div className={css.titleContainer} style={{ marginBottom: open ? 3 : 0 }}>
         <div className={css.title} onClick={onOpenClick}>
+          <div
+            className={`${css.icon}${open ? ` ${css.iconOpen}` : ''}`}
+            data-mybricks-tip={open ? '收起' : '展开'}
+          >
+            <CaretRightOutlined />
+          </div>
           <div>{editConfig.title}</div>
         </div>
         <div className={css.actions}>
@@ -84,13 +90,6 @@ export default function ({editConfig}: EditorProps) {
             onClick={onEditModeClick}
           >
             {editMode ? <CodeOutlined /> : <AppstoreOutlined />}
-          </div>
-          <div
-            className={css.icon}
-            data-mybricks-tip={open ? '收起' : '展开'}
-            onClick={onOpenClick}
-          >
-            {open ? <CaretDownOutlined /> : <CaretLeftOutlined />}
           </div>
         </div>
       </div>
@@ -288,7 +287,7 @@ function CssEditor ({popView, options, value, selector, onChange: onPropsChange}
 }
 
 function getDefaultConfiguration2 ({value, options}: GetDefaultConfigurationProps) {
-  let finalOpen = true
+  let finalOpen = false
   let finalSelector
 
   if (!options) {
@@ -296,7 +295,7 @@ function getDefaultConfiguration2 ({value, options}: GetDefaultConfigurationProp
   } else if (Array.isArray(options)) {
 
   } else {
-    const { plugins, selector, targetDom, defaultOpen = true } = options
+    const { plugins, selector, targetDom, defaultOpen = false } = options
     finalSelector = selector
     finalOpen = defaultOpen
   }
@@ -314,7 +313,7 @@ function getDefaultConfiguration2 ({value, options}: GetDefaultConfigurationProp
  * 获取默认的配置项和样式
  */
 function getDefaultConfiguration ({value, options}: GetDefaultConfigurationProps) {
-  let finalOpen = true
+  let finalOpen = false
   let finalOptions
   let defaultValue: CSSProperties = {}
   let finalSelector
@@ -328,7 +327,7 @@ function getDefaultConfiguration ({value, options}: GetDefaultConfigurationProps
     // options是一个数组，直接使用
     finalOptions = options
   } else {
-    const { plugins, selector, targetDom, defaultOpen = true } = options
+    const { plugins, selector, targetDom, defaultOpen = false } = options
     finalSelector = selector
     finalOpen = defaultOpen
     // 这里还要再处理一下 
