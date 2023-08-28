@@ -31,6 +31,8 @@ import type {
 } from './type'
 import type { Style, Options, ChangeEvent } from './StyleEditor/type'
 
+import { useUpdateEffect } from './StyleEditor/hooks'
+
 import css from './index.less'
 
 interface State {
@@ -63,6 +65,10 @@ export default function ({editConfig}: EditorProps) {
     setEditMode(editMode => !editMode)
     setOpen(true)
   }, [])
+
+  useUpdateEffect(() => {
+    setKey(key => key + 1)
+  }, [editConfig.ifRefresh?.()])
 
   const title = useMemo(() => {
     return (
