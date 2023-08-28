@@ -52,11 +52,14 @@ function getInitialState ({value, options}: {value: string, options: ColorOption
   } catch {
     nonColorValue = true
   }
+  // TODO
+  const finalOptions = options.concat(window.MYBRICKS_CSS_VARIABLE_LIST || [], COLOR_OPTIONS)
+
   return {
-    value: finalValue,
-    finalValue: nonColorValue ? '' : finalValue,
+    value: nonColorValue ? (finalOptions.find(option => option.value === finalValue)?.label || finalValue) : finalValue,
+    finalValue: nonColorValue ? (finalOptions.find(option => option.value === finalValue)?.value || finalValue) : finalValue,
     nonColorValue,
-    options: options.concat(COLOR_OPTIONS)
+    options: finalOptions
   }
 }
 
@@ -150,6 +153,8 @@ export function ColorEditor ({defaultValue, style = {}, onChange, options = []}:
     const option = state.options.find((option) => option.value === value) as ColorOption
     const { label, resetValue } = option
 
+    onChange(option.value)
+
     dispatch({
       nonColorValue: true,
       value: label || value,
@@ -160,9 +165,12 @@ export function ColorEditor ({defaultValue, style = {}, onChange, options = []}:
   /** 解除绑定 */
   const unBind = useCallback(() => {
     const { value, finalValue } = state
-    const option = state.options.find((option) => option.resetValue ? (option.resetValue === finalValue) : option.value === value) as ColorOption
+    // TODO
+    const option = state.options.find((option) => (option.resetValue ? (option.resetValue === finalValue) : option.value === value) || option.value === finalValue) as ColorOption
     const resetValue = option?.resetValue || ''
     const hex = getHex(resetValue || '')
+
+    onChange(hex)
     
     dispatch({
       nonColorValue: false,
