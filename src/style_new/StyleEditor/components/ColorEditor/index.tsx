@@ -276,7 +276,8 @@ export function ColorEditor ({defaultValue, style = {}, onChange, options = []}:
         className={css.preset}
         onClick={onPresetClick}
       >
-        <BindOutlined />
+        {/* <BindOutlined /> */}
+        <UnbindingOutlined />
       </div>
     )
   }, [])
