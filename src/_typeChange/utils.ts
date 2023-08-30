@@ -689,7 +689,7 @@ export const transScript = `return function (oriVal, cons, toSchema) {
       }
   
       const items = schema.items
-      if (items.type === 'object') {//found in sub type
+      if (items && items.type === 'object') {//found in sub type
         const props = items.properties, keys = Object.keys(props)
         const foundKeys = []
         const notFoundKeys = keys.filter((key) => {
