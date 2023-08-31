@@ -3,8 +3,9 @@ import { useObservable } from '@mybricks/rxui';
 import { EditConfig } from '@/interface';
 import ListSetter from './listSetter/index';
 import { isValid, getOptionsFromEditor } from '../utils';
+import AryContext from '../array/context';
 
-export default function ({ editConfig }: { editConfig: EditConfig }): any {
+export default function ({ editConfig, injectEditors, ...extraContext }: { editConfig: EditConfig, injectEditors: any }): any {
   const { value, options } = editConfig;
 
   const model = useObservable(
@@ -22,14 +23,17 @@ export default function ({ editConfig }: { editConfig: EditConfig }): any {
   }, [options])
 
   return (
-    <ListSetter
-      value={model.val}
-      onChange={updateVal}
-      items={opt.items}
-      getTitle={opt.getTitle}
-      editable={opt.editable}
-      checkField={opt.checkField}
-      visibleField={opt.visibleField}
-    />
+    <AryContext.Provider value={{ injectEditors }}>
+      <ListSetter
+        value={model.val}
+        onChange={updateVal}
+        items={opt.items}
+        getTitle={opt.getTitle}
+        editable={opt.editable}
+        checkField={opt.checkField}
+        visibleField={opt.visibleField}
+        extraContext={extraContext}
+      />
+    </AryContext.Provider>
   );
 }
