@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Checkbox, Drawer } from 'antd'
-import RenderEditor from './renderEditor'
+import RenderEditor from '../../array/listSetter/renderEditor'
 import css from './index.less'
 import { deepCopy } from '../../utils'
 
@@ -14,6 +14,7 @@ type ListSetterProps = {
   editable: boolean
   checkField: string
   visibleField?: string
+  extraContext?: any
 }
 
 type TitleProps = {
@@ -54,7 +55,8 @@ export default function ({
   getTitle,
   editable = true,
   checkField = '_checked',
-  visibleField
+  visibleField,
+  extraContext
 }: ListSetterProps) {
   const triggerInit = JSON.stringify(value);
   const initVal = initData(deepCopy(value)) || [];
@@ -264,6 +266,7 @@ export default function ({
         </div>
         <div style={{ padding: '15px' }}>
           <RenderEditor
+            extraContext={extraContext}
             editConfig={{
               type: 'Switch',
               title: '启用',
@@ -289,6 +292,7 @@ export default function ({
               <RenderEditor
                 key={`${editIndex}_${idx}_${item.type}`}
                 editConfig={item}
+                extraContext={extraContext}
                 value={value}
                 onChange={(v) => {
                   listModel.setItemKey(editIndex, item.value, v)
