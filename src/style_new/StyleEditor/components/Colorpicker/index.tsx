@@ -7,6 +7,7 @@ import React, {
 } from "react";
 import { createPortal } from "react-dom";
 
+import ColorUtil from 'color'
 import Sketch from "@mybricks/color-picker";
 
 import css from "./index.less";
@@ -137,9 +138,15 @@ function ColorSketch({
     }
   }, [open]);
 
+  const sketchColor = useCallback(() => {
+    // @ts-ignore
+    const { color, valpha } = ColorUtil.rgb(value)
+    return `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${valpha.toFixed(2)})`
+  }, [value])
+
   return (
     <div ref={ref} className={css.colorSketch}>
-      <Sketch color={value} onChange={onChange} />
+      <Sketch color={sketchColor()} onChange={onChange} />
     </div>
   );
 }
