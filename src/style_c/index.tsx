@@ -92,7 +92,7 @@ export default function ({ editConfig }: EditorProps) {
   return (
     <StyleEditorProvider value={editConfig}>
       {options.font ? (
-        <Font value={defaultValue} onChange={(val) => onChange(val, "font")} config={options.font} />
+        <Font value={defaultValue} onChange={(val) => onChange(val, "font")} config={{...options.font,fontface:editConfig.fontfaces}} />
       ) : null}
       {options.border ? (
         <Border value={defaultValue} onChange={(val) => onChange(val, "border")} config={options.border} />
