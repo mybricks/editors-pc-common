@@ -346,6 +346,7 @@ export default function ({ editConfig, env }: any): JSX.Element {
 
   const open = useCallback(() => {
     if (!modalContext.visible) {
+      updateVal(editorRef.current?.getValue())
       modalContext.visible = true;
       popView(
         model.title,
