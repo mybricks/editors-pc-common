@@ -16,12 +16,18 @@ interface BackgroundProps {
 const DEFAULT_CONFIG = {
   disableBackgroundColor: false,
   disableBackgroundImage: false,
-  keyMap: {}
+  keyMap: {},
+  useImportant: false
 }
 
 export function Background ({value, onChange, config}: BackgroundProps) {
   const context = useStyleEditorContext()
-  const [{disableBackgroundColor, disableBackgroundImage, keyMap}] = useState({ ...DEFAULT_CONFIG, ...config })
+  const [{
+    keyMap,
+    useImportant,
+    disableBackgroundColor,
+    disableBackgroundImage,
+  }] = useState({ ...DEFAULT_CONFIG, ...config })
 
   return (
     <Panel title='背景'>
@@ -32,7 +38,7 @@ export function Background ({value, onChange, config}: BackgroundProps) {
             // TODO
             // @ts-ignore
             defaultValue={value[getRealKey(keyMap, 'backgroundColor')] || value.backgroundColor}
-            onChange={(value) => onChange({key: getRealKey(keyMap, 'backgroundColor'), value})}
+            onChange={(value) => onChange({key: getRealKey(keyMap, 'backgroundColor'), value: `${value}${useImportant ? '!important' : ''}`})}
           />
         </Panel.Content>
       )}
@@ -46,7 +52,7 @@ export function Background ({value, onChange, config}: BackgroundProps) {
               backgroundPosition: value.backgroundPosition,
               backgroundSize: value.backgroundSize
             }}
-            onChange={(value) => onChange({key: getRealKey(keyMap, value.key), value: value.value})}
+            onChange={(value) => onChange({key: getRealKey(keyMap, value.key), value: `${value.value}${useImportant ? '!important' : ''}`})}
             upload={context.upload}
           />
         </Panel.Content>
