@@ -161,7 +161,7 @@ export function ColorEditor ({defaultValue, style = {}, onChange, options = []}:
     const { value, finalValue, nonColorValue } = state
     if (nonColorValue) {
       return (
-        <div className={css.text} onClick={() => setOpen(true)}>
+        <div className={css.text} onClick={onPresetClick}>
           {value}
         </div>
       )

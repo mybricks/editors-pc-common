@@ -139,9 +139,13 @@ function ColorSketch({
   }, [open]);
 
   const sketchColor = useCallback(() => {
-    // @ts-ignore
-    const { color, valpha } = ColorUtil.rgb(value)
-    return `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${valpha.toFixed(2)})`
+    try {
+      // @ts-ignore
+      const { color, valpha } = ColorUtil.rgb(value)
+      return `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${valpha.toFixed(2)})`
+    } catch {
+      return 'rgba(0, 0, 0, 1)'
+    }
   }, [value])
 
   return (
