@@ -376,6 +376,7 @@ export default function ({ editConfig, env }: any): JSX.Element {
                       width='100%'
                       env={env}
                       language={languageMap[language] || language}
+                      autoSave={true}
                     />
                   </div>
                   {options.fnParams ? <div className={css.mockFn}>{'}'}</div> : ''}
@@ -429,8 +430,8 @@ export default function ({ editConfig, env }: any): JSX.Element {
     }
   }, [model, readonly, comments]);
 
-  const onChange: any = useCallback((v: string, e: any) => {
-    // model.val = v;
+  const onChange = useCallback((v: string, e: any) => {
+    model.val = v;
     updateVal(v);
   }, []);
 
@@ -470,6 +471,7 @@ export default function ({ editConfig, env }: any): JSX.Element {
                 env={env}
                 className={css['editor-code__min-container']}
                 language={languageMap[language] || language}
+                autoSave={true}
               />
               {options.fnParams ? <div className={css.mockFn}>{'}'}</div> : ''}
             </>
