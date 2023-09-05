@@ -1,4 +1,4 @@
-import React, { useState, CSSProperties } from 'react'
+import React, { useMemo, useState, CSSProperties } from 'react'
 
 import { getRealKey } from '../../utils'
 import { useStyleEditorContext } from '../..'
@@ -29,6 +29,19 @@ export function Background ({value, onChange, config}: BackgroundProps) {
     disableBackgroundImage,
   }] = useState({ ...DEFAULT_CONFIG, ...config })
 
+  const defaultBackgroundValue = useMemo(() => {
+    const defaultValue = Object.assign({}, value)
+    Object.keys(defaultValue).forEach((key) => {
+      // TODO: 全局处理
+      // @ts-ignore
+      if (typeof defaultValue[key] === 'string') {
+        // @ts-ignore
+        defaultValue[key] = defaultValue[key].replace(/!.*$/, '')
+      }
+    })
+    return defaultValue
+  }, [])
+
   return (
     <Panel title='背景'>
       {disableBackgroundColor ? null : (
@@ -37,7 +50,7 @@ export function Background ({value, onChange, config}: BackgroundProps) {
             // tip='背景色'
             // TODO
             // @ts-ignore
-            defaultValue={value[getRealKey(keyMap, 'backgroundColor')] || value.backgroundColor}
+            defaultValue={defaultBackgroundValue[getRealKey(keyMap, 'backgroundColor')] || defaultBackgroundValue.backgroundColor}
             onChange={(value) => onChange({key: getRealKey(keyMap, 'backgroundColor'), value: `${value}${useImportant ? '!important' : ''}`})}
           />
         </Panel.Content>
@@ -47,10 +60,10 @@ export function Background ({value, onChange, config}: BackgroundProps) {
           <Image
             tip='背景图'
             defaultValue={{
-              backgroundImage: value.backgroundImage,
-              backgroundRepeat: value.backgroundRepeat,
-              backgroundPosition: value.backgroundPosition,
-              backgroundSize: value.backgroundSize
+              backgroundImage: defaultBackgroundValue.backgroundImage,
+              backgroundRepeat: defaultBackgroundValue.backgroundRepeat,
+              backgroundPosition: defaultBackgroundValue.backgroundPosition,
+              backgroundSize: defaultBackgroundValue.backgroundSize
             }}
             onChange={(value) => onChange({key: getRealKey(keyMap, value.key), value: `${value.value}${useImportant ? '!important' : ''}`})}
             upload={context.upload}
