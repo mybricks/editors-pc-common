@@ -8,7 +8,8 @@ import {
   Padding,
   BoxShadow,
   Background,
-  OverFlow
+  OverFlow,
+  Opacity
 } from './plugins'
 
 import type { StyleEditorProps } from './type'
@@ -23,7 +24,8 @@ const PLUGINS_MAP = {
   PADDING: Padding,
   BOXSHADOW: BoxShadow,
   BACKGROUND: Background,
-  OVERFLOW: OverFlow
+  OVERFLOW: OverFlow,
+  OPACITY: Opacity
 }
 
 export default function ({defaultValue, options, onChange}: StyleEditorProps) {

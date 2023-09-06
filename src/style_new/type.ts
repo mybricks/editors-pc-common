@@ -16,6 +16,7 @@ export interface EditorProps {
     }
     upload: (file: Array<File>) => Array<string>
     title: string
+    ifRefresh?: () => boolean
   }
 }
 

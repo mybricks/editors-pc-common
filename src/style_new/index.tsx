@@ -467,6 +467,11 @@ const getDefaultValueFunctionMap = {
       overflowX: values.overflowX,
       overflowY: values.overflowY
     }
+  },
+  opacity(values: CSSProperties, config: any) {
+    return {
+      opacity: values.opacity
+    }
   }
 }
 
@@ -539,6 +544,11 @@ const getDefaultValueFunctionMap2 = {
     return {
       overflowX: 'visible',
       overflowY: 'visible'
+    }
+  },
+  opacity() {
+    return {
+      opacity: 1
     }
   }
 }
@@ -636,6 +646,10 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration) 
   let overflowX // 非继承属性
   let overflowY // 非继承属性
   /** overflow */
+
+  /** opacity */
+  let opacity // 非继承属性
+  /** opacity */
 
   rules.forEach((rule) => {
     const { style } = rule
@@ -831,6 +845,13 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration) 
       overflowY = styleOverflowY
     }
     /** overflow */
+
+    /** opacity */
+    const { opacity: styleOpacity } = style
+    if (styleOpacity) {
+      opacity = styleOpacity
+    }
+    /** opacity */
   })
 
   /** font */
@@ -979,6 +1000,12 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration) 
   }
   /** overflow */
 
+  /** opacity */
+  if (!opacity) {
+    opacity = 1
+  }
+  /** opacity */
+
   return getRealValue({
     color,
     fontSize,
@@ -1024,7 +1051,9 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration) 
     boxShadow,
 
     overflowX,
-    overflowY
+    overflowY,
+
+    opacity
   }, computedValues)
 }
 

@@ -6,5 +6,6 @@ export const DEFAULT_OPTIONS = [
   'size',
   'cursor',
   'boxshadow',
-  'overflow'
+  'overflow',
+  'opacity'
 ] as const
