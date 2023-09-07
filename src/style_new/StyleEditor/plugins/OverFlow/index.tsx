@@ -15,6 +15,7 @@ export interface OverFlowProps {
 }
 
 const VALUE_OPTIONS = [
+  { label: '默认', value: 'unset' },
   { label: '自动', value: 'auto' },
   { label: '滚动', value: 'scroll' },
   { label: '隐藏', value: 'hidden' },
