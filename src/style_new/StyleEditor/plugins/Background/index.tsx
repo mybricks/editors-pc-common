@@ -31,12 +31,11 @@ export function Background ({value, onChange, config}: BackgroundProps) {
 
   const defaultBackgroundValue = useMemo(() => {
     const defaultValue = Object.assign({}, value)
-    Object.keys(defaultValue).forEach((key) => {
-      // TODO: 全局处理
-      // @ts-ignore
-      if (typeof defaultValue[key] === 'string') {
+    Object.entries(defaultValue).forEach(([ key, value ] ) => {
+      if (typeof value === 'string') {
+        // TODO: 全局处理
         // @ts-ignore
-        defaultValue[key] = defaultValue[key].replace(/!.*$/, '')
+        defaultValue[key] = value.replace(/!.*$/, '')
       }
     })
     return defaultValue

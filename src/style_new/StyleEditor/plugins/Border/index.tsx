@@ -73,10 +73,12 @@ export function Border ({value, onChange, config}: BorderProps) {
   const [{borderToggleValue, radiusToggleValue}, setToggleValue] = useState(getToggleDefaultValue(value))
   const defaultBorderValue = useMemo(() => {
     const defaultValue = Object.assign({}, value)
-    Object.keys(defaultValue).forEach((key) => {
-      // TODO: 全局处理
-      // @ts-ignore
-      defaultValue[key] = defaultValue[key].replace(/!.*$/, '')
+    Object.entries(defaultValue).forEach(([ key, value ] ) => {
+      if (typeof value === 'string') {
+        // TODO: 全局处理
+        // @ts-ignore
+        defaultValue[key] = value.replace(/!.*$/, '')
+      }
     })
     return defaultValue
   }, [])
