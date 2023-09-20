@@ -3,7 +3,7 @@ import { loadScript } from '../../utils';
 
 
 class ScriptLoader {
-  SortableHocCdn = '//f2.eckwai.com/udata/pkg/eshop/fangzhou/pub/pkg/react-sortable-hoc-2.0.0/index.umd.min.js';
+  SortableHocCdn = './mfs/editor_assets/react-sortable/react-sortable-hoc-2.0.0_index.umd.min.js';
 
   scriptLoading: boolean = false;
   callbacks: Function[] = [];
