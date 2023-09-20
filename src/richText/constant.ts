@@ -1,6 +1,6 @@
-export const tinymceCDN = 'https://ali2.a.kwimgs.com/udata/pkg/eshop/fangzhou/pub/pkg/tinymce/5.7.1/tinymce.min.js';
+export const tinymceCDN = './mfs/editor_assets/richText/tinymce/5.7.1/tinymce.min.js';
 
-const langCDN = 'https://ali-ec.static.yximgs.com/udata/pkg/eshop/fangzhou/pub/pkg/tinymce/5.7.1/zh_CN.js';
+const langCDN = './mfs/editor_assets/richText/tinymce/5.7.1/zh_CN.js';
 
 const plugins = ['table', 'link', 'uploadimage', 'paste', 'full', 'nonbreaking', 'lists', 'wordcount'];
 
