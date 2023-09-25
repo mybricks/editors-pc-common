@@ -5,22 +5,35 @@
     .ant-radio-group {
       font-size: @font-size-content !important;
     }
+
     .ant-radio-button-wrapper-checked:not(.ant-radio-button-wrapper-disabled)::before {
       background-color: var(--primary-color);
     }
+
     .ant-radio-group-solid
-      .ant-radio-button-wrapper-checked:not(.ant-radio-button-wrapper-disabled) {
+    .ant-radio-button-wrapper-checked:not(.ant-radio-button-wrapper-disabled) {
       background-color: var(--primary-color);
       border-color: var(--primary-color);
     }
+
     .ant-radio-group-outline
-      .ant-radio-button-wrapper-checked:not(.ant-radio-button-wrapper-disabled) {
+    .ant-radio-button-wrapper-checked:not(.ant-radio-button-wrapper-disabled) {
       border-color: var(--primary-color);
       color: var(--primary-color);
     }
+
     .ant-radio-button-wrapper {
       font-size: @font-size-content !important;
+
+      &:first-child {
+        border-radius: 5px 0 0 5px;
+      }
+
+      &:last-child {
+        border-radius: 0 5px 5px 0;
+      }
     }
+
     .ant-radio-button-wrapper:hover {
       color: var(--primary-color);
     }
