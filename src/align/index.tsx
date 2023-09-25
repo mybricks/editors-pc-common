@@ -1,63 +1,63 @@
 import { EditorProps } from "@/interface";
 import { useObservable } from "@mybricks/rxui";
 import { Popover } from "antd";
-import React, { useRef, useState } from "react";
+import React, { useMemo, useState } from "react";
 import css from "./index.less";
 
-const rowList = [
+const getRowList = (CDN: Record<string, unknown>) => [
   {
     title: "左对齐",
     key: "left",
     value: "left",
-    url: "https://ali-ec.static.yximgs.com/udata/pkg/eshop/fangzhou/icons/left.defc4a63ebe8ea7d.svg",
+    url: CDN.left || "https://ali-ec.static.yximgs.com/udata/pkg/eshop/fangzhou/icons/left.defc4a63ebe8ea7d.svg",
   },
   {
     title: "左右居中对齐",
     key: "row-center",
     value: "center",
-    url: "https://ali-ec.static.yximgs.com/udata/pkg/eshop/fangzhou/icons/center.c284343a9ff9672a.svg",
+    url: CDN.rowCenter || "https://ali-ec.static.yximgs.com/udata/pkg/eshop/fangzhou/icons/center.c284343a9ff9672a.svg",
   },
   {
     title: "右对齐",
     key: "right",
     value: "right",
-    url: "https://ali-ec.static.yximgs.com/udata/pkg/eshop/fangzhou/icons/right.a7763b38b84b5894.svg",
+    url: CDN.right || "https://ali-ec.static.yximgs.com/udata/pkg/eshop/fangzhou/icons/right.a7763b38b84b5894.svg",
   },
 ];
 
-const columnList = [
+const getColumnList = (CDN: Record<string, unknown>) => [
   {
     title: "顶部对齐",
     key: "top",
     value: "top",
-    url: "https://ali-ec.static.yximgs.com/udata/pkg/eshop/fangzhou/icons/top.98906024d52b69de.svg",
+    url: CDN.top || "https://ali-ec.static.yximgs.com/udata/pkg/eshop/fangzhou/icons/top.98906024d52b69de.svg",
   },
   {
     title: "上下居中对齐",
     key: "column-center",
     value: "center",
-    url: "https://ali-ec.static.yximgs.com/udata/pkg/eshop/fangzhou/icons/center.100376f4ade480cd.svg",
+    url: CDN.columnCenter || "https://ali-ec.static.yximgs.com/udata/pkg/eshop/fangzhou/icons/center.100376f4ade480cd.svg",
   },
   {
     title: "底部对齐",
     key: "bottom",
     value: "bottom",
-    url: "https://ali-ec.static.yximgs.com/udata/pkg/eshop/fangzhou/icons/bottom.6ee532067ed440ca.svg",
+    url: CDN.bottom || "https://ali-ec.static.yximgs.com/udata/pkg/eshop/fangzhou/icons/bottom.6ee532067ed440ca.svg",
   },
 ];
 
-const spaceBetweenList = [
+const getSpaceBetweenList = (CDN: Record<string, unknown>) => [
   {
     title: "垂直间距等分",
     key: "column",
     value: ["column", "space-between"],
-    url: "https://ali-ec.static.yximgs.com/udata/pkg/eshop/fangzhou/icons/column-space-between.31d560c0e611198f.svg",
+    url: CDN.column || "https://ali-ec.static.yximgs.com/udata/pkg/eshop/fangzhou/icons/column-space-between.31d560c0e611198f.svg",
   },
   {
     title: "水平间距等分",
     key: "row",
     value: ["row", "space-between"],
-    url: "https://ali-ec.static.yximgs.com/udata/pkg/eshop/fangzhou/icons/row-space-between.ead5cd660c0f1c33.svg",
+    url: CDN.row || "https://ali-ec.static.yximgs.com/udata/pkg/eshop/fangzhou/icons/row-space-between.ead5cd660c0f1c33.svg",
   },
 ];
 
@@ -74,7 +74,8 @@ const AlignItem = ({ item, align, onChange }: any) => {
 };
 
 export default function ({ editConfig }: EditorProps): JSX.Element {
-  const { value, options } = editConfig;
+  const { value, options, getDefaultOptions } = editConfig;
+  const CDN = useMemo(() => getDefaultOptions?.('align')?.CDN ?? {}, []);
 
   const model = useObservable({
     val: value.get(),
@@ -113,7 +114,7 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
   return (
     <>
       <div className={css.align}>
-        {rowList.map((item) => (
+        {getRowList(CDN).map((item) => (
           <Popover content={item.title}>
             <div
               className={`${css.item} ${
@@ -127,7 +128,7 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
             </div>
           </Popover>
         ))}
-        {columnList.map((item) => (
+        {getColumnList(CDN).map((item) => (
           <Popover content={item.title}>
             <div
               className={`${css.item} ${

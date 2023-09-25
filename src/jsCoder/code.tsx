@@ -184,12 +184,13 @@ const getComputedValue = (
 };
 
 export default function ({ editConfig, env }: any): JSX.Element {
-  const { value, options = {}, popView } = editConfig;
+  const { value, options = {}, popView, getDefaultOptions } = editConfig;
   const commentRef: any = useRef();
   const editorRef = useRef<MonacoEditor>();
   const [render, setRender] = useState(0);
   const codeStr = useMemo(() => getComputedValue(value.get()), [value.get()])
   const forceRender = useCallback(() => setRender(Math.random()), []);
+  const defaultOptions = useMemo(() => getDefaultOptions?.('code') ?? {}, []);
 
   const getVal = useComputed(() => {
     const val = value.get()
@@ -369,6 +370,7 @@ export default function ({ editConfig, env }: any): JSX.Element {
                       readOnly={readonly}
                       onChange={onChange}
                       {...options}
+                      CDN={defaultOptions.CDN}
                       onBlur={onBlur}
                       fnParams={options.fnParams}
                       extraLib={`${options.extraLib || ''}`}
@@ -409,6 +411,7 @@ export default function ({ editConfig, env }: any): JSX.Element {
                         <MonacoEditor
                           value={comments}
                           readOnly
+                          CDN={defaultOptions.CDN}
                           width='100%'
                           height='100%'
                           lineNumbers='off'
@@ -463,6 +466,7 @@ export default function ({ editConfig, env }: any): JSX.Element {
                 readOnly={readonly}
                 onChange={onChange}
                 {...options}
+                CDN={defaultOptions.CDN}
                 onBlur={onBlur}
                 fnParams={options.fnParams}
                 extraLib={`$${options.extraLib || ''}`}

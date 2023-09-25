@@ -225,9 +225,10 @@ export function parseToStyleData(cssCode: string, selector: string) {
   return styleData;
 }
 
-function CssEditor ({popView, options, value, selector, onChange: onPropsChange}: any) {
+function CssEditor ({popView, options, value, selector, onChange: onPropsChange, getDefaultOptions}: any) {
   const [cssValue, setCssValue] = useState(getDefaultValue({value, selector}))
   const editorRef = useRef<MonacoEditor>(null)
+  const defaultOptions = useMemo(() => getDefaultOptions?.('stylenew') ?? {}, []);
 
   const onMounted = useCallback((editor) => {
     editorRef.current = editor
@@ -266,6 +267,7 @@ function CssEditor ({popView, options, value, selector, onChange: onPropsChange}
         onMounted={onMounted}
         value={cssValue}
         onChange={onChange}
+        CDN={defaultOptions.CDN}
         // onBlur={onBlur}
         language='css'
       />

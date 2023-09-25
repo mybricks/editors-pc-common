@@ -14,7 +14,9 @@ type ListSetterProps = {
   editable: boolean
   checkField: string
   visibleField?: string
-  extraContext?: any
+  extraContext?: any;
+  /** 获取应用层配置的 editor options */
+  getDefaultOptions?(key: string): any;
 }
 
 type TitleProps = {
@@ -56,7 +58,8 @@ export default function ({
   editable = true,
   checkField = '_checked',
   visibleField,
-  extraContext
+  extraContext,
+  getDefaultOptions
 }: ListSetterProps) {
   const triggerInit = JSON.stringify(value);
   const initVal = initData(deepCopy(value)) || [];
@@ -270,7 +273,8 @@ export default function ({
             editConfig={{
               type: 'Switch',
               title: '启用',
-              value: list[editIndex] && list[editIndex][checkField]
+              value: list[editIndex] && list[editIndex][checkField],
+              getDefaultOptions
             }}
             value={list[editIndex] && list[editIndex][checkField]}
             onChange={(v) => {
@@ -291,7 +295,7 @@ export default function ({
             return (
               <RenderEditor
                 key={`${editIndex}_${idx}_${item.type}`}
-                editConfig={item}
+                editConfig={{ ...item, getDefaultOptions }}
                 extraContext={extraContext}
                 value={value}
                 onChange={(v) => {

@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from "react";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import MonacoEditor from "@mybricks/code-editor";
 import { Tooltip } from "antd";
 import { FullscreenOutlined } from "@ant-design/icons";
@@ -7,9 +7,10 @@ import Icon from "./Icon";
 import styles from "./index.less";
 
 export default function ({ editConfig, env }: EditorProps): JSX.Element {
-  const { value, options = {}, popView } = editConfig;
+  const { value, options = {}, popView, getDefaultOptions } = editConfig;
   const { renderType, title = "CSS样式编辑" } = options;
   const [zoomIn, setZoomIn] = useState<boolean>(false);
+  const defaultOptions = useMemo(() => getDefaultOptions?.('csseditor') ?? {}, []);
   const editorRef = useRef<MonacoEditor>();
 
   const onMounted = (editor: MonacoEditor) => {
@@ -68,6 +69,7 @@ export default function ({ editConfig, env }: EditorProps): JSX.Element {
       <MonacoEditor
         height="100%"
         env={env}
+        CDN={defaultOptions.CDN}
         onMounted={onMounted}
         value={value.get()}
         onChange={onChange}

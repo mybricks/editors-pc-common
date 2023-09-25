@@ -8,7 +8,8 @@ class ScriptLoader {
   scriptLoading: boolean = false;
   callbacks: Function[] = [];
 
-  loadOnce = (callback: Function) => {
+  loadOnce = (callback: Function, sortableHocCDN?: string) => {
+    sortableHocCDN && (this.SortableHocCdn = sortableHocCDN);
     this.callbacks.push(callback)
     if (this.scriptLoading) {
       return;
@@ -28,7 +29,7 @@ const scriptLoader = new ScriptLoader();
 const DefaultCom = () => <div></div>
 
 
-export const useLazy = () => {
+export const useLazy = (sortableHocCDN?: string) => {
   const [loaded, setLoaded] = useState(!!(window as any)?.SortableHOC);
   useEffect(() => {
     if ((window as any)?.SortableHOC) {
@@ -37,8 +38,8 @@ export const useLazy = () => {
     }
     scriptLoader.loadOnce(() => {
       setLoaded(true);
-    })
-  }, []);
+    }, sortableHocCDN)
+  }, [sortableHocCDN]);
   return loaded
 }
 

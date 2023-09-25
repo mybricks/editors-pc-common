@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import MonacoEditor from '@mybricks/code-editor';
 import Monaco from 'monaco-editor/esm/vs/editor/editor.api';
 import { EditorProps } from '../interface';
@@ -15,8 +15,9 @@ let monacoProvider: any;
 export default function ({ editConfig }: EditorProps) {
   const monacoRef = useRef<any>({});
   const editorRef = useRef<any>({});
-  const { value, options } = editConfig;
+  const { value, options, getDefaultOptions } = editConfig;
   const valConfig = value.get();
+  const defaultOptions = useMemo(() => getDefaultOptions?.('expcode') ?? {}, []);
   const [val, setVal] = useState<any>(
     typeof valConfig === 'string' ? valConfig : valConfig?.value
   );
@@ -95,6 +96,7 @@ export default function ({ editConfig }: EditorProps) {
         height={`${editorHeight}px`}
         language={languageName}
         theme={themeName}
+        CDN={defaultOptions.CDN}
         onChange={(codeVal: string) => {
           setVal(codeVal);
           value.set(codeVal);

@@ -6,11 +6,13 @@ import {isValid, getOptionsFromEditor} from '../utils';
 import AryContext from './context';
 
 export default function ({editConfig, injectEditors, ...extraContext}: { editConfig: EditConfig }): any {
-  const {value, options} = editConfig;
+  const {value, options, getDefaultOptions} = editConfig;
 
   const updateVal = useCallback((val) => {
     value.set(val);
   }, [value]);
+  /** 获取应用层配置的 editor options */
+  const defaultOptions = useMemo(() => getDefaultOptions?.('array') || {}, []);
 
   const opt = useMemo(() => {
     const opt = getOptionsFromEditor(options)
@@ -38,6 +40,8 @@ export default function ({editConfig, injectEditors, ...extraContext}: { editCon
         addText={opt.addText}
         customOptRender={opt.customOptRender}
         extraContext={extraContext}
+        cdnMap={defaultOptions.CDN || {}}
+        getDefaultOptions={getDefaultOptions}
       />
     </AryContext.Provider>
   );

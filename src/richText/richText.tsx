@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef } from "react";
+import React, { useCallback, useEffect, useMemo, useRef } from "react";
 import { Editor as TinyEditor } from "@tinymce/tinymce-react";
 import { Editor } from "tinymce";
 import { EditorProps } from "../interface";
@@ -19,7 +19,8 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
   const editorRef = useRef<Editor>(null);
   const containerRef = useRef(null);
 
-  const { value, options, upload } = editConfig;
+  const { value, options, upload, getDefaultOptions } = editConfig;
+  const defaultOptions = useMemo(() => getDefaultOptions?.('richtext') ?? {}, []);
 
   const model = useObservable({
     val: value.get(),
@@ -76,12 +77,13 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
       >
         <TinyEditor
           ref={containerRef}
-          tinymceScriptSrc={tinymceCDN}
+          tinymceScriptSrc={defaultOptions?.CDN?.tinymce || tinymceCDN}
           // @ts-ignore
           onInit={(evt, editor) => (editorRef.current = editor)}
           initialValue={model.value.get()}
           init={{
             ...config,
+            language_url: defaultOptions?.CDN?.language || config.language_url,
             content_style: options?.contentCss || defaultCss,
             setup,
           }}

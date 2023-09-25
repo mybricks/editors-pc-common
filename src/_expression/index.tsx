@@ -7,7 +7,7 @@ import { Spin } from "antd";
 import styles from "./index.less";
 
 export default ({ editConfig }: EditorProps) => {
-  const { value, options = {} } = editConfig;
+  const { value, options = {}, getDefaultOptions } = editConfig;
   const valConfig = value.get();
   const [CodeEditor, setCodeEditor] = useState<any>();
   const {
@@ -21,6 +21,7 @@ export default ({ editConfig }: EditorProps) => {
       return options;
     }
   }, [options]);
+  const defaultOptions = useMemo(() => getDefaultOptions?.('expression') || {}, []);
   const [_value, setValue] = useState<string>(
     typeof valConfig === "string" ? valConfig : valConfig?.value
   );
@@ -32,7 +33,7 @@ export default ({ editConfig }: EditorProps) => {
     const name: string = "CodeEditor";
     setLoading(true);
     loadPkg(
-      "//f2.beckwai.com/udata/pkg/eshop/fangzhou/pub/pkg/codemirror/1.0.13/index.min.js",
+      defaultOptions.CDN?.codemirror || "//f2.beckwai.com/udata/pkg/eshop/fangzhou/pub/pkg/codemirror/1.0.13/index.min.js",
       name
     )
       .then((res: any) => {

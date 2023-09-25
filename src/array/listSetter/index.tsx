@@ -35,6 +35,9 @@ type ListSetterProps = {
   addText?: string
   customOptRender?: any
   extraContext?: any
+  cdnMap: any;
+  /** 获取应用层配置的 editor options */
+  getDefaultOptions?(key: string): any;
 }
 
 type TitleProps = {
@@ -118,6 +121,8 @@ export default function ({
   addText = '添加一项',
   customOptRender,
   extraContext,
+  cdnMap,
+  getDefaultOptions
 }: ListSetterProps) {
   const [list, setList] = useState([])
   //[TODO] activeId 和 editId 为了支持这个交互不得已做的，写的太乱了
@@ -291,7 +296,7 @@ export default function ({
           return (
             <RenderEditor
               key={`${editIndex}_${idx}_${item.type}`}
-              editConfig={item}
+              editConfig={{ ...item, getDefaultOptions }}
               extraContext={extraContext}
               value={value}
               onChange={(v) => {
@@ -304,7 +309,7 @@ export default function ({
     )
   }, [items, list, listModel, editIndex])
 
-  const loaded = useLazy()
+  const loaded = useLazy(cdnMap.sortableHoc);
 
   return (
     <div className={`${css.listSetter} fangzhou-theme`} ref={listRef}>
