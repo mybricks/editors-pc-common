@@ -31,7 +31,7 @@ const DEFAULT_CONFIG = {
 }
 
 export function Size ({value, onChange, config}: SizeProps) {
-  const [cfg] = useState(Object.assign(DEFAULT_CONFIG, config))
+  const [cfg] = useState({ ...DEFAULT_CONFIG, ...config })
 
   return (
     <Panel title='尺寸'>

@@ -73,7 +73,7 @@ const DEFAULT_CONFIG = {
 }
 
 export function Font ({value, onChange, config}: FontProps) {
-  const [cfg] = useState(Object.assign(DEFAULT_CONFIG, config))
+  const [cfg] = useState({ ...DEFAULT_CONFIG, ...config })
 
   const fontFamilyOptions = useCallback(() => {
     const fontfaces = (cfg.fontfaces as typeof FONT_FAMILY_OPTIONS).filter((item) => item.label && item.value)

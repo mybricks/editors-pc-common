@@ -69,7 +69,7 @@ export function Border ({value, onChange, config}: BorderProps) {
     disableBorderStyle,
     disableBorderRadius,
     useImportant
-  }] = useState(Object.assign(DEFAULT_CONFIG, config))
+  }] = useState({ ...DEFAULT_CONFIG, ...config })
   const [{borderToggleValue, radiusToggleValue}, setToggleValue] = useState(getToggleDefaultValue(value))
   const defaultBorderValue = useMemo(() => {
     const defaultValue = Object.assign({}, value)
