@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Drawer, Radio, Input, Popover } from 'antd';
 import * as icons from '@ant-design/icons';
 import { CloseOutlined } from '@ant-design/icons';
@@ -20,6 +20,13 @@ import {
   brandListFilled,
   universalListFilled
 } from './iconList'
+import {
+  extractListFormIconfontJS,
+  parse,
+  domToString
+} from './utils/iconfont';
+
+import { EditorProps } from '@/interface';
 
 const { Search } = Input;
 const IconList = Object.keys(icons??{}).filter(key => key.endsWith('ed'));
@@ -47,7 +54,7 @@ const Icon = (props: any) => {
   />
 }
 
-export default function ({ editConfig }): any {
+export default function ({ editConfig, projectData }: EditorProps): any {
   const { value, options = {} } = editConfig;
   const { readonly = false } = options;
   const model: any = useObservable({ length: 80, value }, [value]);
@@ -66,15 +73,55 @@ export default function ({ editConfig }): any {
   const [brandFilled, setBrandFilled] = useState<string[]>(brandListFilled);
   const [universalFilled, setUniversalFilled] = useState<string[]>(universalListFilled);
 
+  const [newList, setNewList] = useState<string[]>([]);
+  const [iconList, setIconList] = useState<string[]>([]);
+  const [id, setID] = useState<string>('')
+
+   //应用侧实现
+   const getList = async (url:string) => {
+     return fetch(url)
+     .then((res) => res.text())
+     .then((res) => {
+       let newList = extractListFormIconfontJS(res);
+       return newList;
+     })
+   }
+
+  useEffect(()=>{
+    if(projectData.fontJS){
+      getList(projectData.fontJS).then((res)=>{
+        setNewList(res)
+      })
+    }
+  },[])
+
+  useEffect(()=>{
+    setIconList(newList);
+  },[newList])
+  
+
   useComputed(() => {
     model.val = isValid(value.get()) ? String(value.get()) : '';
   });
 
   const updateVal = useCallback((item) => {
-    model.val = item;
-    model.value.set(item);
-    close();
-  }, []);
+    let svgIcon;
+    let realIcon = <></>;
+    let realIconStr;
+    if(lineStyle === 'Iconfont'){
+      setID(item);
+      svgIcon =  document.getElementById(item);
+      realIcon = parse(svgIcon.innerHTML);
+      realIconStr = domToString(realIcon);
+      model.val = realIconStr;
+      model.value.set(realIconStr);
+      close();
+    }else{
+      model.val = item;
+      model.value.set(item);
+      close();
+    }
+  }, [lineStyle]);
 
   const modalContext = useObservable({
     visible: false,
@@ -162,7 +209,11 @@ export default function ({ editConfig }): any {
     })
     setUniversalFilled(universalsFilled)
 
-  }, []);
+    let filteredList = newList.filter((item)=>{
+      return item.toLowerCase().indexOf(val) !== -1
+    })
+    setIconList(filteredList)
+  }, [newList, iconList]);
 
   const onChange = useCallback((e) => {
     let value = e.target.value.toLowerCase();
@@ -216,8 +267,12 @@ export default function ({ editConfig }): any {
       return item.toLowerCase().indexOf(value) !== -1
     })
     setUniversalFilled(universalsFilled)
-    
-  }, []);
+
+    let filteredList = newList.filter((item)=>{
+      return item.toLowerCase().indexOf(value) !== -1
+    })
+    setIconList(filteredList)
+  }, [newList, iconList]);
 
   //线框风格
   const renderOutlinedIcons = useMemo(() => {
@@ -341,7 +396,7 @@ export default function ({ editConfig }): any {
       </div>
     </>
     );
-  }, [direction, tip, edit, data, brand, universal]);
+  }, [direction, tip, edit, data, brand, universal, lineStyle]);
 
 
   //实底风格
@@ -466,7 +521,52 @@ export default function ({ editConfig }): any {
       </div>
     </>
     );
-  }, [directionFilled, tipFilled, editFilled, dataFilled, brandFilled, universalFilled]);
+  }, [directionFilled, tipFilled, editFilled, dataFilled, brandFilled, universalFilled, lineStyle]);
+
+  //Iconfont
+  const renderSingleIcon = (icon:string) => { 
+    return (
+      <Popover trigger={'hover'} content={<span className={css.popoverText}>{icon}</span>} >
+        <div 
+          className={css.icon} 
+          key={icon}
+          onClick={() => {
+            updateVal(icon);
+          }}
+          >
+          <svg width="30" height="30">
+              <use xlinkHref={`#${icon}`}></use>
+          </svg>
+          <span className={css.text}>
+            {icon}
+          </span>
+        </div>
+      </Popover>
+    )
+  }
+
+  const renderIconfont = useMemo(()=>{
+
+    return (
+      <>
+        { newList.length !==0 && Array.isArray(newList) ?
+          <div className={css.iconWrapper}>
+            {
+            iconList.map((item)=>{
+              return renderSingleIcon(item)
+            })}
+          </div>
+        :
+        <div style={{display: 'flex', flexDirection: 'column', textAlign: 'center', marginTop: '50px'}}>
+          <Icon fontSize={60} type={'ExclamationCircleOutlined'}></Icon>
+          <div style={{paddingTop: '20px', fontSize: '14px'}}>
+            暂未添加图标库，请先添加 Iconfont 图标库，或检查其是否正确
+          </div>
+        </div>
+        }
+      </>
+    )
+  },[newList, lineStyle, iconList])
 
   return (
     <div className={css['editor-icon']}>
@@ -479,10 +579,22 @@ export default function ({ editConfig }): any {
           <Icon type={model.val} />
         ) : (
           <span>
+            {
+            lineStyle !== 'Iconfont' ?
             <Icon
               type={model.val}
               className={css['editor-icon__button-editIcon']}
             />
+            :
+            <span 
+              className={css['editor-icon__button-editIcon']}
+              style={{verticalAlign: "middle"}}
+              >
+              <svg width="12" height="12">
+                <use xlinkHref={`#${id}`}></use>
+              </svg>
+            </span>
+            }
             {`${modalContext.visible ? '关闭' : '打开'}`}图标选择器
           </span>
         )}
@@ -512,9 +624,12 @@ export default function ({ editConfig }): any {
           </div>
           <div className={css.styleChoose}>
             <div>
-              <Radio.Group value={lineStyle} onChange={(e) => setlineStyle(e.target.value)}>
+              <Radio.Group value={lineStyle} onChange={(e) => {
+                setlineStyle(e.target.value)
+                }}>
                 <Radio.Button value="outLined">线框风格</Radio.Button>
                 <Radio.Button value="Filled">实底风格</Radio.Button>
+                <Radio.Button value="Iconfont">Iconfont</Radio.Button>
               </Radio.Group>
             </div>
             <span>
@@ -523,7 +638,7 @@ export default function ({ editConfig }): any {
           </div>
         </div>
         <div>
-          {lineStyle === "outLined" ? (renderOutlinedIcons): (renderFilledIcons)}
+          {lineStyle === "outLined" ? (renderOutlinedIcons): (lineStyle === "Filled" ? (renderFilledIcons): (renderIconfont))}
         </div>
       </Drawer>
     </div >
