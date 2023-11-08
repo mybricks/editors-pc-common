@@ -92,8 +92,8 @@ function Item({ index, model, formatter, item, width }) {
                 update();
               }
             } else {
-              if (model.val[index] !== item.min) {
-                model.val[index] = item.min;
+              if (!evt) {
+                model.val[index] = 0;
                 update();
               }
             }
