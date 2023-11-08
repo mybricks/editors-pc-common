@@ -43,7 +43,7 @@ export default function UploaderModal({
       url: '',
       // bgUrl: '',
       container: void 0,
-      compress: true
+      compress: false
     })
   })
 
@@ -149,7 +149,7 @@ export default function UploaderModal({
               />
             </div>
           )}
-          {ctx.type === 'image/*' && <Switch checked={ctx.compress} onChange={(val) => (ctx.compress = val)} checkedChildren="压缩" unCheckedChildren="原图" style={{ margin: '0 10px' }} />}
+          {/* {ctx.type === 'image/*' && <Switch checked={ctx.compress} onChange={(val) => (ctx.compress = val)} checkedChildren="压缩" unCheckedChildren="原图" style={{ margin: '0 10px' }} />} */}
           <Button
             style={{width: 70}}
             onClick={() => {
