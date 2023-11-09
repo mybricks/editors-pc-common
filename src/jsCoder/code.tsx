@@ -10,6 +10,7 @@ import { useObservable,useComputed, getPosition, dragable } from '@mybricks/rxui
 import { FullscreenOutlined } from '@ant-design/icons';
 import MonacoEditor from '@mybricks/code-editor';
 import { transformCodeByBabel } from './utils';
+import { debounce } from '../util/lodash';
 import css from './index.less';
 
 const ICONS = {
@@ -368,7 +369,7 @@ export default function ({ editConfig, env }: any): JSX.Element {
                       onMounted={onMonacoMounted}
                       value={model.val}
                       readOnly={readonly}
-                      onChange={onChange}
+                      onChange={debouncedOnChange}
                       {...options}
                       CDN={defaultOptions.CDN}
                       onBlur={onBlur}
@@ -438,6 +439,8 @@ export default function ({ editConfig, env }: any): JSX.Element {
     updateVal(v);
   }, []);
 
+  const debouncedOnChange = debounce(onChange, 300);
+
   const RenderInEditView: JSX.Element = useMemo(() => {
     const { title } = model;
     if (displayType === 'button') {
@@ -464,7 +467,7 @@ export default function ({ editConfig, env }: any): JSX.Element {
                 onMounted={onMonacoMounted}
                 value={model.val}
                 readOnly={readonly}
-                onChange={onChange}
+                onChange={debouncedOnChange}
                 {...options}
                 CDN={defaultOptions.CDN}
                 onBlur={onBlur}
