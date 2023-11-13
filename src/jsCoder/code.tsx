@@ -246,7 +246,6 @@ export default function ({ editConfig, env }: any): JSX.Element {
 
   const updateVal = useCallback(
     (val) => {
-      if(val === model.val) return;
       model.value.set(formatValue(val, options));
     },
     []
@@ -380,7 +379,6 @@ export default function ({ editConfig, env }: any): JSX.Element {
                       width='100%'
                       env={env}
                       language={languageMap[language] || language}
-                      autoSave={true}
                     />
                   </div>
                   {options.fnParams ? <div className={css.mockFn}>{'}'}</div> : ''}
@@ -479,7 +477,6 @@ export default function ({ editConfig, env }: any): JSX.Element {
                 env={env}
                 className={css['editor-code__min-container']}
                 language={languageMap[language] || language}
-                autoSave={true}
               />
               {options.fnParams ? <div className={css.mockFn}>{'}'}</div> : ''}
             </>
