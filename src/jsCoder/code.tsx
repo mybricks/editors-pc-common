@@ -246,6 +246,7 @@ export default function ({ editConfig, env }: any): JSX.Element {
 
   const updateVal = useCallback(
     (val) => {
+      if(val === model.val) return;
       model.value.set(formatValue(val, options));
     },
     []
