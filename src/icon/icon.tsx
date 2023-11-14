@@ -54,7 +54,7 @@ const Icon = (props: any) => {
   />
 }
 
-export default function ({ editConfig, projectData }: EditorProps): any {
+export default function ({ editConfig }: EditorProps): any {
   const { value, options = {} } = editConfig;
   const { readonly = false } = options;
   const model: any = useObservable({ length: 80, value }, [value]);
@@ -88,8 +88,8 @@ export default function ({ editConfig, projectData }: EditorProps): any {
    }
 
   useEffect(()=>{
-    if(projectData.fontJS){
-      getList(projectData.fontJS).then((res)=>{
+    if(editConfig?.fontJS){
+      getList(editConfig.fontJS).then((res)=>{
         setNewList(res)
       })
     }
@@ -557,10 +557,10 @@ export default function ({ editConfig, projectData }: EditorProps): any {
             })}
           </div>
         :
-        <div style={{display: 'flex', flexDirection: 'column', textAlign: 'center', marginTop: '50px'}}>
+        <div className={css.empty}>
           <Icon fontSize={60} type={'ExclamationCircleOutlined'}></Icon>
-          <div style={{paddingTop: '20px', fontSize: '14px'}}>
-            暂未添加图标库，请先添加 Iconfont 图标库，或检查其是否正确
+          <div className={css.emptyContent}>
+            暂未添加图标库，请先添加 Iconfont JS链接，或检查其是否正确
           </div>
         </div>
         }
