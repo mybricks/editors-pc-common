@@ -13,6 +13,7 @@ import EditorStyle from "../../style";
 import EditorIcon from "../../icon";
 import EditorcolorPicker from "../../colorPicker"
 import EditorI18nInput from "../../i18nInput"
+import EditorEditorRender from "../../editorRender";
 
 import { typeCheck } from "./../../utils"
 
@@ -31,7 +32,8 @@ const PcEditorMap: any = {
   STYLE: EditorStyle,
   ICON: EditorIcon,
   COLORPICKER: EditorcolorPicker,
-  I18NINPUT: EditorI18nInput
+  I18NINPUT: EditorI18nInput,
+  EditorRender: EditorEditorRender
 };
 
 export default function PcEditor(props: any): any {
