@@ -124,7 +124,7 @@ export default function ({
   cdnMap,
   getDefaultOptions
 }: ListSetterProps) {
-  const [list, setList] = useState([])
+  const [list, setList] = useState(initData(value))
   //[TODO] activeId 和 editId 为了支持这个交互不得已做的，写的太乱了
   const [activeId, setActiveId] = useState<ActiveId>(null)
   const [editId, setEditId] = useState<EditId>(null)
