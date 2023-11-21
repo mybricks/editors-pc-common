@@ -9,6 +9,7 @@ type EditId = string | null
 type ListSetterProps = {
   onChange: Function
   value: any
+  locales: any
   items: Array<any>
   getTitle: (item: any, index: number) => string | Array<string>
   editable: boolean
@@ -58,6 +59,7 @@ export default function ({
   editable = true,
   checkField = '_checked',
   visibleField,
+  locales,
   extraContext,
   getDefaultOptions
 }: ListSetterProps) {
@@ -295,7 +297,7 @@ export default function ({
             return (
               <RenderEditor
                 key={`${editIndex}_${idx}_${item.type}`}
-                editConfig={{ ...item, getDefaultOptions }}
+                editConfig={{ ...item, locales, getDefaultOptions }}
                 extraContext={extraContext}
                 value={value}
                 onChange={(v) => {

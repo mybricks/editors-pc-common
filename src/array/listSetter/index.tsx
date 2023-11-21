@@ -25,6 +25,7 @@ type ListSetterProps = {
   onChange: Function
   onRemove?: (id: string) => void
   value: any
+  locales: any
   items: Array<any>
   getTitle: (item: any, index: number) => string | Array<string>
   draggable: boolean
@@ -118,6 +119,7 @@ export default function ({
   selectable = false,
   deletable = true,
   addable = true,
+  locales = null,
   addText = '添加一项',
   customOptRender,
   extraContext,
@@ -130,7 +132,7 @@ export default function ({
   const [editId, setEditId] = useState<EditId>(null)
   const [subFormVisible, setSubFormVisible] = useState(false)
   const listRef = useRef(null)
-	/** 数据变化来自外部 */
+  /** 数据变化来自外部 */
   const changeFromOuter = useRef(false);
 
   const didMount = useRef(false)
@@ -176,24 +178,24 @@ export default function ({
       },
     }
   }, [])
-	
-	useEffect(() => {
-		const curList = list;
-		
-		if (JSON.stringify(curList) !== JSON.stringify(value)) {
-			changeFromOuter.current = true;
-			setList(initData(value));
-		}
-	}, [JSON.stringify(value)]);
+
+  useEffect(() => {
+    const curList = list;
+
+    if (JSON.stringify(curList) !== JSON.stringify(value)) {
+      changeFromOuter.current = true;
+      setList(initData(value));
+    }
+  }, [JSON.stringify(value)]);
 
   useEffect(() => {
     if (!didMount.current) {
       return
     }
-		if (changeFromOuter.current) {
-			changeFromOuter.current = false;
-			return;
-		}
+    if (changeFromOuter.current) {
+      changeFromOuter.current = false;
+      return;
+    }
     typeof onChange === 'function' &&
       onChange(
         JSON.parse(
@@ -296,7 +298,7 @@ export default function ({
           return (
             <RenderEditor
               key={`${editIndex}_${idx}_${item.type}`}
-              editConfig={{ ...item, getDefaultOptions }}
+              editConfig={{ ...item, locales, getDefaultOptions }}
               extraContext={extraContext}
               value={value}
               onChange={(v) => {

@@ -6,7 +6,7 @@ import { isValid, getOptionsFromEditor } from '../utils';
 import AryContext from '../array/context';
 
 export default function ({ editConfig, injectEditors, ...extraContext }: { editConfig: EditConfig, injectEditors: any }): any {
-  const { value, options, getDefaultOptions } = editConfig;
+  const { value, options, getDefaultOptions, locales } = editConfig;
 
   const model = useObservable(
     { val: isValid(value.get()) ? value.get() : false, value },
@@ -32,6 +32,7 @@ export default function ({ editConfig, injectEditors, ...extraContext }: { editC
         editable={opt.editable}
         checkField={opt.checkField}
         visibleField={opt.visibleField}
+        locales={locales}
         extraContext={extraContext}
         getDefaultOptions={getDefaultOptions}
       />

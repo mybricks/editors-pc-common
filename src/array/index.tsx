@@ -1,12 +1,12 @@
-import React, {useEffect, useMemo, useCallback} from 'react';
-import {useComputed, useObservable} from '@mybricks/rxui';
-import {EditConfig} from '@/interface';
+import React, { useEffect, useMemo, useCallback } from 'react';
+import { useComputed, useObservable } from '@mybricks/rxui';
+import { EditConfig } from '@/interface';
 import ListSetter from './listSetter/index';
-import {isValid, getOptionsFromEditor} from '../utils';
+import { isValid, getOptionsFromEditor } from '../utils';
 import AryContext from './context';
 
-export default function ({editConfig, injectEditors, ...extraContext}: { editConfig: EditConfig }): any {
-  const {value, options, getDefaultOptions} = editConfig;
+export default function ({ editConfig, injectEditors, ...extraContext }: { editConfig: EditConfig }): any {
+  const { value, options, getDefaultOptions, locales } = editConfig;
 
   const updateVal = useCallback((val) => {
     value.set(val);
@@ -23,7 +23,7 @@ export default function ({editConfig, injectEditors, ...extraContext}: { editCon
   }, [options])
 
   return (
-    <AryContext.Provider value={{injectEditors}}>
+    <AryContext.Provider value={{ injectEditors }}>
       <ListSetter
         value={isValid(value.get()) ? value.get() : []}
         onChange={updateVal}
@@ -40,6 +40,7 @@ export default function ({editConfig, injectEditors, ...extraContext}: { editCon
         addText={opt.addText}
         customOptRender={opt.customOptRender}
         extraContext={extraContext}
+        locales={locales}
         cdnMap={defaultOptions.CDN || {}}
         getDefaultOptions={getDefaultOptions}
       />
