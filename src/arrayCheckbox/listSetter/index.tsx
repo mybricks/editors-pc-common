@@ -63,8 +63,8 @@ export default function ({
   extraContext,
   getDefaultOptions
 }: ListSetterProps) {
-  const triggerInit = JSON.stringify(value);
-  const initVal = initData(deepCopy(value)) || [];
+  const triggerInit = useMemo(() => JSON.stringify(value), [value]);
+  const initVal = useMemo(() => initData(deepCopy(value)) || [], [value]);
   const [list, setList] = useState(initVal);
   const [editId, setEditId] = useState<EditId>(null)
   const [subFormVisible, setSubFormVisible] = useState(false)
@@ -72,7 +72,6 @@ export default function ({
 
   /** 在value改变时重新设置list */
   useEffect(() => {
-    setList(initVal);
     setEditId(prevId => {
       const item = initVal.find(t => t._id === prevId);
       if (item && visibleField && !item[visibleField]) return null;
