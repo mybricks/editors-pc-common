@@ -231,7 +231,7 @@ function AddComponent ({onClick, popView, components}: {onClick: ({ namespace }:
           }}
         />
       )
-    }, {width: 350, beforeEditView: true})
+    }, {width: 360, beforeEditView: true})
   },[])
 
   return (
@@ -254,7 +254,7 @@ function SelectComponent ({defaultValue, onClick, popView, components}: {default
           }}
         />
       )
-    }, {width: 350, beforeEditView: true})
+    }, {width: 360, beforeEditView: true})
   },[])
 
   const handleDeleteClick = useCallback(() => {
