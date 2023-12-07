@@ -37,8 +37,9 @@ const transformCodeByBabel = (val: string, props?: Props) => {
     }
     res.transformCode = encodeURIComponent(
       babelInstance.transform(temp, {
-        presets: presets || ['env'],
+        presets: (presets || ['env']).concat(['typescript']),
         comments: false,
+        filename: 'types.d.ts'
       }).code
     );
     res.transformCode = `${encodeURIComponent(`(function() { var _RTFN_; \n`)}${
