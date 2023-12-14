@@ -20,7 +20,7 @@ export function Slider ({
   const [value, setValue] = useState(defaultValue)
 
   const onInputChange = useCallback((e) => {
-    const value = e.target.value
+    const value = Number(e.target.value)
     setValue(value > 1 ? 1 : value)
     onChange(value)
   }, [])
