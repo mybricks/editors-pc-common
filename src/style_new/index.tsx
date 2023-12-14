@@ -408,7 +408,8 @@ const getDefaultValueFunctionMap = {
       fontWeight: values.fontWeight,
       fontFamily: values.fontFamily,
       lineHeight: values.lineHeight,
-      letterSpacing: values.letterSpacing
+      letterSpacing: values.letterSpacing,
+      whiteSpace: values.whiteSpace
     }
   },
   border(values: CSSProperties, config: any) {
@@ -486,7 +487,8 @@ const getDefaultValueFunctionMap2 = {
       fontWeight: 'inherit',
       fontFamily: 'inherit',
       lineHeight: 'inherit',
-      letterSpacing: 'inherit'
+      letterSpacing: 'inherit',
+      whiteSpace: 'normal'
     }
   },
   border() {
@@ -595,6 +597,7 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration) 
   let lineHeight // 继承属性
   let fontFamily // 继承属性
   let letterSpacing // 继承属性
+  let whiteSpace // 继承属性
   /** font */
 
   /** padding */
@@ -664,7 +667,8 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration) 
       fontWeight: styleFontWeight,
       lineHeight: styleLineHeight,
       fontFamily: styleFontFamily,
-      letterSpacing: styleLetterSpacing
+      letterSpacing: styleLetterSpacing,
+      whiteSpace: styleWhiteSpace
     } = style
     if (styleColor) {
       color = styleColor
@@ -686,6 +690,9 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration) 
     }
     if (styleLetterSpacing) {
       letterSpacing = styleLetterSpacing
+    }
+    if (styleWhiteSpace) {
+      whiteSpace = styleWhiteSpace
     }
     /** font */
 
@@ -879,6 +886,9 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration) 
   if (!letterSpacing) {
     letterSpacing = computedValues.letterSpacing
   }
+  if (!whiteSpace) {
+    whiteSpace = computedValues.whiteSpace
+  }
   /** font */
 
   /** padding */
@@ -1016,6 +1026,7 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration) 
     lineHeight,
     fontFamily,
     letterSpacing,
+    whiteSpace,
 
     paddingTop,
     paddingRight,

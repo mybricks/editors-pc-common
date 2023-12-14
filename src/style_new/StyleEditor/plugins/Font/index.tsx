@@ -11,6 +11,7 @@ import {
   ColorEditor,
   InputNumber,
   FontSizeOutlined,
+  WhiteSpaceOutlined,
   FontWeightOutlined,
   LineHeightOutlined,
   FontFamilyOutlined,
@@ -46,6 +47,15 @@ const FONT_WEIGHT_OPTIONS = [
   {label: '继承', value: 'inherit'}
 ]
 
+const WHITE_SPACE_OPTIONS = [
+  {label: 'normal', value: 'normal'},
+  {label: 'nowrap', value: 'nowrap'},
+  {label: 'pre', value: 'pre'},
+  {label: 'pre-wrap', value: 'pre-wrap'},
+  {label: 'pre-line', value: 'pre-line'},
+  {label: 'break-spaces', value: 'break-spaces'}
+]
+
 const FONT_SIZE_OPTIONS = [
   {label: 'px', value: 'px'},
   {label: '继承', value: 'inherit'},
@@ -69,6 +79,14 @@ const LETTERSPACING_UNIT_DISABLED_LIST = ['normal', 'inherit']
 
 const DEFAULT_CONFIG = {
   disableTextAlign: false,
+  disableFontFamily: false,
+  disableColor: false,
+  disableFontWeight: false,
+  disableFontSize: false,
+  disableLineHeight: false,
+  disableLetterSpacing: false,
+  disableWhiteSpace: false,
+
   fontfaces: []
 }
 
@@ -114,59 +132,89 @@ export function Font ({value, onChange, config}: FontProps) {
 
   return (
     <Panel title='字体'>
-      <Panel.Content>
-        <Select
-          tip='字体'
-          prefix={<FontFamilyOutlined />}
-          style={{flexBasis: '50%', padding: 0, overflow: 'hidden'}}
-          defaultValue={value.fontFamily}
-          options={fontFamilyOptions()}
-          onChange={(value) => onChange({key: 'fontFamily', value})}
-        />
-        <ColorEditor
-          style={{flexBasis: '50%'}}
-          defaultValue={value.color}
-          onChange={(value) => onChange({key: 'color', value})}
-        />
-      </Panel.Content>
-      <Panel.Content>
-        <Select
-          tip='粗细'
-          prefix={<FontWeightOutlined />}
-          style={{flexBasis: '50%', padding: 0, overflow: 'hidden'}}
-          defaultValue={value.fontWeight}
-          options={FONT_WEIGHT_OPTIONS}
-          onChange={(value) => onChange({key: 'fontWeight', value})}
-        />
-        <InputNumber
-          tip='大小'
-          style={{flexBasis: '50%'}}
-          prefix={<FontSizeOutlined />}
-          defaultValue={value.fontSize}
-          unitOptions={FONT_SIZE_OPTIONS}
-          unitDisabledList={FONT_SIZE_DISABLED_LIST}
-          onChange={onFontSizeChange}
-        />
-      </Panel.Content>
-      <Panel.Content>
-        <InputNumber
-          tip='行高'
-          prefix={<LineHeightOutlined />}
-          value={lineHeight}
-          defaultUnitValue='inherit'
-          unitOptions={LINEHEIGHT_UNIT_OPTIONS}
-          unitDisabledList={LINEHEIGHT_UNIT_DISABLED_LIST}
-          onChange={onLineHeightChange}
-        />
-        <InputNumber
-          tip='间距'
-          prefix={<LetterSpacingOutlined />}
-          defaultValue={value.letterSpacing}
-          unitOptions={LETTERSPACING_UNIT_OPTIONS}
-          unitDisabledList={LETTERSPACING_UNIT_DISABLED_LIST}
-          onChange={(value) => onChange({key: 'letterSpacing', value})}
-        />
-      </Panel.Content>
+      {(cfg.disableFontFamily && cfg.disableColor) ? null : (
+        <Panel.Content>
+          {cfg.disableFontFamily ? null : (
+            <Select
+              tip='字体'
+              prefix={<FontFamilyOutlined />}
+              style={{flexBasis: `calc(50% - 3px)`, padding: 0, overflow: 'hidden'}}
+              defaultValue={value.fontFamily}
+              options={fontFamilyOptions()}
+              onChange={(value) => onChange({key: 'fontFamily', value})}
+            />
+          )}
+          {cfg.disableColor ? null : (
+            <ColorEditor
+              style={{flexBasis: `calc(50% - 3px)`}}
+              defaultValue={value.color}
+              onChange={(value) => onChange({key: 'color', value})}
+            />
+          )}
+        </Panel.Content>
+      )}
+      {(cfg.disableFontWeight && cfg.disableFontSize) ? null : (
+        <Panel.Content>
+          {cfg.disableFontWeight ? null : (
+            <Select
+              tip='粗细'
+              prefix={<FontWeightOutlined />}
+              style={{flexBasis: `calc(50% - 3px)`, padding: 0, overflow: 'hidden'}}
+              defaultValue={value.fontWeight}
+              options={FONT_WEIGHT_OPTIONS}
+              onChange={(value) => onChange({key: 'fontWeight', value})}
+            />
+          )}
+          {cfg.disableFontSize ? null : (
+            <InputNumber
+              tip='大小'
+              style={{flexBasis: `calc(50% - 3px)`}}
+              prefix={<FontSizeOutlined />}
+              defaultValue={value.fontSize}
+              unitOptions={FONT_SIZE_OPTIONS}
+              unitDisabledList={FONT_SIZE_DISABLED_LIST}
+              onChange={onFontSizeChange}
+            />
+          )}
+        </Panel.Content>
+      )}
+      {(cfg.disableLineHeight && cfg.disableLetterSpacing) ? null : (
+        <Panel.Content>
+          {cfg.disableLineHeight ? null : (
+            <InputNumber
+              tip='行高'
+              prefix={<LineHeightOutlined />}
+              value={lineHeight}
+              defaultUnitValue='inherit'
+              unitOptions={LINEHEIGHT_UNIT_OPTIONS}
+              unitDisabledList={LINEHEIGHT_UNIT_DISABLED_LIST}
+              onChange={onLineHeightChange}
+            />
+          )}
+          {cfg.disableLetterSpacing ? null : (
+            <InputNumber
+              tip='间距'
+              prefix={<LetterSpacingOutlined />}
+              defaultValue={value.letterSpacing}
+              unitOptions={LETTERSPACING_UNIT_OPTIONS}
+              unitDisabledList={LETTERSPACING_UNIT_DISABLED_LIST}
+              onChange={(value) => onChange({key: 'letterSpacing', value})}
+            />
+          )}
+        </Panel.Content>
+      )}
+      {cfg.disableWhiteSpace ? null : (
+        <Panel.Content>
+          <Select
+            tip='空白字符合并、换行'
+            prefix={<WhiteSpaceOutlined />}
+            style={{padding: 0, overflow: 'hidden'}}
+            defaultValue={value.whiteSpace}
+            options={WHITE_SPACE_OPTIONS}
+            onChange={(value) => onChange({key: 'whiteSpace', value})}
+          />
+        </Panel.Content>
+      )}
       {cfg.disableTextAlign ? null : (
         <Panel.Content>
           <Toggle

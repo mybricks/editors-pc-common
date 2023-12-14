@@ -47,3 +47,9 @@ export function TextAlignRightOutlined () {
     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none"><g opacity="1" transform="translate(0 -1.7053025658242404e-13)  rotate(0 8 8)"><g opacity="1" transform="translate(2 3)  rotate(0 6 5)"><g opacity="1" transform="translate(0 0)  rotate(0 6 5)"><path id="路径 1" fillRule="evenodd" fill="currentColor" transform="translate(4 3)  rotate(0 4 0.5)" opacity="1" d="M8,0L0,0L0,1L8,1L8,0Z "></path><path id="路径 2" fillRule="evenodd" fill="currentColor" transform="translate(0 6)  rotate(0 6 0.5)" opacity="1" d="M12,0L0,0L0,1L12,1L12,0Z "></path><path id="路径 3" fillRule="evenodd" fill="currentColor" transform="translate(0 0)  rotate(0 6 0.5)" opacity="1" d="M12,0L0,0L0,1L12,1L12,0Z "></path><path id="路径 4" fillRule="evenodd" fill="currentColor" transform="translate(7 9)  rotate(0 2.5 0.5)" opacity="1" d="M0,0L0,1L5,1L5,0L0,0Z "></path></g></g></g></svg>
   )
 }
+
+export function WhiteSpaceOutlined () {
+  return (
+    <svg viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="6236" width="15" height="15"><path d="M640 768h64a106.666667 106.666667 0 1 0 0-213.333333H170.666667a42.666667 42.666667 0 0 1 0-85.333334h533.333333a192 192 0 1 1 0 384H640v42.666667a21.333333 21.333333 0 0 1-34.133333 17.066667l-91.008-68.266667a42.666667 42.666667 0 0 1 0-68.266667l91.008-68.266666a21.333333 21.333333 0 0 1 34.133333 17.066666v42.666667zM170.666667 170.666667h682.666666a42.666667 42.666667 0 0 1 0 85.333333H170.666667a42.666667 42.666667 0 1 1 0-85.333333z m213.333333 640a42.666667 42.666667 0 0 1-42.666667 42.666666H170.666667a42.666667 42.666667 0 0 1 0-85.333333h170.666666a42.666667 42.666667 0 0 1 42.666667 42.666667z" fill="#2c2c2c" p-id="6237"></path></svg>
+  )
+}
