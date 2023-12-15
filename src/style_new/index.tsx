@@ -449,6 +449,14 @@ const getDefaultValueFunctionMap = {
       paddingLeft: values.paddingLeft
     }
   },
+  margin(values: CSSProperties, config: any) {
+    return {
+      marginTop: values.marginTop,
+      marginRight: values.marginRight,
+      marginBottom: values.marginBottom,
+      marginLeft: values.marginLeft
+    }
+  },
   size(values: CSSProperties, config: any) {
     return {
       width: values.width,
@@ -526,6 +534,14 @@ const getDefaultValueFunctionMap2 = {
       paddingRight: '0px',
       paddingBottom: '0px',
       paddingLeft: '0px'
+    }
+  },
+  margin() {
+    return {
+      marginTop: '0px',
+      marginRight: '0px',
+      marginBottom: '0px',
+      marginLeft: '0px'
     }
   },
   size() {
@@ -606,6 +622,13 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration) 
   let paddingBottom // 非继承属性
   let paddingLeft // 非继承属性
   /** padding */
+
+  /** margin */
+  let marginTop // 非继承属性
+  let marginRight // 非继承属性
+  let marginBottom // 非继承属性
+  let marginLeft // 非继承属性
+  /** margin */
 
   /** background */
   let backgroundColor // 非继承属性
@@ -716,6 +739,27 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration) 
       paddingLeft = stylePaddingLeft
     }
     /** padding */
+
+    /** margin */
+    const {
+      marginTop: styleMarginTop,
+      marginRight: styleMarginRight,
+      marginBottom: styleMarginBottom,
+      marginLeft: styleMarginLeft
+    } = style
+    if (styleMarginTop) {
+      marginTop = styleMarginTop
+    }
+    if (styleMarginRight) {
+      marginRight = styleMarginRight
+    }
+    if (styleMarginBottom) {
+      marginBottom = styleMarginBottom
+    }
+    if (styleMarginLeft) {
+      marginLeft = styleMarginLeft
+    }
+    /** margin */
 
     /** background */
     const {
@@ -894,21 +938,32 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration) 
   /** padding */
   if (!paddingTop) {
     paddingTop = computedValues.paddingTop
-    // paddingTop = '0px'
   }
   if (!paddingRight) {
     paddingRight = computedValues.paddingRight
-    // paddingRight = '0px'
   }
   if (!paddingBottom) {
     paddingBottom = computedValues.paddingBottom
-    // paddingBottom = '0px'
   }
   if (!paddingLeft) {
     paddingLeft = computedValues.paddingLeft
-    // paddingLeft = '0px'
   }
   /** padding */
+
+  /** margin */
+  if (!marginTop) {
+    marginTop = computedValues.marginTop
+  }
+  if (!marginRight) {
+    marginRight = computedValues.marginRight
+  }
+  if (!marginBottom) {
+    marginBottom = computedValues.marginBottom
+  }
+  if (!marginLeft) {
+    marginLeft = computedValues.marginLeft
+  }
+  /** margin */
 
 
   /** background */
@@ -1032,6 +1087,11 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration) 
     paddingRight,
     paddingBottom,
     paddingLeft,
+
+    marginTop,
+    marginRight,
+    marginBottom,
+    marginLeft,
 
     backgroundColor,
     backgroundImage,

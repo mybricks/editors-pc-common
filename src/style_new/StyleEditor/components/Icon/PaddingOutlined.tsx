@@ -5,9 +5,7 @@ export function PaddingAllOutlined () {
 }
 
 export function PaddingBottomOutlined () {
-  return (
-    <svg width="12" height="12" viewBox="0 0 12 12" xmlns="http://www.w3.org/2000/svg" style={{transform: "rotate(-90deg)"}}><path d="M0 12V0h1v12H0zm3-9h6v6H3V3zm1 1v4h4V4H4z" fillRule="evenodd" fillOpacity="1" fill="#000" stroke="none"></path></svg>
-  )
+  return <PaddingLeftOutlined style={{transform: "rotate(-90deg)"}}/>
 }
 
 export function PaddingControlsToggleOutlined () {
@@ -16,9 +14,9 @@ export function PaddingControlsToggleOutlined () {
   )
 }
 
-export function PaddingLeftOutlined () {
+export function PaddingLeftOutlined ({ style }: any) {
   return (
-    <svg width="12" height="12" viewBox="0 0 12 12" xmlns="http://www.w3.org/2000/svg"><path d="M0 12V0h1v12H0zm3-9h6v6H3V3zm1 1v4h4V4H4z" fillRule="evenodd" fillOpacity="1" fill="#000" stroke="none"></path></svg>
+    <svg width="12" height="12" viewBox="0 0 12 12" style={style} xmlns="http://www.w3.org/2000/svg"><path d="M0 12V0h1v12H0zm3-9h6v6H3V3zm1 1v4h4V4H4z" fillRule="evenodd" fillOpacity="1" fill="#000" stroke="none"></path></svg>
   )
 }
 
@@ -29,9 +27,7 @@ export function PaddingLeftRightOutlined () {
 }
 
 export function PaddingRightOutlined () {
-  return (
-    <svg width="12" height="12" viewBox="0 0 12 12" xmlns="http://www.w3.org/2000/svg" style={{transform: "rotate(180deg)"}}><path d="M0 12V0h1v12H0zm3-9h6v6H3V3zm1 1v4h4V4H4z" fillRule="evenodd" fillOpacity="1" fill="#000" stroke="none"></path></svg>
-  )
+  return <PaddingLeftOutlined style={{transform: "rotate(180deg)"}}/>
 }
 
 export function PaddingTopBottomOutlined () {
@@ -41,7 +37,5 @@ export function PaddingTopBottomOutlined () {
 }
 
 export function PaddingTopOutlined () {
-  return (
-    <svg width="12" height="12" viewBox="0 0 12 12" xmlns="http://www.w3.org/2000/svg" style={{transform: "rotate(90deg)"}}><path d="M0 12V0h1v12H0zm3-9h6v6H3V3zm1 1v4h4V4H4z" fillRule="evenodd" fillOpacity="1" fill="#000" stroke="none"></path></svg>
-  )
+  return <PaddingLeftOutlined style={{transform: "rotate(90deg)"}}/>
 }
