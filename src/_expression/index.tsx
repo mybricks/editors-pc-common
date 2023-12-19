@@ -37,7 +37,7 @@ export default ({ editConfig }: EditorProps) => {
       name
     )
       .then((res: any) => {
-        setCodeEditor(res.CodeEditor || res.default);
+        setCodeEditor(res?.CodeEditor || res?.default);
       })
       .finally(() => setLoading(false));
   }, []);
