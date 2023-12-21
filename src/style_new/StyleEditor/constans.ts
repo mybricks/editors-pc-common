@@ -3,6 +3,7 @@ export const DEFAULT_OPTIONS = [
   'border',
   'background',
   'padding',
+  'margin',
   'size',
   'cursor',
   'boxshadow',
