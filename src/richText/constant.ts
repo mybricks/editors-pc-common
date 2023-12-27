@@ -8,18 +8,12 @@ const simpleToolBar = ['formatselect bullist numlist full', 'forecolor backcolor
 
 const fullToolBar =
   'undo redo formatselect fontsizeselect bold italic underline strikethrough removeformat forecolor backcolor bullist numlist alignleft aligncenter alignright uploadimage link table hr full';
-  
-import  defalutContentMinCss from './css/default.content.min.css';
-import contentMinCss from './css/oxide.content.min.css';
-
-// 注:只做了css的本地化,直接打入
 
 export const baseConfig = {
   language: 'zh_CN',
   placeholder: '请在此输入内容',
   block_formats: '标题 1=h1; 标题 2=h2; 标题 3=h3; 标题 4=h4; 正文(大)=h5; 正文=p;',
   // skin: 'custom',
-  skin: false,
   fontsize_formats: '10px 12px 14px 16px 18px 20px 24px 28px 36px',
   contextmenu: '',
   menubar: false,
@@ -28,11 +22,9 @@ export const baseConfig = {
   plugins,
   toolbar,
   language_url: langCDN,
-  content_css: '',
 };
 
 export const defaultCss =
-  defalutContentMinCss + contentMinCss+
   'body {color: #666666; font-size:14px; line-height: 1.6; margin: 0; padding: 10px;}' +
   'h1 {color: #222222; font-size:28px;font-weight: 600; line-height: 1.4; margin: 12px 0; text-align:center}' +
   'h2 {color: #252525; font-size:24px;font-weight: 500; margin: 8px 0;}' +
