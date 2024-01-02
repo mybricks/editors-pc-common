@@ -48,8 +48,16 @@ export default function ({editConfig}: EditorProps) {
     return getDefaultConfiguration2(editConfig)
   }, [])
 
-  const [open, setOpen] = useState(finalOpen)
-  const [editMode, setEditMode] = useState(true)
+
+  const [{
+    open,
+    show,
+    editMode,
+  }, setStatus] = useState({
+    open: finalOpen,
+    show: finalOpen,
+    editMode: true
+  })
   const [key, setKey] = useState(0)
 
   const refresh = useCallback(() => {
@@ -57,14 +65,25 @@ export default function ({editConfig}: EditorProps) {
     setKey(key => key + 1)
   }, [])
 
-  const onOpenClick = useCallback(() => {
-    setOpen(open => !open)
-  }, [])
+  function onOpenClick () {
+    setStatus((status) => {
+      return {
+        ...status,
+        show: true,
+        open: !status.open
+      }
+    })
+  }
 
-  const onEditModeClick = useCallback(() => {
-    setEditMode(editMode => !editMode)
-    setOpen(true)
-  }, [])
+  function onEditModeClick () {
+    setStatus((status) => {
+      return {
+        show: true,
+        open: true,
+        editMode: !status.editMode
+      }
+    })
+  }
 
   useUpdateEffect(() => {
     setKey(key => key + 1)
@@ -121,7 +140,7 @@ export default function ({editConfig}: EditorProps) {
       <>
         {title}
         <div key={key} style={{display: open ? 'block' : 'none'}}>
-          {editor}
+          {show && editor}
         </div>
       </>
     )
