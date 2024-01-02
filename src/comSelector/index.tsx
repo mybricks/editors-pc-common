@@ -462,7 +462,7 @@ function AddComponent ({onClick, popView, componentLibraries}: {onClick: ({ name
           }}
         />
       )
-    }, {width: 370, beforeEditView: true})
+    }, {width: 380, beforeEditView: true})
   },[])
 
   return (
@@ -485,7 +485,7 @@ function SelectComponent ({defaultValue, onClick, popView, componentLibraries}: 
           }}
         />
       )
-    }, {width: 370, beforeEditView: true})
+    }, {width: 380, beforeEditView: true})
   },[])
 
   const handleDeleteClick = useCallback(() => {
