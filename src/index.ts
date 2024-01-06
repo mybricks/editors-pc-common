@@ -32,6 +32,8 @@ import EditorStyleC from "./style_c";
 import EditorStyleProperties from "./styleProperties";
 import EditorTypeChange from './_typeChange';
 import EditorI18nInput from "./i18nInput";
+import EditorSceneSelector from "./sceneSelector";
+import EditorSceneComSelector from "./sceneComSelector";
 import "./index.less";
 export { config } from "./configProvider";
 
@@ -72,7 +74,9 @@ const PcEditorMap: any = {
   LAYOUT: EditorLayout,
   _TYPECHANGE: EditorTypeChange,
   CSSEDITOR: CssEditor,
-  I18NINPUT: EditorI18nInput
+  I18NINPUT: EditorI18nInput,
+  SCENESELECTOR: EditorSceneSelector,
+  SCENECOMSELECTOR: EditorSceneComSelector
 };
 
 function PcEditor(props: EditorProps): any {
