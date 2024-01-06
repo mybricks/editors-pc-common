@@ -1,0 +1,48 @@
+@color: #FA6400;
+@color2: #fa640033;
+@interaction: {
+  &:hover {
+    border-color: @color;
+  }
+
+  &:focus {
+    border-color: @color;
+    -webkit-box-shadow: 0 0 0 2px @color2;
+    box-shadow: 0 0 0 2px @color2;
+  }
+}
+@editor: {
+  width: 100%;
+  display: block;
+  border-radius: 3px;
+  border: 1px solid #EEE;
+  background-color: #ffffff;
+  box-sizing: border-box;
+}
+
+.editor {
+  input {
+    padding: 3px 5px;
+
+    @editor();
+    @interaction();
+  }
+
+  select {
+    padding: 3px 5px 3px 1px;
+    appearance: auto;
+    height: 26px;
+    border: 1px solid #EEE;
+    border-radius: 3px;
+    appearance: auto;
+    cursor: pointer;
+
+    @editor();
+    @interaction();
+  }
+
+  .span {
+    margin-top: 1px;
+    margin-bottom: 2px;
+  }
+}
