@@ -10,13 +10,14 @@ import css from "./index.less"
 const EMPTY_ID = 'empty'
 
 export default function ({ editConfig }: EditorProps) {
-  const { editorValue, defaultValue, COM_OPTIONS } = useMemo(() => {
+  const { editorValue, defaultValue, COMS_MAP, COM_OPTIONS } = useMemo(() => {
     const editorValue = editConfig.value
     const scenes: Array<{ id: string, title: string, components: Array<{ id: string, title: string }> }> = editConfig.scenes.getAll()
     const COM_OPTIONS: Array<{ id: string, label: string }> = []
     let defaultValue = Object.assign(editorValue.get(), {})
     let resetId = true
     const defaultId = defaultValue.id
+    const COMS_MAP: {[key: string]: any} = {}
 
     scenes.forEach(({ title: sceneTitle, components }) => {
       components.forEach(({ id, title }) => {
@@ -27,21 +28,24 @@ export default function ({ editConfig }: EditorProps) {
           id,
           label: `${sceneTitle} - ${title}`
         })
+        COMS_MAP[id] = {
+          id,
+          title: `${sceneTitle} - ${title}`
+        }
       })
     })
 
     if (resetId && COM_OPTIONS.length) {
       // 不存在这个组件了，默认设置为第一个
       const id = COM_OPTIONS[0].id
-      editorValue.set({
-        id
-      })
+      editorValue.set(COMS_MAP[id])
       defaultValue.id = id
     }
 
     return {
       editorValue,
       defaultValue,
+      COMS_MAP,
       COM_OPTIONS: COM_OPTIONS.map(({ id, label }) => {
         return <option value={id}>{label}</option>
       }),
@@ -51,15 +55,11 @@ export default function ({ editConfig }: EditorProps) {
   const [value, setValue] = useState(defaultValue)
   
   function onSelectChange(e: ChangeEvent<HTMLSelectElement>) {
-    setValue({
-      id: e.target.value
-    })
+    setValue(COMS_MAP[e.target.value])
   }
 
   useUpdateEffect(() => {
-    editorValue.set({
-      id: value.id
-    })
+    editorValue.set(value)
   }, [value])
 
   return (
