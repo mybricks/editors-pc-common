@@ -9,18 +9,30 @@ import css from "./index.less"
 
 const EMPTY_ID = 'empty'
 
+interface SceneComponent {
+  id: string;
+  title: string;
+  slots: Array<{ id: string, title: string, coms: Array<SceneComponent>}>
+}
+
+interface Scene {
+  id: string;
+  title: string;
+  components: Array<SceneComponent>
+}
+
 export default function ({ editConfig }: EditorProps) {
   const { editorValue, defaultValue, COMS_MAP, COM_OPTIONS } = useMemo(() => {
     const editorValue = editConfig.value
-    const scenes: Array<{ id: string, title: string, components: Array<{ id: string, title: string }> }> = editConfig.scenes.getAll()
+    const scenes: Array<Scene> = editConfig.scenes.getAll()
     const COM_OPTIONS: Array<{ id: string, label: string }> = []
     let defaultValue = Object.assign(editorValue.get(), {})
     let resetId = true
     const defaultId = defaultValue.id
     const COMS_MAP: {[key: string]: any} = {}
 
-    scenes.forEach(({ title: sceneTitle, components }) => {
-      components.forEach(({ id, title }) => {
+    function deep(components: Scene['components'], sceneTitle: string) {
+      components.forEach(({ id, title, slots }) => {
         if (defaultId === id) {
           resetId = false
         }
@@ -32,7 +44,19 @@ export default function ({ editConfig }: EditorProps) {
           id,
           title: `${sceneTitle} - ${title}`
         }
+        if (Array.isArray(slots)) {
+          slots.forEach(({ coms }) => {
+            if (Array.isArray(coms)) {
+              deep(coms, sceneTitle)
+            }
+          })
+        }
       })
+    }
+
+
+    scenes.forEach(({ title: sceneTitle, components }) => {
+      deep(components, sceneTitle)
     })
 
     if (resetId && COM_OPTIONS.length) {
