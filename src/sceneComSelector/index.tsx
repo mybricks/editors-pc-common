@@ -30,7 +30,7 @@ export default function ({ editConfig }: EditorProps) {
       })
     })
 
-    if (resetId) {
+    if (resetId && COM_OPTIONS.length) {
       // 不存在这个组件了，默认设置为第一个
       const id = COM_OPTIONS[0].id
       editorValue.set({
@@ -64,9 +64,13 @@ export default function ({ editConfig }: EditorProps) {
 
   return (
     <div className={`${css.editor} fangzhou-theme`}>
-      <select value={value.id} onChange={onSelectChange}>
-        {COM_OPTIONS}
-      </select>
+      {COM_OPTIONS.length ? (
+        <select value={value.id} onChange={onSelectChange}>
+          {COM_OPTIONS}
+        </select>
+      ) : (
+        <div>画布中没有组件，请添加后再试</div>
+      )}
     </div>
   )
 }
