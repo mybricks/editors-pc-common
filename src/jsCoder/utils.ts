@@ -1,5 +1,6 @@
 interface Props {
   presets?: string[];
+  plugins?: string[]; 
   errorCallback?: (val: any) => void;
   babelInstance?: any;
 }
@@ -7,6 +8,7 @@ interface Props {
 const transformCodeByBabel = (val: string, props?: Props) => {
   const {
     presets,
+    plugins,
     errorCallback,
     babelInstance = (window as any)?.Babel
   } = props || {};
@@ -37,8 +39,9 @@ const transformCodeByBabel = (val: string, props?: Props) => {
     }
     res.transformCode = encodeURIComponent(
       babelInstance.transform(temp, {
-        presets: (presets || ['env']).concat(['typescript']),
+        presets,
         comments: false,
+        plugins,
         filename: 'types.d.ts'
       }).code
     );

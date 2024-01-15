@@ -149,7 +149,7 @@ const getExtraLibBySchema = (schema: any) => {
 
 const formatValue = (val: string, options?: any) => {
   const { babel, fnParams } = options || {};
-  const { presets: babelPresets } = babel || {};
+  const { presets: babelPresets, plugins } = babel || {};
   if (typeof val !== 'string') {
     return val;
   }
@@ -161,7 +161,8 @@ const formatValue = (val: string, options?: any) => {
       ...transformCodeByBabel(
         encodeURIComponent(getFnString(val, fnParams)),
         {
-          presets: babelPresets || ['env'],
+          presets: babelPresets || ['env', 'typescript'],
+          plugins
         }
       ),
       code: encodeURIComponent(val),
