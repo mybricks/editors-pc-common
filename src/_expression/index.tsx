@@ -1,19 +1,21 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import HintPanel from "./hintPanel";
 import { EditorProps } from "../interface";
 import debounce from "lodash/debounce";
+import { world } from './icons'
 import { loadPkg } from "../util/loadPkg";
 import { Spin } from "antd";
 import styles from "./index.less";
 
 export default ({ editConfig }: EditorProps) => {
-  const { value, options = {}, getDefaultOptions } = editConfig;
+  const { value, options = {}, getDefaultOptions, locales } = editConfig;
   const valConfig = value.get();
   const [CodeEditor, setCodeEditor] = useState<any>();
   const {
     placeholder,
     runCode,
     suggestions: completions = [],
+    locale = false,
   } = useMemo(() => {
     if (typeof options === "function") {
       return options.apply(null);
@@ -22,9 +24,18 @@ export default ({ editConfig }: EditorProps) => {
     }
   }, [options]);
   const defaultOptions = useMemo(() => getDefaultOptions?.('expression') || {}, []);
-  const [_value, setValue] = useState<string>(
-    typeof valConfig === "string" ? valConfig : valConfig?.value
-  );
+  const localeEnable = !!locales && !!locale
+  const initValue = useMemo(() => {
+    if (localeEnable && valConfig.id) {
+      const item = locales.searchById(valConfig.id)
+      return item ? item.getContent('zh') : `<未找到文案>`
+    } else {
+      return typeof valConfig === "string" ? valConfig : valConfig?.value
+    }
+  }, [])
+  const [_value, setValue] = useState<string>(initValue);
+  const [useLocale, setUseLocale] = useState(!!(localeEnable && valConfig.id))
+  const useLocalRef = useRef<any>(useLocale)
   const [showPanel, setShowPanel] = useState<boolean>(false);
   const [result, setResult] = useState<Record<string, any>>();
   const [markers, setMarkers] = useState<Array<Partial<{ message: string }>>>();
@@ -55,6 +66,36 @@ export default ({ editConfig }: EditorProps) => {
       document.body.removeEventListener("click", closePanel);
     };
   }, []);
+
+  const openLocale = useCallback(e => {
+    if (!locales?.edit) {
+      console.error(`未找到 locales.edit`)
+      return
+    }
+    locales.edit({
+      value: {
+        get() {
+          return valConfig
+        },
+        set(item) {
+          if (item) {
+            setUseLocale(true)
+            useLocalRef.current = true
+            setValue(item.getContent('zh'))
+
+            value.set({
+              id: item.id
+            })
+          } else {
+            setUseLocale(false)
+            useLocalRef.current = false
+            setValue('')
+            value.set('')
+          }
+        }
+      }
+    })
+  }, [_value])
 
   const setHintModel = (
     showPanel: boolean,
@@ -95,9 +136,13 @@ export default ({ editConfig }: EditorProps) => {
   );
 
   const onChange = (_value: string) => {
-    value.set(_value);
     setValue(_value);
+    // 传给编辑器的onChange方法不会变化，所以需要在此处使用uselocal的引用
+    if (!useLocalRef.current) {
+      value.set(_value)
+    }
   };
+
   return (
     <div className={styles.wrap}>
       <Spin spinning={loading}>
@@ -107,13 +152,24 @@ export default ({ editConfig }: EditorProps) => {
             value={_value}
             onChange={onChange}
             completions={completions}
+            editable={!useLocale}
             theme={{
               focused: {
                 outline: "1px solid #fa6400",
               },
             }}
           />
+
         )}
+        {
+          localeEnable ? (
+            <span className={`${useLocale ? styles.useLocale : ''} ${styles.icon}`}
+              onClick={openLocale}
+              data-mybricks-tip={`多语言`}>
+              {world}
+            </span>
+          ) : null
+        }
       </Spin>
       <HintPanel showPanel={showPanel} result={result} markers={markers} />
     </div>

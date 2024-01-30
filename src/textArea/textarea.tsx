@@ -50,7 +50,6 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
           return val
         },
         set(item) {
-          console.log('set item', item)
           if (item) {
             setUseLocale(true)
 
