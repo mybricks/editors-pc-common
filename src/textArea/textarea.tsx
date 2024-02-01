@@ -100,10 +100,10 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
         onChange={evt => {
           setCurText(evt.target.value)
         }}
-        onKeyPress={evt => {
-          if (evt.key !== 'Enter') return
-          updateVal(evt)
-        }}
+        // onKeyPress={evt => {
+        //   if (evt.key !== 'Enter') return
+        //   updateVal(evt)
+        // }}
         onBlur={(evt) => {
           updateVal(evt)
         }}
