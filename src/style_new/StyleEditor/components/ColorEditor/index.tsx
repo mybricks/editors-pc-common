@@ -122,30 +122,6 @@ export function ColorEditor ({defaultValue, style = {}, onChange, options = []}:
     setOpen(true)
   }, [])
 
-  const handleInputChange = useCallback((e) => {
-    const value = e.target.value
-    const state: any = {
-      value
-    }
-    try {
-      const hex = getHex(value)
-      state.finalValue = hex
-      onChange(hex)
-    } catch {}
-
-    dispatch(state)
-  }, [])
-
-  const handleInputBlur = useCallback(() => {
-    const { value, finalValue } = state
-
-    if (value !== finalValue) {
-      dispatch({
-        value: finalValue
-      })
-    }
-  }, [state.value, state.finalValue])
-
   const handleColorpickerChange = useCallback((color) => {
     const hex = getHex(color.hexa)
 
@@ -157,8 +133,58 @@ export function ColorEditor ({defaultValue, style = {}, onChange, options = []}:
     onChange(hex)
   }, [])
 
+  const [colorString, opacityNumber] = useMemo(() => {
+    try {
+      const color = new ColorUtil(state.value)
+      const alpha = color.alpha()
+      return [color.hex(), isNaN(alpha) ? 1 : alpha]
+    } catch (err) {
+      return [state.value, 1]
+    }
+  }, [state.value, state.nonColorValue])
+
+  const handleInputChange = useCallback((e) => {
+    const value = e.target.value
+
+    let finalValue = state.value
+
+    try {
+      const color = new ColorUtil(value).alpha(isNaN(opacityNumber) ? 100 : opacityNumber / 100)
+      finalValue = color.hexa();
+    } catch {
+      finalValue = value
+    }
+
+    onChange(finalValue)
+    dispatch({
+      value: finalValue,
+      finalValue
+    })
+
+    // const state: any = {
+    //   value
+    // }
+    // try {
+    //   const hex = getHex(value)
+    //   state.finalValue = hex
+    //   onChange(hex)
+    // } catch {}
+
+    // dispatch(state)
+  }, [state.value, opacityNumber])
+
+  const handleInputBlur = useCallback(() => {
+    const { value, finalValue } = state
+
+    if (value !== finalValue) {
+      dispatch({
+        value: finalValue
+      })
+    }
+  }, [state.value, state.finalValue])
+
   const input = useMemo(() => {
-    const { value, finalValue, nonColorValue } = state
+    const { value, nonColorValue } = state
     if (nonColorValue) {
       return (
         <div className={css.text} onClick={onPresetClick}>
@@ -168,14 +194,55 @@ export function ColorEditor ({defaultValue, style = {}, onChange, options = []}:
     }
     return (
       <input
-        value={value}
+        value={colorString}
         className={css.input}
         onChange={handleInputChange}
         onBlur={handleInputBlur}
         disabled={nonColorValue}
       />
     )
-  }, [state.value, state.finalValue, state.nonColorValue])
+  }, [colorString, state.nonColorValue])
+
+  const handleOpacityChange = useCallback((e) => {
+    const value = e.target.value
+    // const state: any = {
+    //   value
+    // }
+
+    let finalValue = state.value
+
+    try {
+      const color = new ColorUtil(state.value).alpha(value / 100)
+      finalValue = color.hexa();
+    } catch {}
+
+    onChange(finalValue)
+    dispatch({
+      value: finalValue,
+      finalValue
+    })
+  }, [state.value])
+
+  const inputRef = useRef(null)
+
+  const opacityInput = useMemo(() => {
+    if (state.nonColorValue || (isNaN(opacityNumber) && opacityNumber !== undefined)) {
+      return <></>
+    }
+
+    return (
+      <div className={css.opacity}>
+        <input
+          ref={inputRef}
+          type='inputNumber'
+          value={parseInt(opacityNumber * 100)}
+          onChange={handleOpacityChange}
+          onBlur={handleInputBlur}
+        />
+        <div onClick={() => inputRef.current?.focus?.()}>%</div>
+      </div>
+    )
+  }, [opacityNumber, state.nonColorValue, handleOpacityChange])
 
   const block = useMemo(() => {
     const { finalValue, nonColorValue } = state
@@ -325,6 +392,7 @@ export function ColorEditor ({defaultValue, style = {}, onChange, options = []}:
       >
         {block}
         {input}
+        {opacityInput}
       </div>
       {preset}
       {show && createPortal(
