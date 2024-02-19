@@ -150,7 +150,7 @@ export function Border ({value, onChange, config}: BorderProps) {
               {disableBorderStyle ? null : (
                 <Select
                   tip="边框线条样式"
-                  style={{padding: 0, width: 28, minWidth: 28, marginLeft: 0, textAlign: 'right'}}
+                  style={{padding: 0, width: 30, minWidth: 30, marginLeft: 0, textAlign: 'right'}}
                   labelClassName={css.label}
                   value={borderValue.borderTopStyle}
                   options={BORDER_STYLE_OPTIONS}
@@ -206,7 +206,7 @@ export function Border ({value, onChange, config}: BorderProps) {
                   {disableBorderStyle ? null : (
                     <Select
                       tip='上边框线条样式'
-                      style={{padding: 0, width: 28, minWidth: 28, marginLeft: 0, textAlign: 'right'}}
+                      style={{padding: 0, width: 30, minWidth: 30, marginLeft: 0, textAlign: 'right'}}
                       labelClassName={css.label}
                       value={borderValue.borderTopStyle}
                       options={BORDER_STYLE_OPTIONS}
@@ -251,7 +251,7 @@ export function Border ({value, onChange, config}: BorderProps) {
                   {disableBorderStyle ? null : (
                     <Select
                       tip='右边框线条样式'
-                      style={{padding: 0, width: 28, minWidth: 28, marginLeft: 0, textAlign: 'right'}}
+                      style={{padding: 0, width: 30, minWidth: 30, marginLeft: 0, textAlign: 'right'}}
                       labelClassName={css.label}
                       value={borderValue.borderRightStyle}
                       options={BORDER_STYLE_OPTIONS}
@@ -290,7 +290,7 @@ export function Border ({value, onChange, config}: BorderProps) {
                   {disableBorderStyle ? null : (
                     <Select
                       tip='下边框线条样式'
-                      style={{padding: 0, width: 28, minWidth: 28, marginLeft: 0, textAlign: 'right'}}
+                      style={{padding: 0, width: 30, minWidth: 30, marginLeft: 0, textAlign: 'right'}}
                       labelClassName={css.label}
                       value={borderValue.borderBottomStyle}
                       options={BORDER_STYLE_OPTIONS}
@@ -329,7 +329,7 @@ export function Border ({value, onChange, config}: BorderProps) {
                   {disableBorderStyle ? null : (
                     <Select
                       tip='左边框线条样式'
-                      style={{padding: 0, width: 28, minWidth: 28, marginLeft: 0, textAlign: 'right'}}
+                      style={{padding: 0, width: 30, minWidth: 30, marginLeft: 0, textAlign: 'right'}}
                       labelClassName={css.label}
                       value={borderValue.borderLeftStyle}
                       options={BORDER_STYLE_OPTIONS}

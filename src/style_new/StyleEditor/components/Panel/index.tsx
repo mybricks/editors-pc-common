@@ -1,4 +1,4 @@
-import React, { CSSProperties, ReactNode } from 'react'
+import React, { CSSProperties, ReactNode, useCallback, useState } from 'react'
 
 import css from './index.less'
 
@@ -43,10 +43,19 @@ function Item ({
   children,
   style = {},
   onClick = () => {},
-  className
+  className,
+  activeWhenBlur = true,
 }: ItemProps) {
+  const [active, setActive] = useState(false);
+
+  // 因为存在嵌套的情况，不想改了，只允许最外层的响应，子元素不允许响应
+  const onFocusCapture = useCallback((e) => {
+    setActive(true);
+    e.stopPropagation();
+  }, []);
+
   return (
-    <div className={`${css.panelItem}${className ? ` ${className}` : ''}`} style={style} onClick={onClick}>
+    <div className={`${css.panelItem}${className ? ` ${className}` : ''} ${activeWhenBlur && active ? css.active : ''}`} style={style} onClick={onClick} onFocusCapture={onFocusCapture} onBlur={() => setActive(false)}>
       {children}
     </div>
   )

@@ -41,7 +41,14 @@
   border-radius: 4px;
   background-color: rgb(239, 239, 239);
 
+  border: 1px solid transparent;
+  overflow: hidden;
+
   &:not(:first-child) {
     margin-left: 6px;
+  }
+
+  &.active {
+    border: 1px solid #FA6400;
   }
 }

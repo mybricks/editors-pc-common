@@ -146,7 +146,7 @@ export function Font ({value, onChange, config}: FontProps) {
           )}
           {cfg.disableColor ? null : (
             <ColorEditor
-              style={{flexBasis: `calc(50% - 3px)`}}
+              style={{flexBasis: `calc(50% - 3px)`, padding: 0, overflow: 'hidden', paddingLeft: 6}}
               defaultValue={value.color}
               onChange={(value) => onChange({key: 'color', value})}
             />

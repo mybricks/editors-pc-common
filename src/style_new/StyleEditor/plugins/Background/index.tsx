@@ -43,18 +43,32 @@ export function Background ({value, onChange, config}: BackgroundProps) {
 
   return (
     <Panel title='背景'>
-      {disableBackgroundColor ? null : (
-        <Panel.Content>
+      <Panel.Content>
+        {
+          disableBackgroundColor ? null :
           <ColorEditor
-            // tip='背景色'
             // TODO
             // @ts-ignore
             defaultValue={defaultBackgroundValue[getRealKey(keyMap, 'backgroundColor')] || defaultBackgroundValue.backgroundColor}
             onChange={(value) => onChange({key: getRealKey(keyMap, 'backgroundColor'), value: `${value}${useImportant ? '!important' : ''}`})}
           />
-        </Panel.Content>
-      )}
-      {disableBackgroundImage ? null : (
+        }
+        {
+          disableBackgroundImage ? null : 
+          <Image
+            tip='背景图'
+            defaultValue={{
+              backgroundImage: defaultBackgroundValue.backgroundImage,
+              backgroundRepeat: defaultBackgroundValue.backgroundRepeat,
+              backgroundPosition: defaultBackgroundValue.backgroundPosition,
+              backgroundSize: defaultBackgroundValue.backgroundSize
+            }}
+            onChange={(value) => onChange({key: getRealKey(keyMap, value.key), value: `${value.value}${useImportant ? '!important' : ''}`})}
+            upload={context.upload}
+          />
+        }
+      </Panel.Content>
+      {/* {disableBackgroundImage ? null : (
         <Panel.Content>
           <Image
             tip='背景图'
@@ -68,7 +82,7 @@ export function Background ({value, onChange, config}: BackgroundProps) {
             upload={context.upload}
           />
         </Panel.Content>
-      )}
+      )} */}
     </Panel>
   )
 }
