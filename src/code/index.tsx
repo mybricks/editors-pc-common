@@ -25,6 +25,7 @@ export default function ({ editConfig }: any): JSX.Element {
     isTsx,
     preview,
     height,
+    theme,
   } = options;
   const codeIns = useRef<HandlerType>(null);
   const [code, setCode] = useState<UnionString>(() =>
@@ -39,11 +40,13 @@ export default function ({ editConfig }: any): JSX.Element {
       path += ".ts";
     } else if (language === "javascript") {
       path += ".js";
+    } else {
+      path += `.${language}`;
     }
     if (isTsx) {
       path += "x";
     }
-    return path
+    return path;
   }, [isTsx, language]);
 
   const defaultOptions = useMemo(() => getDefaultOptions?.("code") ?? {}, []);
@@ -58,12 +61,15 @@ export default function ({ editConfig }: any): JSX.Element {
       try {
         const _value = formatValue(getFnString(value, fnParams));
         const code = await codeIns.current?.compile(_value);
-        return {
-          code: encodedValue,
-          transformCode: safeEncoder(
-            `(function() { var _RTFN_; \n${code}\n; return _RTFN_; })()`
-          ),
-        };
+        if(code) {
+          return {
+            code: encodedValue,
+            transformCode: safeEncoder(
+              `(function() { var _RTFN_; \n${code}\n; return _RTFN_; })()`
+            ),
+          };
+        }
+        return encodedValue
       } catch (error) {
         console.error("[transform code error]", error);
         return encodedValue;
@@ -72,8 +78,8 @@ export default function ({ editConfig }: any): JSX.Element {
     [babel, fnParams, language]
   );
 
-  const updateValue = useCallback(async () => {
-    const code = codeIns.current?.editor.getValue();
+  const updateValue = useCallback(async (current?: string) => {
+    const code = current ?? codeIns.current?.editor.getValue();
     const val = await transform(code);
     value.set(val);
   }, []);
@@ -82,12 +88,12 @@ export default function ({ editConfig }: any): JSX.Element {
     setCode(value);
   };
 
-  const onBlur = async (editor: editor) => {
-    updateValue();
+  const onBlur = useCallback(async (editor: editor) => {
+    await updateValue(editor.getValue());
     typeof options.onBlur === "function" && options.onBlur();
-  };
+  }, []);
 
-  const onOpen = useCallback(async () => {
+  const onOpen = useCallback(() => {
     updateValue();
   }, []);
 
@@ -96,7 +102,7 @@ export default function ({ editConfig }: any): JSX.Element {
     updateValue();
   }, []);
 
-  const onPreview = useCallback(async () => {
+  const onPreview = useCallback(() => {
     updateValue();
   }, []);
 
@@ -132,7 +138,7 @@ export default function ({ editConfig }: any): JSX.Element {
       comment={{
         value: comments,
       }}
-      theme="light"
+      theme={theme ?? "light"}
       height={height}
       toolbar={
         <>

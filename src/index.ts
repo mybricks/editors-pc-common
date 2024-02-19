@@ -47,7 +47,7 @@ const PcEditorMap: any = {
   MAP: EditorMap,
   LIST: EditorList,
   ARRAY: EditorArray,
-  CODE: EditorCode,
+  CODE: Code,
   RADIO: EditorRadio,
   COLORPICKER: EditorColorPicker,
   SELECT: EditorSelect,
