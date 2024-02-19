@@ -105,7 +105,7 @@ export function Image ({
   }, [value.backgroundImage])
 
   return (
-    <Panel.Item>
+    <Panel.Item style={style}>
       <div className={css.image} data-mybricks-tip={tip}>
         <div ref={ref} className={css.block} onClick={handleImageClick}>
           {icon}

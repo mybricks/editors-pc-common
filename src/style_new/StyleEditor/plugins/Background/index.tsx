@@ -49,6 +49,7 @@ export function Background ({value, onChange, config}: BackgroundProps) {
           <ColorEditor
             // TODO
             // @ts-ignore
+            style={{ flex: 2 }}
             defaultValue={defaultBackgroundValue[getRealKey(keyMap, 'backgroundColor')] || defaultBackgroundValue.backgroundColor}
             onChange={(value) => onChange({key: getRealKey(keyMap, 'backgroundColor'), value: `${value}${useImportant ? '!important' : ''}`})}
           />
@@ -56,6 +57,7 @@ export function Background ({value, onChange, config}: BackgroundProps) {
         {
           disableBackgroundImage ? null : 
           <Image
+            style={{ flex: 1 }}
             tip='背景图'
             defaultValue={{
               backgroundImage: defaultBackgroundValue.backgroundImage,

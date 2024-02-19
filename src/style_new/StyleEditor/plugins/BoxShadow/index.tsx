@@ -92,7 +92,7 @@ export function BoxShadow ({value, onChange, config}: BoxShadowProps) {
       <Panel.Content>
         <ColorEditor
           // tip='颜色'
-          style={{width: 130}}
+          style={{width: 150}}
           defaultValue={boxShadowValues.color}
           onChange={(value) => setBoxShadowValues((boxShadowValues) => {
             return {

@@ -146,7 +146,7 @@ export function Font ({value, onChange, config}: FontProps) {
           )}
           {cfg.disableColor ? null : (
             <ColorEditor
-              style={{flexBasis: `calc(50% - 3px)`, padding: 0, overflow: 'hidden', paddingLeft: 6}}
+              style={{flexBasis: `calc(70% - 3px)`, padding: 0, overflow: 'hidden', paddingLeft: 6}}
               defaultValue={value.color}
               onChange={(value) => onChange({key: 'color', value})}
             />
@@ -168,7 +168,7 @@ export function Font ({value, onChange, config}: FontProps) {
           {cfg.disableFontSize ? null : (
             <InputNumber
               tip='大小'
-              style={{flexBasis: `calc(50% - 3px)`}}
+              style={{flexBasis: `calc(70% - 3px)`}}
               prefix={<FontSizeOutlined />}
               defaultValue={value.fontSize}
               unitOptions={FONT_SIZE_OPTIONS}
@@ -183,6 +183,7 @@ export function Font ({value, onChange, config}: FontProps) {
           {cfg.disableLineHeight ? null : (
             <InputNumber
               tip='行高'
+              style={{flexBasis: `calc(50% - 3px)`}}
               prefix={<LineHeightOutlined />}
               value={lineHeight}
               defaultUnitValue='inherit'
@@ -194,6 +195,7 @@ export function Font ({value, onChange, config}: FontProps) {
           {cfg.disableLetterSpacing ? null : (
             <InputNumber
               tip='间距'
+              style={{flexBasis: `calc(70% - 3px)`}}
               prefix={<LetterSpacingOutlined />}
               defaultValue={value.letterSpacing}
               unitOptions={LETTERSPACING_UNIT_OPTIONS}
