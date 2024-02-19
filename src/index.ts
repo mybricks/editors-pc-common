@@ -34,6 +34,7 @@ import EditorTypeChange from './_typeChange';
 import EditorI18nInput from "./i18nInput";
 import EditorSceneSelector from "./sceneSelector";
 import EditorSceneComSelector from "./sceneComSelector";
+import Code from './code'
 import "./index.less";
 export { config } from "./configProvider";
 
