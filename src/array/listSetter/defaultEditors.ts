@@ -8,6 +8,7 @@ import EditorSlider from "./../../slider"
 import Expression from './../../_expression'
 import EditorValueSelect from './../../valueSelect'
 import EditorCode from './../../jsCoder'
+import Code from '../../code'
 import EditorImageSelector from "../../imageSelector";
 import EditorStyle from "../../style";
 import EditorIcon from "../../icon";
@@ -27,7 +28,7 @@ const PcEditorMap: any = {
   SLIDER: EditorSlider,
   EXPRESSION: Expression,
   VALUESELECT: EditorValueSelect,
-  CODE: EditorCode,
+  CODE: Code,
   IMAGESELECTOR: EditorImageSelector,
   STYLE: EditorStyle,
   ICON: EditorIcon,

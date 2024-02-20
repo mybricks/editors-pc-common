@@ -61,7 +61,7 @@ export default function ({ editConfig }: any): JSX.Element {
       try {
         const _value = formatValue(getFnString(value, fnParams));
         const code = await codeIns.current?.compile(_value);
-        if(code) {
+        if (code) {
           return {
             code: encodedValue,
             transformCode: safeEncoder(
@@ -69,7 +69,7 @@ export default function ({ editConfig }: any): JSX.Element {
             ),
           };
         }
-        return encodedValue
+        return encodedValue;
       } catch (error) {
         console.error("[transform code error]", error);
         return encodedValue;
@@ -121,14 +121,18 @@ export default function ({ editConfig }: any): JSX.Element {
       }}
       babel={{ standalone: defaultOptions.CDN?.babel }}
       value={code}
-      modal={{
-        open,
-        width: 1200,
-        title: title ?? "编辑代码",
-        inside: true,
-        onOpen,
-        onClose,
-      }}
+      modal={
+        options.modal !== false
+          ? {
+              open,
+              width: 1200,
+              title: title ?? "编辑代码",
+              inside: true,
+              onOpen,
+              onClose,
+            }
+          : void 0
+      }
       language={language}
       extraLib={`${LegacyLib}\n${extraLib}`}
       isTsx={isTsx}
