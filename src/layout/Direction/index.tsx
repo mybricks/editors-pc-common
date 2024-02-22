@@ -37,19 +37,33 @@ export default ({ position, flexDirection, onSelect }: AlignItemsProps) => {
     );
   };
   return (
-    <div className={styles.directionWrap}>
-      {defaultFlexFlow.map(({ title, value, render }) => (
+    <div>
+      <div className={styles.directionWrap}>
         <div
-          key={value}
-          data-mybricks-tip={title}
-          className={`${styles["direction"]} ${
-            isActive(value as Layout) ? styles["direction-active"] : ""
-          }`}
-          onClick={() => onSelect(value as Layout)}
-        >
-          {render()}
+            key = "smart"
+            data-mybricks-tip = "智能排列"
+            className={`${styles["direction"]} ${
+              isActive("smart" as Layout) ? styles["direction-active"] : ""
+            }`}
+            onClick={() => onSelect("smart" as Layout)}
+          >
+            <Icon name="smart" />
         </div>
-      ))}
+      </div>
+      <div className={styles.directionWrap}> 
+        {defaultFlexFlow.map(({ title, value, render }) => (
+          <div
+            key={value}
+            data-mybricks-tip={title}
+            className={`${styles["direction"]} ${
+              isActive(value as Layout) ? styles["direction-active"] : ""
+            }`}
+            onClick={() => onSelect(value as Layout)}
+          >
+            {render()}
+          </div>
+        ))}
+      </div>
     </div>
   );
 };

@@ -1,1 +1,1 @@
-export type Layout = "absolute" | "row" | "column";
+export type Layout = "absolute" | "row" | "column" | "smart";

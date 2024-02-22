@@ -9,7 +9,7 @@ import styles from "./index.less";
 interface LayoutProps {
   display?: CSSProperties["display"];
   position?: CSSProperties["position"];
-  flexDirection: CSSProperties["flexDirection"];
+  flexDirection: CSSProperties["flexDirection"]  | 'smart';
   alignItems: CSSProperties["alignItems"];
   justifyContent: CSSProperties["justifyContent"];
   flexWrap: CSSProperties["flexWrap"];
@@ -102,7 +102,7 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
       setModel((pre) => ({ ...pre, flexWrap }));
       updateValue({ flexWrap });
     };
-    return model.position !== "absolute" ? (
+    return model.position !== "absolute" && model.flexDirection !== "smart" ? (
       <JustifyContent
         flexDirection={model.flexDirection}
         justifyContent={model.justifyContent}
@@ -125,7 +125,7 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
       }));
       updateValue({ justifyContent, alignItems });
     };
-    return model.position !== "absolute" ? (
+    return model.position !== "absolute" && model.flexDirection !== "smart" ? (
       <AlignItems
         flexDirection={model?.flexDirection}
         justifyContent={model.justifyContent}
@@ -140,7 +140,7 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
       setModel((pre) => ({ ...pre, ...value }));
       updateValue({ ...value });
     };
-    return model.position !== "absolute" && option.gap ? (
+    return model.position !== "absolute" && model.flexDirection !== "smart" && option.gap ? (
       <Gap
         value={{ rowGap: model.rowGap, columnGap: model.columnGap }}
         onChange={onChange}
@@ -155,7 +155,9 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
         {renderJustifyContent()}
         {renderGap()}
       </div>
-      <div className={styles.right}>{renderAlignItems()}</div>
+      <div className={styles.rightLayout}>
+        <div className={styles.right}>{renderAlignItems()}</div>
+      </div>
     </div>
   );
 }
