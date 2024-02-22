@@ -141,6 +141,7 @@ export default function ({ editConfig }: any): JSX.Element {
       options={{ readonly, fontSize: 13 }}
       comment={{
         value: comments,
+        height: 300
       }}
       theme={theme ?? "light"}
       height={height}
