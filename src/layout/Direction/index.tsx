@@ -4,7 +4,7 @@ import { Layout } from "../types";
 import styles from "./index.less";
 
 export interface AlignItemsProps {
-  position?: CSSProperties["position"];
+  position?: CSSProperties["position"] | "smart";
   flexDirection: CSSProperties["flexDirection"];
   onSelect: (layout: Layout) => void;
 }
@@ -29,12 +29,27 @@ const defaultFlexFlow = [
 
 export default ({ position, flexDirection, onSelect }: AlignItemsProps) => {
   const isAbsolute = position === "absolute";
-
+  const isSmart = position === "smart";
+  const isInherit = position === "inherit";
+  const isRow = flexDirection === "row";
+  const isColumn = flexDirection === "column";
+  
   const isActive = (value: Layout) => {
-    return (
-      (isAbsolute && value === "absolute") ||
-      (!isAbsolute && value === flexDirection)
-    );
+    if(isAbsolute){
+      return value === "absolute"
+    }
+
+    if(isSmart){
+      return value === "smart"
+    }
+
+    if(isInherit && isRow){
+      return value === "row"
+    }
+
+    if(isInherit && isColumn){
+      return value === "column"
+    }
   };
   return (
     <div>
