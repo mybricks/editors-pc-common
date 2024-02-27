@@ -8,7 +8,7 @@ import { Layout } from "./types";
 import styles from "./index.less";
 interface LayoutProps {
   display?: CSSProperties["display"];
-  position?: 'absolute' | 'inherit' | 'smart';
+  position?: CSSProperties["position"] | 'smart';
   flexDirection: CSSProperties["flexDirection"];
   alignItems: CSSProperties["alignItems"];
   justifyContent: CSSProperties["justifyContent"];
