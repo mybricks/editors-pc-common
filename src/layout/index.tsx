@@ -8,8 +8,8 @@ import { Layout } from "./types";
 import styles from "./index.less";
 interface LayoutProps {
   display?: CSSProperties["display"];
-  position?: CSSProperties["position"];
-  flexDirection: CSSProperties["flexDirection"]  | 'smart';
+  position?: CSSProperties["position"] | 'smart';
+  flexDirection: CSSProperties["flexDirection"];
   alignItems: CSSProperties["alignItems"];
   justifyContent: CSSProperties["justifyContent"];
   flexWrap: CSSProperties["flexWrap"];
@@ -70,7 +70,7 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
 
   const renderFlexDirection = () => {
     const onSelect = (layout: Layout) => {
-      const isAbsolute = layout === "absolute";
+      const isAbsolute = (layout === "absolute" || layout === "smart");
       const flexDirection = !isAbsolute ? layout : model.flexDirection;
       setModel((pre) => ({
         ...pre,
@@ -102,7 +102,7 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
       setModel((pre) => ({ ...pre, flexWrap }));
       updateValue({ flexWrap });
     };
-    return model.position !== "absolute" && model.flexDirection !== "smart" ? (
+    return model.position !== "absolute" && model.position !== "smart" ? (
       <JustifyContent
         flexDirection={model.flexDirection}
         justifyContent={model.justifyContent}
@@ -125,7 +125,7 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
       }));
       updateValue({ justifyContent, alignItems });
     };
-    return model.position !== "absolute" && model.flexDirection !== "smart" ? (
+    return model.position !== "absolute" && model.position !== "smart" ? (
       <AlignItems
         flexDirection={model?.flexDirection}
         justifyContent={model.justifyContent}
@@ -140,10 +140,11 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
       setModel((pre) => ({ ...pre, ...value }));
       updateValue({ ...value });
     };
-    return model.position !== "absolute" && model.flexDirection !== "smart" && option.gap ? (
+    return model.position !== "absolute" && model.position !== "smart" && option.gap ? (
       <Gap
         value={{ rowGap: model.rowGap, columnGap: model.columnGap }}
         onChange={onChange}
+        flexDirection={model.flexDirection}
       />
     ) : null;
   };
@@ -152,11 +153,13 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
     <div className={styles.layout}>
       <div className={styles.left}>
         {renderFlexDirection()}
-        {renderJustifyContent()}
         {renderGap()}
       </div>
-      <div className={styles.rightLayout}>
+      <div className={styles.centerLayout}>
         <div className={styles.right}>{renderAlignItems()}</div>
+      </div>
+      <div className={styles.rightLayout}>
+        {renderJustifyContent()}
       </div>
     </div>
   );

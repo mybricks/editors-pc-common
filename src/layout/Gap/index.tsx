@@ -11,21 +11,24 @@ type Value = Partial<{
 export interface GapProps {
   value: Value;
   onChange: (value: Value) => void;
+  flexDirection: CSSProperties["flexDirection"];
 }
-export default ({ value, onChange }: GapProps) => {
+export default ({ value, onChange, flexDirection }: GapProps) => {
   return (
     <div className={styles.gap}>
       <InputNumber
         addonBefore={<Icon name="column-gap" />}
-        addonAfter={"px"}
+        //addonAfter={"px"}
+        disabled = {flexDirection === "column"}
         tooltip="列间距"
         className={styles.input}
         value={value.columnGap}
         onChange={(v) => onChange({ ...value, columnGap: v })}
-      />
+      /> 
       <InputNumber
         addonBefore={<Icon name="row-gap" />}
-        addonAfter={"px"}
+        //addonAfter={"px"}
+        disabled = {flexDirection === "row"}
         tooltip="行间距"
         className={styles.input}
         value={value.rowGap}
