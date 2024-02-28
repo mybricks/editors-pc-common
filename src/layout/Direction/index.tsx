@@ -11,22 +11,22 @@ export interface AlignItemsProps {
 
 const defaultFlexFlow = [
   {
-    title: "智能排列",
+    title: "智能排版",
     value: "smart",
     render: () => <Icon name="smart"/>
   },
   {
-    title: "自由排列",
+    title: "自由排版",
     value: "absolute",
     render: () => <Icon name="absolute" />,
   },
   {
-    title: "横向排列",
+    title: "横向排版",
     value: "row",
     render: () => <Icon name="row-direction" />,
   },
   {
-    title: "纵向排列",
+    title: "纵向排版",
     value: "column",
     render: () => <Icon name="column-direction" />,
   },
