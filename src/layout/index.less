@@ -1,19 +1,29 @@
 .layout {
   display: flex;
-  gap: 20px;
   .left {
     display: flex;
     flex-direction: column;
-    justify-content: flex-start;
-    row-gap: 5px;
+    justify-content: space-between;
+    row-gap: 8px;
+    padding-right: 10px;
   }
   .right {
-    width: 160px;
-    height: 160px;
+    width: 100px;
+    height: 100px;
+    padding-right: 5px;
   }
+}
+
+.centerLayout{
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .rightLayout{
   display: flex;
-  align-items: center;
+  // flex-direction: column;
+  //justify-content: space-between;
+  // align-items: center;
 }

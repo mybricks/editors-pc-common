@@ -11,6 +11,11 @@ export interface AlignItemsProps {
 
 const defaultFlexFlow = [
   {
+    title: "智能排列",
+    value: "smart",
+    render: () => <Icon name="smart"/>
+  },
+  {
     title: "自由排列",
     value: "absolute",
     render: () => <Icon name="absolute" />,
@@ -53,18 +58,6 @@ export default ({ position, flexDirection, onSelect }: AlignItemsProps) => {
   };
   return (
     <div>
-      <div className={styles.directionWrap}>
-        <div
-            key = "smart"
-            data-mybricks-tip = "智能排列"
-            className={`${styles["direction"]} ${
-              isActive("smart" as Layout) ? styles["direction-active"] : ""
-            }`}
-            onClick={() => onSelect("smart" as Layout)}
-          >
-            <Icon name="smart" />
-        </div>
-      </div>
       <div className={styles.directionWrap}> 
         {defaultFlexFlow.map(({ title, value, render }) => (
           <div

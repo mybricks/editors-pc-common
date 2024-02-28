@@ -72,8 +72,8 @@ export default ({
             {render(flexDirection)}
           </div>
         ))}
+        {renderWrap()}
       </div>
-      {renderWrap()}
     </>
   );
 };

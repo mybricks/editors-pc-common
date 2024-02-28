@@ -144,6 +144,7 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
       <Gap
         value={{ rowGap: model.rowGap, columnGap: model.columnGap }}
         onChange={onChange}
+        flexDirection={model.flexDirection}
       />
     ) : null;
   };
@@ -152,11 +153,13 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
     <div className={styles.layout}>
       <div className={styles.left}>
         {renderFlexDirection()}
-        {renderJustifyContent()}
         {renderGap()}
       </div>
-      <div className={styles.rightLayout}>
+      <div className={styles.centerLayout}>
         <div className={styles.right}>{renderAlignItems()}</div>
+      </div>
+      <div className={styles.rightLayout}>
+        {renderJustifyContent()}
       </div>
     </div>
   );
