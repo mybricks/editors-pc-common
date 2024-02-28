@@ -16,24 +16,24 @@ export interface GapProps {
 export default ({ value, onChange, flexDirection }: GapProps) => {
   return (
     <div className={styles.gap}>
-      {flexDirection === "row" ?
-          <InputNumber
-            addonBefore={<Icon name="column-gap" />}
-            addonAfter={"px"}
-            tooltip="列间距"
-            className={styles.input}
-            value={value.columnGap}
-            onChange={(v) => onChange({ ...value, columnGap: v })}
-          /> :
-          <InputNumber
-            addonBefore={<Icon name="row-gap" />}
-            addonAfter={"px"}
-            tooltip="行间距"
-            className={styles.input}
-            value={value.rowGap}
-            onChange={(v) => onChange({ ...value, rowGap: v })}
-          />  
-      }
+      <InputNumber
+        addonBefore={<Icon name="column-gap" />}
+        //addonAfter={"px"}
+        disabled = {flexDirection === "column"}
+        tooltip="列间距"
+        className={styles.input}
+        value={value.columnGap}
+        onChange={(v) => onChange({ ...value, columnGap: v })}
+      /> 
+      <InputNumber
+        addonBefore={<Icon name="row-gap" />}
+        //addonAfter={"px"}
+        disabled = {flexDirection === "row"}
+        tooltip="行间距"
+        className={styles.input}
+        value={value.rowGap}
+        onChange={(v) => onChange({ ...value, rowGap: v })}
+      />
     </div>
   );
 };

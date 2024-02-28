@@ -6,6 +6,7 @@ export type InputNumberProps = Partial<{
   value: number | string | undefined;
   className: string;
   tooltip: string;
+  disabled: boolean;
   onChange: (value: number) => void;
 }>;
 export default ({
@@ -15,20 +16,25 @@ export default ({
   className,
   tooltip,
   onChange,
+  disabled
 }: InputNumberProps) => {
   const handleChange = (e: any) => {
     const value = e.target.value;
     typeof onChange === "function" &&
       onChange(value.trim() ? parseFloat(value) : 0);
   };
+  
   return (
     <div
       className={`${styles.inputNumber} ${className}`}
+      style={{ 
+        backgroundColor: disabled ? '#d9d9d9' : void 0,
+        cursor: disabled ? 'not-allowed' : void 0
+      }}
       data-mybricks-tip={tooltip}
     >
       {addonBefore}
-      <input type="number" value={value} min={0} onChange={handleChange} />
-      {addonAfter}
+      <input type="number" value={value} min={0} onChange={handleChange} disabled={disabled}/>
     </div>
   );
 };
