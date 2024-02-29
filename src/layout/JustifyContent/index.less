@@ -4,9 +4,15 @@
   justify-content: center;
 }
 .selected {
-  background-color: #efefef;
-  border-radius: 2px;
-  border: 1px solid transparent;
+  // background-color: #efefef;
+  // border-radius: 2px;
+  // border: 1px solid transparent;
+
+  background-color: #FA6400;
+  color: #fff;
+  border-radius: 3px;
+  border: 1px solid #FA6400;
+  opacity: 1;
 }
 .unselected {
   width: 24px;
@@ -21,14 +27,40 @@
   column-gap: 4px;
   .svgWrapper {
     cursor: pointer;
+    color: #555;
+    opacity: 0.65;
     .unselected;
+  }
+  .svgWrapper:hover {
+    background-color: #fff8f4;
+    color: #FA6400;
+    border-radius: 3px;
+    border: 1px solid #FA6400;
+    opacity: 1;
   }
   .justifyContent-select {
     .selected;
   }
 }
+
 .wrap {
   cursor: pointer;
   .unselected;
   margin-top: 4px;
+  color: #555;
+  svg {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    line-height: 1;
+    fill: currentColor;
+  }
+}
+
+.wrap:hover {
+  background-color: #fff8f4;
+  color: #FA6400;
+  border-radius: 3px;
+  border: 1px solid #FA6400;
+  opacity: 1;
 }
