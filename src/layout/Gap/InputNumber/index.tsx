@@ -23,18 +23,32 @@ export default ({
     typeof onChange === "function" &&
       onChange(value.trim() ? parseFloat(value) : 0);
   };
+
+  const handleOnChange = (e: any) => {
+    const value = e.target.value;
+    typeof onChange === "function" &&
+      onChange(value.trim() ? parseFloat(value) : value);
+  }
   
   return (
     <div
       className={`${styles.inputNumber} ${className}`}
       style={{ 
-        backgroundColor: disabled ? '#d9d9d9' : void 0,
+        opacity: disabled ? 0.2 : void 0,
+        //backgroundColor: disabled ? '#d9d9d9' : void 0,
         cursor: disabled ? 'not-allowed' : void 0
       }}
       data-mybricks-tip={tooltip}
     >
       {addonBefore}
-      <input type="number" value={value} min={0} onChange={handleChange} disabled={disabled}/>
+      <input
+        type="number" 
+        value={value} min={0} 
+        onChange={handleOnChange}
+        onBlur={handleChange} 
+        disabled={disabled}
+        style={{paddingLeft: '20px'}}
+      />
     </div>
   );
 };
