@@ -16,9 +16,9 @@ const defaultFlexFlow = [
     render: () => <Icon name="smart"/>
   },
   {
-    title: "自由排版",
-    value: "absolute",
-    render: () => <Icon name="absolute" />,
+    title: "纵向排版",
+    value: "column",
+    render: () => <Icon name="column-direction" />,
   },
   {
     title: "横向排版",
@@ -26,9 +26,9 @@ const defaultFlexFlow = [
     render: () => <Icon name="row-direction" />,
   },
   {
-    title: "纵向排版",
-    value: "column",
-    render: () => <Icon name="column-direction" />,
+    title: "自由排版",
+    value: "absolute",
+    render: () => <Icon name="absolute" />,
   },
 ];
 
