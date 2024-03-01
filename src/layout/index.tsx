@@ -3,6 +3,7 @@ import React, { CSSProperties, useCallback, useState } from "react";
 import Direction from "./Direction";
 import AlignItems from "./AlignItems";
 import JustifyContent from "./JustifyContent";
+import Padding, {PaddingProps} from "./Padding";
 import Gap, { GapProps } from "./Gap";
 import { Layout } from "./types";
 import styles from "./index.less";
@@ -15,6 +16,12 @@ interface LayoutProps {
   flexWrap: CSSProperties["flexWrap"];
   rowGap: CSSProperties["rowGap"];
   columnGap: CSSProperties["columnGap"];
+  paddingType: 'independentPadding' | 'dependentPadding',
+  padding: CSSProperties["padding"];
+  paddingTop: CSSProperties["paddingTop"];
+  paddingRight: CSSProperties["paddingRight"];
+  paddingBottom: CSSProperties["paddingBottom"];
+  paddingLeft: CSSProperties["paddingLeft"];
 }
 
 const defaultOptions = {
@@ -149,18 +156,47 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
     ) : null;
   };
 
+  //边距渲染
+  const renderPadding = () => {
+    const onPaddingToggle = (paddingType: 'independentPadding' | 'dependentPadding' ) => {
+      setModel((pre) => ({ ...pre, paddingType }));
+      updateValue({ paddingType });
+    };
+    const onChange = (value: PaddingProps["value"]) => {
+      setModel((pre) => ({ ...pre, ...value }));
+      updateValue({ ...value });
+    };
+    return model.position !== "absolute" && model.position !== "smart" && option.gap ? (
+      <Padding
+        value={{
+          paddingTop: model.paddingTop, 
+          paddingRight: model.paddingRight, 
+          paddingBottom: model.paddingBottom, 
+          paddingLeft: model.paddingLeft
+        }}
+        paddingType={model.paddingType}
+        onPaddingToggle={onPaddingToggle}
+        onChange={onChange}
+      >
+      </Padding>
+    ): null
+  }
+
   return (
-    <div className={styles.layout}>
-      <div className={styles.left}>
-        {renderFlexDirection()}
-        {renderGap()}
+    <div>
+      <div className={styles.layout}>
+        <div className={styles.left}>
+          {renderFlexDirection()}
+          {renderGap()}
+        </div>
+        <div className={styles.centerLayout}>
+          <div className={styles.right}>{renderAlignItems()}</div>
+        </div>
+        <div className={styles.rightLayout}>
+          {renderJustifyContent()}
+        </div>
       </div>
-      <div className={styles.centerLayout}>
-        <div className={styles.right}>{renderAlignItems()}</div>
-      </div>
-      <div className={styles.rightLayout}>
-        {renderJustifyContent()}
-      </div>
+      {renderPadding()}
     </div>
   );
 }
