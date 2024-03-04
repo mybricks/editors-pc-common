@@ -190,7 +190,12 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
           {renderGap()}
         </div>
         <div className={styles.centerLayout}>
-          <div className={styles.right}>{renderAlignItems()}</div>
+          <div 
+            className={styles.right}
+            style={{display: model.position !== "absolute" && model.position !== "smart" ? void 0: 'none'}}
+          >
+            {renderAlignItems()}
+          </div>
         </div>
         <div className={styles.rightLayout}>
           {renderJustifyContent()}
