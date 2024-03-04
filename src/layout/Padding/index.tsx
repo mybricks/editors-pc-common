@@ -90,7 +90,7 @@ export default ({paddingType, onPaddingToggle, value, onChange  }: PaddingProps)
               onChange={(v) => onChange({ ...value, paddingTop: v, paddingBottom: v})}
             />
           </div>
-          <div style={{width: '90px', marginRight: '10px'}}>
+          <div style={{width: '95px', marginRight: '5px'}}>
             <PaddingInput
               addonBefore={<Icon name="paddingRow" />}
               tooltip="左右边距"

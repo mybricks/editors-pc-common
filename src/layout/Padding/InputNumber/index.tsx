@@ -47,7 +47,7 @@ export default ({
         onChange={handleOnChange}
         onBlur={handleChange} 
         disabled={disabled}
-        style={{paddingLeft: '10px'}}
+        //style={{paddingLeft: '10px'}}
       />
     </div>
   );
