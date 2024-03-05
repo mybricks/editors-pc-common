@@ -35,7 +35,6 @@ export default ({
       className={`${styles.inputNumber} ${className}`}
       style={{ 
         opacity: disabled ? 0.2 : void 0,
-        //backgroundColor: disabled ? '#d9d9d9' : void 0,
         cursor: disabled ? 'not-allowed' : void 0
       }}
       data-mybricks-tip={tooltip}
@@ -47,7 +46,6 @@ export default ({
         onChange={handleOnChange}
         onBlur={handleChange} 
         disabled={disabled}
-        //style={{paddingLeft: '10px'}}
       />
     </div>
   );

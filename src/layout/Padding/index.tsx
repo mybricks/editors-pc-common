@@ -16,8 +16,9 @@ export interface PaddingProps {
   onPaddingToggle: (padding: 'independentPadding' | 'dependentPadding') => void;
   value: Value,
   onChange: (value: Value) => void;
+  model: any;
 }
-export default ({paddingType, onPaddingToggle, value, onChange  }: PaddingProps) => {
+export default ({paddingType, onPaddingToggle, value, onChange, model  }: PaddingProps) => {
 
   const defaultPadding = [
     {
@@ -57,61 +58,45 @@ export default ({paddingType, onPaddingToggle, value, onChange  }: PaddingProps)
     );
   };
 
-  const onChangeHandle = (v:string)=>{
-    if(!isNaN(Number(v))){
-      return onChange({ ...value, paddingLeft: v, paddingRight: v})
-    }
-
-    if(v.indexOf(',') !== -1 && isNaN(Number(v))){
-      if(v.match(/,/g,"").length === 1){
-        let arr = v.split(',');
-        onChange({ ...value, paddingLeft: parseFloat(arr[0]), paddingRight: parseFloat(arr[1])});
-      }else{
-        onChange({ ...value, paddingLeft: 0, paddingRight: 0})
-      }
-    }
-  }
-    
-
-    
-
-
   return (
     <div className={styles.gap}>
       {
         paddingType === 'independentPadding' ? 
-        <div style={{display: 'flex', flexDirection: 'row'}}>
-          <div style={{width: '112px', marginRight: '10px'}}>
-            <PaddingInput
-              addonBefore={<Icon name="paddingColumn" />}
-              tooltip="上下边距"
+          <div style={{display: 'flex', flexDirection: 'row'}}>
+            <div style={{width: '112px', marginRight: '10px'}}>
+              <PaddingInput
+                addonBefore={<Icon name="paddingColumn" />}
+                tooltip="上下边距"
+                className={styles.input}
+                value={{paddingTop: value.paddingTop, paddingBottom: value.paddingBottom}}
+                onChange={(v) => onChange({ ...value, paddingTop: v, paddingBottom: v})}
+                model={model}
+              />
+            </div>
+            <div style={{width: '95px', marginRight: '5px'}}>
+              <PaddingInput
+                addonBefore={<Icon name="paddingRow" />}
+                tooltip="左右边距"
+                className={styles.input}
+                value={{paddingLeft: value.paddingLeft, paddingRight: value.paddingRight}}
+                onChange={(v) => onChange({ ...value, paddingLeft: v, paddingRight: v})}
+                model={model}
+              />
+            </div>
+          </div>
+        :  defaultPadding.map(({ title, name, render }) => (
+          <div style={{width: '45px', marginRight: '10px'}}>
+            <InputNumber
+              addonBefore={render()}
+              tooltip={title}
               className={styles.input}
-              value={{paddingTop: value.paddingTop, paddingBottom: value.paddingBottom}}
-              onChange={(v) => onChange({ ...value, paddingTop: v, paddingBottom: v})}
+              value={value[name]}
+              onChange={(v) => onChange({ ...value, [name]: v })}
+              model={model}
             />
           </div>
-          <div style={{width: '95px', marginRight: '5px'}}>
-            <PaddingInput
-              addonBefore={<Icon name="paddingRow" />}
-              tooltip="左右边距"
-              className={styles.input}
-              value={{paddingLeft: value.paddingLeft, paddingRight: value.paddingRight}}
-              onChange={(v) => onChange({ ...value, paddingLeft: v, paddingRight: v})}
-            />
-          </div>
-        </div>
-      :  defaultPadding.map(({ title, name, render }) => (
-        <div style={{width: '45px', marginRight: '10px'}}>
-          <InputNumber
-            addonBefore={render()}
-            tooltip={title}
-            className={styles.input}
-            value={value[name]}
-            onChange={(v) => onChange({ ...value, [name]: v })}
-          />
-        </div>
-      ))
-        }
+        ))
+      }
         {renderPaddingIcon()}
     </div>
   );
