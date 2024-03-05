@@ -177,6 +177,7 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
         paddingType={model.paddingType}
         onPaddingToggle={onPaddingToggle}
         onChange={onChange}
+        model={model}
       >
       </Padding>
     ): null
