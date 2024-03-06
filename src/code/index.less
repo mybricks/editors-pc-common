@@ -1,3 +1,9 @@
+.wrap{
+  padding: 6px;
+  border: 1px solid #eeee;
+  border-radius: 6px;
+  background: #fff;
+}
 .editor {
   border-radius: 4px;
   :global {
@@ -18,4 +24,21 @@
   border-radius: 3px;
   background-color: #f9f9f9;
   box-shadow: 0 1px 4px -1px #777;
+}
+.toolbar {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: flex;
+  column-gap: 8px;
+  .icon {
+    font-size: 10px;
+    svg {
+      width: 18px;
+      height: 18px;
+    }
+    &:hover {
+      transform: scale(1);
+    }
+  }
 }

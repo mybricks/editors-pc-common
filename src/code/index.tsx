@@ -51,6 +51,10 @@ export default function ({ editConfig }: any): JSX.Element {
 
   const defaultOptions = useMemo(() => getDefaultOptions?.("code") ?? {}, []);
 
+  const showBtn = useMemo(() => {
+    return displayType === "button";
+  }, [displayType]);
+
   const transform = useCallback(
     async (value: UnionString) => {
       if (!value) return value;
@@ -93,13 +97,14 @@ export default function ({ editConfig }: any): JSX.Element {
     typeof options.onBlur === "function" && options.onBlur();
   }, []);
 
-  const onOpen = useCallback(() => {
-    updateValue();
+  const onOpen = useCallback(async () => {
+    await updateValue();
+    setOpen(true);
   }, []);
 
   const onClose = useCallback(async () => {
+    await updateValue();
     setOpen(false);
-    updateValue();
   }, []);
 
   const onPreview = useCallback(() => {
@@ -113,54 +118,69 @@ export default function ({ editConfig }: any): JSX.Element {
   }, []);
 
   return (
-    <Editor
-      ref={codeIns}
-      loaderConfig={{ paths: defaultOptions.CDN?.paths }}
-      eslint={{
-        src: defaultOptions.CDN?.eslint,
-      }}
-      babel={{ standalone: defaultOptions.CDN?.babel }}
-      value={code}
-      modal={
-        options.modal !== false
-          ? {
-              open,
-              width: 1200,
-              title: title ?? "编辑代码",
-              inside: true,
-              onOpen,
-              onClose,
-            }
-          : void 0
-      }
-      language={language}
-      extraLib={`${LegacyLib}\n${extraLib}`}
-      isTsx={isTsx}
-      onBlur={onBlur}
-      onChange={onChange}
-      options={{ readonly, fontSize: 13 }}
-      comment={{
-        value: comments,
-        height: 300
-      }}
-      theme={theme ?? "light"}
-      height={height}
-      toolbar={
-        <>
-          {preview && <Icon name="preview" onClick={onPreview} />}
-          <Icon name="format" onClick={onFormat} />
-        </>
-      }
-      className={styles.editor}
-      path={path}
-    >
-      {displayType === "button" ? (
-        <button className={styles.button} onClick={() => setOpen(true)}>
-          {title}
-        </button>
-      ) : (
-        void 0
+    <div className={!showBtn ? styles.wrap : void 0}>
+      <Editor
+        ref={codeIns}
+        loaderConfig={{ paths: defaultOptions.CDN?.paths }}
+        eslint={{
+          src: defaultOptions.CDN?.eslint,
+        }}
+        babel={{ standalone: defaultOptions.CDN?.babel }}
+        value={code}
+        modal={
+          options.modal !== false
+            ? {
+                open,
+                width: 1200,
+                title: title ?? "编辑代码",
+                inside: true,
+                onOpen,
+                onClose,
+              }
+            : void 0
+        }
+        language={language}
+        extraLib={`${LegacyLib}\n${extraLib}`}
+        isTsx={isTsx}
+        onBlur={onBlur}
+        onChange={onChange}
+        options={{ readonly, fontSize: 13 }}
+        comment={{
+          value: comments,
+          height: 300,
+        }}
+        theme={theme ?? "light"}
+        height={height}
+        className={styles.editor}
+        path={path}
+      >
+        {showBtn ? (
+          <button className={styles.button} onClick={() => setOpen(true)}>
+            {title}
+          </button>
+        ) : (
+          void 0
+        )}
+      </Editor>
+      {!showBtn && (
+        <div className={styles.toolbar}>
+          {preview && (
+            <span data-mybricks-tip="预览">
+              <Icon
+                className={styles.icon}
+                name="preview"
+                onClick={onPreview}
+              />
+            </span>
+          )}
+          <span data-mybricks-tip="格式化">
+            <Icon className={styles.icon} name="format" onClick={onFormat} />
+          </span>
+          <span data-mybricks-tip="放大编辑">
+            <Icon className={styles.icon} name="plus" onClick={onOpen} />
+          </span>
+        </div>
       )}
-    </Editor>
+    </div>
   );
 }
