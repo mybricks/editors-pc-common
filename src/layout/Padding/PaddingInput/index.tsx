@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import styles from "./index.less";
 export type InputNumberProps = Partial<{
   addonBefore: React.ReactNode | string;
@@ -20,11 +20,18 @@ export default ({
   disabled,
   model
 }: InputNumberProps) => {
+  const [isFocus, setIsFocus] = useState(false);
+
   const handleBlur = (e: any) => {
+    setIsFocus(false)
     const value = e.target.value;
     typeof onChange === "function" &&
       onChange(value.trim() ? parseFloat(value) : 0);
   };
+
+  const handleFocus = () => {
+    setIsFocus(true)
+  }
 
   const handleOnChange = (e: any) => {
     const value = e.target.value;
@@ -44,7 +51,7 @@ export default ({
 
   return (
     <div
-      className={`${styles.inputNumber} ${className}`}
+      className={`${styles.inputNumber} ${className} ${isFocus ? styles.focus : void 0}`}
       style={{ 
         opacity: disabled ? 0.2 : void 0,
         cursor: disabled ? 'not-allowed' : void 0
@@ -58,6 +65,7 @@ export default ({
         onChange={handleOnChange}
         onBlur={handleBlur}
         disabled={disabled}
+        onFocus={handleFocus}
         //style={{paddingLeft: '20px'}}
       />
     </div>
