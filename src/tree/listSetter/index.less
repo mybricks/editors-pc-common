@@ -1,0 +1,212 @@
+@import "../../theme.less";
+
+.listSetter {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  :global {
+    .ant-tree {
+      background-color: #F7F7F7;
+    }
+    .ant-tree .ant-tree-node-content-wrapper {
+      border: 1px solid transparent;
+    }
+    .ant-tree .ant-tree-node-content-wrapper:hover {
+      background-color: #fff8f4;
+      color: #FA6400;
+      border-radius: 3px;
+      border: 1px solid #FA6400;
+    }
+  }
+
+  .btnAdd {
+    margin-top: 10px;
+    font-size: 12px;
+    cursor: pointer;
+    display: block;
+    width: 100%;
+    text-align: center;
+    border: none;
+    height: 26px;
+    line-height: 26px;
+    border-radius: 3px;
+    background-color: #f9f9f9;
+    box-shadow: 0 1px 4px -1px #777;
+  }
+}
+
+.listItemSelect {
+  cursor: pointer;
+  &:hover {
+    border: 1px solid var(--primary-color-hover);
+  }
+
+  &.active {
+    border: 1px solid var(--primary-color-hover);
+  }
+}
+
+.listItem {
+  width: 100%;
+  background-color: hsl(0, 0%, 97%);
+  border: 1px solid #ddd;
+  margin-bottom: 10px;
+  .listItemCard {
+    .itemTitle {
+      color: #555;
+      padding-bottom: 3px;
+      line-height: 12px;
+      margin: 0px;
+    }
+    .item {
+      font-size: 12px;
+      padding-bottom: 10px;
+
+      &:last-child {
+        padding-bottom: 0px;
+      }
+    }
+  }
+  
+  .listItemCardTop {
+    width: 100%;
+    height: 30px;
+    padding-right: 7px;
+    font-size: 12px;
+    border-radius: 3px;
+    display: flex;
+    align-items: center;
+  }
+
+  .grab {
+    cursor: move;
+    display: flex;
+    align-items: center;
+    height: 22px;
+    margin: 3px 0px 3px 3px;
+    padding: 0 2px;
+    &:hover {
+      background-color: rgba(0, 0, 0, 0.05);
+      border-radius: 1px;
+    }
+  }
+
+  .listItemBtn {
+    display: flex;
+    margin-left: 5px;
+    cursor: pointer;
+  }
+
+  .listItemContent {
+    flex: 1;
+    height: 100%;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+}
+
+.titles {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  > img {
+    height: 70%;
+    width: 20px;
+    object-fit: contain;
+    margin-right: 3px;
+  }
+  > p {
+    margin: 0 3px 0 0;
+  }
+}
+
+.titlesHeavy {
+  color: #333333;
+  font-weight: 700;
+  height: 32px;
+  padding: 0px 10px;
+  border-bottom: 1px solid #d8d8d8;
+}
+
+.drawerWrapper {
+  transform: none !important;
+  margin-right: -1px;
+  position: absolute !important;
+  transition: none !important;
+  width: 280px !important;
+
+  .itemTitle {
+    color: #555;
+    padding-bottom: 3px;
+    line-height: 12px;
+  }
+  .item {
+    font-size: 12px;
+    padding-bottom: 15px;
+  }
+}
+
+.anticon {
+  display: inline-block;
+  color: inherit;
+  font-style: normal;
+  line-height: 0;
+  text-align: center;
+  text-transform: none;
+  vertical-align: -0.125em;
+  text-rendering: optimizelegibility;
+  -webkit-font-smoothing: antialiased;
+  svg {
+    display: inline-block;
+    // width: 12px;
+    // height: 12px;
+    line-height: 1;
+    fill: currentColor;
+  }
+}
+
+.listItemBtn {
+  display: flex;
+  margin-left: 5px;
+  cursor: pointer;
+  align-items: center;
+}
+
+.delete {
+  .listItemBtn();
+  &:hover {
+    svg {
+      fill: var(--primary-color-hover);
+    }
+  }
+}
+
+.edit {
+  .listItemBtn();
+  margin-top: 3px;
+  margin-bottom: 3px;
+  height: 22px;
+  width: 22px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+  &:hover {
+    background-color: #ddd;
+  }
+}
+
+.editActive {
+  .listItemBtn();
+  margin-top: 3px;
+  margin-bottom: 3px;
+  height: 22px;
+  width: 22px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+  background-color: var(--primary-color);
+  color: #FA6400;
+  svg {
+    fill: #ffffff;
+  }
+}
