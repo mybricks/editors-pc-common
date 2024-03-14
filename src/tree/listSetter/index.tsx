@@ -340,19 +340,47 @@ export default function ({
     return result
   }
 
+  //查找对应节点层级
+  function findLevel(tree:any, id:any){
+    let arr = Array.isArray(tree) ? tree : [tree]
+    let level = 0;
+    while (arr.length) {
+      let item = arr.pop()
+      if (item && item._id === id) {
+        level += 1; 
+        break
+      } else if (item && item.children && item.children.length) {
+        level += 1;
+        arr.push(...item.children)
+      }
+    }
+    return level;
+  }
+
   const SubEditors = useMemo(() => {
     return (
       <div style={{ padding: '15px' }} onClick={(e) => e.stopPropagation()}>
         {items.map((item, idx) => {
           const itemValue = JSON.parse(JSON.stringify(getNodeById([...list], editId)))
           const value = getNodeById([...list], editId)?.[item.value]
-          
+          const level = findLevel([...list], editId);
+
           if (typeof item.ifVisible === 'function' 
             && value !== undefined 
             && item.ifVisible(itemValue) === false 
           ) {
            return
           }
+
+          //通过组件设置的index，决定编辑器的显示和隐藏
+          if(item.frontIndex && typeof item.frontIndex === 'number' &&  level > item.frontIndex){
+            return
+          }
+
+          if(item.afterIndex && typeof item.afterIndex === 'number' &&  level < item.afterIndex){
+            return
+          }
+
           return (
             <RenderEditor
               key={`${editId}_${idx}_${item.type}`}
