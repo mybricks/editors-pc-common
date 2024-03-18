@@ -63,7 +63,10 @@ export default ({paddingType, onPaddingToggle, value, onChange, model  }: Paddin
       {
         paddingType === 'independentPadding' ? 
           <div style={{display: 'flex', flexDirection: 'row'}}>
-            <div style={{width: '112px', marginRight: '10px'}}>
+            <div 
+              //style={{width: '112px', marginRight: '10px'}}
+              style={{width: '86px', marginRight: '10px'}}
+            >
               <PaddingInput
                 addonBefore={<Icon name="paddingColumn" />}
                 tooltip="上下边距"

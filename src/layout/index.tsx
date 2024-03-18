@@ -166,7 +166,7 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
       setModel((pre) => ({ ...pre, ...value }));
       updateValue({ ...value });
     };
-    return model.position !== "absolute" && model.position !== "smart" && option.gap ? (
+    return (
       <Padding
         value={{
           paddingTop: model.paddingTop, 
@@ -180,7 +180,7 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
         model={model}
       >
       </Padding>
-    ): null
+    )
   }
 
   return (
