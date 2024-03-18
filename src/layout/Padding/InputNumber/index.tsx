@@ -8,6 +8,7 @@ export type InputNumberProps = Partial<{
   tooltip: string;
   disabled: boolean;
   onChange: (value: number) => void;
+  onBlur: (value: number) => void;
 }>;
 export default ({
   addonBefore,
@@ -16,6 +17,7 @@ export default ({
   className,
   tooltip,
   onChange,
+  onBlur,
   disabled
 }: InputNumberProps) => {
   const [isFocus, setIsFocus] = useState(false);
@@ -24,11 +26,11 @@ export default ({
     setIsFocus(true)
   }
 
-  const handleChange = (e: any) => {
+  const handleOnBlur = (e: any) => {
     setIsFocus(false)
     const value = e.target.value;
-    typeof onChange === "function" &&
-      onChange(value.trim() ? parseFloat(value) : 0);
+    typeof onBlur === "function" &&
+      onBlur(value.trim() ? parseFloat(value) : 0);
   };
 
   const handleOnChange = (e: any) => {
@@ -51,7 +53,7 @@ export default ({
         type="number" 
         value={value} min={0} 
         onChange={handleOnChange}
-        onBlur={handleChange} 
+        onBlur={handleOnBlur} 
         onFocus={handleFocus}
         disabled={disabled}
       />

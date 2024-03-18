@@ -11,9 +11,10 @@ type Value = Partial<{
 export interface GapProps {
   value: Value;
   onChange: (value: Value) => void;
+  onBlur: (value: Value) => void;
   flexDirection: CSSProperties["flexDirection"];
 }
-export default ({ value, onChange, flexDirection }: GapProps) => {
+export default ({ value, onChange, onBlur, flexDirection }: GapProps) => {
   return (
     <div className={styles.gap}>
       <InputNumber
@@ -24,6 +25,7 @@ export default ({ value, onChange, flexDirection }: GapProps) => {
         className={styles.input}
         value={value.columnGap}
         onChange={(v) => onChange({ ...value, columnGap: v })}
+        onBlur={(v) => onBlur({ ...value, rowGap: v })}
       /> 
       <InputNumber
         addonBefore={<Icon name="row-gap" />}
@@ -33,6 +35,7 @@ export default ({ value, onChange, flexDirection }: GapProps) => {
         className={styles.input}
         value={value.rowGap}
         onChange={(v) => onChange({ ...value, rowGap: v })}
+        onBlur={(v) => onBlur({ ...value, rowGap: v })}
       />
     </div>
   );

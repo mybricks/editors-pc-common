@@ -145,12 +145,17 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
   const renderGap = () => {
     const onChange = (value: GapProps["value"]) => {
       setModel((pre) => ({ ...pre, ...value }));
+      //updateValue({ ...value });
+    };
+    const onBlur = (value: GapProps["value"]) => {
+      setModel((pre) => ({ ...pre, ...value }));
       updateValue({ ...value });
     };
     return model.position !== "absolute" && model.position !== "smart" && option.gap ? (
       <Gap
         value={{ rowGap: model.rowGap, columnGap: model.columnGap }}
         onChange={onChange}
+        onBlur={onBlur}
         flexDirection={model.flexDirection}
       />
     ) : null;
@@ -162,10 +167,16 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
       setModel((pre) => ({ ...pre, paddingType }));
       updateValue({ paddingType });
     };
-    const onChange = (value: PaddingProps["value"]) => {
+    const onBlur = (value: PaddingProps["value"]) => {
       setModel((pre) => ({ ...pre, ...value }));
       updateValue({ ...value });
     };
+
+    const onChange = (value: PaddingProps["value"]) => {
+      setModel((pre) => ({ ...pre, ...value }));
+      //updateValue({ ...value });
+    };
+
     return (
       <Padding
         value={{
@@ -177,6 +188,7 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
         paddingType={model.paddingType}
         onPaddingToggle={onPaddingToggle}
         onChange={onChange}
+        onBlur={onBlur}
         model={model}
       >
       </Padding>
