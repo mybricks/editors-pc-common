@@ -214,7 +214,7 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
           {renderJustifyContent()}
         </div>
       </div>
-      {renderPadding()}
+      {/* {renderPadding()} */}
     </div>
   );
 }
