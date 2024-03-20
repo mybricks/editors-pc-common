@@ -75,7 +75,10 @@ export default ({ editConfig }: EditorProps) => {
     locales.edit({
       value: {
         get() {
-          return valConfig
+          return {
+            val: valConfig,
+            curText: _value
+          }
         },
         set(item) {
           if (item) {

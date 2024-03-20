@@ -47,7 +47,10 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
     locales.edit({
       value: {
         get() {
-          return val
+          return {
+            val,
+            curText
+          }
         },
         set(item) {
           if (item) {
