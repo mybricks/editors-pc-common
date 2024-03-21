@@ -25,11 +25,11 @@ const defaultFlexFlow = [
     value: "row",
     render: () => <Icon name="row-direction" />,
   },
-  // {
-  //   title: "自由排版",
-  //   value: "absolute",
-  //   render: () => <Icon name="absolute" />,
-  // },
+  {
+    title: "自由排版",
+    value: "absolute",
+    render: () => <Icon name="absolute" />,
+  },
 ];
 
 export default ({ position, flexDirection, onSelect }: AlignItemsProps) => {
