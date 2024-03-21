@@ -315,6 +315,19 @@ export default function ({
 
   return (
     <div className={`${css.listSetter} fangzhou-theme`} ref={listRef}>
+      {addable &&
+        <div
+          className={css.btnAdd}
+          onClick={() => {
+            const uid = getUid()
+            return listModel.add({
+              _id: uid,
+              ...(typeof onAdd === 'function' ? onAdd(uid) || {} : {}),
+            })
+          }}
+        >
+          {addText}
+        </div>}
       <SortableList
         useDragHandle
         loaded={loaded}
@@ -482,19 +495,6 @@ export default function ({
           {!expandable && SubEditors}
         </Drawer>
       )}
-      {addable &&
-        <div
-          className={css.btnAdd}
-          onClick={() => {
-            const uid = getUid()
-            return listModel.add({
-              _id: uid,
-              ...(typeof onAdd === 'function' ? onAdd(uid) || {} : {}),
-            })
-          }}
-        >
-          {addText}
-        </div>}
     </div>
   )
 }
