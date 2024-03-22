@@ -5,6 +5,9 @@
   flex-direction: column;
   justify-content: center;
   :global {
+    .ant-tree-list{
+      font-size: 12px;
+    }
     .ant-tree {
       background-color: #F7F7F7;
     }
@@ -20,7 +23,7 @@
   }
 
   .btnAdd {
-    margin-top: 10px;
+    margin-bottom: 10px;
     font-size: 12px;
     cursor: pointer;
     display: block;
@@ -174,7 +177,15 @@
 
 .delete {
   .listItemBtn();
+  margin-top: 3px;
+  margin-bottom: 3px;
+  height: 22px;
+  width: 22px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
   &:hover {
+    background-color: #ddd;
     svg {
       fill: var(--primary-color-hover);
     }

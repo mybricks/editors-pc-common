@@ -476,7 +476,7 @@ export default function ({
               <Icon name="edit"/>
             </div>
             <div
-              className={css.delete}
+              className={css.edit}
               onClick={(e) => deleteFun(e,item)}
             >
               <Icon name="delete"/>
@@ -484,7 +484,7 @@ export default function ({
           </div>
           {judgeFun(item) ? 
             <div
-                className={css.delete}
+                className={css.edit}
                 onClick={() => addFun(item)}
               >
                 <Icon name="add"/>
@@ -535,6 +535,19 @@ export default function ({
 
   return (
     <div className={`${css.listSetter} fangzhou-theme`} ref={listRef}>
+      {addable &&
+        <div
+          className={css.btnAdd}
+          onClick={() => {
+            const uid = getUid()
+            return listModel.add({
+              _id: uid,
+              ...(typeof onAdd === 'function' ? onAdd(uid) || {} : {}),
+            })
+          }}
+        >
+          {addText}
+        </div>}
       <Tree
         treeData={valueTransFun(list)}
         autoExpandParent={true}
@@ -575,19 +588,6 @@ export default function ({
           {!expandable && SubEditors}
         </Drawer>
       )}
-      {addable &&
-        <div
-          className={css.btnAdd}
-          onClick={() => {
-            const uid = getUid()
-            return listModel.add({
-              _id: uid,
-              ...(typeof onAdd === 'function' ? onAdd(uid) || {} : {}),
-            })
-          }}
-        >
-          {addText}
-        </div>}
     </div>
   )
 }
