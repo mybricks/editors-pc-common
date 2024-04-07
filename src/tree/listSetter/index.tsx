@@ -464,7 +464,7 @@ export default function ({
           ...item,
           title: <div style={{display: 'flex', alignItems: 'center'}}>
           <div style={{marginRight: '20px'}}>
-            {item.title}
+            {getTitle(item)}
           </div>
           <div style={{display: 'flex', marginRight: '30px'}}>
             <div
@@ -498,7 +498,7 @@ export default function ({
           ...item,
           title: <div style={{display: 'flex', alignItems: 'center'}}>
           <div style={{marginRight: '20px'}}>
-            {item.title}
+            {getTitle(item)}
           </div>
           <div style={{display: 'flex', marginRight: '30px'}}>
             <div 
