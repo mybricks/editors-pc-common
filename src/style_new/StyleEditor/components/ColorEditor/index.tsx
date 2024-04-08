@@ -134,10 +134,9 @@ export function ColorEditor({ defaultValue, style = {}, onChange, options = [] }
       let finalValue = state.value;
 
       try {
-        console.log(opacityNumber);
         const color = new ColorUtil(value).alpha(opacityNumber);
         finalValue = color.hexa();
-        console.log("change", opacityNumber, color.hexa());
+        onChange(finalValue)
         dispatch({
           value: finalValue,
           finalValue,
@@ -188,7 +187,7 @@ export function ColorEditor({ defaultValue, style = {}, onChange, options = [] }
         }}
         onBlur={(e) => {
           isFocus.current = false;
-          handleInputBlur(e)
+          handleInputBlur(e);
         }}
         disabled={nonColorValue}
       />
@@ -225,12 +224,13 @@ export function ColorEditor({ defaultValue, style = {}, onChange, options = [] }
       return <></>;
     }
 
+    console.log(opacityNumber);
     return (
       <div className={css.opacity}>
         <input
           ref={inputRef}
           type="inputNumber"
-          value={parseInt(opacityNumber * 100)}
+          value={Math.round(opacityNumber * 100)}
           onChange={handleOpacityChange}
           onBlur={handleInputBlur}
         />
