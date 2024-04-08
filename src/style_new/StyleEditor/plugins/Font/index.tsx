@@ -246,7 +246,7 @@ export function Font({ value, onChange, config }: FontProps) {
           )}
         </Panel.Content>
       )}
-      {cfg.disableWhiteSpace ? null : (
+      {/* {cfg.disableWhiteSpace ? null : (
         <Panel.Content>
           <Select
             tip="空白字符合并、换行"
@@ -257,7 +257,7 @@ export function Font({ value, onChange, config }: FontProps) {
             onChange={(value) => onChange({ key: "whiteSpace", value })}
           />
         </Panel.Content>
-      )}
+      )} */}
       {cfg.disableTextAlign ? null : (
         <Panel.Content>
           <Toggle
