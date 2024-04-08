@@ -105,7 +105,9 @@ const DEFAULT_CONFIG = {
 
 export function Font({ value, onChange, config }: FontProps) {
   const [cfg] = useState({ ...DEFAULT_CONFIG, ...config });
-  const [innerFontFamily, setInnerFontFamily] = useState<string | string[] | undefined>(value.fontFamily);
+  const [innerFontFamily, setInnerFontFamily] = useState<string | string[] | undefined>(
+    Array.isArray(value.fontFamily) ? value.fontFamily : value.fontFamily?.split(",").map((item) => item.trim())
+  );
 
   const fontFamilyOptions = useCallback(() => {
     const fontfaces = (cfg.fontfaces as typeof FONT_FAMILY_OPTIONS).filter((item) => item.label && item.value);
@@ -153,23 +155,30 @@ export function Font({ value, onChange, config }: FontProps) {
         <Panel.Content>
           {cfg.disableFontFamily ? null : (
             <Select
-              tip="字体"
+              tip={
+                "字体" +
+                (innerFontFamily?.[0] !== "inherit"
+                  ? "：" +
+                    innerFontFamily
+                      ?.map?.((item) => fontFamilyOptions().find((option) => option.value === item)?.label ?? item)
+                      .join("，")
+                  : "")
+              }
               prefix={<FontFamilyOutlined />}
               style={{ flexBasis: `100%`, padding: 0, overflow: "hidden" }}
               defaultValue={value.fontFamily}
               options={fontFamilyOptions()}
               multiple={true}
-              value={
-                Array.isArray(innerFontFamily)
-                  ? innerFontFamily
-                  : innerFontFamily?.split(",").map((item) => item.trim())
-              }
+              value={innerFontFamily}
               onChange={(newValue) => {
                 if (Array.isArray(newValue) && newValue[newValue.length - 1] === "inherit") {
                   onChange({ key: "fontFamily", value: ["inherit"] });
                   setInnerFontFamily(["inherit"]);
                 } else {
-                  const nextValue = newValue.filter((item) => item !== "inherit");
+                  let nextValue = newValue.filter((item) => item !== "inherit");
+                  if (nextValue.length === 0) {
+                    nextValue = ["inherit"];
+                  }
                   onChange({ key: "fontFamily", value });
                   setInnerFontFamily(nextValue);
                 }
