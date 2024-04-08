@@ -105,6 +105,7 @@ const DEFAULT_CONFIG = {
 
 export function Font({ value, onChange, config }: FontProps) {
   const [cfg] = useState({ ...DEFAULT_CONFIG, ...config });
+  const [innerFontFamily, setInnerFontFamily] = useState<string | string[] | undefined>(value.fontFamily);
 
   const fontFamilyOptions = useCallback(() => {
     const fontfaces = (cfg.fontfaces as typeof FONT_FAMILY_OPTIONS).filter((item) => item.label && item.value);
@@ -154,40 +155,56 @@ export function Font({ value, onChange, config }: FontProps) {
             <Select
               tip="字体"
               prefix={<FontFamilyOutlined />}
-              style={{ flexBasis: `calc(50% - 3px)`, padding: 0, overflow: "hidden" }}
+              style={{ flexBasis: `100%`, padding: 0, overflow: "hidden" }}
               defaultValue={value.fontFamily}
               options={fontFamilyOptions()}
               multiple={true}
-              onChange={(value) => {
-                onChange({ key: "fontFamily", value });
+              value={
+                Array.isArray(innerFontFamily)
+                  ? innerFontFamily
+                  : innerFontFamily?.split(",").map((item) => item.trim())
+              }
+              onChange={(newValue) => {
+                if (Array.isArray(newValue) && newValue[newValue.length - 1] === "inherit") {
+                  onChange({ key: "fontFamily", value: ["inherit"] });
+                  setInnerFontFamily(["inherit"]);
+                } else {
+                  const nextValue = newValue.filter((item) => item !== "inherit");
+                  onChange({ key: "fontFamily", value });
+                  setInnerFontFamily(nextValue);
+                }
               }}
-            />
-          )}
-          {cfg.disableColor ? null : (
-            <ColorEditor
-              style={{ flexBasis: `calc(70% - 3px)`, padding: 0, overflow: "hidden", paddingLeft: 6 }}
-              defaultValue={value.color}
-              onChange={(value) => onChange({ key: "color", value })}
             />
           )}
         </Panel.Content>
       )}
       {cfg.disableFontWeight && cfg.disableFontSize ? null : (
         <Panel.Content>
+          {cfg.disableColor ? null : (
+            <ColorEditor
+              style={{ flexBasis: `calc(66% - 3px)`, padding: 0, overflow: "hidden", paddingLeft: 6 }}
+              defaultValue={value.color}
+              onChange={(value) => onChange({ key: "color", value })}
+            />
+          )}
           {cfg.disableFontWeight ? null : (
             <Select
               tip="粗细"
               prefix={<FontWeightOutlined />}
-              style={{ flexBasis: `calc(50% - 3px)`, padding: 0, overflow: "hidden" }}
+              style={{ flexBasis: `calc(33% - 3px)`, padding: 0, overflow: "hidden" }}
               defaultValue={value.fontWeight}
               options={FONT_WEIGHT_OPTIONS}
               onChange={(value) => onChange({ key: "fontWeight", value })}
             />
           )}
+        </Panel.Content>
+      )}
+      {cfg.disableLineHeight && cfg.disableLetterSpacing ? null : (
+        <Panel.Content>
           {cfg.disableFontSize ? null : (
             <InputNumber
               tip="大小"
-              style={{ flexBasis: `calc(70% - 3px)` }}
+              style={{ flexBasis: `calc(33% - 3px)` }}
               prefix={<FontSizeOutlined />}
               defaultValue={value.fontSize}
               unitOptions={FONT_SIZE_OPTIONS}
@@ -195,14 +212,10 @@ export function Font({ value, onChange, config }: FontProps) {
               onChange={onFontSizeChange}
             />
           )}
-        </Panel.Content>
-      )}
-      {cfg.disableLineHeight && cfg.disableLetterSpacing ? null : (
-        <Panel.Content>
           {cfg.disableLineHeight ? null : (
             <InputNumber
               tip="行高"
-              style={{ flexBasis: `calc(50% - 3px)` }}
+              style={{ flexBasis: `calc(33% - 3px)` }}
               prefix={<LineHeightOutlined />}
               value={lineHeight}
               defaultUnitValue="inherit"
@@ -214,7 +227,7 @@ export function Font({ value, onChange, config }: FontProps) {
           {cfg.disableLetterSpacing ? null : (
             <InputNumber
               tip="间距"
-              style={{ flexBasis: `calc(70% - 3px)` }}
+              style={{ flexBasis: `calc(33% - 3px)` }}
               prefix={<LetterSpacingOutlined />}
               defaultValue={value.letterSpacing}
               unitOptions={LETTERSPACING_UNIT_OPTIONS}
