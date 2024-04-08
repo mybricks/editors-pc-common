@@ -17,6 +17,7 @@ interface SelectProps {
   style?: CSSProperties
   onChange: (value: any) => void
   options: Array<{value: any, label: string | number}>
+  multiple?: boolean
   /** 是否展示下拉的icon */
   showIcon?: boolean
   labelClassName?: string
@@ -32,6 +33,7 @@ export function Select ({
   options,
   showIcon = true,
   labelClassName,
+  multiple = false,
   tip
 }: SelectProps) {
   const [value, setValue] = useState(propsValue || defaultValue)
@@ -39,6 +41,19 @@ export function Select ({
 
   const handleDropDownClick = useCallback((clickValue) => {
     setValue((value: any) => {
+      if (multiple) {
+        const nextValue = Array.isArray(value) ? value.slice() : [value]
+        const index = nextValue.indexOf(clickValue)
+        if (index > -1) {
+          nextValue.splice(index, 1)
+        } else {
+          nextValue.push(clickValue)
+        }
+        setLabel(nextValue.map((v) => options.find(({value}) => value === v)!.label).join(','))
+        onChange(nextValue)
+        return nextValue
+      }
+
       if (value !== clickValue) {
         setLabel(options.find(({value}) => value === clickValue)!.label)
         onChange(clickValue)
@@ -54,7 +69,7 @@ export function Select ({
 
   return (
     <Panel.Item style={style}>
-      <Dropdown options={options} value={value} onClick={handleDropDownClick}>
+      <Dropdown multiple={multiple} options={options} value={value} onClick={handleDropDownClick}>
         <div data-mybricks-tip={tip} className={css.select} style={showIcon ? {} : {padding: 0}}>
           {prefix && <div className={css.prefix}>{prefix}</div>}
           <div className={`${css.value}${labelClassName ? ` ${labelClassName}` : ''}`}>{label}</div>
