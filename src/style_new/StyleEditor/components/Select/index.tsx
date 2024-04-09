@@ -65,8 +65,8 @@ export function Select({
   useUpdateEffect(() => {
     setValue(propsValue);
     setLabel(
-      Array.isArray(value)
-        ? value.map((v) => options.find(({ value }) => value === v)!.label).join(",")
+      Array.isArray(propsValue)
+        ? propsValue.map((v) => options.find(({ value }) => value === v)!.label).join(",")
         : options.find(({ value: optionValue }) => optionValue === value)?.label || value
     );
   }, [propsValue]);

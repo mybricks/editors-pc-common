@@ -7,7 +7,6 @@ import {
   ColorEditor,
   InputNumber,
   FontSizeOutlined,
-  WhiteSpaceOutlined,
   FontWeightOutlined,
   LineHeightOutlined,
   FontFamilyOutlined,
@@ -17,6 +16,7 @@ import {
   TextAlignCenterOutlined,
 } from "../../components";
 import { splitValueAndUnit } from "../../utils";
+import { isObject } from "../../../../util/lodash/isObject";
 
 interface FontProps {
   value: CSSProperties;
@@ -104,9 +104,20 @@ const DEFAULT_CONFIG = {
 };
 
 export function Font({ value, onChange, config }: FontProps) {
+  // 重置脏数据
+  if (isObject(value.fontFamily)) {
+    value.fontFamily = "inherit";
+    onChange({ key: "fontFamily", value: "inherit" });
+  }
+
   const [cfg] = useState({ ...DEFAULT_CONFIG, ...config });
   const [innerFontFamily, setInnerFontFamily] = useState<string | string[] | undefined>(
-    Array.isArray(value.fontFamily) ? value.fontFamily : value.fontFamily?.split(",").map((item) => item.trim())
+    Array.isArray(value.fontFamily)
+      ? value.fontFamily
+      : value.fontFamily
+          ?.split(",")
+          .filter(Boolean)
+          .map((item) => item.trim())
   );
 
   const fontFamilyOptions = useCallback(() => {
@@ -161,6 +172,7 @@ export function Font({ value, onChange, config }: FontProps) {
                   ? "：" +
                     innerFontFamily
                       ?.map?.((item) => fontFamilyOptions().find((option) => option.value === item)?.label ?? item)
+                      .filter(Boolean)
                       .join("，")
                   : "")
               }
@@ -172,14 +184,14 @@ export function Font({ value, onChange, config }: FontProps) {
               value={innerFontFamily}
               onChange={(newValue) => {
                 if (Array.isArray(newValue) && newValue[newValue.length - 1] === "inherit") {
-                  onChange({ key: "fontFamily", value: ["inherit"] });
+                  onChange({ key: "fontFamily", value: "inherit" });
                   setInnerFontFamily(["inherit"]);
                 } else {
                   let nextValue = newValue.filter((item) => item !== "inherit");
                   if (nextValue.length === 0) {
                     nextValue = ["inherit"];
                   }
-                  onChange({ key: "fontFamily", value: nextValue });
+                  onChange({ key: "fontFamily", value: nextValue.join(", ") });
                   setInnerFontFamily(nextValue);
                 }
               }}
