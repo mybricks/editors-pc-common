@@ -33,12 +33,9 @@ export function Select({
 }: SelectProps) {
   const [value, setValue] = useState(propsValue || defaultValue);
   const [label, setLabel] = useState(
-    options.find(({ value: optionValue }) => {
-      if (Array.isArray(value)) {
-        return value.includes(optionValue);
-      }
-      return optionValue === value;
-    })?.label || value
+    Array.isArray(value)
+      ? value.map((v) => options.find(({ value }) => value === v)!.label).join(",")
+      : options.find(({ value: optionValue }) => optionValue === value)?.label || value
   );
 
   const handleDropDownClick = useCallback((clickValue) => {
@@ -67,7 +64,11 @@ export function Select({
 
   useUpdateEffect(() => {
     setValue(propsValue);
-    setLabel(propsValue.map((v) => options.find(({ value }) => value === v)!.label).join(","));
+    setLabel(
+      Array.isArray(value)
+        ? value.map((v) => options.find(({ value }) => value === v)!.label).join(",")
+        : options.find(({ value: optionValue }) => optionValue === value)?.label || value
+    );
   }, [propsValue]);
 
   return (

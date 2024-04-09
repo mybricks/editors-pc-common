@@ -179,7 +179,7 @@ export function Font({ value, onChange, config }: FontProps) {
                   if (nextValue.length === 0) {
                     nextValue = ["inherit"];
                   }
-                  onChange({ key: "fontFamily", value });
+                  onChange({ key: "fontFamily", value: nextValue });
                   setInnerFontFamily(nextValue);
                 }
               }}
