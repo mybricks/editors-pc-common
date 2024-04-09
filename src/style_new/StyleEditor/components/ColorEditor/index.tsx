@@ -136,14 +136,12 @@ export function ColorEditor({ defaultValue, style = {}, onChange, options = [] }
       try {
         const color = new ColorUtil(value).alpha(opacityNumber);
         finalValue = color.hexa();
-        onChange(finalValue)
+        onChange(finalValue);
         dispatch({
           value: finalValue,
           finalValue,
         });
-      } catch (e) {
-        console.log(e);
-      }
+      } catch {}
     },
     [state.value, opacityNumber]
   );
@@ -224,7 +222,6 @@ export function ColorEditor({ defaultValue, style = {}, onChange, options = [] }
       return <></>;
     }
 
-    console.log(opacityNumber);
     return (
       <div className={css.opacity}>
         <input
