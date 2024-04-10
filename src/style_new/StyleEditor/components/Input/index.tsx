@@ -36,7 +36,7 @@ export function Input ({
 }: InputProps) {
   const [inputValue, setInputValue] = useState(defaultValue)
 
-  const handleInputChange = useCallback((event) => {
+  const handleInputChange = useCallback((event: { target: { value: any } }) => {
     const value = event.target.value
 
     setInputValue(value)

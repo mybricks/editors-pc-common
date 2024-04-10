@@ -110,7 +110,7 @@ export function Border ({value, onChange, config}: BorderProps) {
         <div className={css.row}>
           <Panel.Content style={{padding: 3}}>
             <Panel.Item className={css.editArea} style={{padding: '0px 8px'}}>
-              <div className={css.icon}>
+              <div className={css.icon} data-mybricks-tip={'边框宽度'}>
                 <BorderAllOutlined />
               </div>
               {disableBorderWidth ? null : (
@@ -356,12 +356,13 @@ export function Border ({value, onChange, config}: BorderProps) {
         <div className={css.row}>
           <Panel.Content style={{padding: 3}}>
             <Panel.Item className={css.editArea} style={{padding: '0px 8px'}}>
-              <div className={css.icon}>
+              <div className={css.icon} data-mybricks-tip={'圆角半径'}>
                 <BorderRadiusSplitOutlined />
               </div>
               <InputNumber
                 tip='圆角半径'
                 style={DEFAULT_STYLE}
+                suffix={'px'}
                 defaultValue={borderValue.borderTopLeftRadius}
                 unitOptions={UNIT_OPTIONS}
                 onChange={(value) => handleChange({
