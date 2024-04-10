@@ -9,6 +9,7 @@ import React, {
 import { createPortal } from 'react-dom'
 
 import {
+  Input,
   Panel,
   Select,
   ResetOutlined,
@@ -213,6 +214,10 @@ function Popup ({
     onChange({key: 'backgroundImage', value: `url(${value})`})
   }, [])
 
+  const handleUrlInputChange = useCallback((url: string) => {
+    onChange({key: 'backgroundImage', value: `url(${url})`});
+  }, [])
+
   return (
     <div ref={ref} className={css.popup}>
       <div className={css.image}>
@@ -223,6 +228,9 @@ function Popup ({
           ref={inputRef}
           onChange={handleFileInputChange}
         />
+      </div>
+      <div className={css.item}>
+        <Input onChange={handleUrlInputChange} value={getBackgroundImage(value.backgroundImage, DEFAULT_IMAGE)}/>
       </div>
       <div className={css.item}>
         <div className={css.label}>
