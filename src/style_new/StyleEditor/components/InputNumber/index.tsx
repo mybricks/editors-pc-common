@@ -44,14 +44,18 @@ export function InputNumber ({
     return (unitDisabledList && unit) ? unitDisabledList.includes(unit) : disabled
   }, [unit, disabled])
 
-  const onKeyDown = useCallback((e: { code: any; preventDefault: () => void }) => {
+  const onKeyDown = useCallback((e: {
+    target: any, code: any; preventDefault: () => void 
+}) => {
     const code = e.code
-
     if (['ArrowUp', 'ArrowDown'].includes(code)) {
-      e.preventDefault()
-      handleNumberChange(incrementDecrement(number, code))
+      const newValue = incrementDecrement(number, code);
+      e.target.value = newValue;
+      e.target.select();// 光标增减时依旧选中
+      e.preventDefault(); 
+      handleNumberChange(newValue);
     }
-  }, [number])
+  }, [number]);
 
   const suffix = useMemo(() => {
     if (customSuffix) {
