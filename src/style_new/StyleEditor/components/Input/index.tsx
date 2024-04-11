@@ -2,7 +2,8 @@ import React, {
   ReactNode,
   CSSProperties,
   useState,
-  useCallback
+  useCallback,
+  useEffect
 } from 'react'
 
 import { Panel } from '../'
@@ -45,12 +46,19 @@ export function Input ({
     onChange?.(value)
   }, [])
 
+  useEffect(() => {
+    if (value !== inputValue) {
+      setInputValue(value);
+    }
+  }, [value])
+
   return (
     <Panel.Item style={style}>
       <div className={css.input} data-mybricks-tip={tip}>
         {prefix && <div className={css.prefix}>{prefix}</div>}
         <input
-          value={value || inputValue}
+          // value={value || inputValue}
+          defaultValue={inputValue}
           onChange={handleInputChange}
           disabled={disabled}
           onFocus={onFocus}
