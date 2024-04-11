@@ -138,24 +138,43 @@ export function Font({ value, onChange, config }: FontProps) {
   const [lineHeight, setLineHeight] = useState<string | number>(value.lineHeight!);
 
   const onFontSizeChange = useCallback(
-    (fontSize) => {
+    (fontSize: string | number) => {
       const [fontSizeValue, fontSizeUnit] = splitValueAndUnit(fontSize);
       const [lineHeightValue, lineHeightUnit] = splitValueAndUnit(lineHeight);
 
       onChange({ key: "fontSize", value: fontSize });
-
-      if (fontSizeUnit === lineHeightUnit && lineHeightUnit === "px") {
+      
+      if (fontSizeUnit === "px") {
         const fontSizeNumber = Number(fontSizeValue);
-        const lineHeightNumber = Number(lineHeightValue);
-        if (!isNaN(lineHeightNumber) && !isNaN(fontSizeNumber) && lineHeightNumber < fontSizeNumber) {
-          onLineHeightChange(fontSize);
+        const lineHeightNumber = fontSizeNumber + 8; // 根据fontSizeNumber需设置的行高
+        if (lineHeightUnit === "px") {
+          onLineHeightChange(`${lineHeightNumber}px`);
+        } else if (lineHeightUnit === "%") {
+          onLineHeightChange(
+            `${parseFloat(
+              ((lineHeightNumber * 100) / fontSizeNumber).toFixed(4)
+            )}%`
+          );
+        } else if (!isNaN(Number(lineHeight))) {
+          // parseFloat和toFixed保留四位小数并去除尾0 防止上下键无法增减
+          onLineHeightChange(
+            `${parseFloat((lineHeightNumber / fontSizeNumber).toFixed(4))}`
+          );
         }
       }
+
+      // if (fontSizeUnit === lineHeightUnit && lineHeightUnit === "px") {
+      //   const fontSizeNumber = Number(fontSizeValue);
+      //   const lineHeightNumber = Number(lineHeightValue);
+      //   if (!isNaN(lineHeightNumber) && !isNaN(fontSizeNumber) && lineHeightNumber < fontSizeNumber) {
+      //     onLineHeightChange(fontSize);
+      //   }
+      // }
     },
     [lineHeight]
   );
 
-  const onLineHeightChange = useCallback((lineHeight) => {
+  const onLineHeightChange = useCallback((lineHeight: string | number) => {
     onChange({ key: "lineHeight", value: lineHeight });
     setLineHeight(lineHeight);
   }, []);
