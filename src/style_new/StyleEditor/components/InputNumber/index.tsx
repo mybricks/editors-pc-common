@@ -44,7 +44,7 @@ export function InputNumber ({
     return (unitDisabledList && unit) ? unitDisabledList.includes(unit) : disabled
   }, [unit, disabled])
 
-  const onKeyDown = useCallback((e) => {
+  const onKeyDown = useCallback((e: { code: any; preventDefault: () => void }) => {
     const code = e.code
 
     if (['ArrowUp', 'ArrowDown'].includes(code)) {
@@ -103,6 +103,7 @@ export function InputNumber ({
       onFocus={onFocus}
       onKeyDown={onKeyDown}
       tip={tip}
+      numberTip={"支持光标键增减"}
     />
   )
 }

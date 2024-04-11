@@ -20,6 +20,7 @@ export interface InputProps {
   onFocus?: React.FocusEventHandler<HTMLInputElement>
   onKeyDown?: React.KeyboardEventHandler<HTMLInputElement>
   tip?: string
+  numberTip?: string
 }
 
 export function Input ({
@@ -32,11 +33,12 @@ export function Input ({
   disabled = false,
   onFocus = () => {},
   onKeyDown = () => {},
-  tip
+  tip,
+  numberTip,
 }: InputProps) {
   const [inputValue, setInputValue] = useState(defaultValue)
 
-  const handleInputChange = useCallback((event) => {
+  const handleInputChange = useCallback((event: { target: { value: any } }) => {
     const value = event.target.value
 
     setInputValue(value)
@@ -53,6 +55,7 @@ export function Input ({
           disabled={disabled}
           onFocus={onFocus}
           onKeyDown={onKeyDown}
+          data-mybricks-tip={numberTip}
         />
         {suffix && <div className={css.suffix}>{suffix}</div>}
       </div>
