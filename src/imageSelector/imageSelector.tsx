@@ -1,17 +1,21 @@
-import { isValid } from '../utils';
+import { isValid } from "../utils";
 // import { message, Modal, Button } from 'antd'
-import { useComputed, useObservable } from '@mybricks/rxui';
+import { useComputed, useObservable } from "@mybricks/rxui";
 import React, {
   useCallback,
   // useCallback,
   useEffect,
-} from 'react';
-import { createPortal } from 'react-dom';
-import css from './index.less';
-import { EditorProps } from '@/interface';
+  useMemo,
+  useState,
+} from "react";
+import { createPortal } from "react-dom";
+import css from "./index.less";
+import { EditorProps } from "@/interface";
 // import {uploadFilesToCDN} from '@fangzhou/sdk';
 // import { uuid } from '../utils';
-import UploadModal from '../components/upload-modal';
+import UploadModal from "../components/upload-modal";
+import { Drawer, Popover } from "antd";
+import { CloseOutlined } from "@ant-design/icons";
 
 class Ctx {
   node: any;
@@ -29,10 +33,11 @@ export default function ({ editConfig }: EditorProps): any {
 
   const model: any = useObservable({ value });
   const modalContext = useObservable({
+    drawerVisible: false,
     visible: false,
     // url: '',
-    type: '',
-    title: '',
+    type: "",
+    title: "",
   });
   const ctx: Ctx = useObservable(Ctx, (next) => {
     next({
@@ -45,14 +50,14 @@ export default function ({ editConfig }: EditorProps): any {
 
   useComputed(() => {
     const val = value.get();
-    model.val = isValid(val) ? val : '';
+    model.val = isValid(val) ? val : "";
   });
 
   const getStyle = useCallback(() => {
     if (!ctx.node) return;
     const po = ctx.node.getBoundingClientRect();
     ctx.picStyle = {
-      position: 'fixed',
+      position: "fixed",
       left: po.x,
       top: po.y + po.height,
       width: po.width,
@@ -78,23 +83,27 @@ export default function ({ editConfig }: EditorProps): any {
 
   useEffect(() => {
     switch (fileType) {
-      case 'image':
-        modalContext.type = 'image/*';
-        modalContext.title = '上传图片';
+      case "image":
+        modalContext.type = "image/*";
+        modalContext.title = "上传图片";
         break;
-      case 'video':
-        modalContext.type = 'video/*';
-        modalContext.title = '上传视频';
+      case "video":
+        modalContext.type = "video/*";
+        modalContext.title = "上传视频";
         break;
       default:
-        modalContext.type = 'image/*';
-        modalContext.title = '上传图片';
+        modalContext.type = "image/*";
+        modalContext.title = "上传图片";
         break;
     }
   }, []);
 
+  const extraList = useMemo(() => {
+    return editConfig.getDefaultOptions("imageselector")?.extras ?? [];
+  }, []);
+
   return (
-    <div className={css['editor-upload']}>
+    <div className={css["editor-upload"]}>
       <div
         ref={(node) => (ctx.node = node)}
         className={css.container}
@@ -118,7 +127,7 @@ export default function ({ editConfig }: EditorProps): any {
             model.value.set(model.val);
           }}
           onKeyUp={(e) => {
-            if (e.key === 'Enter' && e.code === 'Enter') {
+            if (e.key === "Enter" && e.code === "Enter") {
               // @ts-ignore
               e.target.blur && e.target.blur();
             }
@@ -132,15 +141,27 @@ export default function ({ editConfig }: EditorProps): any {
         >
           上传
         </button>
+        {extraList.map(({ key, title, event }) => {
+          return (
+            <button
+              className={css.btn}
+              key={key}
+              onClick={async () => {
+                const result = await event()
+                model.val = result;
+                model.value.set(model.val);
+              }}
+            >
+              {title}
+            </button>
+          );
+        })}
       </div>
       {ctx.showPic &&
         createPortal(
-          <div
-            className={css.pic}
-            style={{ ...ctx.picStyle, display: ctx.showPic ? 'block' : 'none' }}
-          >
+          <div className={css.pic} style={{ ...ctx.picStyle, display: ctx.showPic ? "block" : "none" }}>
             <img
-              style={{ display: ctx.isError ? 'none' : 'block' }}
+              style={{ display: ctx.isError ? "none" : "block" }}
               src={model.val}
               onError={() => {
                 ctx.isError = true;
@@ -149,9 +170,7 @@ export default function ({ editConfig }: EditorProps): any {
                 ctx.isError = false;
               }}
             />
-            <div style={{ display: !ctx.isError ? 'none' : 'block' }}>
-              请上传图片或填入正确图片地址
-            </div>
+            <div style={{ display: !ctx.isError ? "none" : "block" }}>请上传图片或填入正确图片地址</div>
           </div>,
           document.body
         )}
@@ -195,16 +214,16 @@ export default function ({ editConfig }: EditorProps): any {
         visible={modalContext.visible}
         onOk={(url) => {
           const type = Object.prototype.toString.call(url);
-          
+
           let val;
 
           switch (type) {
-            case '[object String]':
+            case "[object String]":
               if (url.length) {
                 val = url;
               }
               break;
-            case '[object Object]':
+            case "[object Object]":
               if (typeof url.b64 === "string") {
                 val = url.b64;
               }
