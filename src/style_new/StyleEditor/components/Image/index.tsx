@@ -45,6 +45,13 @@ export function Image ({
   const [open, setOpen] = useState(false)
   const [show, setShow] = useState(false)
 
+  useEffect(() => {
+    // 兼容下之前的backgroundSize BACKGROUND_SIZE_OPTIONS
+    if (value.backgroundSize && ["100% auto", "auto 100%"].includes(value.backgroundSize as string)) {
+      setValue({ ...value, backgroundSize: "100% 100%" })
+    }
+  }, [])
+
   const handleImageClick = useCallback(() => {
     setShow(true)
     setOpen(true)
@@ -60,7 +67,7 @@ export function Image ({
     })
   }, [])
 
-  const handleChange = useCallback((value) => {
+  const handleChange = useCallback((value: { key:string, value: any }) => {
     onChange(value)
     setValue((val) => {
       return {
@@ -70,9 +77,9 @@ export function Image ({
     })
   }, [])
 
-  const handleClick = useCallback((event) => {
+  const handleClick = useCallback((event: any) => {
     // TODO: 点击弹窗内容以外的区域关闭
-    if (!childRef.current!.contains(event.target) && !event.target.className?.startsWith?.('item-')) {
+    if (!childRef.current!.contains(event.target) && !event?.target?.className?.startsWith?.('item-')) {
       setOpen(false)
     }
   }, [])
@@ -163,6 +170,13 @@ const BACKGROUND_SIZE_OPTIONS = [
   { label: '铺满y轴', value: 'auto 100%' }
 ]
 
+const BACKGROUND_SIZE_OPTIONS_NEW = [
+  { label: "填充（无留白）", value: "cover" },
+  { label: "适应（有留白）", value: "contain" },
+  { label: "拉伸", value: "100% 100%" },
+  { label: "原始大小", value: "auto" },
+]
+
 function Popup ({
   value,
   onChange,
@@ -204,7 +218,7 @@ function Popup ({
     inputRef.current!.click()
   }, [])
 
-  const handleFileInputChange = useCallback(async (event) => {
+  const handleFileInputChange = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = (event.target && event.target.files && event.target.files[0]) || null
 
     if (!file) return
@@ -234,43 +248,47 @@ function Popup ({
       </div>
       <div className={css.item}>
         <div className={css.label}>
-          平铺
-        </div>
-        <div className={css.value}>
-          <Select
-            style={{padding: 0}}
-            defaultValue={value.backgroundRepeat}
-            options={BACKGROUND_REPEAT_OPTIONS}
-            onChange={(value) => onChange({key: 'backgroundRepeat', value})}
-          />
-        </div>
-      </div>
-      <div className={css.item}>
-        <div className={css.label}>
-          位置
-        </div>
-        <div className={css.value}>
-          <Select
-            style={{padding: 0}}
-            defaultValue={value.backgroundPosition}
-            options={BACKGROUND_POSITION_OPTIONS}
-            onChange={(value) => onChange({key: 'backgroundPosition', value})}
-          />
-        </div>
-      </div>
-      <div className={css.item}>
-        <div className={css.label}>
           大小
         </div>
         <div className={css.value}>
           <Select
             style={{padding: 0}}
             defaultValue={value.backgroundSize}
-            options={BACKGROUND_SIZE_OPTIONS}
-            onChange={(value) => onChange({key: 'backgroundSize', value})}
+            options={BACKGROUND_SIZE_OPTIONS_NEW}
+            onChange={((value: string) => {
+              onChange({ key: "backgroundSize", value })
+            })}
           />
         </div>
       </div>
+      {!["100% 100%", "cover"].includes(value.backgroundSize) && (
+        <div className={css.item}>
+          <div className={css.label}>平铺</div>
+          <div className={css.value}>
+            <Select
+              style={{ padding: 0 }}
+              defaultValue={value.backgroundRepeat}
+              options={BACKGROUND_REPEAT_OPTIONS}
+              onChange={(value) => onChange({ key: "backgroundRepeat", value })}
+            />
+          </div>
+        </div>
+      )}
+      {value.backgroundSize !== "100% 100%" && (
+        <div className={css.item}>
+          <div className={css.label}>位置</div>
+          <div className={css.value}>
+            <Select
+              style={{ padding: 0 }}
+              defaultValue={value.backgroundPosition}
+              options={BACKGROUND_POSITION_OPTIONS}
+              onChange={(value) =>
+                onChange({ key: "backgroundPosition", value })
+              }
+            />
+          </div>
+        </div>
+      )}
     </div>
   )
 }

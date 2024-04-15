@@ -30,7 +30,7 @@ export function Background ({value, onChange, config}: BackgroundProps) {
   }] = useState({ ...DEFAULT_CONFIG, ...config })
 
   const defaultBackgroundValue = useMemo(() => {
-    const defaultValue = Object.assign({}, value)
+    const defaultValue = Object.assign({ hasSetBackgroundSize: false }, value)
     Object.entries(defaultValue).forEach(([ key, value ] ) => {
       if (typeof value === 'string') {
         // TODO: 全局处理
@@ -38,6 +38,14 @@ export function Background ({value, onChange, config}: BackgroundProps) {
         defaultValue[key] = value.replace(/!.*$/, '')
       }
     })
+
+    if (!defaultValue?.hasSetBackgroundSize && defaultValue.backgroundSize === "auto") {
+      // 修改 backgroundSize 默认值为 cover 存量情况：contain、cover、100% 100%不变，auto =》cover，100% auto和auto 100% =》100% 100%
+      defaultValue.backgroundSize = "cover";
+      onChange({ key: "backgroundSize", value: "cover" });
+      onChange({ key: "hasSetBackgroundSize", value: true })
+    }
+
     return defaultValue
   }, [])
 
@@ -63,9 +71,9 @@ export function Background ({value, onChange, config}: BackgroundProps) {
               backgroundImage: defaultBackgroundValue.backgroundImage,
               backgroundRepeat: defaultBackgroundValue.backgroundRepeat,
               backgroundPosition: defaultBackgroundValue.backgroundPosition,
-              backgroundSize: defaultBackgroundValue.backgroundSize
+              backgroundSize: defaultBackgroundValue.backgroundSize,
             }}
-            onChange={(value) => onChange({key: getRealKey(keyMap, value.key), value: `${value.value}${useImportant ? '!important' : ''}`})}
+            onChange={(value: { key: string, value: string}) => onChange({key: getRealKey(keyMap, value.key), value: `${value.value}${useImportant ? '!important' : ''}`})}
             upload={context.upload}
           />
         }
