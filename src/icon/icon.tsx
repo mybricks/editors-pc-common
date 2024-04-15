@@ -206,8 +206,10 @@ export default function ({ editConfig }: EditorProps): any {
     [newList, iconList]
   );
 
+  const [searchedText, setSearchedText] = useState("");
   const onChange = useCallback(
     (e) => {
+      setSearchedText(e.target.value);
       let value = e.target.value.toLowerCase();
       //做出响应
       let directions = directionListLined.filter((item) => {
@@ -532,47 +534,67 @@ export default function ({ editConfig }: EditorProps): any {
   }, [newList, lineStyle, iconList]);
 
   const [extraDataListMap, setExtraDataListMap] = useState<Record<string, Record<string, string>>>({});
-  const extraList = useMemo(() => {
-    const extras = editConfig.getDefaultOptions("icon")?.extras ?? [];
-    extras.forEach(({ key, dataFetcher }) => {
-      if (dataFetcher) {
-        dataFetcher().then((data) => {
-          setExtraDataListMap((prev) => {
-            prev[key] = data;
-            return prev;
+  const extraList = useMemo(() => editConfig.getDefaultOptions("icon")?.extras ?? [], []);
+  const [extraLoading, setExtraLoading] = useState(false);
+  useEffect(() => {
+    extraList.forEach(({ key, dataFetcher }) => {
+      if (dataFetcher && key === lineStyle) {
+        setExtraLoading(true);
+        dataFetcher()
+          .then((data) => {
+            setExtraDataListMap((prev) => {
+              prev[key] = data;
+              return Object.assign({}, prev);
+            });
+          })
+          .finally(() => {
+            setExtraLoading(false);
           });
-        });
       }
     });
-    return extras;
-  }, []);
+  }, [lineStyle]);
 
-  const renderSVGIcon = useCallback((key: string) => {
-    const icons = extraDataListMap[key] ?? {};
-    return (
-      <div className={css.iconWrapper}>
-        {Object.keys(icons).map((iconName) => {
-          const iconSVG = icons[iconName];
-          return (
-            <Popover trigger={"hover"} content={<span className={css.popoverText}>{iconName}</span>}>
-              <div
-                className={css.icon}
-                key={iconName}
-                onClick={() => {
-                  model.val = iconSVG;
-                  model.value.set(iconSVG);
-                  close();
-                }}
-              >
-                <div dangerouslySetInnerHTML={{ __html: iconSVG }}></div>
-                <span className={css.text}>{iconName}</span>
-              </div>
-            </Popover>
-          );
-        })}
-      </div>
-    );
-  }, [extraDataListMap, close, model]);
+  const renderSVGIcon = useCallback(
+    (key: string) => {
+      const icons = extraDataListMap[key] ?? {};
+      const isEmpty =
+        Object.keys(icons).filter((iconName) =>
+          searchedText ? iconName.toLowerCase().indexOf(searchedText.toLowerCase()) !== -1 : true
+        ).length === 0;
+      return extraLoading ? (
+        <div className={css.loading}>加载中...</div>
+      ) : isEmpty ? (
+        <div className={css.loading}>暂无数据</div>
+      ) : (
+        <div className={css.iconWrapper}>
+          {Object.keys(icons).map((iconName) => {
+            const iconSVG = icons[iconName];
+            const isFilter = searchedText && iconName.toLowerCase().indexOf(searchedText.toLowerCase()) === -1;
+            if (isFilter) {
+              return null;
+            }
+            return (
+              <Popover trigger={"hover"} content={<span className={css.popoverText}>{iconName}</span>}>
+                <div
+                  className={css.icon}
+                  key={iconName}
+                  onClick={() => {
+                    model.val = iconSVG;
+                    model.value.set(iconSVG);
+                    close();
+                  }}
+                >
+                  <div dangerouslySetInnerHTML={{ __html: iconSVG }} style={{ fontSize: 22 }}></div>
+                  <span className={css.text}>{iconName}</span>
+                </div>
+              </Popover>
+            );
+          })}
+        </div>
+      );
+    },
+    [extraDataListMap, close, model, extraLoading, searchedText]
+  );
 
   return (
     <div className={css["editor-icon"]}>
@@ -612,7 +634,7 @@ export default function ({ editConfig }: EditorProps): any {
         destroyOnClose={true}
         visible={modalContext.visible}
         onClose={close}
-        width={480}
+        width={650}
         getContainer={() => document.querySelector('div[class^="lyStage-"]')}
         style={{ position: "absolute" }}
       >
@@ -653,9 +675,7 @@ export default function ({ editConfig }: EditorProps): any {
           {lineStyle === "Filled" && renderFilledIcons}
           {lineStyle === "Iconfont" && renderIconfont}
           {extraList.map((item) => {
-            return <>
-              {lineStyle === item.key && renderSVGIcon(item.key)}
-            </>
+            return <>{lineStyle === item.key && renderSVGIcon(item.key)}</>;
           })}
         </div>
       </Drawer>
