@@ -479,7 +479,11 @@ const getDefaultValueFunctionMap = {
   size(values: CSSProperties, config: any) {
     return {
       width: values.width,
-      height: values.height
+      height: values.height,
+      maxWidth: values.maxWidth,
+      maxHeight: values.maxHeight,
+      minWidth: values.minWidth,
+      minHeight: values.minHeight
     }
   },
   cursor(values: CSSProperties, config: any) {
@@ -566,7 +570,11 @@ const getDefaultValueFunctionMap2 = {
   size() {
     return {
       width: 'auto',
-      height: 'auto'
+      height: 'auto',
+      maxWidth: 'auto',
+      maxHeight: 'auto',
+      minWidth: 'auto',
+      minHeight: 'auto',
     }
   },
   cursor() {
@@ -679,6 +687,10 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration) 
   /** size */
   let width // 非继承属性
   let height // 非继承属性
+  let maxWidth
+  let maxHeight
+  let minWidth
+  let minHeight
   /** size */
 
   /** cursor */
@@ -877,13 +889,29 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration) 
     /** size */
     const {
       width: styleWidth,
-      height: styleHeight
+      height: styleHeight,
+      maxWidth: styleMaxWidth,
+      maxHeight: styleMaxHeight,
+      minWidth: styleMinWidth,
+      minHeight: styleMinHeight,
     } = style
     if (styleWidth) {
       width = styleWidth
     }
     if (styleHeight) {
       height = styleHeight
+    }
+    if (styleMaxWidth) {
+      maxWidth = styleMaxWidth
+    }
+    if (styleMaxHeight) {
+      maxHeight = styleMaxHeight
+    }
+    if (styleMinWidth) {
+      minWidth = styleMinWidth
+    }
+    if (styleMinHeight) {
+      minHeight = styleMinHeight
     }
     /** size */
 
@@ -1063,6 +1091,18 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration) 
   if (!height) {
     height = 'auto'
   }
+  if (!maxWidth) {
+    maxWidth = 'auto'
+  }
+  if (!maxHeight) {
+    maxHeight = 'auto'
+  }
+  if (!minWidth) {
+    minWidth = 'auto'
+  }
+  if (!minHeight) {
+    minHeight = 'auto'
+  }
   /** size */
 
   /** cursor */
@@ -1137,6 +1177,10 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration) 
 
     width,
     height,
+    maxWidth,
+    maxHeight,
+    minWidth,
+    minHeight,
 
     cursor,
 
