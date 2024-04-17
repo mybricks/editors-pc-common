@@ -53,6 +53,7 @@ export function Size({ value, onChange, config }: SizeProps) {
               unitOptions={UNIT_OPTIONS}
               unitDisabledList={UNIT_DISABLED_LIST}
               onChange={(value) => onChange({ key: "width", value })}
+              showIcon={true}
             />
           )}
           {cfg.disableHeight ? null : (
@@ -63,6 +64,7 @@ export function Size({ value, onChange, config }: SizeProps) {
               unitOptions={UNIT_OPTIONS}
               unitDisabledList={UNIT_DISABLED_LIST}
               onChange={(value) => onChange({ key: "height", value })}
+              showIcon={true}
             />
           )}
         </Panel.Content>
@@ -77,6 +79,7 @@ export function Size({ value, onChange, config }: SizeProps) {
               unitOptions={UNIT_OPTIONS}
               unitDisabledList={UNIT_DISABLED_LIST}
               onChange={(value) => onChange({ key: "max-width", value })}
+              showIcon={true}
             />
           )}
           {cfg.disableMaxHeight ? null : (
@@ -87,6 +90,7 @@ export function Size({ value, onChange, config }: SizeProps) {
               unitOptions={UNIT_OPTIONS}
               unitDisabledList={UNIT_DISABLED_LIST}
               onChange={(value) => onChange({ key: "max-height", value })}
+              showIcon={true}
             />
           )}
         </Panel.Content>
@@ -101,6 +105,7 @@ export function Size({ value, onChange, config }: SizeProps) {
               unitOptions={UNIT_OPTIONS}
               unitDisabledList={UNIT_DISABLED_LIST}
               onChange={(value) => onChange({ key: "min-width", value })}
+              showIcon={true}
             />
           )}
           {cfg.disableMinHeight ? null : (
@@ -111,6 +116,7 @@ export function Size({ value, onChange, config }: SizeProps) {
               unitOptions={UNIT_OPTIONS}
               unitDisabledList={UNIT_DISABLED_LIST}
               onChange={(value) => onChange({ key: "min-height", value })}
+              showIcon={true}
             />
           )}
         </Panel.Content>

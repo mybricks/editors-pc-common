@@ -18,7 +18,8 @@ interface InputNumberProps extends InputProps {
   defaultUnitValue?: string
   unitDisabledList?: Array<string> 
   unitOptions?: Array<UnitOption>
-  allowNegative?: boolean
+  allowNegative?: boolean,
+  showIcon?: boolean
 }
 
 export function InputNumber ({
@@ -34,7 +35,8 @@ export function InputNumber ({
   defaultUnitValue,
   onFocus,
   tip,
-  allowNegative = false
+  allowNegative = false,
+  showIcon = false
 }: InputNumberProps) {
   const [unit, setUnit] = useState<string>(getUnit(value || defaultValue, defaultUnitValue, unitOptions))
   const [number, handleNumberChange] = useInputNumber(value || defaultValue)
@@ -66,7 +68,7 @@ export function InputNumber ({
           style={{padding: 0, fontSize: 10}}
           defaultValue={unit}
           options={unitOptions}
-          showIcon={false}
+          showIcon={showIcon} // 带Select的数字输入框showIcon 便于提示用户可以切换Select选项 但字体的输入框太小下拉icon会遮挡
           onChange={setUnit}
         />
       )
