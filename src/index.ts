@@ -10,6 +10,7 @@ import EditorIconRadio from "./iconRadio";
 import EditorImageSelector from "./imageSelector";
 import EditorTextArea from "./textArea";
 import EditorAlign from "./align";
+import EditorBetween from "./between";
 import EditorIcon from "./icon";
 import EditorRadio from "./radio";
 import EditorCode from "./jsCoder";
@@ -30,21 +31,22 @@ import EditorLayout from "./layout";
 import EditorStyle from "./style";
 import EditorStyleC from "./style_c";
 import EditorStyleProperties from "./styleProperties";
-import EditorTypeChange from './_typeChange';
+import EditorTypeChange from "./_typeChange";
 import EditorI18nInput from "./i18nInput";
 import EditorSceneSelector from "./sceneSelector";
 import EditorSceneComSelector from "./sceneComSelector";
-import Code from './code';
-import Tree from './tree';
-import EditorLine from './line';
+import Code from "./code";
+import Tree from "./tree";
+import EditorLine from "./line";
 import "./index.less";
 export { config } from "./configProvider";
 
-import StyleNew from './style_new'
-import CssEditor from './css-editor'
+import StyleNew from "./style_new";
+import CssEditor from "./css-editor";
 
 const PcEditorMap: any = {
   ALIGN: EditorAlign,
+  BETWEEN: EditorBetween,
   EXPCODE: expressionCodeEditor,
   MAP: EditorMap,
   LIST: EditorList,
@@ -64,7 +66,7 @@ const PcEditorMap: any = {
   IMAGESELECTOR: EditorImageSelector,
   INPUTNUMBER: EditorInputNumber,
   SLIDER: EditorSlider,
-  STYLE:EditorStyle,
+  STYLE: EditorStyle,
   STYLEC: EditorStyleC,
   STYLENEW: StyleNew,
   //STYLE: EditorStyleProperties,
@@ -81,7 +83,7 @@ const PcEditorMap: any = {
   SCENESELECTOR: EditorSceneSelector,
   SCENECOMSELECTOR: EditorSceneComSelector,
   TREE: Tree,
-  LINE: EditorLine
+  LINE: EditorLine,
 };
 
 function PcEditor(props: EditorProps): any {
