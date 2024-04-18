@@ -558,8 +558,8 @@ export default function ({ editConfig }: EditorProps): any {
     (key: string) => {
       const icons = extraDataListMap[key] ?? {};
       const isEmpty =
-        Object.keys(icons).filter((iconName) =>
-          searchedText ? iconName.toLowerCase().indexOf(searchedText.toLowerCase()) !== -1 : true
+        Object.values(icons).filter(({ title }) =>
+          searchedText ? title.toLowerCase().indexOf(searchedText.toLowerCase()) !== -1 : true
         ).length === 0;
       return extraLoading ? (
         <div className={css.loading}>加载中...</div>
@@ -567,25 +567,25 @@ export default function ({ editConfig }: EditorProps): any {
         <div className={css.loading}>暂无数据</div>
       ) : (
         <div className={css.iconWrapper}>
-          {Object.keys(icons).map((iconName) => {
-            const iconSVG = icons[iconName];
-            const isFilter = searchedText && iconName.toLowerCase().indexOf(searchedText.toLowerCase()) === -1;
+          {Object.keys(icons).map((iconNamespace) => {
+            const { title, svg } = icons[iconNamespace];
+            const isFilter = searchedText && title.toLowerCase().indexOf(searchedText.toLowerCase()) === -1;
             if (isFilter) {
               return null;
             }
             return (
-              <Popover trigger={"hover"} content={<span className={css.popoverText}>{iconName}</span>}>
+              <Popover trigger={"hover"} content={<span className={css.popoverText}>{title}</span>}>
                 <div
                   className={css.icon}
-                  key={iconName}
+                  key={iconNamespace}
                   onClick={() => {
-                    model.val = iconSVG;
-                    model.value.set(iconSVG);
+                    model.val = svg;
+                    model.value.set(svg);
                     close();
                   }}
                 >
-                  <div dangerouslySetInnerHTML={{ __html: iconSVG }} style={{ fontSize: 22 }}></div>
-                  <span className={css.text}>{iconName}</span>
+                  <div dangerouslySetInnerHTML={{ __html: svg }} style={{ fontSize: 22 }}></div>
+                  <span className={css.text}>{title}</span>
                 </div>
               </Popover>
             );
