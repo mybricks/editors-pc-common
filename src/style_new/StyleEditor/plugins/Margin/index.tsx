@@ -93,7 +93,7 @@ export function Margin ({value, onChange, config}: MarginProps) {
             </Panel.Item>
           </Panel.Content>
           <div
-            data-mybricks-tip={`{content:'四边同时配置',position:'left'}`}
+            data-mybricks-tip={`{content:'统一设置',position:'left'}`}
             className={css.actionIcon}
             onClick={() => setToggle(false)}
           >
@@ -144,7 +144,7 @@ export function Margin ({value, onChange, config}: MarginProps) {
             </Panel.Item>
           </Panel.Content>
           <div
-            data-mybricks-tip={`{content:'四边单独配置',position:'left'}`}
+            data-mybricks-tip={`{content:'分别设置',position:'left'}`}
             className={css.actionIcon}
             onClick={() => setToggle(true)}
           >

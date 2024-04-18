@@ -109,7 +109,7 @@ export function InputNumber ({
       onFocus={onFocus}
       onKeyDown={onKeyDown}
       tip={tip}
-      numberTip={"支持光标键增减"}
+      numberTip={"光标键可增减"}
     />
   )
 }
