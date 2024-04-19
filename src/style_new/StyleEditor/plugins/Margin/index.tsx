@@ -82,7 +82,7 @@ export function Margin ({value, onChange, config}: MarginProps) {
               <InputNumber
                 style={DEFAULT_STYLE}
                 defaultValue={marginValue.marginTop}
-                suffix={'px'}
+                // suffix={'px'}
                 onChange={(value) => handleChange({
                   marginTop: value,
                   marginRight: value,
@@ -113,7 +113,7 @@ export function Margin ({value, onChange, config}: MarginProps) {
                 tip='上边距'
                 style={DEFAULT_STYLE}
                 defaultValue={marginValue.marginTop}
-                suffix={'px'}
+                // suffix={'px'}
                 onFocus={() => setSplitMarginIcon(<MarginTopOutlined />)}
                 onChange={(value) => handleChange({marginTop: value})}
               />
@@ -121,7 +121,7 @@ export function Margin ({value, onChange, config}: MarginProps) {
                 tip='右边距'
                 style={DEFAULT_STYLE}
                 defaultValue={marginValue.marginRight}
-                suffix={'px'}
+                // suffix={'px'}
                 onFocus={() => setSplitMarginIcon(<MarginRightOutlined />)}
                 onChange={(value) => handleChange({marginRight: value})}
               />
@@ -129,7 +129,7 @@ export function Margin ({value, onChange, config}: MarginProps) {
                 tip='下边距'
                 style={DEFAULT_STYLE}
                 defaultValue={marginValue.marginBottom}
-                suffix={'px'}
+                // suffix={'px'}
                 onFocus={() => setSplitMarginIcon(<MarginBottomOutlined />)}
                 onChange={(value) => handleChange({marginBottom: value})}
               />
@@ -137,7 +137,7 @@ export function Margin ({value, onChange, config}: MarginProps) {
                 tip='左边距'
                 style={DEFAULT_STYLE}
                 defaultValue={marginValue.marginLeft}
-                suffix={'px'}
+                // suffix={'px'}
                 onFocus={() => setSplitMarginIcon(<MarginLeftOutlined />)}
                 onChange={(value) => handleChange({marginLeft: value})}
               />

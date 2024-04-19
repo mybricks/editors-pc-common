@@ -118,7 +118,7 @@ export function Border ({value, onChange, config}: BorderProps) {
                   tip='边框宽度'
                   style={DEFAULT_STYLE}
                   defaultValue={borderValue.borderTopWidth}
-                  suffix={'px'}
+                  // suffix={'px'}
                   onChange={(value) => {
                     const borderStyle = borderValue.borderTopStyle === 'none' ? 'solid' : borderValue.borderTopStyle
                     handleChange({
@@ -191,7 +191,7 @@ export function Border ({value, onChange, config}: BorderProps) {
                       tip='上边框宽度'
                       style={DEFAULT_STYLE}
                       defaultValue={borderValue.borderTopWidth}
-                      suffix={'px'}
+                      // suffix={'px'}
                       onChange={(value) => handleChange({borderTopWidth: value, borderTopStyle: borderValue.borderTopStyle === 'none' ? 'solid' : borderValue.borderTopStyle})}
                     />
                   )}
@@ -236,7 +236,7 @@ export function Border ({value, onChange, config}: BorderProps) {
                       tip='右边框宽度'
                       style={DEFAULT_STYLE}
                       defaultValue={borderValue.borderRightWidth}
-                      suffix={'px'}
+                      // suffix={'px'}
                       onChange={(value) => handleChange({borderRightWidth: value, borderRightStyle: borderValue.borderRightStyle === 'none' ? 'solid' : borderValue.borderRightStyle})}
                     />
                   )}
@@ -275,7 +275,7 @@ export function Border ({value, onChange, config}: BorderProps) {
                       tip='下边框宽度'
                       style={DEFAULT_STYLE}
                       defaultValue={borderValue.borderBottomWidth}
-                      suffix={'px'}
+                      // suffix={'px'}
                       onChange={(value) => handleChange({borderBottomWidth: value, borderBottomStyle: borderValue.borderBottomStyle === 'none' ? 'solid' : borderValue.borderBottomStyle})}
                     />
                   )}
@@ -314,7 +314,7 @@ export function Border ({value, onChange, config}: BorderProps) {
                       tip='左边框宽度'
                       style={DEFAULT_STYLE}
                       defaultValue={borderValue.borderLeftWidth}
-                      suffix={'px'}
+                      // suffix={'px'}
                       onChange={(value) => handleChange({borderLeftWidth: value, borderLeftStyle: borderValue.borderLeftStyle === 'none' ? 'solid' : borderValue.borderLeftStyle})}
                     />
                   )}
@@ -362,7 +362,7 @@ export function Border ({value, onChange, config}: BorderProps) {
               <InputNumber
                 tip='圆角半径'
                 style={DEFAULT_STYLE}
-                suffix={'px'}
+                // suffix={'px'}
                 defaultValue={borderValue.borderTopLeftRadius}
                 unitOptions={UNIT_OPTIONS}
                 onChange={(value) => handleChange({
