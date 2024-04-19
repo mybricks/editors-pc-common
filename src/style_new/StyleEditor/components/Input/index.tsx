@@ -18,7 +18,7 @@ export interface InputProps {
   style?: CSSProperties
   onChange: (value: string) => void
   disabled?: boolean
-  onBlur: React.FocusEventHandler<HTMLInputElement>
+  onBlur?: React.FocusEventHandler<HTMLInputElement>
   onFocus?: React.FocusEventHandler<HTMLInputElement>
   onKeyDown?: React.KeyboardEventHandler<HTMLInputElement>
   tip?: string

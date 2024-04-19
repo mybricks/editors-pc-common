@@ -32,9 +32,9 @@ interface PaddingProps {
 const DEFAULT_STYLE = {
   padding: 0,
   fontSize: 10,
-  minWidth: 41,
-  maxWidth: 41,
-  marginLeft: 4
+  // minWidth: 41,
+  // maxWidth: 41,
+  // marginLeft: 4
 }
 
 export function Padding ({value, onChange, config}: PaddingProps) {
@@ -42,7 +42,7 @@ export function Padding ({value, onChange, config}: PaddingProps) {
   const [paddingValue, setPaddingValue] = useState({...value})
   const [splitPaddingIcon, setSplitPaddingIcon] = useState(<PaddingTopOutlined />)
 
-  const handleChange = useCallback((value) => {
+  const handleChange = useCallback((value: any) => {
     setPaddingValue((val) => {
       return {
         ...val,
@@ -104,9 +104,9 @@ export function Padding ({value, onChange, config}: PaddingProps) {
         <div className={css.row}>
           <Panel.Content style={{padding: 3}}>
             <Panel.Item className={css.editArea} style={{padding: '0px 8px'}}>
-              {/* <div className={css.icon}>
-                {splitPaddingIcon}
-              </div> */}
+              <div className={css.icon}>
+                <PaddingTopOutlined />
+              </div>
               <InputNumber
                 tip='上边距'
                 style={DEFAULT_STYLE}
@@ -115,6 +115,9 @@ export function Padding ({value, onChange, config}: PaddingProps) {
                 onFocus={() => setSplitPaddingIcon(<PaddingTopOutlined />)}
                 onChange={(value) => handleChange({paddingTop: value})}
               />
+              <div className={css.icon}>
+                <PaddingRightOutlined />
+              </div>
               <InputNumber
                 tip='右边距'
                 style={DEFAULT_STYLE}
@@ -123,6 +126,9 @@ export function Padding ({value, onChange, config}: PaddingProps) {
                 onFocus={() => setSplitPaddingIcon(<PaddingRightOutlined />)}
                 onChange={(value) => handleChange({paddingRight: value})}
               />
+              <div className={css.icon}>
+                <PaddingBottomOutlined />
+              </div>
               <InputNumber
                 tip='下边距'
                 style={DEFAULT_STYLE}
@@ -131,6 +137,9 @@ export function Padding ({value, onChange, config}: PaddingProps) {
                 onFocus={() => setSplitPaddingIcon(<PaddingBottomOutlined />)}
                 onChange={(value) => handleChange({paddingBottom: value})}
               />
+              <div className={css.icon}>
+                <PaddingLeftOutlined />
+              </div>
               <InputNumber
                 tip='左边距'
                 style={DEFAULT_STYLE}
