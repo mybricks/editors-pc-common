@@ -2,12 +2,14 @@ import { EditorProps } from "@/interface";
 import { useObservable } from "@mybricks/rxui";
 import React, { useMemo, useState } from "react";
 import css from "./index.less";
+import { Row, Column } from "./icons";
 
 interface ListItem {
   title: string;
   key: string;
   value: string;
   url: string;
+  render: () => React.JSX.Element;
 }
 
 const getSpaceBetweenList = (
@@ -16,6 +18,7 @@ const getSpaceBetweenList = (
   {
     title: "水平间距等分",
     key: "row",
+    render: () => <Row />,
     value: ["row", "space-between"],
     url:
       CDN.row ||
@@ -24,6 +27,7 @@ const getSpaceBetweenList = (
   {
     title: "垂直间距等分",
     key: "column",
+    render: () => <Column />,
     value: ["column", "space-between"],
     url:
       CDN.column ||
@@ -54,14 +58,13 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
           <div
             id={item.title}
             data-mybricks-tip={item.title}
+            onClick={() => onSpaceBetweenChange(item.value[0])}
             className={`${css.item} ${
               between === item.value[0] ? css.active : ""
             }`}
           >
-            <img
-              src={item.url}
-              onClick={() => onSpaceBetweenChange(item.value[0])}
-            />
+            {/* <img src={item.url} /> */}
+            {item.render()}
           </div>
         ))}
       </div>

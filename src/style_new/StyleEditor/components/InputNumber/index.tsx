@@ -40,6 +40,8 @@ export function InputNumber ({
 }: InputNumberProps) {
   const [unit, setUnit] = useState<string>(getUnit(value || defaultValue, defaultUnitValue, unitOptions))
   const [number, handleNumberChange] = useInputNumber(value || defaultValue)
+  // 现调整为blur和回车再更新
+  const [tempNumber, handleTempNumberChange] = useInputNumber(value || defaultValue)
   const [displayValue, setDisplayValue] = useState((typeof unit !== 'undefined' && typeof (value || defaultValue) !== 'undefined' && unit === (value || defaultValue) ? unit : number))
 
   const isDisabledUnit = useCallback(() => {
@@ -48,16 +50,19 @@ export function InputNumber ({
 
   const onKeyDown = useCallback((e: {
     target: any, code: any; preventDefault: () => void 
-}) => {
+  }) => {
     const code = e.code
     if (['ArrowUp', 'ArrowDown'].includes(code)) {
-      const newValue = incrementDecrement(number, code);
+      const newValue = incrementDecrement(tempNumber, code);
       e.target.value = newValue;
       e.target.select();// 光标增减时依旧选中
       e.preventDefault(); 
-      handleNumberChange(newValue);
+      handleTempNumberChange(newValue);
     }
-  }, [number]);
+    if (code === "Enter") {
+      handleNumberChange(tempNumber);
+    }
+  }, [number, tempNumber]);
 
   const suffix = useMemo(() => {
     if (customSuffix) {
@@ -103,11 +108,12 @@ export function InputNumber ({
       style={style}
       prefix={prefix}
       value={displayValue}
-      onChange={handleNumberChange}
+      onChange={handleTempNumberChange}
       suffix={suffix}
       disabled={isDisabledUnit()}
       onFocus={onFocus}
       onKeyDown={onKeyDown}
+      onBlur={(e) => handleNumberChange(e.target.value)}
       tip={tip}
       numberTip={"光标键可增减"}
     />

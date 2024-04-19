@@ -2,7 +2,7 @@
   display: flex;
   flex-direction: row;
   align-items: center;
-  background-color: #fff;
+  // background-color: #fff;
   width: fit-content;
   border-radius: 4px;
 
@@ -12,10 +12,18 @@
     justify-content: center;
     width: 30px;
     height: 30px;
-    border-radius: 6px;
+    border-radius: 3px;
+    &:hover {
+      color: #fa6400;
+      background-color: #fff8f4;
+      border: 1px solid #fa6400;
+    }
   }
 
   .active {
-    background: #e5e5e5;
+    color: #fff;
+    border-radius: 3px;
+    border: 1px solid #fa6400;
+    background-color: #fa6400;
   }
 }
