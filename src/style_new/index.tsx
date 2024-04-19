@@ -548,7 +548,7 @@ const getDefaultValueFunctionMap2 = {
       backgroundImage: 'none',
       backgroundRepeat: 'repeat',
       backgroundPosition: 'left top',
-      backgroundSize: 'auto'
+      backgroundSize: 'cover'
     }
   },
   padding() {
