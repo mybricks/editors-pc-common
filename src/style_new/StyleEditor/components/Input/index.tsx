@@ -18,6 +18,7 @@ export interface InputProps {
   style?: CSSProperties
   onChange: (value: string) => void
   disabled?: boolean
+  onBlur: React.FocusEventHandler<HTMLInputElement>
   onFocus?: React.FocusEventHandler<HTMLInputElement>
   onKeyDown?: React.KeyboardEventHandler<HTMLInputElement>
   tip?: string
@@ -34,6 +35,7 @@ export function Input ({
   disabled = false,
   onFocus = () => {},
   onKeyDown = () => {},
+  onBlur = () => {},
   tip,
   numberTip,
 }: InputProps) {
@@ -62,6 +64,7 @@ export function Input ({
           onChange={handleInputChange}
           disabled={disabled}
           onFocus={onFocus}
+          onBlur={onBlur}
           onKeyDown={onKeyDown}
           data-mybricks-tip={numberTip}
         />
