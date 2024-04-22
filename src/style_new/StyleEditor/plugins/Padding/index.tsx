@@ -9,6 +9,7 @@ import {
   Panel,
   InputNumber,
   PaddingAllOutlined,
+  PaddingSingleOutlined,
   PaddingTopOutlined,
   PaddingLeftOutlined,
   PaddingRightOutlined,
@@ -155,7 +156,7 @@ export function Padding ({value, onChange, config}: PaddingProps) {
             className={css.actionIcon}
             onClick={() => setToggle(true)}
           >
-            <PaddingTopOutlined />
+            <PaddingSingleOutlined /> 
           </div>
         </div>
       )
