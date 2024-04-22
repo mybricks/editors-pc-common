@@ -118,7 +118,7 @@ export default function ({ editConfig }: any): JSX.Element {
   }, []);
 
   return (
-    <div className={!showBtn ? styles.wrap : void 0}>
+    <div className={!showBtn ? styles.wrapper : void 0}>
       <Editor
         ref={codeIns}
         loaderConfig={{ paths: defaultOptions.CDN?.paths }}
@@ -152,7 +152,9 @@ export default function ({ editConfig }: any): JSX.Element {
         theme={theme ?? "light"}
         height={height}
         className={styles.editor}
+        wrapperClassName={showBtn ? styles["btn-wrapper"] : ""}
         path={path}
+        resizable={!showBtn}
       >
         {showBtn ? (
           <button className={styles.button} onClick={() => setOpen(true)}>

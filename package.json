@@ -19,7 +19,7 @@
   "homepage": "https://github.com/mybricks/editors-pc-common#readme",
   "dependencies": {
     "@mybricks/code-editor": "1.1.24",
-    "@mybricks/coder": "0.0.34",
+    "@mybricks/coder": "0.0.40",
     "@mybricks/color-picker": "^1.0.7",
     "@tinymce/tinymce-react": "3.13.1",
     "color": "^4.2.3",
