@@ -49,6 +49,7 @@ export function Size({ value, onChange, config }: SizeProps) {
             <InputNumber
               tip="宽"
               prefix={<WidthOutlined />}
+              prefixTip={"宽"}
               defaultValue={value.width}
               unitOptions={UNIT_OPTIONS}
               unitDisabledList={UNIT_DISABLED_LIST}
@@ -60,6 +61,7 @@ export function Size({ value, onChange, config }: SizeProps) {
             <InputNumber
               tip="高"
               prefix={<HeightOutlined />}
+              prefixTip={"高"}
               defaultValue={value.height}
               unitOptions={UNIT_OPTIONS}
               unitDisabledList={UNIT_DISABLED_LIST}
@@ -75,6 +77,7 @@ export function Size({ value, onChange, config }: SizeProps) {
             <InputNumber
               tip="最大宽"
               prefix={<MaxWidthOutlined />}
+              prefixTip={"最大宽"}
               defaultValue={value.maxWidth}
               unitOptions={UNIT_OPTIONS}
               unitDisabledList={UNIT_DISABLED_LIST}
@@ -86,6 +89,7 @@ export function Size({ value, onChange, config }: SizeProps) {
             <InputNumber
               tip="最大高"
               prefix={<MaxHeightOutlined />}
+              prefixTip={"最大高"}
               defaultValue={value.maxHeight}
               unitOptions={UNIT_OPTIONS}
               unitDisabledList={UNIT_DISABLED_LIST}
@@ -101,6 +105,7 @@ export function Size({ value, onChange, config }: SizeProps) {
             <InputNumber
               tip="最小宽"
               prefix={<MinWidthOutlined />}
+              prefixTip={"最小宽"}
               defaultValue={value.minWidth}
               unitOptions={UNIT_OPTIONS}
               unitDisabledList={UNIT_DISABLED_LIST}
@@ -112,6 +117,7 @@ export function Size({ value, onChange, config }: SizeProps) {
             <InputNumber
               tip="最小高"
               prefix={<MinHeightOutlined />}
+              prefixTip={"最小高"}
               defaultValue={value.minHeight}
               unitOptions={UNIT_OPTIONS}
               unitDisabledList={UNIT_DISABLED_LIST}

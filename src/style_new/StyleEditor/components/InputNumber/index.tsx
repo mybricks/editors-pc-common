@@ -20,6 +20,7 @@ interface InputNumberProps extends InputProps {
   unitOptions?: Array<UnitOption>
   allowNegative?: boolean,
   showIcon?: boolean
+  prefixTip?: string
 }
 
 export function InputNumber ({
@@ -27,6 +28,7 @@ export function InputNumber ({
   onChange,
   value,
   prefix,
+  prefixTip,
   suffix: customSuffix,
   style = {},
   disabled = false,
@@ -107,6 +109,7 @@ export function InputNumber ({
     <Input
       style={style}
       prefix={prefix}
+      prefixTip={prefixTip}
       value={displayValue}
       onChange={handleTempNumberChange}
       suffix={suffix}

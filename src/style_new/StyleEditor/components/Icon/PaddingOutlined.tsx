@@ -102,22 +102,3 @@ export function PaddingTopBottomOutlined() {
 export function PaddingTopOutlined() {
   return <PaddingLeftOutlined style={{ transform: "rotate(90deg)" }} />;
 }
-
-export function PaddingSingleOutlined() {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="12"
-      height="12"
-      viewBox="0 0 12 12"
-    >
-      <path
-        fill="currentColor"
-        fill-opacity=".8"
-        fill-rule="evenodd"
-        stroke="none"
-        d="M3 0h6v1H3V0zM0 3v6h1V3H0zm11 0v6h1V3h-1zm-8 9h6v-1H3v1z"
-      ></path>
-    </svg>
-  );
-}

@@ -32,9 +32,9 @@ interface MarginProps {
 const DEFAULT_STYLE = {
   padding: 0,
   fontSize: 10,
-  minWidth: 41,
-  maxWidth: 41,
-  marginLeft: 4
+  // minWidth: 41,
+  // maxWidth: 41,
+  // marginLeft: 4
 }
 
 export function Margin ({value, onChange, config}: MarginProps) {
@@ -44,7 +44,7 @@ export function Margin ({value, onChange, config}: MarginProps) {
   const [splitMarginIcon, setSplitMarginIcon] = useState(<MarginTopOutlined />)
   
 
-  const handleChange = useCallback((value) => {
+  const handleChange = useCallback((value: CSSProperties & Record<string, any>) => {
     setMarginValue((val) => {
       return {
         ...val,
@@ -106,8 +106,8 @@ export function Margin ({value, onChange, config}: MarginProps) {
         <div className={css.row}>
           <Panel.Content style={{padding: 3}}>
             <Panel.Item className={css.editArea} style={{padding: '0px 8px'}}>
-              <div className={css.icon}>
-                {splitMarginIcon}
+              <div className={css.icon} data-mybricks-tip={"上边距"}>
+                <MarginTopOutlined />
               </div>
               <InputNumber
                 tip='上边距'
@@ -117,6 +117,9 @@ export function Margin ({value, onChange, config}: MarginProps) {
                 onFocus={() => setSplitMarginIcon(<MarginTopOutlined />)}
                 onChange={(value) => handleChange({marginTop: value})}
               />
+              <div className={css.icon} data-mybricks-tip={"右边距"}>
+                <MarginRightOutlined />
+              </div>
               <InputNumber
                 tip='右边距'
                 style={DEFAULT_STYLE}
@@ -125,6 +128,9 @@ export function Margin ({value, onChange, config}: MarginProps) {
                 onFocus={() => setSplitMarginIcon(<MarginRightOutlined />)}
                 onChange={(value) => handleChange({marginRight: value})}
               />
+              <div className={css.icon} data-mybricks-tip={"下边距"}>
+                <MarginBottomOutlined />
+              </div>
               <InputNumber
                 tip='下边距'
                 style={DEFAULT_STYLE}
@@ -133,6 +139,9 @@ export function Margin ({value, onChange, config}: MarginProps) {
                 onFocus={() => setSplitMarginIcon(<MarginBottomOutlined />)}
                 onChange={(value) => handleChange({marginBottom: value})}
               />
+              <div className={css.icon} data-mybricks-tip={"左边距"}>
+                <MarginLeftOutlined />
+              </div>
               <InputNumber
                 tip='左边距'
                 style={DEFAULT_STYLE}

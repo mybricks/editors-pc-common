@@ -9,7 +9,6 @@ import {
   Panel,
   InputNumber,
   PaddingAllOutlined,
-  PaddingSingleOutlined,
   PaddingTopOutlined,
   PaddingLeftOutlined,
   PaddingRightOutlined,
@@ -75,7 +74,7 @@ export function Padding ({value, onChange, config}: PaddingProps) {
         <div className={css.row}>
           <Panel.Content style={{padding: 3}}>
             <Panel.Item className={css.editArea} style={{padding: '0px 8px'}}>
-              <div className={css.icon}>
+              <div className={css.icon} data-mybricks-tip={`{content:'统一设置',position:'left'}`}>
                 <PaddingAllOutlined />
               </div>
               <InputNumber
@@ -105,7 +104,7 @@ export function Padding ({value, onChange, config}: PaddingProps) {
         <div className={css.row}>
           <Panel.Content style={{padding: 3}}>
             <Panel.Item className={css.editArea} style={{padding: '0px 8px'}}>
-              <div className={css.icon}>
+              <div className={css.icon} data-mybricks-tip={'上边距'}>
                 <PaddingTopOutlined />
               </div>
               <InputNumber
@@ -116,7 +115,7 @@ export function Padding ({value, onChange, config}: PaddingProps) {
                 onFocus={() => setSplitPaddingIcon(<PaddingTopOutlined />)}
                 onChange={(value) => handleChange({paddingTop: value})}
               />
-              <div className={css.icon}>
+              <div className={css.icon} data-mybricks-tip={'右边距'}>
                 <PaddingRightOutlined />
               </div>
               <InputNumber
@@ -127,7 +126,7 @@ export function Padding ({value, onChange, config}: PaddingProps) {
                 onFocus={() => setSplitPaddingIcon(<PaddingRightOutlined />)}
                 onChange={(value) => handleChange({paddingRight: value})}
               />
-              <div className={css.icon}>
+              <div className={css.icon} data-mybricks-tip={'下边距'}>
                 <PaddingBottomOutlined />
               </div>
               <InputNumber
@@ -138,7 +137,7 @@ export function Padding ({value, onChange, config}: PaddingProps) {
                 onFocus={() => setSplitPaddingIcon(<PaddingBottomOutlined />)}
                 onChange={(value) => handleChange({paddingBottom: value})}
               />
-              <div className={css.icon}>
+              <div className={css.icon} data-mybricks-tip={'左边距'}>
                 <PaddingLeftOutlined />
               </div>
               <InputNumber
@@ -156,7 +155,7 @@ export function Padding ({value, onChange, config}: PaddingProps) {
             className={css.actionIcon}
             onClick={() => setToggle(true)}
           >
-            <PaddingSingleOutlined /> 
+            <PaddingTopOutlined /> 
           </div>
         </div>
       )
