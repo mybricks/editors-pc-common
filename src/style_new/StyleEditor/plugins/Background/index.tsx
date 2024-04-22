@@ -1,13 +1,12 @@
-import React, { useMemo, useState, CSSProperties } from 'react'
-
+import React, { useMemo, useState, CSSProperties, useCallback, useEffect } from 'react'
 import { getRealKey } from '../../utils'
 import { useStyleEditorContext } from '../..'
-import { Panel, Image, ColorEditor } from '../../components'
-
+import { Panel, Image, ColorEditor, ReloadOutlined } from '../../components'
+import css from './index.less';
 
 interface BackgroundProps {
   value: CSSProperties
-  onChange: (value: {key: string, value: any}) => void
+  onChange: (value: {key: string, value: any} | {key: string, value: any} []) => void
   config: {
     [key: string]: any
   }
@@ -28,8 +27,9 @@ export function Background ({value, onChange, config}: BackgroundProps) {
     disableBackgroundColor,
     disableBackgroundImage,
   }] = useState({ ...DEFAULT_CONFIG, ...config })
+  const [forceRenderKey, setForceRenderKey] = useState<number>(Math.random()); // 用于点击重置按钮重新渲染获取新value
 
-  const defaultBackgroundValue = useMemo(() => {
+  const defaultBackgroundValue: CSSProperties & Record<string, any> = useMemo(() => {
     const defaultValue = Object.assign({ }, value)
     Object.entries(defaultValue).forEach(([ key, value ] ) => {
       if (typeof value === 'string') {
@@ -40,13 +40,24 @@ export function Background ({value, onChange, config}: BackgroundProps) {
     })
 
     return defaultValue
-  }, [])
+  }, []);
+
+  const refresh = useCallback(() => {
+    onChange([
+      { key: "backgroundColor", value: void 0 },
+      { key: "backgroundImage", value: void 0 },
+      { key: "backgroundRepeat", value: void 0 },
+      { key: "backgroundPosition", value: void 0 },
+      { key: "backgroundSize", value: void 0 },
+    ]);
+    setForceRenderKey(Math.random());
+  }, [forceRenderKey]);
 
   return (
-    <Panel title='背景'>
+    <Panel title='背景' key={forceRenderKey}>
       <Panel.Content>
         {
-          disableBackgroundColor ? null :
+          disableBackgroundColor ? null : 
           <ColorEditor
             // TODO
             // @ts-ignore
@@ -70,6 +81,9 @@ export function Background ({value, onChange, config}: BackgroundProps) {
             upload={context.upload}
           />
         }
+        <div className={css.icon} data-mybricks-tip={'重置'} onClick={refresh}>
+          <ReloadOutlined />
+        </div>
       </Panel.Content>
       {/* {disableBackgroundImage ? null : (
         <Panel.Content>

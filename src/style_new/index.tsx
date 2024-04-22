@@ -160,12 +160,19 @@ function Style ({editConfig}: EditorProps) {
   const handleChange: ChangeEvent = useCallback((value) => {
     if (Array.isArray(value)) {
       value.forEach(({key, value}) => {
-        // @ts-ignore
-        setValue[key] = value
+        // 便于清空某个属性
+        if (value === undefined) {
+          delete setValue[key];
+        } else {
+          setValue[value.key] = value.value
+        }
       })
     } else {
-      // @ts-ignore
-      setValue[value.key] = value.value
+      if (value.value === undefined) {
+        delete setValue[value.key];
+      } else {
+        setValue[value.key] = value.value;
+      }
     }
     editConfig.value.set(deepCopy(setValue))
   }, [])
@@ -412,7 +419,7 @@ function getDefaultConfiguration ({value, options}: GetDefaultConfigurationProps
   } as {
     options: Options,
     defaultValue: CSSProperties,
-    setValue: CSSProperties,
+    setValue: CSSProperties & Record<string, any>,
     finalOpen: boolean,
     finalSelector: string
   }
