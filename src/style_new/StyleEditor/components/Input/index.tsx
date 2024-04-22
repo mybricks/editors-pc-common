@@ -12,13 +12,14 @@ import css from './index.less'
 
 export interface InputProps {
   prefix?: ReactNode
+  prefixTip?: string
   suffix?: ReactNode
   defaultValue?: string | number
   value?: string | number
   style?: CSSProperties
   onChange: (value: string) => void
   disabled?: boolean
-  onBlur: React.FocusEventHandler<HTMLInputElement>
+  onBlur?: React.FocusEventHandler<HTMLInputElement>
   onFocus?: React.FocusEventHandler<HTMLInputElement>
   onKeyDown?: React.KeyboardEventHandler<HTMLInputElement>
   tip?: string
@@ -30,6 +31,7 @@ export function Input ({
   onChange,
   value,
   prefix,
+  prefixTip = void 0,
   suffix,
   style = {},
   disabled = false,
@@ -57,7 +59,7 @@ export function Input ({
   return (
     <Panel.Item style={style}>
       <div className={css.input} data-mybricks-tip={tip}>
-        {prefix && <div className={css.prefix}>{prefix}</div>}
+        {prefix && <div className={css.prefix} data-mybricks-tip={prefixTip}>{prefix}</div>}
         <input
           // value={value || inputValue}
           defaultValue={inputValue}

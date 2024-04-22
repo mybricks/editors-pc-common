@@ -32,9 +32,9 @@ interface PaddingProps {
 const DEFAULT_STYLE = {
   padding: 0,
   fontSize: 10,
-  minWidth: 41,
-  maxWidth: 41,
-  marginLeft: 4
+  // minWidth: 41,
+  // maxWidth: 41,
+  // marginLeft: 4
 }
 
 export function Padding ({value, onChange, config}: PaddingProps) {
@@ -42,7 +42,7 @@ export function Padding ({value, onChange, config}: PaddingProps) {
   const [paddingValue, setPaddingValue] = useState({...value})
   const [splitPaddingIcon, setSplitPaddingIcon] = useState(<PaddingTopOutlined />)
 
-  const handleChange = useCallback((value) => {
+  const handleChange = useCallback((value: any) => {
     setPaddingValue((val) => {
       return {
         ...val,
@@ -74,13 +74,13 @@ export function Padding ({value, onChange, config}: PaddingProps) {
         <div className={css.row}>
           <Panel.Content style={{padding: 3}}>
             <Panel.Item className={css.editArea} style={{padding: '0px 8px'}}>
-              <div className={css.icon}>
+              <div className={css.icon} data-mybricks-tip={`{content:'统一设置',position:'left'}`}>
                 <PaddingAllOutlined />
               </div>
               <InputNumber
                 style={DEFAULT_STYLE}
                 defaultValue={paddingValue.paddingTop}
-                suffix={'px'}
+                // suffix={'px'}
                 onChange={(value) => handleChange({
                   paddingTop: value,
                   paddingRight: value,
@@ -104,38 +104,47 @@ export function Padding ({value, onChange, config}: PaddingProps) {
         <div className={css.row}>
           <Panel.Content style={{padding: 3}}>
             <Panel.Item className={css.editArea} style={{padding: '0px 8px'}}>
-              <div className={css.icon}>
-                {splitPaddingIcon}
+              <div className={css.icon} data-mybricks-tip={'上边距'}>
+                <PaddingTopOutlined />
               </div>
               <InputNumber
                 tip='上边距'
                 style={DEFAULT_STYLE}
                 defaultValue={paddingValue.paddingTop}
-                suffix={'px'}
+                // suffix={'px'}
                 onFocus={() => setSplitPaddingIcon(<PaddingTopOutlined />)}
                 onChange={(value) => handleChange({paddingTop: value})}
               />
+              <div className={css.icon} data-mybricks-tip={'右边距'}>
+                <PaddingRightOutlined />
+              </div>
               <InputNumber
                 tip='右边距'
                 style={DEFAULT_STYLE}
                 defaultValue={paddingValue.paddingRight}
-                suffix={'px'}
+                // suffix={'px'}
                 onFocus={() => setSplitPaddingIcon(<PaddingRightOutlined />)}
                 onChange={(value) => handleChange({paddingRight: value})}
               />
+              <div className={css.icon} data-mybricks-tip={'下边距'}>
+                <PaddingBottomOutlined />
+              </div>
               <InputNumber
                 tip='下边距'
                 style={DEFAULT_STYLE}
                 defaultValue={paddingValue.paddingBottom}
-                suffix={'px'}
+                // suffix={'px'}
                 onFocus={() => setSplitPaddingIcon(<PaddingBottomOutlined />)}
                 onChange={(value) => handleChange({paddingBottom: value})}
               />
+              <div className={css.icon} data-mybricks-tip={'左边距'}>
+                <PaddingLeftOutlined />
+              </div>
               <InputNumber
                 tip='左边距'
                 style={DEFAULT_STYLE}
                 defaultValue={paddingValue.paddingLeft}
-                suffix={'px'}
+                // suffix={'px'}
                 onFocus={() => setSplitPaddingIcon(<PaddingLeftOutlined />)}
                 onChange={(value) => handleChange({paddingLeft: value})}
               />
@@ -146,7 +155,7 @@ export function Padding ({value, onChange, config}: PaddingProps) {
             className={css.actionIcon}
             onClick={() => setToggle(true)}
           >
-            <PaddingTopOutlined />
+            <PaddingTopOutlined /> 
           </div>
         </div>
       )
