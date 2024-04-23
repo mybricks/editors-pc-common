@@ -153,7 +153,7 @@ export default function ({ editConfig }: any): JSX.Element {
         theme={theme ?? "light"}
         height={height}
         className={styles.editor}
-        wrapperClassName={showBtn ? styles["btn-wrapper"] : ""}
+        wrapperClassName={showBtn ? styles["btn-wrapper"] : styles['editor-wrapper']}
         path={path}
         resizable={!showBtn}
       >
