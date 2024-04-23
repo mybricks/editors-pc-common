@@ -164,7 +164,7 @@ function Style ({editConfig}: EditorProps) {
         if (value === undefined) {
           delete setValue[key];
         } else {
-          setValue[value.key] = value.value
+          setValue[key] = value
         }
       })
     } else {
