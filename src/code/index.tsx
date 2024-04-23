@@ -134,6 +134,8 @@ export default function ({ editConfig }: any): JSX.Element {
                 width: 1200,
                 title: title ?? "编辑代码",
                 inside: true,
+                closeIcon: <Icon name="zoom" data-mybricks-tip="缩小"/>,
+                extra: <Icon name="format" data-mybricks-tip="格式化" onClick={onFormat} />,
                 onOpen,
                 onClose,
                 contentClassName: styles.dialog
