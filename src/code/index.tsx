@@ -136,6 +136,7 @@ export default function ({ editConfig }: any): JSX.Element {
                 inside: true,
                 onOpen,
                 onClose,
+                contentClassName: styles.dialog
               }
             : void 0
         }
@@ -147,7 +148,7 @@ export default function ({ editConfig }: any): JSX.Element {
         options={{ readonly, fontSize: 13 }}
         comment={{
           value: comments,
-          height: 300,
+          height: 500,
         }}
         theme={theme ?? "light"}
         height={height}
@@ -178,7 +179,7 @@ export default function ({ editConfig }: any): JSX.Element {
           <span data-mybricks-tip="格式化">
             <Icon className={styles.icon} name="format" onClick={onFormat} />
           </span>
-          <span data-mybricks-tip="放大编辑">
+          <span data-mybricks-tip="展开">
             <Icon className={styles.icon} name="plus" onClick={onOpen} />
           </span>
         </div>
