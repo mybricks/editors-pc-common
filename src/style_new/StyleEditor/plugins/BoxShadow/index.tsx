@@ -1,4 +1,4 @@
-import React, { useState, CSSProperties } from 'react'
+import React, { useState, CSSProperties, useCallback } from 'react'
 
 import {
   Panel,
@@ -15,6 +15,7 @@ import {
 import { useUpdateEffect } from '../../hooks'
 
 import type { ChangeEvent } from '../../type'
+import css from './index.less'
 
 interface BoxShadowProps {
   value: CSSProperties
@@ -29,9 +30,19 @@ const INSET_OPTIONS = [
   {label: '向外', value: false}
 ]
 
-export function BoxShadow ({value, onChange, config}: BoxShadowProps) {
-  const [boxShadowValues, setBoxShadowValues] = useState(getInitValue(value.boxShadow))
+interface boxShadowType {
+  inset: boolean;
+  offsetX: string;
+  offsetY: string;
+  blurRadius: string;
+  spreadRadius: string;
+  color: string;
+}
 
+export function BoxShadow ({value, onChange, config}: BoxShadowProps) {
+  const [boxShadowValues, setBoxShadowValues] = useState<boxShadowType>(getInitValue(value.boxShadow))
+  const [forceRenderKey, setForceRenderKey] = useState<number>(Math.random()); // 用于点击重置按钮重新渲染获取新value
+  
   useUpdateEffect(() => {
     const {
       inset,
@@ -46,10 +57,23 @@ export function BoxShadow ({value, onChange, config}: BoxShadowProps) {
       value = value + 'inset '
     }
     onChange({key: 'boxShadow', value: value + `${offsetX} ${offsetY} ${blurRadius} ${spreadRadius} ${color}`})
-  }, [boxShadowValues])
+  }, [boxShadowValues, forceRenderKey]);
+
+  // TODO useUpdateEffect导致比较特殊 refresh先设置为默认值 一般是没有boxShadow这个属性
+  const refresh = useCallback(() => {
+    setBoxShadowValues({
+      inset: false,
+      offsetX: "0px",
+      offsetY: "0px",
+      blurRadius: "0px",
+      spreadRadius: "0px",
+      color: "#ffffff",
+    });
+    setForceRenderKey(forceRenderKey + 1);
+  }, [forceRenderKey]);
 
   return (
-    <Panel title='阴影'>
+    <Panel title='阴影' key={forceRenderKey}>
       <Panel.Content>
         <Select
           tip='扩散方式'
@@ -88,11 +112,27 @@ export function BoxShadow ({value, onChange, config}: BoxShadowProps) {
             }
           })}
         />
+        <div className={css.icon} data-mybricks-tip={`{content:'重置阴影',position:'left'}`} onClick={refresh}>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="12"
+            height="6"
+            viewBox="0 0 12 6"
+          >
+            <path
+              fill="#000"
+              fill-opacity="1"
+              fill-rule="nonzero"
+              stroke="none"
+              d="M11.5 3.5H.5v-1h11v1z"
+            ></path>
+          </svg>
+        </div>
       </Panel.Content>
       <Panel.Content>
         <ColorEditor
           // tip='颜色'
-          style={{width: 150}}
+          style={{width: 145}}
           defaultValue={boxShadowValues.color}
           onChange={(value) => setBoxShadowValues((boxShadowValues) => {
             return {

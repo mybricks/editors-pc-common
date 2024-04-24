@@ -40,7 +40,7 @@ export function Background ({value, onChange, config}: BackgroundProps) {
     })
 
     return defaultValue
-  }, []);
+  }, [forceRenderKey]);
 
   const refresh = useCallback(() => {
     onChange([
@@ -50,7 +50,7 @@ export function Background ({value, onChange, config}: BackgroundProps) {
       { key: "backgroundPosition", value: void 0 },
       { key: "backgroundSize", value: void 0 },
     ]);
-    setForceRenderKey(Math.random());
+    setForceRenderKey(forceRenderKey + 1);
   }, [forceRenderKey]);
 
   return (
