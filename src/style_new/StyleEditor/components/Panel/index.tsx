@@ -7,6 +7,7 @@ interface PanelProps {
   children: ReactNode
   showReset?: boolean
   resetFunction?: () => void
+  isActive?: boolean
 }
 interface ContentProps {
   style?: CSSProperties
@@ -21,29 +22,29 @@ interface ItemProps {
   activeWhenBlur?: boolean
 }
 
-export function Panel ({title, children, showReset = false, resetFunction = () => {}}: PanelProps) {
+export function Panel ({title, children, showReset = false, resetFunction = () => {}, isActive = false}: PanelProps) {
   return (
     <div className={css.panel}>
       <div className={css.header}>
         <div className={css.title}>{title}</div>
         {showReset && (
           <div
-            className={css.icon}
+            className={`${css.icon} ${isActive ? css.active : ''}`}
             data-mybricks-tip={`{content:'重置${title}',position:'left'}`}
             onClick={resetFunction}
           >
             <svg
+              viewBox="0 0 1024 1024"
+              version="1.1"
               xmlns="http://www.w3.org/2000/svg"
-              width="12"
-              height="6"
-              viewBox="0 0 12 6"
+              p-id="1471"
+              width="15"
+              height="15"
             >
               <path
-                fill="#000"
-                fill-opacity="1"
-                fill-rule="nonzero"
-                stroke="none"
-                d="M11.5 3.5H.5v-1h11v1z"
+                d="M512 1024a512 512 0 1 1 512-512 512.576 512.576 0 0 1-512 512z m0-960a448 448 0 1 0 448 448A448.512 448.512 0 0 0 512 64z m192 480H320a32 32 0 0 1 0-64h384a32 32 0 0 1 0 64z"
+                fill="currentColor"
+                p-id="1472"
               ></path>
             </svg>
           </div>

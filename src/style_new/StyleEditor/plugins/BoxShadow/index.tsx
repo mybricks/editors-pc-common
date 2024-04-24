@@ -15,8 +15,7 @@ import {
 import { useUpdateEffect } from '../../hooks'
 
 import type { ChangeEvent } from '../../type'
-import css from './index.less'
-import { isEqual } from 'lodash';
+import isEqual from 'lodash/isEqual';
 
 interface BoxShadowProps {
   value: CSSProperties
@@ -40,9 +39,19 @@ interface boxShadowType {
   color: string;
 }
 
+const defaultValue = {
+  inset: false,
+  offsetX: "0px",
+  offsetY: "0px",
+  blurRadius: "0px",
+  spreadRadius: "0px",
+  color: "#ffffff",
+}
+
 export function BoxShadow ({value, onChange, config}: BoxShadowProps) {
   const [boxShadowValues, setBoxShadowValues] = useState<boxShadowType>(getInitValue(value.boxShadow))
   const [forceRenderKey, setForceRenderKey] = useState<number>(Math.random()); // 用于点击重置按钮重新渲染获取新value
+  const [isActive, setIsActive] = useState<boolean>(false); //(!isEqual(defaultValue, boxShadowValues));
   
   useUpdateEffect(() => {
     const {
@@ -57,19 +66,12 @@ export function BoxShadow ({value, onChange, config}: BoxShadowProps) {
     if (inset) {
       value = value + 'inset '
     }
+    // setIsActive(!isEqual(defaultValue, boxShadowValues));
     onChange({key: 'boxShadow', value: value + `${offsetX} ${offsetY} ${blurRadius} ${spreadRadius} ${color}`})
   }, [boxShadowValues, forceRenderKey]);
 
   // TODO useUpdateEffect导致比较特殊 refresh先设置为默认值 一般是没有boxShadow这个属性
   const refresh = useCallback(() => {
-    const defaultValue = {
-      inset: false,
-      offsetX: "0px",
-      offsetY: "0px",
-      blurRadius: "0px",
-      spreadRadius: "0px",
-      color: "#ffffff",
-    }
     if (isEqual(defaultValue, boxShadowValues)) {
       return ;
     }
@@ -78,7 +80,7 @@ export function BoxShadow ({value, onChange, config}: BoxShadowProps) {
   }, [forceRenderKey, boxShadowValues]);
 
   return (
-    <Panel title='阴影' key={forceRenderKey} showReset={true} resetFunction={refresh}>
+    <Panel title='阴影' key={forceRenderKey} showReset={true} resetFunction={refresh} isActive={isActive}>
       <Panel.Content>
         <Select
           tip='扩散方式'
@@ -161,14 +163,7 @@ export function BoxShadow ({value, onChange, config}: BoxShadowProps) {
 }
 
 function getInitValue (boxShadow: string | undefined) {
-  const result = {
-    inset: false,
-    offsetX: '0px',
-    offsetY: '0px',
-    blurRadius: '0px',
-    spreadRadius: '0px',
-    color: '#ffffff'
-  }
+  const result = {...defaultValue};
 
   if (!boxShadow) {
     return result

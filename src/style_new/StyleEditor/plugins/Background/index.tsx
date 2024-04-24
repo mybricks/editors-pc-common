@@ -1,8 +1,8 @@
-import React, { useMemo, useState, CSSProperties, useCallback, useEffect } from 'react'
+import React, { useMemo, useState, CSSProperties, useCallback } from 'react'
 import { getRealKey } from '../../utils'
 import { useStyleEditorContext } from '../..'
 import { Panel, Image, ColorEditor, ReloadOutlined } from '../../components'
-import css from './index.less';
+import isEqual from 'lodash/isEqual';
 
 interface BackgroundProps {
   value: CSSProperties
@@ -19,6 +19,14 @@ const DEFAULT_CONFIG = {
   useImportant: false
 }
 
+const defaultValue = {
+  backgroundColor: 'rgba(0, 0, 0, 0)',
+  backgroundImage: 'none',
+  backgroundRepeat: 'repeat',
+  backgroundPosition: 'left top',
+  backgroundSize: 'auto'
+}
+
 export function Background ({value, onChange, config}: BackgroundProps) {
   const context = useStyleEditorContext()
   const [{
@@ -28,6 +36,14 @@ export function Background ({value, onChange, config}: BackgroundProps) {
     disableBackgroundImage,
   }] = useState({ ...DEFAULT_CONFIG, ...config })
   const [forceRenderKey, setForceRenderKey] = useState<number>(Math.random()); // 用于点击重置按钮重新渲染获取新value
+  const [isActive, setIsActive] = useState<boolean>(false);
+  // (!isEqual({
+  //   backgroundColor: value?.backgroundColor,
+  //   backgroundImage: value?.backgroundImage,
+  //   backgroundRepeat: value?.backgroundRepeat,
+  //   backgroundPosition: value?.backgroundPosition,
+  //   backgroundSize: value?.backgroundSize,
+  // }, defaultValue));
 
   const defaultBackgroundValue: CSSProperties & Record<string, any> = useMemo(() => {
     const defaultValue = Object.assign({ }, value)
@@ -51,10 +67,11 @@ export function Background ({value, onChange, config}: BackgroundProps) {
       { key: "backgroundSize", value: void 0 },
     ]);
     setForceRenderKey(forceRenderKey + 1);
+    setIsActive(false);
   }, [forceRenderKey]);
 
   return (
-    <Panel title='背景' key={forceRenderKey} showReset={true} resetFunction={refresh}>
+    <Panel title='背景' key={forceRenderKey} showReset={true} resetFunction={refresh} isActive={isActive}>
       <Panel.Content>
         {
           disableBackgroundColor ? null : 
@@ -63,7 +80,10 @@ export function Background ({value, onChange, config}: BackgroundProps) {
             // @ts-ignore
             style={{ flex: 2 }}
             defaultValue={defaultBackgroundValue[getRealKey(keyMap, 'backgroundColor')] || defaultBackgroundValue.backgroundColor}
-            onChange={(value) => onChange({key: getRealKey(keyMap, 'backgroundColor'), value: `${value}${useImportant ? '!important' : ''}`})}
+            onChange={(value) => {
+              onChange({key: getRealKey(keyMap, 'backgroundColor'), value: `${value}${useImportant ? '!important' : ''}`});
+              // setIsActive(true);
+            }}
           />
         }
         {
@@ -77,7 +97,10 @@ export function Background ({value, onChange, config}: BackgroundProps) {
               backgroundPosition: defaultBackgroundValue.backgroundPosition,
               backgroundSize: defaultBackgroundValue.backgroundSize,
             }}
-            onChange={(value: { key: string, value: string}) => onChange({key: getRealKey(keyMap, value.key), value: `${value.value}${useImportant ? '!important' : ''}`})}
+            onChange={(value: { key: string, value: string}) => {
+              onChange({key: getRealKey(keyMap, value.key), value: `${value.value}${useImportant ? '!important' : ''}`});
+              // setIsActive(true);
+            }}
             upload={context.upload}
           />
         }
