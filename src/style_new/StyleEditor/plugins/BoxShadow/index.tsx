@@ -16,6 +16,7 @@ import { useUpdateEffect } from '../../hooks'
 
 import type { ChangeEvent } from '../../type'
 import css from './index.less'
+import { isEqual } from 'lodash';
 
 interface BoxShadowProps {
   value: CSSProperties
@@ -61,16 +62,20 @@ export function BoxShadow ({value, onChange, config}: BoxShadowProps) {
 
   // TODO useUpdateEffect导致比较特殊 refresh先设置为默认值 一般是没有boxShadow这个属性
   const refresh = useCallback(() => {
-    setBoxShadowValues({
+    const defaultValue = {
       inset: false,
       offsetX: "0px",
       offsetY: "0px",
       blurRadius: "0px",
       spreadRadius: "0px",
       color: "#ffffff",
-    });
+    }
+    if (isEqual(defaultValue, boxShadowValues)) {
+      return ;
+    }
+    setBoxShadowValues(defaultValue);
     setForceRenderKey(forceRenderKey + 1);
-  }, [forceRenderKey]);
+  }, [forceRenderKey, boxShadowValues]);
 
   return (
     <Panel title='阴影' key={forceRenderKey}>
@@ -165,6 +170,7 @@ export function BoxShadow ({value, onChange, config}: BoxShadowProps) {
             }
           })}
         />
+        {/* <div style={{ width: "21px" }}/> */}
       </Panel.Content>
     </Panel>
   )
