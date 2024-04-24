@@ -36,13 +36,14 @@ export function Background ({value, onChange, config}: BackgroundProps) {
     disableBackgroundImage,
   }] = useState({ ...DEFAULT_CONFIG, ...config })
   const [forceRenderKey, setForceRenderKey] = useState<number>(Math.random()); // 用于点击重置按钮重新渲染获取新value
-  const [isActive, setIsActive] = useState<boolean>(!isEqual({
-    backgroundColor: value?.backgroundColor,
-    backgroundImage: value?.backgroundImage,
-    backgroundRepeat: value?.backgroundRepeat,
-    backgroundPosition: value?.backgroundPosition,
-    backgroundSize: value?.backgroundSize,
-  }, defaultValue));
+  const [isActive, setIsActive] = useState<boolean>(false);
+  // (!isEqual({
+  //   backgroundColor: value?.backgroundColor,
+  //   backgroundImage: value?.backgroundImage,
+  //   backgroundRepeat: value?.backgroundRepeat,
+  //   backgroundPosition: value?.backgroundPosition,
+  //   backgroundSize: value?.backgroundSize,
+  // }, defaultValue));
 
   const defaultBackgroundValue: CSSProperties & Record<string, any> = useMemo(() => {
     const defaultValue = Object.assign({ }, value)
@@ -81,7 +82,7 @@ export function Background ({value, onChange, config}: BackgroundProps) {
             defaultValue={defaultBackgroundValue[getRealKey(keyMap, 'backgroundColor')] || defaultBackgroundValue.backgroundColor}
             onChange={(value) => {
               onChange({key: getRealKey(keyMap, 'backgroundColor'), value: `${value}${useImportant ? '!important' : ''}`});
-              setIsActive(true);
+              // setIsActive(true);
             }}
           />
         }
@@ -98,7 +99,7 @@ export function Background ({value, onChange, config}: BackgroundProps) {
             }}
             onChange={(value: { key: string, value: string}) => {
               onChange({key: getRealKey(keyMap, value.key), value: `${value.value}${useImportant ? '!important' : ''}`});
-              setIsActive(true);
+              // setIsActive(true);
             }}
             upload={context.upload}
           />
