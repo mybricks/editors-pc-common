@@ -160,19 +160,10 @@ function Style ({editConfig}: EditorProps) {
   const handleChange: ChangeEvent = useCallback((value) => {
     if (Array.isArray(value)) {
       value.forEach(({key, value}) => {
-        // 便于清空某个属性
-        if (value === undefined) {
-          delete setValue[key];
-        } else {
-          setValue[key] = value
-        }
+        setValue[key] = value
       })
     } else {
-      if (value.value === undefined) {
-        delete setValue[value.key];
-      } else {
-        setValue[value.key] = value.value;
-      }
+      setValue[value.key] = value.value;
     }
     editConfig.value.set(deepCopy(setValue))
   }, [])
