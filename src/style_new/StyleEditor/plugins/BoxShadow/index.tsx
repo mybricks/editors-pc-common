@@ -78,7 +78,7 @@ export function BoxShadow ({value, onChange, config}: BoxShadowProps) {
   }, [forceRenderKey, boxShadowValues]);
 
   return (
-    <Panel title='阴影' key={forceRenderKey}>
+    <Panel title='阴影' key={forceRenderKey} showReset={true} resetFunction={refresh}>
       <Panel.Content>
         <Select
           tip='扩散方式'
@@ -117,27 +117,11 @@ export function BoxShadow ({value, onChange, config}: BoxShadowProps) {
             }
           })}
         />
-        <div className={css.icon} data-mybricks-tip={`{content:'重置阴影',position:'left'}`} onClick={refresh}>
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="12"
-            height="6"
-            viewBox="0 0 12 6"
-          >
-            <path
-              fill="#000"
-              fill-opacity="1"
-              fill-rule="nonzero"
-              stroke="none"
-              d="M11.5 3.5H.5v-1h11v1z"
-            ></path>
-          </svg>
-        </div>
       </Panel.Content>
       <Panel.Content>
         <ColorEditor
           // tip='颜色'
-          style={{width: 145}}
+          style={{width: 140}}
           defaultValue={boxShadowValues.color}
           onChange={(value) => setBoxShadowValues((boxShadowValues) => {
             return {

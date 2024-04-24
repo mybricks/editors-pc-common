@@ -54,7 +54,7 @@ export function Background ({value, onChange, config}: BackgroundProps) {
   }, [forceRenderKey]);
 
   return (
-    <Panel title='背景' key={forceRenderKey}>
+    <Panel title='背景' key={forceRenderKey} showReset={true} resetFunction={refresh}>
       <Panel.Content>
         {
           disableBackgroundColor ? null : 
@@ -81,22 +81,6 @@ export function Background ({value, onChange, config}: BackgroundProps) {
             upload={context.upload}
           />
         }
-        <div className={css.icon} data-mybricks-tip={`{content:'重置背景',position:'left'}`} onClick={refresh}>
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="12"
-            height="6"
-            viewBox="0 0 12 6"
-          >
-            <path
-              fill="#000"
-              fill-opacity="1"
-              fill-rule="nonzero"
-              stroke="none"
-              d="M11.5 3.5H.5v-1h11v1z"
-            ></path>
-          </svg>
-        </div>
       </Panel.Content>
       {/* {disableBackgroundImage ? null : (
         <Panel.Content>
