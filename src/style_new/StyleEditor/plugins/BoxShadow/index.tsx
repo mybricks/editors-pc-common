@@ -51,7 +51,6 @@ const defaultValue = {
 export function BoxShadow ({value, onChange, config}: BoxShadowProps) {
   const [boxShadowValues, setBoxShadowValues] = useState<boxShadowType>(getInitValue(value.boxShadow))
   const [forceRenderKey, setForceRenderKey] = useState<number>(Math.random()); // 用于点击重置按钮重新渲染获取新value
-  const [isActive, setIsActive] = useState<boolean>(false); //(!isEqual(defaultValue, boxShadowValues));
   
   useUpdateEffect(() => {
     const {
@@ -66,7 +65,6 @@ export function BoxShadow ({value, onChange, config}: BoxShadowProps) {
     if (inset) {
       value = value + 'inset '
     }
-    // setIsActive(!isEqual(defaultValue, boxShadowValues));
     onChange({key: 'boxShadow', value: value + `${offsetX} ${offsetY} ${blurRadius} ${spreadRadius} ${color}`})
   }, [boxShadowValues, forceRenderKey]);
 
@@ -80,7 +78,7 @@ export function BoxShadow ({value, onChange, config}: BoxShadowProps) {
   }, [forceRenderKey, boxShadowValues]);
 
   return (
-    <Panel title='阴影' key={forceRenderKey} showReset={true} resetFunction={refresh} isActive={isActive}>
+    <Panel title='阴影' key={forceRenderKey} showReset={true} resetFunction={refresh}>
       <Panel.Content>
         <Select
           tip='扩散方式'

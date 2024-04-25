@@ -1,5 +1,7 @@
 import React, { CSSProperties, ReactNode, useCallback, useState } from 'react'
 
+import { ReloadOutlined } from '@ant-design/icons'
+
 import css from './index.less'
 
 interface PanelProps {
@@ -33,6 +35,7 @@ export function Panel ({title, children, showReset = false, resetFunction = () =
             data-mybricks-tip={`{content:'重置${title}',position:'left'}`}
             onClick={resetFunction}
           >
+            {/* <ReloadOutlined /> */}
             <svg
               viewBox="0 0 1024 1024"
               version="1.1"
