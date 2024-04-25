@@ -78,7 +78,7 @@ export function Background ({value, onChange, config}: BackgroundProps) {
         {
           disableBackgroundImage ? null : 
           <Image
-            style={{ flex: 1, marginRight: "21px", padding: "0px 2px" }}
+            style={{ flex: 1 }}
             tip='背景图'
             defaultValue={{
               backgroundImage: defaultBackgroundValue.backgroundImage,
