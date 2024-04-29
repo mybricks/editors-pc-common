@@ -38,7 +38,7 @@ export function Select({
       : options.find(({ value: optionValue }) => optionValue === value)?.label || value
   );
 
-  const handleDropDownClick = useCallback((clickValue) => {
+  const handleDropDownClick = useCallback((clickValue: any) => {
     setValue((value: any) => {
       if (multiple) {
         const nextValue = Array.isArray(value) ? value.slice() : [value];
@@ -69,7 +69,7 @@ export function Select({
         ? propsValue.map((v) => options.find(({ value }) => value === v)!.label).join(",")
         : options.find(({ value: optionValue }) => optionValue === value)?.label || value
     );
-  }, [propsValue]);
+  }, [propsValue, value]);
 
   return (
     <Panel.Item style={style}>
