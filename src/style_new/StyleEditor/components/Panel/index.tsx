@@ -35,8 +35,8 @@ export function Panel ({title, children, showReset = false, resetFunction = () =
             data-mybricks-tip={`{content:'重置${title}',position:'left'}`}
             onClick={resetFunction}
           >
-            {/* <ReloadOutlined /> */}
-            <svg
+            <ReloadOutlined />
+            {/* <svg
               viewBox="0 0 1024 1024"
               version="1.1"
               xmlns="http://www.w3.org/2000/svg"
@@ -49,7 +49,7 @@ export function Panel ({title, children, showReset = false, resetFunction = () =
                 fill="currentColor"
                 p-id="1472"
               ></path>
-            </svg>
+            </svg> */}
           </div>
         )}
       </div>
