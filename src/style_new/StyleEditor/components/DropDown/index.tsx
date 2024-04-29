@@ -25,11 +25,11 @@ export function Dropdown({ value, options, children, onClick, className, multipl
     setOpen(true);
   }, []);
 
-  const handleItemClick = useCallback((value) => {
+  const handleItemClick = useCallback((value: any) => {
     onClick(value);
   }, []);
 
-  const handleClick = useCallback((event) => {
+  const handleClick = useCallback((event: { target: any; }) => {
     if (multiple) {
       let currentDOM = event.target;
       while (currentDOM) {
@@ -105,7 +105,7 @@ const Items = React.forwardRef<HTMLDivElement, ItemsProps>((props, forwardRef) =
       const totalHeight = window.innerHeight || document.documentElement.clientHeight;
       const top = positionElementBct.top + positionElementBct.height;
       const right = positionElementBct.left + positionElementBct.width;
-      const letf = right - positionElementBct.width;
+      const left = right - positionElementBct.width;
       const bottom = top + menusContainerBct.height;
 
       if (bottom > totalHeight) {
@@ -118,10 +118,10 @@ const Items = React.forwardRef<HTMLDivElement, ItemsProps>((props, forwardRef) =
 
       // 保证完全展示
       if (menusContainerBct.width > positionElementBct.width) {
-        menusContainer.style.left = letf - menusContainerBct.width + positionElementBct.width + "px";
+        menusContainer.style.left = left - menusContainerBct.width + positionElementBct.width + "px";
       } else {
         menusContainer.style.width = positionElementBct.width + "px";
-        menusContainer.style.left = letf + "px";
+        menusContainer.style.left = left + "px";
       }
 
       menusContainer.style.visibility = "visible";
