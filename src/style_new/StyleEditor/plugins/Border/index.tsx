@@ -208,7 +208,12 @@ export function Border({ value, onChange, config }: BorderProps) {
         </div>
       );
     } else {
-      if (disableBorderTop && disableBorderRight && disableBorderBottom && disableBorderLeft) {
+      if (
+        disableBorderTop &&
+        disableBorderRight &&
+        disableBorderBottom &&
+        disableBorderLeft
+      ) {
         return null;
       }
       return (

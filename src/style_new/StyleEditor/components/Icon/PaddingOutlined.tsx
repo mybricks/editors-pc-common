@@ -30,7 +30,7 @@ export function PaddingControlsToggleOutlined() {
         d="M3 0h6v1H3V0zM0 3v6h1V3H0zm11 0v6h1V3h-1zm-8 9h6v-1H3v1z"
         fillRule="evenodd"
         fillOpacity=".8"
-        fill="#000"
+        fill="currentColor"
         stroke="none"
       ></path>
     </svg>
@@ -40,8 +40,8 @@ export function PaddingControlsToggleOutlined() {
 export function PaddingLeftOutlined({ style }: any) {
   return (
     <svg
-      width="12"
-      height="12"
+      width="15"
+      height="15"
       viewBox="0 0 12 12"
       style={style}
       xmlns="http://www.w3.org/2000/svg"
@@ -50,7 +50,7 @@ export function PaddingLeftOutlined({ style }: any) {
         d="M0 12V0h1v12H0zm3-9h6v6H3V3zm1 1v4h4V4H4z"
         fillRule="evenodd"
         fillOpacity="1"
-        fill="#000"
+        fill="currentColor"
         stroke="none"
       ></path>
     </svg>
@@ -69,7 +69,7 @@ export function PaddingLeftRightOutlined() {
         d="M0 12V0h1v12H0zm3-9h6v6H3V3zm1 1v4h4V4H4zm7 8V0h1v12h-1z"
         fillRule="evenodd"
         fillOpacity="1"
-        fill="#000"
+        fill="currentColor"
         stroke="none"
       ></path>
     </svg>
@@ -92,7 +92,7 @@ export function PaddingTopBottomOutlined() {
         d="M3 3h6v6H3V3zm1 1v4h4V4H4zm8 8H0v-1h12v1zm0-11H0V0h12v1z"
         fillRule="evenodd"
         fillOpacity="1"
-        fill="#000"
+        fill="currentColor"
         stroke="none"
       ></path>
     </svg>

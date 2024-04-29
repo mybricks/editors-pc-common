@@ -129,13 +129,19 @@ export function ColorEditor({ defaultValue, style = {}, onChange, options = [] }
     }
   }, [state.value, state.nonColorValue]);
 
+  const fixHex = (hex: string) => {
+    if (hex[hex.length - 1] === '0') {
+      return hex.replace(/00$/, 'FF');
+    }
+    return hex;
+  }
   const handleInputChange = useCallback(
-    (value) => {
+    (value: string) => {
       let finalValue = state.value;
 
       try {
         const color = new ColorUtil(value).alpha(opacityNumber);
-        finalValue = color.hexa();
+        finalValue = fixHex(color.hexa());
         onChange(finalValue);
         dispatch({
           value: finalValue,
