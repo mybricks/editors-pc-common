@@ -97,6 +97,7 @@ export default function () {
               </div>
               <InputNumber
                 tip="右边距"
+                style={{ marginLeft: 0 }}
                 defaultValue={editCtx.paddingRight}
                 onChange={(value) => handleChange({ paddingRight: value })}
               />
@@ -105,6 +106,7 @@ export default function () {
               </div>
               <InputNumber
                 tip="下边距"
+                style={{ marginLeft: 0 }}
                 defaultValue={editCtx.paddingBottom}
                 onChange={(value) => handleChange({ paddingBottom: value })}
               />
@@ -113,6 +115,7 @@ export default function () {
               </div>
               <InputNumber
                 tip="左边距"
+                style={{ marginLeft: 0 }}
                 defaultValue={editCtx.paddingLeft}
                 onChange={(value) => handleChange({ paddingLeft: value })}
               />
