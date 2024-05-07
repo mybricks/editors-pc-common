@@ -1,11 +1,22 @@
-import React, { useMemo } from 'react';
+import React, { CSSProperties, useCallback, useMemo, useState } from "react";
 
-import { Ctx } from '../Style';
-import { initValues } from '../utils';
-import GreyContainer from './greyContainer';
-import { observe, useObservable } from '@mybricks/rxui';
+import {
+  Panel,
+  InputNumber,
+  PaddingAllOutlined,
+  PaddingTopOutlined,
+  PaddingLeftOutlined,
+  PaddingRightOutlined,
+  PaddingBottomOutlined,
+} from "../../style_new/StyleEditor/components";
+import { allEqual } from "../../style_new/StyleEditor/utils";
 
-import css from './index.less';
+import { Ctx } from "../Style";
+import { initValues } from "../utils";
+// import GreyContainer from "./greyContainer";
+import { observe, useObservable } from "@mybricks/rxui";
+
+import css from "./index.less";
 
 class EditCtx {
   paddingTop!: string;
@@ -15,81 +26,122 @@ class EditCtx {
 }
 
 export default function () {
-  const ctx: Ctx = observe(Ctx, { from: 'parents' });
+  const ctx: Ctx = observe(Ctx, { from: "parents" });
   const editCtx: EditCtx = useObservable(EditCtx, (next) => {
-    next(initValues({
-      paddingTop: '0px',
-      paddingBottom: '0px',
-      paddingLeft: '0px',
-      paddingRight: '0px'
-    }, ctx.val));
+    next(
+      initValues(
+        {
+          paddingTop: "0px",
+          paddingBottom: "0px",
+          paddingLeft: "0px",
+          paddingRight: "0px",
+        },
+        ctx.val
+      )
+    );
   });
+  const [toggle, setToggle] = useState(getToggleDefaultValue(editCtx));
+  const handleChange = useCallback((value: any) => {
+    ctx.set({ ...value });
+  }, []);
+
+  const paddingConfig = useMemo(() => {
+    if (toggle) {
+      return (
+        <div className={css.row}>
+          <Panel.Content style={{ padding: 3 }}>
+            <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
+              <div
+                className={css.icon}
+                data-mybricks-tip={`{content:'统一设置',position:'left'}`}
+              >
+                <PaddingAllOutlined />
+              </div>
+              <InputNumber
+                defaultValue={editCtx.paddingTop}
+                onChange={(value) =>
+                  handleChange({
+                    paddingTop: value,
+                    paddingRight: value,
+                    paddingBottom: value,
+                    paddingLeft: value,
+                  })
+                }
+              />
+            </Panel.Item>
+          </Panel.Content>
+          <div
+            data-mybricks-tip={`{content:'统一设置',position:'left'}`}
+            className={css.actionIcon}
+            onClick={() => setToggle(false)}
+          >
+            <PaddingAllOutlined />
+          </div>
+        </div>
+      );
+    } else {
+      return (
+        <div className={css.row}>
+          <Panel.Content style={{ padding: 3 }}>
+            <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
+              <div className={css.icon} data-mybricks-tip={"上边距"}>
+                <PaddingTopOutlined />
+              </div>
+              <InputNumber
+                tip="上边距"
+                defaultValue={editCtx.paddingTop}
+                onChange={(value) => handleChange({ paddingTop: value })}
+              />
+              <div className={css.icon} data-mybricks-tip={"右边距"}>
+                <PaddingRightOutlined />
+              </div>
+              <InputNumber
+                tip="右边距"
+                defaultValue={editCtx.paddingRight}
+                onChange={(value) => handleChange({ paddingRight: value })}
+              />
+              <div className={css.icon} data-mybricks-tip={"下边距"}>
+                <PaddingBottomOutlined />
+              </div>
+              <InputNumber
+                tip="下边距"
+                defaultValue={editCtx.paddingBottom}
+                onChange={(value) => handleChange({ paddingBottom: value })}
+              />
+              <div className={css.icon} data-mybricks-tip={"左边距"}>
+                <PaddingLeftOutlined />
+              </div>
+              <InputNumber
+                tip="左边距"
+                defaultValue={editCtx.paddingLeft}
+                onChange={(value) => handleChange({ paddingLeft: value })}
+              />
+            </Panel.Item>
+          </Panel.Content>
+          <div
+            data-mybricks-tip={`{content:'分别设置',position:'left'}`}
+            className={css.actionIcon}
+            onClick={() => setToggle(true)}
+          >
+            <PaddingTopOutlined />
+          </div>
+        </div>
+      );
+    }
+  }, [toggle]);
 
   return (
-    <div className={css.editorContainer}>
-      <div className={css.editorTitle}>内间距</div>
-      <div className={css.toolbar}>
-        {useMemo(() => {
-          return (
-            <GreyContainer
-              type="input"
-              label="上"
-              onBlurFnKey=">0"
-              regexFnKey="number"
-              style={{ marginRight: 3, flex: 1 }}
-              defaultValue={parseFloat(editCtx.paddingTop) || 0}
-              onChange={(paddingTop) => {
-                ctx.set({ paddingTop: paddingTop + 'px' });
-              }}
-            />
-          );
-        }, [])}
-        {useMemo(() => {
-          return (
-            <GreyContainer
-              type="input"
-              label="下"
-              onBlurFnKey=">0"
-              regexFnKey="number"
-              style={{ marginRight: 3, flex: 1 }}
-              defaultValue={parseFloat(editCtx.paddingBottom) || 0}
-              onChange={(paddingBottom) => {
-                ctx.set({ paddingBottom: paddingBottom + 'px' });
-              }}
-            />
-          );
-        }, [])}
-        {useMemo(() => {
-          return (
-            <GreyContainer
-              type="input"
-              label="左"
-              onBlurFnKey=">0"
-              regexFnKey="number"
-              style={{ marginRight: 3, flex: 1 }}
-              defaultValue={parseFloat(editCtx.paddingLeft) || 0}
-              onChange={(paddingLeft) => {
-                ctx.set({ paddingLeft: paddingLeft + 'px' });
-              }}
-            />
-          );
-        }, [])}
-        {useMemo(() => {
-          return (
-            <GreyContainer
-              type="input"
-              label="右"
-              onBlurFnKey=">0"
-              regexFnKey="number"
-              style={{ marginRight: 0, flex: 1 }}
-              defaultValue={parseFloat(editCtx.paddingRight) || 0}
-              onChange={(paddingRight) => {
-                ctx.set({ paddingRight: paddingRight + 'px' });
-              }}
-            />
-          );
-        }, [])}
-      </div>
+    <div className={css.padding}>
+      <Panel title="内边距">{paddingConfig}</Panel>
     </div>
   );
+}
+
+function getToggleDefaultValue(value: CSSProperties): boolean {
+  return allEqual([
+    value.paddingTop,
+    value.paddingRight,
+    value.paddingBottom,
+    value.paddingLeft,
+  ]);
 }
