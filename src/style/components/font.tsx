@@ -118,7 +118,7 @@ export const Font = function ({ hasLetterSpace = false }) {
         color: "#222222",
         fontStyle: "normal",
         fontFamily: "",
-        textDecoration: "normal",
+        textDecoration: "none",
       },
       ctx.val
     );

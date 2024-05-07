@@ -56,7 +56,7 @@ export const FontStyleOptions: SelectOptions = [
 ];
 
 export const TextDecoratioin: SelectOptions = [
-  { label: "默认", value: "normal" },
+  { label: "默认", value: "none" },
   { label: "下划线", value: "underline" },
   { label: "上划线", value: "overline" },
   { label: "中划线", value: "line-through" },
