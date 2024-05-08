@@ -28,11 +28,6 @@ import {
 } from "../../style_new/StyleEditor/components";
 import { Ctx } from "../Style";
 
-interface BorderProps {
-  value: CSSProperties;
-  onChange: (value: Record<string, any>) => void;
-}
-
 const BORDER_STYLE_OPTIONS = [
   { label: "无", value: "none" },
   { label: "实线", value: "solid" },
@@ -54,49 +49,37 @@ const DEFAULT_STYLE__NEW = {
   fontSize: 10,
 };
 
-class EditCtx {
-  borderColor!: string;
-  borderStyle!: string;
-  borderWidth!: string;
-  borderRadius!: string;
-}
-
-export default function Border({ value, onChange }: BorderProps) {
-  const ctx: Ctx = observe(Ctx, { from: "parents" });
-  const editCtx: EditCtx = useObservable(EditCtx, (next) => {
-    const nextValue = initValues(
-      {
-        borderWidth: "0px",
-        borderRadius: "0px",
-        borderStyle: "solid",
-        borderColor: "#ffffff",
-      },
-      ctx.val
-    );
-
-    next({
-      borderWidth: nextValue.borderWidth,
-      borderRadius: nextValue.borderRadius,
-      borderStyle: nextValue.borderStyle,
-      borderColor: nextValue.borderColor,
-    });
+const createBorders = () => {
+  const borders: Record<string, any> = {};
+  const sides = ["", "Top", "Right", "Bottom", "Left"];
+  const properties = {
+    Width: "0px",
+    Radius: "0px",
+    Style: "solid",
+    Color: "#ffffff",
+  };
+  sides.forEach((side) => {
+    const prefix = side === "" ? "" : "border" + side;
+    for (const [prop, value] of Object.entries(properties)) {
+      borders[`${prefix}${prop}`] = value;
+    }
   });
+  return borders;
+};
+
+export default function Border() {
+  const ctx: Ctx = observe(Ctx, { from: "parents" });
+  const defalutValue: Record<string, any> = { ...createBorders(), ...ctx.val };
   const [{ borderToggleValue, radiusToggleValue }, setToggleValue] = useState(
-    getToggleDefaultValue(value)
+    getToggleDefaultValue(defalutValue)
   );
   const defaultBorderValue = useMemo(() => {
-    const defaultValue = Object.assign({}, value);
+    const defaultValue = Object.assign({}, defalutValue);
     Object.entries(defaultValue).forEach(([key, value]) => {
       if (typeof value === "string") {
-        // @ts-ignore
         defaultValue[key] = value.replace(/!.*$/, "");
       }
     });
-    console.log(
-      "%c [ defaultValue ]-60",
-      "font-size:13px; background:pink; color:#bf2c9f;",
-      defaultValue
-    );
     return defaultValue;
   }, []);
 
@@ -112,7 +95,7 @@ export default function Border({ value, onChange }: BorderProps) {
           ...value,
         };
       });
-      onChange(value);
+      ctx.set(value);
     },
     []
   );
@@ -151,7 +134,7 @@ export default function Border({ value, onChange }: BorderProps) {
               <InputNumber
                 tip="边框宽度"
                 style={DEFAULT_STYLE}
-                defaultValue={borderValue.borderTopWidth}
+                value={borderValue.borderTopWidth}
                 defaultUnitValue="px"
                 onChange={(value) => {
                   const borderStyle =
@@ -173,14 +156,27 @@ export default function Border({ value, onChange }: BorderProps) {
               <ColorEditor
                 style={{ padding: 0, marginLeft: 5 }}
                 defaultValue={borderValue.borderTopColor}
-                onChange={(value) =>
-                  handleChange({
+                onChange={(value) => {
+                  let newValue: Record<string, any> = {
                     borderTopColor: value,
                     borderRightColor: value,
                     borderBottomColor: value,
                     borderLeftColor: value,
-                  })
-                }
+                  };
+                  if (
+                    !isLengthNineAndEndsWithZeroes(value) &&
+                    borderValue.borderTopWidth === "0px"
+                  ) {
+                    newValue = {
+                      ...newValue,
+                      borderTopWidth: "1px",
+                      borderRightWidth: "1px",
+                      borderBottomWidth: "1px",
+                      borderLeftWidth: "1px",
+                    };
+                  }
+                  handleChange(newValue);
+                }}
               />
               <Select
                 tip="边框线条样式"
@@ -245,13 +241,11 @@ export default function Border({ value, onChange }: BorderProps) {
                       })
                     }
                   />
-                  )
                   <ColorEditor
                     style={{ padding: 0, marginLeft: 5 }}
                     defaultValue={borderValue.borderTopColor}
                     onChange={(value) => onBorderColorChange(value, "Top")}
                   />
-                  )
                   <Select
                     tip="上边框线条样式"
                     style={{
@@ -309,7 +303,6 @@ export default function Border({ value, onChange }: BorderProps) {
                       })
                     }
                   />
-
                   <ColorEditor
                     style={{ padding: 0, marginLeft: 5 }}
                     defaultValue={borderValue.borderRightColor}
@@ -336,7 +329,6 @@ export default function Border({ value, onChange }: BorderProps) {
               </Panel.Content>
               <div className={css.actionIcon} />
             </div>
-
             <div className={css.row}>
               <Panel.Content style={{ padding: 3 }}>
                 <Panel.Item
@@ -387,7 +379,6 @@ export default function Border({ value, onChange }: BorderProps) {
               </Panel.Content>
               <div className={css.actionIcon} />
             </div>
-
             <div className={css.row}>
               <Panel.Content style={{ padding: 3 }}>
                 <Panel.Item
@@ -594,8 +585,10 @@ export default function Border({ value, onChange }: BorderProps) {
 
   return (
     <Panel title="描边">
-      {borderConfig}
-      {radiusConfig}
+      <div className={css.border}>
+        {borderConfig}
+        {radiusConfig}
+      </div>
     </Panel>
   );
 }
