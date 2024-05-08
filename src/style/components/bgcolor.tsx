@@ -1,14 +1,15 @@
-import React, { useCallback } from 'react';
+import React, { useCallback } from "react";
 
-import { Input } from 'antd';
-import tinycolor from 'tinycolor2';
-import { observe, useObservable } from '@mybricks/rxui';
+import { Input } from "antd";
+import tinycolor from "tinycolor2";
+import { observe, useObservable } from "@mybricks/rxui";
 
-import { Ctx } from '../Style';
-import { bgParse, initValues } from '../utils';
-import ColorEditor from '../../components/color-editor';
+import { Ctx } from "../Style";
+import { bgParse, initValues } from "../utils";
+// import ColorEditor from "../../components/color-editor";
+import { ColorEditor } from "../../style_new/StyleEditor/components";
 
-import css from './index.less';
+import css from "./index.less";
 
 class EditCtx {
   bgColor!: string;
@@ -42,12 +43,16 @@ const svg = (
 );
 
 export default function (): JSX.Element {
-  const ctx: Ctx = observe(Ctx, { from: 'parents' });
+  const ctx: Ctx = observe(Ctx, { from: "parents" });
   const editCtx: EditCtx = useObservable(EditCtx, (next) => {
-    const nextValue = initValues({
-      background: 'url() center top / 100% 100% no-repeat, rgba(255,255,255,1)'
-    }, ctx.val)
-    const { bgColor = 'transparent' } = bgParse(nextValue.background);
+    const nextValue = initValues(
+      {
+        background:
+          "url() center top / 100% 100% no-repeat, rgba(255,255,255,1)",
+      },
+      ctx.val
+    );
+    const { bgColor = "transparent" } = bgParse(nextValue.background);
     const { hex, alpha, isTheme, isGradient } = getColor(bgColor);
     next({
       bgColor,
@@ -62,7 +67,7 @@ export default function (): JSX.Element {
     editCtx.showText = !editCtx.showText;
   }, []);
 
-  const onInput = useCallback((e) => {
+  const onInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     editCtx.bgColor = value;
     ctx.updateBgColor(value);
@@ -75,24 +80,24 @@ export default function (): JSX.Element {
         <div
           className={`
             ${css.gradientIcon} 
-            ${editCtx.showText ? css.acitve : ''}
+            ${editCtx.showText ? css.acitve : ""}
           `}
           onClick={toggleGradient}
         >
           {svg}
         </div>
       </div>
-      <div className={css.toolbar} style={{ height: '40px' }}>
+      <div className={css.toolbar} style={{ height: "40px" }}>
         {editCtx.showText ? (
           <Input
             size="small"
             value={editCtx.bgColor}
             onChange={onInput}
-            style={{ height: '24px' }}
+            style={{ height: "24px" }}
           />
         ) : (
           <ColorEditor
-            value={editCtx.bgColor}
+            defaultValue={editCtx.bgColor}
             onChange={(color: string) => {
               const { hex, alpha, isTheme, isGradient } = getColor(color);
               editCtx.hex = hex;
@@ -111,7 +116,7 @@ export default function (): JSX.Element {
 function getColor(c: string | undefined) {
   const color = tinycolor(c);
   const hex = color.toHexString();
-  const alpha = Math.round(color.getAlpha() * 100) + '';
+  const alpha = Math.round(color.getAlpha() * 100) + "";
   return {
     hex,
     alpha,

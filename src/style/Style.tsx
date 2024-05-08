@@ -35,6 +35,7 @@ export class Ctx {
   updateBgColor!: (color: string) => void;
   updateBgImage!: (image: string) => void;
   delete!: (ary: string[]) => void;
+  [k: string]: any;
 }
 
 const EditorsMap: {

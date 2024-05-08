@@ -344,6 +344,83 @@
   }
 }
 
+.padding {
+  .icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 15px;
+    color: rgba(0, 0, 0, 0.5);
+  }
+  
+  .editArea {
+    display: flex;
+    align-items: center;
+  }
+  
+  .row {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    padding-right: 3px;
+  }
+  
+  .actionIcon {
+    width: 15px;
+    height: 15px;
+    margin-left: 3px;
+    svg {
+      cursor: pointer;
+    }
+  }
+  
+  .label {
+    text-align: right!important;
+  }
+}
+
+.border {
+  .icon {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 15px;
+  }
+  
+  .editArea {
+    display: flex;
+    align-items: center;
+  }
+  
+  .row {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    padding-right: 3px;
+  }
+  
+  .col {
+    width: 100%;
+    .row {
+      padding-right: 0px;
+    }
+  }
+  
+  .actionIcon {
+    width: 15px;
+    height: 15px;
+    .icon();
+    cursor: pointer;
+    margin-left: 3px;
+  }
+  
+  .label {
+    text-align: right!important;
+  }
+  
+}
+
 // ================公用================
 .label {
   font-size: 10px;

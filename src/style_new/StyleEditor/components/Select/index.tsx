@@ -1,4 +1,4 @@
-import React, { useState, ReactNode, useCallback, CSSProperties } from "react";
+import React, { useState, ReactNode, useCallback, CSSProperties, useEffect } from "react";
 
 import { useUpdateEffect } from "../../hooks";
 import { Panel, Dropdown, DownOutlined } from "../";
@@ -64,12 +64,15 @@ export function Select({
 
   useUpdateEffect(() => {
     setValue(propsValue);
+  }, [propsValue]);
+
+  useEffect(() => {
     setLabel(
       Array.isArray(propsValue)
         ? propsValue.map((v) => options.find(({ value }) => value === v)!.label).join(",")
         : options.find(({ value: optionValue }) => optionValue === value)?.label || value
     );
-  }, [propsValue, value]);
+  }, [value]);
 
   return (
     <Panel.Item style={style}>

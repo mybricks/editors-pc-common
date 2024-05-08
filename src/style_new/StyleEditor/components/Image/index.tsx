@@ -198,7 +198,7 @@ function Popup ({
       const totalHeight = window.innerHeight || document.documentElement.clientHeight
       const top = positionElementBct.top + positionElementBct.height
       const right = positionElementBct.left + positionElementBct.width
-      const letf = right - menusContainerBct.width
+      const left = right - menusContainerBct.width
       const bottom = top + menusContainerBct.height
 
       if (bottom > totalHeight) {
@@ -209,7 +209,7 @@ function Popup ({
         menusContainer.style.top = top + 'px'
       }
 
-      menusContainer.style.left = letf + 'px'
+      menusContainer.style.left = left + 'px'
       menusContainer.style.visibility = 'visible'
     } else {
       menusContainer.style.visibility = 'hidden'
