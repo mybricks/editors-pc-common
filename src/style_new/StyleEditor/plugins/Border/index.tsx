@@ -119,6 +119,10 @@ export function Border({ value, onChange, config }: BorderProps) {
     []
   );
 
+  const isLengthNineAndEndsWithZeroes = (str: string) => {
+    return /^.{7}00$/.test(str);
+  };
+
   const borderConfig = useMemo(() => {
     if (disableBorderWidth && disableBorderColor && disableBorderStyle) {
       return null;
@@ -135,7 +139,7 @@ export function Border({ value, onChange, config }: BorderProps) {
                 <InputNumber
                   tip="边框宽度"
                   style={DEFAULT_STYLE}
-                  defaultValue={borderValue.borderTopWidth}
+                  value={borderValue.borderTopWidth}
                   // suffix={'px'}
                   onChange={(value) => {
                     const borderStyle =
@@ -160,14 +164,27 @@ export function Border({ value, onChange, config }: BorderProps) {
                   // tip='边框颜色'
                   style={{ padding: 0, marginLeft: 5 }}
                   defaultValue={borderValue.borderTopColor}
-                  onChange={(value) =>
-                    handleChange({
+                  onChange={(value: string) => {
+                    let newValue: Record<string, any> = {
                       borderTopColor: value,
                       borderRightColor: value,
                       borderBottomColor: value,
                       borderLeftColor: value,
-                    })
-                  }
+                    };
+                    if (
+                      !isLengthNineAndEndsWithZeroes(value) &&
+                      borderValue.borderTopWidth === "0px"
+                    ) {
+                      newValue = {
+                        ...newValue,
+                        borderTopWidth: "1px",
+                        borderRightWidth: "1px",
+                        borderBottomWidth: "1px",
+                        borderLeftWidth: "1px",
+                      };
+                    }
+                    handleChange(newValue);
+                  }}
                 />
               )}
               {disableBorderStyle ? null : (
@@ -233,7 +250,7 @@ export function Border({ value, onChange, config }: BorderProps) {
                       <InputNumber
                         tip="上边框宽度"
                         style={DEFAULT_STYLE}
-                        defaultValue={borderValue.borderTopWidth}
+                        value={borderValue.borderTopWidth}
                         // suffix={'px'}
                         onChange={(value) =>
                           handleChange({
@@ -251,9 +268,18 @@ export function Border({ value, onChange, config }: BorderProps) {
                         // tip='上边框颜色'
                         style={{ padding: 0, marginLeft: 5 }}
                         defaultValue={borderValue.borderTopColor}
-                        onChange={(value) =>
-                          handleChange({ borderTopColor: value })
-                        }
+                        onChange={(value: string) => {
+                          const newValue: Record<string, any> = {
+                            borderTopColor: value,
+                          };
+                          if (
+                            !isLengthNineAndEndsWithZeroes(value) &&
+                            borderValue.borderTopWidth === "0px"
+                          ) {
+                            newValue.borderTopWidth = "1px";
+                          }
+                          handleChange(newValue);
+                        }}
                       />
                     )}
                     {disableBorderStyle ? null : (
@@ -306,7 +332,7 @@ export function Border({ value, onChange, config }: BorderProps) {
                       <InputNumber
                         tip="右边框宽度"
                         style={DEFAULT_STYLE}
-                        defaultValue={borderValue.borderRightWidth}
+                        value={borderValue.borderRightWidth}
                         // suffix={'px'}
                         onChange={(value) =>
                           handleChange({
@@ -324,9 +350,18 @@ export function Border({ value, onChange, config }: BorderProps) {
                         // tip='右边框颜色'
                         style={{ padding: 0, marginLeft: 5 }}
                         defaultValue={borderValue.borderRightColor}
-                        onChange={(value) =>
-                          handleChange({ borderRightColor: value })
-                        }
+                        onChange={(value: string) => {
+                          const newValue: Record<string, any> = {
+                            borderRightColor: value,
+                          };
+                          if (
+                            !isLengthNineAndEndsWithZeroes(value) &&
+                            borderValue.borderRightWidth === "0px"
+                          ) {
+                            newValue.borderRightWidth = "1px";
+                          }
+                          handleChange(newValue);
+                        }}
                       />
                     )}
                     {disableBorderStyle ? null : (
@@ -368,7 +403,7 @@ export function Border({ value, onChange, config }: BorderProps) {
                       <InputNumber
                         tip="下边框宽度"
                         style={DEFAULT_STYLE}
-                        defaultValue={borderValue.borderBottomWidth}
+                        value={borderValue.borderBottomWidth}
                         // suffix={'px'}
                         onChange={(value) =>
                           handleChange({
@@ -386,9 +421,18 @@ export function Border({ value, onChange, config }: BorderProps) {
                         // tip='下边框颜色'
                         style={{ padding: 0, marginLeft: 5 }}
                         defaultValue={borderValue.borderBottomColor}
-                        onChange={(value) =>
-                          handleChange({ borderBottomColor: value })
-                        }
+                        onChange={(value: string) => {
+                          const newValue: Record<string, any> = {
+                            borderBottomColor: value,
+                          };
+                          if (
+                            !isLengthNineAndEndsWithZeroes(value) &&
+                            borderValue.borderBottomWidth === "0px"
+                          ) {
+                            newValue.borderBottomWidth = "1px";
+                          }
+                          handleChange(newValue);
+                        }}
                       />
                     )}
                     {disableBorderStyle ? null : (
@@ -430,7 +474,7 @@ export function Border({ value, onChange, config }: BorderProps) {
                       <InputNumber
                         tip="左边框宽度"
                         style={DEFAULT_STYLE}
-                        defaultValue={borderValue.borderLeftWidth}
+                        value={borderValue.borderLeftWidth}
                         // suffix={'px'}
                         onChange={(value) =>
                           handleChange({
@@ -448,9 +492,18 @@ export function Border({ value, onChange, config }: BorderProps) {
                         // tip='左边框颜色'
                         style={{ padding: 0, marginLeft: 5 }}
                         defaultValue={borderValue.borderLeftColor}
-                        onChange={(value) =>
-                          handleChange({ borderLeftColor: value })
-                        }
+                        onChange={(value: string) => {
+                          const newValue: Record<string, any> = {
+                            borderLeftColor: value,
+                          };
+                          if (
+                            !isLengthNineAndEndsWithZeroes(value) &&
+                            borderValue.borderLeftWidth === "0px"
+                          ) {
+                            newValue.borderLeftWidth = "1px";
+                          }
+                          handleChange(newValue);
+                        }}
                       />
                     )}
                     {disableBorderStyle ? null : (
