@@ -7,7 +7,7 @@ import Align from './Align'
 import FontWidthSpace from './fontWithSpace';
 import Border from './borderNew';
 import Bgcolor from './bgcolor';
-import Bgimage from './bgimage';
+import Bgimage from './bgimageNew';
 import Shadow from './boxShadow';
 import TextShadow from './textShadow';
 

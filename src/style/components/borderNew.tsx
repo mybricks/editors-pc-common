@@ -4,8 +4,7 @@ import { CSSProperties, useCallback, useMemo, useState } from "react";
 import { allEqual } from "../../style_new/StyleEditor/utils";
 import { useUpdateEffect } from "../../style_new/StyleEditor/hooks";
 
-import { observe, useObservable } from "@mybricks/rxui";
-import { initValues } from "../utils";
+import { observe } from "@mybricks/rxui";
 
 import css from "./index.less";
 
