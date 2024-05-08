@@ -3,7 +3,9 @@ import { CSSProperties, useCallback, useMemo, useState } from "react";
 
 import { allEqual } from "../../style_new/StyleEditor/utils";
 import { useUpdateEffect } from "../../style_new/StyleEditor/hooks";
-import { ChangeEvent } from "../../style_new/StyleEditor/type";
+
+import { observe, useObservable } from "@mybricks/rxui";
+import { initValues } from "../utils";
 
 import css from "./index.less";
 
@@ -24,10 +26,11 @@ import {
   BorderBottomLeftRadiusOutlined,
   BorderBottomRightRadiusOutlined,
 } from "../../style_new/StyleEditor/components";
+import { Ctx } from "../Style";
 
 interface BorderProps {
   value: CSSProperties;
-  onChange: ChangeEvent;
+  onChange: (value: Record<string, any>) => void;
 }
 
 const BORDER_STYLE_OPTIONS = [
@@ -51,7 +54,33 @@ const DEFAULT_STYLE__NEW = {
   fontSize: 10,
 };
 
+class EditCtx {
+  borderColor!: string;
+  borderStyle!: string;
+  borderWidth!: string;
+  borderRadius!: string;
+}
+
 export default function Border({ value, onChange }: BorderProps) {
+  const ctx: Ctx = observe(Ctx, { from: "parents" });
+  const editCtx: EditCtx = useObservable(EditCtx, (next) => {
+    const nextValue = initValues(
+      {
+        borderWidth: "0px",
+        borderRadius: "0px",
+        borderStyle: "solid",
+        borderColor: "#ffffff",
+      },
+      ctx.val
+    );
+
+    next({
+      borderWidth: nextValue.borderWidth,
+      borderRadius: nextValue.borderRadius,
+      borderStyle: nextValue.borderStyle,
+      borderColor: nextValue.borderColor,
+    });
+  });
   const [{ borderToggleValue, radiusToggleValue }, setToggleValue] = useState(
     getToggleDefaultValue(value)
   );
@@ -63,14 +92,17 @@ export default function Border({ value, onChange }: BorderProps) {
         defaultValue[key] = value.replace(/!.*$/, "");
       }
     });
-    console.log('%c [ defaultValue ]-60', 'font-size:13px; background:pink; color:#bf2c9f;', defaultValue)
+    console.log(
+      "%c [ defaultValue ]-60",
+      "font-size:13px; background:pink; color:#bf2c9f;",
+      defaultValue
+    );
     return defaultValue;
   }, []);
 
-  const [borderValue, setBorderValue] = useState(defaultBorderValue);
-  const [splitRadiusIcon, setSplitRadiusIcon] = useState(
-    <BorderTopLeftRadiusOutlined />
-  );
+  const [borderValue, setBorderValue] = useState<
+    React.CSSProperties & Record<string, any>
+  >(defaultBorderValue);
 
   const handleChange = useCallback(
     (value: CSSProperties & Record<string, any>) => {
@@ -80,16 +112,31 @@ export default function Border({ value, onChange }: BorderProps) {
           ...value,
         };
       });
-      onChange(
-        Object.keys(value).map((key) => {
-          return {
-            key,
-            value: `${value[key]}`,
-          };
-        })
-      );
+      onChange(value);
     },
     []
+  );
+
+  const isLengthNineAndEndsWithZeroes = useCallback((str: string) => {
+    return /^.{7}00$/.test(str);
+  }, []);
+
+  const onBorderColorChange = useCallback(
+    (value: string, position: string) => {
+      const color = `border${position}Color`;
+      const width = `border${position}Width`;
+      const newValue: Record<string, any> = {
+        [color]: value,
+      };
+      if (
+        !isLengthNineAndEndsWithZeroes(value) &&
+        borderValue[width] === "0px"
+      ) {
+        newValue[width] = "1px";
+      }
+      handleChange(newValue);
+    },
+    [borderValue]
   );
 
   const borderConfig = useMemo(() => {
@@ -187,7 +234,7 @@ export default function Border({ value, onChange }: BorderProps) {
                     tip="上边框宽度"
                     style={DEFAULT_STYLE}
                     defaultUnitValue="px"
-                    defaultValue={borderValue.borderTopWidth}
+                    value={borderValue.borderTopWidth}
                     onChange={(value) =>
                       handleChange({
                         borderTopWidth: value,
@@ -202,9 +249,7 @@ export default function Border({ value, onChange }: BorderProps) {
                   <ColorEditor
                     style={{ padding: 0, marginLeft: 5 }}
                     defaultValue={borderValue.borderTopColor}
-                    onChange={(value) =>
-                      handleChange({ borderTopColor: value })
-                    }
+                    onChange={(value) => onBorderColorChange(value, "Top")}
                   />
                   )
                   <Select
@@ -253,7 +298,7 @@ export default function Border({ value, onChange }: BorderProps) {
                     tip="右边框宽度"
                     style={DEFAULT_STYLE}
                     defaultUnitValue="px"
-                    defaultValue={borderValue.borderRightWidth}
+                    value={borderValue.borderRightWidth}
                     onChange={(value) =>
                       handleChange({
                         borderRightWidth: value,
@@ -268,9 +313,7 @@ export default function Border({ value, onChange }: BorderProps) {
                   <ColorEditor
                     style={{ padding: 0, marginLeft: 5 }}
                     defaultValue={borderValue.borderRightColor}
-                    onChange={(value) =>
-                      handleChange({ borderRightColor: value })
-                    }
+                    onChange={(value) => onBorderColorChange(value, "Right")}
                   />
                   <Select
                     tip="右边框线条样式"
@@ -307,7 +350,7 @@ export default function Border({ value, onChange }: BorderProps) {
                     tip="下边框宽度"
                     style={DEFAULT_STYLE}
                     defaultUnitValue="px"
-                    defaultValue={borderValue.borderBottomWidth}
+                    value={borderValue.borderBottomWidth}
                     onChange={(value) =>
                       handleChange({
                         borderBottomWidth: value,
@@ -321,9 +364,7 @@ export default function Border({ value, onChange }: BorderProps) {
                   <ColorEditor
                     style={{ padding: 0, marginLeft: 5 }}
                     defaultValue={borderValue.borderBottomColor}
-                    onChange={(value) =>
-                      handleChange({ borderBottomColor: value })
-                    }
+                    onChange={(value) => onBorderColorChange(value, "Bottom")}
                   />
                   <Select
                     tip="下边框线条样式"
@@ -360,7 +401,7 @@ export default function Border({ value, onChange }: BorderProps) {
                     tip="左边框宽度"
                     style={DEFAULT_STYLE}
                     defaultUnitValue="px"
-                    defaultValue={borderValue.borderLeftWidth}
+                    value={borderValue.borderLeftWidth}
                     onChange={(value) =>
                       handleChange({
                         borderLeftWidth: value,
@@ -374,9 +415,7 @@ export default function Border({ value, onChange }: BorderProps) {
                   <ColorEditor
                     style={{ padding: 0, marginLeft: 5 }}
                     defaultValue={borderValue.borderLeftColor}
-                    onChange={(value) =>
-                      handleChange({ borderLeftColor: value })
-                    }
+                    onChange={(value) => onBorderColorChange(value, "Left")}
                   />
                   <Select
                     tip="左边框线条样式"
@@ -459,9 +498,6 @@ export default function Border({ value, onChange }: BorderProps) {
                 onChange={(value) =>
                   handleChange({ borderTopLeftRadius: value })
                 }
-                onFocus={() =>
-                  setSplitRadiusIcon(<BorderTopLeftRadiusOutlined />)
-                }
               />
               <div className={css.icon} data-mybricks-tip={"右上角半径"}>
                 <BorderTopRightRadiusOutlined />
@@ -474,9 +510,6 @@ export default function Border({ value, onChange }: BorderProps) {
                 unitOptions={UNIT_OPTIONS}
                 onChange={(value) =>
                   handleChange({ borderTopRightRadius: value })
-                }
-                onFocus={() =>
-                  setSplitRadiusIcon(<BorderTopRightRadiusOutlined />)
                 }
               />
               <div className={css.icon} data-mybricks-tip={"右下角半径"}>
@@ -491,9 +524,6 @@ export default function Border({ value, onChange }: BorderProps) {
                 onChange={(value) =>
                   handleChange({ borderBottomRightRadius: value })
                 }
-                onFocus={() =>
-                  setSplitRadiusIcon(<BorderBottomRightRadiusOutlined />)
-                }
               />
               <div className={css.icon} data-mybricks-tip={"左下角半径"}>
                 <BorderBottomLeftRadiusOutlined />
@@ -506,9 +536,6 @@ export default function Border({ value, onChange }: BorderProps) {
                 unitOptions={UNIT_OPTIONS}
                 onChange={(value) =>
                   handleChange({ borderBottomLeftRadius: value })
-                }
-                onFocus={() =>
-                  setSplitRadiusIcon(<BorderBottomLeftRadiusOutlined />)
                 }
               />
             </Panel.Item>
@@ -525,7 +552,7 @@ export default function Border({ value, onChange }: BorderProps) {
         </div>
       );
     }
-  }, [radiusToggleValue, splitRadiusIcon]);
+  }, [radiusToggleValue]);
 
   const handleToggleChange = useCallback(
     ({ key, value }: { key: string; value: string }) => {

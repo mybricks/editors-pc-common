@@ -9,7 +9,6 @@ import { observe, useComputed, useObservable } from "@mybricks/rxui";
 
 import css from "./index.less";
 import { initValues } from "../utils";
-import BorderNew from "./borederNew";
 
 /**
  * Radius与位置的对应
@@ -542,16 +541,6 @@ export default function (): JSX.Element {
 
   return (
     <div className={css.border}>
-      <BorderNew
-        value={editCtx}
-        onChange={(value) => {
-          console.log(
-            "%c [ value ]-546",
-            "font-size:13px; background:pink; color:#bf2c9f;",
-            value
-          );
-        }}
-      />
       <div className={css.editorContainer}>
         <div className={css.editorTitle}>
           边框
