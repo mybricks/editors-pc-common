@@ -1,53 +1,54 @@
-import React, {useMemo, useCallback} from 'react';
+import React, { useMemo, useCallback } from "react";
 
-import {Ctx} from '../Style';
-import GreyContainer from './greyContainer';
-import {Popover, Switch, Form} from 'antd';
-import ColorEditor from '../../components/color-editor';
-import SettingOutlined from '@ant-design/icons/SettingOutlined';
-import {observe, useComputed, useObservable} from '@mybricks/rxui';
+import { Ctx } from "../Style";
+import GreyContainer from "./greyContainer";
+import { Popover, Switch, Form } from "antd";
+import ColorEditor from "../../components/color-editor";
+import SettingOutlined from "@ant-design/icons/SettingOutlined";
+import { observe, useComputed, useObservable } from "@mybricks/rxui";
 
-import css from './index.less';
-import { initValues } from '../utils';
+import css from "./index.less";
+import { initValues } from "../utils";
+import BorderNew from "./borederNew";
 
 /**
  * Radius与位置的对应
  */
 enum BorderRadiusStyleMap {
-  Top = 'TopLeft',
-  Right = 'TopRight',
-  Bottom = 'BottomRight',
-  Left = 'BottomLeft'
+  Top = "TopLeft",
+  Right = "TopRight",
+  Bottom = "BottomRight",
+  Left = "BottomLeft",
 }
 
 /**
  * 默认值
  */
 enum BorderStyleDefaultValueMap {
-  Color = '',
-  Width = '0px',
-  Style = 'none',
-  Radius = '0px'
+  Color = "",
+  Width = "0px",
+  Style = "none",
+  Radius = "0px",
 }
 
 /**
  * key对应解释
  */
 enum PositionEnToCh {
-  Top = '上边框',
-  Right = '右边框',
-  Bottom = '下边框',
-  Left = '左边框'
+  Top = "上边框",
+  Right = "右边框",
+  Bottom = "下边框",
+  Left = "左边框",
 }
 
 /**
  * Radius的key对应解释
  */
 enum RadiusPositionEnToCh {
-  Top = '左上角',
-  Right = '右上角',
-  Bottom = '右下角',
-  Left = '左下角'
+  Top = "左上角",
+  Right = "右上角",
+  Bottom = "右下角",
+  Left = "左下角",
 }
 
 class EditCtx {
@@ -62,55 +63,57 @@ class EditCtx {
   /**
    * 各方向是否展示单独的配置
    */
-  borderShowConfigMap!: T_StringBooleanMap
+  borderShowConfigMap!: T_StringBooleanMap;
 }
 
 /**
  * 这一串type看着好累，好好学学ts吧，应该能精简？
  */
-type T_StringAnyMap = { [key: string]: any; };
-type T_StringBooleanMap = { [key: string]: boolean; };
-type T_TypeRadius = 'Radius';
-type T_TypeDefault = 'Color' | 'Width' | 'Style';
+type T_StringAnyMap = { [key: string]: any };
+type T_StringBooleanMap = { [key: string]: boolean };
+type T_TypeRadius = "Radius";
+type T_TypeDefault = "Color" | "Width" | "Style";
 type T_Type = T_TypeDefault | T_TypeRadius;
 type T_PositionRadius =
-  BorderRadiusStyleMap.Top
+  | BorderRadiusStyleMap.Top
   | BorderRadiusStyleMap.Right
   | BorderRadiusStyleMap.Bottom
   | BorderRadiusStyleMap.Left;
-type T_Position = 'Top' | 'Right' | 'Bottom' | 'Left';
-type T_ConfigKey = `border${T_Position}${T_TypeDefault}` | `border${T_PositionRadius}${T_TypeRadius}`;
-type T_Config = { [key in T_ConfigKey]?: string; };
+type T_Position = "Top" | "Right" | "Bottom" | "Left";
+type T_ConfigKey =
+  | `border${T_Position}${T_TypeDefault}`
+  | `border${T_PositionRadius}${T_TypeRadius}`;
+type T_Config = { [key in T_ConfigKey]?: string };
 type T_BorderStyleKey = `border${T_Type}`;
-type T_DefaultBorderStyle = { [key in T_BorderStyleKey]: string; };
+type T_DefaultBorderStyle = { [key in T_BorderStyleKey]: string };
 
 /**
  * 配置项
  */
-const borderTypes: Array<T_Type> = ['Color', 'Width', 'Style', 'Radius'];
+const borderTypes: Array<T_Type> = ["Color", "Width", "Style", "Radius"];
 const borderTypesLength: number = borderTypes.length;
 /**
  * 方向
  */
-const borderPositions: Array<T_Position> = ['Top', 'Right', 'Bottom', 'Left'];
+const borderPositions: Array<T_Position> = ["Top", "Right", "Bottom", "Left"];
 /**
  * 位数对应的方向
  */
 const commonIndexToPosition = {
-  0: 'Top',
-  1: 'Right',
-  2: 'Bottom',
-  3: 'Left'
-}
+  "0": "Top",
+  "1": "Right",
+  "2": "Bottom",
+  "3": "Left",
+};
 /**
  * Radius位数对应的方向
  */
 const radiusIndexToPosition = {
-  0: BorderRadiusStyleMap.Top,
-  1: BorderRadiusStyleMap.Right,
-  2: BorderRadiusStyleMap.Bottom,
-  3: BorderRadiusStyleMap.Left
-}
+  "0": BorderRadiusStyleMap.Top,
+  "1": BorderRadiusStyleMap.Right,
+  "2": BorderRadiusStyleMap.Bottom,
+  "3": BorderRadiusStyleMap.Left,
+};
 
 /**
  * isDiscardedStyle
@@ -121,34 +124,41 @@ function isDiscardedStyle(obj: T_StringAnyMap): boolean {
   /**
    * 目前只有color、width、style、radius四种编辑项，多出来的按旧数据处理
    */
-  return Object.keys(obj).filter(key => key.startsWith('border')).length > borderTypesLength;
+  return (
+    Object.keys(obj).filter((key) => key.startsWith("border")).length >
+    borderTypesLength
+  );
 }
 
 /**
  * 旧数据兼容
  */
 function getDiscardedStyleConfig(obj: T_StringAnyMap): {
-  borderConfig: T_Config,
-  borderShowConfigMap: T_StringBooleanMap,
-  defaultBorderStyle: T_DefaultBorderStyle
+  borderConfig: T_Config;
+  borderShowConfigMap: T_StringBooleanMap;
+  defaultBorderStyle: T_DefaultBorderStyle;
 } {
   const borderConfig: T_Config = {};
   const borderShowConfigMap: T_StringBooleanMap = {
     Top: false,
     Right: false,
     Bottom: false,
-    Left: false
+    Left: false,
   };
 
   borderTypes.forEach((type: T_Type) => {
-    const isRadius: boolean = type === 'Radius';
+    const isRadius: boolean = type === "Radius";
 
     borderPositions.forEach((position: T_Position) => {
       const parentKey: T_BorderStyleKey = `border${type}`;
-      const childKey: T_ConfigKey = `border${isRadius ? BorderRadiusStyleMap[position] : position}${type}` as T_ConfigKey;
+      const childKey: T_ConfigKey = `border${
+        isRadius ? BorderRadiusStyleMap[position] : position
+      }${type}` as T_ConfigKey;
       const hasValue = childKey in obj;
 
-      borderConfig[childKey] = hasValue ? obj[childKey] : obj[parentKey] || BorderStyleDefaultValueMap[type];
+      borderConfig[childKey] = hasValue
+        ? obj[childKey]
+        : obj[parentKey] || BorderStyleDefaultValueMap[type];
 
       if (hasValue && obj[childKey] !== obj[parentKey]) {
         borderShowConfigMap[position] = true;
@@ -165,8 +175,8 @@ function getDiscardedStyleConfig(obj: T_StringAnyMap): {
       borderColor: obj.borderColor,
       borderStyle: obj.borderStyle,
       borderWidth: obj.borderWidth,
-      borderRadius: obj.borderRadius
-    }
+      borderRadius: obj.borderRadius,
+    },
   };
 }
 
@@ -174,30 +184,30 @@ function getDiscardedStyleConfig(obj: T_StringAnyMap): {
  * 将样式拆分为各方向
  */
 function getStyleConfig(obj: T_StringAnyMap): {
-  borderConfig: T_Config,
-  borderShowConfigMap: T_StringBooleanMap,
-  defaultBorderStyle: T_DefaultBorderStyle
+  borderConfig: T_Config;
+  borderShowConfigMap: T_StringBooleanMap;
+  defaultBorderStyle: T_DefaultBorderStyle;
 } {
   const borderConfig: T_Config = {};
   const defaultBorderStyle: T_DefaultBorderStyle = {
-    borderColor: '',
-    borderStyle: 'none',
-    borderWidth: '0px',
-    borderRadius: '0px'
+    borderColor: "",
+    borderStyle: "none",
+    borderWidth: "0px",
+    borderRadius: "0px",
   };
 
   let borderShowConfigMap: T_StringBooleanMap = {
     Top: false,
     Right: false,
     Bottom: false,
-    Left: false
+    Left: false,
   };
 
   borderTypes.forEach((type: T_Type) => {
-    const isRadius: boolean = type === 'Radius';
+    const isRadius: boolean = type === "Radius";
     const key: T_BorderStyleKey = `border${type}`;
     const curValue: string = obj[key];
-    const curValueAry: Array<string> = curValue.split(' ').slice(0, 4);
+    const curValueAry: Array<string> = curValue.split(" ").slice(0, 4);
     const curValueAryLength: number = curValueAry.length;
     const valueCountMap: T_StringAnyMap = {};
 
@@ -207,14 +217,17 @@ function getStyleConfig(obj: T_StringAnyMap): {
      * 4:变更一次后即为4
      */
     if (curValueAryLength === 1) {
-      curValueAry.push(...Array.from({length: 3}, () => curValue));
+      curValueAry.push(...Array.from({ length: 3 }, () => curValue));
     }
 
     let maxCount: number = 0;
 
     curValueAry.forEach((value: string, index: number) => {
-      // @ts-ignore
-      const position = isRadius ? radiusIndexToPosition[index] : commonIndexToPosition[index];
+      const position = isRadius
+        ? // @ts-ignore
+          radiusIndexToPosition[index]
+        : // @ts-ignore
+          commonIndexToPosition[index];
       const key: T_ConfigKey = `border${position}${type}` as T_ConfigKey;
 
       borderConfig[key] = value;
@@ -232,7 +245,6 @@ function getStyleConfig(obj: T_StringAnyMap): {
           maxCount = valueCountMap[value];
         }
       }
-      ;
     });
 
     const maxCountValue = Object.keys(valueCountMap).reduce((p, c) => {
@@ -242,7 +254,7 @@ function getStyleConfig(obj: T_StringAnyMap): {
       if (pv === cv) {
         return p;
       } else if (pv > cv) {
-        return p
+        return p;
       }
 
       return c;
@@ -254,7 +266,7 @@ function getStyleConfig(obj: T_StringAnyMap): {
           Top: true,
           Right: true,
           Bottom: true,
-          Left: true
+          Left: true,
         };
         break;
       case 2:
@@ -264,7 +276,6 @@ function getStyleConfig(obj: T_StringAnyMap): {
             // @ts-ignore
             borderShowConfigMap[commonIndexToPosition[index]] = true;
           }
-          ;
         });
         break;
       case 4:
@@ -278,30 +289,32 @@ function getStyleConfig(obj: T_StringAnyMap): {
   return {
     borderConfig,
     borderShowConfigMap,
-    defaultBorderStyle
+    defaultBorderStyle,
   };
 }
 
 export default function (): JSX.Element {
-  const ctx: Ctx = observe(Ctx, {from: 'parents'});
+  const ctx: Ctx = observe(Ctx, { from: "parents" });
   const editCtx: EditCtx = useObservable(EditCtx, (next) => {
-    const nextValue = initValues({
-      borderWidth: '0px',
-      borderRadius: '0px',
-      borderStyle: 'solid',
-      borderColor: '#ffffff'
-    }, ctx.val)
+    const nextValue = initValues(
+      {
+        borderWidth: "0px",
+        borderRadius: "0px",
+        borderStyle: "solid",
+        borderColor: "#ffffff",
+      },
+      ctx.val
+    );
 
-    const {
-      borderConfig,
-      borderShowConfigMap,
-      defaultBorderStyle
-    } = isDiscardedStyle(nextValue) ? getDiscardedStyleConfig(nextValue) : getStyleConfig(nextValue);
+    const { borderConfig, borderShowConfigMap, defaultBorderStyle } =
+      isDiscardedStyle(nextValue)
+        ? getDiscardedStyleConfig(nextValue)
+        : getStyleConfig(nextValue);
 
     next({
       borderConfig,
       borderShowConfigMap,
-      ...defaultBorderStyle
+      ...defaultBorderStyle,
     });
   });
 
@@ -310,21 +323,23 @@ export default function (): JSX.Element {
    */
   const setStyle: () => void = useCallback(() => {
     const resultStyleMap = {
-      Color: '',
-      Style: '',
-      Width: '',
-      Radius: ''
+      Color: "",
+      Style: "",
+      Width: "",
+      Radius: "",
     };
 
     borderTypes.forEach((type: T_Type) => {
-      const isRadius: boolean = type === 'Radius';
+      const isRadius: boolean = type === "Radius";
 
       borderPositions.forEach((position: T_Position) => {
-        const key: T_ConfigKey = `border${isRadius ? BorderRadiusStyleMap[position] : position}${type}` as T_ConfigKey;
+        const key: T_ConfigKey = `border${
+          isRadius ? BorderRadiusStyleMap[position] : position
+        }${type}` as T_ConfigKey;
         const value: any = editCtx.borderConfig[key];
 
         if (!resultStyleMap[type]) {
-          resultStyleMap[type] = value
+          resultStyleMap[type] = value;
         } else {
           resultStyleMap[type] = resultStyleMap[type] + ` ${value}`;
         }
@@ -342,45 +357,60 @@ export default function (): JSX.Element {
   /**
    * 重置某个方向的配置
    */
-  const resetPositionConfig: (position: T_Position) => void = useCallback((position: T_Position) => {
-    borderTypes.forEach((type: T_Type) => {
-      const parentKey: T_BorderStyleKey = `border${type}`;
-      const childKey: T_ConfigKey = `border${type === 'Radius' ? BorderRadiusStyleMap[position] : position}${type}` as T_ConfigKey;
-      editCtx.borderConfig[childKey] = editCtx[parentKey];
-    });
+  const resetPositionConfig: (position: T_Position) => void = useCallback(
+    (position: T_Position) => {
+      borderTypes.forEach((type: T_Type) => {
+        const parentKey: T_BorderStyleKey = `border${type}`;
+        const childKey: T_ConfigKey = `border${
+          type === "Radius" ? BorderRadiusStyleMap[position] : position
+        }${type}` as T_ConfigKey;
+        editCtx.borderConfig[childKey] = editCtx[parentKey];
+      });
 
-    setStyle();
-  }, []);
+      setStyle();
+    },
+    []
+  );
 
   /**
    * 配置方向是否开启配置的开关
    */
-  const switchPositionConfigOnchange: (position: T_Position) => void = useCallback((position: T_Position) => {
-    editCtx.borderShowConfigMap[position] = !editCtx.borderShowConfigMap[position];
+  const switchPositionConfigOnchange: (position: T_Position) => void =
+    useCallback((position: T_Position) => {
+      editCtx.borderShowConfigMap[position] =
+        !editCtx.borderShowConfigMap[position];
 
-    resetPositionConfig(position);
-  }, []);
+      resetPositionConfig(position);
+    }, []);
 
   /**
    * 主配置变更
    */
-  const defaultEditorOnchange: (value: any, type: T_Type) => void = useCallback((value, type) => {
-    editCtx[`border${type}`] = value;
+  const defaultEditorOnchange: (value: any, type: T_Type) => void = useCallback(
+    (value, type) => {
+      editCtx[`border${type}`] = value;
 
-    const isRadius = type === 'Radius';
-    const {borderConfig, borderShowConfigMap} = editCtx;
+      const isRadius = type === "Radius";
+      const { borderConfig, borderShowConfigMap } = editCtx;
 
-    (Object.keys(borderShowConfigMap) as Array<T_Position>).forEach((position: T_Position) => {
-      const show = borderShowConfigMap[position];
+      (Object.keys(borderShowConfigMap) as Array<T_Position>).forEach(
+        (position: T_Position) => {
+          const show = borderShowConfigMap[position];
 
-      if (!show) {
-        borderConfig[`border${isRadius ? BorderRadiusStyleMap[position] : position}${type}` as T_ConfigKey] = value;
-      }
-      ;
-    });
+          if (!show) {
+            borderConfig[
+              `border${
+                isRadius ? BorderRadiusStyleMap[position] : position
+              }${type}` as T_ConfigKey
+            ] = value;
+          }
+        }
+      );
 
-    setStyle();
-  }, []);
+      setStyle();
+    },
+    []
+  );
 
   /**
    * 各方向配置变更
@@ -396,32 +426,32 @@ export default function (): JSX.Element {
    */
   const RenderSwitchPositionConfigBar: JSX.Element = useMemo(() => {
     return (
-      <Form size='small'>
-        <Form.Item label='上边框'>
+      <Form size="small">
+        <Form.Item label="上边框">
           <Switch
-            size='small'
-            onChange={() => switchPositionConfigOnchange('Top')}
+            size="small"
+            onChange={() => switchPositionConfigOnchange("Top")}
             defaultChecked={editCtx.borderShowConfigMap.Top}
           ></Switch>
         </Form.Item>
-        <Form.Item label='右边框'>
+        <Form.Item label="右边框">
           <Switch
-            size='small'
-            onChange={() => switchPositionConfigOnchange('Right')}
+            size="small"
+            onChange={() => switchPositionConfigOnchange("Right")}
             defaultChecked={editCtx.borderShowConfigMap.Right}
           ></Switch>
         </Form.Item>
-        <Form.Item label='下边框'>
+        <Form.Item label="下边框">
           <Switch
-            size='small'
-            onChange={() => switchPositionConfigOnchange('Bottom')}
+            size="small"
+            onChange={() => switchPositionConfigOnchange("Bottom")}
             defaultChecked={editCtx.borderShowConfigMap.Bottom}
           ></Switch>
         </Form.Item>
-        <Form.Item label='左边框'>
+        <Form.Item label="左边框">
           <Switch
-            size='small'
-            onChange={() => switchPositionConfigOnchange('Left')}
+            size="small"
+            onChange={() => switchPositionConfigOnchange("Left")}
             defaultChecked={editCtx.borderShowConfigMap.Left}
           ></Switch>
         </Form.Item>
@@ -443,108 +473,148 @@ export default function (): JSX.Element {
               <div className={css.editorTitle}>{PositionEnToCh[position]}</div>
               <div className={css.toolbar}>
                 <ColorEditor
-                  style={{marginRight: 3, flex: 1}}
+                  style={{ marginRight: 3, flex: 1 }}
                   value={
-                    editCtx.borderConfig[`border${position}Color`] || BorderStyleDefaultValueMap.Color
+                    editCtx.borderConfig[`border${position}Color`] ||
+                    BorderStyleDefaultValueMap.Color
                   }
-                  onChange={(value) => positionEditorOnchange(value, `border${position}Color`)}
+                  onChange={(value) =>
+                    positionEditorOnchange(value, `border${position}Color`)
+                  }
                 />
                 <GreyContainer
-                  type='input'
-                  label='大小(px)'
-                  onBlurFnKey='>0'
-                  regexFnKey='number'
-                  style={{marginRight: 3, flex: 1}}
+                  type="input"
+                  label="大小(px)"
+                  onBlurFnKey=">0"
+                  regexFnKey="number"
+                  style={{ marginRight: 3, flex: 1 }}
                   defaultValue={parseInt(
-                    editCtx.borderConfig[`border${position}Width`] || BorderStyleDefaultValueMap.Width
+                    editCtx.borderConfig[`border${position}Width`] ||
+                      BorderStyleDefaultValueMap.Width
                   )}
-                  onChange={(value) => positionEditorOnchange(`${value}px`, `border${position}Width`)}
-                />
-                <GreyContainer
-                  label='类型'
-                  type='select'
-                  optionsKey='borderStyle'
-                  style={{cursor: 'pointer', marginRight: 3, flex: 1}}
-                  defaultValue={
-                    editCtx.borderConfig[`border${position}Style`] || BorderStyleDefaultValueMap.Style
+                  onChange={(value) =>
+                    positionEditorOnchange(
+                      `${value}px`,
+                      `border${position}Width`
+                    )
                   }
-                  onChange={(value) => positionEditorOnchange(value, `border${position}Style`)}
                 />
                 <GreyContainer
-                  type='input'
+                  label="类型"
+                  type="select"
+                  optionsKey="borderStyle"
+                  style={{ cursor: "pointer", marginRight: 3, flex: 1 }}
+                  defaultValue={
+                    editCtx.borderConfig[`border${position}Style`] ||
+                    BorderStyleDefaultValueMap.Style
+                  }
+                  onChange={(value) =>
+                    positionEditorOnchange(value, `border${position}Style`)
+                  }
+                />
+                <GreyContainer
+                  type="input"
                   label={RadiusPositionEnToCh[position]}
-                  onBlurFnKey='>0'
-                  regexFnKey='number'
-                  style={{flex: 1}}
-                  defaultValue={
-                    parseInt(editCtx.borderConfig[`border${BorderRadiusStyleMap[position]}Radius`] || BorderStyleDefaultValueMap.Radius)
+                  onBlurFnKey=">0"
+                  regexFnKey="number"
+                  style={{ flex: 1 }}
+                  defaultValue={parseInt(
+                    editCtx.borderConfig[
+                      `border${BorderRadiusStyleMap[position]}Radius`
+                    ] || BorderStyleDefaultValueMap.Radius
+                  )}
+                  onChange={(value) =>
+                    positionEditorOnchange(
+                      `${value}px`,
+                      `border${BorderRadiusStyleMap[position]}Radius`
+                    )
                   }
-                  onChange={(value) => positionEditorOnchange(`${value}px`, `border${BorderRadiusStyleMap[position]}Radius`)}
                 />
               </div>
             </>
-          ) : <></>}
+          ) : (
+            <></>
+          )}
         </div>
       );
     });
   });
 
   return (
-    <div className={css.editorContainer}>
-      <div className={css.editorTitle}>
-        边框
-        <div className={css.actions}>
-          <Popover
-            title='配置'
-            arrowPointAtCenter
-            placement='leftTop'
-            overlayClassName={css.pceditorStylePopover}
-            content={() => {
-              return RenderSwitchPositionConfigBar;
-            }}
-          >
-            <span style={{height: 18}}>{<SettingOutlined/>}</span>
-          </Popover>
+    <div className={css.border}>
+      <BorderNew
+        value={editCtx}
+        onChange={(value) => {
+          console.log(
+            "%c [ value ]-546",
+            "font-size:13px; background:pink; color:#bf2c9f;",
+            value
+          );
+        }}
+      />
+      <div className={css.editorContainer}>
+        <div className={css.editorTitle}>
+          边框
+          <div className={css.actions}>
+            <Popover
+              title="配置"
+              arrowPointAtCenter
+              placement="leftTop"
+              overlayClassName={css.pceditorStylePopover}
+              content={() => {
+                return RenderSwitchPositionConfigBar;
+              }}
+            >
+              <span style={{ height: 18 }}>
+                {
+                  <SettingOutlined
+                    onPointerEnterCapture={void 0}
+                    onPointerLeaveCapture={void 0}
+                  />
+                }
+              </span>
+            </Popover>
+          </div>
         </div>
-      </div>
-      <div className={css.toolbar}>
-        <div className={css.item}>
-          <ColorEditor
-            style={{marginRight: 3}}
-            value={editCtx.borderColor}
-            onChange={(value) => defaultEditorOnchange(value, 'Color')}
-          />
-          <label className={css.label}>颜色</label>
-        </div>
+        <div className={css.toolbar}>
+          <div className={css.item}>
+            <ColorEditor
+              style={{ marginRight: 3 }}
+              value={editCtx.borderColor}
+              onChange={(value) => defaultEditorOnchange(value, "Color")}
+            />
+            <label className={css.label}>颜色</label>
+          </div>
 
-        <GreyContainer
-          type='input'
-          label='大小(px)'
-          onBlurFnKey='>0'
-          regexFnKey='number'
-          style={{marginRight: 3, flex: 1}}
-          defaultValue={parseInt(editCtx.borderWidth)}
-          onChange={(value) => defaultEditorOnchange(`${value}px`, 'Width')}
-        />
-        <GreyContainer
-          label='类型'
-          type='select'
-          optionsKey='borderStyle'
-          style={{marginRight: 3, cursor: 'pointer', flex: 1}}
-          defaultValue={editCtx.borderStyle}
-          onChange={(value) => defaultEditorOnchange(value, 'Style')}
-        />
-        <GreyContainer
-          type='input'
-          label='圆角(px)'
-          onBlurFnKey='>0'
-          regexFnKey='number'
-          style={{flex: 1}}
-          defaultValue={parseInt(editCtx.borderRadius)}
-          onChange={(value) => defaultEditorOnchange(`${value}px`, 'Radius')}
-        />
+          <GreyContainer
+            type="input"
+            label="大小(px)"
+            onBlurFnKey=">0"
+            regexFnKey="number"
+            style={{ marginRight: 3, flex: 1 }}
+            defaultValue={parseInt(editCtx.borderWidth)}
+            onChange={(value) => defaultEditorOnchange(`${value}px`, "Width")}
+          />
+          <GreyContainer
+            label="类型"
+            type="select"
+            optionsKey="borderStyle"
+            style={{ marginRight: 3, cursor: "pointer", flex: 1 }}
+            defaultValue={editCtx.borderStyle}
+            onChange={(value) => defaultEditorOnchange(value, "Style")}
+          />
+          <GreyContainer
+            type="input"
+            label="圆角(px)"
+            onBlurFnKey=">0"
+            regexFnKey="number"
+            style={{ flex: 1 }}
+            defaultValue={parseInt(editCtx.borderRadius)}
+            onChange={(value) => defaultEditorOnchange(`${value}px`, "Radius")}
+          />
+        </div>
+        {RenderPositionConfig}
       </div>
-      {RenderPositionConfig}
     </div>
   );
 }
