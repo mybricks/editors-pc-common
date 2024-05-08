@@ -121,7 +121,7 @@ export function Image ({
           {icon}
         </div>
         <div className={css.reset} onClick={handleReset} data-mybricks-tip={'重置图片'}>
-          <ReloadOutlined />
+          <ReloadOutlined onPointerEnterCapture={void 0} onPointerLeaveCapture={void 0} />
         </div>
       </div>
       {show && createPortal(
