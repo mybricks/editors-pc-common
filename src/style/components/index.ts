@@ -1,4 +1,4 @@
-import Size from './size';
+import Size from './sizeNew';
 import Padding from './padding';
 // import Width from './width'
 // import Height from './height'
