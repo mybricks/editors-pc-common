@@ -6,9 +6,11 @@ import React, {
   CSSProperties
 } from 'react'
 
+// @ts-ignore
 import colorUtil from 'color-string'
 // @ts-ignore
 import { toCSS, toJSON } from 'cssjson';
+// @ts-ignore
 import { calculate, compare } from 'specificity';
 
 import {
