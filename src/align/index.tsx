@@ -145,6 +145,7 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
     <>
       <div className={css.align}>
         {renderAlignItems(getRowList(CDN), onRowAlignChange, 0)}
+        <div style={{ width: "6px" }} />
         {renderAlignItems(getColumnList(CDN), onColumnAlignChange, 1)}
         {/*
             需求是先做成两个编辑器
