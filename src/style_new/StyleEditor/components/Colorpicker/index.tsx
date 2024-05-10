@@ -7,17 +7,16 @@ import React, {
 } from "react";
 import { createPortal } from "react-dom";
 
-import ColorUtil from 'color'
+import ColorUtil from "color";
 import Sketch from "@mybricks/color-picker";
 
 import css from "./index.less";
-
 interface ColorpickerProps {
   value: string;
-  onChange(value: string): void;
+  onChange: (value: any) => void;
   children: ReactNode;
   disabled?: boolean;
-  className?: string
+  className?: string;
 }
 
 export function Colorpicker({
@@ -25,9 +24,8 @@ export function Colorpicker({
   onChange,
   children,
   disabled,
-  className
+  className,
 }: ColorpickerProps) {
-
   const ref = useRef<HTMLDivElement>(null);
   const childRef = useRef<HTMLDivElement>(null);
   const [show, setShow] = useState(false);
@@ -41,11 +39,11 @@ export function Colorpicker({
     setOpen(true);
   }, [disabled]);
 
-  const handleColorSketchChange = useCallback((value) => {
+  const handleColorSketchChange = useCallback((value: any) => {
     onChange(value);
   }, []);
 
-  const handleClick = useCallback((event) => {
+  const handleClick = useCallback((event: any) => {
     if (!childRef.current!.contains(event.target)) {
       setOpen(false);
     }
@@ -70,11 +68,7 @@ export function Colorpicker({
 
   return (
     <>
-      <div
-        ref={ref}
-        className={className}
-        onClick={handleColorpickerClick}
-      >
+      <div ref={ref} className={className} onClick={handleColorpickerClick}>
         {children}
       </div>
       {show &&
@@ -118,7 +112,7 @@ function ColorSketch({
         window.innerHeight || document.documentElement.clientHeight;
       const top = positionElementBct.top + positionElementBct.height;
       const right = positionElementBct.left + positionElementBct.width;
-      const letf = right - menusContainerBct.width;
+      const left = right - menusContainerBct.width;
       const bottom = top + menusContainerBct.height;
 
       if (bottom > totalHeight) {
@@ -131,7 +125,7 @@ function ColorSketch({
       }
 
       // menusContainer.style.width = positionElementBct.width + 'px'
-      menusContainer.style.left = letf + "px";
+      menusContainer.style.left = left + "px";
       menusContainer.style.visibility = "visible";
     } else {
       menusContainer.style.visibility = "hidden";
@@ -141,12 +135,14 @@ function ColorSketch({
   const sketchColor = useCallback(() => {
     try {
       // @ts-ignore
-      const { color, valpha } = ColorUtil.rgb(value)
-      return `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${valpha.toFixed(2)})`
+      const { color, valpha } = ColorUtil.rgb(value);
+      return `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${valpha.toFixed(
+        2
+      )})`;
     } catch {
-      return 'rgba(0, 0, 0, 1)'
+      return "rgba(0, 0, 0, 1)";
     }
-  }, [value])
+  }, [value]);
 
   return (
     <div ref={ref} className={css.colorSketch}>

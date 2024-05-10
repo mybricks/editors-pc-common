@@ -11,3 +11,8 @@ declare module "*.svg" {
 declare module "mp4box";
 
 declare module "css-background-parser";
+
+
+declare interface Window {
+  MYBRICKS_CSS_VARIABLE_LIST: Array<any>;
+}

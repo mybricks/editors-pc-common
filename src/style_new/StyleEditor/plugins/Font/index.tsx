@@ -111,7 +111,7 @@ export function Font({ value, onChange, config }: FontProps) {
   }
 
   const [cfg] = useState({ ...DEFAULT_CONFIG, ...config });
-  const [innerFontFamily, setInnerFontFamily] = useState<string | string[] | undefined>(
+  const [innerFontFamily, setInnerFontFamily] = useState<string[] | undefined>(
     Array.isArray(value.fontFamily)
       ? value.fontFamily
       : value.fontFamily
@@ -201,7 +201,7 @@ export function Font({ value, onChange, config }: FontProps) {
               options={fontFamilyOptions()}
               multiple={true}
               value={innerFontFamily}
-              onChange={(newValue) => {
+              onChange={(newValue: string []) => {
                 if (Array.isArray(newValue) && newValue[newValue.length - 1] === "inherit") {
                   onChange({ key: "fontFamily", value: "inherit" });
                   setInnerFontFamily(["inherit"]);
