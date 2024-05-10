@@ -52,8 +52,8 @@ const DEFAULT_STYLE = {
 const DEFAULT_STYLE_SMALL = {
   padding: 0,
   fontSize: 10,
-  minWidth: 41,
-  maxWidth: 41,
+  minWidth: 26,
+  maxWidth: 26,
   marginLeft: 4,
 };
 
