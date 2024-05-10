@@ -30,8 +30,8 @@ const UNIT_OPTIONS = [
 const DEFAULT_STYLE = {
   padding: 0,
   fontSize: 10,
-  minWidth: 41,
-  maxWidth: 41,
+  minWidth: 71,
+  maxWidth: 71,
   marginLeft: 4,
 };
 
