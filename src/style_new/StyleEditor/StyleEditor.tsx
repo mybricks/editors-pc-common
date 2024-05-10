@@ -10,7 +10,8 @@ import {
   BoxShadow,
   Background,
   OverFlow,
-  Opacity
+  Opacity,
+  Radius
 } from './plugins'
 
 import type { StyleEditorProps } from './type'
@@ -22,6 +23,7 @@ const PLUGINS_MAP = {
   SIZE: Size,
   CURSOR: Cursor,
   BORDER: Border,
+  RADIUS: Radius,
   MARGIN: Margin,
   PADDING: Padding,
   BOXSHADOW: BoxShadow,
