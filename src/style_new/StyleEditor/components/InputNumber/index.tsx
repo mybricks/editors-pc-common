@@ -60,6 +60,7 @@ export function InputNumber ({
       e.target.select();// 光标增减时依旧选中
       e.preventDefault(); 
       handleTempNumberChange(newValue);
+      handleNumberChange(newValue);
     }
     if (code === "Enter") {
       handleNumberChange(tempNumber);
