@@ -1,11 +1,22 @@
-import React, { useRef, useMemo, useState, useEffect, useReducer, useCallback, CSSProperties } from "react";
+import React, {
+  useRef,
+  useMemo,
+  useState,
+  useEffect,
+  useReducer,
+  useCallback,
+  CSSProperties,
+} from "react";
 import { createPortal } from "react-dom";
 
 import ColorUtil from "color";
 
 import { Tooltip } from "antd";
 
-import { Dropdown, BindingOutlined, QuestionCircleOutlined, TransparentColorOutlined } from "../../components";
+import {
+  QuestionCircleOutlined,
+  TransparentColorOutlined,
+} from "../../components";
 import { Panel, Colorpicker, UnbindingOutlined } from "../";
 
 import css from "./index.less";
@@ -14,6 +25,8 @@ type ColorOption = {
   label: string;
   value: string;
   resetValue?: string;
+  title?: string;
+  options?: ColorOptions;
 };
 type ColorOptions = Array<ColorOption>;
 
@@ -39,20 +52,30 @@ interface State {
   optionsValueToAllMap: any;
 }
 
-function getInitialState({ value, options }: { value: string; options: ColorOptions }): State {
+function getInitialState({
+  value,
+  options,
+}: {
+  value: string;
+  options: ColorOptions;
+}): State {
   let finalValue = value;
   let nonColorValue = false;
 
   try {
     const color = new ColorUtil(value);
-    finalValue = (color.alpha() === 1 ? color.hex() : color.hexa()).toLowerCase();
+    finalValue = (
+      color.alpha() === 1 ? color.hex() : color.hexa()
+    ).toLowerCase();
   } catch {
     nonColorValue = true;
   }
 
   const optionsValueToAllMap: any = {};
 
-  const colorOptions = Array.isArray(window.MYBRICKS_CSS_VARIABLE_LIST) ? window.MYBRICKS_CSS_VARIABLE_LIST : [];
+  const colorOptions = Array.isArray(window.MYBRICKS_CSS_VARIABLE_LIST)
+    ? window.MYBRICKS_CSS_VARIABLE_LIST
+    : [];
 
   const showPreset = !!colorOptions.length;
 
@@ -97,9 +120,17 @@ function reducer(state: State, action: any): State {
 //   {label: 'inherit', value: 'inherit'}
 // ]
 
-export function ColorEditor({ defaultValue, style = {}, onChange, options = [] }: ColorEditorProps) {
+export function ColorEditor({
+  defaultValue,
+  style = {},
+  onChange,
+  options = [],
+}: ColorEditorProps) {
   const presetRef = useRef<HTMLDivElement>(null);
-  const [state, dispatch] = useReducer(reducer, getInitialState({ value: defaultValue, options }));
+  const [state, dispatch] = useReducer(
+    reducer,
+    getInitialState({ value: defaultValue, options })
+  );
   const [show, setShow] = useState(false);
   const [open, setOpen] = useState(false);
 
@@ -108,7 +139,7 @@ export function ColorEditor({ defaultValue, style = {}, onChange, options = [] }
     setOpen(true);
   }, []);
 
-  const handleColorpickerChange = useCallback((color) => {
+  const handleColorpickerChange = useCallback((color: Record<string, any>) => {
     const hex = getHex(color.hexa);
 
     dispatch({
@@ -130,11 +161,11 @@ export function ColorEditor({ defaultValue, style = {}, onChange, options = [] }
   }, [state.value, state.nonColorValue]);
 
   const fixHex = (hex: string) => {
-    if (hex[hex.length - 1] === '0') {
-      return hex.replace(/00$/, 'FF');
+    if (hex[hex.length - 1] === "0") {
+      return hex.replace(/00$/, "FF");
     }
     return hex;
-  }
+  };
   const handleInputChange = useCallback(
     (value: string) => {
       let finalValue = state.value;
@@ -189,9 +220,9 @@ export function ColorEditor({ defaultValue, style = {}, onChange, options = [] }
           handleInputChange(e.target.value);
           setUserInput(e.target.value);
         }}
-        onBlur={(e) => {
+        onBlur={() => {
           isFocus.current = false;
-          handleInputBlur(e);
+          handleInputBlur();
         }}
         disabled={nonColorValue}
       />
@@ -199,16 +230,12 @@ export function ColorEditor({ defaultValue, style = {}, onChange, options = [] }
   }, [userInput, state.nonColorValue]);
 
   const handleOpacityChange = useCallback(
-    (e) => {
+    (e: React.ChangeEvent<HTMLInputElement>) => {
       const value = e.target.value;
-      // const state: any = {
-      //   value
-      // }
-
       let finalValue = state.value;
 
       try {
-        const color = new ColorUtil(state.value).alpha(value / 100);
+        const color = new ColorUtil(state.value).alpha(Number(value) / 100);
         finalValue = color.hexa();
       } catch {}
 
@@ -221,10 +248,13 @@ export function ColorEditor({ defaultValue, style = {}, onChange, options = [] }
     [state.value]
   );
 
-  const inputRef = useRef(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const opacityInput = useMemo(() => {
-    if (state.nonColorValue || (isNaN(opacityNumber) && opacityNumber !== undefined)) {
+    if (
+      state.nonColorValue ||
+      (isNaN(opacityNumber) && opacityNumber !== undefined)
+    ) {
       return <></>;
     }
 
@@ -272,7 +302,15 @@ export function ColorEditor({ defaultValue, style = {}, onChange, options = [] }
       >
         <div className={css.block} style={style} />
         <div className={css.icon}>
-          {nonColorValue ? finalValue ? <></> : <QuestionCircleOutlined /> : <TransparentColorOutlined />}
+          {nonColorValue ? (
+            finalValue ? (
+              <></>
+            ) : (
+              <QuestionCircleOutlined />
+            )
+          ) : (
+            <TransparentColorOutlined />
+          )}
         </div>
       </Colorpicker>
     );
@@ -343,7 +381,7 @@ export function ColorEditor({ defaultValue, style = {}, onChange, options = [] }
     );
   }, []);
 
-  const onPresetColorChange = useCallback((value) => {
+  const onPresetColorChange = useCallback((value: any) => {
     onChange(value);
 
     const option = state.optionsValueToAllMap[value];
@@ -408,7 +446,9 @@ const getHex = (str: string) => {
   let finalValue = str;
   try {
     const color = new ColorUtil(str);
-    finalValue = (color.alpha() === 1 ? color.hex() : color.hexa()).toLowerCase();
+    finalValue = (
+      color.alpha() === 1 ? color.hex() : color.hexa()
+    ).toLowerCase();
   } catch {}
 
   return finalValue;
@@ -433,7 +473,17 @@ function BindOutlined() {
   );
 }
 
-function PresetColorPanel({ open, positionElement, onChange, options, value }: any) {
+function PresetColorPanel({
+  open,
+  positionElement,
+  onChange,
+  options,
+}: {
+  open: boolean;
+  options: ColorOptions;
+  onChange: (value: any) => void;
+  [k: string]: any;
+}) {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -441,26 +491,29 @@ function PresetColorPanel({ open, positionElement, onChange, options, value }: a
     if (open) {
       const positionElementBct = positionElement.getBoundingClientRect();
       const menusContainerBct = ref.current!.getBoundingClientRect();
-      const totalHeight = window.innerHeight || document.documentElement.clientHeight;
+      const totalHeight =
+        window.innerHeight || document.documentElement.clientHeight;
       const top = positionElementBct.top + positionElementBct.height;
       const right = positionElementBct.left + positionElementBct.width;
-      const letf = right - positionElementBct.width;
+      const left = right - positionElementBct.width;
       const bottom = top + menusContainerBct.height;
 
       if (bottom > totalHeight) {
         // 目前判断下方是否超出即可
         // 向上
-        menusContainer.style.top = positionElementBct.top - menusContainerBct.height + "px";
+        menusContainer.style.top =
+          positionElementBct.top - menusContainerBct.height + "px";
       } else {
         menusContainer.style.top = top + "px";
       }
 
       // 保证完全展示
       if (menusContainerBct.width > positionElementBct.width) {
-        menusContainer.style.left = letf - menusContainerBct.width + positionElementBct.width + "px";
+        menusContainer.style.left =
+          left - menusContainerBct.width + positionElementBct.width + "px";
       } else {
         menusContainer.style.width = positionElementBct.width + "px";
-        menusContainer.style.left = letf + "px";
+        menusContainer.style.left = left + "px";
       }
 
       menusContainer.style.visibility = "visible";
@@ -469,7 +522,7 @@ function PresetColorPanel({ open, positionElement, onChange, options, value }: a
     }
   }, [open]);
 
-  const onColorCircelClick = useCallback(({ label, value, resetValue }) => {
+  const onColorCircelClick = useCallback(({ value }: Record<string, any>) => {
     onChange(value);
   }, []);
 
@@ -487,22 +540,26 @@ function PresetColorPanel({ open, positionElement, onChange, options, value }: a
         return (
           <div key={title} className={css.catelog}>
             <div className={css.title}>{title}</div>
-            <div className={css.colorList}>
-              {options.map(({ label, value, resetValue }) => {
-                return (
-                  <div key={label + value} className={css.colorItem}>
-                    {/* TODO: 临时先用antd组件 */}
-                    <Tooltip title={label}>
-                      <div
-                        className={css.circel}
-                        style={{ backgroundColor: value }}
-                        onClick={() => onColorCircelClick({ label, value, resetValue })}
-                      ></div>
-                    </Tooltip>
-                  </div>
-                );
-              })}
-            </div>
+            {options && options?.length > 0 && (
+              <div className={css.colorList}>
+                {options.map(({ label, value, resetValue }) => {
+                  return (
+                    <div key={label + value} className={css.colorItem}>
+                      {/* TODO: 临时先用antd组件 */}
+                      <Tooltip title={label}>
+                        <div
+                          className={css.circel}
+                          style={{ backgroundColor: value }}
+                          onClick={() =>
+                            onColorCircelClick({ label, value, resetValue })
+                          }
+                        ></div>
+                      </Tooltip>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         );
       })}
