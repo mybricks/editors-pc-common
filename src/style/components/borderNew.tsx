@@ -46,6 +46,7 @@ const DEFAULT_STYLE = {
 const DEFAULT_STYLE__NEW = {
   padding: 0,
   fontSize: 10,
+  marginLeft: 0,
 };
 
 const DEFAULT_STYLE_SMALL = {
