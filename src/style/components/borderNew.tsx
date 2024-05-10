@@ -48,6 +48,14 @@ const DEFAULT_STYLE__NEW = {
   fontSize: 10,
 };
 
+const DEFAULT_STYLE_SMALL = {
+  padding: 0,
+  fontSize: 10,
+  minWidth: 26,
+  maxWidth: 26,
+  marginLeft: 4,
+};
+
 const createBorders = () => {
   const borders: Record<string, any> = {};
   const sides = ["", "Top", "Right", "Bottom", "Left"];
@@ -132,7 +140,7 @@ export default function Border() {
               </div>
               <InputNumber
                 tip="边框宽度"
-                style={DEFAULT_STYLE}
+                style={DEFAULT_STYLE_SMALL}
                 value={borderValue.borderTopWidth}
                 defaultUnitValue="px"
                 onChange={(value) => {
@@ -227,7 +235,7 @@ export default function Border() {
                   </div>
                   <InputNumber
                     tip="上边框宽度"
-                    style={DEFAULT_STYLE}
+                    style={DEFAULT_STYLE_SMALL}
                     defaultUnitValue="px"
                     value={borderValue.borderTopWidth}
                     onChange={(value) =>
@@ -289,7 +297,7 @@ export default function Border() {
                   </div>
                   <InputNumber
                     tip="右边框宽度"
-                    style={DEFAULT_STYLE}
+                    style={DEFAULT_STYLE_SMALL}
                     defaultUnitValue="px"
                     value={borderValue.borderRightWidth}
                     onChange={(value) =>
@@ -339,7 +347,7 @@ export default function Border() {
                   </div>
                   <InputNumber
                     tip="下边框宽度"
-                    style={DEFAULT_STYLE}
+                    style={DEFAULT_STYLE_SMALL}
                     defaultUnitValue="px"
                     value={borderValue.borderBottomWidth}
                     onChange={(value) =>
@@ -389,7 +397,7 @@ export default function Border() {
                   </div>
                   <InputNumber
                     tip="左边框宽度"
-                    style={DEFAULT_STYLE}
+                    style={DEFAULT_STYLE_SMALL}
                     defaultUnitValue="px"
                     value={borderValue.borderLeftWidth}
                     onChange={(value) =>
