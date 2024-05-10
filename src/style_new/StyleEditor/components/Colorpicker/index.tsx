@@ -13,7 +13,7 @@ import Sketch from "@mybricks/color-picker";
 import css from "./index.less";
 interface ColorpickerProps {
   value: string;
-  onChange: (value: any) => void;
+  onChange: (value: Record<string, any>) => void;
   children: ReactNode;
   disabled?: boolean;
   className?: string;
@@ -39,7 +39,7 @@ export function Colorpicker({
     setOpen(true);
   }, [disabled]);
 
-  const handleColorSketchChange = useCallback((value: any) => {
+  const handleColorSketchChange = useCallback((value: Record<string, any>) => {
     onChange(value);
   }, []);
 
@@ -88,7 +88,7 @@ export function Colorpicker({
 
 interface ColorSketchProps {
   value: string;
-  onChange: (value: any) => void;
+  onChange: (value: Record<string, any>) => void;
   open: boolean;
   positionElement: HTMLDivElement;
   childRef: React.RefObject<HTMLDivElement>;
