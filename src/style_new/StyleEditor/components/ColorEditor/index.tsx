@@ -200,6 +200,19 @@ export function ColorEditor({
       setUserInput(colorString);
     }
   }, [colorString]);
+  const inputColorRef = useRef<HTMLInputElement>(null);
+  const handlePaste = (event: React.ClipboardEvent<HTMLInputElement>) => {
+    // 获取粘贴的文本
+    const pastedText = event.clipboardData?.getData("text");
+    // 检查文本的第一个字符是否为 '#' 且长度为7
+
+    if (pastedText?.startsWith("#") && pastedText.length === 7) {
+      event.preventDefault();
+      // 阻止默认的粘贴行为
+      inputColorRef.current!.value = pastedText;
+      handleInputChange(pastedText);
+    }
+  };
   const input = useMemo(() => {
     const { value, nonColorValue } = state;
     if (nonColorValue) {
@@ -211,6 +224,7 @@ export function ColorEditor({
     }
     return (
       <input
+        ref={inputColorRef}
         value={userInput}
         className={css.input}
         onFocus={() => {
@@ -224,6 +238,7 @@ export function ColorEditor({
           isFocus.current = false;
           handleInputBlur();
         }}
+        onPaste={handlePaste}
         disabled={nonColorValue}
       />
     );
