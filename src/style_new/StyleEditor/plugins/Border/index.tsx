@@ -48,6 +48,15 @@ const DEFAULT_STYLE = {
   maxWidth: 41,
   marginLeft: 4,
 };
+
+const DEFAULT_STYLE_SMALL = {
+  padding: 0,
+  fontSize: 10,
+  minWidth: 41,
+  maxWidth: 41,
+  marginLeft: 4,
+};
+
 const DEFAULT_STYLE__NEW = {
   padding: 0,
   fontSize: 10,
@@ -138,7 +147,7 @@ export function Border({ value, onChange, config }: BorderProps) {
               {disableBorderWidth ? null : (
                 <InputNumber
                   tip="边框宽度"
-                  style={DEFAULT_STYLE}
+                  style={DEFAULT_STYLE_SMALL}
                   value={borderValue.borderTopWidth}
                   // suffix={'px'}
                   onChange={(value) => {
@@ -249,7 +258,7 @@ export function Border({ value, onChange, config }: BorderProps) {
                     {disableBorderWidth ? null : (
                       <InputNumber
                         tip="上边框宽度"
-                        style={DEFAULT_STYLE}
+                        style={DEFAULT_STYLE_SMALL}
                         value={borderValue.borderTopWidth}
                         // suffix={'px'}
                         onChange={(value) =>
@@ -331,7 +340,7 @@ export function Border({ value, onChange, config }: BorderProps) {
                     {disableBorderWidth ? null : (
                       <InputNumber
                         tip="右边框宽度"
-                        style={DEFAULT_STYLE}
+                        style={DEFAULT_STYLE_SMALL}
                         value={borderValue.borderRightWidth}
                         // suffix={'px'}
                         onChange={(value) =>
@@ -402,7 +411,7 @@ export function Border({ value, onChange, config }: BorderProps) {
                     {disableBorderWidth ? null : (
                       <InputNumber
                         tip="下边框宽度"
-                        style={DEFAULT_STYLE}
+                        style={DEFAULT_STYLE_SMALL}
                         value={borderValue.borderBottomWidth}
                         // suffix={'px'}
                         onChange={(value) =>
@@ -473,7 +482,7 @@ export function Border({ value, onChange, config }: BorderProps) {
                     {disableBorderWidth ? null : (
                       <InputNumber
                         tip="左边框宽度"
-                        style={DEFAULT_STYLE}
+                        style={DEFAULT_STYLE_SMALL}
                         value={borderValue.borderLeftWidth}
                         // suffix={'px'}
                         onChange={(value) =>
