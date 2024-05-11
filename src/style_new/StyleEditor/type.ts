@@ -1,24 +1,30 @@
-import { CSSProperties } from 'react'
+import { CSSProperties } from "react";
 
-import { DEFAULT_OPTIONS } from './constans'
+import { DEFAULT_OPTIONS } from "./constans";
 
 export type Style = {
-  [key: string]: any
-}
+  [key: string]: any;
+};
 
-export type Type = typeof DEFAULT_OPTIONS[number]
+export type Type = (typeof DEFAULT_OPTIONS)[number];
 
-export type Options = Array<Type | {
-  type: Type
-  config: {
-    [key: string]: any
-  }
-}>
+export type Option =
+  | Type
+  | {
+      type: Type;
+      config: {
+        [key: string]: any;
+      };
+    };
+
+export type Options = Array<Option>;
 
 export interface StyleEditorProps {
-  defaultValue: CSSProperties
-  options: Options
-  onChange: ChangeEvent
+  defaultValue: CSSProperties;
+  options: Options;
+  onChange: ChangeEvent;
 }
 
-export type ChangeEvent = (arg: {key: string, value: any} | Array<{key: string, value: any}>) => void
+export type ChangeEvent = (
+  arg: { key: string; value: any } | Array<{ key: string; value: any }>
+) => void;
