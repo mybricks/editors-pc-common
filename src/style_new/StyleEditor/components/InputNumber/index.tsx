@@ -21,6 +21,7 @@ interface InputNumberProps extends InputProps {
   allowNegative?: boolean,
   showIcon?: boolean
   prefixTip?: string
+  type?: string
 }
 
 export function InputNumber ({
@@ -38,7 +39,8 @@ export function InputNumber ({
   onFocus,
   tip,
   allowNegative = false,
-  showIcon = false
+  showIcon = false,
+  type = void 0
 }: InputNumberProps) {
   const [unit, setUnit] = useState<string>(getUnit(value || defaultValue, defaultUnitValue, unitOptions))
   const [number, handleNumberChange] = useInputNumber(value || defaultValue)
@@ -120,6 +122,7 @@ export function InputNumber ({
       onBlur={(e) => handleNumberChange(e.target.value)}
       tip={tip}
       numberTip={"光标键可增减"}
+      type={type} // TODO 后续调整 现在因为面板宽度不够只给小部分加 type = 'number'
     />
   )
 }
