@@ -40,6 +40,12 @@ export function Colorpicker({
   }, [disabled]);
 
   const handleColorSketchChange = useCallback((value: Record<string, any>) => {
+    // 点击面板选择颜色时不带透明度 这时就需要把后两位置FF
+    if (value.hexa !== "#ffffff00" && value.hexa?.length === 9) {
+      if (value.hexa[value.hexa.length - 1] === "0") {
+        value.hexa = value.hexa.replace(/00$/, "FF");
+      }
+    }
     onChange(value);
   }, []);
 
