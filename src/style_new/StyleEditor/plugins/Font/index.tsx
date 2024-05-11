@@ -244,6 +244,7 @@ export function Font({ value, onChange, config }: FontProps) {
           {cfg.disableFontSize ? null : (
             <InputNumber
               tip="大小"
+              type="number"
               style={{ flexBasis: `calc(33% - 3px)` }}
               prefix={<FontSizeOutlined />}
               defaultValue={value.fontSize}
@@ -255,6 +256,7 @@ export function Font({ value, onChange, config }: FontProps) {
           {cfg.disableLineHeight ? null : (
             <InputNumber
               tip="行高"
+              type="number"
               style={{ flexBasis: `calc(33% - 3px)` }}
               prefix={<LineHeightOutlined />}
               value={lineHeight}
@@ -267,6 +269,7 @@ export function Font({ value, onChange, config }: FontProps) {
           {cfg.disableLetterSpacing ? null : (
             <InputNumber
               tip="间距"
+              type="number"
               style={{ flexBasis: `calc(33% - 3px)` }}
               prefix={<LetterSpacingOutlined />}
               defaultValue={value.letterSpacing}
