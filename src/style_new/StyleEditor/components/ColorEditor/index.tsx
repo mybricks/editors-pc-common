@@ -18,6 +18,7 @@ import {
   TransparentColorOutlined,
 } from "../../components";
 import { Panel, Colorpicker, UnbindingOutlined } from "../";
+import { color2rgba } from "../../utils";
 
 import css from "./index.less";
 
@@ -141,13 +142,13 @@ export function ColorEditor({
 
   const handleColorpickerChange = useCallback((color: Record<string, any>) => {
     const hex = getHex(color.hexa);
-
+    
     dispatch({
       value: hex,
       nonColorValue: false,
       finalValue: hex,
     });
-    onChange(hex);
+    onChange(color2rgba(hex));
   }, []);
 
   const [colorString, opacityNumber] = useMemo(() => {
@@ -173,7 +174,7 @@ export function ColorEditor({
       try {
         const color = new ColorUtil(value).alpha(opacityNumber);
         finalValue = fixHex(color.hexa());
-        onChange(finalValue);
+        onChange(color2rgba(finalValue));
         dispatch({
           value: finalValue,
           finalValue,
@@ -254,10 +255,10 @@ export function ColorEditor({
         finalValue = color.hexa();
       } catch {}
 
-      onChange(finalValue);
+      onChange(color2rgba(finalValue));
       dispatch({
         value: finalValue,
-        finalValue,
+        finalValue: finalValue,
       });
     },
     [state.value]
@@ -397,7 +398,7 @@ export function ColorEditor({
   }, []);
 
   const onPresetColorChange = useCallback((value: any) => {
-    onChange(value);
+    onChange(color2rgba(value));
 
     const option = state.optionsValueToAllMap[value];
 
