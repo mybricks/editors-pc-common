@@ -149,7 +149,6 @@ export default function ({editConfig}: EditorProps) {
   }
 }
 
-
 function Style ({editConfig}: EditorProps) {
   const {
     options,
@@ -157,15 +156,29 @@ function Style ({editConfig}: EditorProps) {
     defaultValue
   } = useMemo(() => {
     return getDefaultConfiguration(editConfig)
-  }, [])
+  }, []);
+
+  function setBrowserSpecificValues({ key, value }: Record<string, any>) {
+    // 为不同的浏览器设置特定的属性
+    const browsers: string [] = ['-webkit', '-moz', '-ms', '-o'];
+    browsers.forEach(browserPrefix => {
+      // 构建带浏览器前缀的属性名
+      const prefixedKey = `${browserPrefix}-${key}`;
+      // 设置对应的属性值
+      setValue[prefixedKey] = value;
+    });
+
+    // 原始属性设置
+    setValue[key] = value;
+  }
 
   const handleChange: ChangeEvent = useCallback((value) => {
     if (Array.isArray(value)) {
-      value.forEach(({key, value}) => {
-        setValue[key] = value
+      value.forEach((value) => {
+        setBrowserSpecificValues(value);
       })
     } else {
-      setValue[value.key] = value.value;
+      setBrowserSpecificValues(value);
     }
     editConfig.value.set(deepCopy(setValue))
   }, [])
