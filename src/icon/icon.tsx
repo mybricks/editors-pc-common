@@ -38,9 +38,20 @@ const Icon = (props: any) => {
   return <RenderIcon style={{ fontSize, color }} spin={spin} className={className} rotate={rotate} />;
 };
 
+const defaultList = [
+  {
+    title: "线框风格",
+    key: "outLined"
+  },
+  {
+    title: "实底风格",
+    key: "Filled"
+  },
+]
+
 export default function ({ editConfig }: EditorProps): any {
   const { value, options = {} } = editConfig;
-  const { readonly = false } = options;
+  const { readonly = false, defaultIcon, iconFont, extras } = options;
   const model: any = useObservable({ length: 80, value }, [value]);
   const [lineStyle, setlineStyle] = useState("outLined");
   const [direction, setDirection] = useState<string[]>(directionListLined);
@@ -97,12 +108,10 @@ export default function ({ editConfig }: EditorProps): any {
         svgIcon = document.getElementById(item);
         realIcon = parse(svgIcon.innerHTML);
         realIconStr = domToString(realIcon);
-        console.log(realIconStr);
         model.val = realIconStr;
         model.value.set(realIconStr);
         close();
       } else {
-        console.log(item);
         model.val = item;
         model.value.set(item);
         close();
@@ -536,6 +545,21 @@ export default function ({ editConfig }: EditorProps): any {
   const [extraDataListMap, setExtraDataListMap] = useState<Record<string, Record<string, string>>>({});
   const extraList = useMemo(() => editConfig.getDefaultOptions("icon")?.extras ?? [], []);
   const [extraLoading, setExtraLoading] = useState(false);
+  const [comExtraDataListMap, setComExtraDataListMap] = useState<Record<string, Record<string, string>>>({});
+  const comExtraList = useMemo(() => extras ?? [], []);
+  const [comExtraLoading, setComExtraLoading] = useState(false);
+
+  //默认lineStyle处理
+  useEffect(() => {
+    if (defaultIcon === false) {
+      setlineStyle("Iconfont");
+    }
+    if(defaultIcon === false && iconFont === false) {
+      const totalExtraList = [...extraList, ...comExtraList];
+      setlineStyle(totalExtraList[0].key)
+    }
+  }, [extraList, comExtraList]);
+
   useEffect(() => {
     extraList.forEach(({ key, dataFetcher }) => {
       if (dataFetcher && key === lineStyle) {
@@ -552,16 +576,31 @@ export default function ({ editConfig }: EditorProps): any {
           });
       }
     });
+    comExtraList.forEach(({ key, dataFetcher }) => {
+      if (dataFetcher && key === lineStyle) {
+        setComExtraLoading(true);
+        dataFetcher()
+          .then((data) => {
+            setComExtraDataListMap((prev) => {
+              prev[key] = data;
+              return Object.assign({}, prev);
+            });
+          })
+          .finally(() => {
+            setComExtraLoading(false);
+          });
+      }
+    });
   }, [lineStyle]);
 
-  const renderSVGIcon = useCallback(
-    (key: string) => {
-      const icons = extraDataListMap[key] ?? {};
+  const renderSVG = useCallback(
+    (key: string, loading, listMap: Record<string, Record<string, string>>) => {
+      const icons = listMap[key] ?? {};
       const isEmpty =
         Object.values(icons).filter(({ title }) =>
           searchedText ? title.toLowerCase().indexOf(searchedText.toLowerCase()) !== -1 : true
         ).length === 0;
-      return extraLoading ? (
+      return loading ? (
         <div className={css.loading}>加载中...</div>
       ) : isEmpty ? (
         <div className={css.loading}>暂无数据</div>
@@ -593,8 +632,8 @@ export default function ({ editConfig }: EditorProps): any {
         </div>
       );
     },
-    [extraDataListMap, close, model, extraLoading, searchedText]
-  );
+    [extraDataListMap, comExtraDataListMap, close, model, extraLoading, comExtraLoading, searchedText]
+  )
 
   return (
     <div className={css["editor-icon"]}>
@@ -651,10 +690,14 @@ export default function ({ editConfig }: EditorProps): any {
                   setlineStyle(e.target.value);
                 }}
               >
-                <Radio.Button value="outLined">线框风格</Radio.Button>
-                <Radio.Button value="Filled">实底风格</Radio.Button>
-                <Radio.Button value="Iconfont">Iconfont</Radio.Button>
-                {extraList.map((item) => {
+                {defaultIcon ? defaultList.map((item)=>{
+                  return <Radio.Button value={item.key}>{item.title}</Radio.Button>;
+                }) : void 0}
+                {iconFont ? <Radio.Button value="Iconfont">Iconfont</Radio.Button> : void 0}
+                {extraList.map((item:any) => {
+                  return <Radio.Button value={item.key}>{item.title}</Radio.Button>;
+                })}
+                {comExtraList.map((item:any) => {
                   return <Radio.Button value={item.key}>{item.title}</Radio.Button>;
                 })}
               </Radio.Group>
@@ -671,11 +714,14 @@ export default function ({ editConfig }: EditorProps): any {
           </div>
         </div>
         <div>
-          {lineStyle === "outLined" && renderOutlinedIcons}
-          {lineStyle === "Filled" && renderFilledIcons}
-          {lineStyle === "Iconfont" && renderIconfont}
-          {extraList.map((item) => {
-            return <>{lineStyle === item.key && renderSVGIcon(item.key)}</>;
+          {lineStyle === "outLined" && defaultIcon && renderOutlinedIcons}
+          {lineStyle === "Filled" && defaultIcon && renderFilledIcons}
+          {lineStyle === "Iconfont"&& iconFont && renderIconfont}
+          {extraList.map((item:any) => {
+            return <>{lineStyle === item.key && renderSVG(item.key, extraLoading, extraDataListMap)}</>;
+          })}
+          {comExtraList.map((item:any) => {
+            return <>{lineStyle === item.key && renderSVG(item.key, comExtraLoading, comExtraDataListMap)}</>;
           })}
         </div>
       </Drawer>
