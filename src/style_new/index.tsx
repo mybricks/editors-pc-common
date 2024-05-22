@@ -44,6 +44,7 @@ interface State {
 }
 
 export default function ({editConfig}: EditorProps) {
+  const [titleContent, setTitleContent] = useState("");
   const [
     {
       finalOpen,
@@ -127,7 +128,7 @@ export default function ({editConfig}: EditorProps) {
           >
             <CaretRightOutlined />
           </div>
-          <div>{editConfig.title}</div>
+          <div>{editConfig.title}<span className={css.tips}>{titleContent}</span></div>
         </div>
         <div className={css.actions}>
           <div
@@ -147,7 +148,7 @@ export default function ({editConfig}: EditorProps) {
         </div>
       </div>
     )
-  }, [open, editMode])
+  }, [open, editMode, titleContent])
 
   const editor = useMemo(() => {
     if (editMode) {
@@ -167,6 +168,7 @@ export default function ({editConfig}: EditorProps) {
     try {
       if (targetDom) {
         targetDom.appendChild(overlayDom)
+        setTitleContent(" - 已标记当前dom节点")
       }
     } catch {}
   }
@@ -175,6 +177,7 @@ export default function ({editConfig}: EditorProps) {
     try {
       if (targetDom) {
         targetDom.removeChild(overlayDom)
+        setTitleContent("")
       }
     } catch {}
   }
