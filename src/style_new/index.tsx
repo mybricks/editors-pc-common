@@ -53,20 +53,22 @@ export default function ({editConfig}: EditorProps) {
       targetDom,
       ...styleProps
     },
-    {
-      outline,
-      outlineOffset
-    }
+    overlayDom
   ] = useMemo(() => {
     const config = getDefaultConfiguration(editConfig)
-    const { targetDom } = config
+    const overlay = document.createElement('div');
+    overlay.style.position = 'absolute';
+    overlay.style.top = "0px";
+    overlay.style.left = "0px";
+    overlay.style.width = '100%';
+    overlay.style.height = '100%';
+    overlay.style.backgroundColor = '#40a9ff40';
+    overlay.style.zIndex = '999';
+
     return [
       getDefaultConfiguration2(editConfig), 
       config, 
-      {
-        outline: targetDom?.style.outline || "",
-        outlineOffset: targetDom?.style.outlineOffset || ""
-      }
+      overlay
     ]
   }, [])
 
@@ -112,7 +114,12 @@ export default function ({editConfig}: EditorProps) {
 
   const title = useMemo(() => {
     return (
-      <div className={css.titleContainer} style={{ marginBottom: open ? 3 : 0 }}>
+      <div
+        onMouseEnter={onMouseEnter}
+        onMouseLeave={onMouseLeave}
+        className={css.titleContainer}
+        style={{ marginBottom: open ? 3 : 0 }}
+      >
         <div className={css.title} onClick={onOpenClick}>
           <div
             className={`${css.icon}${open ? ` ${css.iconOpen}` : ''}`}
@@ -157,17 +164,19 @@ export default function ({editConfig}: EditorProps) {
   }, [editMode])
 
   function onMouseEnter() {
-    if (targetDom) {
-      targetDom.style.outline = "dashed 2px #FA6400";
-      targetDom.style.outlineOffset = "-2px";
-    }
+    try {
+      if (targetDom) {
+        targetDom.appendChild(overlayDom)
+      }
+    } catch {}
   }
 
   function onMouseLeave() {
-    if (targetDom) {
-      targetDom.style.outline = outline;
-      targetDom.style.outlineOffset = outlineOffset;
-    }
+    try {
+      if (targetDom) {
+        targetDom.removeChild(overlayDom)
+      }
+    } catch {}
   }
 
   useEffect(() => {
@@ -179,15 +188,12 @@ export default function ({editConfig}: EditorProps) {
 
   return {
     render: (
-      <div
-        onMouseEnter={onMouseEnter}
-        onMouseLeave={onMouseLeave}
-      >
+      <>
         {title}
         <div key={key} style={{display: open ? 'block' : 'none'}}>
           {show && editor}
         </div>
-      </div>
+      </>
     )
   }
 }
