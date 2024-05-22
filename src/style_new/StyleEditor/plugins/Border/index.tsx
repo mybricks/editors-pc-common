@@ -175,25 +175,41 @@ export function Border({ value, onChange, config }: BorderProps) {
                   style={{ padding: 0, marginLeft: 5 }}
                   defaultValue={borderValue.borderTopColor}
                   onChange={(value: string) => {
-                    let newValue: Record<string, any> = {
-                      borderTopColor: value,
-                      borderRightColor: value,
-                      borderBottomColor: value,
-                      borderLeftColor: value,
-                    };
-                    if (
-                      !isLengthNineAndEndsWithZeroes(value) &&
-                      borderValue.borderTopWidth === "0px"
-                    ) {
-                      newValue = {
-                        ...newValue,
-                        borderTopWidth: "1px",
-                        borderRightWidth: "1px",
-                        borderBottomWidth: "1px",
-                        borderLeftWidth: "1px",
+                    setBorderValue((val) => {
+                      let newValue: Record<string, any> = {
+                        borderTopColor: value,
+                        borderRightColor: value,
+                        borderBottomColor: value,
+                        borderLeftColor: value,
                       };
-                    }
-                    handleChange(newValue);
+                      if (
+                        !isLengthNineAndEndsWithZeroes(value) &&
+                        val.borderTopWidth === "0px"
+                      ) {
+                        newValue = {
+                          ...newValue,
+                          borderTopWidth: "1px",
+                          borderRightWidth: "1px",
+                          borderBottomWidth: "1px",
+                          borderLeftWidth: "1px",
+                        };
+                      }
+
+                      onChange(
+                        Object.keys(newValue).map((key) => {
+                          return {
+                            key,
+                            // TODO
+                            value: `${newValue[key]}${useImportant ? "!important" : ""}`,
+                          };
+                        })
+                      );
+
+                      return {
+                        ...val,
+                        ...newValue
+                      }
+                    });
                   }}
                 />
               )}
