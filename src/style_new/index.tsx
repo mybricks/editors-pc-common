@@ -2,6 +2,7 @@ import React, {
   useRef,
   useMemo,
   useState,
+  useEffect,
   useCallback,
   CSSProperties
 } from 'react'
@@ -43,13 +44,31 @@ interface State {
 }
 
 export default function ({editConfig}: EditorProps) {
-  const {
-    finalOpen,
-    finalSelector
-  } = useMemo(() => {
-    return getDefaultConfiguration2(editConfig)
+  const [
+    {
+      finalOpen,
+      finalSelector
+    },
+    {
+      targetDom,
+      ...styleProps
+    },
+    {
+      outline,
+      outlineOffset
+    }
+  ] = useMemo(() => {
+    const config = getDefaultConfiguration(editConfig)
+    const { targetDom } = config
+    return [
+      getDefaultConfiguration2(editConfig), 
+      config, 
+      {
+        outline: targetDom?.style.outline || "",
+        outlineOffset: targetDom?.style.outlineOffset || ""
+      }
+    ]
   }, [])
-
 
   const [{
     open,
@@ -126,7 +145,7 @@ export default function ({editConfig}: EditorProps) {
   const editor = useMemo(() => {
     if (editMode) {
       return (
-        <Style editConfig={editConfig}/>
+        <Style editConfig={editConfig} {...styleProps}/>
       )
     } else {
       return (
@@ -137,28 +156,47 @@ export default function ({editConfig}: EditorProps) {
     }
   }, [editMode])
 
+  function onMouseEnter() {
+    if (targetDom) {
+      targetDom.style.outline = "dashed 2px #FA6400";
+      targetDom.style.outlineOffset = "-2px";
+    }
+  }
+
+  function onMouseLeave() {
+    if (targetDom) {
+      targetDom.style.outline = outline;
+      targetDom.style.outlineOffset = outlineOffset;
+    }
+  }
+
+  useEffect(() => {
+    return () => {
+      // 销毁
+      onMouseLeave()
+    }
+  }, [])
+
   return {
     render: (
-      <>
+      <div
+        onMouseEnter={onMouseEnter}
+        onMouseLeave={onMouseLeave}
+      >
         {title}
         <div key={key} style={{display: open ? 'block' : 'none'}}>
           {show && editor}
         </div>
-      </>
+      </div>
     )
   }
 }
 
+interface StyleProps extends EditorProps {
+  [key: string]: any;
+}
 
-function Style ({editConfig}: EditorProps) {
-  const {
-    options,
-    setValue,
-    defaultValue
-  } = useMemo(() => {
-    return getDefaultConfiguration(editConfig)
-  }, [])
-
+function Style ({editConfig, options, setValue, defaultValue }: StyleProps) {
   const handleChange: ChangeEvent = useCallback((value) => {
     if (Array.isArray(value)) {
       value.forEach(({key, value}) => {
@@ -250,11 +288,11 @@ function CssEditor ({popView, options, value, selector, onChange: onPropsChange,
   const defaultOptions = useMemo(() => getDefaultOptions?.('stylenew') ?? {}, []);
   const [context] = useState({value: cssValue})
 
-  const onMounted = useCallback((editor) => {
+  const onMounted = useCallback((editor: any) => {
     editorRef.current = editor
   }, [])
 
-  const onChange = useCallback((value) => {
+  const onChange = useCallback((value: any) => {
     setCssValue(value);
 
     context.value = value
@@ -346,6 +384,7 @@ function getDefaultConfiguration ({value, options}: GetDefaultConfigurationProps
   let finalSelector
   const setValue = deepCopy(value.get() || {})
   let getDefaultValue = true
+  let dom;
 
   if (!options) {
     // 没有options，普通编辑器配置使用，直接使用默认的配置，展示全部
@@ -355,6 +394,7 @@ function getDefaultConfiguration ({value, options}: GetDefaultConfigurationProps
     finalOptions = options
   } else {
     const { plugins, selector, targetDom, defaultOpen = false } = options
+    dom = targetDom
     finalSelector = selector
     finalOpen = defaultOpen
     // 这里还要再处理一下 
@@ -408,13 +448,15 @@ function getDefaultConfiguration ({value, options}: GetDefaultConfigurationProps
     defaultValue: Object.assign(defaultValue, setValue),
     setValue,
     finalOpen,
-    finalSelector
+    finalSelector,
+    targetDom: dom
   } as {
     options: Options,
     defaultValue: CSSProperties,
     setValue: CSSProperties & Record<string, any>,
     finalOpen: boolean,
-    finalSelector: string
+    finalSelector: string,
+    targetDom: any
   }
 }
 
