@@ -51,7 +51,7 @@ const defaultList = [
 
 export default function ({ editConfig }: EditorProps): any {
   const { value, options = {} } = editConfig;
-  const { readonly = false, defaultIcon, iconFont, extras } = options;
+  const { readonly = false, defaultIcon = true, iconFont, extras } = options;
   const model: any = useObservable({ length: 80, value }, [value]);
   const [lineStyle, setlineStyle] = useState("outLined");
   const [direction, setDirection] = useState<string[]>(directionListLined);
