@@ -6,6 +6,7 @@ import React, {
   useCallback,
   CSSProperties
 } from 'react'
+import { createPortal } from "react-dom";
 
 // @ts-ignore
 import colorUtil from 'color-string'
@@ -14,13 +15,16 @@ import { toCSS, toJSON } from 'cssjson';
 // @ts-ignore
 import { calculate, compare } from 'specificity';
 
+import { Tooltip } from "antd";
+
 import {
   CodeOutlined,
   ReloadOutlined,
   AppstoreOutlined,
   CaretDownOutlined,
   CaretRightOutlined,
-  FullscreenOutlined
+  FullscreenOutlined,
+  CaretUpOutlined
 } from '@ant-design/icons'
 // @ts-ignore
 import MonacoEditor from "@mybricks/code-editor";
@@ -45,6 +49,7 @@ interface State {
 
 export default function ({editConfig}: EditorProps) {
   const [titleContent, setTitleContent] = useState("");
+  const [targetStyle, setTargetStyle] = useState<any>(null);
   const [
     {
       finalOpen,
@@ -54,22 +59,14 @@ export default function ({editConfig}: EditorProps) {
       targetDom,
       ...styleProps
     },
-    overlayDom
+    canvasEle
   ] = useMemo(() => {
-    const config = getDefaultConfiguration(editConfig)
-    const overlay = document.createElement('div');
-    overlay.style.position = 'absolute';
-    overlay.style.top = "0px";
-    overlay.style.left = "0px";
-    overlay.style.width = '100%';
-    overlay.style.height = '100%';
-    overlay.style.backgroundColor = '#40a9ff40';
-    overlay.style.zIndex = '999';
 
     return [
       getDefaultConfiguration2(editConfig), 
-      config, 
-      overlay
+      getDefaultConfiguration(editConfig), 
+      // @ts-ignore
+      editConfig.canvasEle
     ]
   }, [])
 
@@ -166,28 +163,36 @@ export default function ({editConfig}: EditorProps) {
 
   function onMouseEnter() {
     try {
-      if (targetDom) {
-        targetDom.appendChild(overlayDom)
-        setTitleContent(" - 已标记当前dom节点")
+      if (canvasEle && targetDom) {
+        setTitleContent("(已标记)")
+        const tRect = targetDom.getBoundingClientRect()
+        const cRect = canvasEle.getBoundingClientRect()
+        setTargetStyle({
+          canvas: {
+            left: tRect.left - cRect.left,
+            top: tRect.top - cRect.top,
+            width: tRect.width,
+            height: tRect.height
+          },
+          tips: {
+            left: tRect.left - cRect.left,
+            top: tRect.top - cRect.top + 8,
+          }
+        })
+      } else {
+        setTitleContent("(非dom节点)")
       }
     } catch {}
   }
 
   function onMouseLeave() {
     try {
-      if (targetDom) {
-        targetDom.removeChild(overlayDom)
-        setTitleContent("")
+      if (canvasEle && targetDom) {
+        setTargetStyle(null)
       }
+      setTitleContent("")
     } catch {}
   }
-
-  useEffect(() => {
-    return () => {
-      // 销毁
-      onMouseLeave()
-    }
-  }, [])
 
   return {
     render: (
@@ -196,6 +201,26 @@ export default function ({editConfig}: EditorProps) {
         <div key={key} style={{display: open ? 'block' : 'none'}}>
           {show && editor}
         </div>
+        {canvasEle && targetStyle && createPortal(
+          <>
+            <div className={css.popupTips} style={targetStyle.canvas}></div>
+            <Tooltip
+              placement="topLeft"
+              title={editConfig.title}
+              visible={true}
+              overlayInnerStyle={{
+                color: "#555",
+                fontSize: 12,
+                minWidth: 50,
+                textAlign: 'center'
+              }}
+              color='#fff'
+              transitionName=""
+            >
+              <div className={css.popupTips} style={targetStyle.tips}></div>
+            </Tooltip>
+          </>
+          , canvasEle)}
       </>
     )
   }
