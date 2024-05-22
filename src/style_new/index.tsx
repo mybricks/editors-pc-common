@@ -212,7 +212,9 @@ export default function ({editConfig}: EditorProps) {
                 color: "#555",
                 fontSize: 12,
                 minWidth: 50,
-                textAlign: 'center'
+                textAlign: 'center',
+                boxShadow: "0px 1px 4px 2px rgba(39, 54, 78, 0.37)",
+                borderRadius: 4
               }}
               color='#fff'
               transitionName=""
