@@ -163,20 +163,45 @@ export default function ({editConfig}: EditorProps) {
 
   function onMouseEnter() {
     try {
-      if (canvasEle && targetDom) {
+      if (canvasEle && targetDom.length) {
         setTitleContent("(已标记)")
-        const tRect = targetDom.getBoundingClientRect()
+        const res: any = Array.from(targetDom).reduce((res: any, dom: any) => {
+          const rect = dom.getBoundingClientRect()
+          if (res.left > rect.left) {
+            res.left = rect.left
+          }
+          if (res.top > rect.top) {
+            res.top = rect.top
+          }
+          const width = rect.left + rect.width
+          if (res.width < width) {
+            res.width = width
+          }
+          const height = rect.top + rect.height
+          if (res.height < height) {
+            res.height = height
+          }
+          
+          return res
+        }, {
+          left: Infinity,
+          top: Infinity,
+          width: -Infinity,
+          height: -Infinity
+        })
+        const width = res.width - res.left
+        const height = res.height - res.top
         const cRect = canvasEle.getBoundingClientRect()
         setTargetStyle({
           canvas: {
-            left: tRect.left - cRect.left,
-            top: tRect.top - cRect.top,
-            width: tRect.width,
-            height: tRect.height
+            left: res.left - cRect.left,
+            top: res.top - cRect.top,
+            width,
+            height
           },
           tips: {
-            left: tRect.left - cRect.left,
-            top: tRect.top - cRect.top + 8,
+            left: res.left - cRect.left,
+            top: res.top - cRect.top + 8,
           }
         })
       } else {
@@ -187,7 +212,7 @@ export default function ({editConfig}: EditorProps) {
 
   function onMouseLeave() {
     try {
-      if (canvasEle && targetDom) {
+      if (canvasEle && targetDom.length) {
         setTargetStyle(null)
       }
       setTitleContent("")
@@ -435,9 +460,9 @@ function getDefaultConfiguration ({value, options}: GetDefaultConfigurationProps
     finalOpen = defaultOpen
     // 这里还要再处理一下 
     finalOptions = plugins || DEFAULT_OPTIONS
-    if (targetDom) {
+    if (targetDom?.length) {
       getDefaultValue = false
-      const styleValues = getStyleValues(targetDom, Array.isArray(selector) ? selector[0] : selector)
+      const styleValues = getStyleValues(targetDom[0], Array.isArray(selector) ? selector[0] : selector)
 
       finalOptions.forEach((option) => {
         let type, config

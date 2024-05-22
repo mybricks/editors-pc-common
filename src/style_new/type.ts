@@ -4,7 +4,7 @@ export interface EditorProps {
   editConfig: {
     options: Options
     | {
-     targetDom?: HTMLDivElement
+     targetDom?: HTMLDivElement[]
      plugins?: Options
      selector: string
      defaultOpen?: boolean
