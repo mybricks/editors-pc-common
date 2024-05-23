@@ -231,7 +231,7 @@ export default function ({editConfig}: EditorProps) {
             <div className={css.popupTips} style={targetStyle.canvas}></div>
             <Tooltip
               placement="topLeft"
-              title={editConfig.title}
+              title={editConfig.title || "当前dom区域"}
               visible={true}
               overlayInnerStyle={{
                 color: "#555",
