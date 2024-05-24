@@ -18,6 +18,7 @@ declare global {
 export default function ({ editConfig }: EditorProps): JSX.Element {
   const editorRef = useRef<Editor>(null);
   const containerRef = useRef(null);
+  const isEdited = useRef(false);
 
   const { value, options, upload, getDefaultOptions } = editConfig;
   const defaultOptions = useMemo(() => getDefaultOptions?.('richtext') ?? {}, []);
@@ -34,10 +35,12 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
     editor.on("keyup change", () => {
       const content = editor.getContent();
       model.val = content;
+      isEdited.current = true;
     });
 
     editor.on("blur", () => {
       const content = editor.getContent({ format: "raw" });
+      isEdited.current = false;
       model.value.set(content);
     });
 
@@ -60,6 +63,7 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
         onAction: () => {
           const content = editor.getContent({ format: "raw" });
           model.val = content;
+          isEdited.current = false;
           model.value.set(content);
           model.visible = !model.visible;
         },
@@ -71,9 +75,8 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
     const config = model.visible ? fullConfig : simpleConfig;
     return (
       <div
-        className={`${css.commonEditor} ${
-          model.type === "h5" ? css.h5 : css.pc
-        } ${model.visible ? css.fullEditor : css.blockEditor}`}
+        className={`${css.commonEditor} ${model.type === "h5" ? css.h5 : css.pc
+          } ${model.visible ? css.fullEditor : css.blockEditor}`}
       >
         <TinyEditor
           ref={containerRef}
@@ -111,6 +114,7 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
             editor.selection.setContent(img);
             const content = editor.getContent({ format: "raw" });
             model.val = content;
+            isEdited.current = false;
             model.value.set(content);
             model.imgModalVisible = false;
           }}
@@ -133,7 +137,10 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
 
   useEffect(() => {
     return () => {
-      model.value.set(model.val)
+      if (isEdited.current) {
+        isEdited.current = false;
+        model.value.set(model.val)
+      }
     }
   }, [])
   return <>{model.visible ? createPortal(editor, document.body) : editor}</>;

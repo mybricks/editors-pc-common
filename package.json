@@ -1,11 +1,12 @@
 {
   "name": "@mybricks/editors-pc-common",
-  "version": "1.0.54",
+  "version": "1.0.55",
   "description": "",
   "main": "lib/index.js",
   "scripts": {
     "build": "webpack --config ./build/webpack.build.js && cp ./src/index.d.ts ./lib",
-    "publishToNpm": "npm run build && npm publish --registry=https://registry.npmjs.org --access=public"
+    "publishToNpm": "npm run build && npm publish --registry=https://registry.npmjs.org --access=public",
+    "publishToNpm:beta": "npm run build && npm publish --registry=https://registry.npmjs.org --access=public --tag beta"
   },
   "repository": {
     "type": "git",
