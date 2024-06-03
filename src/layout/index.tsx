@@ -70,7 +70,11 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
         >
       >
     ) => {
-      value.set({ ...model, ...style });
+      value.set(
+        style.position === 'smart' ? 
+        { position: 'smart'} :
+        { ...model, ...style }
+      );
     },
     [model]
   );
