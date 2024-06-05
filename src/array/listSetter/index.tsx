@@ -37,6 +37,7 @@ type ListSetterProps = {
   customOptRender?: any
   extraContext?: any
   cdnMap: any;
+  defaultSelect?: string
   /** 获取应用层配置的 editor options */
   getDefaultOptions?(key: string): any;
 }
@@ -124,6 +125,7 @@ export default function ({
   customOptRender,
   extraContext,
   cdnMap,
+  defaultSelect,
   getDefaultOptions
 }: ListSetterProps) {
   const [list, setList] = useState(initData(value) || [])
@@ -132,6 +134,7 @@ export default function ({
   const [editId, setEditId] = useState<EditId>(null)
   const [subFormVisible, setSubFormVisible] = useState(false)
   const listRef = useRef(null)
+
   /** 数据变化来自外部 */
   const changeFromOuter = useRef(false);
 
@@ -281,6 +284,15 @@ export default function ({
     setActiveId(list.find((t) => t)?._id ?? null)
   }, [didMount, expandable])
 
+  useEffect(() => {
+    if(didMount.current && selectable && !activeId && defaultSelect) {
+        let target = list.find((t) => t._id === defaultSelect || t.id === defaultSelect)
+        if (target) {
+          setActiveId(defaultSelect || target._id)
+        }
+    }
+  }, [defaultSelect, activeId, didMount, selectable, list])
+
   const SubEditors = useMemo(() => {
     return (
       <div style={{ padding: '15px' }} onClick={(e) => e.stopPropagation()}>
@@ -342,7 +354,7 @@ export default function ({
               key={item._id}
               index={index}
               className={`${_selectable
-                ? activeId === item._id
+                ? (activeId === item._id || activeId === item.id)
                   ? `${css.listItemSelect} ${css.active}`
                   : css.listItemSelect
                 : ''
