@@ -36,6 +36,7 @@ export default function ({ editConfig, injectEditors, ...extraContext }: { editC
         editable={opt.editable}
         deletable={opt.deletable}
         addable={opt.addable}
+        defaultSelect={opt.defaultSelect}
         selectable={opt.selectable}
         addText={opt.addText}
         customOptRender={opt.customOptRender}

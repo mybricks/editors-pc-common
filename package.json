@@ -1,6 +1,6 @@
 {
   "name": "@mybricks/editors-pc-common",
-  "version": "1.0.57",
+  "version": "1.0.58",
   "description": "",
   "main": "lib/index.js",
   "scripts": {
