@@ -135,7 +135,6 @@ export default function ({
   const [subFormVisible, setSubFormVisible] = useState(false)
   const listRef = useRef(null)
 
-  const [force, setForce] = useState({})
   /** 数据变化来自外部 */
   const changeFromOuter = useRef(false);
 
@@ -291,7 +290,6 @@ export default function ({
         if (target) {
           setActiveId(defaultSelect || target._id)
         }
-        setForce({})
     }
   }, [defaultSelect, activeId, didMount, selectable, list])
 
