@@ -41,7 +41,8 @@ export default ({
   onWrapToggle,
 }: JustifyContentProps) => {
   const renderWrap = () => {
-    const title = flexWrap === "wrap" ? "换行" : "不换行";
+    // const title = flexWrap === "wrap" ? "换行" : "不换行";
+    const title = "换行"; // 这里提示词不应该变
     return (
       <div
         data-mybricks-tip={title}

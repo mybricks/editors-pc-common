@@ -44,8 +44,6 @@ export function allEqual(arr: Array<any>) {
   return new Set(arr).size === 1;
 }
 
-
-
 /**
  * 函数输入 haxColor、rgba、rgb 格式的颜色，返回 rgba 格式的颜色
 */
