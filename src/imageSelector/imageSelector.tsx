@@ -98,6 +98,10 @@ export default function ({ editConfig }: EditorProps): any {
     }
   }, []);
 
+  const fileSizeLimit = useMemo(() => {
+    return options.fileSizeLimit ?? editConfig.getDefaultOptions("imageselector")?.fileSizeLimit ?? 0;
+  }, [options.fileSizeLimit]);
+
   const extraList = useMemo(() => {
     return editConfig.getDefaultOptions("imageselector")?.extras ?? [];
   }, []);
@@ -241,7 +245,7 @@ export default function ({ editConfig }: EditorProps): any {
         onCancel={() => {
           modalContext.visible = false;
         }}
-        fileSizeLimit={editConfig.fileSizeLimit || 0}
+        fileSizeLimit={fileSizeLimit}
         upload={editConfig.upload}
       />
     </div>
