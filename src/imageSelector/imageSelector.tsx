@@ -144,7 +144,7 @@ export default function ({ editConfig }: EditorProps): any {
         {extraList.map(({ key, title, event }) => {
           return (
             <button
-              className={css.btn}
+              className={css.linkBtn}
               key={key}
               onClick={async () => {
                 const result = await event()
@@ -241,6 +241,7 @@ export default function ({ editConfig }: EditorProps): any {
         onCancel={() => {
           modalContext.visible = false;
         }}
+        fileSizeLimit={editConfig.fileSizeLimit || 0}
         upload={editConfig.upload}
       />
     </div>
