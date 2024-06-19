@@ -670,3 +670,30 @@ export const universalListFilled = [
   'ZhihuCircleFilled',
   'ZhihuSquareFilled'
 ]
+
+export const typeList = [
+  {
+    id: 'direction',
+    title: '方向性'
+  },
+  {
+    id: 'suggestion',
+    title: '提示建议性'
+  },
+  {
+    id: 'edit',
+    title: '编辑类'
+  },
+  {
+    id: 'data',
+    title: '数据类'
+  },
+  {
+    id: 'brand',
+    title: '品牌和标识'
+  },
+  {
+    id: 'currency',
+    title: '网站通用'
+  }
+]

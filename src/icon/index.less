@@ -37,7 +37,8 @@
     padding-top: 10px;
     height: 100%;
     overflow-y: auto;
-    width: 624px;
+    //width: 624px;
+    width: 424px;
     :hover{
       background-color: #FA6400;
       color: #fff;
@@ -53,8 +54,11 @@
       justify-content: center;
       align-items: center;
       cursor: pointer;
-      width: 140px;
+      // width: 140px;
+      // height: 80px;
+      width: 120px;
       height: 80px;
+      font-size: 20px;
     }
   }
 
@@ -70,7 +74,8 @@
   font-size: 12px;
   overflow: hidden;
   text-overflow: ellipsis;
-  width: 140px;
+  //width: 140px;
+  width: 120px;
   white-space: nowrap;
   text-align: center;
   padding: 10px 10px 0 10px;
@@ -135,4 +140,23 @@
 .emptyContent {
   padding-top: 20px;
   font-size: 14px
+}
+
+.anchor{
+  :global{
+    .ant-anchor{
+      position: fixed;
+      left: 5px;
+      top: 40%;
+      //transform: translateY(-50%);
+    }
+    .ant-anchor-ink::before {
+      background-color: unset;
+    }
+  }
+}
+
+.typeList{
+  padding-top: 126px;
+  margin-top: -126px;
 }

@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Drawer, Radio, Input, Popover } from "antd";
+import React, { useCallback, useEffect, useMemo, useState, useRef } from "react";
+import { Drawer, Radio, Input, Popover, Anchor, Col, Row } from "antd";
 import * as icons from "@ant-design/icons";
 import { CloseOutlined } from "@ant-design/icons";
 import { isValid } from "../utils";
@@ -19,11 +19,13 @@ import {
   dataListFilled,
   brandListFilled,
   universalListFilled,
+  typeList
 } from "./iconList";
 import { extractListFormIconfontJS, parse, domToString } from "./utils/iconfont";
 
 import { EditorProps } from "@/interface";
 
+const { Link } = Anchor;
 const { Search } = Input;
 const IconList = Object.keys(icons ?? {}).filter((key) => key.endsWith("ed"));
 
@@ -71,6 +73,8 @@ export default function ({ editConfig }: EditorProps): any {
   const [newList, setNewList] = useState<string[]>([]);
   const [iconList, setIconList] = useState<string[]>([]);
   const [id, setID] = useState<string>("");
+  const myRef = useRef(null);
+  const [element, setElement] = useState<any>()
 
   //应用侧实现
   const getList = async (url: string) => {
@@ -283,222 +287,322 @@ export default function ({ editConfig }: EditorProps): any {
   const renderOutlinedIcons = useMemo(() => {
     if (readonly) return [];
 
+    const handleClick = (
+      e: React.MouseEvent<HTMLElement>,
+      link: {
+        title: React.ReactNode;
+        href: string;
+      },
+    ) => {
+      e.preventDefault();
+      if(link.href) {
+        let ele = document.getElementById(link.href.slice(1));
+        ele && ele.scrollIntoView({block: 'start', behavior: 'smooth'});
+      }
+    };
+
+
     return (
       <>
-        <div className={css.classTitle}>方向性图标</div>
-        <div className={css.iconWrapper}>
-          {direction.map((item: string) => (
-            <Popover trigger={"hover"} content={<span className={css.popoverText}>{item}</span>}>
-              <div
-                key={item}
-                className={css.icon}
-                onClick={() => {
-                  updateVal(item);
-                }}
-              >
-                <Icon type={item} fontSize={30} />
-                <span className={css.text}>{item}</span>
+        <Row>
+          <Col span={4}>
+            <Anchor
+              affix={false}
+              className={css.anchor}
+              onClick={handleClick}
+              getContainer = {element ? () => {
+                return element as HTMLElement} : void 0}
+            >
+              {
+                typeList.map((item) => (
+                  <Link 
+                    key={item.id} 
+                    href={`#${item.id}`} 
+                    title={item.title} 
+                  />
+                ))
+              }
+            </Anchor>
+          </Col>
+          <Col span={20}>
+            <div  id="direction" className={css.typeList}>
+              <div className={css.classTitle}>方向性图标</div>
+              <div className={css.iconWrapper}>
+                {direction.map((item: string) => (
+                  <Popover trigger={"hover"} content={<span className={css.popoverText}>{item}</span>}>
+                    <div
+                      key={item}
+                      className={css.icon}
+                      onClick={() => {
+                        updateVal(item);
+                      }}
+                    >
+                      <Icon type={item} fontSize={20} />
+                      <span className={css.text}>{item}</span>
+                    </div>
+                  </Popover>
+                ))}
               </div>
-            </Popover>
-          ))}
-        </div>
-        <div className={css.classTitle}>提示建议性图标</div>
-        <div className={css.iconWrapper}>
-          {tip.map((item: string) => (
-            <Popover trigger={"hover"} content={<span className={css.popoverText}>{item}</span>}>
-              <div
-                key={item}
-                className={css.icon}
-                onClick={() => {
-                  updateVal(item);
-                }}
-              >
-                <Icon type={item} fontSize={30} />
-                <span className={css.text}>{item}</span>
+            </div>
+            <div id="suggestion" className={css.typeList}>
+              <div className={css.classTitle}>提示建议性图标</div>
+              <div className={css.iconWrapper}>
+                {tip.map((item: string) => (
+                  <Popover trigger={"hover"} content={<span className={css.popoverText}>{item}</span>}>
+                    <div
+                      key={item}
+                      className={css.icon}
+                      onClick={() => {
+                        updateVal(item);
+                      }}
+                    >
+                      <Icon type={item} fontSize={20} />
+                      <span className={css.text}>{item}</span>
+                    </div>
+                  </Popover>
+                ))}
               </div>
-            </Popover>
-          ))}
-        </div>
-        <div className={css.classTitle}>编辑类图标</div>
-        <div className={css.iconWrapper}>
-          {edit.map((item: string) => (
-            <Popover trigger={"hover"} content={<span className={css.popoverText}>{item}</span>}>
-              <div
-                key={item}
-                className={css.icon}
-                onClick={() => {
-                  updateVal(item);
-                }}
-              >
-                <Icon type={item} fontSize={30} />
-                <span className={css.text}>{item}</span>
+            </div>
+            <div id="edit" className={css.typeList}>
+              <div className={css.classTitle}>编辑类图标</div>
+              <div className={css.iconWrapper}>
+                {edit.map((item: string) => (
+                  <Popover trigger={"hover"} content={<span className={css.popoverText}>{item}</span>}>
+                    <div
+                      key={item}
+                      className={css.icon}
+                      onClick={() => {
+                        updateVal(item);
+                      }}
+                    >
+                      <Icon type={item} fontSize={20} />
+                      <span className={css.text}>{item}</span>
+                    </div>
+                  </Popover>
+                ))}
               </div>
-            </Popover>
-          ))}
-        </div>
-        <div className={css.classTitle}>数据类图标</div>
-        <div className={css.iconWrapper}>
-          {data.map((item: string) => (
-            <Popover trigger={"hover"} content={<span className={css.popoverText}>{item}</span>}>
-              <div
-                key={item}
-                className={css.icon}
-                onClick={() => {
-                  updateVal(item);
-                }}
-              >
-                <Icon type={item} fontSize={30} />
-                <span className={css.text}>{item}</span>
+            </div>
+            <div id="data" className={css.typeList}>
+              <div className={css.classTitle}>数据类图标</div>
+              <div className={css.iconWrapper}>
+                {data.map((item: string) => (
+                  <Popover trigger={"hover"} content={<span className={css.popoverText}>{item}</span>}>
+                    <div
+                      key={item}
+                      className={css.icon}
+                      onClick={() => {
+                        updateVal(item);
+                      }}
+                    >
+                      <Icon type={item} fontSize={20} />
+                      <span className={css.text}>{item}</span>
+                    </div>
+                  </Popover>
+                ))}
               </div>
-            </Popover>
-          ))}
-        </div>
-        <div className={css.classTitle}>品牌和标识图标</div>
-        <div className={css.iconWrapper}>
-          {brand.map((item: string) => (
-            <Popover trigger={"hover"} content={<span className={css.popoverText}>{item}</span>}>
-              <div
-                key={item}
-                className={css.icon}
-                onClick={() => {
-                  updateVal(item);
-                }}
-              >
-                <Icon type={item} fontSize={30} />
-                <span className={css.text}>{item}</span>
+            </div>
+            <div id="brand" className={css.typeList}>
+              <div className={css.classTitle}>品牌和标识图标</div>
+              <div className={css.iconWrapper}>
+                {brand.map((item: string) => (
+                  <Popover trigger={"hover"} content={<span className={css.popoverText}>{item}</span>}>
+                    <div
+                      key={item}
+                      className={css.icon}
+                      onClick={() => {
+                        updateVal(item);
+                      }}
+                    >
+                      <Icon type={item} fontSize={20} />
+                      <span className={css.text}>{item}</span>
+                    </div>
+                  </Popover>
+                ))}
               </div>
-            </Popover>
-          ))}
-        </div>
-        <div className={css.classTitle}>网站通用图标</div>
-        <div className={css.iconWrapper}>
-          {universal.map((item: string) => (
-            <Popover trigger={"hover"} content={<span className={css.popoverText}>{item}</span>}>
-              <div
-                key={item}
-                className={css.icon}
-                onClick={() => {
-                  updateVal(item);
-                }}
-              >
-                <Icon type={item} fontSize={30} />
-                <span className={css.text}>{item}</span>
+            </div>
+            <div id="currency" className={css.typeList}>
+              <div className={css.classTitle}>网站通用图标</div>
+              <div className={css.iconWrapper}>
+                {universal.map((item: string) => (
+                  <Popover trigger={"hover"} content={<span className={css.popoverText}>{item}</span>}>
+                    <div
+                      key={item}
+                      className={css.icon}
+                      onClick={() => {
+                        updateVal(item);
+                      }}
+                    >
+                      <Icon type={item} fontSize={20} />
+                      <span className={css.text}>{item}</span>
+                    </div>
+                  </Popover>
+                ))}
               </div>
-            </Popover>
-          ))}
-        </div>
+            </div> 
+          </Col>
+        </Row>
+        
       </>
     );
-  }, [direction, tip, edit, data, brand, universal, lineStyle]);
+  }, [direction, tip, edit, data, brand, universal, lineStyle, element]);
 
   //实底风格
   const renderFilledIcons = useMemo(() => {
     if (readonly) return [];
 
+    const handleClick = (
+      e: React.MouseEvent<HTMLElement>,
+      link: {
+        title: React.ReactNode;
+        href: string;
+      },
+    ) => {
+      e.preventDefault();
+      if(link.href) {
+        let ele = document.getElementById(link.href.slice(1));
+        ele && ele.scrollIntoView({block: 'start', behavior: 'smooth'});
+      }
+    };
+
     return (
       <>
-        <div className={css.classTitle}>方向性图标</div>
-        <div className={css.iconWrapper}>
-          {directionFilled.map((item: string) => (
-            <Popover trigger={"hover"} content={<span className={css.popoverText}>{item}</span>}>
-              <div
-                key={item}
-                className={css.icon}
-                onClick={() => {
-                  updateVal(item);
-                }}
-              >
-                <Icon type={item} fontSize={30} />
-                <span className={css.text}>{item}</span>
+        <Row>
+          <Col span={4}>
+            <Anchor
+              affix={false}
+              className={css.anchor}
+              getContainer = {element ? () => {
+                return element as HTMLElement} : void 0}
+              onClick={handleClick}
+            >
+              {
+                typeList.map((item) => (
+                  <Link 
+                    key={item.id} 
+                    href={`#${item.id}`} 
+                    title={item.title} 
+                  />
+                ))
+              }
+            </Anchor>
+          </Col>
+          <Col span={20}>
+            <div  id="direction" className={css.typeList}>
+              <div className={css.classTitle}>方向性图标</div>
+              <div className={css.iconWrapper}>
+                {directionFilled.map((item: string) => (
+                  <Popover trigger={"hover"} content={<span className={css.popoverText}>{item}</span>}>
+                    <div
+                      key={item}
+                      className={css.icon}
+                      onClick={() => {
+                        updateVal(item);
+                      }}
+                    >
+                      <Icon type={item} fontSize={20} />
+                      <span className={css.text}>{item}</span>
+                    </div>
+                  </Popover>
+                ))}
               </div>
-            </Popover>
-          ))}
-        </div>
-        <div className={css.classTitle}>提示建议性图标</div>
-        <div className={css.iconWrapper}>
-          {tipFilled.map((item: string) => (
-            <Popover trigger={"hover"} content={<span className={css.popoverText}>{item}</span>}>
-              <div
-                key={item}
-                className={css.icon}
-                onClick={() => {
-                  updateVal(item);
-                }}
-              >
-                <Icon type={item} fontSize={30} />
-                <span className={css.text}>{item}</span>
+            </div>
+            <div id="suggestion" className={css.typeList}>
+              <div className={css.classTitle}>提示建议性图标</div>
+              <div className={css.iconWrapper}>
+                {tipFilled.map((item: string) => (
+                  <Popover trigger={"hover"} content={<span className={css.popoverText}>{item}</span>}>
+                    <div
+                      key={item}
+                      className={css.icon}
+                      onClick={() => {
+                        updateVal(item);
+                      }}
+                    >
+                      <Icon type={item} fontSize={20} />
+                      <span className={css.text}>{item}</span>
+                    </div>
+                  </Popover>
+                ))}
               </div>
-            </Popover>
-          ))}
-        </div>
-        <div className={css.classTitle}>编辑类图标</div>
-        <div className={css.iconWrapper}>
-          {editFilled.map((item: string) => (
-            <Popover trigger={"hover"} content={<span className={css.popoverText}>{item}</span>}>
-              <div
-                key={item}
-                className={css.icon}
-                onClick={() => {
-                  updateVal(item);
-                }}
-              >
-                <Icon type={item} fontSize={30} />
-                <span className={css.text}>{item}</span>
+            </div>
+            <div id="edit" className={css.typeList}>
+              <div className={css.classTitle}>编辑类图标</div>
+              <div className={css.iconWrapper}>
+                {editFilled.map((item: string) => (
+                  <Popover trigger={"hover"} content={<span className={css.popoverText}>{item}</span>}>
+                    <div
+                      key={item}
+                      className={css.icon}
+                      onClick={() => {
+                        updateVal(item);
+                      }}
+                    >
+                      <Icon type={item} fontSize={20} />
+                      <span className={css.text}>{item}</span>
+                    </div>
+                  </Popover>
+                ))}
               </div>
-            </Popover>
-          ))}
-        </div>
-        <div className={css.classTitle}>数据类图标</div>
-        <div className={css.iconWrapper}>
-          {dataFilled.map((item: string) => (
-            <Popover trigger={"hover"} content={<span className={css.popoverText}>{item}</span>}>
-              <div
-                key={item}
-                className={css.icon}
-                onClick={() => {
-                  updateVal(item);
-                }}
-              >
-                <Icon type={item} fontSize={30} />
-                <span className={css.text}>{item}</span>
+            </div>
+            <div id="data" className={css.typeList}>
+              <div className={css.classTitle}>数据类图标</div>
+              <div className={css.iconWrapper}>
+                {dataFilled.map((item: string) => (
+                  <Popover trigger={"hover"} content={<span className={css.popoverText}>{item}</span>}>
+                    <div
+                      key={item}
+                      className={css.icon}
+                      onClick={() => {
+                        updateVal(item);
+                      }}
+                    >
+                      <Icon type={item} fontSize={20} />
+                      <span className={css.text}>{item}</span>
+                    </div>
+                  </Popover>
+                ))}
               </div>
-            </Popover>
-          ))}
-        </div>
-        <div className={css.classTitle}>品牌和标识图标</div>
-        <div className={css.iconWrapper}>
-          {brandFilled.map((item: string) => (
-            <Popover trigger={"hover"} content={<span className={css.popoverText}>{item}</span>}>
-              <div
-                key={item}
-                className={css.icon}
-                onClick={() => {
-                  updateVal(item);
-                }}
-              >
-                <Icon type={item} fontSize={30} />
-                <span className={css.text}>{item}</span>
+            </div>
+            <div id="brand" className={css.typeList}>
+              <div className={css.classTitle}>品牌和标识图标</div>
+              <div className={css.iconWrapper}>
+                {brandFilled.map((item: string) => (
+                  <Popover trigger={"hover"} content={<span className={css.popoverText}>{item}</span>}>
+                    <div
+                      key={item}
+                      className={css.icon}
+                      onClick={() => {
+                        updateVal(item);
+                      }}
+                    >
+                      <Icon type={item} fontSize={20} />
+                      <span className={css.text}>{item}</span>
+                    </div>
+                  </Popover>
+                ))}
               </div>
-            </Popover>
-          ))}
-        </div>
-        <div className={css.classTitle}>网站通用图标</div>
-        <div className={css.iconWrapper}>
-          {universalFilled.map((item: string) => (
-            <Popover trigger={"hover"} content={<span className={css.popoverText}>{item}</span>}>
-              <div
-                key={item}
-                className={css.icon}
-                onClick={() => {
-                  updateVal(item);
-                }}
-              >
-                <Icon type={item} fontSize={30} />
-                <span className={css.text}>{item}</span>
+            </div>
+            <div id="currency" className={css.typeList}>
+              <div className={css.classTitle}>网站通用图标</div>
+              <div className={css.iconWrapper}>
+                  {universalFilled.map((item: string) => (
+                    <Popover trigger={"hover"} content={<span className={css.popoverText}>{item}</span>}>
+                      <div
+                        key={item}
+                        className={css.icon}
+                        onClick={() => {
+                          updateVal(item);
+                        }}
+                      >
+                        <Icon type={item} fontSize={20} />
+                        <span className={css.text}>{item}</span>
+                      </div>
+                    </Popover>
+                  ))}
               </div>
-            </Popover>
-          ))}
-        </div>
+            </div>
+          </Col>
+        </Row>
       </>
     );
   }, [directionFilled, tipFilled, editFilled, dataFilled, brandFilled, universalFilled, lineStyle]);
@@ -514,7 +618,7 @@ export default function ({ editConfig }: EditorProps): any {
             updateVal(icon);
           }}
         >
-          <svg width="30" height="30">
+          <svg width="22" height="22">
             <use xlinkHref={`#${icon}`}></use>
           </svg>
           <span className={css.text}>{icon}</span>
@@ -527,7 +631,7 @@ export default function ({ editConfig }: EditorProps): any {
     return (
       <>
         {newList.length !== 0 && Array.isArray(newList) ? (
-          <div className={css.iconWrapper}>
+          <div className={css.iconWrapper} style={{width: '544px'}}>
             {iconList.map((item) => {
               return renderSingleIcon(item);
             })}
@@ -605,7 +709,7 @@ export default function ({ editConfig }: EditorProps): any {
       ) : isEmpty ? (
         <div className={css.loading}>暂无数据</div>
       ) : (
-        <div className={css.iconWrapper}>
+        <div className={css.iconWrapper} style={{width: 550}}>
           {Object.keys(icons).map((iconNamespace) => {
             const { title, svg } = icons[iconNamespace];
             const isFilter = searchedText && title.toLowerCase().indexOf(searchedText.toLowerCase()) === -1;
@@ -634,6 +738,12 @@ export default function ({ editConfig }: EditorProps): any {
     },
     [extraDataListMap, comExtraDataListMap, close, model, extraLoading, comExtraLoading, searchedText]
   )
+  
+  useEffect(()=>{
+    if(modalContext.visible && myRef.current){
+      setElement(myRef.current);
+    }
+  },[modalContext.visible])
 
   return (
     <div className={css["editor-icon"]}>
@@ -673,7 +783,8 @@ export default function ({ editConfig }: EditorProps): any {
         destroyOnClose={true}
         visible={modalContext.visible}
         onClose={close}
-        width={650}
+        //width={650}
+        width={560}
         getContainer={() => document.querySelector('div[class^="lyStage-"]')}
         style={{ position: "absolute" }}
       >
@@ -682,7 +793,25 @@ export default function ({ editConfig }: EditorProps): any {
             {"选择图标"}
             <CloseOutlined onClick={close} />
           </div>
-          <div className={css.styleChoose}>
+          <div style={{
+            padding: '10px'
+          }}>
+            <span>
+              <Search
+                placeholder="在此搜索图标"
+                allowClear
+                onSearch={onSearch}
+                onChange={onChange}
+              />
+            </span>
+          </div>
+          <div 
+            className={css.styleChoose}
+            style={{
+              display: 'flex',
+              justifyContent: 'center'
+            }}
+          >
             <div>
               <Radio.Group
                 value={lineStyle}
@@ -702,18 +831,10 @@ export default function ({ editConfig }: EditorProps): any {
                 })}
               </Radio.Group>
             </div>
-            <span>
-              <Search
-                placeholder="在此搜索图标"
-                allowClear
-                onSearch={onSearch}
-                onChange={onChange}
-                style={{ width: 180 }}
-              />
-            </span>
           </div>
         </div>
-        <div>
+
+        <div ref={myRef}>
           {lineStyle === "outLined" && defaultIcon && renderOutlinedIcons}
           {lineStyle === "Filled" && defaultIcon && renderFilledIcons}
           {lineStyle === "Iconfont"&& iconFont && renderIconfont}
@@ -723,7 +844,7 @@ export default function ({ editConfig }: EditorProps): any {
           {comExtraList.map((item:any) => {
             return <>{lineStyle === item.key && renderSVG(item.key, comExtraLoading, comExtraDataListMap)}</>;
           })}
-        </div>
+        </div>  
       </Drawer>
     </div>
   );
