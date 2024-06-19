@@ -34,6 +34,7 @@ export default function UploaderModal({
   onOk,
   onCancel,
   fileSizeLimit,
+  useBase64Only,
   upload: PropsUpload,
 }) {
   const ctx: Ctx = useObservable(Ctx, (next) => {
@@ -56,7 +57,11 @@ export default function UploaderModal({
 
   const uploadTips = useMemo(() => {
     if (fileSizeLimit && fileSizeLimit > 0) {
-      return `文件大小不超过${fileSizeLimit}M`;
+      if (fileSizeLimit < 1024) {
+        return `文件大小不超过${fileSizeLimit}KB`;
+      } else {
+        return `文件大小不超过${fileSizeLimit / 1024}MB`;
+      }
     }
     return "";
   }, [fileSizeLimit]);
@@ -68,9 +73,9 @@ export default function UploaderModal({
           resovled();
           return;
         }
-        
-        if (file.size > fileSizeLimit * 1024 * 1024) {
-          rejected(`文件大小超过${fileSizeLimit}MB`);
+
+        if (file.size > fileSizeLimit * 1024) {
+          rejected(`文件大小超过限制`);
           return;
         }
 
@@ -114,13 +119,15 @@ export default function UploaderModal({
       if (item.kind == "file") {
         const file = item.getAsFile();
         if (file?.size === 0) return;
-        beforeUpload(file).then(() => {
-          upload(file, ctx);
-          e.target.value = "";
-        }).catch(err => {
-          message.error(err);
-          e.target.value = "";
-        });
+        beforeUpload(file)
+          .then(() => {
+            upload(file, ctx);
+            e.target.value = "";
+          })
+          .catch((err) => {
+            message.error(err);
+            e.target.value = "";
+          });
       }
     }
   }, []);
@@ -164,13 +171,15 @@ export default function UploaderModal({
             const file: any =
               (evt.target && evt.target.files && evt.target.files[0]) || null;
             if (file) {
-              beforeUpload(file).then(() => {
-                upload(file, ctx);
-                evt.target.value = "";
-              }).catch(err => {
-                message.error(err);
-                evt.target.value = "";
-              });
+              beforeUpload(file)
+                .then(() => {
+                  upload(file, ctx);
+                  evt.target.value = "";
+                })
+                .catch((err) => {
+                  message.error(err);
+                  evt.target.value = "";
+                });
             }
           }}
         />
@@ -208,7 +217,9 @@ export default function UploaderModal({
             文件选择
           </Button>
 
-          {uploadTips && <div className={css["editor-upload__tips"]}>{uploadTips}</div>}
+          {uploadTips && (
+            <div className={css["editor-upload__tips"]}>{uploadTips}</div>
+          )}
         </div>
         {ctx.type === "image/*" ? (
           <div
@@ -217,11 +228,13 @@ export default function UploaderModal({
               evt.preventDefault();
               const file = evt.dataTransfer.files[0];
               if (file?.type && /^(image\/)/.test(file.type)) {
-                beforeUpload(file).then(() => {
-                  upload(file, ctx);
-                }).catch(err => {
-                  message.error(err);
-                });
+                beforeUpload(file)
+                  .then(() => {
+                    upload(file, ctx);
+                  })
+                  .catch((err) => {
+                    message.error(err);
+                  });
               }
             }}
           >
@@ -270,7 +283,7 @@ export default function UploaderModal({
 
 async function upload(file: any, ctx: Ctx) {
   try {
-    if (typeof ctx.upload === "function") {
+    if (typeof ctx.upload === "function" && !useBase64Only) {
       const [url] = await ctx.upload([file], { compress: ctx.compress });
       ctx.url = url;
       ctx.base64 = url;

@@ -99,12 +99,28 @@ export default function ({ editConfig }: EditorProps): any {
   }, []);
 
   const fileSizeLimit = useMemo(() => {
-    return options.fileSizeLimit ?? editConfig.getDefaultOptions("imageselector")?.fileSizeLimit ?? 0;
+    return (
+      options.fileSizeLimit ??
+      editConfig.getDefaultOptions("imageselector")?.fileSizeLimit ??
+      0
+    );
   }, [options.fileSizeLimit]);
 
   const extraList = useMemo(() => {
-    return editConfig.getDefaultOptions("imageselector")?.extras ?? [];
+    return (
+      options.extraList ??
+      editConfig.getDefaultOptions("imageselector")?.extras ??
+      []
+    );
   }, []);
+
+  const useBase64Only = useMemo(() => {
+    return (
+      options.useBase64Only ??
+      editConfig.getDefaultOptions("imageselector")?.useBase64Only ??
+      false
+    );
+  }, [options.useBase64Only]);
 
   return (
     <div className={css["editor-upload"]}>
@@ -151,7 +167,7 @@ export default function ({ editConfig }: EditorProps): any {
               className={css.linkBtn}
               key={key}
               onClick={async () => {
-                const result = await event()
+                const result = await event();
                 model.val = result;
                 model.value.set(model.val);
               }}
@@ -163,7 +179,10 @@ export default function ({ editConfig }: EditorProps): any {
       </div>
       {ctx.showPic &&
         createPortal(
-          <div className={css.pic} style={{ ...ctx.picStyle, display: ctx.showPic ? "block" : "none" }}>
+          <div
+            className={css.pic}
+            style={{ ...ctx.picStyle, display: ctx.showPic ? "block" : "none" }}
+          >
             <img
               style={{ display: ctx.isError ? "none" : "block" }}
               src={model.val}
@@ -174,7 +193,9 @@ export default function ({ editConfig }: EditorProps): any {
                 ctx.isError = false;
               }}
             />
-            <div style={{ display: !ctx.isError ? "none" : "block" }}>请上传图片或填入正确图片地址</div>
+            <div style={{ display: !ctx.isError ? "none" : "block" }}>
+              请上传图片或填入正确图片地址
+            </div>
           </div>,
           document.body
         )}
@@ -246,6 +267,7 @@ export default function ({ editConfig }: EditorProps): any {
           modalContext.visible = false;
         }}
         fileSizeLimit={fileSizeLimit}
+        useBase64Only={useBase64Only}
         upload={editConfig.upload}
       />
     </div>
