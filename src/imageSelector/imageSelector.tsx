@@ -112,7 +112,7 @@ export default function ({ editConfig }: EditorProps): any {
       editConfig.getDefaultOptions("imageselector")?.extras ??
       []
     );
-  }, []);
+  }, [options.extraList]);
 
   const useBase64Only = useMemo(() => {
     return (

@@ -121,7 +121,7 @@ export default function UploaderModal({
         if (file?.size === 0) return;
         beforeUpload(file)
           .then(() => {
-            upload(file, ctx);
+            upload(file, ctx, { useBase64Only: useBase64Only });
             e.target.value = "";
           })
           .catch((err) => {
@@ -173,7 +173,7 @@ export default function UploaderModal({
             if (file) {
               beforeUpload(file)
                 .then(() => {
-                  upload(file, ctx);
+                  upload(file, ctx, { useBase64Only: useBase64Only });
                   evt.target.value = "";
                 })
                 .catch((err) => {
@@ -230,7 +230,7 @@ export default function UploaderModal({
               if (file?.type && /^(image\/)/.test(file.type)) {
                 beforeUpload(file)
                   .then(() => {
-                    upload(file, ctx);
+                    upload(file, ctx, { useBase64Only: useBase64Only });
                   })
                   .catch((err) => {
                     message.error(err);
@@ -281,9 +281,9 @@ export default function UploaderModal({
   );
 }
 
-async function upload(file: any, ctx: Ctx) {
+async function upload(file: any, ctx: Ctx, options = {}) {
   try {
-    if (typeof ctx.upload === "function" && !useBase64Only) {
+    if (typeof ctx.upload === "function" && !options.useBase64Only) {
       const [url] = await ctx.upload([file], { compress: ctx.compress });
       ctx.url = url;
       ctx.base64 = url;
