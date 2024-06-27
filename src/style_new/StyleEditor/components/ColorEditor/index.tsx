@@ -437,6 +437,7 @@ export function ColorEditor({
       <div
         // className={`${css.color}${state.nonColorValue ? ` ${css.disabled}` : ''}`}
         className={css.color}
+        data-mybricks-tip={"支持16进制、RGB、RGBA、HSL、HSLA或颜色名称"}
       >
         {block}
         {input}
