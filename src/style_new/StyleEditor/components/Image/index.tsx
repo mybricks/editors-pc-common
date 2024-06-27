@@ -234,10 +234,16 @@ function Popup ({
     onChange({key: 'backgroundImage', value: `url(${url})`});
   }, [])
 
+  const imgSrc = getBackgroundImage(value.backgroundImage, DEFAULT_IMAGE);
+
   return (
     <div ref={ref} className={css.popup}>
       <div className={css.image}>
-        <img src={getBackgroundImage(value.backgroundImage, DEFAULT_IMAGE)} onClick={handleImageClick}/>
+        <div className={`${css.imageContainer} ${imgSrc !== DEFAULT_IMAGE ? css.hasImage : ""}`} onClick={handleImageClick}>
+          <img style={{ opacity: imgSrc === DEFAULT_IMAGE ? 0.5 : 1}} src={imgSrc}/>
+          <button className={css.uploadButton}>点击上传</button>
+        </div>
+        
         <input
           type='file'
           accept={'image/*'}
