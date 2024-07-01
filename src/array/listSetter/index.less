@@ -24,11 +24,11 @@
 .listItemSelect {
   cursor: pointer;
   &:hover {
-    border: 1px solid var(--primary-color-hover);
+    border: 1px solid @color-primary;
   }
 
   &.active {
-    border: 1px solid var(--primary-color-hover);
+    border: 1px solid @color-primary;
   }
 }
 
@@ -87,7 +87,7 @@
     .listItemBtn();
     &:hover {
       svg {
-        fill: var(--primary-color-hover);
+        fill: @color-primary;
       }
     }
   }
@@ -115,7 +115,7 @@
     align-items: center;
     justify-content: center;
     border-radius: 3px;
-    background-color: var(--primary-color);
+    background-color: @color-primary;
     svg {
       fill: #ffffff;
     }

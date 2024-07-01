@@ -1,3 +1,5 @@
+@import "../../../../theme";
+
 .panel {
   width: 100%;
   display: flex;
@@ -32,7 +34,7 @@
       }
     }
     .active {
-      color: #FA6400;
+      color: @color-primary;
     }
   }
 
@@ -69,6 +71,6 @@
   }
 
   &.active {
-    border: 1px solid #FA6400;
+    border: 1px solid @color-primary;
   }
 }

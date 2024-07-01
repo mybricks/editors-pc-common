@@ -1,12 +1,13 @@
-@color: #FA6400;
+@import "../theme";
+
 @color2: #fa640033;
 @interaction: {
   &:hover {
-    border-color: @color;
+    border-color: @color-primary;
   }
 
   &:focus {
-    border-color: @color;
+    border-color: @color-primary;
     -webkit-box-shadow: 0 0 0 2px @color2;
     box-shadow: 0 0 0 2px @color2;
   }

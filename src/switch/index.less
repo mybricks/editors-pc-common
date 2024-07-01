@@ -3,7 +3,7 @@
 .editor-switch {
   :global {
     .ant-switch-checked {
-      background-color: var(--primary-color);
+      background-color: @color-primary;
     }
 
     .ant-switch-disabled,
@@ -16,7 +16,7 @@
     .ant-switch-loading * {
       cursor: default;
     }
-    --antd-wave-shadow-color: var(--primary-color) !important;
+    --antd-wave-shadow-color: @color-primary !important;
     .ant-switch-checked:focus {
       box-shadow: var(--box-shadow);
     }

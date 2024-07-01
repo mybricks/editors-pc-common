@@ -1,3 +1,5 @@
+@import "../theme";
+
 .imgSelect {
   display: flex;
   flex-wrap: wrap;
@@ -16,7 +18,7 @@
   margin-left: 10px;
   border-radius: 3px;
   &:hover {
-    border: 1px dashed var(--primary-color);
+    border: 1px dashed @color-primary;
   }
 }
 
@@ -31,7 +33,7 @@
 }
 
 .imgSelectItemActive {
-  border: 1px solid var(--primary-color)
+  border: 1px solid @color-primary;
 }
 
 .image {

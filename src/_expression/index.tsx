@@ -158,7 +158,7 @@ export default ({ editConfig }: EditorProps) => {
             editable={!useLocale}
             theme={{
               focused: {
-                outline: "1px solid #fa6400",
+                outline: "1px solid var(--mybricks-primary-color)",
               },
             }}
           />

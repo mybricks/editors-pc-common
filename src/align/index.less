@@ -1,3 +1,5 @@
+@import "../theme";
+
 .align {
   display: flex;
   flex-direction: row;
@@ -15,21 +17,21 @@
     border-radius: 3px;
     margin-right: 3px;
     &:hover {
-      color: #fa6400;
+      color: @color-primary;
       background-color: #fff8f4;
-      border: 1px solid #fa6400;
+      border: 1px solid @color-primary;
     }
   }
 
   .active {
     color: #fff;
     border-radius: 3px;
-    border: 1px solid #fa6400;
-    background-color: #fa6400;
+    border: 1px solid @color-primary;
+    background-color: @color-primary;
     &:hover {
       color: #fff;
-      border: 1px solid #fa6400;
-      background-color: #fa6400;
+      border: 1px solid @color-primary;
+      background-color: @color-primary;
     }
   }
 }

@@ -1,3 +1,5 @@
+@import "../../theme";
+
 .gap {
   margin-top: 10px;
   display: flex;
@@ -18,10 +20,10 @@
   justify-content: center;
 }
 .selected {
-  background-color: #FA6400;
+  background-color: @color-primary;
   color: #fff;
   border-radius: 3px;
-  border: 1px solid #FA6400;
+  border: 1px solid @color-primary;
   opacity: 1;
 }
 .unselected {
@@ -44,8 +46,8 @@
 
 .padding:hover {
   background-color: #fff8f4;
-  color: #FA6400;
+  color: @color-primary;
   border-radius: 3px;
-  border: 1px solid #FA6400;
+  border: 1px solid @color-primary;
   opacity: 1;
 }

@@ -16,9 +16,9 @@
     }
     .ant-tree .ant-tree-node-content-wrapper:hover {
       background-color: #fff8f4;
-      color: #FA6400;
+      color: @color-primary;
       border-radius: 3px;
-      border: 1px solid #FA6400;
+      border: 1px solid @color-primary;
     }
   }
 
@@ -41,11 +41,11 @@
 .listItemSelect {
   cursor: pointer;
   &:hover {
-    border: 1px solid var(--primary-color-hover);
+    border: 1px solid @color-primary;
   }
 
   &.active {
-    border: 1px solid var(--primary-color-hover);
+    border: 1px solid @color-primary;
   }
 }
 
@@ -187,7 +187,7 @@
   &:hover {
     background-color: #ddd;
     svg {
-      fill: var(--primary-color-hover);
+      fill: @color-primary;
     }
   }
 }
@@ -215,8 +215,8 @@
   align-items: center;
   justify-content: center;
   border-radius: 3px;
-  background-color: var(--primary-color);
-  color: #FA6400;
+  background-color: @color-primary;
+  color: @color-primary;
   svg {
     fill: #ffffff;
   }

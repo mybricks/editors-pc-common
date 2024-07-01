@@ -56,7 +56,7 @@ const Line = ({ editConfig }: Record<string, any>): any => {
 
   const optionRender = (value: string) => {
     const optionStyle = {
-      borderTop: `1px ${value} ${value === model.val ? "#fa6400" : "black"}`,
+      borderTop: `1px ${value} ${value === model.val ? "var(--mybricks-primary-color)" : "black"}`,
       width: "60px",
     };
     return (

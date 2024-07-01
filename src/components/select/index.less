@@ -1,13 +1,14 @@
+@import "../../theme";
+
 .custom_antd_select {
   :global {
     .ant-select:not(.ant-select-disabled):hover .ant-select-selector {
-      border-color: var(--primary-color);
+      border-color: @color-primary;
       border-right-width: 1px !important;
     }
     .ant-select-focused:not(.ant-select-disabled).ant-select:not(.ant-select-customize-input)
       .ant-select-selector {
-      border-color: var(--primary-color);
-      border-color: var(--primary-color);
+      border-color: @color-primary;
       box-shadow: 0 0 0 2px #fa640033;
       -webkit-box-shadow: 0 0 0 2px #fa640033;
     }
@@ -36,7 +37,7 @@
 .custom_antd_select_dropdown {
   :global {
     .ant-select-item-option-selected:not(.ant-select-item-option-disabled) {
-      background-color: var(--primary-color) !important;
+      background-color: @color-primary !important;
       color: #fff;
     }
     .ant-select-item-option-active:not(.ant-select-item-option-disabled) {

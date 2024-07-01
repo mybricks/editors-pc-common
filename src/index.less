@@ -1,6 +1,8 @@
+@import "./theme";
+
 :root {
-  --primary-color: #fa6400;
-  --primary-color-hover: #f55753;
+  //--primary-color: #fa6400;
+  //--primary-color-hover: #f55753;
   // --primary-color-active: #204dd4;
   --primary-color-active: #fa640033;
   --primary-color-confirm: #fa6400a6;
@@ -81,8 +83,8 @@
     }
 
     .ant-btn:hover:not([disabled]) {
-      color: var(--primary-color);
-      border-color: var(--primary-color);
+      color: @color-primary;
+      border-color: @color-primary;
     }
   }
 }
