@@ -481,6 +481,27 @@ function getDefaultConfiguration ({value, options}: GetDefaultConfigurationProps
           Object.assign(defaultValue, getDefaultValueFunctionMap[type](styleValues, config))
         }
       })
+    } else if (targetDom) {
+      getDefaultValue = false
+      const styleValues = getStyleValues(targetDom, Array.isArray(selector) ? selector[0] : selector)
+
+      finalOptions.forEach((option) => {
+        let type, config
+
+        if (typeof option === 'string') {
+          type = option.toLowerCase()
+          config = {}
+        } else {
+          type = option.type.toLowerCase()
+          config = option.config || {}
+        }
+
+        // @ts-ignore
+        if (DEFAULT_OPTIONS.includes(type)) {
+          // @ts-ignore TODO: 类型补全
+          Object.assign(defaultValue, getDefaultValueFunctionMap[type](styleValues, config))
+        }
+      })
     }
   }
 
