@@ -481,7 +481,7 @@ function getDefaultConfiguration ({value, options}: GetDefaultConfigurationProps
           Object.assign(defaultValue, getDefaultValueFunctionMap[type](styleValues, config))
         }
       })
-    } else if (targetDom) {
+    } else if (targetDom && Object.prototype.toString.call(targetDom) !== "[object NodeList]") {
       getDefaultValue = false
       const styleValues = getStyleValues(targetDom, Array.isArray(selector) ? selector[0] : selector)
 
