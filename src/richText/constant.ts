@@ -1,4 +1,5 @@
 export const tinymceCDN = 'https://ali2.a.kwimgs.com/udata/pkg/eshop/fangzhou/pub/pkg/tinymce/5.7.1/tinymce.min.js';
+export const indent2emPluginCDN = 'https://f2.beckwai.com/udata/pkg/eshop/fangzhou/pub/pkg/tinymce/5.7.1/plugins/indent2em/plugin2.js';
 
 const langCDN = 'https://ali-ec.static.yximgs.com/udata/pkg/eshop/fangzhou/pub/pkg/tinymce/5.7.1/zh_CN.js';
 

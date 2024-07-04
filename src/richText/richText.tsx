@@ -3,7 +3,7 @@ import { Editor as TinyEditor } from "@tinymce/tinymce-react";
 import { Editor } from "tinymce";
 import { EditorProps } from "../interface";
 import { useComputed, useObservable } from "@mybricks/rxui";
-import { defaultCss, fullConfig, simpleConfig, tinymceCDN } from "./constant";
+import { defaultCss, fullConfig, simpleConfig, tinymceCDN, indent2emPluginCDN } from "./constant";
 import UploadModal from "../components/upload-modal";
 import type { TinyMCE } from "tinymce";
 import { createPortal } from "react-dom";
@@ -19,25 +19,6 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
   const editorRef = useRef<Editor>(null);
   const containerRef = useRef(null);
   const isEdited = useRef(false);
-
-  const [indent2emUrl, setIndent2emUrl] = useState<string>();
-
-  useEffect(() => {
-    const CDN = 'https://f2.beckwai.com/udata/pkg/eshop/fangzhou/pub/pkg/tinymce/5.7.1/plugins/indent2em/plugin2.js';
-    const platformAssetsUrl = '/mfs/editor_assets/richText/tinymce/5.7.1/plugins/indent2em/plugin.js';
-    fetch(CDN, { method: 'HEAD' }).then(res => {
-      if (res.ok) {
-        console.log('CDN 链接地址可以访问');
-        setIndent2emUrl(platformAssetsUrl);
-      } else {
-        console.log('CDN 链接地址无法访问');
-        setIndent2emUrl(platformAssetsUrl);
-      }
-    }).catch(() => {
-      console.log('CDN 链接地址无法访问');
-      setIndent2emUrl(platformAssetsUrl);
-    })
-  }, [])
 
   const { value, options, upload, getDefaultOptions } = editConfig;
   const defaultOptions = useMemo(() => getDefaultOptions?.('richtext') ?? {}, []);
@@ -109,7 +90,7 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
             content_style: options?.contentCss || defaultCss,
             setup,
             external_plugins: {
-              'indent2em': indent2emUrl as string
+              'indent2em': defaultOptions?.CDN?.indent2emPluginCDN || indent2emPluginCDN
             }
           }}
         />
@@ -166,7 +147,5 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
     }
   }, [])
 
-
-  if (!indent2emUrl) return <div />;
   return <>{model.visible ? createPortal(getEditor(), document.body) : getEditor()}</>;
 }
