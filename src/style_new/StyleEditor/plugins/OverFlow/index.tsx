@@ -1,6 +1,6 @@
 import React, { CSSProperties } from 'react';
 
-import { Panel, Select } from '../../components';
+import { Panel, Select, ArrowRightOutlined, ArrowDownOutlined } from '../../components';
 
 import type { ChangeEvent } from '../../type';
 
@@ -28,6 +28,7 @@ export const OverFlow = ({ value, onChange }: OverFlowProps) => {
       <Panel.Content>
         <Select
           tip='水平'
+          prefix={<ArrowRightOutlined />}
           style={{padding: 0}}
           defaultValue={value.overflowX}
           options={VALUE_OPTIONS}
@@ -35,6 +36,7 @@ export const OverFlow = ({ value, onChange }: OverFlowProps) => {
         />
         <Select
           tip='垂直'
+          prefix={<ArrowDownOutlined />}
           style={{padding: 0}}
           defaultValue={value.overflowY}
           options={VALUE_OPTIONS}
