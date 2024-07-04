@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Editor as TinyEditor } from "@tinymce/tinymce-react";
 import { Editor } from "tinymce";
 import { EditorProps } from "../interface";
@@ -19,6 +19,25 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
   const editorRef = useRef<Editor>(null);
   const containerRef = useRef(null);
   const isEdited = useRef(false);
+
+  const [indent2emUrl, setIndent2emUrl] = useState<string>();
+
+  useEffect(() => {
+    const CDN = 'https://f2.beckwai.com/udata/pkg/eshop/fangzhou/pub/pkg/tinymce/5.7.1/plugins/indent2em/plugin2.js';
+    const platformAssetsUrl = '/mfs/editor_assets/richText/tinymce/5.7.1/plugins/indent2em/plugin.js';
+    fetch(CDN, { method: 'HEAD' }).then(res => {
+      if (res.ok) {
+        console.log('CDN 链接地址可以访问');
+        setIndent2emUrl(platformAssetsUrl);
+      } else {
+        console.log('CDN 链接地址无法访问');
+        setIndent2emUrl(platformAssetsUrl);
+      }
+    }).catch(() => {
+      console.log('CDN 链接地址无法访问');
+      setIndent2emUrl(platformAssetsUrl);
+    })
+  }, [])
 
   const { value, options, upload, getDefaultOptions } = editConfig;
   const defaultOptions = useMemo(() => getDefaultOptions?.('richtext') ?? {}, []);
@@ -71,7 +90,7 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
     });
   }, []);
 
-  const editor = useComputed(() => {
+  const getEditor = () => {
     const config = model.visible ? fullConfig : simpleConfig;
     return (
       <div
@@ -89,6 +108,9 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
             language_url: defaultOptions?.CDN?.language || config.language_url,
             content_style: options?.contentCss || defaultCss,
             setup,
+            external_plugins: {
+              'indent2em': indent2emUrl as string
+            }
           }}
         />
         <UploadModal
@@ -125,7 +147,7 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
         />
       </div>
     );
-  });
+  }
 
   useEffect(() => {
     if (model.visible && options.editConfig?.width !== void 0) {
@@ -143,5 +165,8 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
       }
     }
   }, [])
-  return <>{model.visible ? createPortal(editor, document.body) : editor}</>;
+
+
+  if (!indent2emUrl) return <div />;
+  return <>{model.visible ? createPortal(getEditor(), document.body) : getEditor()}</>;
 }
