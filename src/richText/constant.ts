@@ -1,13 +1,14 @@
 export const tinymceCDN = 'https://ali2.a.kwimgs.com/udata/pkg/eshop/fangzhou/pub/pkg/tinymce/5.7.1/tinymce.min.js';
+export const indent2emPluginCDN = 'https://f2.beckwai.com/udata/pkg/eshop/fangzhou/pub/pkg/tinymce/5.7.1/plugins/indent2em/plugin2.js';
 
 const langCDN = 'https://ali-ec.static.yximgs.com/udata/pkg/eshop/fangzhou/pub/pkg/tinymce/5.7.1/zh_CN.js';
 
-const plugins = ['table', 'link', 'uploadimage', 'paste', 'full', 'nonbreaking', 'lists', 'wordcount'];
+const plugins = ['table', 'link', 'uploadimage', 'paste', 'full', 'nonbreaking', 'lists', 'wordcount', 'indent2em'];
 
 const simpleToolBar = ['formatselect bullist numlist full', 'forecolor backcolor bold italic strikethrough hr'];
 
 const fullToolBar =
-  'undo redo formatselect fontsizeselect bold italic underline strikethrough removeformat forecolor backcolor bullist numlist alignleft aligncenter alignright uploadimage link table hr full';
+  'undo redo formatselect fontsizeselect bold italic underline strikethrough removeformat forecolor backcolor bullist numlist alignleft aligncenter alignright indent2em uploadimage link table hr full';
 
 export const baseConfig = {
   language: 'zh_CN',

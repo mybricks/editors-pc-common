@@ -1,9 +1,9 @@
-import React, { useCallback, useEffect, useMemo, useRef } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Editor as TinyEditor } from "@tinymce/tinymce-react";
 import { Editor } from "tinymce";
 import { EditorProps } from "../interface";
 import { useComputed, useObservable } from "@mybricks/rxui";
-import { defaultCss, fullConfig, simpleConfig, tinymceCDN } from "./constant";
+import { defaultCss, fullConfig, simpleConfig, tinymceCDN, indent2emPluginCDN } from "./constant";
 import UploadModal from "../components/upload-modal";
 import type { TinyMCE } from "tinymce";
 import { createPortal } from "react-dom";
@@ -71,7 +71,7 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
     });
   }, []);
 
-  const editor = useComputed(() => {
+  const getEditor = () => {
     const config = model.visible ? fullConfig : simpleConfig;
     return (
       <div
@@ -89,6 +89,9 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
             language_url: defaultOptions?.CDN?.language || config.language_url,
             content_style: options?.contentCss || defaultCss,
             setup,
+            external_plugins: {
+              'indent2em': defaultOptions?.CDN?.indent2emPluginCDN || indent2emPluginCDN
+            }
           }}
         />
         <UploadModal
@@ -125,7 +128,7 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
         />
       </div>
     );
-  });
+  }
 
   useEffect(() => {
     if (model.visible && options.editConfig?.width !== void 0) {
@@ -143,5 +146,6 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
       }
     }
   }, [])
-  return <>{model.visible ? createPortal(editor, document.body) : editor}</>;
+
+  return <>{model.visible ? createPortal(getEditor(), document.body) : getEditor()}</>;
 }
