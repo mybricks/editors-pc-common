@@ -15,4 +15,5 @@ declare module "css-background-parser";
 
 declare interface Window {
   MYBRICKS_CSS_VARIABLE_LIST: Array<any>;
+  CodeEditor?: any;
 }

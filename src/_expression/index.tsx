@@ -1,16 +1,24 @@
-import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import React, {
+  useState,
+  useEffect,
+  useMemo,
+  useCallback,
+  useRef,
+} from "react";
 import HintPanel from "./hintPanel";
 import { EditorProps } from "../interface";
 import debounce from "lodash/debounce";
-import { world } from './icons'
+import { world } from "./icons";
 import { loadPkg } from "../util/loadPkg";
 import { Spin } from "antd";
 import styles from "./index.less";
 
+const name = "CodeEditor";
+
 export default ({ editConfig }: EditorProps) => {
   const { value, options = {}, getDefaultOptions, locales } = editConfig;
   const valConfig = value.get();
-  const [CodeEditor, setCodeEditor] = useState<any>();
+  const [CodeEditor, setCodeEditor] = useState<any>(window?.[name]?.[name]);
   const {
     placeholder,
     runCode,
@@ -23,34 +31,39 @@ export default ({ editConfig }: EditorProps) => {
       return options;
     }
   }, [options]);
-  const defaultOptions = useMemo(() => getDefaultOptions?.('expression') || {}, []);
-  const localeEnable = !!locales && !!locale
+  const defaultOptions = useMemo(
+    () => getDefaultOptions?.("expression") || {},
+    []
+  );
+  const localeEnable = !!locales && !!locale;
   const initValue = useMemo(() => {
     if (localeEnable && valConfig.id) {
-      const item = locales.searchById(valConfig.id)
-      return item ? item.getContent('zh') : `<未找到文案>`
+      const item = locales.searchById(valConfig.id);
+      return item ? item.getContent("zh") : `<未找到文案>`;
     } else {
-      return typeof valConfig === "string" ? valConfig : valConfig?.value
+      return typeof valConfig === "string" ? valConfig : valConfig?.value;
     }
-  }, [])
+  }, []);
   const [_value, setValue] = useState<string>(initValue);
-  const [useLocale, setUseLocale] = useState(!!(localeEnable && valConfig.id))
-  const useLocalRef = useRef<any>(useLocale)
+  const [useLocale, setUseLocale] = useState(!!(localeEnable && valConfig.id));
+  const useLocalRef = useRef<any>(useLocale);
   const [showPanel, setShowPanel] = useState<boolean>(false);
   const [result, setResult] = useState<Record<string, any>>();
   const [markers, setMarkers] = useState<Array<Partial<{ message: string }>>>();
   const [loading, setLoading] = useState<boolean>(false);
   useEffect(() => {
-    const name: string = "CodeEditor";
-    setLoading(true);
-    loadPkg(
-      defaultOptions.CDN?.codemirror || "//f2.beckwai.com/udata/pkg/eshop/fangzhou/pub/pkg/codemirror/1.0.13/index.min.js",
-      name
-    )
-      .then((res: any) => {
-        setCodeEditor(res?.CodeEditor || res?.default);
-      })
-      .finally(() => setLoading(false));
+    if (!CodeEditor) {
+      setLoading(true);
+      loadPkg(
+        defaultOptions.CDN?.codemirror ||
+          "//f2.beckwai.com/udata/pkg/eshop/fangzhou/pub/pkg/codemirror/1.0.13/index.min.js",
+        name
+      )
+        .then((res: any) => {
+          setCodeEditor(res?.CodeEditor || res?.default);
+        })
+        .finally(() => setLoading(false));
+    }
   }, []);
 
   useEffect(() => {
@@ -67,38 +80,41 @@ export default ({ editConfig }: EditorProps) => {
     };
   }, []);
 
-  const openLocale = useCallback(e => {
+  const openLocale = useCallback(() => {
     if (!locales?.edit) {
-      console.error(`未找到 locales.edit`)
-      return
+      console.error(`未找到 locales.edit`);
+      return;
     }
     locales.edit({
       value: {
         get() {
           return {
             val: valConfig,
-            curText: _value
-          }
+            curText: _value,
+          };
         },
-        set(item) {
+        set(item: {
+          getContent: (arg0: string) => React.SetStateAction<string>;
+          id: any;
+        }) {
           if (item) {
-            setUseLocale(true)
-            useLocalRef.current = true
-            setValue(item.getContent('zh'))
+            setUseLocale(true);
+            useLocalRef.current = true;
+            setValue(item.getContent("zh"));
 
             value.set({
-              id: item.id
-            })
+              id: item.id,
+            });
           } else {
-            setUseLocale(false)
-            useLocalRef.current = false
-            setValue('')
-            value.set('')
+            setUseLocale(false);
+            useLocalRef.current = false;
+            setValue("");
+            value.set("");
           }
-        }
-      }
-    })
-  }, [_value])
+        },
+      },
+    });
+  }, [_value]);
 
   const setHintModel = (
     showPanel: boolean,
@@ -142,7 +158,7 @@ export default ({ editConfig }: EditorProps) => {
     setValue(_value);
     // 传给编辑器的onChange方法不会变化，所以需要在此处使用uselocal的引用
     if (!useLocalRef.current) {
-      value.set(_value)
+      value.set(_value);
     }
   };
 
@@ -158,21 +174,20 @@ export default ({ editConfig }: EditorProps) => {
             editable={!useLocale}
             theme={{
               focused: {
-                outline: "1px solid var(--mybricks-primary-color)",
+                outline: "1px solid #FA6400",
               },
             }}
           />
-
         )}
-        {
-          localeEnable ? (
-            <span className={`${useLocale ? styles.useLocale : ''} ${styles.icon}`}
-              onClick={openLocale}
-              data-mybricks-tip={`多语言`}>
-              {world}
-            </span>
-          ) : null
-        }
+        {localeEnable ? (
+          <span
+            className={`${useLocale ? styles.useLocale : ""} ${styles.icon}`}
+            onClick={openLocale}
+            data-mybricks-tip={`多语言`}
+          >
+            {world}
+          </span>
+        ) : null}
       </Spin>
       <HintPanel showPanel={showPanel} result={result} markers={markers} />
     </div>
