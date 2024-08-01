@@ -28,7 +28,7 @@ interface FontProps {
 
 /** 字体选项 */
 const FONT_FAMILY_OPTIONS = [
-  { label: "继承", value: "inherit" },
+  { label: "默认", value: "inherit" },
   { label: "PingFang SC", value: "PingFang SC" },
   { label: "Microsoft YaHei", value: "Microsoft YaHei" },
   { label: "微软雅黑", value: "微软雅黑" },
@@ -57,7 +57,7 @@ const FONT_WEIGHT_OPTIONS = [
   { label: "中黑", value: "500" },
   { label: "中粗", value: "700" },
   { label: "特粗", value: "900" },
-  { label: "继承", value: "inherit" },
+  { label: "默认", value: "inherit" },
 ];
 
 const WHITE_SPACE_OPTIONS = [
@@ -71,7 +71,7 @@ const WHITE_SPACE_OPTIONS = [
 
 const FONT_SIZE_OPTIONS = [
   { label: "px", value: "px" },
-  { label: "继承", value: "inherit" },
+  { label: "默认", value: "inherit" },
 ];
 const FONT_SIZE_DISABLED_LIST = ["inherit"];
 
