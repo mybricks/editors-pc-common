@@ -59,7 +59,6 @@ export default function ({ editConfig }: any): JSX.Element {
   }, [displayType]);
 
   useEffect(() => {
-    console.log("aiView: ", aiView)
     if (!monaco || !editor || !aiView?.request) return;
     const request = aiView.request;
     const dispose = registerCopilot(monaco, editor, {
@@ -98,7 +97,6 @@ export default function ({ editConfig }: any): JSX.Element {
         }]
       }
     });
-    console.log("dispose: ", dispose)
     return () => {
       dispose();
     };
