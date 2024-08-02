@@ -75,7 +75,8 @@ export default function ({
       return true
     })
 
-    const showTitle = filterEditorKeys.length > 1;
+    // const showTitle = filterEditorKeys.length > 1;
+    const showTitle = true;
 
     return filterEditorKeys.map((pluginKey) => {
       const JSX = PLUGINS_MAP[pluginKey];
