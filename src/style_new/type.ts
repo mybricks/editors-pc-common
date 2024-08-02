@@ -8,6 +8,7 @@ export interface EditorProps {
      plugins?: Options
      selector: string
      defaultOpen?: boolean
+     disabledSwitch?: boolean;
     }
     | undefined
     value: {

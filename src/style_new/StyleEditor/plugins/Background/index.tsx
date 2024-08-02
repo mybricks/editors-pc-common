@@ -9,6 +9,7 @@ interface BackgroundProps {
   config: {
     [key: string]: any
   }
+  showTitle: boolean;
 }
 
 const DEFAULT_CONFIG = {
@@ -26,7 +27,7 @@ const defaultValue = {
   backgroundSize: 'auto'
 }
 
-export function Background ({value, onChange, config}: BackgroundProps) {
+export function Background ({value, onChange, config, showTitle}: BackgroundProps) {
   const context = useStyleEditorContext()
   const [{
     keyMap,
@@ -61,7 +62,7 @@ export function Background ({value, onChange, config}: BackgroundProps) {
   }, [forceRenderKey]);
 
   return (
-    <Panel title='背景' key={forceRenderKey} showReset={true} resetFunction={refresh}>
+    <Panel title='背景' showTitle={showTitle} key={forceRenderKey} showReset={true} resetFunction={refresh}>
       <Panel.Content>
         {
           disableBackgroundColor ? null : 

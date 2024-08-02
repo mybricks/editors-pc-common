@@ -55,6 +55,44 @@ export default function ({
   };
 
   const editors = useMemo(() => {
+    const keyToOption: any = {};
+    const filterEditorKeys = fixedOrderKeys.filter((pluginKey) => {
+      // 查找 options 中匹配的项，但只处理没有被处理过的项
+      const option = options.find((option) => {
+        const key = getOptionType(option);
+        return key === pluginKey && !processedOptions.has(key);
+      });
+
+      // 如果找到匹配项，标记为已处理
+      if (option) {
+        processedOptions.add(getOptionType(option));
+      } else if (!option || !PLUGINS_MAP[pluginKey]) {
+        return false;
+      }
+
+      keyToOption[pluginKey] = option;
+
+      return true
+    })
+
+    const showTitle = filterEditorKeys.length > 1;
+
+    return filterEditorKeys.map((pluginKey) => {
+      const JSX = PLUGINS_MAP[pluginKey];
+      const option = keyToOption[pluginKey];
+      const config = typeof option === "string" ? {} : option?.config || {}; // 使用选项中的配置或空对象
+
+      return JSX ? (
+        <JSX
+          key={pluginKey}
+          value={defaultValue}
+          onChange={handleValueChange}
+          config={config}
+          showTitle={showTitle}
+        />
+      ) : null;
+    })
+
     // 固定位置排序
     return fixedOrderKeys.map((pluginKey) => {
       // 查找 options 中匹配的项，但只处理没有被处理过的项

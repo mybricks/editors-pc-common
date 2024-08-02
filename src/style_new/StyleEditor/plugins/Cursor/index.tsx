@@ -10,6 +10,7 @@ interface CursorProps {
   config: {
     [key: string]: any
   }
+  showTitle: boolean;
 }
 
 const CURSOR_OPTIONS = [
@@ -21,9 +22,9 @@ const CURSOR_OPTIONS = [
   {label: '默认', value: 'default'},
 ]
 
-export function Cursor ({value, onChange, config}: CursorProps) {
+export function Cursor ({value, onChange, config, showTitle}: CursorProps) {
   return (
-    <Panel title='光标'>
+    <Panel title='光标' showTitle={showTitle}>
       <Panel.Content>
         <Select
           style={{padding: 0}}

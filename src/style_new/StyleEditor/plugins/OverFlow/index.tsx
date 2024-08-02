@@ -12,6 +12,7 @@ type OverFlowValueType = Partial<{
 export interface OverFlowProps {
   value: OverFlowValueType;
   onChange: ChangeEvent;
+  showTitle: boolean;
 }
 
 const VALUE_OPTIONS = [
@@ -22,9 +23,9 @@ const VALUE_OPTIONS = [
   { label: '显示', value: 'visible' }
 ];
 
-export const OverFlow = ({ value, onChange }: OverFlowProps) => {
+export const OverFlow = ({ value, onChange, showTitle }: OverFlowProps) => {
   return (
-    <Panel title='滚动'>
+    <Panel title='滚动' showTitle={showTitle}>
       <Panel.Content>
         <Select
           tip='水平'

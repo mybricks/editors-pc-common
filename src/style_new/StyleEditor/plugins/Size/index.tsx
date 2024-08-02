@@ -27,6 +27,7 @@ interface SizeProps {
   config: {
     [key: string]: any;
   };
+  showTitle: boolean;
 }
 
 const DEFAULT_CONFIG = {
@@ -38,11 +39,11 @@ const DEFAULT_CONFIG = {
   disableMinHeight: true,
 };
 
-export function Size({ value, onChange, config }: SizeProps) {
+export function Size({ value, onChange, config, showTitle }: SizeProps) {
   const [cfg] = useState({ ...DEFAULT_CONFIG, ...config });
 
   return (
-    <Panel title="尺寸">
+    <Panel title="尺寸" showTitle={showTitle}>
       {!(cfg.disableWidth && cfg.disableHeight) && (
         <Panel.Content>
           {cfg.disableWidth ? null : (

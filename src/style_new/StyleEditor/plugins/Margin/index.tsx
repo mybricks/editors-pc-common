@@ -27,6 +27,7 @@ interface MarginProps {
   config: {
     [key: string]: any
   }
+  showTitle: boolean;
 }
 
 const DEFAULT_STYLE = {
@@ -37,7 +38,7 @@ const DEFAULT_STYLE = {
   // marginLeft: 4
 }
 
-export function Margin ({value, onChange, config}: MarginProps) {
+export function Margin ({value, onChange, config, showTitle}: MarginProps) {
   const [toggle, setToggle] = useState(getToggleDefaultValue(value))
   const [marginValue, setMarginValue] = useState({...value})
   // const [splitMarginIcon, setSplitMarginIcon] = useState(<MarginTopOutlined />)
@@ -165,7 +166,7 @@ export function Margin ({value, onChange, config}: MarginProps) {
   }, [toggle, splitMarginIcon])
 
   return (
-    <Panel title='外边距'>
+    <Panel title='外边距' showTitle={showTitle}>
       {marginConfig}
     </Panel>
   )

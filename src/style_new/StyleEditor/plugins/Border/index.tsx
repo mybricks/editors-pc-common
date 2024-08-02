@@ -30,6 +30,7 @@ interface BorderProps {
   config: {
     [key: string]: any;
   };
+  showTitle: boolean;
 }
 
 const BORDER_STYLE_OPTIONS = [
@@ -75,7 +76,7 @@ const DEFAULT_CONFIG = {
   useImportant: false,
 };
 
-export function Border({ value, onChange, config }: BorderProps) {
+export function Border({ value, onChange, config, showTitle }: BorderProps) {
   const [
     {
       disableBorderWidth,
@@ -722,7 +723,7 @@ export function Border({ value, onChange, config }: BorderProps) {
   }, [radiusToggleValue]);
 
   return (
-    <Panel title="描边">
+    <Panel title="描边" showTitle={showTitle}>
       {borderConfig}
       {radiusConfig}
     </Panel>

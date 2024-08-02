@@ -10,11 +10,12 @@ interface OpacityProps {
   config: {
     [key: string]: any
   }
+  showTitle: boolean;
 }
 
-export function Opacity ({ value, onChange, config }: OpacityProps) {
+export function Opacity ({ value, onChange, config, showTitle }: OpacityProps) {
   return (
-    <Panel title='不透明度'>
+    <Panel title='不透明度' showTitle={showTitle}>
       <Panel.Content>
         <Slider
           defaultValue={typeof value.opacity === 'number' ? value.opacity : 1}

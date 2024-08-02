@@ -24,6 +24,7 @@ interface FontProps {
   config: {
     [key: string]: any;
   };
+  showTitle: boolean;
 }
 
 /** 字体选项 */
@@ -103,7 +104,7 @@ const DEFAULT_CONFIG = {
   fontfaces: [],
 };
 
-export function Font({ value, onChange, config }: FontProps) {
+export function Font({ value, onChange, config, showTitle }: FontProps) {
   // 重置脏数据
   if (isObject(value.fontFamily)) {
     value.fontFamily = "inherit";
@@ -180,7 +181,7 @@ export function Font({ value, onChange, config }: FontProps) {
   }, []);
 
   return (
-    <Panel title="字体">
+    <Panel title="字体" showTitle={showTitle}>
       {cfg.disableFontFamily && cfg.disableColor ? null : (
         <Panel.Content>
           {cfg.disableFontFamily ? null : (

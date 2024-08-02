@@ -53,6 +53,7 @@ export default function ({editConfig}: EditorProps) {
   const [
     {
       finalOpen,
+      finalDisabledSwitch,
       finalSelector
     },
     {
@@ -87,13 +88,15 @@ export default function ({editConfig}: EditorProps) {
   }, [])
 
   function onOpenClick () {
-    setStatus((status) => {
-      return {
-        ...status,
-        show: true,
-        open: !status.open
-      }
-    })
+    if (!finalDisabledSwitch) {
+      setStatus((status) => {
+        return {
+          ...status,
+          show: true,
+          open: !status.open
+        }
+      })
+    }
   }
 
   function onEditModeClick () {
@@ -119,12 +122,12 @@ export default function ({editConfig}: EditorProps) {
         style={{ marginBottom: open ? 3 : 0 }}
       >
         <div className={css.title} onClick={onOpenClick}>
-          <div
+          {finalDisabledSwitch ? null : <div
             className={`${css.icon}${open ? ` ${css.iconOpen}` : ''}`}
             data-mybricks-tip={open ? '收起' : '展开'}
           >
             <CaretRightOutlined />
-          </div>
+          </div>}
           <div>{editConfig.title}<span className={css.tips}>{titleContent}</span></div>
         </div>
         <div className={css.actions}>
@@ -414,6 +417,7 @@ function CssEditor ({popView, options, value, selector, onChange: onPropsChange,
 
 function getDefaultConfiguration2 ({value, options}: GetDefaultConfigurationProps) {
   let finalOpen = false
+  let finalDisabledSwitch = false
   let finalSelector
 
   if (!options) {
@@ -421,17 +425,24 @@ function getDefaultConfiguration2 ({value, options}: GetDefaultConfigurationProp
   } else if (Array.isArray(options)) {
 
   } else {
-    const { plugins, selector, targetDom, defaultOpen = false } = options
+    const { plugins, selector, targetDom, defaultOpen = false, disabledSwitch = false } = options
     finalSelector = selector
     finalOpen = defaultOpen
+    if (disabledSwitch) {
+      // 禁用开关，默认打开
+      finalOpen = true
+    }
+    finalDisabledSwitch = disabledSwitch
   }
 
   return {
     finalOpen,
-    finalSelector
+    finalSelector,
+    finalDisabledSwitch
   } as {
     finalOpen: boolean,
-    finalSelector: string
+    finalSelector: string,
+    finalDisabledSwitch: boolean,
   }
 }
 

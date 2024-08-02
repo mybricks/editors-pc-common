@@ -22,6 +22,7 @@ interface BorderProps {
   config: {
     [key: string]: any;
   };
+  showTitle: boolean;
 }
 const UNIT_OPTIONS = [
   { label: "px", value: "px" },
@@ -45,7 +46,7 @@ const DEFAULT_CONFIG = {
   useImportant: false,
 };
 
-export function Radius({ value, onChange, config }: BorderProps) {
+export function Radius({ value, onChange, config, showTitle }: BorderProps) {
   const [{ useImportant }] = useState({
     ...DEFAULT_CONFIG,
     ...config,
@@ -211,7 +212,7 @@ export function Radius({ value, onChange, config }: BorderProps) {
     });
   }, [radiusToggleValue]);
 
-  return <Panel title="圆角">{radiusConfig}</Panel>;
+  return <Panel title="圆角" showTitle={showTitle}>{radiusConfig}</Panel>;
 }
 
 function getToggleDefaultValue(value: CSSProperties) {

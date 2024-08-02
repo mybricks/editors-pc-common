@@ -8,6 +8,7 @@ interface PanelProps {
   title: string
   children: ReactNode
   showReset?: boolean
+  showTitle?: boolean;
   resetFunction?: () => void
   isActive?: boolean
 }
@@ -24,11 +25,11 @@ interface ItemProps {
   activeWhenBlur?: boolean
 }
 
-export function Panel ({title, children, showReset = false, resetFunction = () => {}, isActive = false}: PanelProps) {
+export function Panel ({title, children, showReset = false, showTitle = true, resetFunction = () => {}, isActive = false}: PanelProps) {
   return (
     <div className={css.panel}>
       <div className={css.header}>
-        <div className={css.title}>{title}</div>
+        {showTitle && <div className={css.title}>{title}</div>}
         {showReset && (
           <div
             className={`${css.icon} ${isActive ? css.active : ''}`}
