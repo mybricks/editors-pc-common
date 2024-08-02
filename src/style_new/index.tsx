@@ -121,7 +121,7 @@ export default function ({editConfig}: EditorProps) {
         className={css.titleContainer}
         //style={{ marginBottom: open ? 3 : 0 }}
       >
-        <div className={css.title} onClick={onOpenClick}>
+        <div className={css.title} style={{fontWeight: styleProps.options.length > 1 ? 800 : "normal"}} onClick={onOpenClick}>
           {finalDisabledSwitch ? null : <div
             className={`${css.icon}${open ? ` ${css.iconOpen}` : ''}`}
             data-mybricks-tip={open ? '收起' : '展开'}

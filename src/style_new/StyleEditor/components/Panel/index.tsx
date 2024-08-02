@@ -30,29 +30,15 @@ export function Panel ({title, children, showReset = false, showTitle = true, re
     <div className={css.panel}>
       <div className={css.header}>
         {showTitle && <div className={css.title}>{title}</div>}
-        {showReset && (
+        {/* {showReset && (
           <div
             className={`${css.icon} ${isActive ? css.active : ''}`}
             data-mybricks-tip={`{content:'重置${title}',position:'left'}`}
             onClick={resetFunction}
           >
             <ReloadOutlined />
-            {/* <svg
-              viewBox="0 0 1024 1024"
-              version="1.1"
-              xmlns="http://www.w3.org/2000/svg"
-              p-id="1471"
-              width="15"
-              height="15"
-            >
-              <path
-                d="M512 1024a512 512 0 1 1 512-512 512.576 512.576 0 0 1-512 512z m0-960a448 448 0 1 0 448 448A448.512 448.512 0 0 0 512 64z m192 480H320a32 32 0 0 1 0-64h384a32 32 0 0 1 0 64z"
-                fill="currentColor"
-                p-id="1472"
-              ></path>
-            </svg> */}
           </div>
-        )}
+        )} */}
       </div>
       <div className={css.wrap}>
         {children}
