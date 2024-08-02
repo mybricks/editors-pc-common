@@ -1,5 +1,5 @@
-import React, { useCallback, useMemo, useRef, useState } from "react";
-import Editor, { HandlerType, editor, Icon } from "@mybricks/coder";
+import React, { useEffect, useCallback, useMemo, useRef, useState } from "react";
+import Editor, { HandlerType, editor, Icon, registerCopilot, Monaco } from "@mybricks/coder";
 import { LegacyLib } from "./legacyLib";
 import {
   getComputedValue,
@@ -12,7 +12,7 @@ import styles from "./index.less";
 type UnionString = string | undefined;
 
 export default function ({ editConfig }: any): JSX.Element {
-  const { value, options = {}, getDefaultOptions } = editConfig;
+  const { value, options = {}, getDefaultOptions, aiView } = editConfig;
   const {
     title,
     displayType,
@@ -34,6 +34,9 @@ export default function ({ editConfig }: any): JSX.Element {
 
   const [open, setOpen] = useState<boolean>(false);
 
+  const [editor, setEditor] = useState<editor>();
+  const [monaco, setMonaco] = useState<Monaco>();
+
   const path = useMemo(() => {
     let path = `file:///${Math.random()}_code`;
     if (language === "typescript") {
@@ -54,6 +57,52 @@ export default function ({ editConfig }: any): JSX.Element {
   const showBtn = useMemo(() => {
     return displayType === "button";
   }, [displayType]);
+
+  useEffect(() => {
+    console.log("aiView: ", aiView)
+    if (!monaco || !editor || !aiView?.request) return;
+    const request = aiView.request;
+    const dispose = registerCopilot(monaco, editor, {
+      language: "typescript",
+      async fetchCompletions({ codeBeforeCursor, codeAfterCursor }) {
+        const messages = [
+          {
+            role: "system",
+            content: "你是一名资深的前端程序员，请根据当前给到的单ts文件代码的上下两部分以及类型提示进行分析，给出合适的在中间可续写可运行的代码推荐（可以包含注释）\n" + 
+            "当前上下文的类型定义为:" +
+            // `${LegacyLib}\n${extraLib}\n` +
+            `${extraLib}\n` +
+            "上部分代码为:\n" +
+            `${codeBeforeCursor}\n` +
+            "下部分代码为:\n" +
+            `${codeAfterCursor}\n` +
+            "[要求]\n" + 
+            "1：回答简洁，如非必要、无需任何额外建议;\n" + 
+            "2：返回的代码不需要有```包裹，因为是直接用在代码编辑器中;\n" + 
+            "3：返回的代码不需要ts类型定义，仅js即可;\n " + 
+            "4：返回的代码必须能和上下部分代码顺利拼接上，不能有语法错误，请严格自查;"
+            // "4：必须是顺利续写的代码;\n" + 
+            // "  以下仅举例，应该根据具体上下文返回：" +
+            // "  前段代码为: function sum(\n" + 
+            // "  返回的结果: a, b) { return a+b; }"
+          },
+          {
+            role: "user",
+            content: "请给出合理的可行的代码续写推荐"
+          }
+        ]
+
+        const res = await request(messages)
+        return [{
+          code: res,
+        }]
+      }
+    });
+    console.log("dispose: ", dispose)
+    return () => {
+      dispose();
+    };
+  }, [monaco, editor]);
 
   const transform = useCallback(
     async (value: UnionString) => {
@@ -145,6 +194,18 @@ export default function ({ editConfig }: any): JSX.Element {
         language={language}
         extraLib={`${LegacyLib}\n${extraLib}`}
         isTsx={isTsx}
+        onMount={(editor, monaco) => {
+          // console.log("编辑器初始化: ", {
+          //   editor,
+          //   monaco
+          // })
+          // console.log("类型提示: ", {
+          //   LegacyLib,
+          //   extraLib
+          // })
+          setEditor(editor);
+          setMonaco(monaco);
+        }}
         onBlur={onBlur}
         onChange={onChange}
         options={{ readonly, fontSize: 13 }}
