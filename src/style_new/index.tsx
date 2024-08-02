@@ -119,7 +119,7 @@ export default function ({editConfig}: EditorProps) {
         onMouseEnter={onMouseEnter}
         onMouseLeave={onMouseLeave}
         className={css.titleContainer}
-        style={{ marginBottom: open ? 3 : 0 }}
+        //style={{ marginBottom: open ? 3 : 0 }}
       >
         <div className={css.title} onClick={onOpenClick}>
           {finalDisabledSwitch ? null : <div

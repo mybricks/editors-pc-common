@@ -5,6 +5,12 @@
   align-items: center;
   justify-content: space-between;
 
+  &:hover {
+    .actions {
+      visibility: visible;
+    }
+  }
+
   .title {
     width: 100%;
     display: flex;
@@ -12,6 +18,7 @@
     overflow: hidden;
     white-space: nowrap;
     align-items: center;
+    padding-left: 3px;
 
     .preview {
       color: #999999;
@@ -45,6 +52,7 @@
     display: flex;
     align-items: center;
     color: #555;
+    visibility: hidden;
 
     .icon {
       display: flex;
@@ -77,27 +85,33 @@
     }
   }
 }
+
 .inlineWrap {
   background-color: #fff;
   border-radius: 4px;
   height: 100%;
+
   .header {
     display: flex;
     justify-content: space-between;
     align-items: center;
     padding: 12px;
     border-bottom: 1px solid #efefef;
+
     .title {
       font-weight: 500;
       font-size: 14px;
     }
+
     .plus {
       cursor: pointer;
+
       &:hover {
         color: #1890ff;
       }
     }
   }
+
   .body {
     height: 100%;
     padding: 0px;
@@ -110,13 +124,15 @@
       right: 4px;
       z-index: 1;
       cursor: pointer;
+
       &:hover {
         color: #f86508;
       }
     }
   }
 }
-.modal{
+
+.modal {
   height: 100%;
   padding: 40px 0;
 }

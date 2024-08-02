@@ -1,11 +1,13 @@
 .container {
   width: 100%;
+
   .titleContainer {
     line-height: 18px;
     display: flex;
     cursor: pointer;
     align-items: center;
     justify-content: space-between;
+
     .title {
       width: 100%;
       display: flex;
@@ -14,6 +16,7 @@
       //font-weight: 800;
       white-space: nowrap;
       align-items: center;
+
       .preview {
         color: #999999;
         overflow: hidden;
@@ -22,9 +25,11 @@
         text-overflow: ellipsis;
       }
     }
+
     .actions {
       display: flex;
       align-items: center;
+
       .icon {
         cursor: pointer;
       }
@@ -43,6 +48,7 @@
     display: flex;
     justify-content: flex-end;
   }
+
   &__button {
     cursor: pointer;
     display: block;
@@ -55,6 +61,7 @@
     background-color: #ffffff;
     box-shadow: 0 1px 3px -1px #777;
   }
+
   &__modal {
     height: 100%;
     z-index: 999;
@@ -63,6 +70,7 @@
     background-color: #fff;
     // cursor: ew-resize;
   }
+
   &__header {
     display: flex;
     flex-direction: row;
@@ -73,13 +81,16 @@
     margin-left: -8px;
     cursor: auto;
   }
+
   &__mask {
     flex: 1;
   }
+
   &__icon {
     font-size: 12px;
     margin-right: 16px;
   }
+
   &__title {
     font-size: 12px;
     font-weight: bold;
