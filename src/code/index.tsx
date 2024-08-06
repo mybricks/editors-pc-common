@@ -1,5 +1,5 @@
 import React, { useEffect, useCallback, useMemo, useRef, useState } from "react";
-import Editor, { HandlerType, editor, Icon, registerCopilot, Monaco } from "/Users/lianglihao/Documents/GitHub/coder/src";
+import Editor, { HandlerType, editor, Icon, registerCopilot, Monaco } from "@mybricks/coder";
 import { LegacyLib } from "./legacyLib";
 import {
   getComputedValue,
