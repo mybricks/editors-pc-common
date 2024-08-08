@@ -1,32 +1,32 @@
 import React from 'react';
-import { InputNumber } from 'antd';
-import { useCallback } from 'react';
-import { useComputed, useObservable } from '@mybricks/rxui';
+import {InputNumber} from 'antd';
+import {useCallback} from 'react';
+import {useComputed, useObservable} from '@mybricks/rxui';
 import css from './index.less';
-import { editorsConfigKey } from '../constant';
+import {editorsConfigKey} from '../constant';
 
-export default function ({ editConfig }): any {
-  const { value, options = [] } = editConfig;
-  const model = useObservable({ val: null, value }, [value]);
-
+export default function ({editConfig}): any {
+  const {value, options = []} = editConfig;
+  const model = useObservable({val: null, value}, [value]);
+  
   // let resAry: any[] = deepCopy(model.val)
-
+  
   // const update = useCallback(() => {
   //   model.val = resAry
   //   model.value.set(resAry)
   // }, [resAry])
   //const ffn = value.get
-
-  return <Fn options={options} model={model} />;
+  
+  return <Fn options={options} model={model}/>;
 }
 
-function Fn({ options, model }) {
+function Fn({options, model}) {
   return (
     <div>
       {options && options.length ? (
         options?.map(
           (
-            { formatter = '', width = 66, ...other },
+            {formatter = '', width = 66, ...other},
             index: number
           ) => {
             const defaultConfig = {
@@ -39,7 +39,7 @@ function Fn({ options, model }) {
               size: 'small' | 'middle' | 'large' | undefined;
             };
             const item = Object.assign(defaultConfig, other);
-
+            
             return (
               <Item
                 key={index}
@@ -59,24 +59,24 @@ function Fn({ options, model }) {
   );
 }
 
-function Item({ index, model, formatter, item, width }) {
+function Item({index, model, formatter, item, width}) {
   useComputed(() => {
     model.val = Array.isArray(model.value.get()) ? model.value.get() : [0];
   });
-
+  
   const update = useCallback(() => {
     model.value.set(model.val);
   }, []);
-
+  
   // useEffect(()=>{
   //   return ()=>{
   //     console.log(Math.random())
   //   }
   // },[])
-
+  
   return (
     <div className={css.editInputnumber}>
-      <div className={css.editInputnumberAll} style={{ width }}>
+      <div className={css.editInputnumberAll} style={{width}}>
         <InputNumber
           {...item}
           value={
@@ -84,17 +84,24 @@ function Item({ index, model, formatter, item, width }) {
           }
           formatter={(evt) => `${evt}${formatter}`}
           parser={(evt) => (evt ? evt.replace(formatter, '') : '')}
-          style={{ width }}
-          onChange={(evt) => {
-            if (typeof evt === 'number') {
-              if (evt >= item.min && evt <= item.max) {
-                model.val[index] = evt;
-                update();
+          style={{width}}
+          onStep={(val) => {
+            model.val[index] = val
+            update()
+          }}
+          onPressEnter={(evt) => {
+            const curVal = parseInt(evt.target.value)
+            
+            if (typeof curVal === 'number') {
+              if (curVal >= item.min && curVal <= item.max) {
+                model.val[index] = curVal
+                
+                update()
               }
             } else {
-              if (!evt) {
+              if (!curVal) {
                 model.val[index] = 0;
-                update();
+                update()
               }
             }
             // if (typeof evt === 'number' && evt >= item.min && evt <= item.max) {
@@ -102,8 +109,25 @@ function Item({ index, model, formatter, item, width }) {
             //   update();
             // }
           }}
-
-        // onBlur={update}
+          // onChange={(evt) => {
+          //   if (typeof evt === 'number') {
+          //     if (evt >= item.min && evt <= item.max) {
+          //       model.val[index] = evt;
+          //       update();
+          //     }
+          //   } else {
+          //     if (!evt) {
+          //       model.val[index] = 0;
+          //       update();
+          //     }
+          //   }
+          //   // if (typeof evt === 'number' && evt >= item.min && evt <= item.max) {
+          //   //   model.val[index] = evt;
+          //   //   update();
+          //   // }
+          // }}
+          
+          // onBlur={update}
         />
         <div className={css.editInputnumberAllTitle}>{item.title || ''}</div>
       </div>
