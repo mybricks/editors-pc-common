@@ -1,28 +1,38 @@
-import React, {useCallback, useMemo} from 'react';
-import {EditConfig} from '@/interface';
-import ListSetter from './listSetter/index';
-import {getOptionsFromEditor, isValid} from '../utils';
-import AryContext from './context';
+import React, { useCallback, useMemo } from "react";
+import { EditConfig } from "@/interface";
+import ListSetter from "./listSetter/index";
+import { getOptionsFromEditor, isValid } from "../utils";
+import AryContext from "./context";
 
-export default function ({editConfig, injectEditors, ...extraContext}: { editConfig: EditConfig }): any {
-  const {value, options, getDefaultOptions, locales} = editConfig;
-  
-  const updateVal = useCallback((val) => {
-    value.set(val);
-  }, [value]);
+export default function ({
+  editConfig,
+  injectEditors,
+  ...extraContext
+}: {
+  editConfig: EditConfig;
+  injectEditors: any;
+}): any {
+  const { value, options, getDefaultOptions, locales } = editConfig;
+
+  const updateVal = useCallback(
+    (val: Array<any>) => {
+      value.set(val);
+    },
+    [value]
+  );
   /** 获取应用层配置的 editor options */
-  const defaultOptions = useMemo(() => getDefaultOptions?.('array') || {}, []);
-  
+  const defaultOptions = useMemo(() => getDefaultOptions?.("array") || {}, []);
+
   const opt = useMemo(() => {
-    const opt = getOptionsFromEditor(options)
+    const opt = getOptionsFromEditor(options);
     if (opt && Object.keys(opt).length === 1 && opt.options) {
-      return opt.options
+      return opt.options;
     }
-    return opt || {}
-  }, [options])
-  
+    return opt || {};
+  }, [options]);
+
   return (
-    <AryContext.Provider value={{injectEditors}}>
+    <AryContext.Provider value={{ injectEditors }}>
       <ListSetter
         value={isValid(value.get()) ? value.get() : []}
         onChange={updateVal}
