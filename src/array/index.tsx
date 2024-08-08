@@ -53,6 +53,7 @@ export default function ({
         locales={locales}
         cdnMap={defaultOptions.CDN || {}}
         getDefaultOptions={getDefaultOptions}
+        handleDelete={opt.handleDelete}
       />
     </AryContext.Provider>
   );

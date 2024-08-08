@@ -94,6 +94,7 @@ export default function ({
   cdnMap,
   defaultSelect,
   getDefaultOptions,
+  handleDelete,
 }: ListSetterProps) {
   const [list, setList] = useState(initData(value) || []);
   //[TODO] activeId 和 editId 为了支持这个交互不得已做的，写的太乱了
@@ -312,6 +313,10 @@ export default function ({
         helperClass={css.listItemSelect}
       >
         {list.map((item, index) => {
+          let showDelete = deletable;
+          if (showDelete && handleDelete) {
+            showDelete = !handleDelete(item);
+          }
           return (
             <SortableItem
               loaded={loaded}
@@ -402,7 +407,7 @@ export default function ({
                   {customOptRender
                     ? customOptRender({ item, index, setList })
                     : null}
-                  {deletable && (
+                  {showDelete && (
                     <div
                       className={css.delete}
                       onClick={(e) => {

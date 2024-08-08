@@ -22,6 +22,7 @@ type ListSetterProps = {
   defaultSelect?: string;
   /** 获取应用层配置的 editor options */
   getDefaultOptions?(key: string): any;
+  handleDelete?: (item: any) => boolean;
 };
 
 type TitleProps = {
