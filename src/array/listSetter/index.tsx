@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState, useContext } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Drawer } from "antd";
 import { arrayMoveImmutable } from "../../utils";
 import RenderEditor from "./renderEditor";
@@ -10,37 +10,8 @@ import {
   useLazy,
 } from "./lazySortableHoc";
 import css from "./index.less";
-
-type ActiveId = string | null;
-type EditId = string | null;
-
-type ListSetterProps = {
-  onSelect?: (activeId: string, activeIndex: number) => void;
-  onAdd?: (id: string) => void | object;
-  onChange: Function;
-  onRemove?: (id: string) => void;
-  value: any;
-  locales: any;
-  items: Array<any>;
-  getTitle: (item: any, index: number) => string | Array<string>;
-  draggable: boolean;
-  editable: boolean;
-  selectable: boolean;
-  deletable: boolean;
-  addable: boolean;
-  addText?: string;
-  customOptRender?: any;
-  extraContext?: any;
-  cdnMap: any;
-  defaultSelect?: string;
-  /** 获取应用层配置的 editor options */
-  getDefaultOptions?(key: string): any;
-};
-
-type TitleProps = {
-  items: string | Array<string>;
-  heavy?: boolean;
-};
+import { DeleteIcon } from "./constants";
+import { ListSetterProps, TitleProps, ActiveId, EditId } from "./types";
 
 const getUid = (len = 6) => {
   const chars =
@@ -372,7 +343,6 @@ export default function ({
               <div className={css.listItemCard}>
                 <div className={css.listItemCardTop}>
                   {draggable && <DragHandle loaded={loaded} />}
-
                   <div
                     className={css.listItemContent}
                     style={{ paddingLeft: draggable ? "7px" : "3px" }}
@@ -449,16 +419,7 @@ export default function ({
                         typeof onRemove === "function" && onRemove(item._id);
                       }}
                     >
-                      <svg viewBox="0 0 1049 1024" width="14" height="14">
-                        <path
-                          d="M524.816493 830.218181a35.83281 35.83281 0 0 0 35.788334-35.803159v-412.292279a35.803159 35.803159 0 0 0-71.591493 0v412.292279A35.83281 35.83281 0 0 0 524.816493 830.218181zM705.374122 830.218181a35.83281 35.83281 0 0 0 35.788334-35.803159v-412.292279a35.803159 35.803159 0 0 0-71.591493 0v412.292279A35.83281 35.83281 0 0 0 705.374122 830.218181zM344.199563 830.218181a35.83281 35.83281 0 0 0 35.788334-35.803159v-412.292279a35.803159 35.803159 0 0 0-71.591493 0v412.292279c0.756092 19.688031 16.826743 35.803159 35.803159 35.803159z"
-                          p-id="9568"
-                        ></path>
-                        <path
-                          d="M1013.770526 128.639342H766.721316V86.920879A87.00983 87.00983 0 0 0 679.800437 0H370.633117a87.00983 87.00983 0 0 0-86.906054 86.920879v41.718463H35.788334a35.788334 35.788334 0 0 0 0 71.576668H154.183377V885.071883a139.031895 139.031895 0 0 0 138.868816 138.868816h463.439649A139.031895 139.031895 0 0 0 895.360658 885.071883V199.400617h118.409868A35.83281 35.83281 0 0 0 1049.632986 163.612283c0-19.613905-15.803796-34.972941-35.86246-34.972941zM354.414211 86.920879A15.996525 15.996525 0 0 1 370.633117 70.761275h309.16732a15.996525 15.996525 0 0 1 16.159604 16.159604v41.718463H354.414211zM823.769165 885.071883a67.35145 67.35145 0 0 1-67.277323 67.277323H293.067018A67.366275 67.366275 0 0 1 225.774869 885.071883V199.400617h597.994296z"
-                          p-id="9569"
-                        ></path>
-                      </svg>
+                      <DeleteIcon />
                     </div>
                   )}
                 </div>
