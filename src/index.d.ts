@@ -11,16 +11,16 @@ interface ValueGetProps<IData = any> {
 
 type EditorItem = EditorText | EditorSelect | EditorExcel;
 
-type SelectOptions = Array<{ label: string, value: string }>
+type SelectOptions = Array<{ label: string; value: string }>;
 
-type ExcelOptions = Array<{ key: string, title: string }>
+type ExcelOptions = Array<{ key: string; title: string }>;
 
 interface EditorBase<IData = any> {
   title: string;
   value: {
     get: ({ data }: { data: IData }) => any;
     set: ({ data }: { data: IData }, value: any) => any;
-  }
+  };
 }
 
 interface EditorText<IData = any> extends EditorBase {
@@ -29,7 +29,7 @@ interface EditorText<IData = any> extends EditorBase {
 
 interface EditorSelect<IData = any> extends EditorBase {
   type: "Select";
-  options: SelectOptions | (({ data }: { data: IData }) => SelectOptions)
+  options: SelectOptions | (({ data }: { data: IData }) => SelectOptions);
 }
 
 interface EditorExcel<IData = any> extends EditorBase {
@@ -38,13 +38,17 @@ interface EditorExcel<IData = any> extends EditorBase {
 }
 
 interface Configuration<Data = any> {
-  '@resize': {
-    options?: ['height', 'width'],
+  "@resize": {
+    options?: ["height", "width"];
     ifVisible: ({ data }: { data: Data }) => boolean;
-  },
+  };
   /**
    * 初始化
    */
-  '@init': ({ data, slots, style }: { data: Data, slots, style, }, cate0?: Cate, cate1?: Cate) => void;
-  ':root': EditorItem[],
+  "@init": (
+    { data, slots, style }: { data: Data; slots; style },
+    cate0?: Cate,
+    cate1?: Cate
+  ) => void;
+  ":root": EditorItem[];
 }

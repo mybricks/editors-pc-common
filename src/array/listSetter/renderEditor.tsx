@@ -1,8 +1,8 @@
-import { EditConfig } from '@/interface';
-import React, { useEffect, useMemo, useState, useContext } from 'react';
-import DefaultEditors from './defaultEditors';
-import AryContext from './../context'
-import css from './index.less';
+import { EditConfig } from "@/interface";
+import React, { useEffect, useMemo, useState, useContext } from "react";
+import DefaultEditors from "./defaultEditors";
+import AryContext from "./../context";
+import css from "./index.less";
 
 const useModel = ({ value, onChange }: { value: any; onChange: Function }) => {
   const [closure, setClosure] = useState(value);
@@ -17,7 +17,7 @@ const useModel = ({ value, onChange }: { value: any; onChange: Function }) => {
         return closure;
       },
       set: (newVal: any) => {
-        typeof onChange === 'function' && onChange(newVal);
+        typeof onChange === "function" && onChange(newVal);
         setClosure(newVal);
       },
     };
@@ -45,24 +45,28 @@ export default ({
   });
 
   const Editors = useMemo(() => {
-    return injectEditors || DefaultEditors
-  }, [injectEditors, DefaultEditors])
+    return injectEditors || DefaultEditors;
+  }, [injectEditors, DefaultEditors]);
 
   const editorProps = {
     editConfig: {
       ...editConfig,
       // [TODO] 临时把array的text转到textinput里
-      type: editConfig.type.toLowerCase() === 'text' ? 'textinput' : editConfig.type,
+      type:
+        editConfig.type.toLowerCase() === "text"
+          ? "textinput"
+          : editConfig.type,
       options:
-        typeof editConfig.options === 'function' // 支持options为函数的情况
+        typeof editConfig.options === "function" // 支持options为函数的情况
           ? editConfig.options() || {}
           : editConfig.options,
       value: model,
     },
     ...(extraContext || {}),
-  }
+  };
 
-  const Component = window?.__editorAppender__?.(editorProps) ?? Editors(editorProps);
+  const Component =
+    window?.__editorAppender__?.(editorProps) ?? Editors(editorProps);
 
   return (
     <div className={css.item}>

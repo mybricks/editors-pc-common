@@ -1,70 +1,66 @@
-import React, { useEffect, useMemo, useRef, useState, useContext } from 'react'
-import { Drawer, Tooltip } from 'antd'
-// import {
-//   SortableContainer,
-//   SortableElement,
-//   SortableHandle,
-// } from 'react-sortable-hoc'
-import { arrayMoveImmutable } from '../../utils'
-import RenderEditor from './renderEditor'
-import { editorsConfigKey } from './../../constant'
+import React, { useEffect, useMemo, useRef, useState, useContext } from "react";
+import { Drawer } from "antd";
+import { arrayMoveImmutable } from "../../utils";
+import RenderEditor from "./renderEditor";
+import { editorsConfigKey } from "./../../constant";
 import {
   SortableContainer,
   SortableElement,
   SortableHandle,
   useLazy,
-} from './lazySortableHoc';
-import css from './index.less'
+} from "./lazySortableHoc";
+import css from "./index.less";
 
-type ActiveId = string | null
-type EditId = string | null
+type ActiveId = string | null;
+type EditId = string | null;
 
 type ListSetterProps = {
-  onSelect?: (activeId: string, activeIndex: number) => void
-  onAdd?: (id: string) => void | object
-  onChange: Function
-  onRemove?: (id: string) => void
-  value: any
-  locales: any
-  items: Array<any>
-  getTitle: (item: any, index: number) => string | Array<string>
-  draggable: boolean
-  editable: boolean
-  selectable: boolean
-  deletable: boolean
-  addable: boolean
-  addText?: string
-  customOptRender?: any
-  extraContext?: any
+  onSelect?: (activeId: string, activeIndex: number) => void;
+  onAdd?: (id: string) => void | object;
+  onChange: Function;
+  onRemove?: (id: string) => void;
+  value: any;
+  locales: any;
+  items: Array<any>;
+  getTitle: (item: any, index: number) => string | Array<string>;
+  draggable: boolean;
+  editable: boolean;
+  selectable: boolean;
+  deletable: boolean;
+  addable: boolean;
+  addText?: string;
+  customOptRender?: any;
+  extraContext?: any;
   cdnMap: any;
-  defaultSelect?: string
+  defaultSelect?: string;
   /** 获取应用层配置的 editor options */
   getDefaultOptions?(key: string): any;
-}
+};
 
 type TitleProps = {
-  items: string | Array<string>
-  heavy?: boolean
-}
+  items: string | Array<string>;
+  heavy?: boolean;
+};
 
 const getUid = (len = 6) => {
-  const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
-  const uuid = []
+  const chars =
+    "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+  const uuid = [];
   for (let i = 0; i < len; i++)
-    uuid[i] = chars[0 | Math.floor(Math.random() * chars.length)]
-  return uuid.join('')
-}
+    uuid[i] = chars[0 | Math.floor(Math.random() * chars.length)];
+  return uuid.join("");
+};
 
 const initData = (val: any) => {
   if (!Array.isArray(val)) {
-    return []
+    return [];
   } else {
-    return val.map((t) => ({ _id: getUid(), ...t }))
+    return val.map((t) => ({ _id: getUid(), ...t }));
   }
-}
+};
 
 const Title = ({ items, heavy = false }: TitleProps) => {
-  const titles = Array.isArray(items) ? items : [items]
+  const titles = Array.isArray(items) ? items : [items];
   return (
     <div className={heavy ? `${css.titles} ${css.titlesHeavy}` : css.titles}>
       {titles.map((title, index) => {
@@ -72,27 +68,27 @@ const Title = ({ items, heavy = false }: TitleProps) => {
           title?.toLocaleLowerCase &&
           /\.(png|jpe?g|gif|svg)(\?.*)?$/.test(title.toLocaleLowerCase())
         ) {
-          return <img key={`${title}_${index}`} src={title} />
+          return <img key={`${title}_${index}`} src={title} />;
         }
-        return <div key={`${title}_${index}`}>{title}</div>
+        return <div key={`${title}_${index}`}>{title}</div>;
       })}
     </div>
-  )
-}
+  );
+};
 
 const SortableList = SortableContainer(({ children }) => {
-  return <div className={css.list}>{children}</div>
-})
+  return <div className={css.list}>{children}</div>;
+});
 
 const SortableItem = SortableElement(
-  ({ children, className = '', onClick = () => { } }) => (
+  ({ children, className = "", onClick = () => {} }) => (
     <div className={`${css.listItem} ${className}`} onClick={onClick}>
       {children}
     </div>
   )
-)
+);
 
-const DragHandle = SortableHandle(({ }) => (
+const DragHandle = SortableHandle(({}) => (
   // [TODO] 用 Tooltip 好像antd版本的会死循环，别问为什么
   // <Tooltip
   //   placement="left"
@@ -105,7 +101,7 @@ const DragHandle = SortableHandle(({ }) => (
     </svg>
   </div>
   // </Tooltip>
-))
+));
 
 export default function ({
   onChange,
@@ -121,66 +117,66 @@ export default function ({
   deletable = true,
   addable = true,
   locales = null,
-  addText = '添加一项',
+  addText = "添加一项",
   customOptRender,
   extraContext,
   cdnMap,
   defaultSelect,
-  getDefaultOptions
+  getDefaultOptions,
 }: ListSetterProps) {
-  const [list, setList] = useState(initData(value) || [])
+  const [list, setList] = useState(initData(value) || []);
   //[TODO] activeId 和 editId 为了支持这个交互不得已做的，写的太乱了
-  const [activeId, setActiveId] = useState<ActiveId>(null)
-  const [editId, setEditId] = useState<EditId>(null)
-  const [subFormVisible, setSubFormVisible] = useState(false)
-  const listRef = useRef(null)
+  const [activeId, setActiveId] = useState<ActiveId>(null);
+  const [editId, setEditId] = useState<EditId>(null);
+  const [subFormVisible, setSubFormVisible] = useState(false);
+  const listRef = useRef(null);
 
   /** 数据变化来自外部 */
   const changeFromOuter = useRef(false);
 
-  const didMount = useRef(false)
+  const didMount = useRef(false);
 
   const expandable = useMemo(() => {
-    return (window as any)[editorsConfigKey]?.expandable ?? false
-  }, [])
+    return (window as any)[editorsConfigKey]?.expandable ?? false;
+  }, []);
 
   const _selectable = useMemo(() => {
-    return expandable || selectable
-  }, [selectable, expandable])
+    return expandable || selectable;
+  }, [selectable, expandable]);
 
   const listModel = useMemo(() => {
     return {
       add: (item: any) => {
         setList((prev) => {
-          return prev.concat(item)
-        })
+          return prev.concat(item);
+        });
       },
       remove: (id: string) => {
         setList((prev) => {
-          const targetIndedx = prev.findIndex((t) => t._id == id)
-          const copy = [...prev]
+          const targetIndedx = prev.findIndex((t) => t._id == id);
+          const copy = [...prev];
           if (targetIndedx !== -1) {
-            copy.splice(targetIndedx, 1)
+            copy.splice(targetIndedx, 1);
           }
-          return copy
-        })
+          return copy;
+        });
       },
       move: (from: number, to: number) => {
         setList((prev) => {
-          return arrayMoveImmutable(prev, from, to)
-        })
+          return arrayMoveImmutable(prev, from, to);
+        });
       },
       setItemKey: (index: number, key: string, val: any) => {
         setList((prev) => {
-          const copy = [...prev]
+          const copy = [...prev];
           if (copy && copy[index]) {
-            copy[index][key] = val
+            copy[index][key] = val;
           }
-          return copy
-        })
+          return copy;
+        });
       },
-    }
-  }, [])
+    };
+  }, []);
 
   useEffect(() => {
     const curList = list;
@@ -193,118 +189,114 @@ export default function ({
 
   useEffect(() => {
     if (!didMount.current) {
-      return
+      return;
     }
     if (changeFromOuter.current) {
       changeFromOuter.current = false;
       return;
     }
-    typeof onChange === 'function' &&
-      onChange(
-        JSON.parse(
-          JSON.stringify(
-            list
-          )
-        )
-      )
-  }, [list, onChange])
+    typeof onChange === "function" &&
+      onChange(JSON.parse(JSON.stringify(list)));
+  }, [list, onChange]);
 
   useEffect(() => {
     if (!didMount.current) {
-      return
+      return;
     }
 
     if (!_selectable) {
-      return
+      return;
     }
 
-    typeof onSelect === 'function' &&
+    typeof onSelect === "function" &&
       onSelect(
         activeId as string,
         list.findIndex((t) => t._id === activeId)
-      )
-  }, [activeId, list, onSelect, _selectable])
+      );
+  }, [activeId, list, onSelect, _selectable]);
 
   useEffect(() => {
-    didMount.current = true
-  }, [])
+    didMount.current = true;
+  }, []);
 
   useEffect(() => {
     const editViewEle =
       document.querySelector('div[class^="lyEdt-"]') ||
-      document.querySelector('#root div[class^="settingForm"]')
+      document.querySelector('#root div[class^="settingForm"]');
     if (!editViewEle || !listRef.current) {
-      return
+      return;
     }
     const handleClick = (e: any) => {
       if (e?.path?.includes(listRef.current)) {
-        return
+        return;
       }
       setSubFormVisible((cur) => {
         if (cur) {
-          setEditId(null)
-          setActiveId(null)
-          return false
+          setEditId(null);
+          setActiveId(null);
+          return false;
         }
-        return cur
-      })
-    }
-    editViewEle.addEventListener('click', handleClick, false)
+        return cur;
+      });
+    };
+    editViewEle.addEventListener("click", handleClick, false);
     return () => {
-      editViewEle.removeEventListener('click', handleClick)
-    }
-  }, [listRef])
+      editViewEle.removeEventListener("click", handleClick);
+    };
+  }, [listRef]);
 
   const editIndex = useMemo(() => {
-    return list.findIndex((t) => t._id === editId)
-  }, [editId, list])
+    return list.findIndex((t) => t._id === editId);
+  }, [editId, list]);
 
   const handleSortEnd = ({
     oldIndex,
     newIndex,
   }: {
-    oldIndex: number
-    newIndex: number
+    oldIndex: number;
+    newIndex: number;
   }) => {
-    listModel.move(oldIndex, newIndex)
-  }
+    listModel.move(oldIndex, newIndex);
+  };
 
   useEffect(() => {
     //expandable情况下，将editId与activeId同步，不需要editId了
     if (expandable) {
-      setEditId(activeId)
+      setEditId(activeId);
     }
-  }, [activeId, expandable])
+  }, [activeId, expandable]);
 
   useEffect(() => {
     //expandable情况下，第一次默认展开第一个
     if (!didMount || !expandable) {
-      return
+      return;
     }
-    setActiveId(list.find((t) => t)?._id ?? null)
-  }, [didMount, expandable])
+    setActiveId(list.find((t) => t)?._id ?? null);
+  }, [didMount, expandable]);
 
   useEffect(() => {
-    if(didMount.current && selectable && !activeId && defaultSelect) {
-        let target = list.find((t) => t._id === defaultSelect || t.id === defaultSelect)
-        if (target) {
-          setActiveId(defaultSelect || target._id)
-        }
+    if (didMount.current && selectable && !activeId && defaultSelect) {
+      let target = list.find(
+        (t) => t._id === defaultSelect || t.id === defaultSelect
+      );
+      if (target) {
+        setActiveId(defaultSelect || target._id);
+      }
     }
-  }, [defaultSelect, activeId, didMount, selectable, list])
+  }, [defaultSelect, activeId, didMount, selectable, list]);
 
   const SubEditors = useMemo(() => {
     return (
-      <div style={{ padding: '15px' }} onClick={(e) => e.stopPropagation()}>
+      <div style={{ padding: "15px" }} onClick={(e) => e.stopPropagation()}>
         {items.map((item, idx) => {
-          const value = list[editIndex]?.[item.value]
+          const value = list[editIndex]?.[item.value];
 
-          const itemValue = JSON.parse(JSON.stringify(list[editIndex] || {}))
+          const itemValue = JSON.parse(JSON.stringify(list[editIndex] || {}));
           if (
-            typeof item.ifVisible === 'function' &&
+            typeof item.ifVisible === "function" &&
             item.ifVisible(itemValue, editIndex) === false
           ) {
-            return
+            return;
           }
 
           return (
@@ -314,32 +306,33 @@ export default function ({
               extraContext={extraContext}
               value={value}
               onChange={(v) => {
-                listModel.setItemKey(editIndex, item.value, v)
+                listModel.setItemKey(editIndex, item.value, v);
               }}
             />
-          )
+          );
         })}
       </div>
-    )
-  }, [items, list, listModel, editIndex])
+    );
+  }, [items, list, listModel, editIndex]);
 
   const loaded = useLazy(cdnMap.sortableHoc);
 
   return (
     <div className={`${css.listSetter} fangzhou-theme`} ref={listRef}>
-      {addable &&
+      {addable && (
         <div
           className={css.btnAdd}
           onClick={() => {
-            const uid = getUid()
+            const uid = getUid();
             return listModel.add({
               _id: uid,
-              ...(typeof onAdd === 'function' ? onAdd(uid) || {} : {}),
-            })
+              ...(typeof onAdd === "function" ? onAdd(uid) || {} : {}),
+            });
           }}
         >
           {addText}
-        </div>}
+        </div>
+      )}
       <SortableList
         useDragHandle
         loaded={loaded}
@@ -353,26 +346,27 @@ export default function ({
               loaded={loaded}
               key={item._id}
               index={index}
-              className={`${_selectable
-                ? (activeId === item._id || activeId === item.id)
-                  ? `${css.listItemSelect} ${css.active}`
-                  : css.listItemSelect
-                : ''
-                }`}
+              className={`${
+                _selectable
+                  ? activeId === item._id || activeId === item.id
+                    ? `${css.listItemSelect} ${css.active}`
+                    : css.listItemSelect
+                  : ""
+              }`}
               onClick={() => {
                 if (!_selectable) {
-                  return
+                  return;
                 }
-                setSubFormVisible(false)
+                setSubFormVisible(false);
                 setActiveId((c) => {
                   if (c === item._id) {
-                    setEditId(null)
-                    return null
+                    setEditId(null);
+                    return null;
                   } else {
-                    setEditId(null)
-                    return item._id
+                    setEditId(null);
+                    return item._id;
                   }
-                })
+                });
               }}
             >
               <div className={css.listItemCard}>
@@ -381,14 +375,14 @@ export default function ({
 
                   <div
                     className={css.listItemContent}
-                    style={{ paddingLeft: draggable ? '7px' : '3px' }}
+                    style={{ paddingLeft: draggable ? "7px" : "3px" }}
                     title={
-                      expandable && activeId !== item._id ? '点击展开详情' : ''
+                      expandable && activeId !== item._id ? "点击展开详情" : ""
                     }
                   >
                     <Title
                       items={
-                        typeof getTitle === 'function'
+                        typeof getTitle === "function"
                           ? getTitle(item || {}, index)
                           : []
                       }
@@ -400,19 +394,19 @@ export default function ({
                         editId === item._id ? css.editActive : css.edit
                       }
                       onClick={(e) => {
-                        e.stopPropagation()
+                        e.stopPropagation();
                         setEditId((c) => {
                           if (c == item._id) {
                             setSubFormVisible((curVisible) => {
-                              return !curVisible
-                            })
-                            return null
+                              return !curVisible;
+                            });
+                            return null;
                           } else {
-                            _selectable && setActiveId(item._id)
-                            setSubFormVisible(true)
-                            return item._id
+                            _selectable && setActiveId(item._id);
+                            setSubFormVisible(true);
+                            return item._id;
                           }
-                        })
+                        });
                       }}
                     >
                       <svg viewBox="0 0 1024 1024" width="15" height="15">
@@ -438,21 +432,21 @@ export default function ({
                   {customOptRender
                     ? customOptRender({ item, index, setList })
                     : null}
-                  {deletable &&
+                  {deletable && (
                     <div
                       className={css.delete}
                       onClick={(e) => {
-                        e.stopPropagation()
+                        e.stopPropagation();
                         if (activeId === item._id) {
-                          setSubFormVisible(false)
-                          setActiveId(list.find((t) => t._id)._id)
+                          setSubFormVisible(false);
+                          setActiveId(list.find((t) => t._id)._id);
                         }
                         if (editId === item._id) {
-                          setEditId(null)
+                          setEditId(null);
                         }
-                        listModel.remove(item._id)
+                        listModel.remove(item._id);
                         // 务必放在后面
-                        typeof onRemove === 'function' && onRemove(item._id)
+                        typeof onRemove === "function" && onRemove(item._id);
                       }}
                     >
                       <svg viewBox="0 0 1049 1024" width="14" height="14">
@@ -465,20 +459,21 @@ export default function ({
                           p-id="9569"
                         ></path>
                       </svg>
-                    </div>}
+                    </div>
+                  )}
                 </div>
                 {expandable && editId === item._id && SubEditors}
               </div>
             </SortableItem>
-          )
+          );
         })}
       </SortableList>
       {!expandable && (
         <Drawer
           className={css.drawerWrapper}
           bodyStyle={{
-            borderLeft: '1px solid #bbb',
-            backgroundColor: '#F7F7F7',
+            borderLeft: "1px solid #bbb",
+            backgroundColor: "#F7F7F7",
             padding: 0,
           }}
           width={280}
@@ -488,17 +483,18 @@ export default function ({
           onClose={() => setSubFormVisible(false)}
           mask={false}
           visible={subFormVisible && !!editId}
+          // @ts-ignore
           getContainer={() =>
             document.querySelector('div[class^="lyStage-"]') ||
             document.querySelector('#root div[class^="sketchSection"]')
           }
-          style={{ position: 'absolute' }}
+          style={{ position: "absolute" }}
         >
           <div>
             <Title
               heavy
               items={
-                typeof getTitle === 'function'
+                typeof getTitle === "function"
                   ? getTitle(list[editIndex] || {}, editIndex)
                   : []
               }
@@ -508,5 +504,5 @@ export default function ({
         </Drawer>
       )}
     </div>
-  )
+  );
 }
