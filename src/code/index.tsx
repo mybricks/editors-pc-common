@@ -59,8 +59,12 @@ export default function ({ editConfig }: any): JSX.Element {
   }, [displayType]);
 
   useEffect(() => {
-    if (!monaco || !editor || !aiView?.request) return;
-    const request = aiView.request;
+    if (!monaco || !editor || !aiView) return;
+
+    const { request, requestAsStream } = aiView;
+
+    if (!request && !requestAsStream) return;
+
     const dispose = registerCopilot(monaco, editor, {
       language: "typescript",
       async fetchCompletions({ codeBeforeCursor, codeAfterCursor, onLoadingChange }: { codeBeforeCursor: string, codeAfterCursor: string, onLoadingChange: (l: boolean) => void }) {
@@ -91,10 +95,28 @@ export default function ({ editConfig }: any): JSX.Element {
           }
         ];
 
-        const res = await request(messages);
+        if (requestAsStream) {
+          return new Promise((resolve) => {
+            let code = "";
+            requestAsStream(messages, {
+              write: (newCode: string) => {
+                code += newCode;
+              },
+              complete: () => {
+                resolve([{ code: code.trim() }]);
+              },
+              error: (e: any) => {
+                console.error(e);
+                resolve([]);
+              }
+            })
+          })
+        }
+
+        const code = await request(messages);
 
         return [{
-          code: res,
+          code: code.trim(),
         }];
 
         // 测试
