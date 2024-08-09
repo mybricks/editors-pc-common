@@ -34,7 +34,7 @@ const PcEditorMap: any = {
   ICON: EditorIcon,
   COLORPICKER: EditorcolorPicker,
   I18NINPUT: EditorI18nInput,
-  EditorRender: EditorEditorRender,
+  EDITORRENDER: EditorEditorRender,
 };
 
 export default function PcEditor(props: any): any {
