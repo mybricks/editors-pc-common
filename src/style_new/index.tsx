@@ -15,11 +15,12 @@ import { toCSS, toJSON } from 'cssjson';
 // @ts-ignore
 import { calculate, compare } from 'specificity';
 
-import { Tooltip } from "antd";
+import { Tooltip, message } from "antd";
 
 import {
   CodeOutlined,
   ReloadOutlined,
+  CopyOutlined,
   AppstoreOutlined,
   CaretDownOutlined,
   CaretRightOutlined,
@@ -29,7 +30,7 @@ import {
 // @ts-ignore
 import MonacoEditor from "@mybricks/code-editor";
 
-import { deepCopy } from '../utils'
+import { deepCopy, copyText } from '../utils'
 import StyleEditor, { DEFAULT_OPTIONS, StyleEditorProvider } from './StyleEditor'
 
 import type {
@@ -87,6 +88,22 @@ export default function ({editConfig}: EditorProps) {
     setKey(key => key + 1)
   }, [])
 
+  const copy = useCallback(() => {
+    if (finalSelector) {
+      if (typeof finalSelector === "string") {
+        copyText(JSON.stringify({
+          [finalSelector]: {}
+        }))
+      } else {
+        copyText(JSON.stringify((finalSelector as string[]).reduce((p, c) => {
+          p[c] = {};
+          return p
+        }, {} as any)))
+      }
+      message.success("复制成功");
+    }
+  }, [])
+
   function onOpenClick () {
     if (!finalDisabledSwitch) {
       setStatus((status) => {
@@ -96,6 +113,8 @@ export default function ({editConfig}: EditorProps) {
           open: !status.open
         }
       })
+    } else {
+      copy();
     }
   }
 
@@ -131,6 +150,13 @@ export default function ({editConfig}: EditorProps) {
           <div>{editConfig.title}<span className={css.tips}>{titleContent}</span></div>
         </div>
         <div className={css.actions}>
+          <div
+            className={css.icon}
+            data-mybricks-tip={'复制'}
+            onClick={copy}
+          >
+            <CopyOutlined />
+          </div>
           <div
             className={css.icon}
             data-mybricks-tip={'重置'}
@@ -494,6 +520,7 @@ function getDefaultConfiguration ({value, options}: GetDefaultConfigurationProps
       })
     } else if (targetDom && Object.prototype.toString.call(targetDom) !== "[object NodeList]") {
       getDefaultValue = false
+      // @ts-ignore
       const styleValues = getStyleValues(targetDom, Array.isArray(selector) ? selector[0] : selector)
 
       finalOptions.forEach((option) => {
