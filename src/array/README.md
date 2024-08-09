@@ -17,3 +17,5 @@
 | onRemove  |                               数组元素删除时的回调 |           (id: string, index: number) => void           |   -    |  -   |
 | draggable |                               能否拖拽移动数组元素 |                         boolean                         |  true  |  -   |
 | editable  |                                   是否展示编辑图标 |                         boolean                         |  true  |  -   |
+| handleDelete  |                                   是否展示编辑图标函数，返回true展示、false不展示 |                         (item: any) => boolean;                         |  -  |  -   |
+| tagsRender  |                                   渲染标签 |                         tagsRender?: (item: any) => Array<{color: string, text: string}>;                         |  -  |  -   |

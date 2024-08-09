@@ -1,5 +1,11 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Drawer } from "antd";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { Drawer, Tag } from "antd";
 import { arrayMoveImmutable } from "../../utils";
 import RenderEditor from "./renderEditor";
 import { editorsConfigKey } from "./../../constant";
@@ -10,8 +16,14 @@ import {
   useLazy,
 } from "./lazySortableHoc";
 import css from "./index.less";
-import { DeleteIcon } from "./constants";
-import { ListSetterProps, TitleProps, ActiveId, EditId } from "./types";
+import { DeleteIcon, ExpandIcon, DragIcon } from "./constants";
+import {
+  ListSetterProps,
+  TitleProps,
+  ActiveId,
+  EditId,
+  TagType,
+} from "./types";
 
 const getUid = (len = 6) => {
   const chars =
@@ -67,9 +79,7 @@ const DragHandle = SortableHandle(({}) => (
   //   overlayInnerStyle={{ fontSize: 12 }}
   // >
   <div className={css.grab} title="拖动当前项">
-    <svg viewBox="0 0 20 20" width="12">
-      <path d="M7 2a2 2 0 1 0 .001 4.001A2 2 0 0 0 7 2zm0 6a2 2 0 1 0 .001 4.001A2 2 0 0 0 7 8zm0 6a2 2 0 1 0 .001 4.001A2 2 0 0 0 7 14zm6-8a2 2 0 1 0-.001-4.001A2 2 0 0 0 13 6zm0 2a2 2 0 1 0 .001 4.001A2 2 0 0 0 13 8zm0 6a2 2 0 1 0 .001 4.001A2 2 0 0 0 13 14z"></path>
-    </svg>
+    <DragIcon />
   </div>
   // </Tooltip>
 ));
@@ -94,6 +104,8 @@ export default function ({
   cdnMap,
   defaultSelect,
   getDefaultOptions,
+  handleDelete,
+  tagsRender,
 }: ListSetterProps) {
   const [list, setList] = useState(initData(value) || []);
   //[TODO] activeId 和 editId 为了支持这个交互不得已做的，写的太乱了
@@ -288,6 +300,27 @@ export default function ({
 
   const loaded = useLazy(cdnMap.sortableHoc);
 
+  const tagsList = useCallback(
+    (item: any) => {
+      if (tagsRender && tagsRender(item).length > 0) {
+        return tagsRender(item)?.map(
+          ({ color, text }: TagType) =>
+            text && (
+              <Tag
+                color={color || "var(--mybricks-color-primary)"}
+                key={`${color}-${text}`}
+                style={{ marginRight: 2 }}
+              >
+                {text}
+              </Tag>
+            )
+        );
+      }
+      return null;
+    },
+    [tagsRender]
+  );
+
   return (
     <div className={`${css.listSetter} fangzhou-theme`} ref={listRef}>
       {addable && (
@@ -312,6 +345,10 @@ export default function ({
         helperClass={css.listItemSelect}
       >
         {list.map((item, index) => {
+          let showDelete = deletable;
+          if (showDelete && handleDelete) {
+            showDelete = !handleDelete(item);
+          }
           return (
             <SortableItem
               loaded={loaded}
@@ -358,6 +395,7 @@ export default function ({
                       }
                     />
                   </div>
+                  {tagsList(item)}
                   {!expandable && editable && (
                     <div
                       className={
@@ -379,30 +417,13 @@ export default function ({
                         });
                       }}
                     >
-                      <svg viewBox="0 0 1024 1024" width="15" height="15">
-                        <path
-                          d="M341.108888 691.191148 515.979638 616.741529 408.633794 511.126097 341.108888 691.191148Z"
-                          p-id="5509"
-                        ></path>
-                        <path
-                          d="M860.525811 279.121092 749.7171 164.848489 428.544263 481.69274 543.68156 601.158622 860.525811 279.121092Z"
-                          p-id="5510"
-                        ></path>
-                        <path
-                          d="M951.813934 142.435013c0 0-29.331026-32.462343-63.091944-57.132208-33.759895-24.670889-59.729359 0-59.729359 0l-57.132208 57.132208 115.996874 115.565039c0 0 48.909943-49.342802 63.957661-66.222237C966.861652 174.897356 951.813934 142.435013 951.813934 142.435013L951.813934 142.435013z"
-                          p-id="5511"
-                        ></path>
-                        <path
-                          d="M802.174845 946.239985 176.165232 946.239985c-61.635779 0-111.786992-50.151213-111.786992-111.786992L64.37824 208.443379c0-61.635779 50.151213-111.786992 111.786992-111.786992l303.856449 0c12.357446 0 22.357194 10.011005 22.357194 22.357194s-9.999748 22.357194-22.357194 22.357194L176.165232 141.370775c-36.986379 0-67.072605 30.086226-67.072605 67.072605l0 626.009613c0 36.986379 30.086226 67.072605 67.072605 67.072605l626.009613 0c36.985356 0 67.072605-30.086226 67.072605-67.072605L869.24745 530.596544c0-12.347213 9.999748-22.357194 22.357194-22.357194s22.357194 10.011005 22.357194 22.357194l0 303.856449C913.961838 896.088772 863.810624 946.239985 802.174845 946.239985z"
-                          p-id="5512"
-                        ></path>
-                      </svg>
+                      <ExpandIcon />
                     </div>
                   )}
                   {customOptRender
                     ? customOptRender({ item, index, setList })
                     : null}
-                  {deletable && (
+                  {showDelete && (
                     <div
                       className={css.delete}
                       onClick={(e) => {

@@ -53,6 +53,8 @@ export default function ({
         locales={locales}
         cdnMap={defaultOptions.CDN || {}}
         getDefaultOptions={getDefaultOptions}
+        handleDelete={opt.handleDelete}
+        tagsRender={opt.tagsRender}
       />
     </AryContext.Provider>
   );
