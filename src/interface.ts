@@ -12,7 +12,7 @@ export type EditConfig = {
   options?: any
   render?: JSX.Element
   data?: any
-  comModel: {
+  comModel?: {
     comEle: HTMLElement
     runtime: {
       def: {

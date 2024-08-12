@@ -1,11 +1,18 @@
-import React, { useMemo, useCallback } from 'react';
-import { useObservable } from '@mybricks/rxui';
-import { EditConfig } from '@/interface';
-import ListSetter from './listSetter/index';
-import { isValid, getOptionsFromEditor } from '../utils';
-import AryContext from '../array/context';
+import React, { useMemo, useCallback } from "react";
+import { useObservable } from "@mybricks/rxui";
+import { EditConfig } from "@/interface";
+import ListSetter from "./listSetter/index";
+import { isValid, getOptionsFromEditor } from "../utils";
+import AryContext from "../array/context";
 
-export default function ({ editConfig, injectEditors, ...extraContext }: { editConfig: EditConfig, injectEditors: any }): any {
+export default function ({
+  editConfig,
+  injectEditors,
+  ...extraContext
+}: {
+  editConfig: EditConfig;
+  injectEditors: any;
+}): any {
   const { value, options, getDefaultOptions, locales } = editConfig;
 
   const model = useObservable(
@@ -13,14 +20,14 @@ export default function ({ editConfig, injectEditors, ...extraContext }: { editC
     [value]
   );
 
-  const updateVal = useCallback((val) => {
+  const updateVal = useCallback((val: Array<any>) => {
     model.val = val;
     model.value.set(model.val);
   }, []);
 
   const opt = useMemo(() => {
-    return getOptionsFromEditor(options)
-  }, [options])
+    return getOptionsFromEditor(options);
+  }, [options]);
 
   return (
     <AryContext.Provider value={{ injectEditors }}>
