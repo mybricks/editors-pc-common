@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useState, useContext } from "react";
 import DefaultEditors from "./defaultEditors";
 import AryContext from "./../context";
 import css from "./index.less";
+import { InfoCircleOutlined } from "@ant-design/icons";
 
 const useModel = ({ value, onChange }: { value: any; onChange: Function }) => {
   const [closure, setClosure] = useState(value);
@@ -68,13 +69,22 @@ export default ({
   const Component =
     window?.__editorAppender__?.(editorProps) ?? Editors(editorProps);
 
+  const description = editConfig?.description || false;
+
   return (
     <div className={css.item}>
       {Component?.render ? (
         Component.render
       ) : (
         <>
-          <p className={css.itemTitle}>{editConfig.title}</p>
+          <div className={css.itemDesc}>
+            <span className={css.itemTitle}>{editConfig.title}</span>
+            {description && (
+              <div data-mybricks-tip={description} className={css.description}>
+                <InfoCircleOutlined />
+              </div>
+            )}
+          </div>
           <div className={css.itemContent}>{Component}</div>
         </>
       )}
