@@ -17,6 +17,7 @@ import {
 } from "../../components";
 import { splitValueAndUnit } from "../../utils";
 import { isObject } from "../../../../util/lodash/isObject";
+import uniq from "lodash/uniq";
 
 interface FontProps {
   value: CSSProperties;
@@ -118,25 +119,60 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
       : value.fontFamily
           ?.split(",")
           .filter(Boolean)
-          .map((item) => item.trim())
+          .map((item) => item.trim().replace(/^"|"$/g, ""))
   );
 
+  function mergeFonts(additionalFonts: string[]) {
+    // 去除空格去重
+    const fonts = uniq(additionalFonts);
+    // 如果遇到预设没有的字体就直接加到选项中
+    const newOptions = fonts.map((font) => {
+      const replaceFont = font.replace(/^"|"$/g, "");
+      const existingOption = FONT_FAMILY_OPTIONS.find(
+        (option) => option.value === replaceFont
+      );
+      if (existingOption) {
+        return existingOption;
+      } else {
+        // 如果不存在，可以添加一个新的对象，这里假设label和value相同
+        return { label: replaceFont, value: replaceFont };
+      }
+    });
+
+    // 合并新的选项到原有的 FONT_FAMILY_OPTIONS
+    return uniq([...FONT_FAMILY_OPTIONS, ...newOptions]);
+  }
+
   const fontFamilyOptions = useCallback(() => {
-    const fontfaces = (cfg.fontfaces as typeof FONT_FAMILY_OPTIONS).filter((item) => item.label && item.value);
-    return [...FONT_FAMILY_OPTIONS, ...fontfaces];
-  }, []);
+    const updatedOptions = mergeFonts(innerFontFamily || []);
+    const fontfaces = (cfg.fontfaces as typeof updatedOptions).filter(
+      (item) => item.label && item.value
+    );
+
+    return uniq([...updatedOptions, ...fontfaces]);
+  }, [innerFontFamily]);
 
   const getTextAlignOptions = useCallback(() => {
     const useStart = ["start", "end"].includes(value.textAlign as any);
 
     return [
-      { label: <TextAlignLeftOutlined />, value: useStart ? "start" : "left", tip: "居左对齐" },
+      {
+        label: <TextAlignLeftOutlined />,
+        value: useStart ? "start" : "left",
+        tip: "居左对齐",
+      },
       { label: <TextAlignCenterOutlined />, value: "center", tip: "居中对齐" },
-      { label: <TextAlignRightOutlined />, value: useStart ? "end" : "right", tip: "居右对齐" },
+      {
+        label: <TextAlignRightOutlined />,
+        value: useStart ? "end" : "right",
+        tip: "居右对齐",
+      },
     ];
   }, []);
 
-  const [lineHeight, setLineHeight] = useState<string | number>(value.lineHeight!);
+  const [lineHeight, setLineHeight] = useState<string | number>(
+    value.lineHeight!
+  );
 
   const onFontSizeChange = useCallback(
     (fontSize: string | number) => {
@@ -144,7 +180,7 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
       const [lineHeightValue, lineHeightUnit] = splitValueAndUnit(lineHeight);
 
       onChange({ key: "fontSize", value: fontSize });
-      
+
       if (fontSizeUnit === "px") {
         const fontSizeNumber = Number(fontSizeValue);
         const lineHeightNumber = fontSizeNumber + 8; // 根据fontSizeNumber需设置的行高
@@ -191,7 +227,12 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
                 (innerFontFamily?.[0] !== "inherit"
                   ? "：" +
                     innerFontFamily
-                      ?.map?.((item) => fontFamilyOptions().find((option) => option.value === item)?.label ?? item)
+                      ?.map?.(
+                        (item) =>
+                          fontFamilyOptions().find(
+                            (option) => option.value === item
+                          )?.label ?? item
+                      )
                       .filter(Boolean)
                       .join("，")
                   : "")
@@ -202,8 +243,11 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
               options={fontFamilyOptions()}
               multiple={true}
               value={innerFontFamily}
-              onChange={(newValue: string []) => {
-                if (Array.isArray(newValue) && newValue[newValue.length - 1] === "inherit") {
+              onChange={(newValue: string[]) => {
+                if (
+                  Array.isArray(newValue) &&
+                  newValue[newValue.length - 1] === "inherit"
+                ) {
                   onChange({ key: "fontFamily", value: "inherit" });
                   setInnerFontFamily(["inherit"]);
                 } else {
@@ -223,7 +267,12 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
         <Panel.Content>
           {cfg.disableColor ? null : (
             <ColorEditor
-              style={{ flexBasis: `calc(66% - 3px)`, padding: 0, overflow: "hidden", paddingLeft: 6 }}
+              style={{
+                flexBasis: `calc(66% - 3px)`,
+                padding: 0,
+                overflow: "hidden",
+                paddingLeft: 6,
+              }}
               defaultValue={value.color}
               onChange={(value) => onChange({ key: "color", value })}
             />
@@ -232,7 +281,11 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
             <Select
               tip="粗细"
               prefix={<FontWeightOutlined />}
-              style={{ flexBasis: `calc(33% - 3px)`, padding: 0, overflow: "hidden" }}
+              style={{
+                flexBasis: `calc(33% - 3px)`,
+                padding: 0,
+                overflow: "hidden",
+              }}
               defaultValue={value.fontWeight}
               options={FONT_WEIGHT_OPTIONS}
               onChange={(value) => onChange({ key: "fontWeight", value })}
