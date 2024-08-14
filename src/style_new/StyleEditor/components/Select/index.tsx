@@ -1,4 +1,10 @@
-import React, { useState, ReactNode, useCallback, CSSProperties, useEffect } from "react";
+import React, {
+  useState,
+  ReactNode,
+  useCallback,
+  CSSProperties,
+  useEffect,
+} from "react";
 
 import { useUpdateEffect } from "../../hooks";
 import { Panel, Dropdown, DownOutlined } from "../";
@@ -34,8 +40,11 @@ export function Select({
   const [value, setValue] = useState(propsValue || defaultValue);
   const [label, setLabel] = useState(
     Array.isArray(value)
-      ? value.map((v) => options.find(({ value }) => value === v)!.label).join(",")
-      : options.find(({ value: optionValue }) => optionValue === value)?.label || value
+      ? value
+          .map((v) => options.find(({ value }) => value === v)?.label)
+          .join(",")
+      : options.find(({ value: optionValue }) => optionValue === value)
+          ?.label || value
   );
 
   const handleDropDownClick = useCallback((clickValue: any) => {
@@ -48,7 +57,11 @@ export function Select({
         } else {
           nextValue.push(clickValue);
         }
-        setLabel(nextValue.map((v) => options.find(({ value }) => value === v)!.label).join(","));
+        setLabel(
+          nextValue
+            .map((v) => options.find(({ value }) => value === v)!.label)
+            .join(",")
+        );
         onChange(nextValue);
         return nextValue;
       }
@@ -69,17 +82,35 @@ export function Select({
   useEffect(() => {
     setLabel(
       Array.isArray(propsValue)
-        ? propsValue.map((v) => options.find(({ value }) => value === v)!.label).join(",")
-        : options.find(({ value: optionValue }) => optionValue === value)?.label || value
+        ? propsValue
+            .map((v) => options.find(({ value }) => value === v)?.label)
+            .join(",")
+        : options.find(({ value: optionValue }) => optionValue === value)
+            ?.label || value
     );
   }, [value]);
 
   return (
     <Panel.Item style={style}>
-      <Dropdown multiple={multiple} options={options} value={value} onClick={handleDropDownClick}>
-        <div data-mybricks-tip={tip} className={css.select} style={showIcon ? {} : { padding: 0 }}>
+      <Dropdown
+        multiple={multiple}
+        options={options}
+        value={value}
+        onClick={handleDropDownClick}
+      >
+        <div
+          data-mybricks-tip={tip}
+          className={css.select}
+          style={showIcon ? {} : { padding: 0 }}
+        >
           {prefix && <div className={css.prefix}>{prefix}</div>}
-          <div className={`${css.value}${labelClassName ? ` ${labelClassName}` : ""}`}>{label}</div>
+          <div
+            className={`${css.value}${
+              labelClassName ? ` ${labelClassName}` : ""
+            }`}
+          >
+            {label}
+          </div>
           {showIcon && (
             <span className={css.icon}>
               <DownOutlined />
