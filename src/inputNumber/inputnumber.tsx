@@ -73,6 +73,23 @@ function Item({index, model, formatter, item, width}) {
   //     console.log(Math.random())
   //   }
   // },[])
+
+  const updateValue = (e: React.FocusEvent<HTMLInputElement, Element>) => {
+    const curVal = parseInt(e.target.value)
+            
+    if (typeof curVal === 'number') {
+      if (curVal >= item.min && curVal <= item.max) {
+        model.val[index] = curVal
+        
+        update()
+      }
+    } else {
+      if (!curVal) {
+        model.val[index] = 0;
+        update()
+      }
+    }
+  }
   
   return (
     <div className={css.editInputnumber}>
@@ -89,26 +106,7 @@ function Item({index, model, formatter, item, width}) {
             model.val[index] = val
             update()
           }}
-          onPressEnter={(evt) => {
-            const curVal = parseInt(evt.target.value)
-            
-            if (typeof curVal === 'number') {
-              if (curVal >= item.min && curVal <= item.max) {
-                model.val[index] = curVal
-                
-                update()
-              }
-            } else {
-              if (!curVal) {
-                model.val[index] = 0;
-                update()
-              }
-            }
-            // if (typeof evt === 'number' && evt >= item.min && evt <= item.max) {
-            //   model.val[index] = evt;
-            //   update();
-            // }
-          }}
+          onPressEnter={updateValue}
           // onChange={(evt) => {
           //   if (typeof evt === 'number') {
           //     if (evt >= item.min && evt <= item.max) {
@@ -127,11 +125,7 @@ function Item({index, model, formatter, item, width}) {
           //   // }
           // }}
           
-          onBlur={(e: React.FocusEvent<HTMLInputElement, Element>) => {
-            const curVal = parseInt(e.target.value);
-            model.val[index] = curVal;
-            update();
-          }}
+          onBlur={updateValue}
         />
         <div className={css.editInputnumberAllTitle}>{item.title || ''}</div>
       </div>
