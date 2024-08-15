@@ -127,7 +127,11 @@ function Item({index, model, formatter, item, width}) {
           //   // }
           // }}
           
-          // onBlur={update}
+          onBlur={(e: React.FocusEvent<HTMLInputElement, Element>) => {
+            const curVal = parseInt(e.target.value);
+            model.val[index] = curVal;
+            update();
+          }}
         />
         <div className={css.editInputnumberAllTitle}>{item.title || ''}</div>
       </div>
