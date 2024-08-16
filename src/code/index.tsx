@@ -1,6 +1,6 @@
-import React, { useEffect, useCallback, useMemo, useRef, useState } from "react";
-import Editor, { HandlerType, editor, Icon, registerCopilot, Monaco } from "@mybricks/coder";
-import { LegacyLib } from "./legacyLib";
+import React, {useEffect, useCallback, useMemo, useRef, useState} from "react";
+import Editor, {HandlerType, editor, Icon, registerCopilot, Monaco} from "@mybricks/coder";
+import {LegacyLib} from "./legacyLib";
 import {
   getComputedValue,
   formatValue,
@@ -11,8 +11,8 @@ import styles from "./index.less";
 
 type UnionString = string | undefined;
 
-export default function ({ editConfig }: any): JSX.Element {
-  const { value, options = {}, getDefaultOptions, aiView } = editConfig;
+export default function ({editConfig}: any): JSX.Element {
+  const {value, options = {}, getDefaultOptions, aiView} = editConfig;
   const {
     title,
     displayType,
@@ -21,22 +21,24 @@ export default function ({ editConfig }: any): JSX.Element {
     language = "javascript",
     extraLib,
     babel,
+    encodeValue,
     fnParams,
     isTsx,
     preview,
     height,
     theme,
-  } = options;
-  const codeIns = useRef<HandlerType>(null);
+  } = options
+  
+  const codeIns = useRef<HandlerType>(null)
   const [code, setCode] = useState<UnionString>(() =>
     getComputedValue(value.get())
-  );
-
+  )
+  
   const [open, setOpen] = useState<boolean>(false);
-
+  
   const [editor, setEditor] = useState<editor>();
   const [monaco, setMonaco] = useState<Monaco>();
-
+  
   const path = useMemo(() => {
     let path = `file:///${Math.random()}_code`;
     if (language === "typescript") {
@@ -51,39 +53,43 @@ export default function ({ editConfig }: any): JSX.Element {
     }
     return path;
   }, [isTsx, language]);
-
+  
   const defaultOptions = useMemo(() => getDefaultOptions?.("code") ?? {}, []);
-
+  
   const showBtn = useMemo(() => {
     return displayType === "button";
   }, [displayType]);
-
+  
   useEffect(() => {
     if (!monaco || !editor || !aiView) return;
-
-    const { request, requestAsStream } = aiView;
-
+    
+    const {request, requestAsStream} = aiView;
+    
     if (!request && !requestAsStream) return;
-
+    
     const dispose = registerCopilot(monaco, editor, {
       language: "typescript",
-      async fetchCompletions({ codeBeforeCursor, codeAfterCursor, onLoadingChange }: { codeBeforeCursor: string, codeAfterCursor: string, onLoadingChange: (l: boolean) => void }) {
+      async fetchCompletions({codeBeforeCursor, codeAfterCursor, onLoadingChange}: {
+        codeBeforeCursor: string,
+        codeAfterCursor: string,
+        onLoadingChange: (l: boolean) => void
+      }) {
         const messages = [
           {
             role: "system",
-            content: "你是一名资深的前端程序员，请根据当前给到的单ts文件代码的上下两部分以及类型提示进行分析，给出合适的在中间可续写可运行的代码推荐（可以包含注释）\n" + 
-            "当前上下文的类型定义为:" +
-            // `${LegacyLib}\n${extraLib}\n` +
-            `${extraLib}\n` +
-            "上部分代码为:\n" +
-            `${codeBeforeCursor}\n` +
-            "下部分代码为:\n" +
-            `${codeAfterCursor}\n` +
-            "[要求]\n" + 
-            "1：回答简洁，如非必要、无需任何额外建议;\n" + 
-            "2：返回的代码不需要有```包裹，因为是直接用在代码编辑器中;\n" + 
-            "3：返回的代码不需要ts类型定义，仅js即可;\n " + 
-            "4：返回的代码必须能和上下部分代码顺利拼接上，不能有语法错误，请严格自查;"
+            content: "你是一名资深的前端程序员，请根据当前给到的单ts文件代码的上下两部分以及类型提示进行分析，给出合适的在中间可续写可运行的代码推荐（可以包含注释）\n" +
+              "当前上下文的类型定义为:" +
+              // `${LegacyLib}\n${extraLib}\n` +
+              `${extraLib}\n` +
+              "上部分代码为:\n" +
+              `${codeBeforeCursor}\n` +
+              "下部分代码为:\n" +
+              `${codeAfterCursor}\n` +
+              "[要求]\n" +
+              "1：回答简洁，如非必要、无需任何额外建议;\n" +
+              "2：返回的代码不需要有```包裹，因为是直接用在代码编辑器中;\n" +
+              "3：返回的代码不需要ts类型定义，仅js即可;\n " +
+              "4：返回的代码必须能和上下部分代码顺利拼接上，不能有语法错误，请严格自查;"
             // "4：必须是顺利续写的代码;\n" + 
             // "  以下仅举例，应该根据具体上下文返回：" +
             // "  前段代码为: function sum(\n" + 
@@ -94,7 +100,7 @@ export default function ({ editConfig }: any): JSX.Element {
             content: "请给出合理的可行的代码续写推荐"
           }
         ];
-
+        
         if (requestAsStream) {
           return new Promise((resolve) => {
             let code = "";
@@ -103,7 +109,7 @@ export default function ({ editConfig }: any): JSX.Element {
                 code += newCode;
               },
               complete: () => {
-                resolve([{ code: code.trim() }]);
+                resolve([{code: code.trim()}]);
               },
               error: (e: any) => {
                 console.error(e);
@@ -112,13 +118,13 @@ export default function ({ editConfig }: any): JSX.Element {
             })
           })
         }
-
+        
         const code = await request(messages);
-
+        
         return [{
           code: code.trim(),
         }];
-
+        
         // 测试
         // return new Promise((resolve) => {
         //   console.log("发起请求")
@@ -136,12 +142,12 @@ export default function ({ editConfig }: any): JSX.Element {
       dispose();
     };
   }, [monaco, editor]);
-
+  
   const transform = useCallback(
     async (value: UnionString) => {
       if (!value) return value;
       const encodedValue = safeEncoder(value);
-      const { babel } = options;
+      const {babel} = options;
       if (!babel || !["javascript", "typescript"].includes(language))
         return encodedValue;
       try {
@@ -163,65 +169,72 @@ export default function ({ editConfig }: any): JSX.Element {
     },
     [babel, fnParams, language]
   );
-
+  
   const updateValue = useCallback(async (current?: string) => {
     const code = current ?? codeIns.current?.editor.getValue();
-    const val = await transform(code);
+    
+    let val
+    if (encodeValue === void 0 || encodeValue) {
+      val = await transform(code);
+    } else {
+      val = code
+    }
+    
     value.set(val);
   }, []);
-
+  
   const onChange = (value: UnionString, ev: any) => {
     setCode(value);
   };
-
+  
   const onBlur = useCallback(async (editor: editor) => {
     await updateValue(editor.getValue());
     typeof options.onBlur === "function" && options.onBlur();
   }, []);
-
+  
   const onOpen = useCallback(async () => {
     await updateValue();
     setOpen(true);
   }, []);
-
+  
   const onClose = useCallback(async () => {
     await updateValue();
     setOpen(false);
   }, []);
-
+  
   const onPreview = useCallback(() => {
     updateValue();
   }, []);
-
+  
   const onFormat = useCallback(() => {
     if (codeIns!.current) {
       codeIns!.current.format();
     }
   }, []);
-
+  
   return (
     <div className={!showBtn ? styles.wrapper : void 0}>
       <Editor
         ref={codeIns}
-        loaderConfig={{ paths: defaultOptions.CDN?.paths }}
+        loaderConfig={{paths: defaultOptions.CDN?.paths}}
         eslint={{
           src: defaultOptions.CDN?.eslint,
         }}
-        babel={{ standalone: defaultOptions.CDN?.babel }}
+        babel={{standalone: defaultOptions.CDN?.babel}}
         value={code}
         modal={
           options.modal !== false
             ? {
-                open,
-                width: 1200,
-                title: title ?? "编辑代码",
-                inside: true,
-                closeIcon: <Icon name="zoom" data-mybricks-tip="缩小"/>,
-                extra: <Icon name="format" data-mybricks-tip="格式化" onClick={onFormat} />,
-                onOpen,
-                onClose,
-                contentClassName: styles.dialog
-              }
+              open,
+              width: 1200,
+              title: title ?? "编辑代码",
+              inside: true,
+              closeIcon: <Icon name="zoom" data-mybricks-tip="缩小"/>,
+              extra: <Icon name="format" data-mybricks-tip="格式化" onClick={onFormat}/>,
+              onOpen,
+              onClose,
+              contentClassName: styles.dialog
+            }
             : void 0
         }
         language={language}
@@ -241,7 +254,7 @@ export default function ({ editConfig }: any): JSX.Element {
         }}
         onBlur={onBlur}
         onChange={onChange}
-        options={{ readOnly: readonly, fontSize: 13 }}
+        options={{readOnly: readonly, fontSize: 13}}
         comment={{
           value: comments,
           className: styles.comment,
@@ -273,10 +286,10 @@ export default function ({ editConfig }: any): JSX.Element {
             </span>
           )}
           <span data-mybricks-tip="格式化">
-            <Icon className={styles.icon} name="format" onClick={onFormat} />
+            <Icon className={styles.icon} name="format" onClick={onFormat}/>
           </span>
           <span data-mybricks-tip="展开">
-            <Icon className={styles.icon} name="plus" onClick={onOpen} />
+            <Icon className={styles.icon} name="plus" onClick={onOpen}/>
           </span>
         </div>
       )}
