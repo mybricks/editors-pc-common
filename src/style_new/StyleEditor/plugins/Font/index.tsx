@@ -218,7 +218,7 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
 
   return (
     <Panel title="字体" showTitle={showTitle}>
-      {cfg.disableFontFamily && cfg.disableColor ? null : (
+      {cfg.disableFontFamily ? null : (
         <Panel.Content>
           {cfg.disableFontFamily ? null : (
             <Select
@@ -263,12 +263,12 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
           )}
         </Panel.Content>
       )}
-      {cfg.disableFontWeight && cfg.disableFontSize ? null : (
+      {cfg.disableFontWeight && cfg.disableColor ? null : (
         <Panel.Content>
           {cfg.disableColor ? null : (
             <ColorEditor
               style={{
-                flexBasis: `calc(66% - 3px)`,
+                flex: 2,
                 padding: 0,
                 overflow: "hidden",
                 paddingLeft: 6,
@@ -282,7 +282,7 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
               tip="粗细"
               prefix={<FontWeightOutlined />}
               style={{
-                flexBasis: `calc(33% - 3px)`,
+                flex: 1,
                 padding: 0,
                 overflow: "hidden",
               }}
@@ -293,13 +293,15 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
           )}
         </Panel.Content>
       )}
-      {cfg.disableLineHeight && cfg.disableLetterSpacing ? null : (
+      {cfg.disableLineHeight &&
+      cfg.disableLetterSpacing &&
+      cfg.disableFontSize ? null : (
         <Panel.Content>
           {cfg.disableFontSize ? null : (
             <InputNumber
               tip="大小"
               type="number"
-              style={{ flexBasis: `calc(33% - 3px)` }}
+              style={{ flex: 1 }}
               prefix={<FontSizeOutlined />}
               defaultValue={value.fontSize}
               unitOptions={FONT_SIZE_OPTIONS}
@@ -311,7 +313,7 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
             <InputNumber
               tip="行高"
               type="number"
-              style={{ flexBasis: `calc(33% - 3px)` }}
+              style={{ flex: 1 }}
               prefix={<LineHeightOutlined />}
               value={lineHeight}
               defaultUnitValue="inherit"
@@ -324,7 +326,7 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
             <InputNumber
               tip="间距"
               type="number"
-              style={{ flexBasis: `calc(33% - 3px)` }}
+              style={{ flex: 1 }}
               prefix={<LetterSpacingOutlined />}
               defaultValue={value.letterSpacing}
               unitOptions={LETTERSPACING_UNIT_OPTIONS}
