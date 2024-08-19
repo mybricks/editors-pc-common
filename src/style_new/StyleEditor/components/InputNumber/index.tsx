@@ -150,5 +150,5 @@ function incrementDecrement(inputNumber: string, keyEvent: 'ArrowUp' | 'ArrowDow
     }
   }
 
-  return updatedNumber
+  return Number(updatedNumber) > 0 ? updatedNumber : '0'
 }
