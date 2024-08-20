@@ -213,7 +213,7 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
 
   const onLineHeightChange = useCallback((value: string | number) => {
     if (lineHeight !== value) {
-      onChange({ key: "lineHeight", value: lineHeight });
+      onChange({ key: "lineHeight", value });
       setLineHeight(value);
     }
   }, []);
