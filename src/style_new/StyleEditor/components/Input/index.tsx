@@ -17,7 +17,7 @@ export interface InputProps {
   defaultValue?: string | number;
   value?: string | number;
   style?: CSSProperties;
-  onChange: (value: string) => void;
+  onChange?: (value: string) => void;
   disabled?: boolean;
   onBlur?: React.FocusEventHandler<HTMLInputElement>;
   onFocus?: React.FocusEventHandler<HTMLInputElement>;

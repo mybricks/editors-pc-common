@@ -54,11 +54,12 @@ export function InputNumber ({
     target: any, code: any; preventDefault: () => void 
   }) => {
     const code = e.code
+    const newValue = incrementDecrement(e.target.value, code);
     if (['ArrowUp', 'ArrowDown'].includes(code)) {
-      const newValue = incrementDecrement(e.target.value, code);
       e.target.value = newValue;
       e.target.select();// 光标增减时依旧选中
       e.preventDefault(); 
+    } else if (code === 'Enter') {
       handleNumberChange(newValue);
     }
   }, [number]);
@@ -99,7 +100,7 @@ export function InputNumber ({
       setDisplayValue(number)
       changeValue = changeValue + unit
     }
-    onChange(changeValue)
+    onChange && onChange(changeValue)
   }, [unit, number])
 
   return (
@@ -108,7 +109,7 @@ export function InputNumber ({
       prefix={prefix}
       prefixTip={prefixTip}
       value={displayValue}
-      onChange={handleNumberChange}
+      // onChange={handleNumberChange}
       suffix={suffix}
       disabled={isDisabledUnit()}
       onFocus={onFocus}
