@@ -60,8 +60,18 @@ export function InputNumber ({
       e.target.select();// 光标增减时依旧选中
       e.preventDefault(); 
     } else if (code === 'Enter') {
+      e.target.value = newValue;
       handleNumberChange(newValue);
     }
+  }, [number]);
+
+  const onBlur = useCallback((e: {
+    target: any,
+  }) => {
+    let newValue = e.target.value;
+    newValue = Number(newValue) > 0 ? newValue : '0'
+    handleNumberChange(newValue);
+    e.target.value = newValue;
   }, [number]);
 
   const suffix = useMemo(() => {
@@ -114,7 +124,7 @@ export function InputNumber ({
       disabled={isDisabledUnit()}
       onFocus={onFocus}
       onKeyDown={onKeyDown}
-      onBlur={(e) => handleNumberChange(e.target.value)}
+      onBlur={onBlur}
       tip={tip}
       numberTip={"光标键可增减"}
       type={type} // TODO 后续调整 现在因为面板宽度不够只给小部分加 type = 'number'
