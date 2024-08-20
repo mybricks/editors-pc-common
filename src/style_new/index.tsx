@@ -113,8 +113,6 @@ export default function ({editConfig}: EditorProps) {
           open: !status.open
         }
       })
-    } else {
-      copy();
     }
   }
 
@@ -152,7 +150,7 @@ export default function ({editConfig}: EditorProps) {
         <div className={css.actions}>
           <div
             className={css.icon}
-            data-mybricks-tip={'复制'}
+            data-mybricks-tip={'复制selector'}
             onClick={copy}
           >
             <CopyOutlined />
