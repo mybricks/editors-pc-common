@@ -8,7 +8,7 @@ import React, {
 import { createPortal } from "react-dom";
 
 import ColorUtil from "color";
-import Sketch from "@mybricks/color-picker";
+import Sketch, { ColorResult } from "@mybricks/color-picker";
 
 import css from "./index.less";
 interface ColorpickerProps {
@@ -39,15 +39,22 @@ export function Colorpicker({
     setOpen(true);
   }, [disabled]);
 
-  const handleColorSketchChange = useCallback((value: Record<string, any>) => {
-    // 点击面板选择颜色时不带透明度 这时就需要把后两位置FF
-    if (value.hexa !== "#ffffff00" && value.hexa?.length === 9) {
-      if (value.hexa[value.hexa.length - 1] === "0") {
-        value.hexa = value.hexa.replace(/00$/, "FF");
+  const handleColorSketchChange = useCallback(
+    (value: ColorResult, oldValue: ColorResult) => {
+      // 点击面板选择颜色时不带透明度 这时就需要把后两位置FF
+      if (
+        value.hexa !== "#ffffff00" &&
+        value.hexa?.length === 9 &&
+        value?.hex !== oldValue?.hex // 判断是否只改变透明度
+      ) {
+        if (value.hexa[value.hexa.length - 1] === "0") {
+          value.hexa = value.hexa.replace(/00$/, "FF");
+        }
       }
-    }
-    onChange(value);
-  }, []);
+      onChange(value);
+    },
+    []
+  );
 
   const handleClick = useCallback((event: any) => {
     if (!childRef.current!.contains(event.target)) {
@@ -94,7 +101,7 @@ export function Colorpicker({
 
 interface ColorSketchProps {
   value: string;
-  onChange: (value: Record<string, any>) => void;
+  onChange: (value: ColorResult, oldValue: ColorResult) => void;
   open: boolean;
   positionElement: HTMLDivElement;
   childRef: React.RefObject<HTMLDivElement>;
