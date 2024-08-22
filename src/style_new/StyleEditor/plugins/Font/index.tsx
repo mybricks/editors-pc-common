@@ -224,9 +224,11 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
         res.push({ key: "lineHeight", value });
         setLineHeight(value);
       }
-      onChange(res);
+      if(res.length > 0) {
+        onChange(res);
+      }
     },
-    []
+    [lineHeight]
   );
 
   return (
