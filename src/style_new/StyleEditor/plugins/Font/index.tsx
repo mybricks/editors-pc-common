@@ -21,7 +21,7 @@ import uniq from "lodash/uniq";
 
 interface FontProps {
   value: CSSProperties;
-  onChange: (value: { key: string; value: any }) => void;
+  onChange: (value: { key: string; value: any } | Array<{ key: string; value: any }>) => void;
   config: {
     [key: string]: any;
   };
@@ -179,25 +179,28 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
       const [fontSizeValue, fontSizeUnit] = splitValueAndUnit(fontSize);
       const [lineHeightValue, lineHeightUnit] = splitValueAndUnit(lineHeight);
 
-      onChange({ key: "fontSize", value: fontSize });
-
       if (fontSizeUnit === "px") {
         const fontSizeNumber = Number(fontSizeValue);
         const lineHeightNumber = fontSizeNumber + 8; // 根据fontSizeNumber需设置的行高
         if (lineHeightUnit === "px") {
-          onLineHeightChange(`${lineHeightNumber}px`);
+          onLineHeightChange(`${lineHeightNumber}px`, fontSize);
         } else if (lineHeightUnit === "%") {
           onLineHeightChange(
             `${parseFloat(
               ((lineHeightNumber * 100) / fontSizeNumber).toFixed(4)
-            )}%`
+            )}%`,
+            fontSize
           );
         } else if (!isNaN(Number(lineHeight))) {
           // parseFloat和toFixed保留四位小数并去除尾0 防止上下键无法增减
           onLineHeightChange(
-            `${parseFloat((lineHeightNumber / fontSizeNumber).toFixed(4))}`
+            `${parseFloat((lineHeightNumber / fontSizeNumber).toFixed(4))}`,
+            fontSize
           );
         }
+      } else {
+        // 需要修改lineHeight就合并，不需要就单独修改
+        onChange({ key: "fontSize", value: fontSize });
       }
 
       // if (fontSizeUnit === lineHeightUnit && lineHeightUnit === "px") {
@@ -211,12 +214,22 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
     [lineHeight]
   );
 
-  const onLineHeightChange = useCallback((value: string | number) => {
-    if (lineHeight !== value) {
-      onChange({ key: "lineHeight", value });
-      setLineHeight(value);
-    }
-  }, []);
+  const onLineHeightChange = useCallback(
+    (value: string | number, fontSize?: string | number) => {
+      const res = [];
+      if (fontSize) {
+        res.push({ key: "fontSize", value: fontSize });
+      }
+      if (lineHeight !== value) {
+        res.push({ key: "lineHeight", value });
+        setLineHeight(value);
+      }
+      if(res.length > 0) {
+        onChange(res);
+      }
+    },
+    [lineHeight]
+  );
 
   return (
     <Panel title="字体" showTitle={showTitle}>
