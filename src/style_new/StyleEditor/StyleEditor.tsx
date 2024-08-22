@@ -72,8 +72,8 @@ export default function ({
 
       keyToOption[pluginKey] = option;
 
-      return true
-    })
+      return true;
+    });
 
     const showTitle = filterEditorKeys.length > 1;
     //const showTitle = true;
@@ -92,7 +92,7 @@ export default function ({
           showTitle={showTitle}
         />
       ) : null;
-    })
+    });
 
     // 固定位置排序
     return fixedOrderKeys.map((pluginKey) => {
