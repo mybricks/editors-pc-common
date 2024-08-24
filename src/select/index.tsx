@@ -42,12 +42,12 @@ function getRelOptions(options: Function) {
     } = opts
     const relSelectOptions = Array.isArray(selectOptions) ? selectOptions.filter(option => {
       if (!option) return false;
-
+      
       const {label, value, options} = option;
-
+      
       return typeof label === 'string' && (typeof value !== 'undefined' || typeof options !== 'undefined');
     }) : [];
-
+    
     return {
       selectOptions: relSelectOptions,
       defaultSelectOptions: relSelectOptions,
@@ -65,66 +65,66 @@ function getRelOptions(options: Function) {
   }
 }
 
-export default function ({editConfig}: EditorProps): any {
+export default function select({editConfig}: EditorProps) {
   const {value, options} = editConfig;
   const realOptions = getRelOptions(options)
   const model: Ctx = useObservable(Ctx, next => {
     // 获取初始化配置
-    const val = value.get();
-
+    const val = value.get()
+    
     next({
       anyOption: null,
       val,
       value,
       relOptions: realOptions
     });
-  });
-	
-	/** 响应外层 options 变化 */
-	useEffect(() => {
-		model.relOptions = realOptions;
-	}, [JSON.stringify(realOptions)]);
-	
-	/** 响应外层值变化 */
-	useEffect(() => {
-		model.val = value.get();
-	}, [JSON.stringify(value.get())]);
-
+  })
+  
+  /** 响应外层 options 变化 */
+  useEffect(() => {
+    model.relOptions = realOptions;
+  }, [JSON.stringify(realOptions)]);
+  
+  /** 响应外层值变化 */
+  // useEffect(() => {
+  //   model.val = value.get();
+  // }, [JSON.stringify(value.get())]);
+  
   const onChange: (val: any) => void = useCallback((val) => {
     model.val = val;
     model.value.set(model.val);
     // 值变更后重新获取options配置，options可能是函数，内部动态return配置项
     model.relOptions = getRelOptions(options);
   }, []);
-
+  
   const onSearch: (input: string) => void = useCallback((input) => {
     const {otherConfig, useAnyToEnter, defaultSelectOptions} = model.relOptions;
-
+    
     let hasSameOption = false;
-
+    
     // 没有配置filterOption函数并缺useAnyToEnter为真时
     if (typeof otherConfig.filterOption !== 'function' && useAnyToEnter) {
       const options: SelectOptions = defaultSelectOptions.filter(({label}) => {
         const relLabel = label.toLowerCase();
         const relInput = input.toLowerCase();
-
+        
         if (!hasSameOption && label === input) {
           hasSameOption = true;
         }
-
+        
         return relLabel.indexOf(relInput) >= 0;
       });
-
+      
       if (!hasSameOption && input) {
         options.unshift({label: input, value: input});
       }
-
+      
       model.relOptions.selectOptions = options;
     }
   }, []);
-
+  
   const showSearch = model.relOptions.showSearch || model.relOptions.useAnyToEnter;
-
+  
   return (
     <div className={`${css['editor-select']} fangzhou-theme`}>
       <Select

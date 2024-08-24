@@ -53,7 +53,7 @@ function Fn({options, model}) {
           }
         )
       ) : (
-        <div>数据不合法</div>
+        <div>options配置错误</div>
       )}
     </div>
   );

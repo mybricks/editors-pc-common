@@ -1,4 +1,4 @@
-import { EditorProps } from "./interface";
+import {EditorProps} from "./interface";
 import EditorCharacter from "./character";
 import EditorSelect from "./select";
 import EditorColorPicker from "./colorPicker";
@@ -13,7 +13,6 @@ import EditorAlign from "./align";
 import EditorBetween from "./between";
 import EditorIcon from "./icon";
 import EditorRadio from "./radio";
-import EditorCode from "./jsCoder";
 import EditorMap from "./map";
 import EditorRichText from "./richText";
 import EditorDragList from "./draglist";
@@ -22,7 +21,7 @@ import EditorArray from "./array";
 import expressionCodeEditor from "./expressionCode";
 import EditorArrayCheckbox from "./arrayCheckbox";
 import EditorMapCheckbox from "./mapCheckbox";
-import { typeCheck } from "./utils";
+import {typeCheck} from "./utils";
 import EditorRender from "./editorRender";
 import EditorValueSelect from "./valueSelect";
 import Expression from "./_expression";
@@ -30,7 +29,6 @@ import ComSelector from "./comSelector";
 import EditorLayout from "./layout";
 import EditorStyle from "./style";
 import EditorStyleC from "./style_c";
-import EditorStyleProperties from "./styleProperties";
 import EditorTypeChange from "./_typeChange";
 import EditorI18nInput from "./i18nInput";
 import EditorSceneSelector from "./sceneSelector";
@@ -39,10 +37,10 @@ import Code from "./code";
 import Tree from "./tree";
 import EditorLine from "./line";
 import "./index.less";
-export { config } from "./configProvider";
-
 import StyleNew from "./style_new";
 import CssEditor from "./css-editor";
+
+export { config } from "./configProvider";
 
 const PcEditorMap: any = {
   ALIGN: EditorAlign,
@@ -88,7 +86,12 @@ const PcEditorMap: any = {
 
 function PcEditor(props: EditorProps): any {
   const { editConfig } = props;
-
+  
+  // console.log(editConfig)
+  // if(editConfig.type==='code'){
+  //   debugger
+  // }
+  
   let editor;
   try {
     editor = PcEditorMap[editConfig.type.toUpperCase()] || editConfig.render;
@@ -97,7 +100,9 @@ function PcEditor(props: EditorProps): any {
   }
 
   if (typeCheck(editor, "function")) {
-    return editor(props);
+    // const Editor = editor
+    // return <Editor {...props}/>
+    return editor(props)
   }
 
   if (typeCheck(editor, "object") && typeCheck(editor.render, "function")) {
