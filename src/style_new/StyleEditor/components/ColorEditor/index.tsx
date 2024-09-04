@@ -161,6 +161,28 @@ export function ColorEditor({
     }
   }, [state.value, state.nonColorValue]);
 
+  useEffect(() => {
+    const { options, nonColorValue, finalValue } = state;
+    if (nonColorValue && options.length > 0) {
+      const foundOption = options.find(
+        (option) =>
+          option.options &&
+          option.options?.some((item) => item?.value === finalValue)
+      );
+
+      if (foundOption && foundOption?.options) {
+        const matchedItem = foundOption?.options.find(
+          (item) => item?.value === finalValue
+        );
+        if (matchedItem) {
+          setCheckColor(
+            matchedItem?.value + matchedItem?.label + matchedItem?.resetValue
+          );
+        }
+      }
+    }
+  }, [state.finalValue, state.nonColorValue]);
+
   const fixHex = (hex: string) => {
     if (hex[hex.length - 1] === "0") {
       return hex.replace(/00$/, "FF");
