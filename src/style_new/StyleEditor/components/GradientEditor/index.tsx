@@ -52,12 +52,25 @@ export function GradientEditor({
       if (type === "linear" && direction) {
         setDeg(parseInt(direction));
       }
-      setStops(stops);
+      setStops(
+        stops.sort(
+          (a, b) => a.position && b.position && a.position - b.position
+        )
+      );
     }
   }, [defaultValue]);
 
   const addColor = useCallback(() => {
-    // setColors([...colors, "#ffffff"]);
+    const { color, position } = stops[stops.length - 1];
+    setStops([
+      ...stops,
+      {
+        // 可以继续对齐fimga
+        color: color,
+        position: position + 1 <= 100 ? position + 1 : 100,
+      },
+    ]);
+    handleChange();
   }, [stops]);
 
   const removeColor = (index: number) => {
@@ -121,7 +134,7 @@ export function GradientEditor({
             />
           </div>
         )}
-        <Panel.Item style={{ flex: 1 }}>
+        <Panel.Item style={{ flex: 1 }} onClick={addColor}>
           <AddButton />
         </Panel.Item>
       </Panel.Content>
