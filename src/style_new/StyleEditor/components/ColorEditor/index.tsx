@@ -142,7 +142,7 @@ export function ColorEditor({
 
   const handleColorpickerChange = useCallback((color: Record<string, any>) => {
     const hex = getHex(color.hexa);
-    
+
     dispatch({
       value: hex,
       nonColorValue: false,
@@ -195,6 +195,7 @@ export function ColorEditor({
   }, [state.value, state.finalValue]);
 
   const [userInput, setUserInput] = useState(colorString);
+  const [checkColor, setCheckColor] = useState<string>("");
   const isFocus = useRef(false);
   useEffect(() => {
     if (!isFocus.current) {
@@ -397,19 +398,24 @@ export function ColorEditor({
     );
   }, []);
 
-  const onPresetColorChange = useCallback((value: any) => {
-    onChange(color2rgba(value));
+  const onPresetColorChange = useCallback(
+    (value: any, label: any, resetValue: any) => {
+      onChange(color2rgba(value));
 
-    const option = state.optionsValueToAllMap[value];
+      const option = state.optionsValueToAllMap[value];
 
-    dispatch({
-      nonColorValue: true,
-      value: option.label || value,
-      finalValue: option.resetValue || "",
-    });
+      dispatch({
+        nonColorValue: true,
+        value: option.label || value,
+        finalValue: option.resetValue || "",
+      });
 
-    // setOpen(false)
-  }, []);
+      setCheckColor(value + label + resetValue);
+
+      // setOpen(false)
+    },
+    []
+  );
 
   const handleClick = useCallback(() => {
     setOpen(false);
@@ -447,7 +453,7 @@ export function ColorEditor({
       {show &&
         createPortal(
           <PresetColorPanel
-            // value={value}
+            checkColor={checkColor}
             options={state.options}
             positionElement={presetRef.current!}
             open={open}
@@ -495,10 +501,11 @@ function PresetColorPanel({
   positionElement,
   onChange,
   options,
+  checkColor,
 }: {
   open: boolean;
   options: ColorOptions;
-  onChange: (value: any) => void;
+  onChange: (value: any, label: any, resetValue: any) => void;
   [k: string]: any;
 }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -539,9 +546,12 @@ function PresetColorPanel({
     }
   }, [open]);
 
-  const onColorCircelClick = useCallback(({ value }: Record<string, any>) => {
-    onChange(value);
-  }, []);
+  const onColorCircelClick = useCallback(
+    ({ value, label, resetValue }: Record<string, any>) => {
+      onChange(value, label, resetValue);
+    },
+    []
+  );
 
   return (
     <div ref={ref} className={css.panel} onClick={(e) => e.stopPropagation()}>
@@ -565,7 +575,12 @@ function PresetColorPanel({
                       {/* TODO: 临时先用antd组件 */}
                       <Tooltip title={label}>
                         <div
-                          className={css.circel}
+                          className={`${css.circel} ${
+                            checkColor &&
+                            value + label + resetValue === checkColor
+                              ? css.checked
+                              : ""
+                          }`}
                           style={{ backgroundColor: value }}
                           onClick={() =>
                             onColorCircelClick({ label, value, resetValue })
