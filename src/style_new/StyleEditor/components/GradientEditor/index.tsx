@@ -4,12 +4,7 @@ import React, {
   useState,
   useEffect,
   useCallback,
-  CSSProperties,
 } from "react";
-
-import ColorUtil from "color";
-
-import { Slider, Tooltip } from "antd";
 
 import { ColorEditor, InputNumber } from "../../components";
 import { Panel } from "../";
@@ -17,18 +12,11 @@ import { Panel } from "../";
 import css from "./index.less";
 import { Radio } from "antd";
 import { AddButton, MinusButton } from "./icon";
-
-interface GradientEditorProps {
-  defaultValue?: string;
-  style?: CSSProperties;
-  onChange?: (value: any) => void;
-  options?: any[];
-}
-
-interface GradientStop {
-  color: string;
-  position: number;
-}
+import {
+  GradientEditorProps,
+  GradientStop,
+  defalutGradientStops,
+} from "./constants";
 
 export function GradientEditor({
   defaultValue,
@@ -39,13 +27,8 @@ export function GradientEditor({
   const [shapeType, setShapeType] = useState("ellipse");
   const [deg, setDeg] = useState(90);
   const [stops, setStops] = useState<GradientStop[]>(
-    options || [
-      { color: "#ffffff", position: 0 },
-      { color: "#ffffff", position: 50 },
-    ]
+    options || defalutGradientStops
   );
-
-  const [current, setCurrent] = useState<GradientStop>();
 
   useEffect(() => {
     if (defaultValue) {
@@ -57,14 +40,16 @@ export function GradientEditor({
         setShapeType(direction);
       }
       if (stops.length > 0) {
-        setStops(
-          stops.sort(
-            (a, b) => a.position && b.position && a.position - b.position
-          )
-        );
+        setStops(stopSort(stops));
       }
     }
   }, [defaultValue]);
+
+  const stopSort = useCallback((arr: GradientStop[]) => {
+    return arr.sort(
+      (a, b) => a.position && b.position && a.position - b.position
+    );
+  }, []);
 
   const addColor = useCallback(() => {
     const { color = "#ffffff", position = 50 } = stops[stops.length - 1] || {};
@@ -108,11 +93,12 @@ export function GradientEditor({
   }, [finalValue, gradientType, deg, shapeType, stops]);
 
   const changeProperty = useCallback(
-    (property: string, value: any, index: number) => {
+    (property: string, value: any, index: number, isSort = false) => {
       setStops((prevStops) => {
-        return prevStops.map((stop, i) =>
+        const temp = prevStops.map((stop, i) =>
           i === index ? { ...stop, [property]: value } : stop
         );
+        return isSort ? stopSort(temp) : temp;
       });
       handleChange();
     },
@@ -134,21 +120,65 @@ export function GradientEditor({
     [onChange, handleChange]
   );
 
+  const [activeStopPosition, setActiveStopPosition] = useState<number | null>(
+    null
+  );
+  const previewRef = useRef<HTMLDivElement>(null);
+
+  const handlePreviewClick = (event: React.MouseEvent<HTMLDivElement>) => {
+    const rect = previewRef.current?.getBoundingClientRect();
+    if (!rect) return;
+
+    const x = event.clientX - rect.left;
+    const position = Math.floor((x / rect.width) * 100);
+    const newStop = { color: "#ffffff", position };
+    setStops((prevStops) => {
+      prevStops.push(newStop);
+      return stopSort(prevStops);
+    });
+    setActiveStopPosition(position);
+  };
+
   return (
-    <div style={{ width: "100%" }}>
+    <div style={{ width: "100%", marginTop: 12 }}>
       <div
         className={css.preview}
         style={{ backgroundImage: finalValue }}
-        // ref={previewRef}
+        ref={previewRef}
+        onClick={handlePreviewClick}
       >
-        {stops.map((stop, index) => (
-          <div
-            key={index}
-            // className={`stop-handle ${index === activeStop ? "active" : ""}`}
-            style={{ left: `${stop.position}%`, backgroundColor: stop.color }}
-            // onMouseDown={handleMouseDown(index)}
-          />
-        ))}
+        {stops.map((stop, index) => {
+          const { position, color } = stop;
+          return (
+            <div
+              key={position + color}
+              draggable="true"
+              className={css.stop}
+              style={{ left: `${position}%` }}
+              onClick={(e) => {
+                setActiveStopPosition(position);
+                e.stopPropagation(); // 阻止事件冒泡
+              }}
+              onDragStart={(e) => {
+                e.stopPropagation();
+                setActiveStopPosition(position);
+              }}
+              onDragEnd={(e) => {
+                console.log(e);
+                setActiveStopPosition(null);
+              }}
+            >
+              <div
+                key={index}
+                className={`${css.stopHandle} ${
+                  position === activeStopPosition ? css.active : ""
+                }`}
+              >
+                <div style={{ backgroundColor: color }}></div>
+              </div>
+            </div>
+          );
+        })}
       </div>
       <div className={css.top}>
         <RadioGroup
@@ -198,20 +228,27 @@ export function GradientEditor({
                   defaultValue={color}
                   style={{ flex: 8 }}
                   // key={color} // 可以解决排序color不更新问题但是会导致没法一直改颜色
-                  onChange={(color) => changeProperty("color", color, index)}
+                  onChange={(color) => {
+                    changeProperty("color", color, index);
+                    setActiveStopPosition(position);
+                  }}
                 />
                 <InputNumber
                   tip="位置"
                   defaultValue={position}
-                  onChange={(position) =>
+                  onChange={(position) => {
+                    const newPosition = Number(position);
                     changeProperty(
                       "position",
-                      Number(position) > 100 ? 100 : position,
-                      index
-                    )
-                  }
+                      newPosition > 100 ? 100 : newPosition,
+                      index,
+                      true
+                    );
+                    setActiveStopPosition(Number(newPosition));
+                  }}
                   style={{ flex: 3 }}
                   type={"number"}
+                  defaultUnitValue=""
                 />
                 <Panel.Item
                   style={{ width: 30, padding: 0 }}

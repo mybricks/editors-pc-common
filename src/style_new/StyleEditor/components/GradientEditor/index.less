@@ -1,7 +1,55 @@
 .preview {
   height: 12px;
-  margin-bottom: 6px;
+  margin-top: 16px;
+  margin-bottom: 4px;
+  border-radius: 4px;
+  position: relative;
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  cursor: pointer;
+
+  .stop {
+    z-index: 3;
+    position: absolute;
+    bottom: 12px;
+    .stopHandle {
+      width: 24px;
+      height: 24px;
+      padding: 2px;
+      border-radius: 2px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      border: 1px solid #e6e6e6;
+      background-color: #ffffff;
+
+  
+      div {
+        overflow: hidden;
+        position: relative;
+        flex-shrink: 0;
+        height: 16px;
+        width: 16px;
+      }
+    }
+    .active {
+      border-color: #FA6400;
+    }
+  }
+  .stop::after {
+    content: "";
+    position: absolute;
+    width: 0;
+    height: 0;
+    right: 9px;
+    border-width: 3px;
+    border-style: solid;
+    border-color: transparent;
+    border-top-color: #ffffff;
+  }
 }
+
 .top {
   display: flex;
   align-items: center;
