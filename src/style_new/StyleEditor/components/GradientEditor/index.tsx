@@ -6,16 +6,19 @@ import React, {
   useCallback,
 } from "react";
 
-import { ColorEditor, InputNumber } from "../../components";
-import { Panel } from "../";
+import { ColorEditor, InputNumber, Panel } from "../index";
 
 import css from "./index.less";
 import { Radio } from "antd";
 import { AddButton, MinusButton } from "./icon";
 import {
-  GradientEditorProps,
+  ShapeType,
+  GradientType,
   GradientStop,
+  parseGradient,
+  GradientEditorProps,
   defalutGradientStops,
+  findColorByPosition,
 } from "./constants";
 
 export function GradientEditor({
@@ -23,12 +26,14 @@ export function GradientEditor({
   onChange,
   options = [],
 }: GradientEditorProps) {
-  const [gradientType, setGradientType] = useState("linear");
-  const [shapeType, setShapeType] = useState("ellipse");
+  const [gradientType, setGradientType] = useState<GradientType>("linear");
+  const [shapeType, setShapeType] = useState<ShapeType>("ellipse");
   const [deg, setDeg] = useState(90);
   const [stops, setStops] = useState<GradientStop[]>(
     options || defalutGradientStops
   );
+  const [activeStopPosition, setActiveStopPosition] = useState<number>(-1);
+  const previewRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (defaultValue) {
@@ -37,7 +42,7 @@ export function GradientEditor({
       if (type === "linear" && direction) {
         setDeg(parseInt(direction));
       } else if (direction) {
-        setShapeType(direction);
+        setShapeType(direction as ShapeType);
       }
       if (stops.length > 0) {
         setStops(stopSort(stops));
@@ -78,17 +83,12 @@ export function GradientEditor({
       gradientType === "linear" ? deg + "deg" : shapeType
     }${stops.map((stop) => `, ${stop.color} ${stop.position}%`).join("")})`;
     const newValue = `${gradientType}-gradient${colors}`;
-    console.log("[96m [ newValue ]-102-newValue/index.tsx」 [0m", newValue);
     return newValue;
   }, [gradientType, deg, shapeType, stops]);
 
   const handleChange = useCallback(() => {
     if (onChange) {
       onChange(finalValue);
-      console.log(
-        "[96m [ finalValue ]-102-「GradientEditor/index.tsx」 [0m",
-        finalValue
-      );
     }
   }, [finalValue, gradientType, deg, shapeType, stops]);
 
@@ -106,24 +106,19 @@ export function GradientEditor({
   );
 
   const changeGradientType = useCallback(
-    (value: string) => {
+    (value: GradientType) => {
       setGradientType(value);
       handleChange();
     },
     [onChange, handleChange]
   );
   const changeShapeType = useCallback(
-    (value: string) => {
+    (value: ShapeType) => {
       setShapeType(value);
       handleChange();
     },
     [onChange, handleChange]
   );
-
-  const [activeStopPosition, setActiveStopPosition] = useState<number | null>(
-    null
-  );
-  const previewRef = useRef<HTMLDivElement>(null);
 
   const handlePreviewClick = (event: React.MouseEvent<HTMLDivElement>) => {
     const rect = previewRef.current?.getBoundingClientRect();
@@ -131,7 +126,11 @@ export function GradientEditor({
 
     const x = event.clientX - rect.left;
     const position = Math.floor((x / rect.width) * 100);
-    const newStop = { color: "#ffffff", position };
+    const color =
+      gradientType === "linear"
+        ? findColorByPosition(stops, position) || "#ffffff"
+        : "#ffffff";
+    const newStop = { color, position };
     setStops((prevStops) => {
       prevStops.push(newStop);
       return stopSort(prevStops);
@@ -165,7 +164,7 @@ export function GradientEditor({
               }}
               onDragEnd={(e) => {
                 console.log(e);
-                setActiveStopPosition(null);
+                setActiveStopPosition(-1);
               }}
             >
               <div
@@ -263,54 +262,6 @@ export function GradientEditor({
       </div>
     </div>
   );
-}
-
-// 解析颜色
-function parseGradient(gradientString: string): {
-  type: string;
-  direction?: string;
-  stops: GradientStop[];
-} {
-  let match;
-  let direction;
-
-  // 匹配 linear-gradient
-  match = gradientString.match(/(\d+deg),\s*(.+)/);
-  if (match) {
-    const direction = match[1].trim();
-    const type = "linear";
-    return { type, direction, stops: parseStops(match[2].trim()) };
-  } else {
-    // 匹配 radial-gradient
-    match = gradientString.match(/radial-gradient\(([^)]+)\)\s*,?\s*(.*)/);
-    if (match) {
-      const match1 = match[1].split(", ");
-      direction = match1[0];
-      gradientString = match1[1] + match[2];
-      const type = "radial";
-      return { type, direction, stops: parseStops(gradientString) };
-    }
-  }
-  return { type: "linear", stops: [] };
-}
-
-function parseStops(stopsString: string): GradientStop[] {
-  const stops = [];
-  const colors = stopsString.split(", ");
-  let currentPercentage = 0;
-
-  for (let i = 0; i < colors.length; i++) {
-    const colorStop = colors[i].trim();
-    const match = colorStop.match(/(.*)\s+(\d+)?%/);
-    if (match) {
-      const color = match[1];
-      const position = match[2] ? parseInt(match[2], 10) : currentPercentage;
-      stops.push({ color, position });
-      currentPercentage = position;
-    }
-  }
-
-  return stops;
 }
 
 const RadioGroup = ({
