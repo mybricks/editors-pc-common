@@ -112,17 +112,15 @@ export function Background({
           />
         )}
       </Panel.Content>
-      <Panel.Content>
-        <GradientEditor
-          // defaultValue={
-          //   "linear-gradient(91deg, rgba(165,164,144,1) 0%, rgba(166,140,120,1) 22%, rgba(166,150,113,1) 29%, rgba(167,145,102,1) 39%, rgba(167,143,98,1) 43%, rgba(168,139,90,1) 50%, rgba(169,132,76,1) 63%, rgba(170,125,61,1) 77%, rgba(171,120,50,1) 87%, rgba(0,0,0,1) 100%);"
-          // }
-          defaultValue={defaultBackgroundValue.backgroundImage}
-          onChange={(backgroundImage) => {
-            onChange({ key: "backgroundImage", value: backgroundImage });
-          }}
-        />
-      </Panel.Content>
+      <GradientEditor
+        // defaultValue={
+        //   "linear-gradient(91deg, rgba(165,164,144,1) 0%, rgba(166,140,120,1) 22%, rgba(166,150,113,1) 29%, rgba(167,145,102,1) 39%, rgba(167,143,98,1) 43%, rgba(168,139,90,1) 50%, rgba(169,132,76,1) 63%, rgba(170,125,61,1) 77%, rgba(171,120,50,1) 87%, rgba(0,0,0,1) 100%);"
+        // }
+        defaultValue={defaultBackgroundValue.backgroundImage}
+        onChange={(backgroundImage) => {
+          onChange({ key: "backgroundImage", value: backgroundImage });
+        }}
+      />
       {/* {disableBackgroundImage ? null : (
         <Panel.Content>
           <Image

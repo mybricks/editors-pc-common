@@ -16,3 +16,15 @@ export const AddButton = () => (
     ></path>
   </svg>
 );
+// 减少按钮
+export const MinusButton = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" height="30" viewBox="0 0 32 32">
+    <path
+      fill="#000"
+      fill-opacity=".9"
+      fill-rule="evenodd"
+      stroke="none"
+      d="M21.5 16.5h-11v-1h11z"
+    ></path>
+  </svg>
+);

@@ -1,3 +1,7 @@
+.preview {
+  height: 12px;
+  margin-bottom: 6px;
+}
 .top {
   display: flex;
   align-items: center;
@@ -7,6 +11,10 @@
 
   .radioGroup {
     flex: 3;
+
+    label {
+      background-color: #efefef;
+    }
   }
   svg {
     cursor: pointer;
@@ -17,4 +25,16 @@
   max-height: 200px;
   overflow-y: auto;
   overflow-x: hidden;
+
+  .disabled {
+    opacity: 0.5;
+    svg {
+      cursor: not-allowed;
+    }
+    cursor: not-allowed;
+  }
+
+  svg {
+    cursor: pointer;
+  }
 }
