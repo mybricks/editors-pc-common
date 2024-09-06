@@ -152,7 +152,9 @@ export function GradientEditor({
             <div
               key={position + color}
               draggable="true"
-              className={css.stop}
+              className={`${css.stop} ${
+                position === activeStopPosition ? css.stopActive : ""
+              }`}
               style={{ left: `${position}%` }}
               onClick={(e) => {
                 setActiveStopPosition(position);
@@ -164,7 +166,6 @@ export function GradientEditor({
               }}
               onDragEnd={(e) => {
                 console.log(e);
-                setActiveStopPosition(-1);
               }}
             >
               <div
@@ -198,6 +199,7 @@ export function GradientEditor({
             }}
             style={{ flex: 2 }}
             type={"number"}
+            defaultUnitValue=""
           />
         ) : (
           <RadioGroup

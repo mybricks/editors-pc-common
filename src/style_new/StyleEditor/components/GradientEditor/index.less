@@ -12,7 +12,7 @@
   .stop {
     z-index: 3;
     position: absolute;
-    bottom: 12px;
+    bottom: 13px;
     .stopHandle {
       width: 24px;
       height: 24px;
@@ -35,6 +35,7 @@
     }
     .active {
       border-color: #FA6400;
+      z-index: 5;
     }
   }
   .stop::after {
@@ -46,7 +47,11 @@
     border-width: 3px;
     border-style: solid;
     border-color: transparent;
-    border-top-color: #ffffff;
+    border-top-color: #e6e6e6;
+  }
+  .stopActive::after {
+    border-top-color: #FA6400;
+    z-index: 5;
   }
 }
 
