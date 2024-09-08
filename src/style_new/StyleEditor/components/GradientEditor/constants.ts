@@ -1,6 +1,6 @@
 import { CSSProperties } from "react";
 import ColorUtil from "color";
-
+import { uuid } from "../../../../utils";
 interface GradientEditorProps {
   defaultValue?: string;
   style?: CSSProperties;
@@ -11,11 +11,13 @@ interface GradientEditorProps {
 interface GradientStop {
   color: string;
   position: number;
+  id: string;
+  offset: number;
 }
 
 const defalutGradientStops: GradientStop[] = [
-  { color: "#ffffff", position: 0 },
-  { color: "#ffffff", position: 50 },
+  { color: "#ffffff", position: 0, id: uuid(), offset: 0 },
+  { color: "#ffffff", position: 50, id: uuid(), offset: 0 },
 ];
 type GradientType = "linear" | "radial";
 type ShapeType = "ellipse" | "radial";
@@ -52,7 +54,7 @@ function interpolateColor(
   return targetColorHex;
 }
 function findColorByPosition(
-  colorsArray: { color: string; position: number }[],
+  colorsArray: GradientStop[],
   position: number
 ): string {
   // 检查位置是否在数组范围内
@@ -119,7 +121,7 @@ function parseStops(stopsString: string): GradientStop[] {
     if (match) {
       const color = match[1];
       const position = match[2] ? parseInt(match[2], 10) : currentPercentage;
-      stops.push({ color, position });
+      stops.push({ color, position, id: uuid(), offset: 0 });
       currentPercentage = position;
     }
   }
