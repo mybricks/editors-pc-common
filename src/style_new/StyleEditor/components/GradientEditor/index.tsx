@@ -71,9 +71,12 @@ export function GradientEditor({
     ]);
   }, [stops]);
 
-  const removeColor = useCallback((id: string) => {
-    changeStops(stops.filter(({ id: _id }) => id !== _id));
-  }, []);
+  const removeColor = useCallback(
+    (id: string) => {
+      changeStops(stops.filter(({ id: _id }) => id !== _id));
+    },
+    [stops]
+  );
 
   const generateGradientValue = (
     deg: number,
@@ -295,6 +298,7 @@ const RadioGroup = ({
 }) => (
   <div className={css.radioGroup} style={style}>
     <Radio.Group
+      key={value}
       options={options}
       buttonStyle={"solid"}
       onChange={onChange}
