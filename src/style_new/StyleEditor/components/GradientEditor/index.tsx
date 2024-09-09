@@ -1,10 +1,4 @@
-import React, {
-  useRef,
-  useMemo,
-  useState,
-  useEffect,
-  useCallback,
-} from "react";
+import React, { useRef, useState, useEffect, useCallback } from "react";
 
 import { ColorEditor, InputNumber, Panel } from "../index";
 
@@ -101,10 +95,10 @@ export function GradientEditor({
   }, [finalValue, onChange]);
 
   const changeProperty = useCallback(
-    (property: string, value: any, index: number, isSort = false) => {
+    (property: string, value: any, id: string, isSort = false) => {
       setStops((prevStops) => {
         const temp = prevStops.map((stop, i) =>
-          i === index ? { ...stop, [property]: value } : stop
+          stop.id === id ? { ...stop, [property]: value } : stop
         );
         return isSort ? stopSort(temp) : temp;
       });
@@ -251,7 +245,7 @@ export function GradientEditor({
                   style={{ flex: 8 }}
                   // key={color} // 可以解决排序color不更新问题但是会导致没法一直改颜色
                   onChange={(color) => {
-                    changeProperty("color", color, index);
+                    changeProperty("color", color, id);
                     setActiveStop(id);
                   }}
                 />
@@ -262,7 +256,7 @@ export function GradientEditor({
                   onChange={(position) => {
                     let newPosition = Number(position);
                     newPosition = newPosition > 100 ? 100 : newPosition;
-                    changeProperty("position", newPosition, index, true);
+                    changeProperty("position", newPosition, id, true);
                     setActiveStop(id);
                   }}
                   style={{ flex: 3 }}

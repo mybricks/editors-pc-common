@@ -4,7 +4,7 @@ import { uuid } from "../../../../utils";
 import chroma from "chroma-js";
 import css from "./index.less";
 
-const maxOffset = 261 - 60;
+const maxOffset = 261 - 75;
 const minOffset = 0;
 
 function computePercentage(offset: number) {
