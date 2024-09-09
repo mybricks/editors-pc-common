@@ -19,6 +19,8 @@ import {
   GradientEditorProps,
   defalutGradientStops,
   findColorByPosition,
+  shapeOptions,
+  gradientOptions,
 } from "./constants";
 import { uuid } from "../../../../utils";
 import { GradientPanel } from "./GradientPanel";
@@ -48,20 +50,17 @@ export function GradientEditor({
         setStops(stopSort(stops));
       }
     }
-  }, []);
+  }, [defaultValue]);
 
-  const changeStops = useCallback(
-    (newStops: GradientStop[]) => {
-      setStops(stopSort(newStops));
-    },
-    [stops]
+  const changeStops = (newStops: GradientStop[]) => {
+    setStops(stopSort(newStops));
+  };
+
+  const stopSort = useCallback(
+    (arr: GradientStop[]) =>
+      arr.sort((a, b) => (a.position || 0) - (b.position || 0)),
+    []
   );
-
-  const stopSort = useCallback((arr: GradientStop[]) => {
-    return arr.sort(
-      (a, b) => a.position && b.position && a.position - b.position
-    );
-  }, []);
 
   const addColor = useCallback(() => {
     const { color = "#ffffff", position = 50 } = stops[stops.length - 1] || {};
@@ -85,35 +84,24 @@ export function GradientEditor({
     [stops]
   );
 
-  const finalValue = useMemo(() => {
-    const colors = `(${
-      gradientType === "linear" ? deg + "deg" : shapeType
-    }${stops.map((stop) => `, ${stop.color} ${stop.position}%`).join("")})`;
-    const newValue = `${gradientType}-gradient${colors}`;
-    return newValue;
-  }, [gradientType, deg, shapeType, stops]);
-
-  const finalValueRight = useMemo(() => {
-    const colors = `(90deg${stops
+  const generateGradientValue = (
+    deg: number,
+    gradientType: GradientType,
+    shapeType: ShapeType,
+    stops: GradientStop[]
+  ) => {
+    const direction = gradientType === "linear" ? `${deg}deg` : shapeType;
+    return `${gradientType}-gradient(${direction}${stops
       .map((stop) => `, ${stop.color} ${stop.position}%`)
       .join("")})`;
-    const newValue = `${gradientType}-gradient${colors}`;
-    return newValue;
-  }, [gradientType, deg, shapeType, stops]);
+  };
 
-  const handleChange = useCallback(() => {
-    const colors = `(${
-      gradientType === "linear" ? deg + "deg" : shapeType
-    }${stops.map((stop) => `, ${stop.color} ${stop.position}%`).join("")})`;
-    const newValue = `${gradientType}-gradient${colors}`;
-    if (onChange) {
-      onChange(newValue);
-    }
-  }, [finalValue, gradientType, deg, shapeType, stops]);
+  const finalValue = generateGradientValue(deg, gradientType, shapeType, stops);
+  const finalValueRight = generateGradientValue(90, "linear", shapeType, stops);
 
   useEffect(() => {
-    handleChange();
-  }, [finalValue, handleChange]);
+    onChange?.(finalValue);
+  }, [finalValue, onChange]);
 
   const changeProperty = useCallback(
     (property: string, value: any, index: number, isSort = false) => {
@@ -148,13 +136,8 @@ export function GradientEditor({
     setActiveStopPosition(position);
   };
 
-  return (
-    <div style={{ width: "100%", marginTop: 12 }}>
-      <GradientPanel
-        gradientColor={finalValueRight}
-        stops={stops}
-        setStops={changeStops}
-      />
+  const PanelRender = useCallback(() => {
+    return (
       <div
         className={css.preview}
         style={{ backgroundImage: finalValueRight }}
@@ -195,12 +178,20 @@ export function GradientEditor({
           );
         })}
       </div>
+    );
+  }, [stops, finalValueRight]);
+
+  return (
+    <div style={{ width: "100%", marginTop: 12 }}>
+      <GradientPanel
+        gradientColor={finalValueRight}
+        stops={stops}
+        setStops={changeStops}
+      />
+      {/* <PanelRender /> */}
       <div className={css.top}>
         <RadioGroup
-          options={[
-            { value: "linear", label: "线性" },
-            { value: "radial", label: "径向" },
-          ]}
+          options={gradientOptions}
           onChange={(value) => setGradientType(value.target.value)}
           value={gradientType}
         ></RadioGroup>
@@ -215,10 +206,7 @@ export function GradientEditor({
           />
         ) : (
           <RadioGroup
-            options={[
-              { value: "ellipse", label: "椭圆" },
-              { value: "circle", label: "圆形" },
-            ]}
+            options={shapeOptions}
             onChange={(value) => setShapeType(value.target.value)}
             value={shapeType}
           />
@@ -227,6 +215,7 @@ export function GradientEditor({
           <AddButton />
         </Panel.Item>
       </div>
+      {/* <StopsRender /> */}
       <div className={css.stops}>
         {stops?.length > 0 &&
           stops.map((stop, index) => {
@@ -250,7 +239,7 @@ export function GradientEditor({
                   onChange={(position) => {
                     let newPosition = Number(position);
                     newPosition = newPosition > 100 ? 100 : newPosition;
-                    changeProperty("position", position, index, true);
+                    changeProperty("position", newPosition, index, true);
                     setActiveStopPosition(Number(newPosition));
                   }}
                   style={{ flex: 3 }}

@@ -135,10 +135,10 @@ export function GradientPanel({
 
   return (
     <>
-      <div
+      {/* <div
         className={css["gradient-preview"]}
         style={{ background: gradientColor }}
-      />
+      /> */}
       {dragStartFlag && (
         <div
           className={css["overlay-when-drag"]}
@@ -146,44 +146,46 @@ export function GradientPanel({
           onMouseUp={onMouseUp}
         />
       )}
-      <div className={css["gradient-panel"]}>
-        <div
-          className={css["gradient-panel__slider"]}
-          style={{ background: gradientColorToRight }}
-          onClick={addMarker}
-        >
-          {stops.map(
-            ({ offset, color, id }, index: React.Key | null | undefined) => {
-              return (
+      {/* <div className={css["gradient-panel"]}> */}
+      <div
+        className={css["gradient-panel__slider"]}
+        style={{ background: gradientColorToRight }}
+        onClick={addMarker}
+      >
+        {stops.map(
+          (
+            { offset, color, id, position },
+            index: React.Key | null | undefined
+          ) => {
+            return (
+              <div
+                key={`${id}-${index}`}
+                style={{
+                  left: `${position}%`,
+                  zIndex: id === curElementId ? 20 : 1,
+                }}
+                onMouseDown={(e) => {
+                  onMouseDown(id, e);
+                }}
+                onMouseUp={onMouseUp}
+                onClick={(event) => event.stopPropagation()}
+                className={`${css["gradient-panel__slider-marker"]} ${
+                  id === curElementId
+                    ? css["gradient-panel__slider-marker_active"]
+                    : ""
+                }`}
+              >
                 <div
-                  key={id}
-                  style={{
-                    left: offset,
-                    zIndex: id === curElementId ? 20 : 1,
-                  }}
-                  onMouseDown={(e) => {
-                    onMouseDown(id, e);
-                  }}
-                  onMouseUp={onMouseUp}
-                  onClick={(event) => event.stopPropagation()}
-                  className={`${css["gradient-panel__slider-marker"]} ${
-                    id === curElementId
-                      ? css["gradient-panel__slider_active"]
-                      : ""
-                  }`}
-                >
-                  <div
-                    id={color}
-                    style={{ backgroundColor: color }}
-                    className={css["gradient-panel__slider-marker__color"]}
-                  />
-                </div>
-              );
-            }
-          )}
-        </div>
-        <div></div>
+                  id={color}
+                  style={{ backgroundColor: color }}
+                  className={`${css["gradient-panel__slider-marker__color"]}`}
+                />
+              </div>
+            );
+          }
+        )}
       </div>
+      {/* </div> */}
     </>
   );
 }

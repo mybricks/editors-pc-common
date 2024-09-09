@@ -22,6 +22,16 @@ const defalutGradientStops: GradientStop[] = [
 type GradientType = "linear" | "radial";
 type ShapeType = "ellipse" | "radial";
 
+const gradientOptions = [
+  { value: "linear", label: "线性" },
+  { value: "radial", label: "径向" },
+];
+
+const shapeOptions = [
+  { value: "ellipse", label: "椭圆" },
+  { value: "circle", label: "圆形" },
+];
+
 function interpolateColor(
   stop1: GradientStop,
   stop2: GradientStop,
@@ -131,4 +141,10 @@ function parseStops(stopsString: string): GradientStop[] {
 
 export type { GradientEditorProps, GradientStop, GradientType, ShapeType };
 
-export { defalutGradientStops, findColorByPosition, parseGradient };
+export {
+  defalutGradientStops,
+  findColorByPosition,
+  parseGradient,
+  shapeOptions,
+  gradientOptions,
+};
