@@ -1,10 +1,10 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { GradientStop } from "./constants";
 import { uuid } from "../../../../utils";
 import chroma from "chroma-js";
 import css from "./index.less";
 
-const maxOffset = 490 - 30;
+const maxOffset = 261 - 60;
 const minOffset = 0;
 
 function computePercentage(offset: number) {
@@ -28,6 +28,7 @@ export function GradientPanel({
   const [curElementId, setCurElementId] = useState<string | null>(null);
 
   const [moveMarkerEndTime, setMoveMarkerEndTime] = useState(-1);
+  const ref = useRef<HTMLDivElement>(null);
 
   const setGradientStopOffset = (offset: number) => {
     const temp = stops;
@@ -151,6 +152,7 @@ export function GradientPanel({
         className={css["gradient-panel__slider"]}
         style={{ background: gradientColorToRight }}
         onClick={addMarker}
+        ref={ref}
       >
         {stops.map(
           (

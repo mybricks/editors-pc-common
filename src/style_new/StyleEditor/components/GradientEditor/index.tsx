@@ -34,7 +34,7 @@ export function GradientEditor({
   const [shapeType, setShapeType] = useState<ShapeType>("ellipse");
   const [deg, setDeg] = useState(90);
   const [stops, setStops] = useState<GradientStop[]>(defalutGradientStops);
-  const [activeStopPosition, setActiveStopPosition] = useState<number>(-1);
+  const [activeStop, setActiveStop] = useState<string>("");
   const previewRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -63,7 +63,8 @@ export function GradientEditor({
   );
 
   const addColor = useCallback(() => {
-    const { color = "#ffffff", position = 50 } = stops[stops.length - 1] || {};
+    const { color = "rgba(255,255,255,1)", position = 50 } =
+      stops[stops.length - 1] || {};
     changeStops([
       ...stops,
       {
@@ -76,13 +77,9 @@ export function GradientEditor({
     ]);
   }, [stops]);
 
-  const removeColor = useCallback(
-    (index: number) => {
-      if (stops.length < 2) return;
-      changeStops(stops.filter((_, i) => i !== index));
-    },
-    [stops]
-  );
+  const removeColor = useCallback((id: string) => {
+    changeStops(stops.filter(({ id: _id }) => id !== _id));
+  }, []);
 
   const generateGradientValue = (
     deg: number,
@@ -126,14 +123,40 @@ export function GradientEditor({
     }
     const color =
       gradientType === "linear"
-        ? findColorByPosition(stops, position) || "#ffffff"
-        : "#ffffff";
-    const newStop = { color, position, id: uuid(), offset: 0 };
-    setStops((prevStops) => {
-      prevStops.push(newStop);
-      return stopSort(prevStops);
-    });
-    setActiveStopPosition(position);
+        ? findColorByPosition(stops, position) || "rgba(255,255,255,1)"
+        : "rgba(255,255,255,1)";
+    const id = uuid();
+    const newStop = { color, position, id, offset: 0 };
+    changeStops(stopSort([...stops, newStop]));
+    setActiveStop(id);
+  };
+
+  const onMouseDown = useCallback((id: any, event: { clientX: any }) => {
+    const { clientX } = event;
+    setActiveStop(id);
+    // setDragStartFlag(true);
+    // setDragStartOffset(clientX);
+    const temp = [...stops];
+    // setElementStartOffset(temp.find((stop) => stop.id === id)?.offset || 0);
+  }, []);
+
+  const onMouseMove = useCallback((event: { clientX: any }) => {
+    // if (!dragStartFlag) {
+    //   return;
+    // }
+    const { clientX } = event;
+    // const newOffset = elementStartOffset + (clientX - dragStartOffset);
+    // if (newOffset < minOffset || newOffset > maxOffset) {
+    //   return;
+    // }
+    // setGradientStopOffset(newOffset);
+  }, []);
+
+  const onMouseUp = (event: { stopPropagation: () => void }) => {
+    // setDragStartFlag(false);
+    // setMoveMarkerEndTime(+new Date());
+    setActiveStop("");
+    event.stopPropagation();
   };
 
   const PanelRender = useCallback(() => {
@@ -148,19 +171,19 @@ export function GradientEditor({
           const { position, color, id } = stop;
           return (
             <div
-              key={id}
+              key={`${id}-${index}`}
               draggable="true"
               className={`${css.stop} ${
-                position === activeStopPosition ? css.stopActive : ""
+                id === activeStop ? css.stopActive : ""
               }`}
               style={{ left: `${position}%` }}
               onClick={(e) => {
-                setActiveStopPosition(position);
+                setActiveStop(id);
                 e.stopPropagation(); // 阻止事件冒泡
               }}
               onDragStart={(e) => {
                 e.stopPropagation();
-                setActiveStopPosition(position);
+                setActiveStop(id);
               }}
               onDragEnd={(e) => {
                 console.log(e);
@@ -169,7 +192,7 @@ export function GradientEditor({
               <div
                 key={id}
                 className={`${css.stopHandle} ${
-                  position === activeStopPosition ? css.active : ""
+                  id === activeStop ? css.active : ""
                 }`}
               >
                 <div style={{ backgroundColor: color }}></div>
@@ -209,13 +232,13 @@ export function GradientEditor({
             options={shapeOptions}
             onChange={(value) => setShapeType(value.target.value)}
             value={shapeType}
+            style={{ display: "flex", justifyContent: "flex-end" }}
           />
         )}
         <Panel.Item style={{ width: 30, padding: 0 }} onClick={addColor}>
           <AddButton />
         </Panel.Item>
       </div>
-      {/* <StopsRender /> */}
       <div className={css.stops}>
         {stops?.length > 0 &&
           stops.map((stop, index) => {
@@ -229,7 +252,7 @@ export function GradientEditor({
                   // key={color} // 可以解决排序color不更新问题但是会导致没法一直改颜色
                   onChange={(color) => {
                     changeProperty("color", color, index);
-                    setActiveStopPosition(position);
+                    setActiveStop(id);
                   }}
                 />
                 <InputNumber
@@ -240,7 +263,7 @@ export function GradientEditor({
                     let newPosition = Number(position);
                     newPosition = newPosition > 100 ? 100 : newPosition;
                     changeProperty("position", newPosition, index, true);
-                    setActiveStopPosition(Number(newPosition));
+                    setActiveStop(id);
                   }}
                   style={{ flex: 3 }}
                   type={"number"}
@@ -248,7 +271,11 @@ export function GradientEditor({
                 />
                 <Panel.Item
                   style={{ width: 30, padding: 0 }}
-                  onClick={() => removeColor(index)}
+                  onClick={() => {
+                    if (stops.length > 2) {
+                      removeColor(id);
+                    }
+                  }}
                   className={stops.length <= 2 ? css.disabled : ""}
                 >
                   <MinusButton />
@@ -265,12 +292,14 @@ const RadioGroup = ({
   onChange,
   value,
   options,
+  style,
 }: {
   onChange: (value: any) => void;
   value: string;
   options: { value: string; label: string }[];
+  style?: React.CSSProperties;
 }) => (
-  <div className={css.radioGroup}>
+  <div className={css.radioGroup} style={style}>
     <Radio.Group
       options={options}
       buttonStyle={"solid"}

@@ -16,8 +16,8 @@ interface GradientStop {
 }
 
 const defalutGradientStops: GradientStop[] = [
-  { color: "#ffffff", position: 0, id: uuid(), offset: 0 },
-  { color: "#ffffff", position: 50, id: uuid(), offset: 0 },
+  { color: "rgba(255,255,255,1)", position: 0, id: uuid(), offset: 0 },
+  { color: "rgba(255,255,255,1)", position: 50, id: uuid(), offset: 0 },
 ];
 type GradientType = "linear" | "radial";
 type ShapeType = "ellipse" | "radial";
@@ -39,6 +39,9 @@ function interpolateColor(
 ): string {
   const { color: color1Hex, position: position1 } = stop1;
   const { color: color2Hex, position: position2 } = stop2;
+  if (!color1Hex || !color2Hex) {
+    return "rgba(255,255,255,1)";
+  }
   // 将颜色转换为 RGB 数组
   // @ts-ignore
   const color1RGB = ColorUtil(color1Hex).color;
@@ -112,7 +115,7 @@ function parseGradient(gradientString: string): {
     if (match) {
       const match1 = match[1].split(", ");
       direction = match1[0];
-      gradientString = match1[1] + match[2];
+      gradientString = match1[1] + ") " + match[2];
       const type = "radial";
       return { type, direction, stops: parseStops(gradientString) };
     }
