@@ -12,12 +12,11 @@ interface GradientStop {
   color: string;
   position: number;
   id: string;
-  offset: number;
 }
 
 const defalutGradientStops: GradientStop[] = [
-  { color: "rgba(255,255,255,1)", position: 0, id: uuid(), offset: 0 },
-  { color: "rgba(255,255,255,1)", position: 50, id: uuid(), offset: 0 },
+  { color: "rgba(255,255,255,1)", position: 0, id: uuid() },
+  { color: "rgba(255,255,255,1)", position: 50, id: uuid() },
 ];
 type GradientType = "linear" | "radial";
 type ShapeType = "ellipse" | "radial";
@@ -134,7 +133,7 @@ function parseStops(stopsString: string): GradientStop[] {
     if (match) {
       const color = match[1];
       const position = match[2] ? parseInt(match[2], 10) : currentPercentage;
-      stops.push({ color, position, id: uuid(), offset: 0 });
+      stops.push({ color, position, id: uuid() });
       currentPercentage = position;
     }
   }

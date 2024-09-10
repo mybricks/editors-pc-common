@@ -66,7 +66,6 @@ export function GradientEditor({
         color: color,
         position: position + 1 <= 100 ? position + 1 : 100,
         id: uuid(),
-        offset: 0,
       },
     ]);
   }, [stops]);
@@ -123,7 +122,7 @@ export function GradientEditor({
         ? findColorByPosition(stops, position) || "rgba(255,255,255,1)"
         : "rgba(255,255,255,1)";
     const id = uuid();
-    const newStop = { color, position, id, offset: 0 };
+    const newStop = { color, position, id };
     changeStops(stopSort([...stops, newStop]));
     setActiveStop(id);
   };
