@@ -3,11 +3,6 @@ import { GradientStop, interpolateColor } from "./constants";
 import { uuid } from "../../../../utils";
 import css from "./index.less";
 
-function computePercentage(position: number) {
-  // 不需要再计算百分比，因为position已经是百分比了
-  return Math.round(Math.min(Math.max(position, 0), 100));
-}
-
 export function GradientPanel({
   gradientColor,
   stops,
@@ -26,23 +21,31 @@ export function GradientPanel({
   const [moveMarkerEndTime, setMoveMarkerEndTime] = useState(-1);
   const ref = useRef<HTMLDivElement>(null);
 
+  // 设置渐变停止点位置
   const setGradientStopPosition = (position: number) => {
+    // 更新渐变停止点的位置，并确保位置是有效的百分比
     const temp = stops;
     const index = temp.findIndex((stop) => stop.id === curElementId);
     temp[index].position = computePercentage(position);
+    // 更新渐变停止点的位置，并确保位置是有效的百分比
     temp.sort((stopA, stopB) => stopA.position - stopB.position);
     setStops([...temp]);
   };
 
+  // 添加渐变停止点
   const addGradientStop = useCallback(
     (position: number) => {
+      // 确保位置是有效的百分比
       position = computePercentage(position);
       const temp = [...stops];
 
+      // 找到新停止点应该插入的位置
       const index = temp.findIndex((stop) => stop.position > position);
+      // 获取新停止点两边的停止点颜色
       const leftStop = index > 0 ? temp[index - 1] : temp[0];
       const rightStop = index !== -1 ? temp[index] : temp[temp.length - 1];
 
+      // 创建新的停止点对象
       const newStop = {
         id: uuid(),
         position,
@@ -54,6 +57,7 @@ export function GradientPanel({
             : interpolateColor(leftStop, rightStop, position),
       };
 
+      // 将新停止点插入到正确的位置
       temp.splice(index === -1 ? temp.length : index, 0, newStop);
       setStops(temp);
     },
@@ -64,10 +68,12 @@ export function GradientPanel({
     (id: any, event: React.MouseEvent<HTMLDivElement>) => {
       const rect = ref.current?.getBoundingClientRect();
       if (rect) {
+        // 计算鼠标按下时的位置百分比
         const position = ((event.clientX - rect.left) / rect.width) * 100;
         setCurElementId(id);
         setDragStartFlag(true);
         setDragStartPosition(position);
+        // 存储元素的初始位置
         const temp = [...stops];
         setElementStartPosition(
           temp.find((stop) => stop.id === id)?.position || 0
@@ -84,6 +90,7 @@ export function GradientPanel({
       }
       const rect = ref.current?.getBoundingClientRect();
       if (rect) {
+        // 计算鼠标移动时的新位置百分比
         const position = ((event.clientX - rect.left) / rect.width) * 100;
         const newPosition =
           elementStartPosition + (position - dragStartPosition);
@@ -93,23 +100,21 @@ export function GradientPanel({
     [dragStartFlag, elementStartPosition, dragStartPosition, ref.current]
   );
 
-  function onMouseUp(event: React.MouseEvent<HTMLDivElement>) {
+  const onMouseUp = (event: React.MouseEvent<HTMLDivElement>) => {
     setDragStartFlag(false);
     setMoveMarkerEndTime(+new Date());
     setCurElementId(null);
     event.stopPropagation();
-  }
+  };
 
-  function addMarker(event: React.MouseEvent<HTMLDivElement>) {
+  const addMarker = (event: React.MouseEvent<HTMLDivElement>) => {
     if (moveMarkerEndTime > -1 && +new Date() - moveMarkerEndTime < 10) {
       return;
     }
     const rect = event.currentTarget.getBoundingClientRect();
     const position = ((event.clientX - rect.left) / rect.width) * 100;
     addGradientStop(position);
-  }
-
-  const gradientColorToRight = gradientColor;
+  };
 
   return (
     <>
@@ -122,7 +127,7 @@ export function GradientPanel({
       )}
       <div
         className={css["gradient-panel__slider"]}
-        style={{ background: gradientColorToRight }}
+        style={{ background: gradientColor }}
         onClick={addMarker}
         ref={ref}
       >
@@ -158,4 +163,10 @@ export function GradientPanel({
       </div>
     </>
   );
+}
+
+// 计算位置百分比的函数，确保值在0到100之间
+function computePercentage(position: number) {
+  // 确保 position 的值在 0 到 100 之间，并四舍五入到最近的整数
+  return Math.round(Math.min(Math.max(position, 0), 100));
 }

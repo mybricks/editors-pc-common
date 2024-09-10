@@ -5,10 +5,12 @@ import { ColorEditor, InputNumber, Panel, Select } from "../index";
 import css from "./index.less";
 import {
   AddButton,
+  Angle,
   Circle,
   Ellipse,
   Linear,
   MinusButton,
+  PositionIcon,
   Radial,
 } from "./icon";
 import {
@@ -223,11 +225,13 @@ export function GradientEditor({
         {gradientType === "linear" ? (
           <InputNumber
             tip="渐变线方向角度"
-            defaultValue={deg}
-            onChange={(value) => setDeg(parseInt(value))}
+            prefix={<Angle />}
+            prefixTip="角度"
             style={{ flex: 1 }}
             type={"number"}
             defaultUnitValue=""
+            defaultValue={deg}
+            onChange={(value) => setDeg(parseInt(value))}
           />
         ) : (
           <Select
@@ -245,7 +249,7 @@ export function GradientEditor({
       </div>
       <div className={css.stops}>
         {stops?.length > 0 &&
-          stops.map((stop, index) => {
+          stops.map((stop) => {
             const { color, position, id } = stop;
             if (!color) return null;
             return (
@@ -261,7 +265,12 @@ export function GradientEditor({
                 />
                 <InputNumber
                   key={position}
-                  tip="位置"
+                  tip="停靠位置"
+                  // prefix={<PositionIcon />}
+                  // prefixTip="位置"
+                  style={{ flex: 3 }}
+                  type={"number"}
+                  defaultUnitValue=""
                   defaultValue={position}
                   onChange={(position) => {
                     let newPosition = Number(position);
@@ -269,18 +278,15 @@ export function GradientEditor({
                     changeProperty("position", newPosition, id, true);
                     setActiveStop(id);
                   }}
-                  style={{ flex: 3 }}
-                  type={"number"}
-                  defaultUnitValue=""
                 />
                 <Panel.Item
                   style={{ width: 30, padding: 0 }}
+                  className={stops.length <= 2 ? css.disabled : ""}
                   onClick={() => {
                     if (stops.length > 2) {
                       removeColor(id);
                     }
                   }}
-                  className={stops.length <= 2 ? css.disabled : ""}
                 >
                   <MinusButton />
                 </Panel.Item>

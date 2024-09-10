@@ -15,8 +15,8 @@ interface GradientStop {
 }
 
 const defalutGradientStops: GradientStop[] = [
-  { color: "rgba(255,255,255,1)", position: 0, id: uuid() },
-  { color: "rgba(255,255,255,1)", position: 50, id: uuid() },
+  { color: "rgba(255,255,255,0)", position: 0, id: uuid() },
+  { color: "rgba(255,255,255,0)", position: 50, id: uuid() },
 ];
 type GradientType = "linear" | "radial";
 type ShapeType = "ellipse" | "radial";
