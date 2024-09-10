@@ -1,10 +1,16 @@
 import React, { useRef, useState, useEffect, useCallback } from "react";
 
-import { ColorEditor, InputNumber, Panel } from "../index";
+import { ColorEditor, InputNumber, Panel, Select } from "../index";
 
 import css from "./index.less";
-import { Radio } from "antd";
-import { AddButton, MinusButton } from "./icon";
+import {
+  AddButton,
+  Circle,
+  Ellipse,
+  Linear,
+  MinusButton,
+  Radial,
+} from "./icon";
 import {
   ShapeType,
   GradientType,
@@ -114,7 +120,6 @@ export function GradientEditor({
 
     const x = event.clientX - rect.left;
     const position = Math.floor((x / rect.width) * 100);
-    console.log('[48;5;196m [ position ]-117-「GradientEditor/index.tsx」 [0m', position)
     if (position < 0 || position >= 100) {
       return;
     }
@@ -205,28 +210,33 @@ export function GradientEditor({
         stops={stops}
         setStops={changeStops}
       />
-      <PanelRender />
+      {/* <PanelRender /> */}
       <div className={css.top}>
-        <RadioGroup
-          options={gradientOptions}
-          onChange={(value) => setGradientType(value.target.value)}
+        <Select
+          tip="渐变类型"
+          style={{ flex: 1 }}
           value={gradientType}
-        ></RadioGroup>
+          options={gradientOptions}
+          prefix={gradientType === "radial" ? <Radial /> : <Linear />}
+          onChange={(value) => setGradientType(value)}
+        />
         {gradientType === "linear" ? (
           <InputNumber
             tip="渐变线方向角度"
             defaultValue={deg}
             onChange={(value) => setDeg(parseInt(value))}
-            style={{ flex: 2 }}
+            style={{ flex: 1 }}
             type={"number"}
             defaultUnitValue=""
           />
         ) : (
-          <RadioGroup
-            options={shapeOptions}
-            onChange={(value) => setShapeType(value.target.value)}
+          <Select
+            tip="辐射形状"
+            style={{ flex: 1 }}
             value={shapeType}
-            style={{ display: "flex", justifyContent: "flex-end" }}
+            options={shapeOptions}
+            prefix={shapeType === "ellipse" ? <Ellipse /> : <Circle />}
+            onChange={(value) => setShapeType(value)}
           />
         )}
         <Panel.Item style={{ width: 30, padding: 0 }} onClick={addColor}>
@@ -281,28 +291,3 @@ export function GradientEditor({
     </div>
   );
 }
-
-const RadioGroup = ({
-  onChange,
-  value,
-  options,
-  style,
-}: {
-  onChange: (value: any) => void;
-  value: string;
-  options: { value: string; label: string }[];
-  style?: React.CSSProperties;
-}) => (
-  <div className={css.radioGroup} style={style}>
-    <Radio.Group
-      key={value}
-      options={options}
-      buttonStyle={"solid"}
-      onChange={onChange}
-      value={value}
-      optionType="button"
-      size="small"
-      style={{ backgroundColor: "#efefef" }}
-    />
-  </div>
-);
