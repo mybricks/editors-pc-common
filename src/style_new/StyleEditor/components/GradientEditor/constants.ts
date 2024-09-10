@@ -47,19 +47,12 @@ function interpolateColor(
   // @ts-ignore
   const color2RGB = ColorUtil(color2Hex).color;
 
+  const scale = (targetPosition - position1) / (position2 - position1);
+
   // 计算目标颜色的 RGB 值
-  const r =
-    color1RGB[0] +
-    ((color2RGB[0] - color1RGB[0]) * (targetPosition - position1)) /
-      (position2 - position1);
-  const g =
-    color1RGB[1] +
-    ((color2RGB[1] - color1RGB[1]) * (targetPosition - position1)) /
-      (position2 - position1);
-  const b =
-    color1RGB[2] +
-    ((color2RGB[2] - color1RGB[2]) * (targetPosition - position1)) /
-      (position2 - position1);
+  const r = color1RGB[0] + (color2RGB[0] - color1RGB[0]) * scale;
+  const g = color1RGB[1] + (color2RGB[1] - color1RGB[1]) * scale;
+  const b = color1RGB[2] + (color2RGB[2] - color1RGB[2]) * scale;
 
   // 将 RGB 值转换回十六进制表示
   const targetColorHex = ColorUtil({ r, g, b }).toString();
@@ -149,4 +142,5 @@ export {
   parseGradient,
   shapeOptions,
   gradientOptions,
+  interpolateColor,
 };

@@ -1,7 +1,6 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
-import { GradientStop } from "./constants";
+import React, { useCallback, useRef, useState } from "react";
+import { GradientStop, interpolateColor } from "./constants";
 import { uuid } from "../../../../utils";
-import chroma from "chroma-js";
 import css from "./index.less";
 
 function computePercentage(position: number) {
@@ -52,12 +51,7 @@ export function GradientPanel({
             ? leftStop.color
             : position >= rightStop.position
             ? rightStop.color
-            : chroma
-                .scale([leftStop.color, rightStop.color])(
-                  (position - leftStop.position) /
-                    (rightStop.position - leftStop.position)
-                )
-                .hex(),
+            : interpolateColor(leftStop, rightStop, position),
       };
 
       temp.splice(index === -1 ? temp.length : index, 0, newStop);

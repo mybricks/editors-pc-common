@@ -114,13 +114,11 @@ export function GradientEditor({
 
     const x = event.clientX - rect.left;
     const position = Math.floor((x / rect.width) * 100);
+    console.log('[48;5;196m [ position ]-117-「GradientEditor/index.tsx」 [0m', position)
     if (position < 0 || position >= 100) {
       return;
     }
-    const color =
-      gradientType === "linear"
-        ? findColorByPosition(stops, position) || "rgba(255,255,255,1)"
-        : "rgba(255,255,255,1)";
+    const color = findColorByPosition(stops, position) || "rgba(255,255,255,1)";
     const id = uuid();
     const newStop = { color, position, id };
     changeStops(stopSort([...stops, newStop]));
@@ -207,7 +205,7 @@ export function GradientEditor({
         stops={stops}
         setStops={changeStops}
       />
-      {/* <PanelRender /> */}
+      <PanelRender />
       <div className={css.top}>
         <RadioGroup
           options={gradientOptions}
