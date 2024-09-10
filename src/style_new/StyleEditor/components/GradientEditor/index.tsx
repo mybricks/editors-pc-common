@@ -70,7 +70,7 @@ export function GradientEditor({
       {
         // 可以继续对齐figma
         color: color,
-        position: position + 1 <= 100 ? position + 1 : 100,
+        position: position + 10 <= 100 ? position + 10 : 100,
         id: uuid(),
       },
     ]);

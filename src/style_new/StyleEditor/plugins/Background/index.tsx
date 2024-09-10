@@ -17,6 +17,7 @@ interface BackgroundProps {
 const DEFAULT_CONFIG = {
   disableBackgroundColor: false,
   disableBackgroundImage: false,
+  disableGradient: false,
   keyMap: {},
   useImportant: false,
 };
@@ -37,7 +38,13 @@ export function Background({
 }: BackgroundProps) {
   const context = useStyleEditorContext();
   const [
-    { keyMap, useImportant, disableBackgroundColor, disableBackgroundImage },
+    {
+      keyMap,
+      useImportant,
+      disableBackgroundColor,
+      disableBackgroundImage,
+      disableGradient,
+    },
   ] = useState({ ...DEFAULT_CONFIG, ...config });
   const [forceRenderKey, setForceRenderKey] = useState<number>(Math.random()); // 用于点击重置按钮重新渲染获取新value
 
@@ -112,30 +119,16 @@ export function Background({
           />
         )}
       </Panel.Content>
-      <GradientEditor
-        // defaultValue={
-        //   "linear-gradient(91deg, rgba(165,164,144,1) 0%, rgba(166,140,120,1) 22%, rgba(166,150,113,1) 29%, rgba(167,145,102,1) 39%, rgba(167,143,98,1) 43%, rgba(168,139,90,1) 50%, rgba(169,132,76,1) 63%, rgba(170,125,61,1) 77%, rgba(171,120,50,1) 87%, rgba(0,0,0,1) 100%);"
-        // }
-        defaultValue={defaultBackgroundValue.backgroundImage}
-        onChange={(backgroundImage) => {
-          onChange({ key: "backgroundImage", value: backgroundImage });
-        }}
-      />
-      {/* {disableBackgroundImage ? null : (
-        <Panel.Content>
-          <Image
-            tip='背景图'
-            defaultValue={{
-              backgroundImage: defaultBackgroundValue.backgroundImage,
-              backgroundRepeat: defaultBackgroundValue.backgroundRepeat,
-              backgroundPosition: defaultBackgroundValue.backgroundPosition,
-              backgroundSize: defaultBackgroundValue.backgroundSize
+      <Panel.Content>
+        {!disableGradient ? (
+          <GradientEditor
+            defaultValue={defaultBackgroundValue.backgroundImage}
+            onChange={(backgroundImage) => {
+              onChange({ key: "backgroundImage", value: backgroundImage });
             }}
-            onChange={(value) => onChange({key: getRealKey(keyMap, value.key), value: `${value.value}${useImportant ? '!important' : ''}`})}
-            upload={context.upload}
           />
-        </Panel.Content>
-      )} */}
+        ) : null}
+      </Panel.Content>
     </Panel>
   );
 }
