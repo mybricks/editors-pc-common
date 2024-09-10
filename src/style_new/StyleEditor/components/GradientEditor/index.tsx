@@ -34,7 +34,7 @@ export function GradientEditor({
   const [gradientType, setGradientType] = useState<GradientType>("linear");
   const [shapeType, setShapeType] = useState<ShapeType>("ellipse");
   const [deg, setDeg] = useState(90);
-  const [stops, setStops] = useState<GradientStop[]>(defalutGradientStops);
+  const [stops, setStops] = useState<GradientStop[]>([]);
 
   useEffect(() => {
     if (defaultValue) {
@@ -89,6 +89,7 @@ export function GradientEditor({
     stops: GradientStop[]
   ) => {
     const direction = gradientType === "linear" ? `${deg}deg` : shapeType;
+    if (stops.length === 0) return "";
     return `${gradientType}-gradient(${direction}${stops
       .map((stop) => `, ${stop.color} ${stop.position}%`)
       .join("")})`;
@@ -98,7 +99,9 @@ export function GradientEditor({
   const finalValueRight = generateGradientValue(90, "linear", shapeType, stops);
 
   useEffect(() => {
-    onChange?.(finalValue);
+    if (finalValue) {
+      onChange?.(finalValue);
+    }
   }, [finalValue, onChange]);
 
   const changeProperty = useCallback(
@@ -116,7 +119,7 @@ export function GradientEditor({
   const [curElementId, setCurElementId] = useState<string | null>(null);
 
   return (
-    <div style={{ width: "100%", marginTop: 12 }}>
+    <div style={{ width: "100%", marginTop: 6 }}>
       {/* <GradientPanel
         gradientColor={finalValueRight}
         stops={stops}

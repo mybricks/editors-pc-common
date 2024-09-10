@@ -121,7 +121,7 @@ const PanelRender = ({
   };
 
   return (
-    <>
+    <div style={{ position: "relative", left: "-12px" }}>
       {dragStartFlag && (
         <div
           className={css["overlay-when-drag"]}
@@ -129,12 +129,7 @@ const PanelRender = ({
           onMouseUp={onMouseUp}
         />
       )}
-      <div
-        className={css.preview}
-        style={{ backgroundImage: gradientColor }}
-        ref={previewRef}
-        onClick={handlePreviewClick}
-      >
+      <div className={css.previewTopBox}>
         {stops.map((stop, index) => {
           const { position, color, id } = stop;
           return (
@@ -163,7 +158,13 @@ const PanelRender = ({
           );
         })}
       </div>
-    </>
+      <div
+        className={css.preview}
+        style={{ backgroundImage: gradientColor }}
+        onClick={handlePreviewClick}
+        ref={previewRef}
+      />
+    </div>
   );
 };
 
