@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 
 import { ColorEditor, InputNumber, Panel, Select } from "../index";
 
@@ -10,7 +10,6 @@ import {
   Ellipse,
   Linear,
   MinusButton,
-  PositionIcon,
   Radial,
 } from "./icon";
 import {
@@ -20,12 +19,12 @@ import {
   parseGradient,
   GradientEditorProps,
   defalutGradientStops,
-  findColorByPosition,
   shapeOptions,
   gradientOptions,
 } from "./constants";
 import { uuid } from "../../../../utils";
-import { GradientPanel } from "./GradientPanel";
+import GradientPanel from "./GradientPanel";
+import PanelRender from "./PanelRender";
 
 export function GradientEditor({
   defaultValue,
@@ -36,8 +35,6 @@ export function GradientEditor({
   const [shapeType, setShapeType] = useState<ShapeType>("ellipse");
   const [deg, setDeg] = useState(90);
   const [stops, setStops] = useState<GradientStop[]>(defalutGradientStops);
-  const [activeStop, setActiveStop] = useState<string>("");
-  const previewRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (defaultValue) {
@@ -116,103 +113,24 @@ export function GradientEditor({
     [onChange, finalValue, stops]
   );
 
-  const handlePreviewClick = (event: React.MouseEvent<HTMLDivElement>) => {
-    const rect = previewRef.current?.getBoundingClientRect();
-    if (!rect) return;
-
-    const x = event.clientX - rect.left;
-    const position = Math.floor((x / rect.width) * 100);
-    if (position < 0 || position >= 100) {
-      return;
-    }
-    const color = findColorByPosition(stops, position) || "rgba(255,255,255,1)";
-    const id = uuid();
-    const newStop = { color, position, id };
-    changeStops(stopSort([...stops, newStop]));
-    setActiveStop(id);
-  };
-
-  const onMouseDown = useCallback((id: any, event: { clientX: any }) => {
-    const { clientX } = event;
-    setActiveStop(id);
-    // setDragStartFlag(true);
-    // setDragStartOffset(clientX);
-    const temp = [...stops];
-    // setElementStartOffset(temp.find((stop) => stop.id === id)?.offset || 0);
-  }, []);
-
-  const onMouseMove = useCallback((event: { clientX: any }) => {
-    // if (!dragStartFlag) {
-    //   return;
-    // }
-    const { clientX } = event;
-    // const newOffset = elementStartOffset + (clientX - dragStartOffset);
-    // if (newOffset < minOffset || newOffset > maxOffset) {
-    //   return;
-    // }
-    // setGradientStopOffset(newOffset);
-  }, []);
-
-  const onMouseUp = (event: { stopPropagation: () => void }) => {
-    // setDragStartFlag(false);
-    // setMoveMarkerEndTime(+new Date());
-    setActiveStop("");
-    event.stopPropagation();
-  };
-
-  const PanelRender = useCallback(() => {
-    return (
-      <div
-        className={css.preview}
-        style={{ backgroundImage: finalValueRight }}
-        ref={previewRef}
-        onClick={handlePreviewClick}
-      >
-        {stops.map((stop, index) => {
-          const { position, color, id } = stop;
-          return (
-            <div
-              key={`${id}-${index}`}
-              draggable="true"
-              className={`${css.stop} ${
-                id === activeStop ? css.stopActive : ""
-              }`}
-              style={{ left: `${position}%` }}
-              onClick={(e) => {
-                setActiveStop(id);
-                e.stopPropagation(); // 阻止事件冒泡
-              }}
-              onDragStart={(e) => {
-                e.stopPropagation();
-                setActiveStop(id);
-              }}
-              onDragEnd={(e) => {
-                console.log(e);
-              }}
-            >
-              <div
-                key={id}
-                className={`${css.stopHandle} ${
-                  id === activeStop ? css.active : ""
-                }`}
-              >
-                <div style={{ backgroundColor: color }}></div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    );
-  }, [stops, finalValueRight]);
+  const [curElementId, setCurElementId] = useState<string | null>(null);
 
   return (
     <div style={{ width: "100%", marginTop: 12 }}>
-      <GradientPanel
+      {/* <GradientPanel
         gradientColor={finalValueRight}
         stops={stops}
         setStops={changeStops}
+        curElementId={curElementId}
+        setCurElementId={setCurElementId}
+      /> */}
+      <PanelRender
+        gradientColor={finalValueRight}
+        stops={stops}
+        setStops={changeStops}
+        curElementId={curElementId}
+        setCurElementId={setCurElementId}
       />
-      {/* <PanelRender /> */}
       <div className={css.top}>
         <Select
           tip="渐变类型"
@@ -257,10 +175,9 @@ export function GradientEditor({
                 <ColorEditor
                   defaultValue={color}
                   style={{ flex: 8 }}
-                  // key={color} // 可以解决排序color不更新问题但是会导致没法一直改颜色
                   onChange={(color) => {
                     changeProperty("color", color, id);
-                    setActiveStop(id);
+                    setCurElementId(id);
                   }}
                 />
                 <InputNumber
@@ -276,7 +193,7 @@ export function GradientEditor({
                     let newPosition = Number(position);
                     newPosition = newPosition > 100 ? 100 : newPosition;
                     changeProperty("position", newPosition, id, true);
-                    setActiveStop(id);
+                    setCurElementId(id);
                   }}
                 />
                 <Panel.Item

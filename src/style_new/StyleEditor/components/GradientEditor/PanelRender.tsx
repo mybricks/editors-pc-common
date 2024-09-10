@@ -1,9 +1,10 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
-import { computePercentage, GradientStop, interpolateColor } from "./constants";
 import { uuid } from "../../../../utils";
+import { useState, useCallback, useRef } from "react";
+import { computePercentage, GradientStop, interpolateColor } from "./constants";
+import React from "react";
 import css from "./index.less";
 
-export default function GradientPanel({
+const PanelRender = ({
   gradientColor,
   stops,
   setStops,
@@ -15,13 +16,14 @@ export default function GradientPanel({
   setStops: (value: GradientStop[]) => void;
   curElementId: string | null;
   setCurElementId: (value: string | null) => void;
-}) {
+}) => {
   const [dragStartFlag, setDragStartFlag] = useState(false);
   const [dragStartPosition, setDragStartPosition] = useState(0);
   const [elementStartPosition, setElementStartPosition] = useState(0);
 
   const [moveMarkerEndTime, setMoveMarkerEndTime] = useState(-1);
-  const ref = useRef<HTMLDivElement>(null);
+
+  const previewRef = useRef<HTMLDivElement>(null);
 
   // 设置渐变停止点位置
   const setGradientStopPosition = (position: number) => {
@@ -66,9 +68,18 @@ export default function GradientPanel({
     [stops]
   );
 
+  const handlePreviewClick = (event: React.MouseEvent<HTMLDivElement>) => {
+    if (moveMarkerEndTime > -1 && +new Date() - moveMarkerEndTime < 10) {
+      return;
+    }
+    const rect = event.currentTarget.getBoundingClientRect();
+    const position = ((event.clientX - rect.left) / rect.width) * 100;
+    addGradientStop(position);
+  };
+
   const onMouseDown = useCallback(
     (id: any, event: React.MouseEvent<HTMLDivElement>) => {
-      const rect = ref.current?.getBoundingClientRect();
+      const rect = previewRef.current?.getBoundingClientRect();
       if (rect) {
         // 计算鼠标按下时的位置百分比
         const position = ((event.clientX - rect.left) / rect.width) * 100;
@@ -82,7 +93,7 @@ export default function GradientPanel({
         );
       }
     },
-    [stops]
+    [stops, previewRef.current]
   );
 
   const onMouseMove = useCallback(
@@ -90,7 +101,7 @@ export default function GradientPanel({
       if (!dragStartFlag) {
         return;
       }
-      const rect = ref.current?.getBoundingClientRect();
+      const rect = previewRef.current?.getBoundingClientRect();
       if (rect) {
         // 计算鼠标移动时的新位置百分比
         const position = ((event.clientX - rect.left) / rect.width) * 100;
@@ -99,7 +110,7 @@ export default function GradientPanel({
         setGradientStopPosition(newPosition);
       }
     },
-    [dragStartFlag, elementStartPosition, dragStartPosition, ref.current]
+    [dragStartFlag, elementStartPosition, dragStartPosition, previewRef.current]
   );
 
   const onMouseUp = (event: React.MouseEvent<HTMLDivElement>) => {
@@ -107,15 +118,6 @@ export default function GradientPanel({
     setMoveMarkerEndTime(+new Date());
     setCurElementId(null);
     event.stopPropagation();
-  };
-
-  const addMarker = (event: React.MouseEvent<HTMLDivElement>) => {
-    if (moveMarkerEndTime > -1 && +new Date() - moveMarkerEndTime < 10) {
-      return;
-    }
-    const rect = event.currentTarget.getBoundingClientRect();
-    const position = ((event.clientX - rect.left) / rect.width) * 100;
-    addGradientStop(position);
   };
 
   return (
@@ -128,39 +130,41 @@ export default function GradientPanel({
         />
       )}
       <div
-        className={css["gradient-panel__slider"]}
-        style={{ background: gradientColor }}
-        onClick={addMarker}
-        ref={ref}
+        className={css.preview}
+        style={{ backgroundImage: gradientColor }}
+        ref={previewRef}
+        onClick={handlePreviewClick}
       >
-        {stops.map(
-          ({ position, color, id }, index: React.Key | null | undefined) => {
-            return (
+        {stops.map((stop, index) => {
+          const { position, color, id } = stop;
+          return (
+            <div
+              key={`${id}-${index}`}
+              className={`${css.stop} ${
+                id === curElementId ? css.stopActive : ""
+              }`}
+              style={{
+                left: `${position}%`,
+                zIndex: id === curElementId ? 20 : 3,
+              }}
+              onMouseDown={(e) => onMouseDown(id, e)}
+              onMouseUp={onMouseUp}
+              onClick={(event) => event.stopPropagation()}
+            >
               <div
-                key={`${id}-${index}`}
-                style={{
-                  left: `${position}%`,
-                  zIndex: id === curElementId ? 20 : 1,
-                }}
-                onMouseDown={(e) => onMouseDown(id, e)}
-                onMouseUp={onMouseUp}
-                onClick={(event) => event.stopPropagation()}
-                className={`${css["gradient-panel__slider-marker"]} ${
-                  id === curElementId
-                    ? css["gradient-panel__slider-marker_active"]
-                    : ""
+                key={id}
+                className={`${css.stopHandle} ${
+                  id === curElementId ? css.active : ""
                 }`}
               >
-                <div
-                  id={color}
-                  style={{ backgroundColor: color }}
-                  className={`${css["gradient-panel__slider-marker__color"]}`}
-                />
+                <div style={{ backgroundColor: color }}></div>
               </div>
-            );
-          }
-        )}
+            </div>
+          );
+        })}
       </div>
     </>
   );
-}
+};
+
+export default PanelRender;

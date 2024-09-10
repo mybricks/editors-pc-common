@@ -134,6 +134,12 @@ function parseStops(stopsString: string): GradientStop[] {
   return stops;
 }
 
+// 计算位置百分比的函数，确保值在0到100之间
+const computePercentage = (position: number) => {
+  // 确保 position 的值在 0 到 100 之间，并四舍五入到最近的整数
+  return Math.round(Math.min(Math.max(position, 0), 100));
+};
+
 export type { GradientEditorProps, GradientStop, GradientType, ShapeType };
 
 export {
@@ -143,4 +149,5 @@ export {
   shapeOptions,
   gradientOptions,
   interpolateColor,
+  computePercentage,
 };
