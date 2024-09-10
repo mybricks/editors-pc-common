@@ -1,7 +1,8 @@
 .preview {
   height: 12px;
-  margin-top: 16px;
-  margin-bottom: 4px;
+  margin-bottom: 6px;
+  left: 12px;
+  right: 12px;
   border-radius: 2px;
   position: relative;
   display: flex;
@@ -9,11 +10,19 @@
   justify-content: space-between;
   cursor: crosshair;
   // border: .5px solid rgba(0, 0, 0, .1);
+}
 
+.previewTopBox {
+  margin-top: 16px;
+  position: relative;
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  cursor: crosshair;
   .stop {
     z-index: 3;
     position: absolute;
-    bottom: 13px;
+    bottom: 4px;
     cursor: move;
     .stopHandle {
       width: 24px;
@@ -57,53 +66,6 @@
   .stopActive::after {
     border-top-color: #FA6400;
     z-index: 5;
-  }
-}
-
-.previewTopBox {
-  position: relative;
-  display: flex;
-  flex-direction: row;
-  justify-content: space-between;
-  .stop {
-    z-index: 3;
-    position: absolute;
-    bottom: 8px;
-    .stopHandle {
-      width: 24px;
-      height: 24px;
-      padding: 2px;
-      border-radius: 2px;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      border: 1px solid #e6e6e6;
-      background-color: #ffffff;
-
-  
-      div {
-        overflow: hidden;
-        position: relative;
-        flex-shrink: 0;
-        height: 16px;
-        width: 16px;
-      }
-    }
-    .active {
-      border-color: #FA6400;
-      z-index: 5;
-    }
-  }
-  .stop::after {
-    content: "";
-    position: absolute;
-    width: 0;
-    height: 0;
-    right: 9px;
-    border-width: 3px;
-    border-style: solid;
-    border-color: transparent;
-    border-top-color: #e6e6e6;
   }
 }
 
