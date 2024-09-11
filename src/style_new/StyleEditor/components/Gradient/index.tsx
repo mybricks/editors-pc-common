@@ -1,6 +1,5 @@
 import React, {
   useRef,
-  useMemo,
   useState,
   useEffect,
   useCallback,
@@ -11,7 +10,6 @@ import { createPortal } from "react-dom";
 import { Panel, GradientEditor } from "../";
 
 import css from "./index.less";
-import { ParseGradient } from "../GradientEditor/constants";
 
 interface GradientEditorProps {
   defaultValue: any;
@@ -66,7 +64,11 @@ export function Gradient({
   };
   return (
     <Panel.Item style={style} className={css.container}>
-      <div className={css.color} onClick={onPresetClick}>
+      <div
+        className={css.color}
+        onClick={onPresetClick}
+        data-mybricks-tip={"渐变色"}
+      >
         <div
           ref={presetRef}
           className={css.block}
