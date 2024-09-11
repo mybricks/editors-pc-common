@@ -7,6 +7,7 @@ interface GradientEditorProps {
   defaultValue?: string;
   style?: CSSProperties;
   onChange?: (value: any) => void;
+  onTypeChange?: (type: string) => void;
   options?: any[];
 }
 
