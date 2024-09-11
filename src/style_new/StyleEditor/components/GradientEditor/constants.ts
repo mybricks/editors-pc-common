@@ -8,7 +8,7 @@ interface GradientEditorProps {
   style?: CSSProperties;
   onChange?: (value: any) => void;
   onTypeChange?: (type: string) => void;
-  options?: any[];
+  [k: string]: any;
 }
 
 interface GradientStop {

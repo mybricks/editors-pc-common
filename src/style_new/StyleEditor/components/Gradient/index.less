@@ -1,6 +1,6 @@
 .panel {
   width: 280px;
-  padding: 4px 16px 12px 16px;
+  padding: 4px 16px 8px 16px;
   z-index: 1000;
   position: fixed;
   visibility: hidden;
@@ -30,5 +30,21 @@
     min-height: 15px;
     outline: 1px dashed #fff;
     cursor: pointer;
+  }
+
+  .text {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    > :not(:last-child) {
+      margin-right: 8px;
+    }
+
+    svg {
+      height: 100%;
+      margin-right: 2px;
+    }
   }
 }
