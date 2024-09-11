@@ -35,7 +35,7 @@ export function GradientEditor({
   const [gradientType, setGradientType] = useState<GradientType>("linear");
   const [shapeType, setShapeType] = useState<ShapeType>("ellipse");
   const [deg, setDeg] = useState(90);
-  const [stops, setStops] = useState<GradientStop[]>(defalutGradientStops);
+  const [stops, setStops] = useState<GradientStop[]>([]);
 
   useEffect(() => {
     if (defaultValue) {
