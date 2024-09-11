@@ -120,7 +120,7 @@ export function Background({
         )}
       </Panel.Content>
       <Panel.Content>
-        {!disableGradient ? (
+        {disableGradient ? (
           <GradientEditor
             defaultValue={defaultBackgroundValue.backgroundImage}
             onChange={(backgroundImage) => {

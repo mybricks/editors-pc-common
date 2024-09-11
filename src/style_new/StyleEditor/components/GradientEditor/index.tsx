@@ -11,19 +11,17 @@ import {
   Linear,
   MinusButton,
   Radial,
-} from "./icon";
+} from "./Icon";
 import {
   ShapeType,
   GradientType,
   GradientStop,
-  parseGradient,
+  ParseGradient,
   GradientEditorProps,
-  defalutGradientStops,
   shapeOptions,
   gradientOptions,
 } from "./constants";
 import { uuid } from "../../../../utils";
-import GradientPanel from "./GradientPanel";
 import PanelRender from "./PanelRender";
 
 export function GradientEditor({
@@ -38,7 +36,7 @@ export function GradientEditor({
 
   useEffect(() => {
     if (defaultValue) {
-      const { type, direction, stops } = parseGradient(defaultValue);
+      const { type, direction, stops } = ParseGradient(defaultValue);
       setGradientType(type);
       if (type === "linear" && direction) {
         setDeg(parseInt(direction));
@@ -120,13 +118,6 @@ export function GradientEditor({
 
   return (
     <div style={{ width: "100%", marginTop: 6 }}>
-      {/* <GradientPanel
-        gradientColor={finalValueRight}
-        stops={stops}
-        setStops={changeStops}
-        curElementId={curElementId}
-        setCurElementId={setCurElementId}
-      /> */}
       <PanelRender
         gradientColor={finalValueRight}
         stops={stops}
