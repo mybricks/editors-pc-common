@@ -85,7 +85,7 @@ export function Gradient({
           style={{ backgroundImage: backgroundImage }}
         />
         <div className={css.text}>
-          {gradientType === "radial" ? <Radial /> : <Linear />}
+          {gradientType === "径向" ? <Radial /> : <Linear />}
           <span>{gradientType}</span>
           {/* {gradientType === "linear" ? (
             <Angle />
