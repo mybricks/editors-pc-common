@@ -58,7 +58,7 @@ export function color2rgba(color: string): string {
     const r = parseInt(color.slice(1, 3), 16)
     const g = parseInt(color.slice(3, 5), 16)
     const b = parseInt(color.slice(5, 7), 16)
-    let a = 1;
+    let a = "1";
     if (color.length === 9) {
       a = (parseInt(color.slice(7, 9), 16) / 255).toFixed(2)
     }
