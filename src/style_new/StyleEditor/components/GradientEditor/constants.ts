@@ -1,6 +1,7 @@
 import { CSSProperties } from "react";
 import ColorUtil from "color";
 import { uuid } from "../../../../utils";
+import { color2rgba } from "../../utils";
 interface GradientEditorProps {
   defaultValue?: string;
   style?: CSSProperties;
@@ -55,7 +56,7 @@ function interpolateColor(
   const b = color1RGB[2] + (color2RGB[2] - color1RGB[2]) * scale;
 
   // 将 RGB 值转换回十六进制表示
-  const targetColorHex = ColorUtil({ r, g, b }).toString();
+  const targetColorHex = color2rgba(ColorUtil({ r, g, b }).hexa());
   return targetColorHex;
 }
 function findColorByPosition(

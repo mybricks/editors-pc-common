@@ -45,21 +45,25 @@ const PanelRender = ({
 
       // 找到新停止点应该插入的位置
       const index = temp.findIndex((stop) => stop.position > position);
-      // 获取新停止点两边的停止点颜色
-      const leftStop = index > 0 ? temp[index - 1] : temp[0];
-      const rightStop = index !== -1 ? temp[index] : temp[temp.length - 1];
-
       // 创建新的停止点对象
       const newStop = {
         id: uuid(),
         position,
-        color:
+        color: "",
+      };
+      if (temp?.length === 0) {
+        newStop.color = "rgba(255,255,255,1)";
+      } else {
+        // 获取新停止点两边的停止点颜色
+        const leftStop = index > 0 ? temp[index - 1] : temp[0];
+        const rightStop = index !== -1 ? temp[index] : temp[temp.length - 1];
+        newStop.color =
           position <= leftStop.position
             ? leftStop.color
             : position >= rightStop.position
             ? rightStop.color
-            : interpolateColor(leftStop, rightStop, position),
-      };
+            : interpolateColor(leftStop, rightStop, position);
+      }
 
       // 将新停止点插入到正确的位置
       temp.splice(index === -1 ? temp.length : index, 0, newStop);
@@ -129,38 +133,43 @@ const PanelRender = ({
           onMouseUp={onMouseUp}
         />
       )}
-      <div className={css.previewTopBox}>
-        {stops.map((stop, index) => {
-          const { position, color, id } = stop;
-          return (
-            <div
-              key={`${id}-${index}`}
-              className={`${css.stop} ${
-                id === curElementId ? css.stopActive : ""
-              }`}
-              style={{
-                left: `${position}%`,
-                zIndex: id === curElementId ? 20 : 3,
-              }}
-              onMouseDown={(e) => onMouseDown(id, e)}
-              onMouseUp={onMouseUp}
-              onClick={(event) => event.stopPropagation()}
-            >
+      {stops?.length > 0 && (
+        <div className={css.previewTopBox}>
+          {stops?.map((stop, index) => {
+            const { position, color, id } = stop;
+            return (
               <div
-                key={id}
-                className={`${css.stopHandle} ${
-                  id === curElementId ? css.active : ""
+                key={`${id}-${index}`}
+                className={`${css.stop} ${
+                  id === curElementId ? css.stopActive : ""
                 }`}
+                style={{
+                  left: `${position}%`,
+                  zIndex: id === curElementId ? 20 : 3,
+                }}
+                onMouseDown={(e) => onMouseDown(id, e)}
+                onMouseUp={onMouseUp}
+                onClick={(event) => event.stopPropagation()}
               >
-                <div style={{ backgroundColor: color }}></div>
+                <div
+                  key={id}
+                  className={`${css.stopHandle} ${
+                    id === curElementId ? css.active : ""
+                  }`}
+                >
+                  <div style={{ backgroundColor: color }}></div>
+                </div>
               </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
       <div
         className={css.preview}
-        style={{ backgroundImage: gradientColor }}
+        style={{
+          backgroundImage: gradientColor,
+          backgroundColor: stops?.length === 1 ? stops[0]?.color : "",
+        }}
         onClick={handlePreviewClick}
         ref={previewRef}
       />
