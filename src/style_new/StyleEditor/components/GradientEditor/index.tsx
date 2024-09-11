@@ -15,6 +15,7 @@ import {
 import {
   ShapeType,
   GradientType,
+  defalutGradientStops,
   GradientStop,
   ParseGradient,
   GradientEditorProps,
@@ -27,12 +28,12 @@ import PanelRender from "./PanelRender";
 export function GradientEditor({
   defaultValue,
   onChange,
-  options = [],
+  onTypeChange,
 }: GradientEditorProps) {
   const [gradientType, setGradientType] = useState<GradientType>("linear");
   const [shapeType, setShapeType] = useState<ShapeType>("ellipse");
   const [deg, setDeg] = useState(90);
-  const [stops, setStops] = useState<GradientStop[]>([]);
+  const [stops, setStops] = useState<GradientStop[]>(defalutGradientStops);
 
   useEffect(() => {
     if (defaultValue) {
@@ -48,6 +49,8 @@ export function GradientEditor({
       }
     }
   }, [defaultValue]);
+
+  useEffect(() => onTypeChange?.(gradientType), [gradientType]);
 
   const changeStops = (newStops: GradientStop[]) => {
     setStops(stopSort(newStops));
@@ -100,7 +103,7 @@ export function GradientEditor({
     if (finalValue) {
       onChange?.(finalValue);
     }
-  }, [finalValue, onChange]);
+  }, [finalValue]);
 
   const changeProperty = useCallback(
     (property: string, value: any, id: string, isSort = false) => {
@@ -117,7 +120,7 @@ export function GradientEditor({
   const [curElementId, setCurElementId] = useState<string | null>(null);
 
   return (
-    <div style={{ width: "100%", marginTop: 6 }}>
+    <div style={{ width: "100%", marginTop: 6, maxHeight: 360 }}>
       <PanelRender
         gradientColor={finalValueRight}
         stops={stops}
@@ -128,6 +131,7 @@ export function GradientEditor({
       <div className={css.top}>
         <Select
           tip="渐变类型"
+          key={gradientType}
           style={{ flex: 1 }}
           value={gradientType}
           options={gradientOptions}
@@ -147,6 +151,7 @@ export function GradientEditor({
           />
         ) : (
           <Select
+            key={shapeType}
             tip="辐射形状"
             style={{ flex: 1 }}
             value={shapeType}
@@ -168,7 +173,8 @@ export function GradientEditor({
               <Panel.Content key={id} style={{ padding: "3px 0" }}>
                 <ColorEditor
                   defaultValue={color}
-                  style={{ flex: 8 }}
+                  key={color}
+                  style={{ flex: 3 }}
                   onChange={(color) => {
                     changeProperty("color", color, id);
                     setCurElementId(id);
@@ -179,7 +185,7 @@ export function GradientEditor({
                   tip="停靠位置"
                   // prefix={<PositionIcon />}
                   // prefixTip="位置"
-                  style={{ flex: 3 }}
+                  style={{ flex: 1 }}
                   type={"number"}
                   defaultUnitValue=""
                   defaultValue={position}
