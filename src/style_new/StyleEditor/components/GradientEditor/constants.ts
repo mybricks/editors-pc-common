@@ -2,6 +2,7 @@ import { CSSProperties } from "react";
 import ColorUtil from "color";
 import { uuid } from "../../../../utils";
 import { color2rgba } from "../../utils";
+export * from "./GradientParser";
 interface GradientEditorProps {
   defaultValue?: string;
   style?: CSSProperties;
@@ -87,54 +88,6 @@ function findColorByPosition(
   }
 }
 
-// 解析颜色
-function parseGradient(gradientString: string): {
-  type: GradientType;
-  direction?: string;
-  stops: GradientStop[];
-} {
-  let match;
-  let direction;
-
-  // 匹配 linear-gradient
-  match = gradientString.match(/(\d+deg),\s*(.+)/);
-  if (match) {
-    const direction = match[1].trim();
-    const type = "linear";
-    return { type, direction, stops: parseStops(match[2].trim()) };
-  } else {
-    // 匹配 radial-gradient
-    match = gradientString.match(/radial-gradient\(([^)]+)\)\s*,?\s*(.*)/);
-    if (match) {
-      const match1 = match[1].split(", ");
-      direction = match1[0];
-      gradientString = match1[1] + ") " + match[2];
-      const type = "radial";
-      return { type, direction, stops: parseStops(gradientString) };
-    }
-  }
-  return { type: "linear", stops: [] };
-}
-
-function parseStops(stopsString: string): GradientStop[] {
-  const stops = [];
-  const colors = stopsString.split(", ");
-  let currentPercentage = 0;
-
-  for (let i = 0; i < colors.length; i++) {
-    const colorStop = colors[i].trim();
-    const match = colorStop.match(/(.*)\s+(\d+)?%/);
-    if (match) {
-      const color = match[1];
-      const position = match[2] ? parseInt(match[2], 10) : currentPercentage;
-      stops.push({ color, position, id: uuid() });
-      currentPercentage = position;
-    }
-  }
-
-  return stops;
-}
-
 // 计算位置百分比的函数，确保值在0到100之间
 const computePercentage = (position: number) => {
   // 确保 position 的值在 0 到 100 之间，并四舍五入到最近的整数
@@ -146,7 +99,6 @@ export type { GradientEditorProps, GradientStop, GradientType, ShapeType };
 export {
   defalutGradientStops,
   findColorByPosition,
-  parseGradient,
   shapeOptions,
   gradientOptions,
   interpolateColor,
