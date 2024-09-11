@@ -10,6 +10,7 @@ import { createPortal } from "react-dom";
 import { Panel, GradientEditor } from "../";
 
 import css from "./index.less";
+import { gradientOptions } from "../GradientEditor/constants";
 
 interface GradientEditorProps {
   defaultValue: any;
@@ -58,9 +59,9 @@ export function Gradient({
     setBackgroundImage(value);
   };
 
-  const [gradientType, setGradientType] = useState<string>("Linear");
+  const [gradientType, setGradientType] = useState<string>("线性");
   const onTypeChange = (type: string) => {
-    return setGradientType(capitalizeFirstLetter(type) || "Linear");
+    return setGradientType(mapGradientOptions(type));
   };
   return (
     <Panel.Item style={style} className={css.container}>
@@ -154,7 +155,13 @@ const GradientPanel = ({
   );
 };
 
-const capitalizeFirstLetter = (string: string) => {
+const mapGradientOptions = (string: string) => {
   if (!string) return string; // 如果字符串为空或未定义，则直接返回
-  return string.charAt(0).toUpperCase() + string.slice(1);
+  for (const item of gradientOptions) {
+    if (item.value === string) {
+      return item.label;
+    }
+  }
+
+  return "线性";
 };
