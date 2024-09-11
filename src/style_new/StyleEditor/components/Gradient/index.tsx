@@ -10,7 +10,8 @@ import { createPortal } from "react-dom";
 import { Panel, GradientEditor } from "../";
 
 import css from "./index.less";
-import { gradientOptions } from "../GradientEditor/constants";
+import { gradientOptions, shapeOptions } from "../GradientEditor/constants";
+import { Angle, Circle, Ellipse, Linear, Radial } from "../GradientEditor/Icon";
 
 interface GradientEditorProps {
   defaultValue: any;
@@ -60,8 +61,16 @@ export function Gradient({
   };
 
   const [gradientType, setGradientType] = useState<string>("线性");
+  const [shapeType, setShapeType] = useState<string>("椭圆");
+  const [deg, setDeg] = useState(90);
   const onTypeChange = (type: string) => {
-    return setGradientType(mapGradientOptions(type));
+    return setGradientType(mapGradientOptions(type, gradientOptions) || "线性");
+  };
+  const onDegChange = (deg: number) => {
+    return setDeg(deg);
+  };
+  const onShapeChange = (shape: string) => {
+    return setShapeType(mapGradientOptions(shape, shapeOptions) || "椭圆");
   };
   return (
     <Panel.Item style={style} className={css.container}>
@@ -75,7 +84,18 @@ export function Gradient({
           className={css.block}
           style={{ backgroundImage: backgroundImage }}
         />
-        <span>{gradientType}</span>
+        <div className={css.text}>
+          {gradientType === "radial" ? <Radial /> : <Linear />}
+          <span>{gradientType}</span>
+          {/* {gradientType === "linear" ? (
+            <Angle />
+          ) : shapeType === "ellipse" ? (
+            <Ellipse />
+          ) : (
+            <Circle />
+          )}
+          <span>{gradientType === "线性" ? `${deg}deg` : shapeType}</span> */}
+        </div>
       </div>
       {show &&
         createPortal(
@@ -85,6 +105,8 @@ export function Gradient({
             open={open}
             onChange={onGradientChange}
             onTypeChange={onTypeChange}
+            onDegChange={onDegChange}
+            onShapeChange={onShapeChange}
           />,
           document.body
         )}
@@ -98,6 +120,8 @@ const GradientPanel = ({
   onChange,
   defaultValue,
   onTypeChange,
+  onDegChange,
+  onShapeChange,
 }: {
   defaultValue: string;
   open: boolean;
@@ -150,18 +174,20 @@ const GradientPanel = ({
         defaultValue={defaultValue}
         onTypeChange={onTypeChange}
         onChange={(backgroundImage) => onChange(backgroundImage)}
+        onDegChange={onDegChange}
+        onShapeChange={onShapeChange}
       />
     </div>
   );
 };
 
-const mapGradientOptions = (string: string) => {
+const mapGradientOptions = (string: string, options: any[]) => {
   if (!string) return string; // 如果字符串为空或未定义，则直接返回
-  for (const item of gradientOptions) {
+  for (const item of options) {
     if (item.value === string) {
       return item.label;
     }
   }
 
-  return "线性";
+  return "";
 };
