@@ -123,6 +123,28 @@ export function GradientEditor({
 
   const [curElementId, setCurElementId] = useState<string | null>(null);
 
+  const onClickAngle = useCallback(() => {
+    // 定义四个角度
+    const angles = [0, 90, 180, 270];
+
+    // 如果 deg 是 angles 中的一个，直接选择下一个角度
+    const index = angles.findIndex((angle) => angle === deg);
+    if (index !== -1) {
+      setDeg(angles[(index + 1) % angles.length]);
+      return;
+    }
+
+    // 如果 deg 不在 angles 中，找到最接近的角度
+    let closestDeg = angles[0]; // 默认最接近的角度为数组中的第一个
+    angles.forEach((angle) => {
+      if (Math.abs(deg - angle) < Math.abs(deg - closestDeg)) {
+        closestDeg = angle;
+      }
+    });
+
+    setDeg(closestDeg);
+  }, [deg]);
+
   return (
     <div style={{ width: "100%", marginTop: 6, maxHeight: 360 }}>
       <PanelRender
@@ -145,7 +167,12 @@ export function GradientEditor({
         {gradientType === "linear" ? (
           <InputNumber
             tip="渐变线方向角度"
-            prefix={<Angle />}
+            prefix={
+              <div onClick={onClickAngle}>
+                <Angle />
+              </div>
+            }
+            key={deg}
             suffix="°"
             prefixTip="角度"
             style={{ flex: 1 }}
