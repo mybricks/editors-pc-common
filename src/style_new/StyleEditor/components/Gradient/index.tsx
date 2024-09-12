@@ -31,9 +31,9 @@ export function Gradient({
   const [open, setOpen] = useState(false);
 
   const onPresetClick = useCallback(() => {
-    setShow(true);
-    setOpen(true);
-  }, []);
+    setShow(!show);
+    setOpen(!open);
+  }, [show, open]);
 
   const handleClick = useCallback(() => {
     setOpen(false);

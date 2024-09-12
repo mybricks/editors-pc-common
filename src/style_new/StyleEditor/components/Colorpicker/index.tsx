@@ -35,9 +35,9 @@ export function Colorpicker({
     if (disabled) {
       return;
     }
-    setShow(true);
-    setOpen(true);
-  }, [disabled]);
+    setShow(!show);
+    setOpen(!open);
+  }, [disabled, show, open]);
 
   const handleColorSketchChange = useCallback(
     (value: ColorResult, oldValue: ColorResult) => {
