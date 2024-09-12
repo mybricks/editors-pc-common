@@ -146,6 +146,7 @@ export function GradientEditor({
           <InputNumber
             tip="渐变线方向角度"
             prefix={<Angle />}
+            suffix="°"
             prefixTip="角度"
             style={{ flex: 1 }}
             type={"number"}
@@ -184,9 +185,10 @@ export function GradientEditor({
                 <InputNumber
                   key={position}
                   tip="停靠位置"
+                  suffix="%"
                   // prefix={<PositionIcon />}
                   // prefixTip="位置"
-                  style={{ flex: 1, border }}
+                  style={{ flex: 2, border }}
                   type={"number"}
                   defaultUnitValue=""
                   defaultValue={position}
@@ -200,7 +202,7 @@ export function GradientEditor({
                 <ColorEditor
                   defaultValue={color}
                   key={color}
-                  style={{ flex: 3, border }}
+                  style={{ flex: 5, border }}
                   onChange={(color) => {
                     changeProperty("color", color, id);
                     setCurElementId(id);
