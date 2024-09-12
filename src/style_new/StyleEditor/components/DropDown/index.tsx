@@ -27,6 +27,7 @@ export function Dropdown({ value, options, children, onClick, className, multipl
 
   const handleItemClick = useCallback((value: any) => {
     onClick(value);
+    if (!multiple)setOpen(false);
   }, []);
 
   const handleClick = useCallback((event: { target: any; }) => {
