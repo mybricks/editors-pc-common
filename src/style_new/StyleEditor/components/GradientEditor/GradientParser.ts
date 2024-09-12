@@ -22,7 +22,10 @@ export const ParseGradient = (
       stops =
         // @ts-ignore
         gradientData?.colorStops?.map((colorStop) => ({
-          color: `rgba(${(colorStop?.value as string[]).join(",")})`,
+          color:
+            colorStop.type === "var-color"
+              ? `var(${colorStop?.value as string})`
+              : `rgba(${(colorStop?.value as string[]).join(",")})`,
           position: Number(colorStop?.length?.value),
           id: uuid(),
         })) || [];

@@ -18,7 +18,8 @@ const tokens = {
   literalColor: /^([a-zA-Z]+)/,
   rgbColor: /^rgb/i,
   rgbaColor: /^rgba/i,
-  number: /^(([0-9]*\.[0-9]+)|([0-9]+\.?))/
+  number: /^(([0-9]*\.[0-9]+)|([0-9]+\.?))/,
+  varColor: /^var\((--[a-zA-Z0-9-_]+)\)/, // 匹配 CSS 变量，包括连字符
 };
 
 type GradientType =
@@ -251,7 +252,18 @@ const matchColorStop = () => {
 };
 
 const matchColor = () => {
-  return matchHexColor() || matchRGBAColor() || matchRGBColor() || matchLiteralColor();
+  return matchVarColor() || matchHexColor() || matchRGBAColor() || matchRGBColor() || matchLiteralColor();
+};
+
+const matchVarColor = () => {
+  const result = match('var-color', tokens.varColor, 1);
+  if (result) {
+    return {
+      type: 'var-color',
+      value: result.value
+    };
+  }
+  return undefined;
 };
 
 const matchLiteralColor = () => {

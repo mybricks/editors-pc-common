@@ -106,6 +106,8 @@ function getInitialState({
       result.finalValue = finalValue;
     }
   }
+  console.log('[42m [ result ]-94-「ColorEditor/index.tsx」 [0m', result, value)
+
 
   return result;
 }
