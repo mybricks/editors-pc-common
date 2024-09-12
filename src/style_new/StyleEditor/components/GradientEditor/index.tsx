@@ -173,23 +173,20 @@ export function GradientEditor({
           stops.map((stop) => {
             const { color, position, id } = stop;
             if (!color) return null;
+            const border = curElementId === id ? "1px solid #FA6400" : "";
             return (
-              <Panel.Content key={id} style={{ padding: "3px 0" }}>
-                <ColorEditor
-                  defaultValue={color}
-                  key={color}
-                  style={{ flex: 3 }}
-                  onChange={(color) => {
-                    changeProperty("color", color, id);
-                    setCurElementId(id);
-                  }}
-                />
+              <Panel.Content
+                key={id}
+                style={{
+                  padding: "3px 0",
+                }}
+              >
                 <InputNumber
                   key={position}
                   tip="停靠位置"
                   // prefix={<PositionIcon />}
                   // prefixTip="位置"
-                  style={{ flex: 1 }}
+                  style={{ flex: 1, border }}
                   type={"number"}
                   defaultUnitValue=""
                   defaultValue={position}
@@ -200,8 +197,17 @@ export function GradientEditor({
                     setCurElementId(id);
                   }}
                 />
+                <ColorEditor
+                  defaultValue={color}
+                  key={color}
+                  style={{ flex: 3, border }}
+                  onChange={(color) => {
+                    changeProperty("color", color, id);
+                    setCurElementId(id);
+                  }}
+                />
                 <Panel.Item
-                  style={{ width: 30, padding: 0 }}
+                  style={{ width: 30, padding: 0, border }}
                   className={stops.length <= 2 ? css.disabled : ""}
                   onClick={() => {
                     if (stops.length > 2) {

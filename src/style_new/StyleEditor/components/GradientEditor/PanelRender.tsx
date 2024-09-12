@@ -51,6 +51,7 @@ const PanelRender = ({
         position,
         color: "",
       };
+      setCurElementId(newStop.id);
       if (temp?.length === 0) {
         newStop.color = "rgba(255,255,255,1)";
       } else {
@@ -120,7 +121,7 @@ const PanelRender = ({
   const onMouseUp = (event: React.MouseEvent<HTMLDivElement>) => {
     setDragStartFlag(false);
     setMoveMarkerEndTime(+new Date());
-    setCurElementId(null);
+    // setCurElementId(null);
     event.stopPropagation();
   };
 
@@ -149,7 +150,7 @@ const PanelRender = ({
                 }}
                 onMouseDown={(e) => onMouseDown(id, e)}
                 onMouseUp={onMouseUp}
-                onClick={(event) => event.stopPropagation()}
+                onClick={() => setCurElementId(id)}
               >
                 <div
                   key={id}
