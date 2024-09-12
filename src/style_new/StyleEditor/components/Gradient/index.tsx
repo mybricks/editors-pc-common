@@ -85,8 +85,8 @@ export function Gradient({
           style={{ backgroundImage: backgroundImage }}
         />
         <div className={css.text}>
-          {gradientType === "径向" ? <Radial /> : <Linear />}
-          <span>{gradientType}</span>
+          {/* {gradientType === "径向" ? <Radial /> : <Linear />} */}
+          <span>{gradientType}颜色渐变</span>
           {/* {gradientType === "linear" ? (
             <Angle />
           ) : shapeType === "ellipse" ? (
