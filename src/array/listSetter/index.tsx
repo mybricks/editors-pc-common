@@ -268,6 +268,22 @@ export default function ({
     }
   }, [defaultSelect, activeId, didMount, selectable, list]);
 
+  const getI18nText = useCallback(
+    (val: any): string | string[] => {
+      if (!val?.id) {
+        // 可能是dom 现在不做处理
+        return val;
+      }
+      const item = locales.searchById(val?.id);
+      if (item) {
+        return item.getContent("zh");
+      } else {
+        return `<未找到文案>`;
+      }
+    },
+    [locales]
+  );
+
   const SubEditors = useMemo(() => {
     return (
       <div style={{ padding: "15px" }} onClick={(e) => e.stopPropagation()}>
@@ -390,7 +406,7 @@ export default function ({
                     <Title
                       items={
                         typeof getTitle === "function"
-                          ? getTitle(item || {}, index)
+                          ? getI18nText(getTitle(item || {}, index))
                           : []
                       }
                     />
@@ -477,7 +493,7 @@ export default function ({
               heavy
               items={
                 typeof getTitle === "function"
-                  ? getTitle(list[editIndex] || {}, editIndex)
+                  ? getI18nText(getTitle(list[editIndex] || {}, editIndex))
                   : []
               }
             />
