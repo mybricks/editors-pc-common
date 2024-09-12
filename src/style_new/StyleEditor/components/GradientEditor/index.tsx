@@ -94,7 +94,7 @@ export function GradientEditor({
     stops: GradientStop[]
   ) => {
     const direction = gradientType === "linear" ? `${deg}deg` : shapeType;
-    if (stops.length === 0) return "";
+    if (stops.length === 0) return "none";
     return `${gradientType}-gradient(${direction}${stops
       .map((stop) => `, ${stop.color} ${stop.position}%`)
       .join("")})`;
@@ -210,11 +210,11 @@ export function GradientEditor({
                 />
                 <Panel.Item
                   style={{ width: 30, padding: 0, border }}
-                  className={stops.length <= 2 ? css.disabled : ""}
+                  // className={stops.length <= 2 ? css.disabled : ""}
                   onClick={() => {
-                    if (stops.length > 2) {
-                      removeColor(id);
-                    }
+                    // if (stops.length > 2) {
+                    removeColor(id);
+                    // }
                   }}
                 >
                   <MinusButton />

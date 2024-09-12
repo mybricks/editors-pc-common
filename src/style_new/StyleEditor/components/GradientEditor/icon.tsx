@@ -20,7 +20,7 @@ export const AddButton = () => (
 export const MinusButton = () => (
   <svg xmlns="http://www.w3.org/2000/svg" height="30" viewBox="0 0 32 32">
     <path
-      fill="#000"
+      fill="currentColor"
       fill-opacity=".9"
       fill-rule="evenodd"
       stroke="none"
