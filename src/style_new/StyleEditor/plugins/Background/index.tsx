@@ -17,7 +17,7 @@ interface BackgroundProps {
 const DEFAULT_CONFIG = {
   disableBackgroundColor: false,
   disableBackgroundImage: false,
-  disableGradient: true,
+  disableGradient: false,
   keyMap: {},
   useImportant: false,
 };
