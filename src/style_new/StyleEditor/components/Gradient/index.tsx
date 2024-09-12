@@ -7,11 +7,13 @@ import React, {
 } from "react";
 import { createPortal } from "react-dom";
 
-import { Panel, GradientEditor } from "../";
+import { Panel, GradientEditor, TransparentColorOutlined } from "../";
+
+import { ReloadOutlined } from "@ant-design/icons";
 
 import css from "./index.less";
 import { gradientOptions, shapeOptions } from "../GradientEditor/constants";
-import { Angle, Circle, Ellipse, Linear, Radial } from "../GradientEditor/Icon";
+// import { Angle, Circle, Ellipse, Linear, Radial } from "../GradientEditor/Icon";
 
 interface GradientEditorProps {
   defaultValue: any;
@@ -74,16 +76,19 @@ export function Gradient({
   };
   return (
     <Panel.Item style={style} className={css.container}>
-      <div
-        className={css.color}
-        onClick={onPresetClick}
-        data-mybricks-tip={"渐变色"}
-      >
-        <div
-          ref={presetRef}
-          className={css.block}
-          style={{ backgroundImage: backgroundImage }}
-        />
+      <div className={css.color} data-mybricks-tip={"渐变色"}>
+        <div className={css.colorPickerContainer} onClick={onPresetClick}>
+          <div
+            ref={presetRef}
+            className={css.block}
+            style={{ backgroundImage }}
+          />
+          {(!backgroundImage || backgroundImage === "none") && (
+            <div className={css.icon}>
+              <TransparentColorOutlined />
+            </div>
+          )}
+        </div>
         <div className={css.text}>
           {/* {gradientType === "径向" ? <Radial /> : <Linear />} */}
           <span>{gradientType}颜色渐变</span>
@@ -96,6 +101,16 @@ export function Gradient({
           )}
           <span>{gradientType === "线性" ? `${deg}deg` : shapeType}</span> */}
         </div>
+      </div>
+      <div
+        className={css.svgDiv}
+        onClick={() => {
+          onGradientChange("none");
+          setShow(false);
+        }}
+        data-mybricks-tip={"重置渐变色"}
+      >
+        <ReloadOutlined />
       </div>
       {show &&
         createPortal(
