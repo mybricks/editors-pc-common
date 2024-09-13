@@ -9,13 +9,13 @@ export const ParseGradient = (
   direction: string;
   stops: GradientStop[];
 } => {
-  let type: GradientType = "linear";
+  let type: GradientType = "linear-gradient";
   let direction = "90";
   let stops: GradientStop[] = [];
   if (gradientString && gradientString !== "none") {
     const gradientData = gradient(gradientString)?.[0];
     if (!!gradientData) {
-      type = gradientData.type.split("-")[0] as GradientType;
+      type = gradientData.type;
       direction = Array.isArray(gradientData.orientation)
         ? gradientData.orientation[0]?.value
         : gradientData.orientation?.value;

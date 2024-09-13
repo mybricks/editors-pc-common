@@ -11,7 +11,7 @@ import {
   Linear,
   MinusButton,
   Radial,
-} from "./Icon";
+} from "./icon";
 import {
   ShapeType,
   GradientType,
@@ -32,7 +32,8 @@ export function GradientEditor({
   onDegChange,
   onShapeChange,
 }: GradientEditorProps) {
-  const [gradientType, setGradientType] = useState<GradientType>("linear");
+  const [gradientType, setGradientType] =
+    useState<GradientType>("linear-gradient");
   const [shapeType, setShapeType] = useState<ShapeType>("ellipse");
   const [deg, setDeg] = useState(90);
   const [stops, setStops] = useState<GradientStop[]>([]);
@@ -41,7 +42,7 @@ export function GradientEditor({
     if (defaultValue) {
       const { type, direction, stops } = ParseGradient(defaultValue);
       setGradientType(type);
-      if (type === "linear" && direction) {
+      if (type === "linear-gradient" && direction) {
         setDeg(parseInt(direction));
       } else if (direction) {
         setShapeType(direction as ShapeType);
@@ -93,15 +94,21 @@ export function GradientEditor({
     shapeType: ShapeType,
     stops: GradientStop[]
   ) => {
-    const direction = gradientType === "linear" ? `${deg}deg` : shapeType;
+    const direction =
+      gradientType === "linear-gradient" ? `${deg}deg` : shapeType;
     if (stops.length === 0) return "none";
-    return `${gradientType}-gradient(${direction}${stops
+    return `${gradientType}(${direction}${stops
       .map((stop) => `, ${stop.color} ${stop.position}%`)
       .join("")})`;
   };
 
   const finalValue = generateGradientValue(deg, gradientType, shapeType, stops);
-  const finalValueRight = generateGradientValue(90, "linear", shapeType, stops);
+  const finalValueRight = generateGradientValue(
+    90,
+    "linear-gradient",
+    shapeType,
+    stops
+  );
 
   useEffect(() => {
     if (finalValue) {
@@ -161,10 +168,10 @@ export function GradientEditor({
           style={{ flex: 1 }}
           value={gradientType}
           options={gradientOptions}
-          prefix={gradientType === "radial" ? <Radial /> : <Linear />}
+          prefix={gradientType === "radial-gradient" ? <Radial /> : <Linear />}
           onChange={(value) => setGradientType(value)}
         />
-        {gradientType === "linear" ? (
+        {gradientType === "linear-gradient" ? (
           <InputNumber
             tip="渐变线方向角度"
             prefix={
