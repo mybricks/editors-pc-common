@@ -155,7 +155,7 @@ const GradientPanel = ({
         window.innerHeight || document.documentElement.clientHeight;
       const top = positionElementBct.top + positionElementBct.height;
       const right = positionElementBct.left + positionElementBct.width;
-      const left = right - positionElementBct.width;
+      const left = right - positionElementBct.width - 20;
       const bottom = top + menusContainerBct.height;
 
       if (bottom > totalHeight) {
