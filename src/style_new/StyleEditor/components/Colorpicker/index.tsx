@@ -35,9 +35,9 @@ export function Colorpicker({
     if (disabled) {
       return;
     }
-    setShow(true);
-    setOpen(true);
-  }, [disabled]);
+    setShow(!show);
+    setOpen(!open);
+  }, [disabled, show, open]);
 
   const handleColorSketchChange = useCallback(
     (value: ColorResult, oldValue: ColorResult) => {
@@ -57,7 +57,7 @@ export function Colorpicker({
   );
 
   const handleClick = useCallback((event: any) => {
-    if (!childRef.current!.contains(event.target)) {
+    if (!childRef.current?.contains(event.target)) {
       setOpen(false);
     }
   }, []);
@@ -125,7 +125,7 @@ function ColorSketch({
         window.innerHeight || document.documentElement.clientHeight;
       const top = positionElementBct.top + positionElementBct.height;
       const right = positionElementBct.left + positionElementBct.width;
-      const left = right - menusContainerBct.width;
+      const left = right - menusContainerBct.width - 20;
       const bottom = top + menusContainerBct.height;
 
       if (bottom > totalHeight) {
