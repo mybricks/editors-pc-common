@@ -137,8 +137,8 @@ export function ColorEditor({
 
   const onPresetClick = useCallback(() => {
     setShow(true);
-    setOpen(true);
-  }, []);
+    setOpen((open) => !open);
+  }, [open]);
 
   const handleColorpickerChange = useCallback((color: Record<string, any>) => {
     const hex = getHex(color.hexa);

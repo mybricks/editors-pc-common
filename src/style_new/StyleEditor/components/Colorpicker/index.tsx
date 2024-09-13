@@ -36,8 +36,8 @@ export function Colorpicker({
       return;
     }
     setShow(true);
-    setOpen(true);
-  }, [disabled]);
+    setOpen((open) => !open);
+  }, [disabled, open]);
 
   const handleColorSketchChange = useCallback(
     (value: ColorResult, oldValue: ColorResult) => {
@@ -125,7 +125,7 @@ function ColorSketch({
         window.innerHeight || document.documentElement.clientHeight;
       const top = positionElementBct.top + positionElementBct.height;
       const right = positionElementBct.left + positionElementBct.width;
-      const left = right - menusContainerBct.width;
+      const left = right - menusContainerBct.width - 20;
       const bottom = top + menusContainerBct.height;
 
       if (bottom > totalHeight) {

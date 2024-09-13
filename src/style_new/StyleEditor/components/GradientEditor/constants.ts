@@ -21,12 +21,12 @@ const defalutGradientStops: GradientStop[] = [
   { color: "rgba(255,255,255,0)", position: 0, id: uuid() },
   { color: "rgba(255,255,255,0)", position: 50, id: uuid() },
 ];
-type GradientType = "linear" | "radial";
+type GradientType = "linear-gradient" | "radial-gradient";
 type ShapeType = "ellipse" | "radial";
 
 const gradientOptions = [
-  { value: "linear", label: "线性" },
-  { value: "radial", label: "径向" },
+  { value: "linear-gradient", label: "线性" },
+  { value: "radial-gradient", label: "径向" },
 ];
 
 const shapeOptions = [

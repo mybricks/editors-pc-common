@@ -173,9 +173,29 @@ const PanelRender = ({
         }}
         onClick={handlePreviewClick}
         ref={previewRef}
-      />
+      >
+        <CoordinatePoints />
+      </div>
     </div>
   );
 };
+
+const positions = [25, 50, 75]; // 定义坐标点的百分比位置
+const heights = [4, 6, 4]; // 定义坐标点的高度
+
+// 坐标点组件
+const CoordinatePoints = () => (
+  <>
+    {positions.map((position, index) => (
+      <div
+        key={index}
+        className={css.coordinatePoint}
+        style={{ left: `${position}%` }}
+      >
+        <div style={{ height: `${heights[index]}px` }} />
+      </div>
+    ))}
+  </>
+);
 
 export default PanelRender;

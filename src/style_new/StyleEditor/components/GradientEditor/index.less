@@ -10,6 +10,18 @@
   justify-content: space-between;
   cursor: crosshair;
   box-shadow: 0 2px 4px 0 rgba(54, 58, 80, 0.32);
+
+  .coordinatePoint {
+    position: absolute;
+    bottom: 0;
+    transform: translate(-50%, 0%);
+
+    div {
+      width: 1px;
+      background-color: #e6e6e6;
+      box-shadow: 0 2px 4px 0 rgba(54, 58, 80, 0.32);
+    }
+  }
 }
 
 .previewTopBox {
@@ -35,7 +47,6 @@
       border: 1px solid #e6e6e6;
       background-color: #ffffff;
 
-  
       div {
         overflow: hidden;
         position: relative;
@@ -45,7 +56,7 @@
       }
     }
     .active {
-      border-color: #FA6400;
+      border-color: #fa6400;
       z-index: 5;
     }
   }
@@ -64,7 +75,7 @@
     z-index: 5;
   }
   .stopActive::after {
-    border-top-color: #FA6400;
+    border-top-color: #fa6400;
     z-index: 5;
   }
 }
@@ -108,13 +119,13 @@
 .gradient-preview {
   height: 12px;
   margin-bottom: 20px;
-  background:white;
+  background: white;
 }
 
 .gradient-panel__angle {
   display: flex;
   align-items: center;
-  justify-content: flex-start
+  justify-content: flex-start;
 }
 
 .overlay-when-drag {
@@ -148,9 +159,8 @@
   justify-content: space-between;
 }
 
-
 .gradient-panel__presets {
-  display: flex; 
+  display: flex;
   align-items: center;
   justify-content: flex-start;
 }
@@ -167,7 +177,7 @@
   cursor: pointer;
 }
 
-.gradient-panel__presets__item:first-of-type{
+.gradient-panel__presets__item:first-of-type {
   margin-left: 15px;
 }
 
@@ -194,9 +204,8 @@
   box-shadow: 0px 2px 6px grey;
 }
 
-
 .gradient-panel__slider-marker_active {
-  box-shadow: 0px 2px 6px #FA6400;
+  box-shadow: 0px 2px 6px #fa6400;
 }
 
 .gradient-panel__slider-marker__color {
