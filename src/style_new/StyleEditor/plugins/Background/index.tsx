@@ -1,7 +1,28 @@
-import React, { useMemo, useState, CSSProperties, useCallback } from "react";
+import React, {
+  useMemo,
+  useState,
+  CSSProperties,
+  useCallback,
+  useRef,
+  useEffect,
+} from "react";
 import { getRealKey } from "../../utils";
 import { useStyleEditorContext } from "../..";
-import { Panel, Image, ColorEditor, Gradient } from "../../components";
+import {
+  Panel,
+  Image,
+  ColorEditor,
+  TransparentColorOutlined,
+  GradientEditor,
+  Gradient,
+  ImageEditor,
+} from "../../components";
+import CSS from "./index.less";
+import { createPortal } from "react-dom";
+import { ReloadOutlined } from "@ant-design/icons";
+import { GradientIcon, ImgIcon, SoldIcon } from "./Icon";
+import Sketch, { ColorResult } from "@mybricks/color-picker";
+import { Background1 } from "./Old";
 
 interface BackgroundProps {
   value: CSSProperties;
@@ -12,6 +33,7 @@ interface BackgroundProps {
     [key: string]: any;
   };
   showTitle: boolean;
+  upload?: (files: Array<File>) => Array<string>;
 }
 
 const DEFAULT_CONFIG = {
@@ -22,19 +44,12 @@ const DEFAULT_CONFIG = {
   useImportant: false,
 };
 
-const defaultValue = {
-  backgroundColor: "rgba(0, 0, 0, 0)",
-  backgroundImage: "none",
-  backgroundRepeat: "repeat",
-  backgroundPosition: "left top",
-  backgroundSize: "auto",
-};
-
 export function Background({
   value,
   onChange,
   config,
   showTitle,
+  upload,
 }: BackgroundProps) {
   const context = useStyleEditorContext();
   const [
@@ -73,6 +88,161 @@ export function Background({
     setForceRenderKey(forceRenderKey + 1);
   }, [forceRenderKey]);
 
+  const presetRef = useRef<HTMLDivElement>(null);
+  const [show, setShow] = useState(false);
+  const [open, setOpen] = useState(false);
+
+  const onPresetClick = useCallback(() => {
+    setShow(true);
+    setOpen(true);
+  }, []);
+
+  const handleClick = useCallback(() => {
+    setOpen(false);
+  }, []);
+
+  useEffect(() => {
+    if (open) {
+      setTimeout(() => {
+        document.addEventListener("click", handleClick);
+      });
+    } else {
+      document.removeEventListener("click", handleClick);
+    }
+  }, [open]);
+
+  useEffect(() => {
+    return () => {
+      document.removeEventListener("click", handleClick);
+    };
+  }, []);
+
+  const NewPanel = ({
+    open,
+    positionElement,
+  }: {
+    open: boolean;
+    [k: string]: any;
+  }) => {
+    const ref = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+      const menusContainer = ref.current!;
+      if (open) {
+        const positionElementBct = positionElement.getBoundingClientRect();
+        const menusContainerBct = ref.current!.getBoundingClientRect();
+        const totalHeight =
+          window.innerHeight || document.documentElement.clientHeight;
+        const top = positionElementBct.top + positionElementBct.height;
+        const right = positionElementBct.left + positionElementBct.width;
+        const left = right - positionElementBct.width - 20;
+        const bottom = top + menusContainerBct.height;
+
+        if (bottom > totalHeight) {
+          // 目前判断下方是否超出即可
+          // 向上
+          menusContainer.style.top =
+            positionElementBct.top - menusContainerBct.height + "px";
+        } else {
+          menusContainer.style.top = top + "px";
+        }
+
+        // 保证完全展示
+        if (menusContainerBct.width > positionElementBct.width) {
+          menusContainer.style.left =
+            left - menusContainerBct.width + positionElementBct.width + "px";
+        } else {
+          menusContainer.style.width = positionElementBct.width + "px";
+          menusContainer.style.left = left + "px";
+        }
+
+        menusContainer.style.visibility = "visible";
+      } else {
+        menusContainer.style.visibility = "hidden";
+      }
+    }, [open]);
+
+    const [activeKey, setActiveKey] = useState(0);
+    const TopBar = () => {
+      const isActive = (key: number) => activeKey === key;
+      const handleItemClick = (key: number) => setActiveKey(key);
+
+      return (
+        <div className={CSS.topBar}>
+          {[<SoldIcon />, <GradientIcon />, <ImgIcon />].map((icon, index) => (
+            <div
+              key={index}
+              className={`${CSS.topBarItem} ${
+                isActive(index) ? CSS.activeItem : ""
+              }`}
+              onClick={() => handleItemClick(index)}
+            >
+              {icon}
+            </div>
+          ))}
+        </div>
+      );
+    };
+
+    const [backgroundImage, setBackgroundImage] = useState(
+      defaultBackgroundValue.backgroundImage
+    );
+
+    const ContentRender = useMemo(() => {
+      switch (activeKey) {
+        case 0:
+          return (
+            <div className={CSS.ColorPicker}>
+              <Sketch
+                color={defaultBackgroundValue.backgroundColor}
+                onChange={(value) =>
+                  onChange({ key: "backgroundColor", value })
+                }
+                style={{ boxShadow: "none", margin: "auto" }}
+              />
+            </div>
+          );
+        case 1:
+          return (
+            <div style={{ padding: " 4px 16px 8px 16px" }}>
+              <div style={{ marginTop: 30 }} />
+              <GradientEditor
+                defaultValue={defaultBackgroundValue.backgroundImage}
+                // onTypeChange={onTypeChange}
+                onChange={(value) =>
+                  onChange({ key: "backgroundImage", value })
+                }
+                // onDegChange={onDegChange}
+                // onShapeChange={onShapeChange}
+              />
+            </div>
+          );
+        case 2:
+          return (
+            <div style={{ width: "218px", margin: "10px auto 0px auto" }}>
+              <ImageEditor
+                value={backgroundImage}
+                onChange={(value) => {
+                  onChange(value);
+                  setBackgroundImage(value.value);
+                }}
+                upload={upload}
+              />
+            </div>
+          );
+        default:
+          return <div>1</div>;
+      }
+    }, [activeKey]);
+
+    return (
+      <div ref={ref} className={CSS.panel} onClick={(e) => e.stopPropagation()}>
+        <TopBar />
+        {ContentRender}
+      </div>
+    );
+  };
+
   return (
     <Panel
       title="背景"
@@ -81,51 +251,51 @@ export function Background({
       showReset={true}
       resetFunction={refresh}
     >
+      <Background1
+        value={value}
+        onChange={onChange}
+        config={config}
+        showTitle={showTitle}
+      />
       <Panel.Content>
-        {disableBackgroundColor ? null : (
-          <ColorEditor
-            // TODO
-            // @ts-ignore
-            style={{ flex: 2 }}
-            defaultValue={
-              defaultBackgroundValue[getRealKey(keyMap, "backgroundColor")] ||
-              defaultBackgroundValue.backgroundColor
-            }
-            onChange={(value) => {
-              onChange({
-                key: getRealKey(keyMap, "backgroundColor"),
-                value: `${value}${useImportant ? "!important" : ""}`,
-              });
+        <Panel.Item className={CSS.container}>
+          <div className={CSS.color} data-mybricks-tip={"背景"}>
+            <div className={CSS.colorPickerContainer} onClick={onPresetClick}>
+              <div ref={presetRef} className={CSS.block} />
+              {!defaultBackgroundValue.backgroundColor ||
+                ((!defaultBackgroundValue.backgroundImage ||
+                  defaultBackgroundValue.backgroundImage === "none") && (
+                  <div className={CSS.icon}>
+                    <TransparentColorOutlined />
+                  </div>
+                ))}
+            </div>
+            <div className={CSS.text}></div>
+          </div>
+          <div
+            className={CSS.svgDiv}
+            onClick={() => {
+              setShow(false);
             }}
-          />
-        )}
-        {disableBackgroundImage ? null : (
-          <Image
-            style={{ flex: 1 }}
-            tip="背景图"
-            defaultValue={{
-              backgroundImage: defaultBackgroundValue.backgroundImage,
-              backgroundRepeat: defaultBackgroundValue.backgroundRepeat,
-              backgroundPosition: defaultBackgroundValue.backgroundPosition,
-              backgroundSize: defaultBackgroundValue.backgroundSize,
-            }}
-            onChange={(value: { key: string; value: string }) => {
-              onChange({
-                key: getRealKey(keyMap, value.key),
-                value: `${value.value}${useImportant ? "!important" : ""}`,
-              });
-            }}
-            upload={context.upload}
-          />
-        )}
-      </Panel.Content>
-      <Panel.Content>
-        {!disableGradient ? (
-          <Gradient
-            defaultValue={defaultBackgroundValue?.backgroundImage || ""}
-            onChange={(value) => onChange({ key: "backgroundImage", value })}
-          />
-        ) : null}
+            data-mybricks-tip={"重置"}
+          >
+            <ReloadOutlined />
+          </div>
+          {show &&
+            createPortal(
+              <NewPanel
+                // defaultValue={defaultValue}
+                positionElement={presetRef.current!}
+                open={open}
+                upload={upload}
+                // onChange={onGradientChange}
+                // onTypeChange={onTypeChange}
+                // onDegChange={onDegChange}
+                // onShapeChange={onShapeChange}
+              />,
+              document.body
+            )}
+        </Panel.Item>
       </Panel.Content>
     </Panel>
   );
