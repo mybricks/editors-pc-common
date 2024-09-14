@@ -499,6 +499,12 @@ const getHex = (str: string) => {
   return finalValue;
 };
 
+export const ProcessColor = (color: Record<string, any>) => {
+  const hex = getHex(color.hexa);
+
+  return color2rgba(hex);
+};
+
 function BindOutlined() {
   return (
     <svg
