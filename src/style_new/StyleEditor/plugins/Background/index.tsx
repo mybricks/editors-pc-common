@@ -9,13 +9,12 @@ import React, {
 import { useStyleEditorContext } from "../..";
 import {
   Panel,
-  Image,
-  ColorEditor,
   TransparentColorOutlined,
   GradientEditor,
-  Gradient,
   ImageEditor,
   ProcessColor,
+  getBackgroundImage,
+  colorSketchChange,
 } from "../../components";
 import CSS from "./index.less";
 import { createPortal } from "react-dom";
@@ -128,6 +127,10 @@ export function Background({
       defaultBackgroundValue?.backgroundImage
   );
 
+  const [defaultBackground, setDefaultBackground] = useState<CSSProperties>(
+    defaultBackgroundValue
+  );
+
   const NewPanel = useCallback(
     ({ open, positionElement }: { open: boolean; [k: string]: any }) => {
       const ref = useRef<HTMLDivElement>(null);
@@ -169,16 +172,34 @@ export function Background({
       }, [open]);
 
       const [activeKey, setActiveKey] = useState(0);
+      const isActive = (key: number) => activeKey === key;
+      const handleItemClick = useCallback(
+        (key: number) => {
+          setActiveKey(key);
+          switch (key) {
+            case 0:
+              onChange({ key: "backgroundColor", value: backgroundColor });
+              break;
+            case 1:
+              onChange({ key: "backgroundImage", value: backgroundImage });
+              break;
+            case 2:
+              // @ts-ignore
+              onChange(defaultBackground);
+              break;
+            default:
+              return;
+          }
+        },
+        [backgroundColor, backgroundImage]
+      );
       const TopBar = useCallback(() => {
-        const isActive = (key: number) => activeKey === key;
-        const handleItemClick = (key: number) => setActiveKey(key);
-
         return (
           <div className={CSS.topBar}>
             {[<SoldIcon />, <GradientIcon />, <ImgIcon />].map((icon, index) =>
               (index === 2 && disableBackgroundImage) ||
-              (index === 0 && disableBackgroundColor) ||
-              (index === 1 && disableGradient) ? null : (
+              (index === 1 && disableGradient) ||
+              (index === 0 && disableBackgroundColor) ? null : (
                 <div
                   key={index}
                   className={`${CSS.topBarItem} ${
@@ -199,8 +220,8 @@ export function Background({
           <div className={CSS.ColorPicker}>
             <Sketch
               color={backgroundColor}
-              onChange={(color) => {
-                const value = ProcessColor(color);
+              onChange={(color, oldColor) => {
+                const value = ProcessColor(colorSketchChange(color, oldColor));
                 onChange({ key: "backgroundColor", value });
                 setBackgroundColor(value);
               }}
@@ -234,21 +255,28 @@ export function Background({
         [backgroundImage]
       );
 
-      const ImgPicker = useCallback(
-        () => (
+      const ImgPicker = useCallback(() => {
+        return (
           <div className={CSS.ImgPicker}>
             <ImageEditor
-              value={backgroundImage}
+              upload={upload}
+              value={defaultBackground}
               onChange={(value) => {
                 onChange(value);
-                setBackgroundImage(value.value);
+                setDefaultBackground((val) => {
+                  return {
+                    ...val,
+                    [value.key]: value.value,
+                  };
+                });
+                if (value?.key === "backgroundImage") {
+                  setBackgroundImage(value.value);
+                }
               }}
-              upload={upload}
             />
           </div>
-        ),
-        [backgroundImage]
-      );
+        );
+      }, [defaultBackground]);
 
       const ContentRender = useMemo(() => {
         switch (activeKey) {
@@ -277,18 +305,25 @@ export function Background({
     []
   );
 
-  const ColorBlock = useCallback(
-    () => (
+  const ColorBlock = useCallback(() => {
+    const src = getBackgroundImage(backgroundImage);
+    return (
       <div className={CSS.color} data-mybricks-tip={"背景"}>
-        <div className={CSS.colorPickerContainer} onClick={onPresetClick}>
-          <div
-            ref={presetRef}
-            className={CSS.block}
-            style={{
-              backgroundColor,
-              backgroundImage,
-            }}
-          />
+        <div
+          className={CSS.colorPickerContainer}
+          onClick={onPresetClick}
+          ref={presetRef}
+        >
+          {!src && (
+            <div
+              className={CSS.block}
+              style={{
+                backgroundColor,
+                backgroundImage,
+              }}
+            />
+          )}
+          {backgroundImage && src ? <img src={src} /> : null}
           {!backgroundColor ||
             ((!backgroundImage || backgroundImage === "none") && (
               <div className={CSS.icon}>
@@ -298,9 +333,8 @@ export function Background({
         </div>
         <div className={CSS.text}></div>
       </div>
-    ),
-    [presetRef, backgroundColor, backgroundImage, background]
-  );
+    );
+  }, [presetRef, backgroundColor, backgroundImage, defaultBackground]);
 
   return (
     <>
