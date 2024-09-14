@@ -231,9 +231,9 @@ export function GradientEditor({
           <AddButton />
         </Panel.Item>
       </div>
-      <div className={css.stops}>
-        {stops?.length > 0 &&
-          stops.map((stop) => {
+      {stops?.length > 0 && (
+        <div className={css.stops}>
+          {stops.map((stop) => {
             const { color, position, id } = stop;
             if (!color) return null;
             const border = curElementId === id ? "1px solid #FA6400" : "";
@@ -277,7 +277,8 @@ export function GradientEditor({
               </Panel.Content>
             );
           })}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
