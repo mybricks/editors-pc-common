@@ -126,7 +126,7 @@ export default function select({editConfig}: EditorProps) {
   const showSearch = model.relOptions.showSearch || model.relOptions.useAnyToEnter;
   
   return (
-    <div className={`${css['editor-select']} fangzhou-theme`}>
+    <div className={css.editorSelect}>
       <Select
         size={(window as any)[editorsConfigKey]?.size || 'small'}
         showSearch={showSearch}
