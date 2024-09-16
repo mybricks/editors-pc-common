@@ -23,6 +23,7 @@
 
 .listItemSelect {
   cursor: pointer;
+
   &:hover {
     border: 1px solid @color-primary;
   }
@@ -34,9 +35,16 @@
 
 .listItem {
   width: 100%;
-  background-color: hsl(0, 0%, 97%);
-  border: 1px solid #ddd;
-  margin-bottom: 10px;
+  //background-color: hsl(0, 0%, 97%);
+  //border: 1px solid #ddd;
+  //margin-bottom: 10px;
+  margin: 4px 0;
+  border-radius: 3px;
+
+  &:hover {
+    background-color: #EEE;
+  }
+
   .listItemCard {
     .itemTitle {
       color: #555;
@@ -44,6 +52,7 @@
       line-height: 12px;
       margin: 0px;
     }
+
     .item {
       font-size: 12px;
       padding-bottom: 10px;
@@ -69,23 +78,60 @@
     display: flex;
     align-items: center;
     height: 22px;
-    margin: 3px 0px 3px 3px;
-    padding: 0 2px;
-    &:hover {
-      background-color: rgba(0, 0, 0, 0.05);
-      border-radius: 1px;
+    padding-left: 5px;
+    margin-top: -2px;
+    margin-right: -3px;
+    //margin: 3px 0 3px 3px;
+    //padding: 0 2px;
+
+    svg {
+      height: 10px;
+      fill: #BBB;
     }
+
+    //&:hover {
+    //  background-color: rgba(0, 0, 0, 0.05);
+    //  border-radius: 1px;
+    //}
   }
 
   .listItemBtn {
+    height: 22px;
+    width: 22px;
     display: flex;
-    margin-left: 5px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 3px;
+
+    //margin-left: 3px;
     cursor: pointer;
+
+    &:hover {
+      background-color: #CCC;
+    }
+
+    svg {
+      fill: #555;
+      max-width: 12px;
+      max-height: 12px;
+    }
+  }
+
+  .visible {
+    .listItemBtn();
+
+    > * {
+      height: fit-content;
+      display: inline-flex;
+    }
   }
 
   .delete {
     .listItemBtn();
+
     &:hover {
+      background-color: transparent;
+
       svg {
         fill: @color-primary;
       }
@@ -94,16 +140,7 @@
 
   .edit {
     .listItemBtn();
-    margin-top: 3px;
-    margin-bottom: 3px;
-    height: 22px;
-    width: 22px;
-    align-items: center;
-    justify-content: center;
-    border-radius: 3px;
-    &:hover {
-      background-color: #ddd;
-    }
+
   }
 
   .editActive {
@@ -116,29 +153,52 @@
     justify-content: center;
     border-radius: 3px;
     background-color: @color-primary;
+
+    &:hover {
+      background: @color-primary;
+    }
+
     svg {
-      fill: #ffffff;
+      fill: #FFF;
     }
   }
 
   .listItemContent {
+    //margin-left: 3px;
+    padding-left: 8px;
     flex: 1;
     height: 100%;
     overflow: hidden;
     white-space: nowrap;
+    display: flex;
   }
+}
+
+.tag {
+  height: 16px;
+  background: @color-primary;
+  font-size: 10px;
+  font-weight: bold;
+  color: #FFF;
+  font-style: italic;
+  padding: 0 5px 2px 5px;
+  border-radius: 5px;
+  margin-left: 3px;
 }
 
 .titles {
   height: 100%;
   display: flex;
   align-items: center;
+  line-height: 14px;
+
   > img {
     height: 70%;
     width: 20px;
     object-fit: contain;
     margin-right: 3px;
   }
+
   > p {
     margin: 0 3px 0 0;
   }
@@ -157,7 +217,7 @@
   margin-right: -1px;
   position: absolute !important;
   transition: none !important;
-  width: 280px !important;
+  width: 330px !important;
 
   .itemTitle {
     color: #555;
@@ -165,6 +225,7 @@
     line-height: 12px;
     padding-top: 3px;
   }
+
   .item {
     font-size: 12px;
     padding-bottom: 15px;
@@ -173,12 +234,14 @@
       display: flex;
       align-items: flex-start;
       padding-bottom: 3px;
+
       .description {
         display: flex;
         height: 100%;
         margin-left: 5px;
         opacity: 0.4;
         font-size: 12px;
+
         svg {
           width: 12px;
         }

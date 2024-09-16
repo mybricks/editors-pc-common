@@ -5,10 +5,10 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { Drawer, Tag } from "antd";
-import { arrayMoveImmutable } from "../../utils";
+import {Drawer, Tag} from "antd";
+import {arrayMoveImmutable} from "../../utils";
 import RenderEditor from "./renderEditor";
-import { editorsConfigKey } from "./../../constant";
+import {editorsConfigKey} from "./../../constant";
 import {
   SortableContainer,
   SortableElement,
@@ -16,7 +16,7 @@ import {
   useLazy,
 } from "./lazySortableHoc";
 import css from "./index.less";
-import { DeleteIcon, ExpandIcon, DragIcon } from "./constants";
+import {DeleteIcon, ExpandIcon, DragIcon} from "./constants";
 import {
   ListSetterProps,
   TitleProps,
@@ -38,11 +38,11 @@ const initData = (val: any) => {
   if (!Array.isArray(val)) {
     return [];
   } else {
-    return val.map((t) => ({ _id: getUid(), ...t }));
+    return val.map((t) => ({_id: getUid(), ...t}));
   }
 };
 
-const Title = ({ items, heavy = false }: TitleProps) => {
+const Title = ({items, heavy = false}: TitleProps) => {
   const titles = Array.isArray(items) ? items : [items];
   return (
     <div className={heavy ? `${css.titles} ${css.titlesHeavy}` : css.titles}>
@@ -51,7 +51,7 @@ const Title = ({ items, heavy = false }: TitleProps) => {
           title?.toLocaleLowerCase &&
           /\.(png|jpe?g|gif|svg)(\?.*)?$/.test(title.toLocaleLowerCase())
         ) {
-          return <img key={`${title}_${index}`} src={title} />;
+          return <img key={`${title}_${index}`} src={title}/>;
         }
         return <div key={`${title}_${index}`}>{title}</div>;
       })}
@@ -59,12 +59,15 @@ const Title = ({ items, heavy = false }: TitleProps) => {
   );
 };
 
-const SortableList = SortableContainer(({ children }) => {
+const SortableList = SortableContainer(({children}) => {
   return <div className={css.list}>{children}</div>;
 });
 
 const SortableItem = SortableElement(
-  ({ children, className = "", onClick = () => {} }) => (
+  ({
+     children, className = "", onClick = () => {
+    }
+   }) => (
     <div className={`${css.listItem} ${className}`} onClick={onClick}>
       {children}
     </div>
@@ -79,54 +82,54 @@ const DragHandle = SortableHandle(({}) => (
   //   overlayInnerStyle={{ fontSize: 12 }}
   // >
   <div className={css.grab} title="拖动当前项">
-    <DragIcon />
+    <DragIcon/>
   </div>
   // </Tooltip>
 ));
 
 export default function ({
-  onChange,
-  value,
-  items = [],
-  getTitle,
-  onSelect,
-  onAdd,
-  onRemove,
-  draggable = true,
-  editable = true,
-  selectable = false,
-  deletable = true,
-  addable = true,
-  locales = null,
-  addText = "添加一项",
-  customOptRender,
-  extraContext,
-  cdnMap,
-  defaultSelect,
-  getDefaultOptions,
-  handleDelete,
-  tagsRender,
-}: ListSetterProps) {
+                           onChange,
+                           value,
+                           items = [],
+                           getTitle,
+                           onSelect,
+                           onAdd,
+                           onRemove,
+                           draggable = true,
+                           editable = true,
+                           selectable = false,
+                           deletable = true,
+                           addable = true,
+                           locales = null,
+                           addText = "添加一项",
+                           customOptRender,
+                           extraContext,
+                           cdnMap,
+                           defaultSelect,
+                           getDefaultOptions,
+                           handleDelete,
+                           tagsRender,
+                         }: ListSetterProps) {
   const [list, setList] = useState(initData(value) || []);
   //[TODO] activeId 和 editId 为了支持这个交互不得已做的，写的太乱了
   const [activeId, setActiveId] = useState<ActiveId>(null);
   const [editId, setEditId] = useState<EditId>(null);
   const [subFormVisible, setSubFormVisible] = useState(false);
   const listRef = useRef(null);
-
+  
   /** 数据变化来自外部 */
   const changeFromOuter = useRef(false);
-
+  
   const didMount = useRef(false);
-
+  
   const expandable = useMemo(() => {
     return (window as any)[editorsConfigKey]?.expandable ?? false;
   }, []);
-
+  
   const _selectable = useMemo(() => {
     return expandable || selectable;
   }, [selectable, expandable]);
-
+  
   const listModel = useMemo(() => {
     return {
       add: (item: any) => {
@@ -160,16 +163,16 @@ export default function ({
       },
     };
   }, []);
-
+  
   useEffect(() => {
     const curList = list;
-
+    
     if (JSON.stringify(curList) !== JSON.stringify(value)) {
       changeFromOuter.current = true;
       setList(initData(value));
     }
   }, [JSON.stringify(value)]);
-
+  
   useEffect(() => {
     if (!didMount.current) {
       return;
@@ -179,29 +182,29 @@ export default function ({
       return;
     }
     typeof onChange === "function" &&
-      onChange(JSON.parse(JSON.stringify(list)));
+    onChange(JSON.parse(JSON.stringify(list)));
   }, [list, onChange]);
-
+  
   useEffect(() => {
     if (!didMount.current) {
       return;
     }
-
+    
     if (!_selectable) {
       return;
     }
-
+    
     typeof onSelect === "function" &&
-      onSelect(
-        activeId as string,
-        list.findIndex((t) => t._id === activeId)
-      );
+    onSelect(
+      activeId as string,
+      list.findIndex((t) => t._id === activeId)
+    );
   }, [activeId, list, onSelect, _selectable]);
-
+  
   useEffect(() => {
     didMount.current = true;
   }, []);
-
+  
   useEffect(() => {
     const editViewEle =
       document.querySelector('div[class^="lyEdt-"]') ||
@@ -227,28 +230,28 @@ export default function ({
       editViewEle.removeEventListener("click", handleClick);
     };
   }, [listRef]);
-
+  
   const editIndex = useMemo(() => {
     return list.findIndex((t) => t._id === editId);
   }, [editId, list]);
-
+  
   const handleSortEnd = ({
-    oldIndex,
-    newIndex,
-  }: {
+                           oldIndex,
+                           newIndex,
+                         }: {
     oldIndex: number;
     newIndex: number;
   }) => {
     listModel.move(oldIndex, newIndex);
   };
-
+  
   useEffect(() => {
     //expandable情况下，将editId与activeId同步，不需要editId了
     if (expandable) {
       setEditId(activeId);
     }
   }, [activeId, expandable]);
-
+  
   useEffect(() => {
     //expandable情况下，第一次默认展开第一个
     if (!didMount || !expandable) {
@@ -256,7 +259,7 @@ export default function ({
     }
     setActiveId(list.find((t) => t)?._id ?? null);
   }, [didMount, expandable]);
-
+  
   useEffect(() => {
     if (didMount.current && selectable && !activeId && defaultSelect) {
       let target = list.find(
@@ -267,7 +270,7 @@ export default function ({
       }
     }
   }, [defaultSelect, activeId, didMount, selectable, list]);
-
+  
   const getI18nText = useCallback(
     (val: any): string | string[] => {
       if (!val?.id) {
@@ -283,13 +286,13 @@ export default function ({
     },
     [locales]
   );
-
+  
   const SubEditors = useMemo(() => {
     return (
-      <div style={{ padding: "15px" }} onClick={(e) => e.stopPropagation()}>
+      <div style={{padding: "15px"}} onClick={(e) => e.stopPropagation()}>
         {items.map((item, idx) => {
           const value = list[editIndex]?.[item.value];
-
+          
           const itemValue = JSON.parse(JSON.stringify(list[editIndex] || {}));
           if (
             typeof item.ifVisible === "function" &&
@@ -297,11 +300,11 @@ export default function ({
           ) {
             return;
           }
-
+          
           return (
             <RenderEditor
               key={`${editIndex}_${idx}_${item.type}`}
-              editConfig={{ ...item, locales, getDefaultOptions }}
+              editConfig={{...item, locales, getDefaultOptions}}
               extraContext={extraContext}
               value={value}
               onChange={(v) => {
@@ -313,22 +316,30 @@ export default function ({
       </div>
     );
   }, [items, list, listModel, editIndex]);
-
+  
   const loaded = useLazy(cdnMap.sortableHoc);
-
+  
   const tagsList = useCallback(
     (item: any) => {
       if (tagsRender && tagsRender(item).length > 0) {
         return tagsRender(item)?.map(
-          ({ color, text }: TagType) =>
+          ({color, text}: TagType) =>
             text && (
-              <Tag
-                color={color || "var(--mybricks-color-primary)"}
-                key={`${color}-${text}`}
-                style={{ marginRight: 2 }}
-              >
+              <div key={`${color}-${text}`} className={css.tag}>
                 {text}
-              </Tag>
+              </div>
+              // <Tag
+              //   color={color || "var(--mybricks-color-primary)"}
+              //   key={`${color}-${text}`}
+              //   style={{
+              //     marginRight: 2,
+              //     borderRadius: 5,
+              //     fontWeight: 'bold',
+              //     fontSize: 10
+              //   }}
+              // >
+              //   {text}
+              // </Tag>
             )
         );
       }
@@ -336,7 +347,7 @@ export default function ({
     },
     [tagsRender]
   );
-
+  
   return (
     <div className={`${css.listSetter} fangzhou-theme`} ref={listRef}>
       {addable && (
@@ -395,10 +406,10 @@ export default function ({
             >
               <div className={css.listItemCard}>
                 <div className={css.listItemCardTop}>
-                  {draggable && <DragHandle loaded={loaded} />}
+                  {draggable && <DragHandle loaded={loaded}/>}
                   <div
                     className={css.listItemContent}
-                    style={{ paddingLeft: draggable ? "7px" : "3px" }}
+                    //style={{paddingLeft: draggable ? "7px" : "3px"}}
                     title={
                       expandable && activeId !== item._id ? "点击展开详情" : ""
                     }
@@ -410,8 +421,8 @@ export default function ({
                           : []
                       }
                     />
+                    {tagsList(item)}
                   </div>
-                  {tagsList(item)}
                   {!expandable && editable && (
                     <div
                       className={
@@ -433,11 +444,15 @@ export default function ({
                         });
                       }}
                     >
-                      <ExpandIcon />
+                      <ExpandIcon/>
                     </div>
                   )}
                   {customOptRender
-                    ? customOptRender({ item, index, setList })
+                    ? (
+                      <div className={css.visible}>
+                        {customOptRender({item, index, setList})}
+                      </div>
+                    )
                     : null}
                   {showDelete && (
                     <div
@@ -456,7 +471,7 @@ export default function ({
                         typeof onRemove === "function" && onRemove(item._id);
                       }}
                     >
-                      <DeleteIcon />
+                      <DeleteIcon/>
                     </div>
                   )}
                 </div>
@@ -474,7 +489,7 @@ export default function ({
             backgroundColor: "#F7F7F7",
             padding: 0,
           }}
-          width={280}
+          width={330}
           key={editIndex} // 用来触发forceRender，因为有些编辑器初始化后就不接收value参数了，不是完全受控的
           placement="right"
           closable={false}
@@ -486,7 +501,7 @@ export default function ({
             document.querySelector('div[class^="lyStage-"]') ||
             document.querySelector('#root div[class^="sketchSection"]')
           }
-          style={{ position: "absolute" }}
+          style={{position: "absolute"}}
         >
           <div>
             <Title
