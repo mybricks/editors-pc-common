@@ -60,7 +60,7 @@ const Title = ({items, heavy = false}: TitleProps) => {
 };
 
 const SortableList = SortableContainer(({children}) => {
-  return <div className={css.list}>{children}</div>;
+  return <div className={css.content}>{children}</div>;
 });
 
 const SortableItem = SortableElement(
