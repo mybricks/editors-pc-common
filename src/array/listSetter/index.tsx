@@ -454,26 +454,29 @@ export default function ({
                       </div>
                     )
                     : null}
-                  {showDelete && (
-                    <div
-                      className={css.delete}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (activeId === item._id) {
-                          setSubFormVisible(false);
-                          setActiveId(list.find((t) => t._id)._id);
-                        }
-                        if (editId === item._id) {
-                          setEditId(null);
-                        }
-                        listModel.remove(item._id);
-                        // 务必放在后面
-                        typeof onRemove === "function" && onRemove(item._id);
-                      }}
-                    >
-                      <DeleteIcon/>
-                    </div>
-                  )}
+                  {
+                    showDelete ? (
+                      <div
+                        className={css.delete}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (activeId === item._id) {
+                            setSubFormVisible(false);
+                            setActiveId(list.find((t) => t._id)._id);
+                          }
+                          if (editId === item._id) {
+                            setEditId(null);
+                          }
+                          listModel.remove(item._id);
+                          // 务必放在后面
+                          typeof onRemove === "function" && onRemove(item._id);
+                        }}
+                      >
+                        <DeleteIcon/>
+                      </div>
+                    ) : (<div
+                      className={css.delete}></div>)
+                  }
                 </div>
                 {expandable && editId === item._id && SubEditors}
               </div>
