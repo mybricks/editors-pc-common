@@ -57,10 +57,13 @@ export function Gradient({
 
   const [backgroundImage, setBackgroundImage] = useState(defaultValue);
 
-  const onGradientChange = (value: string) => {
-    onChange && onChange(value);
-    setBackgroundImage(value);
-  };
+  const onGradientChange = useCallback(
+    (value: string) => {
+      onChange && onChange(value);
+      setBackgroundImage(value);
+    },
+    [onChange]
+  );
 
   const [gradientType, setGradientType] = useState<string>("线性");
   const [shapeType, setShapeType] = useState<string>("椭圆");
@@ -90,16 +93,7 @@ export function Gradient({
           )}
         </div>
         <div className={css.text}>
-          {/* {gradientType === "径向" ? <Radial /> : <Linear />} */}
           <span>{gradientType}颜色渐变</span>
-          {/* {gradientType === "linear" ? (
-            <Angle />
-          ) : shapeType === "ellipse" ? (
-            <Ellipse />
-          ) : (
-            <Circle />
-          )}
-          <span>{gradientType === "线性" ? `${deg}deg` : shapeType}</span> */}
         </div>
       </div>
       <div

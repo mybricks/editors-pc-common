@@ -223,7 +223,7 @@ function Popup ({
 
   const handleBackgroundChange = useCallback((newBackground: string) => {
     const gradient = ExtractBackground(value.backgroundImage, 'gradient')?.[0];
-    const newValue = gradient ? `${gradient} ${newBackground}` : `url(${newBackground})`;
+    const newValue = gradient ? `${gradient}, url(${newBackground})` : `url(${newBackground})`;
     onChange({ key: 'backgroundImage', value: newValue });
   }, [value.backgroundImage]);
   

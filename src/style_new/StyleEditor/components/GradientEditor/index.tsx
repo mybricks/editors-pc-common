@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 
 import { ColorEditor, InputNumber, Panel, Select } from "../index";
 
@@ -40,9 +40,13 @@ export function GradientEditor({
   const [stops, setStops] = useState<GradientStop[]>([]);
 
   useEffect(() => {
-    if (defaultValue) {
+    if (
+      defaultValue &&
+      defaultValue !== "none" &&
+      ExtractBackground(defaultValue, "gradient")?.length > 0
+    ) {
       const { type, direction, stops } = ParseGradient(
-        ExtractBackground(defaultValue, "gradient")[0]
+        ExtractBackground(defaultValue, "gradient")?.[0]
       );
       setGradientType(type);
       if (type === "linear-gradient" && direction) {
@@ -91,6 +95,7 @@ export function GradientEditor({
     },
     [stops]
   );
+  const isInitialMount = useRef(true);
 
   const generateGradientValue = (
     deg: number,
@@ -130,8 +135,12 @@ export function GradientEditor({
   );
 
   useEffect(() => {
-    if (finalValue) {
-      changeFinalValue(finalValue);
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+    } else {
+      if (finalValue) {
+        changeFinalValue?.(finalValue);
+      }
     }
   }, [finalValue]);
 

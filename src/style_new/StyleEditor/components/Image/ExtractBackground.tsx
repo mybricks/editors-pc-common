@@ -7,10 +7,10 @@ export const ExtractBackground = (
     /((linear|radial)-gradient\((?:[^()]+|\([^()]*\))*\)|url\(['"]?[^)'"]+['"]?\))/gi;
 
   // 执行匹配
-  const matches = css.match(regex);
+  const matches = css?.match(regex);
 
   // 如果没有匹配到任何内容，返回空数组
-  if (!matches) {
+  if (!css || !matches) {
     return [];
   }
 
