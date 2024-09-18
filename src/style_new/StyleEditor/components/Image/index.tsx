@@ -19,6 +19,7 @@ import {
 import { ReloadOutlined } from '@ant-design/icons'
 
 import css from './index.less'
+import { ExtractBackground } from './ExtractBackground'
 
 const DEFAULT_IMAGE = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAAXNSR0IArs4c6QAAAEpJREFUSEvtlKEOAEAIQuH/P5pLNgkXLIrRuTGBPQIQmpHaNUh257D3ESi/Flsk89t3W0y7GIFqkbN0gUVBxQFUjIccVBxAxXTID1edp90t8GAGAAAAAElFTkSuQmCC'
 
@@ -31,7 +32,7 @@ interface ImageProps {
 }
 
 function getBackgroundImage (image: string = '', defaultValue = '') {
-  return /\url\s*\(\s*["']?([^"'\r\n\)\(]+)["']?\s*\)/gi.exec(image || '')?.[1] || defaultValue
+  return /url\s*\(\s*["']?([^"'\r\n\)\(]+)["']?\s*\)/gi.exec(ExtractBackground(image, 'image')?.[0] || '')?.[1] || defaultValue
 }
 
 export function Image ({
@@ -121,7 +122,7 @@ export function Image ({
           {icon}
         </div>
         <div className={css.reset} onClick={handleReset} data-mybricks-tip={'重置图片'}>
-          <ReloadOutlined onPointerEnterCapture={void 0} onPointerLeaveCapture={void 0} />
+          <ReloadOutlined onPointerOverCapture={void 0} onPointerMoveCapture={void 0} />
         </div>
       </div>
       {show && createPortal(
@@ -220,19 +221,23 @@ function Popup ({
     inputRef.current!.click()
   }, [])
 
+  const handleBackgroundChange = useCallback((newBackground: string) => {
+    const gradient = ExtractBackground(value.backgroundImage, 'gradient')?.[0];
+    const newValue = gradient ? `${gradient}, url(${newBackground})` : `url(${newBackground})`;
+    onChange({ key: 'backgroundImage', value: newValue });
+  }, [value.backgroundImage]);
+  
   const handleFileInputChange = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = (event.target && event.target.files && event.target.files[0]) || null
-
-    if (!file) return
-
-    const [value] = await (typeof upload === 'function' ? upload([file], {}) : file2Base64(file))
-
-    onChange({key: 'backgroundImage', value: `url(${value})`})
-  }, [])
-
+    const file = event.target?.files?.[0];
+    if (!file) return;
+  
+    const [neValue] = await (typeof upload === 'function' ? upload([file], {}) : file2Base64(file));
+    handleBackgroundChange(neValue);
+  }, [handleBackgroundChange]);
+  
   const handleUrlInputChange = useCallback((url: string) => {
-    onChange({key: 'backgroundImage', value: `url(${url})`});
-  }, [])
+    handleBackgroundChange(url);
+  }, [handleBackgroundChange]);
 
   const imgSrc = getBackgroundImage(value.backgroundImage, DEFAULT_IMAGE);
 

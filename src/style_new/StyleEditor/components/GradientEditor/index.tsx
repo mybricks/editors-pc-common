@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 
 import { ColorEditor, InputNumber, Panel, Select } from "../index";
 
@@ -24,6 +24,7 @@ import {
 } from "./constants";
 import { uuid } from "../../../../utils";
 import PanelRender from "./PanelRender";
+import { ExtractBackground } from "../Image/ExtractBackground";
 
 export function GradientEditor({
   defaultValue,
@@ -39,8 +40,14 @@ export function GradientEditor({
   const [stops, setStops] = useState<GradientStop[]>([]);
 
   useEffect(() => {
-    if (defaultValue) {
-      const { type, direction, stops } = ParseGradient(defaultValue);
+    if (
+      defaultValue &&
+      defaultValue !== "none" &&
+      ExtractBackground(defaultValue, "gradient")?.length > 0
+    ) {
+      const { type, direction, stops } = ParseGradient(
+        ExtractBackground(defaultValue, "gradient")?.[0]
+      );
       setGradientType(type);
       if (type === "linear-gradient" && direction) {
         setDeg(parseInt(direction));
@@ -88,6 +95,7 @@ export function GradientEditor({
     },
     [stops]
   );
+  const isInitialMount = useRef(true);
 
   const generateGradientValue = (
     deg: number,
@@ -111,9 +119,28 @@ export function GradientEditor({
     stops
   );
 
+  const changeFinalValue = useCallback(
+    (value: string) => {
+      if (defaultValue) {
+        if (ExtractBackground(defaultValue, "image").length > 0) {
+          onChange?.(
+            `${ExtractBackground(defaultValue, "image")[0]}, ${value}`
+          );
+        } else {
+          onChange?.(value);
+        }
+      }
+    },
+    [defaultValue]
+  );
+
   useEffect(() => {
-    if (finalValue) {
-      onChange?.(finalValue);
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+    } else {
+      if (finalValue) {
+        changeFinalValue?.(finalValue);
+      }
     }
   }, [finalValue]);
 
