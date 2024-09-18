@@ -13,7 +13,9 @@ import {
   Panel,
   Select,
   ImageOutlined,
+  GradientEditor,
 } from "../../style_new/StyleEditor/components";
+import { ExtractBackground } from "../../style_new/StyleEditor/components/Image/ExtractBackground";
 import { observe } from "@mybricks/rxui";
 import { Ctx } from "../Style";
 
@@ -24,8 +26,9 @@ const DEFAULT_IMAGE =
 
 function getBackgroundImage(image: string = "", defaultValue = "") {
   return (
-    /\url\s*\(\s*["']?([^"'\r\n\)\(]+)["']?\s*\)/gi.exec(image || "")?.[1] ||
-    defaultValue
+    /url\s*\(\s*["']?([^"'\r\n\)\(]+)["']?\s*\)/gi.exec(
+      ExtractBackground(image, "image")?.[0] || ""
+    )?.[1] || defaultValue
   );
 }
 
@@ -111,6 +114,19 @@ export default function Image({}) {
     return <ImageOutlined />;
   }, [value.backgroundImage]);
 
+  const onGradientChange = useCallback(
+    (newValue: string) => {
+      console.log('[38;5;208m [ newValue ]-119-「components/bgimageNew.tsx」 [0m', newValue)
+      if (newValue && newValue !== "none") {
+        if (ExtractBackground(newValue, "image").length > 0) {
+          newValue = `${ExtractBackground(newValue, "image")[0]}, ${value}`;
+        }
+        handleChange({ key: "backgroundImage", value });
+      }
+    },
+    [value]
+  );
+
   return (
     <Panel title="背景图">
       <Panel.Item className={css.bgimageNew}>
@@ -124,8 +140,8 @@ export default function Image({}) {
             data-mybricks-tip={"重置图片"}
           >
             <ReloadOutlined
-              onPointerEnterCapture={void 0}
-              onPointerLeaveCapture={void 0}
+              onPointerOverCapture={void 0}
+              onPointerMoveCapture={void 0}
             />
           </div>
         </div>
@@ -142,6 +158,15 @@ export default function Image({}) {
             document.body
           )}
       </Panel.Item>
+      <div className={css.gradientEditor}>
+        <div style={{ height: 20 }} />
+        <GradientEditor
+          onChange={onGradientChange}
+          defaultValue={
+            ExtractBackground(value?.backgroundImage as string, "gradient")?.[0]
+          }
+        />
+      </div>
     </Panel>
   );
 }
@@ -222,25 +247,39 @@ function Popup({
     inputRef.current!.click();
   }, []);
 
-  const handleFileInputChange = useCallback(
-    async (event: React.ChangeEvent<HTMLInputElement>) => {
-      const file =
-        (event.target && event.target.files && event.target.files[0]) || null;
-
-      if (!file) return;
-
-      const [value] = await (typeof upload === "function"
-        ? upload([file], {})
-        : file2Base64(file));
-
-      onChange({ key: "backgroundImage", value: `url(${value})` });
+  const handleBackgroundChange = useCallback(
+    (newBackground: string) => {
+      const gradient = ExtractBackground(
+        value.backgroundImage,
+        "gradient"
+      )?.[0];
+      const newValue = gradient
+        ? `${gradient} ${newBackground}`
+        : `url(${newBackground})`;
+      onChange({ key: "backgroundImage", value: newValue });
     },
-    []
+    [value.backgroundImage]
   );
 
-  const handleUrlInputChange = useCallback((url: string) => {
-    onChange({ key: "backgroundImage", value: `url(${url})` });
-  }, []);
+  const handleFileInputChange = useCallback(
+    async (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target?.files?.[0];
+      if (!file) return;
+
+      const [neValue] = await (typeof upload === "function"
+        ? upload([file], {})
+        : file2Base64(file));
+      handleBackgroundChange(neValue);
+    },
+    [handleBackgroundChange]
+  );
+
+  const handleUrlInputChange = useCallback(
+    (url: string) => {
+      handleBackgroundChange(url);
+    },
+    [handleBackgroundChange]
+  );
 
   return (
     <div ref={ref} className={css.bgimagePopup}>
