@@ -2,6 +2,7 @@ import React, { useCallback, useRef } from "react";
 import css from "./index.less";
 import { Input, Select } from "..";
 import { getBackgroundImage, DEFAULT_IMAGE } from "./";
+import { ExtractBackground } from "./ExtractBackground";
 
 interface PopupProps {
   value: any;
@@ -48,25 +49,23 @@ export const ImageEditor = ({ value, onChange, upload }: PopupProps) => {
     inputRef.current!.click();
   }, []);
 
-  const handleFileInputChange = useCallback(
-    async (event: React.ChangeEvent<HTMLInputElement>) => {
-      const file =
-        (event.target && event.target.files && event.target.files[0]) || null;
+  const handleBackgroundChange = useCallback((newBackground: string) => {
+    const gradient = ExtractBackground(value.backgroundImage, 'gradient')?.[0];
+    const newValue = gradient ? `${gradient}, url(${newBackground})` : `url(${newBackground})`;
+    onChange({ key: 'backgroundImage', value: newValue });
+  }, [value.backgroundImage]);
 
-      if (!file) return;
+  const handleFileInputChange = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target?.files?.[0];
+    if (!file) return;
 
-      const [value] = await (typeof upload === "function"
-        ? upload([file], {})
-        : file2Base64(file));
-
-      onChange({ key: "backgroundImage", value: `url(${value})` });
-    },
-    []
-  );
+    const [neValue] = await (typeof upload === 'function' ? upload([file], {}) : file2Base64(file));
+    handleBackgroundChange(neValue);
+  }, [handleBackgroundChange]);
 
   const handleUrlInputChange = useCallback((url: string) => {
-    onChange({ key: "backgroundImage", value: `url(${url})` });
-  }, []);
+    handleBackgroundChange(url);
+  }, [handleBackgroundChange]);
 
   const imgSrc = getBackgroundImage(value.backgroundImage, DEFAULT_IMAGE);
 
