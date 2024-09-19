@@ -25,6 +25,7 @@ import {
 import { uuid } from "../../../../utils";
 import PanelRender from "./PanelRender";
 import { ExtractBackground } from "../Image/ExtractBackground";
+import debounce from "lodash/debounce";
 
 export function GradientEditor({
   defaultValue,
@@ -114,7 +115,7 @@ export function GradientEditor({
   );
 
   const changeFinalValue = useCallback(
-    (value: string) => {
+    debounce((value: string) => {
       if (defaultValue) {
         if (ExtractBackground(defaultValue, "image").length > 0) {
           onChange?.(
@@ -124,7 +125,7 @@ export function GradientEditor({
           onChange?.(value);
         }
       }
-    },
+    }, 10),
     [defaultValue]
   );
 
