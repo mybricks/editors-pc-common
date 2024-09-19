@@ -173,7 +173,7 @@ export function Border({ value, onChange, config, showTitle }: BorderProps) {
               {disableBorderColor ? null : (
                 <ColorEditor
                   // tip='边框颜色'
-                  style={{ padding: 0, marginLeft: 5 }}
+                  style={{ padding: "0 0 0 1px", marginLeft: 5 }}
                   defaultValue={borderValue.borderTopColor}
                   onChange={(value: string) => {
                     setBorderValue((val) => {
@@ -201,15 +201,17 @@ export function Border({ value, onChange, config, showTitle }: BorderProps) {
                           return {
                             key,
                             // TODO
-                            value: `${newValue[key]}${useImportant ? "!important" : ""}`,
+                            value: `${newValue[key]}${
+                              useImportant ? "!important" : ""
+                            }`,
                           };
                         })
                       );
 
                       return {
                         ...val,
-                        ...newValue
-                      }
+                        ...newValue,
+                      };
                     });
                   }}
                 />

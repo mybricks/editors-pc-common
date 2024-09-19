@@ -25,6 +25,7 @@ import {
 import { uuid } from "../../../../utils";
 import PanelRender from "./PanelRender";
 import { ExtractBackground } from "../Image/ExtractBackground";
+import debounce from "lodash/debounce";
 
 export function GradientEditor({
   defaultValue,
@@ -114,7 +115,7 @@ export function GradientEditor({
   );
 
   const changeFinalValue = useCallback(
-    (value: string) => {
+    debounce((value: string) => {
       if (defaultValue) {
         if (ExtractBackground(defaultValue, "image").length > 0) {
           onChange?.(
@@ -124,7 +125,7 @@ export function GradientEditor({
           onChange?.(value);
         }
       }
-    },
+    }, 10),
     [defaultValue]
   );
 
@@ -245,8 +246,6 @@ export function GradientEditor({
                   key={position}
                   tip="停靠位置"
                   suffix="%"
-                  // prefix={<PositionIcon />}
-                  // prefixTip="位置"
                   style={{ flex: 2, border }}
                   type={"number"}
                   defaultUnitValue=""
@@ -269,12 +268,7 @@ export function GradientEditor({
                 />
                 <Panel.Item
                   style={{ width: 30, padding: 0, border }}
-                  // className={stops.length <= 2 ? css.disabled : ""}
-                  onClick={() => {
-                    // if (stops.length > 2) {
-                    removeColor(id);
-                    // }
-                  }}
+                  onClick={() => removeColor(id)}
                 >
                   <MinusButton />
                 </Panel.Item>
