@@ -3,20 +3,20 @@ import React, { CSSProperties, useCallback, useState } from "react";
 import Direction from "./Direction";
 import AlignItems from "./AlignItems";
 import JustifyContent from "./JustifyContent";
-import Padding, {PaddingProps} from "./Padding";
+import Padding, { PaddingProps } from "./Padding";
 import Gap, { GapProps } from "./Gap";
 import { Layout } from "./types";
 import styles from "./index.less";
 interface LayoutProps {
   display?: CSSProperties["display"];
-  position?: CSSProperties["position"] | 'smart';
+  position?: CSSProperties["position"] | "smart";
   flexDirection: CSSProperties["flexDirection"];
   alignItems: CSSProperties["alignItems"];
   justifyContent: CSSProperties["justifyContent"];
   flexWrap: CSSProperties["flexWrap"];
   rowGap: CSSProperties["rowGap"];
   columnGap: CSSProperties["columnGap"];
-  paddingType: 'independentPadding' | 'dependentPadding',
+  paddingType: "independentPadding" | "dependentPadding";
   padding: CSSProperties["padding"];
   paddingTop: CSSProperties["paddingTop"];
   paddingRight: CSSProperties["paddingRight"];
@@ -30,7 +30,7 @@ const defaultOptions = {
   align: true,
   gap: true,
   wrap: true,
-}
+};
 
 const defaultValue = {
   display: "flex",
@@ -40,13 +40,13 @@ const defaultValue = {
   justifyContent: "flex-start",
   flexWrap: "nowrap",
   rowGap: 0,
-  columnGap: 0
-}
+  columnGap: 0,
+};
 
 export default function ({ editConfig }: EditorProps): JSX.Element {
   const { value, options } = editConfig;
-  let option = typeof options === 'function' ? options() : { ...options }
-  option = { ...defaultOptions, ...option }
+  let option = typeof options === "function" ? options() : { ...options };
+  option = { ...defaultOptions, ...option };
   const _value = value.get();
 
   const [model, setModel] = useState<LayoutProps>({
@@ -71,9 +71,9 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
       >
     ) => {
       value.set(
-        style.position === 'smart' ? 
-        { position: 'smart'} :
-        { ...model, ...style }
+        style.position === "smart"
+          ? { position: "smart" }
+          : { ...model, ...style }
       );
     },
     [model]
@@ -81,7 +81,7 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
 
   const renderFlexDirection = () => {
     const onSelect = (layout: Layout) => {
-      const isAbsolute = (layout === "absolute" || layout === "smart");
+      const isAbsolute = layout === "absolute" || layout === "smart";
       const flexDirection = !isAbsolute ? layout : model.flexDirection;
       setModel((pre) => ({
         ...pre,
@@ -97,6 +97,7 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
     };
     return (
       <Direction
+        direction={option.direction}
         position={model.position}
         flexDirection={model.flexDirection}
         onSelect={onSelect}
@@ -155,7 +156,9 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
       setModel((pre) => ({ ...pre, ...value }));
       updateValue({ ...value });
     };
-    return model.position !== "absolute" && model.position !== "smart" && option.gap ? (
+    return model.position !== "absolute" &&
+      model.position !== "smart" &&
+      option.gap ? (
       <Gap
         value={{ rowGap: model.rowGap, columnGap: model.columnGap }}
         onChange={onChange}
@@ -167,7 +170,9 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
 
   //边距渲染
   const renderPadding = () => {
-    const onPaddingToggle = (paddingType: 'independentPadding' | 'dependentPadding' ) => {
+    const onPaddingToggle = (
+      paddingType: "independentPadding" | "dependentPadding"
+    ) => {
       setModel((pre) => ({ ...pre, paddingType }));
       updateValue({ paddingType });
     };
@@ -184,20 +189,19 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
     return (
       <Padding
         value={{
-          paddingTop: model.paddingTop, 
-          paddingRight: model.paddingRight, 
-          paddingBottom: model.paddingBottom, 
-          paddingLeft: model.paddingLeft
+          paddingTop: model.paddingTop,
+          paddingRight: model.paddingRight,
+          paddingBottom: model.paddingBottom,
+          paddingLeft: model.paddingLeft,
         }}
         paddingType={model.paddingType}
         onPaddingToggle={onPaddingToggle}
         onChange={onChange}
         onBlur={onBlur}
         model={model}
-      >
-      </Padding>
-    )
-  }
+      ></Padding>
+    );
+  };
 
   return (
     <div>
@@ -207,16 +211,19 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
           {renderGap()}
         </div>
         <div className={styles.centerLayout}>
-          <div 
+          <div
             className={styles.right}
-            style={{display: model.position !== "absolute" && model.position !== "smart" ? void 0: 'none'}}
+            style={{
+              display:
+                model.position !== "absolute" && model.position !== "smart"
+                  ? void 0
+                  : "none",
+            }}
           >
             {renderAlignItems()}
           </div>
         </div>
-        <div className={styles.rightLayout}>
-          {renderJustifyContent()}
-        </div>
+        <div className={styles.rightLayout}>{renderJustifyContent()}</div>
       </div>
       {/* {renderPadding()} */}
     </div>

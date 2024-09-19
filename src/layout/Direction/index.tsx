@@ -1,4 +1,4 @@
-import React, { CSSProperties } from "react";
+import React, { CSSProperties, useMemo } from "react";
 import Icon from "../Icon";
 import { Layout } from "../types";
 import styles from "./index.less";
@@ -13,7 +13,7 @@ const defaultFlexFlow = [
   {
     title: "智能排版",
     value: "smart",
-    render: () => <Icon name="smart"/>
+    render: () => <Icon name="smart" />,
   },
   {
     title: "纵向排版",
@@ -32,34 +32,50 @@ const defaultFlexFlow = [
   },
 ];
 
-export default ({ position, flexDirection, onSelect }: AlignItemsProps) => {
+export default ({
+  direction = [],
+  position,
+  flexDirection,
+  onSelect,
+}: AlignItemsProps) => {
   const isAbsolute = position === "absolute";
   const isSmart = position === "smart";
   const isInherit = position === "inherit";
   const isRow = flexDirection === "row";
   const isColumn = flexDirection === "column";
-  
+
   const isActive = (value: Layout) => {
-    if(isAbsolute){
-      return value === "absolute"
+    if (isAbsolute) {
+      return value === "absolute";
     }
 
-    if(isSmart){
-      return value === "smart"
+    if (isSmart) {
+      return value === "smart";
     }
 
-    if(isInherit && isRow){
-      return value === "row"
+    if (isInherit && isRow) {
+      return value === "row";
     }
 
-    if(isInherit && isColumn){
-      return value === "column"
+    if (isInherit && isColumn) {
+      return value === "column";
     }
   };
+
+  const flexFlow = useMemo(() => {
+    if (direction.length === 0) {
+      return defaultFlexFlow;
+    } else {
+      return defaultFlexFlow.filter(({ value }) =>
+        direction.includes(value as Layout)
+      );
+    }
+  }, [direction]);
+
   return (
     <div>
-      <div className={styles.directionWrap}> 
-        {defaultFlexFlow.map(({ title, value, render }) => (
+      <div className={styles.directionWrap}>
+        {flexFlow.map(({ title, value, render }) => (
           <div
             key={value}
             data-mybricks-tip={title}
