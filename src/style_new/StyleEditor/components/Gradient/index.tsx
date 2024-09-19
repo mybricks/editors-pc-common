@@ -59,8 +59,10 @@ export function Gradient({
 
   const onGradientChange = useCallback(
     (value: string) => {
-      onChange && onChange(value);
-      setBackgroundImage(value);
+      if (value) {
+        onChange && onChange(value);
+        setBackgroundImage(value);
+      }
     },
     [onChange]
   );
