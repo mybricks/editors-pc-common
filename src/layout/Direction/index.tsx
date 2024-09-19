@@ -33,7 +33,7 @@ const defaultFlexFlow = [
 ];
 
 export default ({
-  direction = [],
+  defaultDirection = [],
   position,
   flexDirection,
   onSelect,
@@ -63,14 +63,18 @@ export default ({
   };
 
   const flexFlow = useMemo(() => {
-    if (direction.length === 0) {
+    console.warn("defaultDirection", defaultDirection);
+    console.warn("defaultDirection", defaultDirection);
+    console.warn("defaultDirection", defaultDirection);
+
+    if (defaultDirection.length === 0) {
       return defaultFlexFlow;
     } else {
       return defaultFlexFlow.filter(({ value }) =>
-        direction.includes(value as Layout)
+        defaultDirection.includes(value as Layout)
       );
     }
-  }, [direction]);
+  }, [defaultDirection]);
 
   return (
     <div>

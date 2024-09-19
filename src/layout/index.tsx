@@ -97,7 +97,7 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
     };
     return (
       <Direction
-        direction={option.direction}
+        defaultDirection={option.defaultDirection}
         position={model.position}
         flexDirection={model.flexDirection}
         onSelect={onSelect}
