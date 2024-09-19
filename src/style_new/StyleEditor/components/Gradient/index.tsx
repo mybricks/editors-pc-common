@@ -80,7 +80,9 @@ export function Gradient({
             className={css.block}
             style={{ backgroundImage }}
           />
-          {(!backgroundImage || backgroundImage === "none") && (
+          {(!backgroundImage ||
+            backgroundImage === "none" ||
+            backgroundImage === "initial") && (
             <div className={css.icon}>
               <TransparentColorOutlined />
             </div>

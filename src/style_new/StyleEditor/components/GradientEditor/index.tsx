@@ -193,7 +193,7 @@ export function GradientEditor({
           prefix={gradientType === "radial-gradient" ? <Radial /> : <Linear />}
           onChange={(value) => {
             setGradientType(value);
-            onTypeChange && onTypeChange?.(gradientType);
+            onTypeChange && onTypeChange?.(value);
           }}
         />
         {gradientType === "linear-gradient" ? (
