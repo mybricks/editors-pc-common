@@ -59,12 +59,12 @@ export function Gradient({
 
   const onGradientChange = useCallback(
     (value: string) => {
-      if (value) {
+      if (value && backgroundImage !== value) {
         onChange && onChange(value);
         setBackgroundImage(value);
       }
     },
-    [onChange]
+    [onChange, backgroundImage]
   );
 
   const [gradientType, setGradientType] = useState<string>("线性");

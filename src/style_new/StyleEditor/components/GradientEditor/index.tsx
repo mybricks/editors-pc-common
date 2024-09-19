@@ -245,8 +245,6 @@ export function GradientEditor({
                   key={position}
                   tip="停靠位置"
                   suffix="%"
-                  // prefix={<PositionIcon />}
-                  // prefixTip="位置"
                   style={{ flex: 2, border }}
                   type={"number"}
                   defaultUnitValue=""
@@ -269,12 +267,7 @@ export function GradientEditor({
                 />
                 <Panel.Item
                   style={{ width: 30, padding: 0, border }}
-                  // className={stops.length <= 2 ? css.disabled : ""}
-                  onClick={() => {
-                    // if (stops.length > 2) {
-                    removeColor(id);
-                    // }
-                  }}
+                  onClick={() => removeColor(id)}
                 >
                   <MinusButton />
                 </Panel.Item>
