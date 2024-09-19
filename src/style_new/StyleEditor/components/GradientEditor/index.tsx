@@ -105,7 +105,7 @@ export function GradientEditor({
   ) => {
     const direction =
       gradientType === "linear-gradient" ? `${deg}deg` : shapeType;
-    if (stops.length === 0) return "none";
+    if (stops.length < 2) return "none";
     return `${gradientType}(${direction}${stops
       .map((stop) => `, ${stop.color} ${stop.position}%`)
       .join("")})`;
