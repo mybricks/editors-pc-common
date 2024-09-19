@@ -63,10 +63,6 @@ export default ({
   };
 
   const flexFlow = useMemo(() => {
-    console.warn("defaultDirection", defaultDirection);
-    console.warn("defaultDirection", defaultDirection);
-    console.warn("defaultDirection", defaultDirection);
-
     if (defaultDirection.length === 0) {
       return defaultFlexFlow;
     } else {

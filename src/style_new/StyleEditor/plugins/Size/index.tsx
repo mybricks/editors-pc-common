@@ -41,7 +41,7 @@ const DEFAULT_CONFIG = {
 
 export function Size({ value, onChange, config, showTitle }: SizeProps) {
   const [cfg] = useState({ ...DEFAULT_CONFIG, ...config });
-
+  // console.warn("Size", value, cfg.disableWidth, cfg.disableHeight);
   return (
     <Panel title="尺寸" showTitle={showTitle}>
       {!(cfg.disableWidth && cfg.disableHeight) && (

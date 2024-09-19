@@ -18,7 +18,7 @@ const UNIT_OPTIONS = [
 ];
 const UNIT_DISABLED_LIST = ["auto", "inherit"];
 
-export default function Size() {
+export default function Size(props) {
   const ctx: Ctx = observe(Ctx, { from: "parents" });
   const value = { width: "auto", height: "auto", ...ctx.val };
   const onChange = useCallback((value: Record<string, string>) => {
