@@ -30,8 +30,6 @@ export function GradientEditor({
   defaultValue,
   onChange,
   onTypeChange,
-  onDegChange,
-  onShapeChange,
 }: GradientEditorProps) {
   const [gradientType, setGradientType] =
     useState<GradientType>("linear-gradient");
@@ -62,8 +60,6 @@ export function GradientEditor({
   }, [defaultValue]);
 
   useEffect(() => onTypeChange?.(gradientType), [gradientType]);
-  useEffect(() => onDegChange?.(deg), [deg]);
-  useEffect(() => onShapeChange?.(shapeType), [onShapeChange]);
 
   const changeStops = (newStops: GradientStop[]) => {
     setStops(stopSort(newStops));

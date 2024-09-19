@@ -32,8 +32,8 @@ export function Gradient({
 
   const onPresetClick = useCallback(() => {
     setShow(true);
-    setOpen(true);
-  }, []);
+    setOpen((prevOpen) => !prevOpen);
+  }, [open]);
 
   const handleClick = useCallback(() => {
     setOpen(false);
@@ -68,16 +68,8 @@ export function Gradient({
   );
 
   const [gradientType, setGradientType] = useState<string>("线性");
-  const [shapeType, setShapeType] = useState<string>("椭圆");
-  const [deg, setDeg] = useState(90);
   const onTypeChange = (type: string) => {
     return setGradientType(mapGradientOptions(type, gradientOptions) || "线性");
-  };
-  const onDegChange = (deg: number) => {
-    return setDeg(deg);
-  };
-  const onShapeChange = (shape: string) => {
-    return setShapeType(mapGradientOptions(shape, shapeOptions) || "椭圆");
   };
   return (
     <Panel.Item style={style} className={css.container}>
@@ -116,8 +108,6 @@ export function Gradient({
             open={open}
             onChange={onGradientChange}
             onTypeChange={onTypeChange}
-            onDegChange={onDegChange}
-            onShapeChange={onShapeChange}
           />,
           document.body
         )}
@@ -131,8 +121,6 @@ const GradientPanel = ({
   onChange,
   defaultValue,
   onTypeChange,
-  onDegChange,
-  onShapeChange,
 }: {
   defaultValue: string;
   open: boolean;
@@ -185,8 +173,6 @@ const GradientPanel = ({
         defaultValue={defaultValue}
         onTypeChange={onTypeChange}
         onChange={(backgroundImage) => onChange(backgroundImage)}
-        onDegChange={onDegChange}
-        onShapeChange={onShapeChange}
       />
     </div>
   );
