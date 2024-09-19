@@ -20,7 +20,7 @@ import CSS from "./index.less";
 import { createPortal } from "react-dom";
 import { ReloadOutlined } from "@ant-design/icons";
 import { GradientIcon, ImgIcon, SoldIcon } from "./Icon";
-import Sketch, { ColorResult } from "@mybricks/color-picker";
+import Sketch from "@mybricks/color-picker";
 import { Background1 } from "./Old";
 
 interface BackgroundProps {
