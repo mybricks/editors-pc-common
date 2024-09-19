@@ -59,8 +59,6 @@ export function GradientEditor({
     }
   }, [defaultValue]);
 
-  useEffect(() => onTypeChange?.(gradientType), [gradientType]);
-
   const changeStops = (newStops: GradientStop[]) => {
     setStops(stopSort(newStops));
   };
@@ -193,7 +191,10 @@ export function GradientEditor({
           value={gradientType}
           options={gradientOptions}
           prefix={gradientType === "radial-gradient" ? <Radial /> : <Linear />}
-          onChange={(value) => setGradientType(value)}
+          onChange={(value) => {
+            setGradientType(value);
+            onTypeChange && onTypeChange?.(gradientType);
+          }}
         />
         {gradientType === "linear-gradient" ? (
           <InputNumber
