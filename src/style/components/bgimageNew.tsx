@@ -116,15 +116,18 @@ export default function Image({}) {
 
   const onGradientChange = useCallback(
     (newValue: string) => {
-      console.log('[38;5;208m [ newValue ]-119-「components/bgimageNew.tsx」 [0m', newValue)
       if (newValue && newValue !== "none") {
-        if (ExtractBackground(newValue, "image").length > 0) {
-          newValue = `${ExtractBackground(newValue, "image")[0]}, ${value}`;
+        if (
+          ExtractBackground(value?.backgroundImage || "", "image").length > 0
+        ) {
+          newValue = `${
+            ExtractBackground(value?.backgroundImage || "", "image")[0]
+          }, ${newValue}`;
         }
-        handleChange({ key: "backgroundImage", value });
+        handleChange({ key: "backgroundImage", value: newValue });
       }
     },
-    [value]
+    [value.backgroundImage, handleChange]
   );
 
   return (
@@ -163,7 +166,10 @@ export default function Image({}) {
         <GradientEditor
           onChange={onGradientChange}
           defaultValue={
-            ExtractBackground(value?.backgroundImage as string, "gradient")?.[0]
+            ExtractBackground(
+              value?.backgroundImage as string,
+              "gradient"
+            )?.[0] || "none"
           }
         />
       </div>
@@ -254,7 +260,7 @@ function Popup({
         "gradient"
       )?.[0];
       const newValue = gradient
-        ? `${gradient} ${newBackground}`
+        ? `${gradient}, url(${newBackground})`
         : `url(${newBackground})`;
       onChange({ key: "backgroundImage", value: newValue });
     },
