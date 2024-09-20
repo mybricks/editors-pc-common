@@ -1,19 +1,16 @@
-import React, { useMemo, useCallback, useEffect } from 'react';
+import React, { useEffect } from "react";
 
-import { AnyMap } from '../types';
-import { presetColors } from '../const';
-import { createPortal } from 'react-dom';
-import UploadModal from '../../components/upload-modal';
-// @ts-ignore
-import { evt, useComputed, useObservable } from '@mybricks/rxui';
+import { AnyMap } from "../types";
+import UploadModal from "../../components/upload-modal";
+import { useComputed, useObservable } from "@mybricks/rxui";
 
-import css from './index.less';
+import css from "./index.less";
 
 interface Props {
   style: AnyMap;
   defaultValue: any;
   monitorValue?: boolean;
-
+  upload: any;
   onChange: (url: string) => void;
 }
 
@@ -28,7 +25,7 @@ export default function ({
   onChange,
   style = {},
   monitorValue,
-  upload
+  upload,
 }: Props): JSX.Element {
   const imageCtx: ImageCtx = useObservable(ImageCtx, (next) => {
     next({
@@ -68,9 +65,9 @@ export default function ({
         title="上传图片"
         upload={upload}
         visible={imageCtx.showUploadModal}
-        value={((imageCtx.url || '').match(/url\((.*)\)/) || ['', ''])[1]}
-        onOk={(url) => {
-          let finalUrl = typeof url === 'string' ? url : url.url
+        value={((imageCtx.url || "").match(/url\((.*)\)/) || ["", ""])[1]}
+        onOk={(url: { url: any }) => {
+          let finalUrl = typeof url === "string" ? url : url.url;
           const imgUrl = `url(${finalUrl})`;
           imageCtx.url = imgUrl;
           imageCtx.showUploadModal = false;
