@@ -152,7 +152,7 @@ export function Padding ({value, onChange, config, showTitle}: PaddingProps) {
             </Panel.Item>
           </Panel.Content>
           <div
-            data-mybricks-tip={`{content:'分别设置',position:'left'}`}
+            data-mybricks-tip={`{content:'切换编辑方式',position:'left'}`}
             className={css.actionIcon}
             onClick={() => setToggle(true)}
           >

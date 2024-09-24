@@ -470,7 +470,7 @@ export default function Border() {
             </Panel.Item>
           </Panel.Content>
           <div
-            data-mybricks-tip={`{content:'四角同时配置',position:'left'}`}
+            data-mybricks-tip={`{content:'批量配置',position:'left'}`}
             className={css.actionIcon}
             onClick={() =>
               handleToggleChange({ key: "radiusToggleValue", value: "split" })

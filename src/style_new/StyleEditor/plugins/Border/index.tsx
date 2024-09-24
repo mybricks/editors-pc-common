@@ -243,7 +243,7 @@ export function Border({ value, onChange, config, showTitle }: BorderProps) {
             </Panel.Item>
           </Panel.Content>
           <div
-            data-mybricks-tip={`{content:'四条边同时配置',position:'left'}`}
+            data-mybricks-tip={`{content:'切换编辑方式',position:'left'}`}
             className={css.actionIcon}
             onClick={() =>
               handleToggleChange({ key: "borderToggleValue", value: "split" })
@@ -333,7 +333,7 @@ export function Border({ value, onChange, config, showTitle }: BorderProps) {
                   </Panel.Item>
                 </Panel.Content>
                 <div
-                  data-mybricks-tip={`{content:'四条边单独配置',position:'left'}`}
+                  data-mybricks-tip={`{content:'切换编辑方式',position:'left'}`}
                   className={css.actionIcon}
                   onClick={() =>
                     handleToggleChange({
@@ -595,7 +595,7 @@ export function Border({ value, onChange, config, showTitle }: BorderProps) {
             </Panel.Item>
           </Panel.Content>
           <div
-            data-mybricks-tip={`{content:'四角同时配置',position:'left'}`}
+            data-mybricks-tip={`{content:'切换编辑方式',position:'left'}`}
             className={css.actionIcon}
             onClick={() =>
               handleToggleChange({ key: "radiusToggleValue", value: "split" })
@@ -673,7 +673,7 @@ export function Border({ value, onChange, config, showTitle }: BorderProps) {
             </Panel.Item>
           </Panel.Content>
           <div
-            data-mybricks-tip={`{content:'四角单独配置',position:'left'}`}
+            data-mybricks-tip={`{content:'切换编辑方式',position:'left'}`}
             className={css.actionIcon}
             onClick={() =>
               handleToggleChange({ key: "radiusToggleValue", value: "all" })
@@ -725,7 +725,7 @@ export function Border({ value, onChange, config, showTitle }: BorderProps) {
   }, [radiusToggleValue]);
 
   return (
-    <Panel title="描边" showTitle={showTitle}>
+    <Panel title="边框" showTitle={showTitle}>
       {borderConfig}
       {radiusConfig}
     </Panel>

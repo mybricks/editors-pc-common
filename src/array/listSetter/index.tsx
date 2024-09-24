@@ -423,60 +423,61 @@ export default function ({
                     />
                     {tagsList(item)}
                   </div>
-                  {!expandable && editable && (
-                    <div
-                      className={
-                        editId === item._id ? css.editActive : css.edit
-                      }
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setEditId((c) => {
-                          if (c == item._id) {
-                            setSubFormVisible((curVisible) => {
-                              return !curVisible;
-                            });
-                            return null;
-                          } else {
-                            _selectable && setActiveId(item._id);
-                            setSubFormVisible(true);
-                            return item._id;
-                          }
-                        });
-                      }}
-                    >
-                      <ExpandIcon/>
-                    </div>
-                  )}
-                  {customOptRender
-                    ? (
-                      <div className={css.visible}>
-                        {customOptRender({item, index, setList})}
-                      </div>
-                    )
-                    : null}
-                  {
-                    showDelete ? (
+                  <div className={css.btns}>
+                    {!expandable && editable && (
                       <div
-                        className={css.delete}
+                        className={
+                          editId === item._id ? css.editActive : css.edit
+                        }
                         onClick={(e) => {
                           e.stopPropagation();
-                          if (activeId === item._id) {
-                            setSubFormVisible(false);
-                            setActiveId(list.find((t) => t._id)._id);
-                          }
-                          if (editId === item._id) {
-                            setEditId(null);
-                          }
-                          listModel.remove(item._id);
-                          // 务必放在后面
-                          typeof onRemove === "function" && onRemove(item._id);
+                          setEditId((c) => {
+                            if (c == item._id) {
+                              setSubFormVisible((curVisible) => {
+                                return !curVisible;
+                              });
+                              return null;
+                            } else {
+                              _selectable && setActiveId(item._id);
+                              setSubFormVisible(true);
+                              return item._id;
+                            }
+                          });
                         }}
                       >
-                        <DeleteIcon/>
+                        <ExpandIcon/>
                       </div>
-                    ) : (<div
-                      className={css.delete}></div>)
-                  }
+                    )}
+                    {customOptRender
+                      ? (
+                        <div className={css.visible}>
+                          {customOptRender({item, index, setList})}
+                        </div>
+                      )
+                      : null}
+                    {
+                      showDelete ? (
+                        <div
+                          className={css.delete}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (activeId === item._id) {
+                              setSubFormVisible(false);
+                              setActiveId(list.find((t) => t._id)._id);
+                            }
+                            if (editId === item._id) {
+                              setEditId(null);
+                            }
+                            listModel.remove(item._id);
+                            // 务必放在后面
+                            typeof onRemove === "function" && onRemove(item._id);
+                          }}
+                        >
+                          <DeleteIcon/>
+                        </div>
+                      ) : null
+                    }
+                  </div>
                 </div>
                 {expandable && editId === item._id && SubEditors}
               </div>

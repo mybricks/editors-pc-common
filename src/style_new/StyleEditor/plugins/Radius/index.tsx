@@ -112,7 +112,7 @@ export function Radius({ value, onChange, config, showTitle }: BorderProps) {
             </Panel.Item>
           </Panel.Content>
           <div
-            data-mybricks-tip={`{content:'四角同时配置',position:'left'}`}
+            data-mybricks-tip={`{content:'切换编辑方式',position:'left'}`}
             className={css.actionIcon}
             onClick={() =>
               handleToggleChange({ key: "radiusToggleValue", value: "split" })
@@ -178,7 +178,7 @@ export function Radius({ value, onChange, config, showTitle }: BorderProps) {
             </Panel.Item>
           </Panel.Content>
           <div
-            data-mybricks-tip={`{content:'四角单独配置',position:'left'}`}
+            data-mybricks-tip={`{content:'切换编辑方式',position:'left'}`}
             className={css.actionIcon}
             onClick={() =>
               handleToggleChange({ key: "radiusToggleValue", value: "all" })
