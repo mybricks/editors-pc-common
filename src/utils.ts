@@ -232,7 +232,7 @@ export function safeDecodeURIComponent(uri: any) {
     let result = decodeURIComponent(uri);
     return result;
   } catch (e) {
-    console.error("safeDecodeURIComponent", uri, e);
+    //console.error("safeDecodeURIComponent", uri, e);
     return uri;
   }
 }
