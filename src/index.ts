@@ -84,6 +84,14 @@ const PcEditorMap: any = {
   LINE: EditorLine,
 };
 
+
+// const PcEditorMap: any = {
+//   STYLE: EditorStyle,
+//   STYLEC: EditorStyleC,
+//   STYLENEW: StyleNew,
+// };
+
+
 function PcEditor(props: EditorProps): any {
   const { editConfig } = props;
   

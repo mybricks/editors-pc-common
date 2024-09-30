@@ -73,7 +73,7 @@ const WHITE_SPACE_OPTIONS = [
 
 const FONT_SIZE_OPTIONS = [
   { label: "px", value: "px" },
-  { label: "默认", value: "inherit" },
+  // { label: "默认", value: "inherit" },
 ];
 const FONT_SIZE_DISABLED_LIST = ["inherit"];
 
@@ -81,14 +81,14 @@ const LINEHEIGHT_UNIT_OPTIONS = [
   { label: "倍数", value: "" },
   { label: "px", value: "px" },
   { label: "%", value: "%" },
-  { label: "继承", value: "inherit" },
-  { label: "默认", value: "normal" },
+  // { label: "继承", value: "inherit" },
+  // { label: "默认", value: "normal" },
 ];
 const LINEHEIGHT_UNIT_DISABLED_LIST = ["normal", "inherit"];
 const LETTERSPACING_UNIT_OPTIONS = [
   { label: "px", value: "px" },
-  { label: "继承", value: "inherit" },
-  { label: "默认", value: "normal" },
+  // { label: "继承", value: "inherit" },
+  // { label: "默认", value: "normal" },
 ];
 const LETTERSPACING_UNIT_DISABLED_LIST = ["normal", "inherit"];
 
@@ -193,6 +193,11 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
           );
         } else if (!isNaN(Number(lineHeight))) {
           // parseFloat和toFixed保留四位小数并去除尾0 防止上下键无法增减
+          onLineHeightChange(
+            `${parseFloat((lineHeightNumber / fontSizeNumber).toFixed(4))}`,
+            fontSize
+          );
+        } else {
           onLineHeightChange(
             `${parseFloat((lineHeightNumber / fontSizeNumber).toFixed(4))}`,
             fontSize
@@ -320,7 +325,7 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
               prefix={<FontSizeOutlined />}
               defaultValue={value.fontSize}
               unitOptions={FONT_SIZE_OPTIONS}
-              unitDisabledList={FONT_SIZE_DISABLED_LIST}
+              // unitDisabledList={FONT_SIZE_DISABLED_LIST}
               onChange={onFontSizeChange}
             />
           )}
@@ -333,7 +338,7 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
               value={lineHeight}
               defaultUnitValue="inherit"
               unitOptions={LINEHEIGHT_UNIT_OPTIONS}
-              unitDisabledList={LINEHEIGHT_UNIT_DISABLED_LIST}
+              // unitDisabledList={LINEHEIGHT_UNIT_DISABLED_LIST}
               onChange={onLineHeightChange}
             />
           )}
@@ -345,7 +350,7 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
               prefix={<LetterSpacingOutlined />}
               defaultValue={value.letterSpacing}
               unitOptions={LETTERSPACING_UNIT_OPTIONS}
-              unitDisabledList={LETTERSPACING_UNIT_DISABLED_LIST}
+              // unitDisabledList={LETTERSPACING_UNIT_DISABLED_LIST}
               onChange={(value) => onChange({ key: "letterSpacing", value })}
             />
           )}
