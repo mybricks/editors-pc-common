@@ -160,7 +160,7 @@ function ProItem({
             <span
               data-not-connect={1}
               className={`${css.point}`}
-              style={{left: -7, top: 11, borderColor: typeStyle.strokeColor, backgroundColor: typeStyle.fillColor}}
+              style={{left: -7, top: 11, borderColor: typeStyle.strokeColor, backgroundColor: typeStyle.fillColor, zIndex: 1}}
               onMouseDown={handleMouseDown}
             />
           ) : null
