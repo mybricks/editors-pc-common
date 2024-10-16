@@ -1,8 +1,8 @@
 const webpack = require("webpack");
 const path = require('path');
 const { CleanWebpackPlugin } = require('clean-webpack-plugin');
-const { BundleAnalyzerPlugin } = require("webpack-bundle-analyzer");
-
+// const { BundleAnalyzerPlugin } = require("webpack-bundle-analyzer");
+const AddHeaderCodePlugin = require('./plugin');
 
 module.exports = {
   mode: "production",
@@ -19,8 +19,8 @@ module.exports = {
       react: "react",
       "react-dom": "react-dom",
       "@mybricks/rxui": "@mybricks/rxui",
-      "@ant-design/icons": "@ant-design/icons",
-      antd: "antd"
+      "@ant-design/icons": "MyBricks_icons",
+      antd: "MyBricks_antd"
     },
   ],
   resolve: {
@@ -118,11 +118,12 @@ module.exports = {
       protectWebpackAssets: false,
       cleanAfterEveryBuildPatterns: ['*.LICENSE.txt', '*.html'],
     }),
-    new BundleAnalyzerPlugin({
-      analyzerMode: "static",
-    }),
+    // new BundleAnalyzerPlugin({
+    //   analyzerMode: "static",
+    // }),
     new webpack.DefinePlugin({
       'process.env': JSON.stringify({})
-    })
+    }),
+    new AddHeaderCodePlugin("window.MyBricks_antd||(window.MyBricks_antd=window.antd),window.MyBricks_icons||(window.MyBricks_icons=window.icons);")
   ],
 }

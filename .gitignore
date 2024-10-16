@@ -24,7 +24,7 @@ package-lock.json
 *.njsproj
 *.sln
 *.sw?
-lib
+# lib
 .history
 
 src/**/*.js
