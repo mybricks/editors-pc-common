@@ -2,7 +2,7 @@ const webpack = require("webpack");
 const path = require('path');
 const { CleanWebpackPlugin } = require('clean-webpack-plugin');
 // const { BundleAnalyzerPlugin } = require("webpack-bundle-analyzer");
-const AddHeaderCodePlugin = require('./plugin');
+// const AddHeaderCodePlugin = require('./plugin');
 
 module.exports = {
   mode: "production",
@@ -124,6 +124,6 @@ module.exports = {
     new webpack.DefinePlugin({
       'process.env': JSON.stringify({})
     }),
-    new AddHeaderCodePlugin("window.MyBricks_antd||(window.MyBricks_antd=window.antd),window.MyBricks_icons||(window.MyBricks_icons=window.icons);")
+    // new AddHeaderCodePlugin("window.MyBricks_antd||(window.MyBricks_antd=window.antd),window.MyBricks_icons||(window.MyBricks_icons=window.icons);")
   ],
 }
