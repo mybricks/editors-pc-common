@@ -264,6 +264,7 @@ export function Background({
                 onChange({ key: "backgroundImage", value });
                 setBackgroundImageNew(value);
                 setBackgroundImage(value);
+                setDefaultBackgroundNew({...defaultBackgroundNew, backgroundImage: value})
               }}
               // onDegChange={onDegChange}
               // onShapeChange={onShapeChange}
@@ -295,12 +296,13 @@ export function Background({
                 });
                 if (value?.key === "backgroundImage") {
                   setBackgroundImage(value.value);
+                  setBackgroundImageNew(value.value);
                 }
               }}
             />
           </div>
         );
-      }, [defaultBackgroundNew]);
+      }, [backgroundImageNew]);
 
       const ContentRender = useMemo(() => {
         switch (activeKey) {
