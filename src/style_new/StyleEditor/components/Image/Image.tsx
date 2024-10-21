@@ -130,7 +130,7 @@ export const ImageEditor = ({ value, onChange, upload }: PopupProps) => {
         />
       </div>
       <div className={css.item}>
-        <Input onChange={handleUrlInputChange} value={imgSrc} />
+        <Input onChange={handleUrlInputChange} defaultValue={imgSrc} />
       </div>
       <div className={css.item}>
         <div className={css.label}>大小</div>
