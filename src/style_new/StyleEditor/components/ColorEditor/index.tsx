@@ -54,12 +54,12 @@ interface State {
   optionsValueToAllMap: any;
 }
 
-function getInitialState({
+export function getInitialState({
   value,
   options,
 }: {
   value: string;
-  options: ColorOptions;
+  options?: ColorOptions;
 }): State {
   let finalValue = value;
   let nonColorValue = false;

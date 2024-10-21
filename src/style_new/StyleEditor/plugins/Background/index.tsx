@@ -16,6 +16,7 @@ import {
   getBackgroundImage,
   colorSketchChange,
   ColorEditor,
+  getInitialState,
 } from "../../components";
 import CSS from "./index.less";
 import { createPortal } from "react-dom";
@@ -139,8 +140,7 @@ export function Background({
 
       const [backgroundImageNew, setBackgroundImageNew] =
         useState(backgroundImage);
-      const [backgroundColorNew, setBackgroundColorNew] =
-        useState(backgroundColor);
+
       const [defaultBackgroundNew, setDefaultBackgroundNew] =
         useState<CSSProperties>(defaultBackgroundValue);
 
@@ -233,7 +233,12 @@ export function Background({
       }, [activeKey]);
 
       const ColorPicker = useCallback(() => {
+        const [backgroundColorNew, setBackgroundColorNew] =
+          useState(backgroundColor);
         const changeBackgroundColor = (value: string) => {
+          if (value === backgroundColorNew) {
+            return;
+          }
           onChange({
             key: "backgroundColor",
             value,
@@ -241,18 +246,22 @@ export function Background({
           setBackgroundColorNew(value);
           setBackgroundColor(value);
         };
-        return (
-          <div className={CSS.ColorPicker}>
-            <div className={CSS.ColorEditorContainer}>
-              <ColorEditor
-                style={{ width: "218px" }}
-                defaultValue={backgroundColorNew}
-                onChange={changeBackgroundColor}
-                disabledClick={true}
-              />
-            </div>
+
+        const SketchRender = useCallback(() => {
+          const state = getInitialState({ value: backgroundColorNew || "" });
+          const { finalValue, nonColorValue } = state;
+
+          let pickerValue = finalValue;
+
+          if (nonColorValue) {
+            const option = state.optionsValueToAllMap[finalValue];
+            if (option?.resetValue) {
+              pickerValue = option.resetValue;
+            }
+          }
+          return (
             <Sketch
-              color={backgroundColorNew}
+              color={pickerValue}
               onChange={(color, oldColor) => {
                 const value = ProcessColor(colorSketchChange(color, oldColor));
                 changeBackgroundColor(value);
@@ -263,9 +272,29 @@ export function Background({
                 margin: "auto",
               }}
             />
+          );
+        }, [backgroundColorNew]);
+
+        const ColorEditorRender = useCallback(() => {
+          return (
+            <div className={CSS.ColorEditorContainer}>
+              <ColorEditor
+                style={{ width: "218px" }}
+                defaultValue={backgroundColorNew}
+                onChange={changeBackgroundColor}
+                disabledClick={true}
+              />
+            </div>
+          );
+        }, [backgroundColorNew]);
+
+        return (
+          <div className={CSS.ColorPicker}>
+            <ColorEditorRender />
+            <SketchRender />
           </div>
         );
-      }, [backgroundColorNew]);
+      }, []);
 
       const GradientPiker = useCallback(
         () => (
