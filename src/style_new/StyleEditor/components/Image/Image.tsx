@@ -1,4 +1,9 @@
-import React, { useCallback, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import css from "./index.less";
 import { Input, Select } from "..";
 import { getBackgroundImage, DEFAULT_IMAGE } from "./";
@@ -50,10 +55,16 @@ export const ImageEditor = ({ value, onChange, upload }: PopupProps) => {
   }, []);
   const [defalutValue, setDefalutValue] = useState(value);
 
-  const changeDefalutValue = (key: string, newValue: string) => {
-    setDefalutValue({ ...defalutValue, [key]: newValue });
-    onChange({ key, value: newValue });
-  };
+  const changeDefalutValue = useCallback(
+    (key: string, newValue: string) => {
+      setDefalutValue((preDefalutValue: any) => ({
+        ...preDefalutValue,
+        [key]: newValue,
+      }));
+      onChange({ key, value: newValue });
+    },
+    [defalutValue]
+  );
 
   const handleBackgroundChange = useCallback(
     (newBackground: string) => {
