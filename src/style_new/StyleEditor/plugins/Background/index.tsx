@@ -22,6 +22,7 @@ import { ReloadOutlined } from "@ant-design/icons";
 import { GradientIcon, ImgIcon, SoldIcon } from "./Icon";
 import Sketch from "@mybricks/color-picker";
 import { Background1 } from "./Old";
+import { ExtractBackground } from "../../components/Image/ExtractBackground";
 
 interface BackgroundProps {
   value: CSSProperties;
@@ -122,10 +123,10 @@ export function Background({
   const [backgroundColor, setBackgroundColor] = useState(
     defaultBackgroundValue.backgroundColor
   );
-  const [background, setBackground] = useState(
-    defaultBackgroundValue?.background ||
-      defaultBackgroundValue?.backgroundImage
-  );
+  // const [background, setBackground] = useState(
+  //   defaultBackgroundValue?.background ||
+  //     defaultBackgroundValue?.backgroundImage
+  // );
 
   const [defaultBackground, setDefaultBackground] = useState<CSSProperties>(
     defaultBackgroundValue
@@ -134,6 +135,13 @@ export function Background({
   const NewPanel = useCallback(
     ({ open, positionElement }: { open: boolean; [k: string]: any }) => {
       const ref = useRef<HTMLDivElement>(null);
+
+      const [backgroundImageNew, setBackgroundImageNew] =
+        useState(backgroundImage);
+      const [backgroundColorNew, setBackgroundColorNew] =
+        useState(backgroundColor);
+      const [defaultBackgroundNew, setDefaultBackgroundNew] =
+        useState<CSSProperties>(defaultBackgroundValue);
 
       useEffect(() => {
         const menusContainer = ref.current!;
@@ -171,27 +179,35 @@ export function Background({
         }
       }, [open]);
 
-      const [activeKey, setActiveKey] = useState(0);
+      const [activeKey, setActiveKey] = useState(
+        backgroundImage !== "none" &&
+          (backgroundColor === "transparent" ||
+            backgroundColor === "rgba(255, 255, 255, 0)")
+          ? ExtractBackground(backgroundImage || "", "gradient")?.length > 0
+            ? 1
+            : 2
+          : 0
+      );
       const isActive = (key: number) => activeKey === key;
       const handleItemClick = useCallback(
         (key: number) => {
           setActiveKey(key);
           switch (key) {
             case 0:
-              onChange({ key: "backgroundColor", value: backgroundColor });
+              // onChange({ key: "backgroundColor", value: backgroundColor });
               break;
             case 1:
-              onChange({ key: "backgroundImage", value: backgroundImage });
+              // onChange({ key: "backgroundImage", value: backgroundImage });
               break;
             case 2:
               // @ts-ignore
-              onChange(defaultBackground);
+              // onChange(defaultBackground);
               break;
             default:
               return;
           }
         },
-        [backgroundColor, backgroundImage]
+        [backgroundColor, backgroundImage, defaultBackground]
       );
       const TopBar = useCallback(() => {
         return (
@@ -219,10 +235,11 @@ export function Background({
         () => (
           <div className={CSS.ColorPicker}>
             <Sketch
-              color={backgroundColor}
+              color={backgroundColorNew}
               onChange={(color, oldColor) => {
                 const value = ProcessColor(colorSketchChange(color, oldColor));
                 onChange({ key: "backgroundColor", value });
+                setBackgroundColorNew(value);
                 setBackgroundColor(value);
               }}
               style={{
@@ -233,7 +250,7 @@ export function Background({
             />
           </div>
         ),
-        [backgroundColor]
+        [backgroundColorNew]
       );
 
       const GradientPiker = useCallback(
@@ -241,10 +258,11 @@ export function Background({
           <div className={CSS.GradientPiker}>
             <div style={{ marginTop: 30 }} />
             <GradientEditor
-              defaultValue={backgroundImage}
+              defaultValue={backgroundImageNew}
               // onTypeChange={onTypeChange}
               onChange={(value) => {
                 onChange({ key: "backgroundImage", value });
+                setBackgroundImageNew(value);
                 setBackgroundImage(value);
               }}
               // onDegChange={onDegChange}
@@ -252,7 +270,7 @@ export function Background({
             />
           </div>
         ),
-        [backgroundImage]
+        [backgroundImageNew]
       );
 
       const ImgPicker = useCallback(() => {
@@ -260,10 +278,16 @@ export function Background({
           <div className={CSS.ImgPicker}>
             <ImageEditor
               upload={upload}
-              value={defaultBackground}
+              value={defaultBackgroundNew}
               onChange={(value) => {
                 onChange(value);
                 setDefaultBackground((val) => {
+                  return {
+                    ...val,
+                    [value.key]: value.value,
+                  };
+                });
+                setDefaultBackgroundNew((val) => {
                   return {
                     ...val,
                     [value.key]: value.value,
@@ -276,7 +300,7 @@ export function Background({
             />
           </div>
         );
-      }, [defaultBackground]);
+      }, [defaultBackgroundNew]);
 
       const ContentRender = useMemo(() => {
         switch (activeKey) {
