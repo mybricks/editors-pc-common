@@ -1,4 +1,4 @@
-import React, { useCallback, useRef } from "react";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import css from "./index.less";
 import { Input, Select } from "..";
 import { getBackgroundImage, DEFAULT_IMAGE } from "./";
@@ -48,26 +48,52 @@ export const ImageEditor = ({ value, onChange, upload }: PopupProps) => {
   const handleImageClick = useCallback(() => {
     inputRef.current!.click();
   }, []);
+  const [defalutValue, setDefalutValue] = useState(value);
 
-  const handleBackgroundChange = useCallback((newBackground: string) => {
-    const gradient = ExtractBackground(value.backgroundImage, 'gradient')?.[0];
-    const newValue = gradient ? `${gradient}, url(${newBackground})` : `url(${newBackground})`;
-    onChange({ key: 'backgroundImage', value: newValue });
-  }, [value.backgroundImage]);
+  const changeDefalutValue = (key: string, newValue: string) => {
+    setDefalutValue({ ...defalutValue, [key]: newValue });
+    onChange({ key, value: newValue });
+  };
 
-  const handleFileInputChange = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target?.files?.[0];
-    if (!file) return;
+  const handleBackgroundChange = useCallback(
+    (newBackground: string) => {
+      const gradient = ExtractBackground(
+        defalutValue.backgroundImage,
+        "gradient"
+      )?.[0];
+      const newValue = gradient
+        ? `url(${newBackground}),${gradient}`
+        : `url(${newBackground})`;
+      changeDefalutValue("backgroundImage", newValue);
+      onChange({ key: "backgroundImage", value: newValue });
+    },
+    [defalutValue]
+  );
 
-    const [neValue] = await (typeof upload === 'function' ? upload([file], {}) : file2Base64(file));
-    handleBackgroundChange(neValue);
-  }, [handleBackgroundChange]);
+  const handleFileInputChange = useCallback(
+    async (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target?.files?.[0];
+      if (!file) return;
 
-  const handleUrlInputChange = useCallback((url: string) => {
-    handleBackgroundChange(url);
-  }, [handleBackgroundChange]);
+      const [neValue] = await (typeof upload === "function"
+        ? upload([file], {})
+        : file2Base64(file));
+      handleBackgroundChange(neValue);
+    },
+    [handleBackgroundChange]
+  );
 
-  const imgSrc = getBackgroundImage(value.backgroundImage, DEFAULT_IMAGE);
+  const handleUrlInputChange = useCallback(
+    (url: string) => {
+      handleBackgroundChange(url);
+    },
+    [handleBackgroundChange]
+  );
+
+  const imgSrc = useMemo(
+    () => getBackgroundImage(defalutValue.backgroundImage, DEFAULT_IMAGE),
+    [defalutValue.backgroundImage]
+  );
 
   return (
     <>
@@ -93,47 +119,46 @@ export const ImageEditor = ({ value, onChange, upload }: PopupProps) => {
         />
       </div>
       <div className={css.item}>
-        <Input
-          onChange={handleUrlInputChange}
-          value={getBackgroundImage(value.backgroundImage, DEFAULT_IMAGE)}
-        />
+        <Input onChange={handleUrlInputChange} value={imgSrc} />
       </div>
       <div className={css.item}>
         <div className={css.label}>大小</div>
         <div className={css.value}>
           <Select
             style={{ padding: 0 }}
-            defaultValue={value.backgroundSize}
+            defaultValue={defalutValue.backgroundSize}
             options={BACKGROUND_SIZE_OPTIONS_NEW}
-            onChange={(value: string) => {
-              onChange({ key: "backgroundSize", value });
-            }}
+            onChange={(value: string) =>
+              changeDefalutValue("backgroundSize", value)
+            }
           />
         </div>
       </div>
-      {!["100% 100%", "cover"].includes(value.backgroundSize) && (
+      {!["100% 100%", "cover"].includes(defalutValue.backgroundSize) && (
         <div className={css.item}>
           <div className={css.label}>平铺</div>
           <div className={css.value}>
             <Select
               style={{ padding: 0 }}
-              defaultValue={value.backgroundRepeat}
+              defaultValue={defalutValue.backgroundRepeat}
               options={BACKGROUND_REPEAT_OPTIONS}
-              onChange={(value) => onChange({ key: "backgroundRepeat", value })}
+              onChange={(value) =>
+                changeDefalutValue("backgroundRepeat", value)
+              }
             />
           </div>
         </div>
       )}
-      {value.backgroundSize !== "100% 100%" && (
+      {defalutValue.backgroundSize !== "100% 100%" && (
         <div className={css.item}>
           <div className={css.label}>位置</div>
           <div className={css.value}>
             <Select
               style={{ padding: 0 }}
-              defaultValue={value.backgroundPosition}
+              defaultValue={defalutValue.backgroundPosition}
               options={BACKGROUND_POSITION_OPTIONS}
               onChange={(value) =>
-                onChange({ key: "backgroundPosition", value })
+                changeDefalutValue("backgroundPosition", value)
               }
             />
           </div>
