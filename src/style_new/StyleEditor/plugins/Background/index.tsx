@@ -15,6 +15,7 @@ import {
   ProcessColor,
   getBackgroundImage,
   colorSketchChange,
+  ColorEditor,
 } from "../../components";
 import CSS from "./index.less";
 import { createPortal } from "react-dom";
@@ -231,16 +232,30 @@ export function Background({
         );
       }, [activeKey]);
 
-      const ColorPicker = useCallback(
-        () => (
+      const ColorPicker = useCallback(() => {
+        const changeBackgroundColor = (value: string) => {
+          onChange({
+            key: "backgroundColor",
+            value,
+          });
+          setBackgroundColorNew(value);
+          setBackgroundColor(value);
+        };
+        return (
           <div className={CSS.ColorPicker}>
+            <div className={CSS.ColorEditorContainer}>
+              <ColorEditor
+                style={{ width: "218px" }}
+                defaultValue={backgroundColorNew}
+                onChange={changeBackgroundColor}
+                disabledClick={true}
+              />
+            </div>
             <Sketch
               color={backgroundColorNew}
               onChange={(color, oldColor) => {
                 const value = ProcessColor(colorSketchChange(color, oldColor));
-                onChange({ key: "backgroundColor", value });
-                setBackgroundColorNew(value);
-                setBackgroundColor(value);
+                changeBackgroundColor(value);
               }}
               style={{
                 backgroundColor: "white",
@@ -249,9 +264,8 @@ export function Background({
               }}
             />
           </div>
-        ),
-        [backgroundColorNew]
-      );
+        );
+      }, [backgroundColorNew]);
 
       const GradientPiker = useCallback(
         () => (
@@ -264,7 +278,10 @@ export function Background({
                 onChange({ key: "backgroundImage", value });
                 setBackgroundImageNew(value);
                 setBackgroundImage(value);
-                setDefaultBackgroundNew({...defaultBackgroundNew, backgroundImage: value})
+                setDefaultBackgroundNew({
+                  ...defaultBackgroundNew,
+                  backgroundImage: value,
+                });
               }}
               // onDegChange={onDegChange}
               // onShapeChange={onShapeChange}

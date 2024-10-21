@@ -36,6 +36,7 @@ interface ColorEditorProps {
   defaultValue: any;
   style?: CSSProperties;
   onChange: (value: any) => void;
+  disabledClick?: boolean;
 }
 
 interface State {
@@ -126,6 +127,7 @@ export function ColorEditor({
   style = {},
   onChange,
   options = [],
+  disabledClick = false
 }: ColorEditorProps) {
   const presetRef = useRef<HTMLDivElement>(null);
   const [state, dispatch] = useReducer(
@@ -338,6 +340,7 @@ export function ColorEditor({
         onChange={handleColorpickerChange}
         // disabled={nonColorValue}
         className={css.colorPickerContainer}
+        disabledClick={disabledClick}
       >
         <div className={css.block} style={style} />
         <div className={css.icon}>
