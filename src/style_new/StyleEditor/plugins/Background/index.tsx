@@ -241,7 +241,7 @@ export function Background({
           }
           onChange({
             key: "backgroundColor",
-            value,
+            value: `${value}${useImportant ? "!important" : ""}`,
           });
           setBackgroundColorNew(value);
           setBackgroundColor(value);
@@ -348,7 +348,7 @@ export function Background({
             />
           </div>
         );
-      }, [backgroundImageNew]);
+      }, [backgroundImageNew, defaultBackgroundNew]);
 
       const ContentRender = useMemo(() => {
         switch (activeKey) {
@@ -411,7 +411,7 @@ export function Background({
   return (
     <>
       <Panel
-        title="背景"
+        title="背景New"
         showTitle={showTitle}
         key={forceRenderKey}
         showReset={true}
