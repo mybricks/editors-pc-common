@@ -17,6 +17,7 @@ interface ColorpickerProps {
   children: ReactNode;
   disabled?: boolean;
   className?: string;
+  disabledClick?: boolean;
 }
 
 export function Colorpicker({
@@ -25,6 +26,7 @@ export function Colorpicker({
   children,
   disabled,
   className,
+  disabledClick = false,
 }: ColorpickerProps) {
   const ref = useRef<HTMLDivElement>(null);
   const childRef = useRef<HTMLDivElement>(null);
@@ -32,7 +34,7 @@ export function Colorpicker({
   const [open, setOpen] = useState(false);
 
   const handleColorpickerClick = useCallback(() => {
-    if (disabled) {
+    if (disabled || disabledClick) {
       return;
     }
     setShow(true);
@@ -149,10 +151,18 @@ function ColorSketch({
 
   return (
     <div ref={ref} className={css.colorSketch}>
-      <Sketch color={sketchColor()} onChange={onChange} />
+      <SketchRender color={sketchColor()} onChange={onChange} />
     </div>
   );
 }
+
+const SketchRender = ({
+  color,
+  onChange,
+}: {
+  color: string;
+  onChange: (value: ColorResult, oldValue: ColorResult) => void;
+}) => <Sketch color={color} onChange={onChange} />;
 
 export const colorSketchChange = (value: any, oldValue: any) => {
   const tempValue = value;
