@@ -13,6 +13,7 @@ import { ReloadOutlined } from "@ant-design/icons";
 
 import css from "./index.less";
 import { gradientOptions, shapeOptions } from "../GradientEditor/constants";
+import { ExtractBackground } from "../Image/ExtractBackground";
 // import { Angle, Circle, Ellipse, Linear, Radial } from "../GradientEditor/Icon";
 
 interface GradientEditorProps {
@@ -83,11 +84,12 @@ export function Gradient({
           <div
             ref={presetRef}
             className={css.block}
-            style={{ backgroundImage }}
+            style={{ backgroundImage }} // TODO 只有背景图片是否使用背景图
           />
           {(!backgroundImage ||
             backgroundImage === "none" ||
-            backgroundImage === "initial") && (
+            backgroundImage === "initial" ||
+            ExtractBackground(backgroundImage, "gradient")?.length === 0) && (
             <div className={css.icon}>
               <TransparentColorOutlined />
             </div>
