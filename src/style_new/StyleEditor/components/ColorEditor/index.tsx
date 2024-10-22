@@ -37,6 +37,7 @@ interface ColorEditorProps {
   style?: CSSProperties;
   onChange: (value: any) => void;
   disabledClick?: boolean;
+  onClick?: () => void;
 }
 
 interface State {
@@ -127,7 +128,8 @@ export function ColorEditor({
   style = {},
   onChange,
   options = [],
-  disabledClick = false
+  onClick = () => {},
+  disabledClick = false,
 }: ColorEditorProps) {
   const presetRef = useRef<HTMLDivElement>(null);
   const [state, dispatch] = useReducer(
@@ -416,7 +418,12 @@ export function ColorEditor({
       return null;
     }
     return (
-      <div ref={presetRef} className={css.preset} onClick={onPresetClick} data-mybricks-tip={"主题色"}>
+      <div
+        ref={presetRef}
+        className={css.preset}
+        onClick={onPresetClick}
+        data-mybricks-tip={"主题色"}
+      >
         {/* <BindOutlined /> */}
         <UnbindingOutlined />
       </div>
@@ -464,7 +471,7 @@ export function ColorEditor({
   }, []);
 
   return (
-    <Panel.Item style={style} className={css.container}>
+    <Panel.Item style={style} className={css.container} onClick={onClick}>
       <div
         // className={`${css.color}${state.nonColorValue ? ` ${css.disabled}` : ''}`}
         className={css.color}

@@ -270,9 +270,10 @@ export function GradientEditor({
                   }}
                 />
                 <ColorEditor
-                  defaultValue={color}
                   key={color}
+                  defaultValue={color}
                   style={{ flex: 5, border }}
+                  onClick={() => setCurElementId(id)}
                   onChange={(color) => {
                     changeProperty("color", color, id);
                     setCurElementId(id);
