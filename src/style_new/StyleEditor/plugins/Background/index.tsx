@@ -25,6 +25,7 @@ import { GradientIcon, ImgIcon, SoldIcon } from "./Icon";
 import Sketch from "@mybricks/color-picker";
 import { Background1 } from "./Old";
 import { ExtractBackground } from "../../components/Image/ExtractBackground";
+import { color2rgba } from "../../utils";
 
 interface BackgroundProps {
   value: CSSProperties;
@@ -120,7 +121,7 @@ export function Background({
     defaultBackgroundValue.backgroundImage
   );
   const [backgroundColor, setBackgroundColor] = useState(
-    defaultBackgroundValue.backgroundColor
+    defaultBackgroundValue.backgroundColor || "transparent"
   );
   // const [background, setBackground] = useState(
   //   defaultBackgroundValue?.background ||
@@ -178,8 +179,9 @@ export function Background({
 
       const [activeKey, setActiveKey] = useState(
         backgroundImage !== "none" &&
-          (backgroundColor === "transparent" ||
-            backgroundColor === "rgba(255, 255, 255, 0)")
+          ["transparent", "rgba(255,255,255,0.00)"].includes(
+            color2rgba(backgroundColor)
+          )
           ? ExtractBackground(backgroundImage || "", "gradient")?.length > 0
             ? 1
             : 2
