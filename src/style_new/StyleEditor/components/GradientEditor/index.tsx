@@ -141,7 +141,7 @@ export function GradientEditor({
 
   useEffect(() => {
     if (isInitialMount.current) {
-      if (finalValue !== 'none') isInitialMount.current = false;
+      isInitialMount.current = false;
     } else {
       if (finalValue) {
         changeFinalValue?.(finalValue);
