@@ -63,7 +63,7 @@ export function Background({
       disableGradient,
     },
   ] = useState({ ...DEFAULT_CONFIG, ...config });
-  const [forceRenderKey, setForceRenderKey] = useState<number>(Math.random()); // 用于点击重置按钮重新渲染获取新value
+  const [forceRenderKey, setForceRenderKey] = useState<number>(0); // 用于点击重置按钮重新渲染获取新value
 
   const defaultBackgroundValue: CSSProperties & Record<string, any> =
     useMemo(() => {
@@ -83,11 +83,8 @@ export function Background({
     onChange([
       { key: "backgroundColor", value: void 0 },
       { key: "backgroundImage", value: void 0 },
-      { key: "backgroundRepeat", value: void 0 },
-      { key: "backgroundPosition", value: void 0 },
-      { key: "backgroundSize", value: void 0 },
     ]);
-    setForceRenderKey(forceRenderKey + 1);
+    setForceRenderKey((preKey) => preKey + 1);
   }, [forceRenderKey]);
 
   const presetRef = useRef<HTMLDivElement>(null);
@@ -219,17 +216,13 @@ export function Background({
           switch (activeKey) {
             case 0:
               onChange({ key: "backgroundColor", value: void 0 });
+              setBackgroundColor("transparent");
               break;
             case 1:
               onChange({ key: "backgroundImage", value: void 0 });
               break;
             case 2:
-              onChange([
-                { key: "backgroundImage", value: void 0 },
-                { key: "backgroundRepeat", value: void 0 },
-                { key: "backgroundPosition", value: void 0 },
-                { key: "backgroundSize", value: void 0 },
-              ]);
+              onChange({ key: "backgroundImage", value: void 0 });
               break;
           }
         };
