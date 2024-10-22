@@ -351,16 +351,17 @@ export function Background({
       }, [backgroundImageNew, defaultBackgroundNew]);
 
       const ContentRender = useMemo(() => {
-        switch (activeKey) {
-          case 0:
-            return <ColorPicker />;
-          case 1:
-            return <GradientPiker />;
-          case 2:
-            return <ImgPicker />;
-          default:
-            return null;
-        }
+        const components = [
+          { component: <ColorPicker />, key: 0 },
+          { component: <GradientPiker />, key: 1 },
+          { component: <ImgPicker />, key: 2 },
+        ];
+        
+        return components.map(({ component, key }) => (
+          <div key={key} style={{ display: key === activeKey ? 'block' : 'none' }}>
+            {component}
+          </div>
+        ));
       }, [activeKey]);
 
       return (
