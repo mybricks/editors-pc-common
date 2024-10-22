@@ -1,22 +1,22 @@
 import React, {
-  useMemo,
-  useState,
   CSSProperties,
   useCallback,
-  useRef,
   useEffect,
+  useMemo,
+  useRef,
+  useState,
 } from "react";
 import { useStyleEditorContext } from "../..";
 import {
-  Panel,
-  TransparentColorOutlined,
+  ColorEditor,
+  colorSketchChange,
+  getBackgroundImage,
+  getInitialState,
   GradientEditor,
   ImageEditor,
+  Panel,
   ProcessColor,
-  getBackgroundImage,
-  colorSketchChange,
-  ColorEditor,
-  getInitialState,
+  TransparentColorOutlined,
 } from "../../components";
 import CSS from "./index.less";
 import { createPortal } from "react-dom";
@@ -140,7 +140,6 @@ export function Background({
 
       const [backgroundImageNew, setBackgroundImageNew] =
         useState(backgroundImage);
-
       const [defaultBackgroundNew, setDefaultBackgroundNew] =
         useState<CSSProperties>(defaultBackgroundValue);
 
@@ -211,26 +210,56 @@ export function Background({
         [backgroundColor, backgroundImage, defaultBackground]
       );
       const TopBar = useCallback(() => {
+        const icons = [
+          { icon: <SoldIcon />, index: 0, tip: "背景色" },
+          { icon: <GradientIcon />, index: 1, tip: "渐变色" },
+          { icon: <ImgIcon />, index: 2, tip: "背景图" },
+        ];
+        const onReset = () => {
+          switch (activeKey) {
+            case 0:
+              onChange({ key: "backgroundColor", value: void 0 });
+              break;
+            case 1:
+              onChange({ key: "backgroundImage", value: void 0 });
+              break;
+            case 2:
+              onChange([
+                { key: "backgroundImage", value: void 0 },
+                { key: "backgroundRepeat", value: void 0 },
+                { key: "backgroundPosition", value: void 0 },
+                { key: "backgroundSize", value: void 0 },
+              ]);
+              break;
+          }
+        };
         return (
           <div className={CSS.topBar}>
-            {[<SoldIcon />, <GradientIcon />, <ImgIcon />].map((icon, index) =>
-              (index === 2 && disableBackgroundImage) ||
-              (index === 1 && disableGradient) ||
-              (index === 0 && disableBackgroundColor) ? null : (
-                <div
-                  key={index}
-                  className={`${CSS.topBarItem} ${
-                    isActive(index) ? CSS.activeItem : ""
-                  }`}
-                  data-mybricks-tip={
-                    index === 0 ? "背景色" : index === 1 ? "渐变色" : "背景图"
-                  }
-                  onClick={() => handleItemClick(index)}
-                >
-                  {icon}
-                </div>
-              )
-            )}
+            <div className={CSS.leftBtn}>
+              {icons.map(({ icon, tip }, index) =>
+                (index === 2 && disableBackgroundImage) ||
+                (index === 1 && disableGradient) ||
+                (index === 0 && disableBackgroundColor) ? null : (
+                  <div
+                    key={index}
+                    className={`${CSS.topBarItem} ${
+                      isActive(index) ? CSS.activeItem : ""
+                    }`}
+                    data-mybricks-tip={tip}
+                    onClick={() => handleItemClick(index)}
+                  >
+                    {icon}
+                  </div>
+                )
+              )}
+            </div>
+            {/* <div
+              onClick={onReset}
+              className={CSS.topBarEndItem}
+              data-mybricks-tip={`重置${icons[activeKey].tip}`}
+            >
+              <ReloadOutlined />
+            </div> */}
           </div>
         );
       }, [activeKey]);
