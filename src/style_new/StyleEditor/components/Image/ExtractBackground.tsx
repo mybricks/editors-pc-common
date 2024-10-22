@@ -20,7 +20,7 @@ export const ExtractBackground = (
       case "image":
         return /url\(/.test(match);
       case "gradient":
-        return /linear-gradient\(|\b-radial-gradient\(/.test(match);
+        return /linear-gradient\(|radial-gradient\(/.test(match);
       default:
         return true; // 如果没有指定类型，返回所有匹配项
     }

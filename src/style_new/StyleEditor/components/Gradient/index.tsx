@@ -71,6 +71,11 @@ export function Gradient({
   const onTypeChange = (type: string) => {
     return setGradientType(mapGradientOptions(type, gradientOptions) || "线性");
   };
+  useEffect(() => {
+    if (/radial-gradient\(/.test(defaultValue)) {
+      setGradientType("径向");
+    }
+  }, []);
   return (
     <Panel.Item style={style} className={css.container}>
       <div className={css.color} data-mybricks-tip={"渐变色"}>
