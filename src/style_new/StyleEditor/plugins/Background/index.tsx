@@ -235,6 +235,7 @@ export function Background({
       const ColorPicker = useCallback(() => {
         const [backgroundColorNew, setBackgroundColorNew] =
           useState(backgroundColor);
+        const [forceKey, setForceKey] = useState(0);
         const changeBackgroundColor = (value: string) => {
           if (value === backgroundColorNew) {
             return;
@@ -273,7 +274,7 @@ export function Background({
               }}
             />
           );
-        }, [backgroundColorNew]);
+        }, [forceKey]);
 
         const ColorEditorRender = useCallback(() => {
           return (
@@ -281,7 +282,10 @@ export function Background({
               <ColorEditor
                 style={{ width: "218px" }}
                 defaultValue={backgroundColorNew}
-                onChange={changeBackgroundColor}
+                onChange={(value)=>{
+                  changeBackgroundColor(value);
+                  setForceKey(key => key + 1)
+                }}
                 disabledClick={true}
               />
             </div>
