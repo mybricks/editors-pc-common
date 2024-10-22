@@ -222,6 +222,9 @@ export function Background({
                   className={`${CSS.topBarItem} ${
                     isActive(index) ? CSS.activeItem : ""
                   }`}
+                  data-mybricks-tip={
+                    index === 0 ? "背景色" : index === 1 ? "渐变色" : "背景图"
+                  }
                   onClick={() => handleItemClick(index)}
                 >
                   {icon}
@@ -282,9 +285,9 @@ export function Background({
               <ColorEditor
                 style={{ width: "218px" }}
                 defaultValue={backgroundColorNew}
-                onChange={(value)=>{
+                onChange={(value) => {
                   changeBackgroundColor(value);
-                  setForceKey(key => key + 1)
+                  setForceKey((key) => key + 1);
                 }}
                 disabledClick={true}
               />
@@ -360,9 +363,12 @@ export function Background({
           { component: <GradientPiker />, key: 1 },
           { component: <ImgPicker />, key: 2 },
         ];
-        
+
         return components.map(({ component, key }) => (
-          <div key={key} style={{ display: key === activeKey ? 'block' : 'none' }}>
+          <div
+            key={key}
+            style={{ display: key === activeKey ? "block" : "none" }}
+          >
             {component}
           </div>
         ));

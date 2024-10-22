@@ -416,7 +416,7 @@ export function ColorEditor({
       return null;
     }
     return (
-      <div ref={presetRef} className={css.preset} onClick={onPresetClick}>
+      <div ref={presetRef} className={css.preset} onClick={onPresetClick} data-mybricks-tip={"主题色"}>
         {/* <BindOutlined /> */}
         <UnbindingOutlined />
       </div>
