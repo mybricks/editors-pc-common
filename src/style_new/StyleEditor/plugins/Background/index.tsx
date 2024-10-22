@@ -348,7 +348,7 @@ export function Background({
             />
           </div>
         ),
-        [backgroundImageNew]
+        [backgroundImageNew, defaultBackgroundNew]
       );
 
       const ImgPicker = useCallback(() => {
