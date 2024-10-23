@@ -27,6 +27,7 @@ export default function ({editConfig}: any): JSX.Element {
     preview,
     height,
     theme,
+    enableAI,
   } = options
   
   const codeIns = useRef<HandlerType>(null)
@@ -61,6 +62,7 @@ export default function ({editConfig}: any): JSX.Element {
   }, [displayType]);
   
   useEffect(() => {
+    if (!enableAI) return;
     if (!monaco || !editor || !aiView) return;
     
     const {request, requestAsStream} = aiView;
