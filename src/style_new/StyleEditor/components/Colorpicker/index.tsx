@@ -17,6 +17,7 @@ interface ColorpickerProps {
   children: ReactNode;
   disabled?: boolean;
   className?: string;
+  disabledClick?: boolean;
 }
 
 export function Colorpicker({
@@ -25,6 +26,7 @@ export function Colorpicker({
   children,
   disabled,
   className,
+  disabledClick = false,
 }: ColorpickerProps) {
   const ref = useRef<HTMLDivElement>(null);
   const childRef = useRef<HTMLDivElement>(null);
@@ -32,7 +34,7 @@ export function Colorpicker({
   const [open, setOpen] = useState(false);
 
   const handleColorpickerClick = useCallback(() => {
-    if (disabled) {
+    if (disabled || disabledClick) {
       return;
     }
     setShow(true);
@@ -41,17 +43,7 @@ export function Colorpicker({
 
   const handleColorSketchChange = useCallback(
     (value: ColorResult, oldValue: ColorResult) => {
-      // 点击面板选择颜色时不带透明度 这时就需要把后两位置FF
-      if (
-        value.hexa !== "#ffffff00" &&
-        value.hexa?.length === 9 &&
-        value?.hex !== oldValue?.hex // 判断是否只改变透明度
-      ) {
-        if (value.hexa[value.hexa.length - 1] === "0") {
-          value.hexa = value.hexa.replace(/00$/, "FF");
-        }
-      }
-      onChange(value);
+      onChange(colorSketchChange(value, oldValue));
     },
     []
   );
@@ -159,7 +151,27 @@ function ColorSketch({
 
   return (
     <div ref={ref} className={css.colorSketch}>
-      <Sketch color={sketchColor()} onChange={onChange} />
+      <SketchRender color={sketchColor()} onChange={onChange} />
     </div>
   );
 }
+
+const SketchRender = ({
+  color,
+  onChange,
+}: {
+  color: string;
+  onChange: (value: ColorResult, oldValue: ColorResult) => void;
+}) => <Sketch color={color} onChange={onChange} />;
+
+export const colorSketchChange = (value: any, oldValue: any) => {
+  const tempValue = value;
+  // 点击面板选择颜色时不带透明度 这时就需要把后两位置FF
+  if (value.hexa !== "#ffffff00" && value.hexa?.length === 9) {
+    if (value.hexa[value.hexa.length - 1] === "0") {
+      tempValue.hexa = value.hexa.replace(/00$/, "FF");
+    }
+  }
+
+  return tempValue;
+};

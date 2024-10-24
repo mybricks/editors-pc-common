@@ -4,6 +4,7 @@ import React, {
   useEffect,
   useCallback,
   CSSProperties,
+  useMemo,
 } from "react";
 import { createPortal } from "react-dom";
 
@@ -13,6 +14,7 @@ import { ReloadOutlined } from "@ant-design/icons";
 
 import css from "./index.less";
 import { gradientOptions, shapeOptions } from "../GradientEditor/constants";
+import { ExtractBackground } from "../Image/ExtractBackground";
 // import { Angle, Circle, Ellipse, Linear, Radial } from "../GradientEditor/Icon";
 
 interface GradientEditorProps {
@@ -67,15 +69,16 @@ export function Gradient({
     [onChange, backgroundImage]
   );
 
-  const [gradientType, setGradientType] = useState<string>("线性");
+  const [gradientType, setGradientType] = useState<string>(
+    /radial-gradient\(/.test(defaultValue) ? "径向" : "线性"
+  );
   const onTypeChange = (type: string) => {
     return setGradientType(mapGradientOptions(type, gradientOptions) || "线性");
   };
-  useEffect(() => {
-    if (/radial-gradient\(/.test(defaultValue)) {
-      setGradientType("径向");
-    }
-  }, []);
+  const onlyGradient = useMemo(
+    () => ExtractBackground(backgroundImage, "gradient"),
+    [backgroundImage]
+  );
   return (
     <Panel.Item style={style} className={css.container}>
       <div className={css.color} data-mybricks-tip={"渐变色"}>
@@ -83,11 +86,14 @@ export function Gradient({
           <div
             ref={presetRef}
             className={css.block}
-            style={{ backgroundImage }}
+            style={{
+              backgroundImage: onlyGradient?.[0] || void 0,
+            }}
           />
           {(!backgroundImage ||
             backgroundImage === "none" ||
-            backgroundImage === "initial") && (
+            backgroundImage === "initial" ||
+            onlyGradient?.length === 0) && (
             <div className={css.icon}>
               <TransparentColorOutlined />
             </div>
