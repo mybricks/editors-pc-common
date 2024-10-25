@@ -113,10 +113,11 @@ export function GradientEditor({
     shapeType,
     stops
   );
+  const [isMoveDone, setIsMoveDone] = useState(true);
 
   const changeFinalValue = useCallback(
     debounce((value: string) => {
-      if (defaultValue) {
+      if (defaultValue && isMoveDone) {
         if (ExtractBackground(defaultValue, "image").length > 0) {
           onChange?.(
             `${ExtractBackground(defaultValue, "image")[0]}, ${value}`
@@ -183,6 +184,7 @@ export function GradientEditor({
         setStops={changeStops}
         curElementId={curElementId}
         setCurElementId={setCurElementId}
+        setIsMoveDone={setIsMoveDone}
       />
       <div className={css.top}>
         <Select

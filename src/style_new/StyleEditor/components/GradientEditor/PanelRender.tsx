@@ -10,12 +10,14 @@ const PanelRender = ({
   setStops,
   curElementId,
   setCurElementId,
+  setIsMoveDone,
 }: {
   gradientColor: string;
   stops: GradientStop[];
   setStops: (value: GradientStop[]) => void;
   curElementId: string | null;
   setCurElementId: (value: string | null) => void;
+  setIsMoveDone: (value: boolean) => void;
 }) => {
   const [dragStartFlag, setDragStartFlag] = useState(false);
   const [dragStartPosition, setDragStartPosition] = useState(0);
@@ -86,6 +88,7 @@ const PanelRender = ({
     (id: any, event: React.MouseEvent<HTMLDivElement>) => {
       const rect = previewRef.current?.getBoundingClientRect();
       if (rect) {
+        setIsMoveDone(true);
         // 计算鼠标按下时的位置百分比
         const position = ((event.clientX - rect.left) / rect.width) * 100;
         setCurElementId(id);
@@ -103,6 +106,7 @@ const PanelRender = ({
 
   const onMouseMove = useCallback(
     (event: React.MouseEvent<HTMLDivElement>) => {
+      setIsMoveDone(false);
       if (!dragStartFlag) {
         return;
       }
