@@ -126,7 +126,7 @@ export function GradientEditor({
           onChange?.(value);
         }
       }
-    }, 100),
+    }, 300),
     [defaultValue]
   );
 
