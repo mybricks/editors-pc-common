@@ -136,6 +136,7 @@ const PanelRender = ({
           className={css["overlay-when-drag"]}
           onMouseMove={onMouseMove}
           onMouseUp={onMouseUp}
+          onMouseDown={() => setDragStartFlag(false)}
         />
       )}
       {stops?.length > 0 && (
