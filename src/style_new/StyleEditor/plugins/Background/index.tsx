@@ -446,7 +446,7 @@ export function Background({
   return (
     <>
       <Panel
-        title="背景New"
+        title="背景"
         showTitle={showTitle}
         key={forceRenderKey}
         showReset={true}
@@ -479,12 +479,12 @@ export function Background({
           </Panel.Item>
         </Panel.Content>
       </Panel>
-      <Background1
+      {/*<Background1
         value={value}
         onChange={onChange}
         config={config}
         showTitle={showTitle}
-      />
+      />*/}
     </>
   );
 }
