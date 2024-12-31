@@ -151,6 +151,11 @@ export const mergeCSSProperties = async (
           delete mergedStyles.borderLeftColor
           delete mergedStyles.borderLeftStyle
           delete mergedStyles.borderLeftWidth
+
+          // [bugfix]，在仅配置颜色的时候，发现getComputedStyle会多一个border（borderWidth = 0px, borderStyle === 'nont）出来，先临时删除吧
+          if (computedStyle.borderWidth === '0px' && computedStyle.borderStyle === 'nont') {
+            delete mergedStyles.border
+          }
         } else {
           if (mergedStyles.border) {
             // computedStyle.border获取不到的情况下，说明border属性是没用的，删除了吧
@@ -182,9 +187,9 @@ export const mergeCSSProperties = async (
           }
         }
         // 不使用这类聚合方式，这类方式会走到前面的路径里生效，所以可以直接删除
-        delete mergedStyles.borderWidth
-        delete mergedStyles.borderStyle
-        delete mergedStyles.borderColor
+        delete mergedStyles.borderWidth;
+        delete mergedStyles.borderStyle;
+        delete mergedStyles.borderColor;
 
         resolve(mergedStyles)
       }
