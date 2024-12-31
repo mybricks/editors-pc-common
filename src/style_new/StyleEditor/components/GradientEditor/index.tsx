@@ -1,4 +1,10 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+  useMemo,
+} from "react";
 
 import { ColorEditor, InputNumber, Panel, Select } from "../index";
 
@@ -48,6 +54,7 @@ export function GradientEditor({
         ExtractBackground(defaultValue, "gradient")?.[0]
       );
       setGradientType(type);
+      onTypeChange && onTypeChange(type);
       if (type === "linear-gradient" && direction) {
         setDeg(parseInt(direction));
       } else if (direction) {
@@ -106,7 +113,10 @@ export function GradientEditor({
       .join("")})`;
   };
 
-  const finalValue = generateGradientValue(deg, gradientType, shapeType, stops);
+  const finalValue = useMemo(
+    () => generateGradientValue(deg, gradientType, shapeType, stops),
+    [deg, gradientType, shapeType, stops]
+  );
   const finalValueRight = generateGradientValue(
     90,
     "linear-gradient",
@@ -231,9 +241,9 @@ export function GradientEditor({
           <AddButton />
         </Panel.Item>
       </div>
-      <div className={css.stops}>
-        {stops?.length > 0 &&
-          stops.map((stop) => {
+      {stops?.length > 0 && (
+        <div className={css.stops}>
+          {stops.map((stop) => {
             const { color, position, id } = stop;
             if (!color) return null;
             const border = curElementId === id ? "1px solid #FA6400" : "";
@@ -260,9 +270,10 @@ export function GradientEditor({
                   }}
                 />
                 <ColorEditor
-                  defaultValue={color}
                   key={color}
+                  defaultValue={color}
                   style={{ flex: 5, border }}
+                  onClick={() => setCurElementId(id)}
                   onChange={(color) => {
                     changeProperty("color", color, id);
                     setCurElementId(id);
@@ -277,7 +288,8 @@ export function GradientEditor({
               </Panel.Content>
             );
           })}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -36,6 +36,8 @@ interface ColorEditorProps {
   defaultValue: any;
   style?: CSSProperties;
   onChange: (value: any) => void;
+  disabledClick?: boolean;
+  onClick?: () => void;
 }
 
 interface State {
@@ -53,12 +55,12 @@ interface State {
   optionsValueToAllMap: any;
 }
 
-function getInitialState({
+export function getInitialState({
   value,
   options,
 }: {
   value: string;
-  options: ColorOptions;
+  options?: ColorOptions;
 }): State {
   let finalValue = value;
   let nonColorValue = false;
@@ -126,6 +128,8 @@ export function ColorEditor({
   style = {},
   onChange,
   options = [],
+  onClick = () => {},
+  disabledClick = false,
 }: ColorEditorProps) {
   const presetRef = useRef<HTMLDivElement>(null);
   const [state, dispatch] = useReducer(
@@ -338,6 +342,7 @@ export function ColorEditor({
         onChange={handleColorpickerChange}
         // disabled={nonColorValue}
         className={css.colorPickerContainer}
+        disabledClick={disabledClick}
       >
         <div className={css.block} style={style} />
         <div className={css.icon}>
@@ -413,7 +418,12 @@ export function ColorEditor({
       return null;
     }
     return (
-      <div ref={presetRef} className={css.preset} onClick={onPresetClick}>
+      <div
+        ref={presetRef}
+        className={css.preset}
+        onClick={onPresetClick}
+        data-mybricks-tip={"主题色"}
+      >
         {/* <BindOutlined /> */}
         <UnbindingOutlined />
       </div>
@@ -461,7 +471,7 @@ export function ColorEditor({
   }, []);
 
   return (
-    <Panel.Item style={style} className={css.container}>
+    <Panel.Item style={style} className={css.container} onClick={onClick}>
       <div
         // className={`${css.color}${state.nonColorValue ? ` ${css.disabled}` : ''}`}
         className={css.color}
@@ -497,6 +507,12 @@ const getHex = (str: string) => {
   } catch {}
 
   return finalValue;
+};
+
+export const ProcessColor = (color: Record<string, any>) => {
+  const hex = getHex(color.hexa);
+
+  return color2rgba(hex);
 };
 
 function BindOutlined() {
