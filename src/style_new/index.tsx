@@ -33,6 +33,8 @@ import MonacoEditor from "@mybricks/code-editor";
 import { deepCopy, copyText } from '../utils'
 import StyleEditor, { DEFAULT_OPTIONS, StyleEditorProvider } from './StyleEditor'
 
+import { mergeCSSProperties } from './merge-css-properties'
+
 import type {
   EditorProps,
   GetDefaultConfigurationProps
@@ -57,16 +59,11 @@ export default function ({editConfig}: EditorProps) {
       finalDisabledSwitch,
       finalSelector
     },
-    {
-      targetDom,
-      ...styleProps
-    },
     canvasEle
   ] = useMemo(() => {
 
     return [
       getDefaultConfiguration2(editConfig), 
-      getDefaultConfiguration(editConfig), 
       // @ts-ignore
       editConfig.canvasEle
     ]
@@ -81,6 +78,17 @@ export default function ({editConfig}: EditorProps) {
     show: finalOpen,
     editMode: true
   })
+
+  // 切换面板的时候要重新获取样式，否则CSS面板的样式写完就不回显了
+  const [{
+    targetDom,
+    ...styleProps
+  },] = useMemo(() => {
+    return [
+      getDefaultConfiguration(editConfig), 
+    ]
+  }, [editMode])
+
   const [key, setKey] = useState(0)
 
   const refresh = useCallback(() => {
@@ -293,7 +301,11 @@ function Style ({editConfig, options, setValue, defaultValue }: StyleProps) {
     } else {
       setValue[value.key] = value.value;
     }
-    editConfig.value.set(deepCopy(setValue))
+
+    // 计算合并后的CssProperties，可以精简 CSS 属性
+    mergeCSSProperties(deepCopy(setValue)).then(mergedCssProperties => {
+      editConfig.value.set(mergedCssProperties)
+    })
   }, [])
 
   return (
