@@ -36,6 +36,7 @@ const PLUGINS_MAP: Record<string, (value: any) => React.ReactNode> = {
 export default function ({
   defaultValue,
   options,
+  collapsedOptions,
   onChange,
 }: StyleEditorProps) {
   const handleValueChange: StyleEditorProps["onChange"] = useCallback(
@@ -89,6 +90,7 @@ export default function ({
           value={defaultValue}
           onChange={handleValueChange}
           config={config}
+          collapse={collapsedOptions.includes(pluginKey.toLowerCase())}
           showTitle={showTitle}
         />
       ) : null;

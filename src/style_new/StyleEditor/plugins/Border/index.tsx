@@ -20,17 +20,13 @@ import {
 import { allEqual } from "../../utils";
 import { useUpdateEffect } from "../../hooks";
 
-import type { ChangeEvent } from "../../type";
+import type { ChangeEvent, PanelBaseProps } from "../../type";
 
 import css from "./index.less";
 
-interface BorderProps {
+interface BorderProps extends PanelBaseProps {
   value: CSSProperties;
   onChange: ChangeEvent;
-  config: {
-    [key: string]: any;
-  };
-  showTitle: boolean;
 }
 
 const BORDER_STYLE_OPTIONS = [
@@ -76,7 +72,7 @@ const DEFAULT_CONFIG = {
   useImportant: false,
 };
 
-export function Border({ value, onChange, config, showTitle }: BorderProps) {
+export function Border({ value, onChange, config, showTitle, collapse }: BorderProps) {
   const [
     {
       disableBorderWidth,
@@ -725,7 +721,7 @@ export function Border({ value, onChange, config, showTitle }: BorderProps) {
   }, [radiusToggleValue]);
 
   return (
-    <Panel title="边框" showTitle={showTitle}>
+    <Panel title="边框" showTitle={showTitle} collapse={collapse}>
       {borderConfig}
       {radiusConfig}
     </Panel>

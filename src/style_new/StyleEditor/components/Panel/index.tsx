@@ -1,6 +1,8 @@
 import React, { CSSProperties, ReactNode, useCallback, useState } from 'react'
 
-import { ReloadOutlined } from '@ant-design/icons'
+import { ReloadOutlined, DownOutlined, PlusOutlined, MinusOutlined } from '@ant-design/icons'
+
+import { useStyleEditorContext } from '../../context'
 
 import css from './index.less'
 
@@ -11,6 +13,7 @@ interface PanelProps {
   showTitle?: boolean;
   resetFunction?: () => void
   isActive?: boolean
+  collapse?: boolean
 }
 interface ContentProps {
   style?: CSSProperties
@@ -25,9 +28,13 @@ interface ItemProps {
   activeWhenBlur?: boolean
 }
 
-export function Panel ({title, children, showReset = false, showTitle = true, resetFunction = () => {}, isActive = false}: PanelProps) {
+export function Panel ({title, children, showReset = false, showTitle = true, resetFunction = () => {}, isActive = false, collapse = false}: PanelProps) {
+  const [collapsed, setCollapsed] = useState(collapse)
+
+  const { autoCollapseWhenUnusedProperty } = useStyleEditorContext()
+  
   return (
-    <div className={css.panel}>
+    <div className={`${css.panel} ${autoCollapseWhenUnusedProperty && collapsed ? css.collapsed : ''}`}>
       <div className={css.header}>
         {showTitle && <div className={css.title}>{title}</div>}
         {/* {showReset && (
@@ -39,10 +46,17 @@ export function Panel ({title, children, showReset = false, showTitle = true, re
             <ReloadOutlined />
           </div>
         )} */}
+        {
+          autoCollapseWhenUnusedProperty && collapsed &&<div className={css.right} onClick={() => setCollapsed(c => !c)}  data-mybricks-tip={`{content:'展开配置',position:'left'}`}>
+            <PlusOutlined />
+          </div>
+        }
       </div>
-      <div className={css.wrap}>
-        {children}
-      </div>
+      {
+        autoCollapseWhenUnusedProperty && collapsed ? null : <div className={css.wrap}>
+          {children}
+        </div>
+      }
     </div>
   )
 }

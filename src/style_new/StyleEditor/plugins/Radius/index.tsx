@@ -12,17 +12,13 @@ import {
 import { allEqual } from "../../utils";
 import { useUpdateEffect } from "../../hooks";
 
-import type { ChangeEvent } from "../../type";
+import type { ChangeEvent, PanelBaseProps } from "../../type";
 
 import css from "./index.less";
 
-interface BorderProps {
+interface BorderProps extends PanelBaseProps {
   value: CSSProperties;
   onChange: ChangeEvent;
-  config: {
-    [key: string]: any;
-  };
-  showTitle: boolean;
 }
 const UNIT_OPTIONS = [
   { label: "px", value: "px" },
@@ -46,7 +42,7 @@ const DEFAULT_CONFIG = {
   useImportant: false,
 };
 
-export function Radius({ value, onChange, config, showTitle }: BorderProps) {
+export function Radius({ value, onChange, config, showTitle, collapse }: BorderProps) {
   const [{ useImportant }] = useState({
     ...DEFAULT_CONFIG,
     ...config,
@@ -212,7 +208,7 @@ export function Radius({ value, onChange, config, showTitle }: BorderProps) {
     });
   }, [radiusToggleValue]);
 
-  return <Panel title="圆角" showTitle={showTitle}>{radiusConfig}</Panel>;
+  return <Panel title="圆角" showTitle={showTitle} collapse={collapse}>{radiusConfig}</Panel>;
 }
 
 function getToggleDefaultValue(value: CSSProperties) {

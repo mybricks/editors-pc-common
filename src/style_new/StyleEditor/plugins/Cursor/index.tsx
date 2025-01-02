@@ -2,15 +2,11 @@ import React, { CSSProperties } from 'react'
 
 import { Panel, Select } from '../../components'
 
-import type { ChangeEvent } from '../../type'
+import type { ChangeEvent, PanelBaseProps } from '../../type'
 
-interface CursorProps {
+interface CursorProps extends PanelBaseProps {
   value: CSSProperties
   onChange: ChangeEvent
-  config: {
-    [key: string]: any
-  }
-  showTitle: boolean;
 }
 
 const CURSOR_OPTIONS = [
@@ -22,9 +18,9 @@ const CURSOR_OPTIONS = [
   {label: '默认', value: 'default'},
 ]
 
-export function Cursor ({value, onChange, config, showTitle}: CursorProps) {
+export function Cursor ({value, onChange, config, showTitle, collapse}: CursorProps) {
   return (
-    <Panel title='光标' showTitle={showTitle}>
+    <Panel title='光标' showTitle={showTitle} collapse={collapse}>
       <Panel.Content>
         <Select
           style={{padding: 0}}

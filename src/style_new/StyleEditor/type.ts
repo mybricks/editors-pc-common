@@ -22,9 +22,19 @@ export type Options = Array<Option>;
 export interface StyleEditorProps {
   defaultValue: CSSProperties;
   options: Options;
+  collapsedOptions: Options;
   onChange: ChangeEvent;
 }
 
 export type ChangeEvent = (
   arg: { key: string; value: any } | Array<{ key: string; value: any }>
 ) => void;
+
+
+export interface PanelBaseProps {
+  config: {
+    [key: string]: any;
+  };
+  showTitle: boolean;
+  collapse: boolean;
+}

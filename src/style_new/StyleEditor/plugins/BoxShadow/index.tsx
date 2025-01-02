@@ -14,16 +14,12 @@ import {
 } from '../../components'
 import { useUpdateEffect } from '../../hooks'
 
-import type { ChangeEvent } from '../../type'
+import type { ChangeEvent, PanelBaseProps } from '../../type'
 import isEqual from 'lodash/isEqual';
 
-interface BoxShadowProps {
+interface BoxShadowProps extends PanelBaseProps {
   value: CSSProperties
   onChange: ChangeEvent
-  config: {
-    [key: string]: any
-  }
-  showTitle: boolean;
 }
 
 const INSET_OPTIONS = [
@@ -49,7 +45,7 @@ const defaultValue = {
   color: "#ffffff",
 }
 
-export function BoxShadow ({value, onChange, config, showTitle}: BoxShadowProps) {
+export function BoxShadow ({value, onChange, config, showTitle, collapse}: BoxShadowProps) {
   const [boxShadowValues, setBoxShadowValues] = useState<boxShadowType>(getInitValue(value.boxShadow))
   const [forceRenderKey, setForceRenderKey] = useState<number>(Math.random()); // 用于点击重置按钮重新渲染获取新value
   
@@ -79,7 +75,7 @@ export function BoxShadow ({value, onChange, config, showTitle}: BoxShadowProps)
   }, [forceRenderKey, boxShadowValues]);
 
   return (
-    <Panel title='阴影' showTitle={showTitle} key={forceRenderKey} showReset={true} resetFunction={refresh}>
+    <Panel title='阴影' showTitle={showTitle} key={forceRenderKey} showReset={true} resetFunction={refresh} collapse={collapse}>
       <Panel.Content>
         <Select
           tip='扩散方式'

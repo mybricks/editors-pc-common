@@ -2,17 +2,16 @@ import React, {CSSProperties} from 'react';
 
 import {Panel, Select, WidthOutlined, HeightOutlined} from '../../components';
 
-import type {ChangeEvent} from '../../type';
+import type {ChangeEvent, PanelBaseProps} from '../../type';
 
 type OverFlowValueType = Partial<{
   overflowX: CSSProperties['overflowX'];
   overflowY: CSSProperties['overflowY'];
 }>;
 
-export interface OverFlowProps {
+export interface OverFlowProps extends PanelBaseProps {
   value: OverFlowValueType;
   onChange: ChangeEvent;
-  showTitle: boolean;
 }
 
 const VALUE_OPTIONS = [
@@ -23,9 +22,9 @@ const VALUE_OPTIONS = [
   {label: '显示', value: 'visible'}
 ];
 
-export const OverFlow = ({value, onChange, showTitle}: OverFlowProps) => {
+export const OverFlow = ({value, onChange, showTitle, collapse}: OverFlowProps) => {
   return (
-    <Panel title='滚动条' showTitle={showTitle}>
+    <Panel title='滚动条' showTitle={showTitle} collapse={collapse}>
       <Panel.Content>
         <Select
           tip='水平'

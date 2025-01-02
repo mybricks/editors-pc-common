@@ -17,17 +17,13 @@ import {
 import { allEqual } from '../../utils'
 import { useUpdateEffect } from '../../hooks'
 
-import type { ChangeEvent } from '../../type'
+import type { ChangeEvent, PanelBaseProps } from '../../type'
 
 import css from './index.less'
 
-interface PaddingProps {
+interface PaddingProps extends PanelBaseProps {
   value: CSSProperties
   onChange: ChangeEvent
-  config: {
-    [key: string]: any
-  }
-  showTitle: boolean;
 }
 
 const DEFAULT_STYLE = {
@@ -38,7 +34,7 @@ const DEFAULT_STYLE = {
   // marginLeft: 4
 }
 
-export function Padding ({value, onChange, config, showTitle}: PaddingProps) {
+export function Padding ({value, onChange, config, showTitle, collapse}: PaddingProps) {
   const [toggle, setToggle] = useState(getToggleDefaultValue(value))
   const [paddingValue, setPaddingValue] = useState({...value})
   const [splitPaddingIcon, setSplitPaddingIcon] = useState(<PaddingTopOutlined />)
@@ -164,7 +160,7 @@ export function Padding ({value, onChange, config, showTitle}: PaddingProps) {
   }, [toggle, splitPaddingIcon])
 
   return (
-    <Panel title='内边距' showTitle={showTitle}>
+    <Panel title='内边距' showTitle={showTitle} collapse={collapse}>
       {paddingConfig}
     </Panel>
   )

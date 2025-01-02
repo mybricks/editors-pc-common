@@ -291,8 +291,7 @@ export default function ({editConfig}: EditorProps) {
 interface StyleProps extends EditorProps {
   [key: string]: any;
 }
-
-function Style ({editConfig, options, setValue, defaultValue }: StyleProps) {
+function Style ({editConfig, options, setValue, collapsedOptions, autoCollapseWhenUnusedProperty, defaultValue }: StyleProps) {
   const handleChange: ChangeEvent = useCallback((value) => {
     if (Array.isArray(value)) {
       value.forEach(({key, value}) => {
@@ -308,11 +307,19 @@ function Style ({editConfig, options, setValue, defaultValue }: StyleProps) {
     })
   }, [])
 
+  const editorContext = useMemo(() => {
+    return {
+      editConfig,
+      autoCollapseWhenUnusedProperty
+    }
+  }, [editConfig, autoCollapseWhenUnusedProperty])
+
   return (
-    <StyleEditorProvider value={editConfig}>
+    <StyleEditorProvider value={editorContext}>
       <StyleEditor
         defaultValue={defaultValue}
         options={options}
+        collapsedOptions={collapsedOptions}
         onChange={handleChange}
       />
     </StyleEditorProvider>
@@ -488,11 +495,14 @@ function getDefaultConfiguration2 ({value, options}: GetDefaultConfigurationProp
 function getDefaultConfiguration ({value, options}: GetDefaultConfigurationProps) {
   let finalOpen = false
   let finalOptions
+  /** 自动收起没有生效的 CSS 插件 */
+  let autoCollapseWhenUnusedProperty = false;
   let defaultValue: CSSProperties = {}
   let finalSelector
   const setValue = deepCopy(value.get() || {})
   let getDefaultValue = true
   let dom;
+  let effctedOptions: string[] | null = null;
 
   if (!options) {
     // 没有options，普通编辑器配置使用，直接使用默认的配置，展示全部
@@ -507,35 +517,24 @@ function getDefaultConfiguration ({value, options}: GetDefaultConfigurationProps
     finalOpen = defaultOpen
     // 这里还要再处理一下 
     finalOptions = plugins || DEFAULT_OPTIONS
-    if (targetDom?.length) {
+
+    let realTargetDom: HTMLElement | undefined
+
+    if (Object.prototype.toString.call(targetDom) === '[object NodeList]' && targetDom?.length) {
+      realTargetDom = targetDom[0]
+    } else if (Object.prototype.toString.call(targetDom).indexOf('HTML') > -1) {
+      realTargetDom = targetDom as any
+    }
+
+    if (!!realTargetDom) {
       getDefaultValue = false
-      const styleValues = getStyleValues(targetDom[0], Array.isArray(selector) ? selector[0] : selector)
+      const [styleValues, options] = getEffectedCssPropertyAndOptions(realTargetDom, Array.isArray(selector) ? selector[0] : selector);
+
+      effctedOptions = options
 
       finalOptions.forEach((option) => {
         let type, config
-
-        if (typeof option === 'string') {
-          type = option.toLowerCase()
-          config = {}
-        } else {
-          type = option.type.toLowerCase()
-          config = option.config || {}
-        }
-
-        // @ts-ignore
-        if (DEFAULT_OPTIONS.includes(type)) {
-          // @ts-ignore TODO: 类型补全
-          Object.assign(defaultValue, getDefaultValueFunctionMap[type](styleValues, config))
-        }
-      })
-    } else if (targetDom && Object.prototype.toString.call(targetDom) !== "[object NodeList]") {
-      getDefaultValue = false
-      // @ts-ignore
-      const styleValues = getStyleValues(targetDom, Array.isArray(selector) ? selector[0] : selector)
-
-      finalOptions.forEach((option) => {
-        let type, config
-
+  
         if (typeof option === 'string') {
           type = option.toLowerCase()
           config = {}
@@ -552,6 +551,9 @@ function getDefaultConfiguration ({value, options}: GetDefaultConfigurationProps
       })
     }
   }
+
+  // 如果没有配置options，打开自动收起功能
+  autoCollapseWhenUnusedProperty = finalOptions === DEFAULT_OPTIONS
 
   if (getDefaultValue) {
     finalOptions.forEach((option) => {
@@ -573,20 +575,31 @@ function getDefaultConfiguration ({value, options}: GetDefaultConfigurationProps
     })
   }
 
+  let collapsedOptions: any = [];
+  if (effctedOptions) {
+    collapsedOptions = finalOptions.map(t => {
+      return typeof t === 'string' ? t : t?.type
+    }).filter(t => !effctedOptions.includes(t))
+  }
+
   return {
     options: finalOptions,
+    collapsedOptions,
+    autoCollapseWhenUnusedProperty,
     defaultValue: Object.assign(defaultValue, setValue),
     setValue,
     finalOpen,
     finalSelector,
-    targetDom: dom
+    targetDom: dom,
   } as {
     options: Options,
+    collapsedOptions: string[]
+    autoCollapseWhenUnusedProperty: boolean,
     defaultValue: CSSProperties,
     setValue: CSSProperties & Record<string, any>,
     finalOpen: boolean,
     finalSelector: string,
-    targetDom: any
+    targetDom: any,
   }
 }
 
@@ -772,7 +785,8 @@ const getDefaultValueFunctionMap2 = {
   }
 }
 
-function getStyleValues (element: HTMLElement, selector: string) {
+/** 获取当前CSS规则下生效的样式以及插件 */
+function getEffectedCssPropertyAndOptions (element: HTMLElement, selector: string) {
   const classListValue = element.classList.value
   // const finalRules = getStyleRules(element, classListValue.indexOf(selector) !== -1 ? null : selector).map((finalRule: any) => {
   //   finalRule.tempCompare = calculate(finalRule.selectorText)
@@ -796,10 +810,13 @@ function getStyleValues (element: HTMLElement, selector: string) {
     // @ts-ignore
     return compare(a.tempCompare, b.tempCompare)
   })
+
+  const effectedPanels = getEffectedPanelsFromCssRules(finalRules)
+
   const computedValues = window.getComputedStyle(element)
   const values = getValues(finalRules, computedValues)
 
-  return values
+  return [values, effectedPanels]
 }
 
 function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration) {
@@ -1404,4 +1421,34 @@ function getRealValue(style: any, computedValues: CSSStyleDeclaration) {
   })
 
   return finalStyle
+}
+
+
+const PANEL_MAP: Record<string, string> = {};
+Object.keys(getDefaultValueFunctionMap2).forEach(panelType => {
+  // @ts-ignore
+  const properties = getDefaultValueFunctionMap2[panelType]();
+  Object.keys(properties).forEach(property => {
+    PANEL_MAP[property] = panelType
+  })
+})
+/**
+ * @description 从 css rules 中获取当前生效的插件，用于展示插件的是否默认折叠
+ */
+function getEffectedPanelsFromCssRules (rules: CSSStyleRule[]) {
+  let effectedPanels = new Set();
+  rules.filter(rule => {
+    // 设计器默认的CSS样式去除掉
+    if (rule.selectorText.indexOf('.desn-') === 0 && rule.selectorText.indexOf('*') > -1) {
+      return false
+    }
+    return true
+  }).forEach(rule => {
+    rule.styleMap.forEach((_, key) => {
+      if (PANEL_MAP[toHump(key)]) {
+        effectedPanels.add(PANEL_MAP[toHump(key)])
+      }
+    })
+  })
+  return Array.from(effectedPanels)
 }

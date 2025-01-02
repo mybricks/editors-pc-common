@@ -17,15 +17,12 @@ import {
 } from "../../components";
 import { splitValueAndUnit } from "../../utils";
 import { isObject } from "../../../../util/lodash/isObject";
+import { PanelBaseProps } from "../../type";
 import uniq from "lodash/uniq";
 
-interface FontProps {
+interface FontProps extends PanelBaseProps {
   value: CSSProperties;
   onChange: (value: { key: string; value: any } | Array<{ key: string; value: any }>) => void;
-  config: {
-    [key: string]: any;
-  };
-  showTitle: boolean;
 }
 
 /** 字体选项 */
@@ -105,7 +102,7 @@ const DEFAULT_CONFIG = {
   fontfaces: [],
 };
 
-export function Font({ value, onChange, config, showTitle }: FontProps) {
+export function Font({ value, onChange, config, showTitle, collapse }: FontProps) {
   // 重置脏数据
   if (isObject(value.fontFamily)) {
     value.fontFamily = "inherit";
@@ -237,7 +234,7 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
   );
 
   return (
-    <Panel title="字体" showTitle={showTitle}>
+    <Panel title="字体" showTitle={showTitle} collapse={collapse}>
       {cfg.disableFontFamily ? null : (
         <Panel.Content>
           {cfg.disableFontFamily ? null : (

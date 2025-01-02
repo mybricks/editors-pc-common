@@ -17,17 +17,13 @@ import {
 import { allEqual } from '../../utils'
 import { useUpdateEffect } from '../../hooks'
 
-import type { ChangeEvent } from '../../type'
+import type { ChangeEvent, PanelBaseProps } from '../../type'
 
 import css from './index.less'
 
-interface MarginProps {
+interface MarginProps extends PanelBaseProps {
   value: CSSProperties
   onChange: ChangeEvent
-  config: {
-    [key: string]: any
-  }
-  showTitle: boolean;
 }
 
 const DEFAULT_STYLE = {
@@ -38,7 +34,7 @@ const DEFAULT_STYLE = {
   // marginLeft: 4
 }
 
-export function Margin ({value, onChange, config, showTitle}: MarginProps) {
+export function Margin ({value, onChange, config, showTitle, collapse}: MarginProps) {
   const [toggle, setToggle] = useState(getToggleDefaultValue(value))
   const [marginValue, setMarginValue] = useState({...value})
   // const [splitMarginIcon, setSplitMarginIcon] = useState(<MarginTopOutlined />)
@@ -166,7 +162,7 @@ export function Margin ({value, onChange, config, showTitle}: MarginProps) {
   }, [toggle, splitMarginIcon])
 
   return (
-    <Panel title='外边距' showTitle={showTitle}>
+    <Panel title='外边距' showTitle={showTitle} collapse={collapse}>
       {marginConfig}
     </Panel>
   )

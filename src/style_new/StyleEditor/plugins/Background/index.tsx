@@ -1,17 +1,14 @@
 import React, { useMemo, useState, CSSProperties, useCallback } from "react";
 import { getRealKey } from "../../utils";
 import { useStyleEditorContext } from "../..";
+import { PanelBaseProps } from './../../type'
 import { Panel, Image, ColorEditor, Gradient } from "../../components";
 
-interface BackgroundProps {
+interface BackgroundProps extends PanelBaseProps {
   value: CSSProperties;
   onChange: (
     value: { key: string; value: any } | { key: string; value: any }[]
   ) => void;
-  config: {
-    [key: string]: any;
-  };
-  showTitle: boolean;
 }
 
 const DEFAULT_CONFIG = {
@@ -35,6 +32,7 @@ export function Background({
   onChange,
   config,
   showTitle,
+  collapse,
 }: BackgroundProps) {
   const context = useStyleEditorContext();
   const [
@@ -79,6 +77,7 @@ export function Background({
       showTitle={showTitle}
       key={forceRenderKey}
       showReset={true}
+      collapse={collapse}
       resetFunction={refresh}
     >
       <Panel.Content>
@@ -115,7 +114,7 @@ export function Background({
                 value: `${value.value}${useImportant ? "!important" : ""}`,
               });
             }}
-            upload={context.upload}
+            upload={context?.editConfig?.upload}
           />
         )}
       </Panel.Content>

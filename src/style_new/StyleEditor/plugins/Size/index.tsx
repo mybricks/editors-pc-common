@@ -11,7 +11,7 @@ import {
   MinHeightOutlined,
 } from "../../components";
 
-import type { ChangeEvent } from "../../type";
+import type { ChangeEvent, PanelBaseProps } from "../../type";
 
 const UNIT_OPTIONS = [
   { label: "%", value: "%" },
@@ -21,13 +21,9 @@ const UNIT_OPTIONS = [
 ];
 const UNIT_DISABLED_LIST = ["auto", "inherit"];
 
-interface SizeProps {
+interface SizeProps extends PanelBaseProps {
   value: CSSProperties;
   onChange: ChangeEvent;
-  config: {
-    [key: string]: any;
-  };
-  showTitle: boolean;
 }
 
 const DEFAULT_CONFIG = {
@@ -39,11 +35,11 @@ const DEFAULT_CONFIG = {
   disableMinHeight: true,
 };
 
-export function Size({ value, onChange, config, showTitle }: SizeProps) {
+export function Size({ value, onChange, config, showTitle, collapse }: SizeProps) {
   const [cfg] = useState({ ...DEFAULT_CONFIG, ...config });
   // console.warn("Size", value, cfg.disableWidth, cfg.disableHeight);
   return (
-    <Panel title="尺寸" showTitle={showTitle}>
+    <Panel title="尺寸" showTitle={showTitle} collapse={collapse}>
       {!(cfg.disableWidth && cfg.disableHeight) && (
         <Panel.Content>
           {cfg.disableWidth ? null : (
