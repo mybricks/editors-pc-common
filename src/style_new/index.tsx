@@ -291,7 +291,7 @@ export default function ({editConfig}: EditorProps) {
 interface StyleProps extends EditorProps {
   [key: string]: any;
 }
-function Style ({editConfig, options, setValue, collapsedOptions, autoCollapseWhenUnusedProperty, defaultValue }: StyleProps) {
+function Style ({editConfig, options, setValue, collapsedOptions, autoCollapseWhenUnusedProperty, finnalExcludeOptions, defaultValue }: StyleProps) {
   const handleChange: ChangeEvent = useCallback((value) => {
     if (Array.isArray(value)) {
       value.forEach(({key, value}) => {
@@ -319,6 +319,7 @@ function Style ({editConfig, options, setValue, collapsedOptions, autoCollapseWh
       <StyleEditor
         defaultValue={defaultValue}
         options={options}
+        finnalExcludeOptions={finnalExcludeOptions}
         collapsedOptions={collapsedOptions}
         onChange={handleChange}
       />
@@ -503,6 +504,7 @@ function getDefaultConfiguration ({value, options}: GetDefaultConfigurationProps
   let getDefaultValue = true
   let dom;
   let effctedOptions: string[] | null = null;
+  let finnalExcludeOptions: string[] | null = null;
 
   if (!options) {
     // 没有options，普通编辑器配置使用，直接使用默认的配置，展示全部
@@ -511,12 +513,15 @@ function getDefaultConfiguration ({value, options}: GetDefaultConfigurationProps
     // options是一个数组，直接使用
     finalOptions = options
   } else {
-    const { plugins, selector, targetDom, defaultOpen = false } = options
+    const { plugins, selector, targetDom, defaultOpen = false, exclude } = options
     dom = targetDom
     finalSelector = selector
     finalOpen = defaultOpen
     // 这里还要再处理一下 
     finalOptions = plugins || DEFAULT_OPTIONS
+
+    // 黑名单
+    finnalExcludeOptions = exclude
 
     let realTargetDom: HTMLElement | undefined
 
@@ -590,6 +595,7 @@ function getDefaultConfiguration ({value, options}: GetDefaultConfigurationProps
     setValue,
     finalOpen,
     finalSelector,
+    finnalExcludeOptions,
     targetDom: dom,
   } as {
     options: Options,
@@ -599,6 +605,7 @@ function getDefaultConfiguration ({value, options}: GetDefaultConfigurationProps
     setValue: CSSProperties & Record<string, any>,
     finalOpen: boolean,
     finalSelector: string,
+    finnalExcludeOptions: any,
     targetDom: any,
   }
 }

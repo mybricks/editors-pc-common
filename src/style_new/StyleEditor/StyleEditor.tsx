@@ -37,6 +37,7 @@ export default function ({
   defaultValue,
   options,
   collapsedOptions,
+  finnalExcludeOptions,
   onChange,
 }: StyleEditorProps) {
   const handleValueChange: StyleEditorProps["onChange"] = useCallback(
@@ -69,6 +70,14 @@ export default function ({
         processedOptions.add(getOptionType(option));
       } else if (!option || !PLUGINS_MAP[pluginKey]) {
         return false;
+      }
+
+      // 新增配置 exclude 属性，黑名单逻辑
+      if (Array.isArray(finnalExcludeOptions)) {
+        const isExclude = finnalExcludeOptions.some(t => t?.toUpperCase?.() === pluginKey);
+        if (isExclude) {
+          return false
+        }
       }
 
       keyToOption[pluginKey] = option;

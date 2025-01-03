@@ -23,6 +23,7 @@ export interface StyleEditorProps {
   defaultValue: CSSProperties;
   options: Options;
   collapsedOptions: Options;
+  finnalExcludeOptions?: Options;
   onChange: ChangeEvent;
 }
 
