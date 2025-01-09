@@ -513,15 +513,21 @@ function getDefaultConfiguration ({value, options}: GetDefaultConfigurationProps
     // options是一个数组，直接使用
     finalOptions = options
   } else {
-    const { plugins, selector, targetDom, defaultOpen = false, exclude } = options
+    const { plugins, selector, targetDom, defaultOpen = false, autoCollapse, exclude } = options
     dom = targetDom
     finalSelector = selector
     finalOpen = defaultOpen
     // 这里还要再处理一下 
     finalOptions = plugins || DEFAULT_OPTIONS
 
+    if (autoCollapse) {
+      autoCollapseWhenUnusedProperty = autoCollapse
+    }
+
     // 黑名单
-    finnalExcludeOptions = exclude
+    if (exclude) {
+      finnalExcludeOptions = exclude
+    }
 
     let realTargetDom: HTMLElement | undefined
 
@@ -558,7 +564,9 @@ function getDefaultConfiguration ({value, options}: GetDefaultConfigurationProps
   }
 
   // 如果没有配置options，打开自动收起功能
-  autoCollapseWhenUnusedProperty = finalOptions === DEFAULT_OPTIONS
+  if (finalOptions === DEFAULT_OPTIONS) {
+    autoCollapseWhenUnusedProperty = true
+  }
 
   if (getDefaultValue) {
     finalOptions.forEach((option) => {
