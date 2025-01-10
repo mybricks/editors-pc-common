@@ -33,7 +33,7 @@ import MonacoEditor from "@mybricks/code-editor";
 import { deepCopy, copyText } from '../utils'
 import StyleEditor, { DEFAULT_OPTIONS, StyleEditorProvider } from './StyleEditor'
 
-import { mergeCSSProperties } from './merge-css-properties'
+import { mergeCSSProperties, getSuggestOptionsByElement } from './StyleEditor/helper'
 
 import type {
   EditorProps,
@@ -520,10 +520,6 @@ function getDefaultConfiguration ({value, options}: GetDefaultConfigurationProps
     // 这里还要再处理一下 
     finalOptions = plugins || DEFAULT_OPTIONS
 
-    if (autoCollapse) {
-      autoCollapseWhenUnusedProperty = autoCollapse
-    }
-
     // 黑名单
     if (exclude) {
       finnalExcludeOptions = exclude
@@ -535,6 +531,18 @@ function getDefaultConfiguration ({value, options}: GetDefaultConfigurationProps
       realTargetDom = targetDom[0]
     } else if (Object.prototype.toString.call(targetDom).indexOf('HTML') > -1) {
       realTargetDom = targetDom as any
+    }
+
+    /** 用户是否配置options */
+    const userNoConfig = finalOptions === DEFAULT_OPTIONS
+    
+    // 未配置options，开启自动折叠
+    if (userNoConfig) {
+      autoCollapseWhenUnusedProperty = true
+    }
+    // 未配置options，自动disabled不可用的配置
+    if (userNoConfig && !!realTargetDom) {
+      finalOptions = getSuggestOptionsByElement(realTargetDom) ?? finalOptions
     }
 
     if (!!realTargetDom) {
@@ -561,11 +569,6 @@ function getDefaultConfiguration ({value, options}: GetDefaultConfigurationProps
         }
       })
     }
-  }
-
-  // 如果没有配置options，打开自动收起功能
-  if (finalOptions === DEFAULT_OPTIONS) {
-    autoCollapseWhenUnusedProperty = true
   }
 
   if (getDefaultValue) {
