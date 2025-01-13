@@ -9,7 +9,8 @@ export interface EditorProps {
      selector: string
      defaultOpen?: boolean
      disabledSwitch?: boolean;
-     autoCollapse?: boolean
+     autoOptions?: boolean;
+    //  autoCollapse?: boolean
      exclude?: string[]
     }
     | undefined

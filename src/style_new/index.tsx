@@ -513,7 +513,7 @@ function getDefaultConfiguration ({value, options}: GetDefaultConfigurationProps
     // options是一个数组，直接使用
     finalOptions = options
   } else {
-    const { plugins, selector, targetDom, defaultOpen = false, autoCollapse, exclude } = options
+    const { plugins, selector, targetDom, defaultOpen = false, autoOptions = true, exclude } = options
     dom = targetDom
     finalSelector = selector
     finalOpen = defaultOpen
@@ -534,14 +534,14 @@ function getDefaultConfiguration ({value, options}: GetDefaultConfigurationProps
     }
 
     /** 用户是否配置options */
-    const userNoConfig = finalOptions === DEFAULT_OPTIONS
+    // const userNoConfig = finalOptions === DEFAULT_OPTIONS
     
     // 未配置options，开启自动折叠
-    if (userNoConfig) {
+    if (autoOptions) {
       autoCollapseWhenUnusedProperty = true
     }
     // 未配置options，自动disabled不可用的配置
-    if (userNoConfig && !!realTargetDom) {
+    if (autoOptions && !!realTargetDom) {
       finalOptions = getSuggestOptionsByElement(realTargetDom) ?? finalOptions
     }
 

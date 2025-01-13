@@ -34,32 +34,21 @@ export function getSuggestOptionsByElement(selectDom: HTMLElement): { type: stri
     /** 深层遍历，当前Dom下方所有的带直接文本节点的元素 */
     const textElemnts = findElementsWithDirectTextChildren(selectDom);
     if (Array.isArray(textElemnts) && textElemnts.length) { // 有多个文本元素
-      if (textElemnts.length === 1) { // 只有一个文本元素，策略上目前直接隐藏吧，直接点过去配置好了
-        fontOption = void 0;
-      } else { // 有两个及以上，判断这些元素中，是否存在所有含文本元素及其父元素都没配置的属性，这些是可以配置的
-        const [
-          disableColor,
-          disableFontSize,
-          disableFontWeight,
-        ] = [
-            shouldHeritPropertyDisabled(selectDom, 'color', { getMatchedCssRules, textElemnts }),
-            shouldHeritPropertyDisabled(selectDom, 'fontSize', { getMatchedCssRules, textElemnts }),
-            shouldHeritPropertyDisabled(selectDom, 'fontWeight', { getMatchedCssRules, textElemnts }),
-          ]
-        // 下面默认设置true的为特殊规则
-        // 1.text-align在多个子元素中，有特殊性（计算是否足够textAlign的宽度 + 继承规则过于复杂），直接不允许配置
-        // 2.fontFamily 和 letterSpacing 虽然可以继承，但是，同时配置多个子元素的情况太少了，直接不允许配置
-        // 3. whiteSpace 和 lineHeight 继承规则比较复杂，在多个子元素时同时配置的情况也很少，直接不允许配置
-        fontOption.config = {
-          disableFontFamily: true,
-          disableColor,
-          disableFontSize,
-          disableFontWeight,
-          disableLetterSpacing: true,
-          disableLineHeight: true,
-          disableWhiteSpace: true,
-          disableTextAlign: true,
-        }
+      // 有文本子元素，判断这些元素中，是否存在所有含文本元素及其父元素都没配置的属性，这些是可以配置的
+      const isMoreThanOne = textElemnts.length > 1;
+      // 下面默认设置true的为特殊规则
+      // 1.text-align在多个子元素中，有特殊性（计算是否足够textAlign的宽度 + 继承规则过于复杂），直接不允许配置
+      // 2.fontFamily 和 letterSpacing 虽然可以继承，但是，同时配置多个子元素的情况太少了，直接不允许配置
+      // 3. whiteSpace 和 lineHeight 继承规则比较复杂，在多个子元素时同时配置的情况也很少，直接不允许配置
+      fontOption.config = {
+        disableFontFamily: isMoreThanOne ? true : shouldHeritPropertyDisabled(selectDom, 'fontFamily', { getMatchedCssRules, textElemnts }),
+        disableColor: shouldHeritPropertyDisabled(selectDom, 'color', { getMatchedCssRules, textElemnts }),
+        disableFontSize: shouldHeritPropertyDisabled(selectDom, 'fontSize', { getMatchedCssRules, textElemnts }),
+        disableFontWeight: shouldHeritPropertyDisabled(selectDom, 'fontWeight', { getMatchedCssRules, textElemnts }),
+        disableLetterSpacing: isMoreThanOne ? true : shouldHeritPropertyDisabled(selectDom, 'letterSpaceing', { getMatchedCssRules, textElemnts }),
+        disableLineHeight: isMoreThanOne ? true : shouldHeritPropertyDisabled(selectDom, 'lineHeight', { getMatchedCssRules, textElemnts }),
+        disableWhiteSpace: isMoreThanOne ? true : shouldHeritPropertyDisabled(selectDom, 'whiteSpace', { getMatchedCssRules, textElemnts }),
+        disableTextAlign: isMoreThanOne ? true : shouldTextAlignDisabled(selectDom),
       }
     } else if (Array.isArray(textElemnts) && textElemnts.length === 0) { // 未找到文本元素，隐藏字体配置
       fontOption = void 0;
@@ -95,6 +84,12 @@ export function getSuggestOptionsByElement(selectDom: HTMLElement): { type: stri
       type: 'padding',
     }
 
+    const borderOption = shouldBorderDisabled(selectDom) ? void 0 : {
+      type: 'border',
+      config: {
+        disableBorderRadius: shouldBorderRadiusDisabled(selectDom)
+      }
+    }
 
     const suggestion = [
       fontOption,
@@ -104,9 +99,7 @@ export function getSuggestOptionsByElement(selectDom: HTMLElement): { type: stri
       {
         type: 'background'
       },
-      {
-        type: 'border'
-      },
+      borderOption,
       {
         type: 'cursor'
       },
@@ -182,6 +175,12 @@ function shouldTextAlignDisabled(selectDom: HTMLElement) {
       return acc && true
     } else if (child.nodeType === Node.ELEMENT_NODE) {
       const childStyle = window.getComputedStyle(child as HTMLElement);
+
+      // TODO，这好像是设计器加的Dom，审查不到
+      if (childStyle.position === 'absolute' || childStyle.position === 'fixed') {
+        return true
+      }
+
       totalChildrenWidth += (child as HTMLElement).offsetWidth;
       return childStyle.display === 'inline' || childStyle.display === 'inline-block' || childStyle.display === 'inline-flex' || childStyle.display === 'inline-grid' || childStyle.display === 'inline-table'
     } else {
@@ -195,10 +194,35 @@ function shouldTextAlignDisabled(selectDom: HTMLElement) {
   return calculateDomInnerWidth(selectDom) - totalChildrenWidth <= 0
 }
 
+function shouldBorderDisabled(selectDom: HTMLElement) {
+  return false
+}
+
+function shouldBorderRadiusDisabled(selectDom: HTMLElement) {
+  const selectDomStyle = window.getComputedStyle(selectDom);
+
+  const noOverflow = selectDomStyle.overflowX !== 'hidden' && selectDomStyle.overflowY !== 'hidden'
+
+  const computedStyle = window.getComputedStyle(selectDom);
+    
+  // 获取border宽度
+  const borderTopLeftRadius = parseInt(computedStyle.borderTopLeftRadius);
+  const borderTopRightRadius = parseInt(computedStyle.borderTopRightRadius);
+  const borderBottomLeftRadius = parseInt(computedStyle.borderBottomLeftRadius);
+  const borderBottomRightRadius = parseInt(computedStyle.borderBottomRightRadius);
+
+  // [TODO] 粗暴一点，如果没有border 且不是 overflow:hidden 就禁用，否则性能太差了
+  return noOverflow && borderTopLeftRadius === 0 && borderTopRightRadius === 0 && borderBottomLeftRadius === 0 && borderBottomRightRadius === 0
+}
+
 function shouldBoxshadowDisabled(selectDom: HTMLElement) {
   let hasEnoughSpace = true;
   const selectDomRect = selectDom.getBoundingClientRect();
   traverseDomFromChildToCurrent(COSNT.ROOT_ELEMENT, selectDom, (current) => {
+    if (current === selectDom) {
+      return false
+    }
+
     const isOverflow = window.getComputedStyle(current).overflow === 'hidden';
     if (isOverflow) {
       const currentRect = current.getBoundingClientRect();
