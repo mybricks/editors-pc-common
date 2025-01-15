@@ -152,8 +152,8 @@ export const mergeCSSProperties = async (
           delete mergedStyles.borderLeftStyle
           delete mergedStyles.borderLeftWidth
 
-          // [bugfix]，在仅配置颜色的时候，发现getComputedStyle会多一个border（borderWidth = 0px, borderStyle === 'nont）出来，先临时删除吧
-          if (computedStyle.borderWidth === '0px' && computedStyle.borderStyle === 'nont') {
+          // [bugfix]，在仅配置颜色的时候，发现getComputedStyle会多一个border（borderWidth = 0px, borderStyle === 'none'）出来，先临时删除吧
+          if (computedStyle.borderWidth === '0px' && computedStyle.borderStyle === 'none') {
             delete mergedStyles.border
           }
         } else {

@@ -84,11 +84,16 @@ export function getSuggestOptionsByElement(selectDom: HTMLElement): { type: stri
       type: 'padding',
     }
 
+    // 处理border
     const borderOption = shouldBorderDisabled(selectDom) ? void 0 : {
       type: 'border',
       config: {
         disableBorderRadius: shouldBorderRadiusDisabled(selectDom)
       }
+    }
+
+    const overflowOption = shouldOverflowDisabled(selectDom) ? void 0 : {
+      type: 'overflow',
     }
 
     const suggestion = [
@@ -103,9 +108,7 @@ export function getSuggestOptionsByElement(selectDom: HTMLElement): { type: stri
       {
         type: 'cursor'
       },
-      {
-        type: 'overflow'
-      },
+      overflowOption,
       {
         type: 'opacity'
       },
@@ -153,7 +156,7 @@ function shouldHeritPropertyDisabled(selectDom: HTMLElement, property: string, {
         return false
       })
 
-      return !hasSetting
+      return hasSetting
     })
   })
   return hasSetting
@@ -204,7 +207,7 @@ function shouldBorderRadiusDisabled(selectDom: HTMLElement) {
   const noOverflow = selectDomStyle.overflowX !== 'hidden' && selectDomStyle.overflowY !== 'hidden'
 
   const computedStyle = window.getComputedStyle(selectDom);
-    
+
   // 获取border宽度
   const borderTopLeftRadius = parseInt(computedStyle.borderTopLeftRadius);
   const borderTopRightRadius = parseInt(computedStyle.borderTopRightRadius);
@@ -283,6 +286,30 @@ function shouldPaddingDisabled(selectDom: HTMLElement) {
   return cannotSetPadding
 }
 
+function shouldOverflowDisabled(selectDom: HTMLElement) {
+  // 定义不需要overflow的特殊标签
+  const specialTags = [
+    'SVG',
+    'IMAGE',
+    'IMG',
+    'INPUT',
+    'TEXTAREA',
+    'VIDEO',
+    'CANVAS',
+    'IFRAME'
+  ];
+
+  // 检查是否是特殊标签
+  if (specialTags.includes(selectDom.tagName.toUpperCase())) {
+    return true;
+  }
+
+  return !selectDom.hasChildNodes() ||
+    (selectDom.childNodes.length === 1 &&
+      selectDom.firstChild instanceof Text &&
+      selectDom.firstChild.nodeValue?.trim() === '');
+}
+
 
 /**
  * @description 找出当前Dom下方的所有带直接文本节点的Dom，注意是深层次的
@@ -298,11 +325,15 @@ function findElementsWithDirectTextChildren(element: HTMLElement) {
   // 选择所有不包含其他元素的节点，css选择器性能更好
   const leafElements = element.querySelectorAll(':not(:empty):not(:has(*))');
 
+  if (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA') {
+    return void 0
+  }
+
   // 过滤出只包含文本内容的元素
   return Array.from(leafElements).filter(el =>
     Array.from(el.childNodes).some(node =>
       node.nodeType === Node.TEXT_NODE && node.nodeValue && node.nodeValue.trim() !== ''
-    )
+    ) || el.tagName === 'INPUT' || el.tagName === 'TEXTAREA'
   );
 }
 
