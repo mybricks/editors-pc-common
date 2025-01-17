@@ -69,14 +69,26 @@ export function getSuggestOptionsByElement(selectDom: HTMLElement): { type: stri
       fontOption = void 0;
     }
 
+    // 处理size
+    const sizeDisabled = shouldSizeDisabled(selectDom);
+
+    const isAllSizeDisabled = [sizeDisabled.disableWidth, sizeDisabled.disableHeight].every(t => !!t);
+    const sizeOption = isAllSizeDisabled ? void 0 : {
+      type: 'size',
+      config: sizeDisabled,
+    }
+
     // 处理boxShadow
     const boxShadowOption = shouldBoxshadowDisabled(selectDom) ? void 0 : {
       type: 'boxShadow',
     }
 
     // 处理margin
-    const marginOption = shouldMarginDisabled(selectDom) ? void 0 : {
+    const marginDisabled = shouldMarginDisabled(selectDom);
+    const isAllMarginDisabled = [marginDisabled.disableMarginTop, marginDisabled.disableMarginRight, marginDisabled.disableMarginBottom, marginDisabled.disableMarginLeft].every(t => !!t);
+    const marginOption = isAllMarginDisabled ? void 0 : {
       type: 'margin',
+      config: marginDisabled
     }
 
     // 处理paddding
@@ -112,9 +124,7 @@ export function getSuggestOptionsByElement(selectDom: HTMLElement): { type: stri
       {
         type: 'opacity'
       },
-      {
-        type: 'size'
-      }
+      sizeOption
     ].filter(t => !!t)
 
     // 清理缓存
@@ -128,8 +138,49 @@ export function getSuggestOptionsByElement(selectDom: HTMLElement): { type: stri
   }
 }
 
-type GetMatchedCssRulesFunctionType = (dom: HTMLElement | Element) => CSSStyleRule[]
 
+type SuggestProperties = Array<'width' | 'height' | 'marginLeft' | 'marginRight' | 'marginBottom' | 'marginTop'>;
+
+/**
+ * @description 获取当前Dom可被修改的 尺寸 和 margin 属性，可被修改则会被返回
+ * @param selectDom
+ * @returns 
+ */
+export function getEditableCssPropertiesByElement(selectDom: HTMLElement): SuggestProperties {
+  if (!selectDom || !selectDom.getBoundingClientRect) {
+    console.warn(`getEditableCssPropertiesByElement failed，because selectDom is not valid`, selectDom)
+    return []
+  }
+
+  const marginDisabled = shouldMarginDisabled(selectDom);
+  const sizeDisabled = shouldSizeDisabled(selectDom);
+
+  const result: SuggestProperties = []
+
+  if (!sizeDisabled.disableWidth) {
+    result.push('width')
+  }
+  if (!sizeDisabled.disableHeight) {
+    result.push('height')
+  }
+  if (!marginDisabled.disableMarginTop) {
+    result.push('marginTop')
+  }
+  if (!marginDisabled.disableMarginBottom) {
+    result.push('marginBottom')
+  }
+  if (!marginDisabled.disableMarginLeft) {
+    result.push('marginLeft')
+  }
+  if (!marginDisabled.disableMarginRight) {
+    result.push('marginRight')
+  }
+
+  return result
+}
+
+
+type GetMatchedCssRulesFunctionType = (dom: HTMLElement | Element) => CSSStyleRule[]
 
 function shouldHeritPropertyDisabled(selectDom: HTMLElement, property: string, { textElemnts, getMatchedCssRules }: {
   getMatchedCssRules: GetMatchedCssRulesFunctionType,
@@ -138,6 +189,15 @@ function shouldHeritPropertyDisabled(selectDom: HTMLElement, property: string, {
   let hasSetting = false;
   textElemnts.forEach(element => {
     const doms = getChildDomPath(selectDom, element);
+
+    // TODO，如果出现元素被隐藏的话，认为不可编辑
+    if (doms.some(dom => {
+      const domStyle = window.getComputedStyle(dom)
+      return domStyle.visibility === 'hidden' && domStyle.pointerEvents === 'none'
+    })) {
+      return hasSetting = true
+    }
+
     return doms.some(dom => {
       const cssRules = getMatchedCssRules(dom)
       hasSetting = hasSetting || cssRules.some(cssRule => {
@@ -241,15 +301,32 @@ function shouldBoxshadowDisabled(selectDom: HTMLElement) {
 }
 
 function shouldMarginDisabled(selectDom: HTMLElement) {
-  let cannotSetMargin = false
-
-  // 判断当前dom属性是否支持 margin 配置
   const selectDomStyle = window.getComputedStyle(selectDom);
-  if (selectDomStyle.position === 'fixed' || selectDomStyle.position === 'absolute' || selectDomStyle.position === 'sticky') {
-    return cannotSetMargin = true
+
+  if (selectDomStyle.display === 'table-header-group' || selectDomStyle.display === 'table-row' || selectDomStyle.display === 'table-cell') {
+    return {
+      disableMarginLeft: true,
+      disableMarginRight: true,
+      disableMarginTop: true,
+      disableMarginBottom: true
+    }
   }
 
-  return cannotSetMargin
+  if (selectDomStyle.display === 'inline') {
+    return {
+      disableMarginLeft: false,
+      disableMarginRight: false,
+      disableMarginTop: true,
+      disableMarginBottom: true
+    }
+  }
+
+  return {
+    disableMarginLeft: false,
+    disableMarginRight: false,
+    disableMarginTop: false,
+    disableMarginBottom: false
+  }
 }
 
 function shouldPaddingDisabled(selectDom: HTMLElement) {
@@ -284,6 +361,42 @@ function shouldPaddingDisabled(selectDom: HTMLElement) {
   }
 
   return cannotSetPadding
+}
+
+function shouldSizeDisabled(selectDom: HTMLElement) {
+  const selectDomStyle = window.getComputedStyle(selectDom);
+
+  if (selectDomStyle.display === 'inline') {
+    return {
+      disableWidth: true,
+      disableHeight: true
+    }
+  }
+
+  const parentDom = selectDom.parentElement as HTMLElement;
+  if (parentDom) {
+    const parentDomStyle = window.getComputedStyle(parentDom);
+
+    if (parentDomStyle.display === 'flex' && (
+      (!isNaN(parseFloat(selectDomStyle.flexGrow)) && parseFloat(selectDomStyle.flexGrow) > 0) || // flex-grow > 0
+      !['0', '1'].includes(selectDomStyle.flexShrink) || // flex-shrink !== 0或1，此时空间收缩不忠于宽度配置，=== 0或1 的话会忠于宽度配置
+      !['auto'].includes(selectDomStyle.flexBasis) // 子元素宽度被flex-basis覆盖，auto是默认值
+    )) {
+
+      // 考虑竖向排列的情况
+      const isColumnDirection = parentDomStyle.flexDirection.includes('column');
+
+      return {
+        disableWidth: isColumnDirection ? false : true,
+        disableHeight: isColumnDirection ? true : false
+      }
+    }
+  }
+
+  return {
+    disableWidth: false,
+    disableHeight: false
+  }
 }
 
 function shouldOverflowDisabled(selectDom: HTMLElement) {
