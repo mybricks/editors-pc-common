@@ -303,7 +303,7 @@ function shouldBoxshadowDisabled(selectDom: HTMLElement) {
 function shouldMarginDisabled(selectDom: HTMLElement) {
   const selectDomStyle = window.getComputedStyle(selectDom);
 
-  if (selectDomStyle.display === 'table-header-group' || selectDomStyle.display === 'table-row' || selectDomStyle.display === 'table-cell') {
+  if (selectDomStyle.display === 'table-header-group' || selectDomStyle.display === 'table-row' || selectDomStyle.display === 'table-cell' || selectDomStyle.position === 'absolute' || selectDomStyle.position === 'fixed' || selectDomStyle.position === 'sticky') {
     return {
       disableMarginLeft: true,
       disableMarginRight: true,
