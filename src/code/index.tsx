@@ -29,17 +29,17 @@ export default function ({editConfig}: any): JSX.Element {
     theme,
     enableAI,
   } = options
-  
+
   const codeIns = useRef<HandlerType>(null)
   const [code, setCode] = useState<UnionString>(() =>
     getComputedValue(value.get())
   )
-  
+
   const [open, setOpen] = useState<boolean>(false);
-  
+
   const [editor, setEditor] = useState<editor>();
   const [monaco, setMonaco] = useState<Monaco>();
-  
+
   const path = useMemo(() => {
     let path = `file:///${Math.random()}_code`;
     if (language === "typescript") {
@@ -54,21 +54,21 @@ export default function ({editConfig}: any): JSX.Element {
     }
     return path;
   }, [isTsx, language]);
-  
+
   const defaultOptions = useMemo(() => getDefaultOptions?.("code") ?? {}, []);
-  
+
   const showBtn = useMemo(() => {
     return displayType === "button";
   }, [displayType]);
-  
+
   useEffect(() => {
     if (!enableAI) return;
     if (!monaco || !editor || !aiView) return;
-    
+
     const {request, requestAsStream} = aiView;
-    
+
     if (!request && !requestAsStream) return;
-    
+
     const dispose = registerCopilot(monaco, editor, {
       language: "typescript",
       async fetchCompletions({codeBeforeCursor, codeAfterCursor, onLoadingChange}: {
@@ -92,9 +92,9 @@ export default function ({editConfig}: any): JSX.Element {
               "2：返回的代码不需要有```包裹，因为是直接用在代码编辑器中;\n" +
               "3：返回的代码不需要ts类型定义，仅js即可;\n " +
               "4：返回的代码必须能和上下部分代码顺利拼接上，不能有语法错误，请严格自查;"
-            // "4：必须是顺利续写的代码;\n" + 
+            // "4：必须是顺利续写的代码;\n" +
             // "  以下仅举例，应该根据具体上下文返回：" +
-            // "  前段代码为: function sum(\n" + 
+            // "  前段代码为: function sum(\n" +
             // "  返回的结果: a, b) { return a+b; }"
           },
           {
@@ -102,7 +102,7 @@ export default function ({editConfig}: any): JSX.Element {
             content: "请给出合理的可行的代码续写推荐"
           }
         ];
-        
+
         if (requestAsStream) {
           return new Promise((resolve) => {
             let code = "";
@@ -120,13 +120,13 @@ export default function ({editConfig}: any): JSX.Element {
             })
           })
         }
-        
+
         const code = await request(messages);
-        
+
         return [{
           code: code.trim(),
         }];
-        
+
         // 测试
         // return new Promise((resolve) => {
         //   console.log("发起请求")
@@ -144,7 +144,7 @@ export default function ({editConfig}: any): JSX.Element {
       dispose();
     };
   }, [monaco, editor]);
-  
+
   const transform = useCallback(
     async (value: UnionString) => {
       if (!value) return value;
@@ -171,49 +171,51 @@ export default function ({editConfig}: any): JSX.Element {
     },
     [babel, fnParams, language]
   );
-  
+
   const updateValue = useCallback(async (current?: string) => {
-    const code = current ?? codeIns.current?.editor.getValue();
-    
-    let val
-    if (encodeValue === void 0 || encodeValue) {
-      val = await transform(code);
-    } else {
-      val = code
+    const nowCode = current ?? codeIns.current?.editor.getValue();
+
+    if (code !== nowCode) {
+      let val
+      if (encodeValue === void 0 || encodeValue) {
+        val = await transform(nowCode);
+      } else {
+        val = nowCode
+      }
+
+      value.set(val);
     }
-    
-    value.set(val);
-  }, []);
-  
+  }, [code]);
+
   const onChange = (value: UnionString, ev: any) => {
     setCode(value);
   };
-  
+
   const onBlur = useCallback(async (editor: editor) => {
     await updateValue(editor.getValue());
     typeof options.onBlur === "function" && options.onBlur();
   }, []);
-  
+
   const onOpen = useCallback(async () => {
     await updateValue();
     setOpen(true);
   }, []);
-  
+
   const onClose = useCallback(async () => {
     await updateValue();
     setOpen(false);
   }, []);
-  
+
   const onPreview = useCallback(() => {
     updateValue();
   }, []);
-  
+
   const onFormat = useCallback(() => {
     if (codeIns!.current) {
       codeIns!.current.format();
     }
   }, []);
-  
+
   return (
     <div className={!showBtn ? styles.wrapper : void 0}>
       <Editor

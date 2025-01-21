@@ -34,13 +34,15 @@ import EditorI18nInput from "./i18nInput";
 import EditorSceneSelector from "./sceneSelector";
 import EditorSceneComSelector from "./sceneComSelector";
 import Code from "./code";
+import EditorJSON from "./json";
 import Tree from "./tree";
 import EditorLine from "./line";
 import "./index.less";
 import StyleNew from "./style_new";
 import CssEditor from "./css-editor";
+import json from "@/json";
 
-export { config } from "./configProvider";
+export {config} from "./configProvider";
 
 const PcEditorMap: any = {
   ALIGN: EditorAlign,
@@ -50,6 +52,7 @@ const PcEditorMap: any = {
   LIST: EditorList,
   ARRAY: EditorArray,
   CODE: Code,
+  JSON: EditorJSON,
   RADIO: EditorRadio,
   COLORPICKER: EditorColorPicker,
   SELECT: EditorSelect,
@@ -82,7 +85,7 @@ const PcEditorMap: any = {
   SCENECOMSELECTOR: EditorSceneComSelector,
   TREE: Tree,
   LINE: EditorLine,
-};
+}
 
 
 // const PcEditorMap: any = {
@@ -93,13 +96,13 @@ const PcEditorMap: any = {
 
 
 function PcEditor(props: EditorProps): any {
-  const { editConfig } = props;
-  
+  const {editConfig} = props;
+
   // console.log(editConfig)
   // if(editConfig.type==='code'){
   //   debugger
   // }
-  
+
   let editor;
   try {
     editor = PcEditorMap[editConfig.type.toUpperCase()] || editConfig.render;
@@ -120,4 +123,4 @@ function PcEditor(props: EditorProps): any {
   return;
 }
 
-export { PcEditor, PcEditorMap };
+export {PcEditor, PcEditorMap};
