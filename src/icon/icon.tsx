@@ -771,6 +771,7 @@ export default function ({ editConfig }: EditorProps): any {
       </button>
       <Drawer
         className={`${css.iconBody} fangzhou-theme`}
+        rootClassName={`${css.iconBody} fangzhou-theme`}
         bodyStyle={{
           padding: 0,
           borderLeft: "1px solid #bbb",
@@ -787,6 +788,7 @@ export default function ({ editConfig }: EditorProps): any {
         width={560}
         getContainer={() => document.querySelector('div[class^="lyStage-"]')}
         style={{ position: "absolute" }}
+        rootStyle={{position: "absolute",left:'unset'}}
       >
         <div className={css.sticky}>
           <div className={css["drawerTitle"]}>

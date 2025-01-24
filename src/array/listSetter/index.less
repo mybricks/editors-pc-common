@@ -174,7 +174,7 @@
     width: 22px;
     align-items: center;
     justify-content: center;
-    border-radius: 3px;
+    border-radius: @border-radius;
     background-color: @color-primary;
 
     &:hover {
@@ -235,11 +235,11 @@
 }
 
 .titlesHeavy {
-  color: #333333;
+  color: #333;
   font-weight: 700;
-  height: 32px;
-  padding: 0px 10px;
-  border-bottom: 1px solid #d8d8d8;
+  height: 36px;
+  padding: 5px 15px;
+  //border-bottom: 1px solid #EEE;
 }
 
 .drawerWrapper {
@@ -248,33 +248,33 @@
   position: absolute !important;
   transition: none !important;
   width: 330px !important;
+}
 
-  .itemTitle {
-    color: #555;
+.itemTitle {
+  color: #555;
+  padding-bottom: 3px;
+  line-height: 12px;
+  padding-top: 3px;
+}
+
+.item {
+  font-size: 12px;
+  padding-bottom: 20px;
+
+  .itemDesc {
+    display: flex;
+    align-items: flex-start;
     padding-bottom: 3px;
-    line-height: 12px;
-    padding-top: 3px;
-  }
 
-  .item {
-    font-size: 12px;
-    padding-bottom: 15px;
-
-    .itemDesc {
+    .description {
       display: flex;
-      align-items: flex-start;
-      padding-bottom: 3px;
+      height: 100%;
+      margin-left: 5px;
+      opacity: 0.4;
+      font-size: 12px;
 
-      .description {
-        display: flex;
-        height: 100%;
-        margin-left: 5px;
-        opacity: 0.4;
-        font-size: 12px;
-
-        svg {
-          width: 12px;
-        }
+      svg {
+        width: 12px;
       }
     }
   }

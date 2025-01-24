@@ -218,6 +218,7 @@ export default function ({ editConfig }: any): any {
       {displayType === 'button' &&
         <Drawer
           className={`${css['drawerWrapper']} fangzhou-theme`}
+          rootClassName={`${css['drawerWrapper']} fangzhou-theme`}
           bodyStyle={{
             borderLeft: '1px solid #bbb',
             backgroundColor: '#F7F7F7',
@@ -231,6 +232,7 @@ export default function ({ editConfig }: any): any {
           onClose={() => setDrawerVisible(false)}
           getContainer={() => document.querySelector('div[class^="lyStage-"]')}
           style={{ position: 'absolute' }}
+          rootStyle={{position: "absolute",left:'unset'}}
         >
           <div
             className={`${css['drawerTitle']}`}
