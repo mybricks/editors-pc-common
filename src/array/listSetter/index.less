@@ -63,7 +63,7 @@
   //border-radius: 4px;
 
   &:hover {
-    background-color: #EEE;
+    background-color: #F7F7F7;
   }
 
   .listItemCard {
@@ -123,7 +123,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 3px;
+    border-radius: @border-radius;
 
     //margin-left: 3px;
     cursor: pointer;
@@ -141,7 +141,6 @@
 
   .visible {
     .listItemBtn();
-    width: max-content;
 
     > * {
       height: fit-content;
@@ -201,6 +200,7 @@
     align-items: center;
     justify-content: center;
     margin-left: auto;
+    //gap: 5px;
   }
 }
 
