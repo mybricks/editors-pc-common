@@ -24,12 +24,12 @@
   height: 30px;
   padding-right: 7px;
   font-size: 12px;
-  border-radius: 3px;
+  border-radius: @border-radius;
   display: flex;
   align-items: center;
   margin-bottom: 10px;
-  background-color: hsl(0, 0%, 97%);
-  border: 1px solid #ddd;
+  background-color: #FFF;
+  border: 1px solid #E9E9E9;////TODO 继续样式的美化
 
   .grab {
     cursor: move;
@@ -90,6 +90,7 @@
     height: 100%;
     overflow: hidden;
     white-space: nowrap;
+    border-radius: @border-radius;
   }
 }
 
@@ -102,14 +103,14 @@
   display: flex;
   align-items: center;
 
-  >img {
+  > img {
     height: 70%;
     width: 20px;
     object-fit: contain;
     margin-right: 3px;
   }
 
-  >p {
+  > p {
     margin: 0 3px 0 0;
   }
 }
