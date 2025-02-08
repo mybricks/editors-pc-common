@@ -2,10 +2,12 @@
 
 .editor-textArea {
   display: flex;
+
   :global {
     .ant-input {
       overflow-y: auto !important;
       font-size: 12px;
+      height: 26px;
     }
 
     .ant-input:hover {
@@ -33,24 +35,30 @@
     .ant-input-number-handler-up:hover {
       height: 50% !important;
     }
+
     .ant-input-number-handler-down:hover {
       height: 50% !important;
     }
+
     .ant-input-number-handler {
       min-height: 50%;
     }
+
     .ant-input-number-handler-up-inner {
       margin-top: -7px;
     }
+
     .ant-input-number:hover {
       border-color: @color-primary;
     }
+
     .ant-input-number-focused,
     .ant-input-number:focus {
       border-color: @color-primary;
       -webkit-box-shadow: var(--box-shadow);
       box-shadow: var(--box-shadow);
     }
+
     .ant-input-number-handler-wrap {
       z-index: 2;
     }
@@ -61,13 +69,18 @@
     }
   }
 }
+
 .button {
   float: right;
   margin-left: 5px;
+  height: 26px;
+  font-size: 12px;
 }
+
 .textArea {
   height: 300px;
 }
+
 .inputNumber {
   width: 100%;
 }

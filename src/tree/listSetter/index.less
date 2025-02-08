@@ -59,14 +59,14 @@
       color: #555;
       padding-bottom: 3px;
       line-height: 12px;
-      margin: 0px;
+      margin: 0;
     }
     .item {
       font-size: 12px;
       padding-bottom: 10px;
 
       &:last-child {
-        padding-bottom: 0px;
+        padding-bottom: 0;
       }
     }
   }
@@ -124,11 +124,10 @@
 }
 
 .titlesHeavy {
-  color: #333333;
+  color: #333;
   font-weight: 700;
-  height: 32px;
-  padding: 0px 10px;
-  border-bottom: 1px solid #d8d8d8;
+  height: 36px;
+  padding: 5px 15px;
 }
 
 .drawerWrapper {
@@ -145,7 +144,7 @@
   }
   .item {
     font-size: 12px;
-    padding-bottom: 15px;
+    padding-bottom: 20px;
   }
 }
 
@@ -214,7 +213,7 @@
   width: 22px;
   align-items: center;
   justify-content: center;
-  border-radius: 3px;
+  border-radius: @border-radius;
   background-color: @color-primary;
   color: @color-primary;
   svg {

@@ -488,6 +488,7 @@ export default function ({
       {!expandable && (
         <Drawer
           className={css.drawerWrapper}
+          rootClassName={css.drawerWrapper}
           bodyStyle={{
             borderLeft: "1px solid #bbb",
             backgroundColor: "#F7F7F7",
@@ -506,6 +507,7 @@ export default function ({
             document.querySelector('#root div[class^="sketchSection"]')
           }
           style={{position: "absolute"}}
+          rootStyle={{position: "absolute",left:'unset'}}
         >
           <div>
             <Title

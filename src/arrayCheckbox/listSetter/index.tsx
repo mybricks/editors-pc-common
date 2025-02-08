@@ -228,6 +228,7 @@ export default function ({
       </div>
       <Drawer
         className={css.drawerWrapper}
+        rootClassName={css.drawerWrapper}
         bodyStyle={{
           borderLeft: "1px solid #bbb",
           backgroundColor: "#F7F7F7",
@@ -242,6 +243,7 @@ export default function ({
         // @ts-ignore
         getContainer={() => document.querySelector('div[class^="lyStage-"]')}
         style={{ position: "absolute" }}
+        rootStyle={{position: "absolute",left:'unset'}}
       >
         <div>
           <Title
