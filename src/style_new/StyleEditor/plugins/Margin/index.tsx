@@ -34,12 +34,20 @@ const DEFAULT_STYLE = {
   // marginLeft: 4
 }
 
+const DEFAULT_CONFIG = {
+  disableMarginTop: false,
+  disableMarginRight: false,
+  disableMarginBottom: false,
+  disableMarginLeft: false
+}
+
 export function Margin ({value, onChange, config, showTitle, collapse}: MarginProps) {
   const [toggle, setToggle] = useState(getToggleDefaultValue(value))
   const [marginValue, setMarginValue] = useState({...value})
   // const [splitMarginIcon, setSplitMarginIcon] = useState(<MarginTopOutlined />)
   const [splitMarginIcon, setSplitMarginIcon] = useState(<MarginTopOutlined />)
-  
+
+  const cfg = useMemo(() => ({ ...DEFAULT_CONFIG, ...(config ?? {}) }), [config]);
 
   const handleChange = useCallback((value: CSSProperties & Record<string, any>) => {
     setMarginValue((val) => {
@@ -103,50 +111,66 @@ export function Margin ({value, onChange, config, showTitle, collapse}: MarginPr
         <div className={css.row}>
           <Panel.Content style={{padding: 3}}>
             <Panel.Item className={css.editArea} style={{padding: '0px 8px'}}>
-              <div className={css.icon} data-mybricks-tip={"上边距"}>
-                <MarginTopOutlined />
-              </div>
-              <InputNumber
-                tip='上边距'
-                style={DEFAULT_STYLE}
-                defaultValue={marginValue.marginTop}
-                // suffix={'px'}
-                onFocus={() => setSplitMarginIcon(<MarginTopOutlined />)}
-                onChange={(value) => handleChange({marginTop: value})}
-              />
-              <div className={css.icon} data-mybricks-tip={"右边距"}>
-                <MarginRightOutlined />
-              </div>
-              <InputNumber
-                tip='右边距'
-                style={DEFAULT_STYLE}
-                defaultValue={marginValue.marginRight}
-                // suffix={'px'}
-                onFocus={() => setSplitMarginIcon(<MarginRightOutlined />)}
-                onChange={(value) => handleChange({marginRight: value})}
-              />
-              <div className={css.icon} data-mybricks-tip={"下边距"}>
-                <MarginBottomOutlined />
-              </div>
-              <InputNumber
-                tip='下边距'
-                style={DEFAULT_STYLE}
-                defaultValue={marginValue.marginBottom}
-                // suffix={'px'}
-                onFocus={() => setSplitMarginIcon(<MarginBottomOutlined />)}
-                onChange={(value) => handleChange({marginBottom: value})}
-              />
-              <div className={css.icon} data-mybricks-tip={"左边距"}>
-                <MarginLeftOutlined />
-              </div>
-              <InputNumber
-                tip='左边距'
-                style={DEFAULT_STYLE}
-                defaultValue={marginValue.marginLeft}
-                // suffix={'px'}
-                onFocus={() => setSplitMarginIcon(<MarginLeftOutlined />)}
-                onChange={(value) => handleChange({marginLeft: value})}
-              />
+              {
+                cfg.disableMarginTop ? null : <>
+                  <div className={css.icon} data-mybricks-tip={"上边距"}>
+                    <MarginTopOutlined />
+                  </div>
+                  <InputNumber
+                    tip='上边距'
+                    style={DEFAULT_STYLE}
+                    defaultValue={marginValue.marginTop}
+                    // suffix={'px'}
+                    onFocus={() => setSplitMarginIcon(<MarginTopOutlined />)}
+                    onChange={(value) => handleChange({marginTop: value})}
+                  />
+                </>
+              }
+              {
+                cfg.disableMarginRight ? null : <>
+                  <div className={css.icon} data-mybricks-tip={"右边距"}>
+                    <MarginRightOutlined />
+                  </div>
+                  <InputNumber
+                    tip='右边距'
+                    style={DEFAULT_STYLE}
+                    defaultValue={marginValue.marginRight}
+                    // suffix={'px'}
+                    onFocus={() => setSplitMarginIcon(<MarginRightOutlined />)}
+                    onChange={(value) => handleChange({marginRight: value})}
+                  />
+                </>
+              }
+              {
+                cfg.disableMarginBottom ? null : <>
+                  <div className={css.icon} data-mybricks-tip={"下边距"}>
+                    <MarginBottomOutlined />
+                  </div>
+                  <InputNumber
+                    tip='下边距'
+                    style={DEFAULT_STYLE}
+                    defaultValue={marginValue.marginBottom}
+                    // suffix={'px'}
+                    onFocus={() => setSplitMarginIcon(<MarginBottomOutlined />)}
+                    onChange={(value) => handleChange({marginBottom: value})}
+                  />
+                </>
+              }
+              {
+                cfg.disableMarginLeft ? null : <>
+                  <div className={css.icon} data-mybricks-tip={"左边距"}>
+                    <MarginLeftOutlined />
+                  </div>
+                  <InputNumber
+                    tip='左边距'
+                    style={DEFAULT_STYLE}
+                    defaultValue={marginValue.marginLeft}
+                    // suffix={'px'}
+                    onFocus={() => setSplitMarginIcon(<MarginLeftOutlined />)}
+                    onChange={(value) => handleChange({marginLeft: value})}
+                  />
+                </>
+              }
             </Panel.Item>
           </Panel.Content>
           <div
