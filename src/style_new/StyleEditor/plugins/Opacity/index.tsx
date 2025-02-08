@@ -1,4 +1,4 @@
-import React, { CSSProperties } from 'react'
+import React, { CSSProperties, useMemo } from 'react'
 
 import { Panel, Slider } from '../../components'
 
@@ -10,11 +10,16 @@ interface OpacityProps extends PanelBaseProps {
 }
 
 export function Opacity ({ value, onChange, config, showTitle, collapse }: OpacityProps) {
+
+  const defaultValue = useMemo(() => {
+    return isNaN(parseFloat(value?.opacity as any)) ? 1 : parseFloat(value?.opacity as any)
+  }, [value])
+
   return (
     <Panel title='不透明度' showTitle={showTitle} collapse={collapse}>
       <Panel.Content>
         <Slider
-          defaultValue={typeof value.opacity === 'number' ? value.opacity : 1}
+          defaultValue={defaultValue}
           onChange={(value) => onChange({key: 'opacity', value})}
         />
       </Panel.Content>
