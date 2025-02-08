@@ -108,34 +108,8 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
   const handleChange = useCallback(
     (value: CSSProperties & Record<string, any>) => {
       setBorderValue((val) => {
-        const {
-          borderTopWidth,
-          borderRightWidth,
-          borderBottomWidth,
-          borderLeftWidth,
-          borderTopStyle,
-          borderRightStyle,
-          borderBottomStyle,
-          borderLeftStyle,
-          borderTopLeftRadius,
-          borderBottomLeftRadius,
-          borderBottomRightRadius,
-          borderTopRightRadius,
-        } = val ?? {};
-
         const newValues = {
-          borderTopWidth,
-          borderRightWidth,
-          borderBottomWidth,
-          borderLeftWidth,
-          borderTopStyle,
-          borderRightStyle,
-          borderBottomStyle,
-          borderLeftStyle,
-          borderTopLeftRadius,
-          borderBottomLeftRadius,
-          borderBottomRightRadius,
-          borderTopRightRadius,
+          ...(val ?? {}),
           ...value,
         }
 
@@ -220,17 +194,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                         };
                       }
 
-                      onChange(
-                        Object.keys(newValue).map((key) => {
-                          return {
-                            key,
-                            // TODO
-                            value: `${newValue[key]}${
-                              useImportant ? "!important" : ""
-                            }`,
-                          };
-                        })
-                      );
+                      handleChange(newValue)
 
                       return {
                         ...val,
