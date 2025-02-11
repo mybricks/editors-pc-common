@@ -594,7 +594,7 @@ function getDefaultConfiguration ({value, options}: GetDefaultConfigurationProps
   let collapsedOptions: any = [];
   if (effctedOptions) {
     collapsedOptions = finalOptions.map(t => {
-      return typeof t === 'string' ? t : t?.type
+      return typeof t === 'string' ? t.toLowerCase() : t?.type.toLowerCase()
     }).filter(t => !effctedOptions.includes(t))
   }
 
