@@ -18,6 +18,7 @@ interface InputNumberProps extends InputProps {
   defaultUnitValue?: string
   unitDisabledList?: Array<string> 
   unitOptions?: Array<UnitOption>
+  /** 允许负数 */
   allowNegative?: boolean,
   showIcon?: boolean
   prefixTip?: string
@@ -69,10 +70,14 @@ export function InputNumber ({
     target: any,
   }) => {
     let newValue = e.target.value;
-    newValue = Number(newValue) > 0 ? newValue : '0'
-    handleNumberChange(newValue);
-    e.target.value = newValue;
-  }, [number]);
+    if (!allowNegative) {
+      newValue = Number(newValue) > 0 ? newValue : '0'
+    }
+
+    const finalVal = handleNumberChange(newValue);
+    e.target.value = finalVal;
+    setDisplayValue(finalVal)
+  }, [number, allowNegative]);
 
   const suffix = useMemo(() => {
     if (customSuffix) {

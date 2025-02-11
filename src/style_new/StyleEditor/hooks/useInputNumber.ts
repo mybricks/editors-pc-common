@@ -7,14 +7,15 @@ export function useInputNumber<D>(defaultValue?: D, onChange?: (value: string) =
   const changeRef = useLatest(onChange)
 
   const handleChange = useCallback((value: string) => {
-    let changeValue
+    let changeValue = '0'
 
     if (!value) {
       changeValue = '0'
     } else {
       const number = parseFloat(value)
       // 合法数字且>0
-      if (!isNaN(number) && number >= 0) {
+
+      if (!isNaN(number)) {
         changeValue = /^(0|[1-9]\d*)?(\.\d*)?$/.test(value) ? value : String(number)
       }
     }
@@ -23,6 +24,7 @@ export function useInputNumber<D>(defaultValue?: D, onChange?: (value: string) =
       setValue(changeValue)
       changeRef.current?.(changeValue)
     }
+    return changeValue
   }, [])
 
   return [ value, handleChange ]
@@ -30,7 +32,7 @@ export function useInputNumber<D>(defaultValue?: D, onChange?: (value: string) =
 
 export function getInitValue (defaultValue: any): string {
   const value = parseFloat(defaultValue)
-  if (!isNaN(value) && value > 0) {
+  if (!isNaN(value)) {
     return String(value)
   }
 
