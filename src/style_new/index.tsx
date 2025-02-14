@@ -33,7 +33,7 @@ import MonacoEditor from "@mybricks/code-editor";
 import { deepCopy, copyText } from '../utils'
 import StyleEditor, { DEFAULT_OPTIONS, StyleEditorProvider } from './StyleEditor'
 
-import { mergeCSSProperties, getSuggestOptionsByElement } from './StyleEditor/helper'
+import { mergeCSSProperties, splitCSSProperties, getSuggestOptionsByElement } from './StyleEditor/helper'
 
 import type {
   EditorProps,
@@ -302,9 +302,8 @@ function Style ({editConfig, options, setValue, collapsedOptions, autoCollapseWh
     }
 
     // 计算合并后的CssProperties，可以精简 CSS 属性
-    mergeCSSProperties(deepCopy(setValue)).then(mergedCssProperties => {
-      editConfig.value.set(mergedCssProperties)
-    })
+    const mergedCssProperties = mergeCSSProperties(deepCopy(setValue))
+    editConfig.value.set(mergedCssProperties)
   }, [])
 
   const editorContext = useMemo(() => {
@@ -602,7 +601,7 @@ function getDefaultConfiguration ({value, options}: GetDefaultConfigurationProps
     options: finalOptions,
     collapsedOptions,
     autoCollapseWhenUnusedProperty,
-    defaultValue: Object.assign(defaultValue, setValue),
+    defaultValue: Object.assign(defaultValue, splitCSSProperties(setValue)),
     setValue,
     finalOpen,
     finalSelector,
