@@ -266,11 +266,13 @@ export function GradientEditor({
                     changeProperty("position", newPosition, id, true);
                     setCurElementId(id);
                   }}
+                  onFocus={() => setCurElementId(id)}
                 />
                 <ColorEditor
                   defaultValue={color}
                   key={color}
                   style={{ flex: 5, border }}
+                  onFocus={() => setCurElementId(id)}
                   onChange={(color) => {
                     changeProperty("color", color, id);
                     setCurElementId(id);
