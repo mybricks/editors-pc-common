@@ -263,6 +263,9 @@ function shouldBorderDisabled(selectDom: HTMLElement) {
 }
 
 function shouldBorderRadiusDisabled(selectDom: HTMLElement) {
+  // 先放开吧，感觉overflow的case没那么多
+  return false
+
   const selectDomStyle = window.getComputedStyle(selectDom);
 
   const noOverflow = selectDomStyle.overflowX !== 'hidden' && selectDomStyle.overflowY !== 'hidden'
