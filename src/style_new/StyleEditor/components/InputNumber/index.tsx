@@ -23,6 +23,7 @@ interface InputNumberProps extends InputProps {
   showIcon?: boolean
   prefixTip?: string
   type?: string
+  onFocus?: () => void;
 }
 
 export function InputNumber ({

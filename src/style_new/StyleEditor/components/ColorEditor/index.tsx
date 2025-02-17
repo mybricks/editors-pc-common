@@ -36,6 +36,7 @@ interface ColorEditorProps {
   defaultValue: any;
   style?: CSSProperties;
   onChange: (value: any) => void;
+  onFocus?: () => void;
 }
 
 interface State {
@@ -126,6 +127,7 @@ export function ColorEditor({
   style = {},
   onChange,
   options = [],
+  onFocus,
 }: ColorEditorProps) {
   const presetRef = useRef<HTMLDivElement>(null);
   const [state, dispatch] = useReducer(
@@ -253,6 +255,7 @@ export function ColorEditor({
         className={css.input}
         onFocus={() => {
           isFocus.current = true;
+          onFocus && onFocus?.();
         }}
         onChange={(e) => {
           handleInputChange(e.target.value);
