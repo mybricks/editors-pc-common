@@ -1,7 +1,7 @@
 import React, { useMemo, useState, CSSProperties, useCallback } from "react";
 import { getRealKey } from "../../utils";
 import { useStyleEditorContext } from "../..";
-import { PanelBaseProps } from './../../type'
+import { PanelBaseProps } from "./../../type";
 import { Panel, Image, ColorEditor, Gradient } from "../../components";
 
 interface BackgroundProps extends PanelBaseProps {
@@ -121,7 +121,13 @@ export function Background({
       <Panel.Content>
         {!disableGradient ? (
           <Gradient
-            defaultValue={defaultBackgroundValue?.backgroundImage || ""}
+            defaultValue={
+              defaultBackgroundValue?.backgroundImage ||
+              (defaultBackgroundValue?.backgroundImage === "none" &&
+                defaultBackgroundValue?.background &&
+                defaultBackgroundValue?.background) ||
+              ""
+            }
             onChange={(value) => onChange({ key: "backgroundImage", value })}
           />
         ) : null}

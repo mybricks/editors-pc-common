@@ -1,11 +1,14 @@
 const tokens = {
   linearGradient: /^(\-(webkit|o|ms|moz)\-)?(linear\-gradient)/i,
-  repeatingLinearGradient: /^(\-(webkit|o|ms|moz)\-)?(repeating\-linear\-gradient)/i,
+  repeatingLinearGradient:
+    /^(\-(webkit|o|ms|moz)\-)?(repeating\-linear\-gradient)/i,
   radialGradient: /^(\-(webkit|o|ms|moz)\-)?(radial\-gradient)/i,
-  repeatingRadialGradient: /^(\-(webkit|o|ms|moz)\-)?(repeating\-radial\-gradient)/i,
+  repeatingRadialGradient:
+    /^(\-(webkit|o|ms|moz)\-)?(repeating\-radial\-gradient)/i,
   sideOrCorner:
     /^to (left (top|bottom)|right (top|bottom)|top (left|right)|bottom (left|right)|left|right|top|bottom)/i,
-  extentKeywords: /^(closest\-side|closest\-corner|farthest\-side|farthest\-corner|contain|cover)/,
+  extentKeywords:
+    /^(closest\-side|closest\-corner|farthest\-side|farthest\-corner|contain|cover)/,
   positionKeywords: /^(left|center|right|top|bottom)/i,
   pixelValue: /^(-?(([0-9]*\.[0-9]+)|([0-9]+\.?)))px/,
   percentageValue: /^(-?(([0-9]*\.[0-9]+)|([0-9]+\.?)))\%/,
@@ -23,15 +26,15 @@ const tokens = {
 };
 
 type GradientType =
-  | 'linear-gradient'
-  | 'repeating-linear-gradient'
-  | 'radial-gradient'
-  | 'repeating-radial-gradient';
+  | "linear-gradient"
+  | "repeating-linear-gradient"
+  | "radial-gradient"
+  | "repeating-radial-gradient";
 
-let input = '';
+let input = "";
 
 const error = (msg: string) => {
-  const err = new Error(input + ': ' + msg);
+  const err = new Error(input + ": " + msg);
   throw err;
 };
 
@@ -39,7 +42,7 @@ const getAST = () => {
   const ast = matchListDefinitions();
 
   if (input.length > 0) {
-    error('Invalid input not EOF');
+    error("Invalid input not EOF");
   }
 
   return ast;
@@ -51,15 +54,23 @@ const matchListDefinitions = () => {
 
 const matchDefinition = () => {
   return (
-    matchGradient('linear-gradient', tokens.linearGradient, matchLinearOrientation) ||
     matchGradient(
-      'repeating-linear-gradient',
+      "linear-gradient",
+      tokens.linearGradient,
+      matchLinearOrientation
+    ) ||
+    matchGradient(
+      "repeating-linear-gradient",
       tokens.repeatingLinearGradient,
       matchLinearOrientation
     ) ||
-    matchGradient('radial-gradient', tokens.radialGradient, matchListRadialOrientations) ||
     matchGradient(
-      'repeating-radial-gradient',
+      "radial-gradient",
+      tokens.radialGradient,
+      matchListRadialOrientations
+    ) ||
+    matchGradient(
+      "repeating-radial-gradient",
       tokens.repeatingRadialGradient,
       matchListRadialOrientations
     )
@@ -75,14 +86,14 @@ const matchGradient = (
     const orientation = orientationMatcher();
     if (orientation) {
       if (!scan(tokens.comma)) {
-        error('Missing comma before color stops');
+        error("Missing comma before color stops");
       }
     }
 
     return {
       type: gradientType,
       orientation: orientation,
-      colorStops: matchListing(matchColorStop)
+      colorStops: matchListing(matchColorStop),
     };
   });
 };
@@ -92,13 +103,13 @@ const matchCall = (pattern: RegExp, callback: (props: any) => any) => {
 
   if (captures) {
     if (!scan(tokens.startCall)) {
-      error('Missing (');
+      error("Missing (");
     }
 
     const result = callback(captures);
 
     if (!scan(tokens.endCall)) {
-      error('Missing )');
+      error("Missing )");
     }
 
     return result;
@@ -110,11 +121,33 @@ const matchLinearOrientation = () => {
 };
 
 const matchSideOrCorner = () => {
-  return match('directional', tokens.sideOrCorner, 1);
+  const direction = match("directional", tokens.sideOrCorner, 1);
+  if (!direction) return;
+
+  // 方向映射到角度
+  const angleMap: Record<string, string> = {
+    right: "90",
+    left: "270",
+    top: "0",
+    bottom: "180",
+    "right top": "45",
+    "right bottom": "135",
+    "left top": "315",
+    "left bottom": "225",
+    "top right": "45",
+    "top left": "315",
+    "bottom right": "135",
+    "bottom left": "225",
+  };
+
+  return {
+    type: "angular",
+    value: angleMap[direction.value] || "90",
+  };
 };
 
 const matchAngle = () => {
-  return match('angular', tokens.angleValue, 1);
+  return match("angular", tokens.angleValue, 1);
 };
 
 const matchListRadialOrientations = () => {
@@ -157,8 +190,8 @@ const matchRadialOrientation = () => {
       const defaultPosition = matchPositioning();
       if (defaultPosition) {
         radialType = {
-          type: 'default-radial',
-          at: defaultPosition
+          type: "default-radial",
+          at: defaultPosition,
         };
       }
     }
@@ -168,7 +201,7 @@ const matchRadialOrientation = () => {
 };
 
 const matchCircle = () => {
-  const circle = match('shape', /^(circle)/i, 0);
+  const circle = match("shape", /^(circle)/i, 0);
 
   if (circle) {
     circle.style = matchLength() || matchExtentKeyword();
@@ -178,7 +211,7 @@ const matchCircle = () => {
 };
 
 const matchEllipse = () => {
-  const ellipse = match('shape', /^(ellipse)/i, 0);
+  const ellipse = match("shape", /^(ellipse)/i, 0);
 
   if (ellipse) {
     ellipse.style = matchDistance() || matchExtentKeyword();
@@ -188,15 +221,15 @@ const matchEllipse = () => {
 };
 
 const matchExtentKeyword = () => {
-  return match('extent-keyword', tokens.extentKeywords, 1);
+  return match("extent-keyword", tokens.extentKeywords, 1);
 };
 
 const matchAtPosition = () => {
-  if (match('position', /^at/, 0)) {
+  if (match("position", /^at/, 0)) {
     const positioning = matchPositioning();
 
     if (!positioning) {
-      error('Missing positioning value');
+      error("Missing positioning value");
     }
 
     return positioning;
@@ -208,8 +241,8 @@ const matchPositioning = () => {
 
   if (location.x || location.y) {
     return {
-      type: 'position',
-      value: location
+      type: "position",
+      value: location,
     };
   }
 };
@@ -217,7 +250,7 @@ const matchPositioning = () => {
 const matchCoordinates = () => {
   return {
     x: matchDistance(),
-    y: matchDistance()
+    y: matchDistance(),
   };
 };
 
@@ -232,7 +265,7 @@ const matchListing = (matcher: () => any) => {
       if (captures) {
         result.push(captures);
       } else {
-        error('One extra comma');
+        error("One extra comma");
       }
     }
   }
@@ -244,7 +277,7 @@ const matchColorStop = () => {
   const color = matchColor();
 
   if (!color) {
-    error('Expected color definition');
+    error("Expected color definition");
   }
 
   color.length = matchDistance();
@@ -252,33 +285,39 @@ const matchColorStop = () => {
 };
 
 const matchColor = () => {
-  return matchVarColor() || matchHexColor() || matchRGBAColor() || matchRGBColor() || matchLiteralColor();
+  return (
+    matchVarColor() ||
+    matchHexColor() ||
+    matchRGBAColor() ||
+    matchRGBColor() ||
+    matchLiteralColor()
+  );
 };
 
 const matchVarColor = () => {
-  const result = match('var-color', tokens.varColor, 1);
+  const result = match("var-color", tokens.varColor, 1);
   if (result) {
     return {
-      type: 'var-color',
-      value: result.value
+      type: "var-color",
+      value: result.value,
     };
   }
   return undefined;
 };
 
 const matchLiteralColor = () => {
-  return match('literal', tokens.literalColor, 0);
+  return match("literal", tokens.literalColor, 0);
 };
 
 const matchHexColor = () => {
-  return match('hex', tokens.hexColor, 1);
+  return match("hex", tokens.hexColor, 1);
 };
 
 const matchRGBColor = () => {
   return matchCall(tokens.rgbColor, () => {
     return {
-      type: 'rgb',
-      value: matchListing(matchNumber)
+      type: "rgb",
+      value: matchListing(matchNumber),
     };
   });
 };
@@ -286,8 +325,8 @@ const matchRGBColor = () => {
 const matchRGBAColor = () => {
   return matchCall(tokens.rgbaColor, () => {
     return {
-      type: 'rgba',
-      value: matchListing(matchNumber)
+      type: "rgba",
+      value: matchListing(matchNumber),
     };
   });
 };
@@ -297,15 +336,19 @@ const matchNumber = () => {
 };
 
 const matchDistance = () => {
-  return match('%', tokens.percentageValue, 1) || matchPositionKeyword() || matchLength();
+  return (
+    match("%", tokens.percentageValue, 1) ||
+    matchPositionKeyword() ||
+    matchLength()
+  );
 };
 
 const matchPositionKeyword = () => {
-  return match('position-keyword', tokens.positionKeywords, 1);
+  return match("position-keyword", tokens.positionKeywords, 1);
 };
 
 const matchLength = () => {
-  return match('px', tokens.pixelValue, 1) || match('em', tokens.emValue, 1);
+  return match("px", tokens.pixelValue, 1) || match("em", tokens.emValue, 1);
 };
 
 const match = (
@@ -317,7 +360,7 @@ const match = (
   if (captures) {
     return {
       type: type,
-      value: captures[captureIndex]
+      value: captures[captureIndex],
     };
   }
   return void 0;

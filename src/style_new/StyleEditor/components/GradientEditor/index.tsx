@@ -101,8 +101,16 @@ export function GradientEditor({
     const direction =
       gradientType === "linear-gradient" ? `${deg}deg` : shapeType;
     if (stops.length < 2) return "none";
+    const isAllZero = stops.every((stop) => stop.position === 0);
     return `${gradientType}(${direction}${stops
-      .map((stop) => `, ${stop.color} ${stop.position}%`)
+      .map(
+        (stop) =>
+          `, ${stop.color}${
+            typeof stop?.position === "number" && !isAllZero
+              ? ` ${stop.position}%`
+              : ""
+          }`
+      )
       .join("")})`;
   };
 

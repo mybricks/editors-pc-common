@@ -1,6 +1,7 @@
 import gradient from "./Parser";
 import { GradientStop, GradientType } from "./constants";
 import { uuid } from "../../../../utils";
+import Color from "color";
 
 export const ParseGradient = (
   gradientString: string
@@ -25,8 +26,16 @@ export const ParseGradient = (
           color:
             colorStop.type === "var-color"
               ? `var(${colorStop?.value as string})`
-              : `rgba(${(colorStop?.value as string[]).join(",")})`,
-          position: Number(colorStop?.length?.value),
+              : colorStop.type === "literal" || colorStop.type === "hex"
+              ? Color(
+                  colorStop.type === "hex"
+                    ? "#" + colorStop.value
+                    : colorStop.value
+                )
+                  .rgb()
+                  .string()
+              : `rgba(${(colorStop?.value as string[])?.join(",")})`,
+          position: Number(colorStop?.length?.value || 0),
           id: uuid(),
         })) || [];
     }
