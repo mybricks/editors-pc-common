@@ -192,7 +192,9 @@ export const splitCSSProperties = (
   Object.assign(component.style, cssProperties)
   
   const computedStyle = window.getComputedStyle(component)
-  const splitStyles: React.CSSProperties = {}
+  const splitStyles: React.CSSProperties = {
+    ...(cssProperties ?? {})
+  }
 
   // margin
   if (cssProperties.margin) {
@@ -246,7 +248,6 @@ export const splitCSSProperties = (
   }
 
   return {
-    ...cssProperties,
     ...splitStyles
   }
 }

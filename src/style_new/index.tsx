@@ -597,12 +597,14 @@ function getDefaultConfiguration ({value, options}: GetDefaultConfigurationProps
     }).filter(t => !effctedOptions.includes(t))
   }
 
+  const splitedSetValue = splitCSSProperties(setValue)
+
   return {
     options: finalOptions,
     collapsedOptions,
     autoCollapseWhenUnusedProperty,
-    defaultValue: Object.assign(defaultValue, splitCSSProperties(setValue)),
-    setValue,
+    defaultValue: Object.assign(defaultValue, splitedSetValue),
+    setValue: Object.assign({}, splitedSetValue),
     finalOpen,
     finalSelector,
     finnalExcludeOptions,
