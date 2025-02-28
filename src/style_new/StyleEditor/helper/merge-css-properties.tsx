@@ -1,5 +1,11 @@
 import React from 'react'
 
+const hasCSSVariable = (value: string | any) => {
+  if (typeof value !== 'string') return false;
+  value = value.trim();
+  return /var\(--[a-zA-Z0-9-_]+\)|--[a-zA-Z0-9-_]+/.test(value);
+}
+
 // 创建一个缓存容器
 let containerCache: HTMLDivElement | null = null
 let componentCache: HTMLDivElement | null = null
@@ -111,6 +117,11 @@ export const mergeCSSProperties = (
     delete mergedStyles.borderTopRightRadius
     delete mergedStyles.borderBottomLeftRadius
     delete mergedStyles.borderBottomRightRadius
+  }
+
+  // border颜色是变量绑定的话，直接不处理，暂时没办法处理
+  if (hasCSSVariable(cssProperties.borderLeftColor) || hasCSSVariable(cssProperties.borderRightColor) || hasCSSVariable(cssProperties.borderTopColor) || hasCSSVariable(cssProperties.borderBottomColor)) {
+    return mergedStyles
   }
 
   // border
@@ -228,6 +239,13 @@ export const splitCSSProperties = (
     splitStyles.borderBottomLeftRadius = computedStyle.borderBottomLeftRadius
     splitStyles.borderBottomRightRadius = computedStyle.borderBottomRightRadius
     delete splitStyles.borderRadius
+  }
+
+  // 含有CSS变量暂时不处理
+  if (hasCSSVariable(cssProperties.border)) {
+    return {
+      ...splitStyles
+    }
   }
 
   // border
