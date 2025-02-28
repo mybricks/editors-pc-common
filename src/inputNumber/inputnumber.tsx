@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {InputNumber} from 'antd';
 import {useCallback} from 'react';
 import {useComputed, useObservable} from '@mybricks/rxui';
@@ -75,7 +75,7 @@ function Item({index, model, formatter, item, width}) {
   // },[])
 
   const updateValue = (e: React.FocusEvent<HTMLInputElement, Element>) => {
-    const curVal = parseInt(e.target.value)
+    const curVal = parseFloat(e.target.value)
 
     if (typeof curVal === 'number') {
       if (isNaN(curVal)) {
@@ -84,7 +84,6 @@ function Item({index, model, formatter, item, width}) {
       } else {
         if (curVal >= item.min && curVal <= item.max) {
           model.val[index] = curVal
-
           update()
         }
       }
