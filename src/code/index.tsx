@@ -1,5 +1,5 @@
 import React, {useEffect, useCallback, useMemo, useRef, useState} from "react";
-import Editor, {HandlerType, editor, Icon, registerCopilot, Monaco} from "@mybricks/coder";
+import Editor, {HandlerType, editor, Icon, registerCopilot, Monaco} from "@mybricks/coder/dist/umd";
 import {LegacyLib} from "./legacyLib";
 import {
   getComputedValue,
@@ -258,7 +258,7 @@ export default function ({editConfig}: any): JSX.Element {
         }}
         onBlur={onBlur}
         onChange={onChange}
-        options={{readOnly: readonly, fontSize: 13}}
+        options={{readOnly: readonly, fontSize: 12}}
         comment={{
           value: comments,
           className: styles.comment,
