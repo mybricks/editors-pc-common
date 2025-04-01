@@ -16,6 +16,7 @@ import {
 } from './lazySortableHoc';
 import css from './index.less'
 import Icon from "./Icon";
+import {DeleteIcon, ExpandIcon, DragIcon} from "./constants";
 
 type ActiveId = string | null
 type EditId = string | null
@@ -473,13 +474,13 @@ export default function ({
               }
               onClick={(e) => editFun(e, item)}
             >
-              <Icon name="edit"/>
+              <ExpandIcon/>
             </div>
             <div
               className={css.edit}
               onClick={(e) => deleteFun(e,item)}
             >
-              <Icon name="delete"/>
+              <DeleteIcon/>
             </div>
           </div>
           {judgeFun(item) ? 
@@ -507,13 +508,13 @@ export default function ({
               }
               onClick={(e) => editFun(e, item)}
             >
-              <Icon name="edit"/>
+              <ExpandIcon/>
             </div>
             <div 
               className={css.delete}
               onClick={(e) => deleteFun(e,item)}
             >
-              <Icon name="delete"/>
+              <DeleteIcon/>
             </div>
           </div>
           {judgeFun(item) ? 
