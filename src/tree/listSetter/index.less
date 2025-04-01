@@ -4,39 +4,56 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
+  border: 1px solid #EEE;
+  border-radius: 6px;
+  background: #FFF;
+  overflow: hidden;
   :global {
+
+    .ant-tree-treenode {
+      width: 100%;
+      &:hover{
+        background-color: #F7F7F7;
+      }
+    }
     .ant-tree-draggable-icon {
       transform: translateY(3px);
     }
-    .ant-tree-switcher_close{
+
+    .ant-tree-switcher_close {
       transform: translateY(2px) translateX(-2px);
     }
-    .ant-tree-switcher_open{
+
+    .ant-tree-switcher_open {
       transform: translateY(2px) translateX(-2px);
     }
-    .ant-tree-switcher-noop{
+
+    .ant-tree-switcher-noop {
       width: 0px;
     }
-    .ant-tree-list{
+
+    .ant-tree-list {
       font-size: 12px;
+      background-color: #fff;
+      padding-top: 5px;
     }
+
     .ant-tree {
       background-color: #F7F7F7;
       width: 100%;
     }
+
     .ant-tree .ant-tree-node-content-wrapper {
       border: 1px solid transparent;
     }
+
     .ant-tree .ant-tree-node-content-wrapper:hover {
-      background-color: #fff8f4;
-      color: @color-primary;
       border-radius: 3px;
-      border: 1px solid @color-primary;
+      background-color: transparent;
     }
   }
 
   .btnAdd {
-    margin-bottom: 10px;
     font-size: 12px;
     cursor: pointer;
     display: block;
@@ -45,12 +62,13 @@
     border: none;
     height: 26px;
     line-height: 26px;
-    border-radius: 3px;
-    background-color: #f9f9f9;
-    box-shadow: 0 1px 4px -1px #777;
+    border-radius: 6px 6px 0 0;
+    background-color: #FFF;
+    box-shadow: 0 1px 3px 0 #bbb;
+    z-index: 2;
   }
 
-  .editBox{
+  .editBox {
     position: fixed;
     right: 20px;
   }
@@ -58,6 +76,7 @@
 
 .listItemSelect {
   cursor: pointer;
+
   &:hover {
     border: 1px solid @color-primary;
   }
@@ -72,6 +91,7 @@
   background-color: hsl(0, 0%, 97%);
   border: 1px solid #ddd;
   margin-bottom: 10px;
+
   .listItemCard {
     .itemTitle {
       color: #555;
@@ -79,6 +99,7 @@
       line-height: 12px;
       margin: 0;
     }
+
     .item {
       font-size: 12px;
       padding-bottom: 10px;
@@ -88,7 +109,7 @@
       }
     }
   }
-  
+
   .listItemCardTop {
     width: 100%;
     height: 30px;
@@ -106,6 +127,7 @@
     height: 22px;
     margin: 3px 0px 3px 3px;
     padding: 0 2px;
+
     &:hover {
       background-color: rgba(0, 0, 0, 0.05);
       border-radius: 1px;
@@ -130,13 +152,15 @@
   height: 100%;
   display: flex;
   align-items: center;
-  > img {
+
+  >img {
     height: 70%;
     width: 20px;
     object-fit: contain;
     margin-right: 3px;
   }
-  > p {
+
+  >p {
     margin: 0 3px 0 0;
   }
 }
@@ -160,6 +184,7 @@
     padding-bottom: 3px;
     line-height: 12px;
   }
+
   .item {
     font-size: 12px;
     padding-bottom: 20px;
@@ -176,6 +201,7 @@
   vertical-align: -0.125em;
   text-rendering: optimizelegibility;
   -webkit-font-smoothing: antialiased;
+
   svg {
     display: inline-block;
     // width: 12px;
@@ -201,10 +227,13 @@
   align-items: center;
   justify-content: center;
   border-radius: 3px;
+  opacity: 0.9;
+
   &:hover {
     background-color: #ddd;
+
     svg {
-      fill: @color-primary;
+      // fill: @color-primary;
     }
   }
 }
@@ -220,10 +249,13 @@
   align-items: center;
   justify-content: center;
   border-radius: 3px;
+  opacity: 0.9;
+
   &:hover {
     background-color: #ddd;
+
     svg {
-      fill: @color-primary;
+      // fill: @color-primary;
     }
   }
 }
@@ -237,6 +269,8 @@
   align-items: center;
   justify-content: center;
   border-radius: 3px;
+  opacity: 0.9;
+
   &:hover {
     background-color: #ddd;
   }
@@ -253,6 +287,7 @@
   border-radius: @border-radius;
   background-color: @color-primary;
   color: @color-primary;
+
   svg {
     fill: #ffffff;
   }
