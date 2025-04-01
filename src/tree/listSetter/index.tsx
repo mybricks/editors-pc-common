@@ -462,11 +462,11 @@ export default function ({
       if(!item.children || (item.children && Array.isArray(item.children) && item.children.length === 0)){
         return {
           ...item,
-          title: <div style={{display: 'flex', alignItems: 'center'}}>
+          title: <div style={{display: 'flex',justifyContent:"space-around", alignItems: 'center'}}>
           <div style={{marginRight: '20px'}}>
             {getTitle(item)}
           </div>
-          <div style={{display: 'flex', marginRight: '30px'}}>
+          <div className={css.editBox} style={{display: 'flex'}}>
             <div
               className={
                 editId === item._id ? css.editActive : css.edit
@@ -496,11 +496,11 @@ export default function ({
       }else if(item.children && Array.isArray(item.children) && item.children.length > 0){
         return {
           ...item,
-          title: <div style={{display: 'flex', alignItems: 'center'}}>
+          title: <div style={{display: 'flex',justifyContent:"space-around", alignItems: 'center'}}>
           <div style={{marginRight: '20px'}}>
             {getTitle(item)}
           </div>
-          <div style={{display: 'flex', marginRight: '30px'}}>
+          <div className={css.editBox} style={{display: 'flex'}}>
             <div 
               className={
                 editId === item._id ? css.editActive : css.edit
@@ -518,7 +518,7 @@ export default function ({
           </div>
           {judgeFun(item) ? 
             <div
-                className={css.delete}
+                className={css.add}
                 onClick={() => addFun(item)}
               >
                 <Icon name="add"/>

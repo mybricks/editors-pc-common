@@ -5,11 +5,24 @@
   flex-direction: column;
   justify-content: center;
   :global {
+    .ant-tree-draggable-icon {
+      transform: translateY(3px);
+    }
+    .ant-tree-switcher_close{
+      transform: translateY(2px) translateX(-2px);
+    }
+    .ant-tree-switcher_open{
+      transform: translateY(2px) translateX(-2px);
+    }
+    .ant-tree-switcher-noop{
+      width: 0px;
+    }
     .ant-tree-list{
       font-size: 12px;
     }
     .ant-tree {
       background-color: #F7F7F7;
+      width: 100%;
     }
     .ant-tree .ant-tree-node-content-wrapper {
       border: 1px solid transparent;
@@ -35,6 +48,11 @@
     border-radius: 3px;
     background-color: #f9f9f9;
     box-shadow: 0 1px 4px -1px #777;
+  }
+
+  .editBox{
+    position: fixed;
+    right: 20px;
   }
 }
 
@@ -176,6 +194,25 @@
 
 .delete {
   .listItemBtn();
+  margin-top: 3px;
+  margin-bottom: 3px;
+  height: 22px;
+  width: 22px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+  &:hover {
+    background-color: #ddd;
+    svg {
+      fill: @color-primary;
+    }
+  }
+}
+
+.add {
+  .listItemBtn();
+  position: fixed;
+  right: 75px;
   margin-top: 3px;
   margin-bottom: 3px;
   height: 22px;
