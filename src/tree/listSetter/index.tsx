@@ -468,6 +468,17 @@ export default function ({
             {getTitle(item)}
           </div>
           <div className={css.editBox} style={{display: 'flex'}}>
+
+          {judgeFun(item) ? 
+            <div
+                className={css.edit}
+                onClick={() => addFun(item)}
+              >
+                <Icon name="add"/>
+            </div> :
+            void 0
+          }
+
             <div
               className={
                 editId === item._id ? css.editActive : css.edit
@@ -483,15 +494,7 @@ export default function ({
               <DeleteIcon/>
             </div>
           </div>
-          {judgeFun(item) ? 
-            <div
-                className={css.edit}
-                onClick={() => addFun(item)}
-              >
-                <Icon name="add"/>
-            </div> :
-            void 0
-          }
+
         </div>
         }
       }else if(item.children && Array.isArray(item.children) && item.children.length > 0){
@@ -502,6 +505,16 @@ export default function ({
             {getTitle(item)}
           </div>
           <div className={css.editBox} style={{display: 'flex'}}>
+
+          {judgeFun(item) ? 
+            <div
+                className={css.add}
+                onClick={() => addFun(item)}
+              >
+                <Icon name="add"/>
+            </div> :
+            void 0
+          }
             <div 
               className={
                 editId === item._id ? css.editActive : css.edit
@@ -517,15 +530,7 @@ export default function ({
               <DeleteIcon/>
             </div>
           </div>
-          {judgeFun(item) ? 
-            <div
-                className={css.add}
-                onClick={() => addFun(item)}
-              >
-                <Icon name="add"/>
-            </div> :
-            void 0
-          }
+
         </div>,
           children: valueTransFun(item.children)
         }
