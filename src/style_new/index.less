@@ -75,6 +75,33 @@
       }
     }
   }
+
+  .actions_allawys_display {
+    display: flex;
+    align-items: center;
+    color: #555;
+
+    .icon {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+
+      svg {
+        height: 12px;
+        width: 12px;
+      }
+
+      &:first-child {
+        margin-right: 4px;
+      }
+
+      &:not(:first-child) {
+        margin-left: 4px;
+        margin-right: 4.5px;
+      }
+    }
+  }
 }
 
 .codeWrap {
@@ -118,13 +145,19 @@
     height: 300px;
     position: relative;
 
+    &:hover {
+      .plus {
+        visibility: visible;
+      }
+    }
+
     .plus {
       position: absolute;
-      top: 1px;
-      right: 4px;
+      top: 2px;
+      right: 7px;
       z-index: 1;
       cursor: pointer;
-
+      visibility: hidden;
       &:hover {
         color: #f86508;
       }

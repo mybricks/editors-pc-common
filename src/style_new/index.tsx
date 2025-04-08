@@ -50,6 +50,8 @@ interface State {
   editMode: boolean
 }
 
+import { fullScreenIcon,goBackIcon } from './icon';
+
 export default function ({editConfig}: EditorProps) {
   const [titleContent, setTitleContent] = useState("");
   const [targetStyle, setTargetStyle] = useState<any>(null);
@@ -140,7 +142,9 @@ export default function ({editConfig}: EditorProps) {
 
   const title = useMemo(() => {
     return (
-      <div
+      <>
+      {/* 可视化编辑态的工具条 */}
+      {editMode &&  (<div
         onMouseEnter={onMouseEnter}
         onMouseLeave={onMouseLeave}
         className={css.titleContainer}
@@ -172,13 +176,55 @@ export default function ({editConfig}: EditorProps) {
           </div>
           <div
             className={css.icon}
-            data-mybricks-tip={`{content:'${editMode ? '代码编辑' : '可视化编辑'}',position:'left'}`}
+            data-mybricks-tip={`{content:'代码编辑',position:'left'}`}
             onClick={onEditModeClick}
           >
             {editMode ? <CodeOutlined /> : <AppstoreOutlined />}
           </div>
         </div>
-      </div>
+      </div>)}
+      {/* 代码编辑的工具条 */}
+      {!editMode && (<div
+        onMouseEnter={onMouseEnter}
+        onMouseLeave={onMouseLeave}
+        className={css.titleContainer}
+        //style={{ marginBottom: open ? 3 : 0 }}
+      >
+        <div className={css.title} style={{fontWeight: styleProps?.options?.length > 1 ? 800 : "normal"}} onClick={onOpenClick}>
+          {finalDisabledSwitch ? null : <div
+            className={`${css.icon}${open ? ` ${css.iconOpen}` : ''}`}
+            data-mybricks-tip={open ? '收起' : '展开'}
+          >
+            <CaretRightOutlined />
+          </div>}
+          <div>{editConfig.title}<span className={css.tips}>{titleContent}</span></div>
+        </div>
+        <div className={css.actions_allawys_display}>
+          <div
+            className={css.icon}
+            data-mybricks-tip={'复制selector'}
+            onClick={copy}
+          >
+            <CopyOutlined />
+          </div>
+          <div
+            className={css.icon}
+            data-mybricks-tip={'重置'}
+            onClick={refresh}
+          >
+            <ReloadOutlined />
+          </div>
+          <div
+            className={css.icon}
+            data-mybricks-tip={`{content:'返回可视化编辑',position:'left'}`}
+            onClick={onEditModeClick}
+          >
+            {/* {<AppstoreOutlined />} */}
+            {goBackIcon}
+          </div>
+        </div>
+      </div>)}
+      </>
     )
   }, [open, editMode, titleContent])
 
@@ -449,7 +495,7 @@ function CssEditor ({popView, options, value, selector, onChange: onPropsChange,
         </div> */}
         <div className={css.body}>
           <div data-mybricks-tip='放大' className={css.plus} onClick={onFullscreen}>
-            <FullscreenOutlined />
+            {fullScreenIcon}
           </div>
           {monaco}
         </div>
