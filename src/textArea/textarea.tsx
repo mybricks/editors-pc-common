@@ -128,6 +128,9 @@ export default function ({editConfig}: EditorProps): JSX.Element {
         }
       }}
                       style={styles}
+                      onDoubleClick={e => {
+                        e.stopPropagation()
+                      }}
                       onChange={evt => {
                         setCurText(evt.target.value)
                       }}
