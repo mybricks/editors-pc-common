@@ -308,6 +308,9 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
                 padding: "0 8px",
                 overflow: "hidden",
               }}
+              labelStyle={{
+                textAlign:"left"
+              }}
               defaultValue={value.fontWeight}
               options={FONT_WEIGHT_OPTIONS}
               onChange={(value) => onChange({ key: "fontWeight", value })}

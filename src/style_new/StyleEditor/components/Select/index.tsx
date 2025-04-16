@@ -16,6 +16,7 @@ interface SelectProps {
   prefix?: ReactNode;
   defaultValue?: any;
   style?: CSSProperties;
+  labelStyle?: CSSProperties;
   onChange: (value: any) => void;
   options: Array<{ value: any; label: string | number }>;
   multiple?: boolean;
@@ -30,6 +31,7 @@ export function Select({
   prefix,
   defaultValue,
   style = {padding: "0 8px"},
+  labelStyle,
   onChange,
   options,
   showIcon = true,
@@ -105,6 +107,7 @@ export function Select({
         >
           {prefix && <div className={css.prefix}>{prefix}</div>}
           <div
+            style={labelStyle}
             className={`${css.value}${
               labelClassName ? ` ${labelClassName}` : ""
             }`}
