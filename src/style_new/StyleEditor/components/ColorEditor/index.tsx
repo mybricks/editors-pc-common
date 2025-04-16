@@ -250,6 +250,7 @@ export function ColorEditor({
     }
     return (
       <input
+        data-mybricks-tip={"支持16进制、RGB、RGBA、HSL、HSLA或颜色名称"}
         ref={inputColorRef}
         value={userInput}
         className={css.input}
@@ -303,6 +304,7 @@ export function ColorEditor({
     return (
       <div className={css.opacity}>
         <input
+          data-mybricks-tip={"颜色不透明度"}
           ref={inputRef}
           type="inputNumber"
           value={Math.round(opacityNumber * 100)}
@@ -468,7 +470,7 @@ export function ColorEditor({
       <div
         // className={`${css.color}${state.nonColorValue ? ` ${css.disabled}` : ''}`}
         className={css.color}
-        data-mybricks-tip={"支持16进制、RGB、RGBA、HSL、HSLA或颜色名称"}
+        
       >
         {block}
         {input}
