@@ -29,7 +29,7 @@ export function Select({
   value: propsValue,
   prefix,
   defaultValue,
-  style = {},
+  style = {padding: "0 8px"},
   onChange,
   options,
   showIcon = true,

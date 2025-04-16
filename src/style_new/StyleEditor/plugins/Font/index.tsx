@@ -114,9 +114,9 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
     Array.isArray(value.fontFamily)
       ? value.fontFamily
       : value.fontFamily
-          ?.split(",")
-          .filter(Boolean)
-          .map((item) => item.trim().replace(/^"|"$/g, ""))
+        ?.split(",")
+        .filter(Boolean)
+        .map((item) => item.trim().replace(/^"|"$/g, ""))
   );
 
   function mergeFonts(additionalFonts: string[]) {
@@ -226,7 +226,7 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
         res.push({ key: "lineHeight", value });
         setLineHeight(value);
       }
-      if(res.length > 0) {
+      if (res.length > 0) {
         onChange(res);
       }
     },
@@ -235,6 +235,7 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
 
   return (
     <Panel title="字体" showTitle={showTitle} collapse={collapse}>
+
       {cfg.disableFontFamily ? null : (
         <Panel.Content>
           {cfg.disableFontFamily ? null : (
@@ -243,19 +244,19 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
                 "字体" +
                 (innerFontFamily?.[0] !== "inherit"
                   ? "：" +
-                    innerFontFamily
-                      ?.map?.(
-                        (item) =>
-                          fontFamilyOptions().find(
-                            (option) => option.value === item
-                          )?.label ?? item
-                      )
-                      .filter(Boolean)
-                      .join("，")
+                  innerFontFamily
+                    ?.map?.(
+                      (item) =>
+                        fontFamilyOptions().find(
+                          (option) => option.value === item
+                        )?.label ?? item
+                    )
+                    .filter(Boolean)
+                    .join("，")
                   : "")
               }
               prefix={<FontFamilyOutlined />}
-              style={{ flexBasis: `100%`, padding: 0, overflow: "hidden" }}
+              style={{ flexBasis: `100%`,padding: "0 8px", overflow: "hidden" }}
               defaultValue={value.fontFamily}
               options={fontFamilyOptions()}
               multiple={true}
@@ -280,27 +281,31 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
           )}
         </Panel.Content>
       )}
+      {cfg.disableColor ? null : (
+        <Panel.Content>
+          <ColorEditor
+            style={{
+              flex: 2,
+              padding: 6,
+              overflow: "hidden",
+              paddingLeft: 6,
+            }}
+            defaultValue={value.color}
+            onChange={(value) => onChange({ key: "color", value })}
+          />
+        </Panel.Content>
+      )}
+
       {cfg.disableFontWeight && cfg.disableColor ? null : (
         <Panel.Content>
-          {cfg.disableColor ? null : (
-            <ColorEditor
-              style={{
-                flex: 2,
-                padding: 0,
-                overflow: "hidden",
-                paddingLeft: 6,
-              }}
-              defaultValue={value.color}
-              onChange={(value) => onChange({ key: "color", value })}
-            />
-          )}
+
           {cfg.disableFontWeight ? null : (
             <Select
               tip="粗细"
               prefix={<FontWeightOutlined />}
               style={{
                 flex: 1,
-                padding: 0,
+                padding: "0 8px",
                 overflow: "hidden",
               }}
               defaultValue={value.fontWeight}
@@ -308,12 +313,7 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
               onChange={(value) => onChange({ key: "fontWeight", value })}
             />
           )}
-        </Panel.Content>
-      )}
-      {cfg.disableLineHeight &&
-      cfg.disableLetterSpacing &&
-      cfg.disableFontSize ? null : (
-        <Panel.Content>
+
           {cfg.disableFontSize ? null : (
             <InputNumber
               tip="大小"
@@ -326,6 +326,12 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
               onChange={onFontSizeChange}
             />
           )}
+        </Panel.Content>
+      )}
+      {cfg.disableLineHeight &&
+        cfg.disableLetterSpacing &&
+        cfg.disableFontSize ? null : (
+        <Panel.Content>
           {cfg.disableLineHeight ? null : (
             <InputNumber
               tip="行高"
