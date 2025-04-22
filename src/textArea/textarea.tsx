@@ -107,14 +107,14 @@ export default function ({editConfig}: EditorProps): JSX.Element {
     changedRef.current
   ])
 
-  useEffect(() => {
-    return () => {
-      if (!useLocale && changedRef.current) {
-        value.set(changedRef.current.value)
-        changedRef.current = void 0
-      }
-    }
-  }, [useLocale])
+  // useEffect(() => {
+  //   return () => {
+  //     if (useLocale && changedRef.current) {
+  //       value.set(changedRef.current.value)
+  //       changedRef.current = void 0
+  //     }
+  //   }
+  // }, [useLocale])
 
   return (
     <div className={css["editor-textArea"]}
