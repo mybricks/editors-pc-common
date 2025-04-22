@@ -109,7 +109,7 @@ export default function ({editConfig}: EditorProps): JSX.Element {
 
   useEffect(() => {
     return () => {
-      if (useLocale && changedRef.current) {
+      if (!useLocale && changedRef.current) {
         value.set(changedRef.current.value)
         changedRef.current = void 0
       }
