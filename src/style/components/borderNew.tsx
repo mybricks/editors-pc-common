@@ -133,14 +133,13 @@ export default function Border() {
   const borderConfig = useMemo(() => {
     if (borderToggleValue === "all") {
       return (
-        <div className={css.row}>
+        <div className={css.row} data-mybricks-tip={"边框宽度"}>
           <Panel.Content style={{ padding: 3 }}>
             <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
-              <div className={css.icon} data-mybricks-tip={"边框宽度"}>
+              <div className={css.icon} >
                 <BorderAllOutlined />
               </div>
               <InputNumber
-                tip="边框宽度"
                 style={DEFAULT_STYLE_SMALL}
                 value={borderValue.borderTopWidth}
                 defaultUnitValue="px"

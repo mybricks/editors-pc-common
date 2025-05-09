@@ -58,6 +58,7 @@ export default function () {
                 <PaddingAllOutlined />
               </div>
               <InputNumber
+                data-mybricks-tip={"内边距"}
                 defaultValue={editCtx.paddingTop}
                 onChange={(value) =>
                   handleChange({

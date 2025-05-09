@@ -16,7 +16,7 @@ interface UnitOption {
 }
 interface InputNumberProps extends InputProps {
   defaultUnitValue?: string
-  unitDisabledList?: Array<string> 
+  unitDisabledList?: Array<string>
   unitOptions?: Array<UnitOption>
   /** 允许负数 */
   allowNegative?: boolean,
@@ -53,14 +53,14 @@ export function InputNumber ({
   }, [unit, disabled])
 
   const onKeyDown = useCallback((e: {
-    target: any, code: any; preventDefault: () => void 
+    target: any, code: any; preventDefault: () => void
   }) => {
     const code = e.code
     const newValue = incrementDecrement(e.target.value, code);
     if (['ArrowUp', 'ArrowDown'].includes(code)) {
       e.target.value = newValue;
       e.target.select();// 光标增减时依旧选中
-      e.preventDefault(); 
+      e.preventDefault();
     } else if (code === 'Enter') {
       e.target.value = newValue;
       handleNumberChange(newValue);
@@ -86,7 +86,8 @@ export function InputNumber ({
     } else if (Array.isArray(unitOptions)) {
       return (
         <Select
-          style={{padding: 0, fontSize: 10}}
+          tip='单位'
+          style={{ padding: 0, fontSize: 10 }}
           defaultValue={unit}
           options={unitOptions}
           showIcon={showIcon} // 带Select的数字输入框showIcon 便于提示用户可以切换Select选项 但字体的输入框太小下拉icon会遮挡
@@ -132,7 +133,7 @@ export function InputNumber ({
       onKeyDown={onKeyDown}
       onBlur={onBlur}
       tip={tip}
-      numberTip={"光标键可增减"}
+      // numberTip={"光标键可增减"}
       type={type} // TODO 后续调整 现在因为面板宽度不够只给小部分加 type = 'number'
     />
   )

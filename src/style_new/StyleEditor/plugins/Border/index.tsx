@@ -257,7 +257,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
             </Panel.Item>
           </Panel.Content>
           <div
-            data-mybricks-tip={`{content:'切换编辑方式',position:'left'}`}
+            data-mybricks-tip={`{content:'切换为单独配置',position:'left'}`}
             className={css.actionIcon}
             onClick={() =>
               handleToggleChange({ key: "borderToggleValue", value: "split" })
@@ -347,7 +347,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                   </Panel.Item>
                 </Panel.Content>
                 <div
-                  data-mybricks-tip={`{content:'切换编辑方式',position:'left'}`}
+                  data-mybricks-tip={`{content:'切换为统一配置',position:'left'}`}
                   className={css.actionIcon}
                   onClick={() =>
                     handleToggleChange({
@@ -609,7 +609,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
             </Panel.Item>
           </Panel.Content>
           <div
-            data-mybricks-tip={`{content:'切换编辑方式',position:'left'}`}
+            data-mybricks-tip={`{content:'切换为单独配置',position:'left'}`}
             className={css.actionIcon}
             onClick={() =>
               handleToggleChange({ key: "radiusToggleValue", value: "split" })
@@ -687,7 +687,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
             </Panel.Item>
           </Panel.Content>
           <div
-            data-mybricks-tip={`{content:'切换编辑方式',position:'left'}`}
+            data-mybricks-tip={`{content:'切换为统一配置',position:'left'}`}
             className={css.actionIcon}
             onClick={() =>
               handleToggleChange({ key: "radiusToggleValue", value: "all" })

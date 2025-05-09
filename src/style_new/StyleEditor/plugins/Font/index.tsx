@@ -301,7 +301,7 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
 
           {cfg.disableFontWeight ? null : (
             <Select
-              tip="粗细"
+              tip="字重"
               prefix={<FontWeightOutlined />}
               style={{
                 flex: 1,
@@ -319,7 +319,7 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
 
           {cfg.disableFontSize ? null : (
             <InputNumber
-              tip="大小"
+              tip="字号"
               type="number"
               style={{ flex: 1 }}
               prefix={<FontSizeOutlined />}
@@ -350,7 +350,7 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
           )}
           {cfg.disableLetterSpacing ? null : (
             <InputNumber
-              tip="间距"
+              tip="字间距"
               type="number"
               style={{ flex: 1 }}
               prefix={<LetterSpacingOutlined />}

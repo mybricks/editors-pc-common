@@ -68,10 +68,10 @@ export function Padding ({value, onChange, config, showTitle, collapse}: Padding
   const paddingConfig = useMemo(() => {
     if (toggle) {
       return (
-        <div className={css.row}>
+        <div className={css.row} data-mybricks-tip={`{content:'内边距',position:'top'}`}>
           <Panel.Content style={{padding: 3}}>
             <Panel.Item className={css.editArea} style={{padding: '0px 8px'}}>
-              <div className={css.icon} data-mybricks-tip={`{content:'统一设置',position:'left'}`}>
+              <div className={css.icon}>
                 <PaddingAllOutlined />
               </div>
               <InputNumber
@@ -84,11 +84,12 @@ export function Padding ({value, onChange, config, showTitle, collapse}: Padding
                   paddingBottom: value,
                   paddingLeft: value,
                 })}
+                // tip={`{content:'内边距',position:'top'}`}
               />
             </Panel.Item>
           </Panel.Content>
           <div
-            data-mybricks-tip={`{content:'统一设置',position:'left'}`}
+            data-mybricks-tip={`{content:'切换为单独配置',position:'left'}`}
             className={css.actionIcon}
             onClick={() => setToggle(false)}
           >
@@ -148,7 +149,7 @@ export function Padding ({value, onChange, config, showTitle, collapse}: Padding
             </Panel.Item>
           </Panel.Content>
           <div
-            data-mybricks-tip={`{content:'切换编辑方式',position:'left'}`}
+            data-mybricks-tip={`{content:'切换为统一配置',position:'left'}`}
             className={css.actionIcon}
             onClick={() => setToggle(true)}
           >

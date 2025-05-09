@@ -85,6 +85,7 @@ export function Margin ({value, onChange, config, showTitle, collapse}: MarginPr
                 <MarginAllOutlined />
               </div>
               <InputNumber
+                data-mybricks-tip={"内边距"}
                 style={DEFAULT_STYLE}
                 defaultValue={marginValue.marginTop}
                 // suffix={'px'}
