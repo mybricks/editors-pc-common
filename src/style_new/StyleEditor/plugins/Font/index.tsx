@@ -288,7 +288,7 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
               flex: 2,
               padding: 6,
               overflow: "hidden",
-              paddingLeft: 6,
+              paddingLeft: 14,
             }}
             defaultValue={value.color}
             onChange={(value) => onChange({ key: "color", value })}
