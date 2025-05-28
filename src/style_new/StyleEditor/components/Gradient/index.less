@@ -9,8 +9,9 @@
   background-color: white;
   border-radius: 6px;
   box-shadow: 0px 10px 38px -10px rgba(22, 23, 24, 0.35),
-    0px 10px 20px -15px rgba(22, 23, 24, 0.2);
+  0px 10px 20px -15px rgba(22, 23, 24, 0.2);
 }
+
 .container {
   display: flex;
   align-items: center;
@@ -23,6 +24,7 @@
     justify-content: center;
     cursor: pointer;
     color: #555;
+
     svg {
       height: 12px;
       width: 12px;
@@ -37,10 +39,16 @@
 
     .colorPickerContainer {
       position: relative;
+
       .icon {
         z-index: 1;
         position: absolute;
         top: 0;
+
+        svg {
+          max-width: 13px;
+          max-height: 13px;
+        }
       }
 
       .block {

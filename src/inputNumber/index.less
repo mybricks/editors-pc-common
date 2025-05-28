@@ -5,6 +5,7 @@
   display: inline-block;
   max-width: 100%;
   margin-right: 4px;
+
   &All {
     // width: 100%;
     font-size: 12px;
@@ -28,39 +29,62 @@
       // overflow: hidden;
       // text-align: right;
     }
+
     :global {
       .ant-input-number {
         transition: none;
-        font-size:12px;
+        font-size: 12px;
+        background: #F5F5F5;
+        border: none;
+        height: 26px;
+        padding-left: 3px;
+
+        * {
+          transition: none !important;
+        }
+
+        input {
+          height: 26px;
+        }
+
         // width: 100%!important;
         // width: 60px!important;
       }
+
       .ant-input-number-sm {
         // width: 100%!important;
         // width: 60px!important;
       }
+
       .ant-input-number-handler-up:hover {
         height: 50% !important;
       }
+
       .ant-input-number-handler-down:hover {
         height: 50% !important;
       }
+
       .ant-input-number-handler {
         min-height: 50%;
       }
+
       .ant-input-number-handler-up-inner {
-        margin-top: -7px;
+        //margin-top: -7px;
       }
+
       .ant-input-number:hover {
         border-color: @color-primary;
       }
+
       .ant-input-number-focused,
       .ant-input-number:focus {
-        border-color: @color-primary;
-        -webkit-box-shadow: var(--box-shadow);
-        box-shadow: var(--box-shadow);
+        //border-color: @color-primary;
+        //-webkit-box-shadow: var(--box-shadow);
+        outline: 1px solid @color-primary;
       }
+
       .ant-input-number-handler-wrap {
+        width: 16px !important;
         z-index: 2;
       }
     }

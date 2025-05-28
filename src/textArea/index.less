@@ -1,6 +1,6 @@
 @import "../theme.less";
 
-.editor-textArea {
+.textArea {
   position: relative;
 
   :global {
@@ -9,6 +9,7 @@
       // resize: none;
       font-size: 12px;
       height: 26px;
+      background: #F5F5F5;
     }
 
     .ant-input:hover {
@@ -30,6 +31,38 @@
 
     .ant-input[disabled]:hover {
       border-color: #d9d9d9;
+    }
+  }
+}
+
+.vCenter {
+  display: flex;
+  align-items: center;
+  background: #ffffff;
+  outline: 2px solid @color-primary;
+  border-radius: @border-radius;
+  overflow: hidden;
+
+  textarea {
+    height: fit-content !important;
+    line-height: 1;
+    text-align: center;
+    border: none;
+    outline: none;
+    box-shadow: none !important;
+    padding: 10px 0 0 0 !important;
+    resize: none;
+    width: 100%;
+    //line-height: 1;
+
+    &:active {
+      border: none !important;
+      outline: none !important;
+    }
+
+    &:focus-visible {
+      border: none !important;
+      outline: none !important;
     }
   }
 }

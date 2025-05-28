@@ -2,10 +2,19 @@
 
 .editor-switch {
   :global {
+    .ant-switch {
+      transition: none !important;
+      background: #DDD;
+
+      * {
+        transition: none !important;
+      }
+    }
+
     .ant-switch-checked {
       background-color: @color-primary;
 
-      &:hover:not(.ant-switch-disabled){
+      &:hover:not(.ant-switch-disabled) {
         background-color: @color-primary !important;
       }
     }
@@ -20,7 +29,9 @@
     .ant-switch-loading * {
       cursor: default;
     }
+
     --antd-wave-shadow-color: @color-primary !important;
+
     .ant-switch-checked:focus {
       box-shadow: var(--box-shadow);
     }
