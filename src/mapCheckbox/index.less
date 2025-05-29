@@ -1,3 +1,5 @@
+@import "../theme.less";
+
 .editor-map {
   &__item {
     width: 100%;
@@ -104,16 +106,7 @@
   }
 
   button {
-    cursor: pointer;
-    display: block;
-    width: 100%;
-    text-align: center;
-    border: none;
-    height: 26px;
-    line-height: 26px;
-    border-radius: 3px;
-    background-color: #f9f9f9;
-    box-shadow: 0 1px 4px -1px #777;
+    .button-base();
   }
 }
 

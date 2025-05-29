@@ -22,9 +22,27 @@
 @font-color-content: rgba(0, 0, 0, 0.85); // 主体内容文字颜色
 @font-color-disabled: rgba(0, 0, 0, 0.25); // 失效文字颜色
 
-@border-radius: 4px; // 组件/浮层圆角
 @box-shadow-primary: 0 2px 8px rgba(0, 0, 0, 0.15); // 浮层阴影
 @box-shadow-hover: 0 3px 6px rgba(208, 2, 27, 0.16),
   0 3px 6px rgba(208, 2, 27, 0.23); // hover阴影
 
-@border-radius: 6px;
+@border-radius: 5px;
+@boder-color: rgba(0,0,0,0.10196);
+
+
+.button-base() {
+  width: 100%;
+  height: 24px;
+  font-size: 11px;
+  line-height: 24px !important;
+  outline-color: @boder-color;
+  border-radius: @border-radius;
+  color: #000000e5 !important;
+  cursor: pointer;
+  background: transparent;
+  outline-width: 1px;
+  outline-style: solid;
+  outline-offset: -1px;
+  font-weight: 450;
+  text-align: center;
+}

@@ -4,26 +4,16 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
-  border: 1px solid #EEE;
+  border: 1px solid @boder-color;
   border-radius: @border-radius;
   background: #FFF;
   //padding: 1px 0;
 
   .btnAdd {
-    font-size: 12px;
-    cursor: pointer;
-    display: block;
-    width: 100%;
-    text-align: center;
-    border: none;
-    height: 26px;
-    line-height: 26px;
-    border-radius: @border-radius @border-radius 0 0;
-    background-color: #FFF;
-    //border-bottom: 1px solid #ddd;
-    //box-shadow: 0 1px 3px 0 #bbb;
-    //box-shadow: 0 1px 4px -1px #777;
-    //margin-bottom: 10px;
+    .button-base();
+    outline-width: unset;
+    outline-style: unset;
+    outline-offset: unset;
   }
 
   .content {
