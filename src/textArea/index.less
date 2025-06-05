@@ -10,17 +10,20 @@
       font-size: 12px;
       height: 26px;
       background: #F5F5F5;
+      border: none;
+      transition: none;
     }
 
     .ant-input:hover {
-      border-color: @color-primary;
+      border-color: #DDD;
+      outline: 1px solid #DDD;
     }
 
     .ant-input-focused,
     .ant-input:focus {
-      border-color: @color-primary;
-      -webkit-box-shadow: var(--box-shadow);
-      box-shadow: var(--box-shadow);
+      outline: 1px solid @color-primary;
+      //-webkit-box-shadow: var(--box-shadow);
+      //box-shadow: var(--box-shadow);
     }
 
     .ant-input[disabled] {
