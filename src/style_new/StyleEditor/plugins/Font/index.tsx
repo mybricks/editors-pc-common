@@ -240,21 +240,21 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
         <Panel.Content>
           {cfg.disableFontFamily ? null : (
             <Select
-              // tip={
-              //   "字体" +
-              //   (innerFontFamily?.[0] !== "inherit"
-              //     ? "：" +
-              //     innerFontFamily
-              //       ?.map?.(
-              //         (item) =>
-              //           fontFamilyOptions().find(
-              //             (option) => option.value === item
-              //           )?.label ?? item
-              //       )
-              //       .filter(Boolean)
-              //       .join("，")
-              //     : "")
-              // }
+              tip={
+                "字体" +
+                (innerFontFamily?.[0] !== "inherit"
+                  ? "：" +
+                  innerFontFamily
+                    ?.map?.(
+                      (item) =>
+                        fontFamilyOptions().find(
+                          (option) => option.value === item
+                        )?.label ?? item
+                    )
+                    .filter(Boolean)
+                    .join("，")
+                  : "")
+              }
               prefix={<FontFamilyOutlined />}
               style={{ flexBasis: `100%`,padding: "0 8px", overflow: "hidden" }}
               defaultValue={value.fontFamily}
@@ -301,7 +301,7 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
 
           {cfg.disableFontWeight ? null : (
             <Select
-              // tip="字重"
+              tip="字重"
               prefix={<FontWeightOutlined />}
               style={{
                 flex: 1,
@@ -319,7 +319,7 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
 
           {cfg.disableFontSize ? null : (
             <InputNumber
-              //tip="字号"
+              tip="字号"
               type="number"
               style={{ flex: 1 }}
               prefix={<FontSizeOutlined />}

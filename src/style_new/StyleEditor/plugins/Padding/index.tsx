@@ -86,7 +86,7 @@ export function Padding({value, onChange, config, showTitle, collapse}: PaddingP
                   paddingBottom: value,
                   paddingLeft: value,
                 })}
-                // tip={`{content:'内边距',position:'top'}`}
+                tip={`{content:'内边距',position:'top'}`}
               />
             </Panel.Item>
           </Panel.Content>

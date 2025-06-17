@@ -172,7 +172,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
               </div>
               {disableBorderWidth ? null : (
                 <InputNumber
-                  //tip="边框宽度"
+                  tip="边框宽度"
                   style={DEFAULT_STYLE_SMALL}
                   value={borderValue.borderTopWidth}
                   // suffix={'px'}
@@ -592,7 +592,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                 <BorderRadiusSplitOutlined />
               </div>
               <InputNumber
-                //tip="圆角半径"
+                tip="圆角半径"
                 style={DEFAULT_STYLE}
                 // suffix={'px'}
                 defaultValue={borderValue.borderTopLeftRadius}

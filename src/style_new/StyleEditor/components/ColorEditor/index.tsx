@@ -250,7 +250,7 @@ export function ColorEditor({
     }
     return (
       <input
-        //data-mybricks-tip={"支持16进制、RGB、RGBA、HSL、HSLA或颜色名称"}
+        data-mybricks-tip={"支持16进制、RGB、RGBA、HSL、HSLA或颜色名称"}
         ref={inputColorRef}
         value={userInput}
         className={css.input}

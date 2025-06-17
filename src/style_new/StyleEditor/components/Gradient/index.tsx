@@ -85,7 +85,7 @@ export function Gradient({
             ref={presetRef}
             className={css.block}
             style={{backgroundImage}}
-            //data-mybricks-tip={"渐变颜色"}
+            // data-mybricks-tip={"渐变颜色"}
           />
           {(!backgroundImage ||
             backgroundImage === "none" ||
@@ -95,7 +95,7 @@ export function Gradient({
             </div>
           )}
         </div>
-        <div className={css.text}>
+        <div className={css.text} data-mybricks-tip="渐变颜色">
           <span>{gradientType}颜色渐变</span>
         </div>
       </div>
