@@ -8,6 +8,7 @@ import EditorSwitch from "./switch";
 import EditorTextInput from "./textInput";
 import EditorIconRadio from "./iconRadio";
 import EditorImageSelector from "./imageSelector";
+import EditorImageShowType from "./imageShowType";
 import EditorTextArea from "./textArea";
 import EditorAlign from "./align";
 import EditorBetween from "./between";
@@ -65,6 +66,7 @@ const PcEditorMap: any = {
   ICONRADIO: EditorIconRadio,
   ICON: EditorIcon,
   IMAGESELECTOR: EditorImageSelector,
+  IMAGESHOWTYPE: EditorImageShowType,
   INPUTNUMBER: EditorInputNumber,
   SLIDER: EditorSlider,
   STYLE: EditorStyle,

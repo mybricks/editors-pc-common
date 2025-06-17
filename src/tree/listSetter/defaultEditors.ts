@@ -10,6 +10,7 @@ import EditorValueSelect from '../../valueSelect'
 // import EditorCode from './../../jsCoder'
 // import Code from '../../code'
 import EditorImageSelector from "../../imageSelector";
+import EditorImageShowType from "../../imageShowType";
 import EditorStyle from "../../style";
 import EditorIcon from "../../icon";
 import EditorcolorPicker from "../../colorPicker"
@@ -30,6 +31,7 @@ const PcEditorMap: any = {
   VALUESELECT: EditorValueSelect,
   //CODE: Code,
   IMAGESELECTOR: EditorImageSelector,
+  IMAGESHOWTYPE: EditorImageShowType,
   STYLE: EditorStyle,
   ICON: EditorIcon,
   COLORPICKER: EditorcolorPicker,
