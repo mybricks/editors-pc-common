@@ -200,7 +200,7 @@ export default function ({ editConfig }: EditorProps): any {
       {Array.isArray(subModes) && subModes.length > 0 && (
         <Select
           disabled={type !== IMAGE_TYPE.CUT}
-          style={{ width: "100%" }}
+          style={{ width: "100%" ,fontSize: 12}}
           options={subModes}
           value={mode}
           size="small"
