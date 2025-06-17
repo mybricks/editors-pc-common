@@ -1,5 +1,5 @@
 import React, {
-  useMemo, 
+  useMemo,
   useState,
   useEffect,
   useCallback
@@ -8,23 +8,24 @@ import DeleteOutlined from '@ant-design/icons/DeleteOutlined'
 
 import css from './index.less'
 
-function windowComlibsEdit () {
+function windowComlibsEdit() {
   return (window as any)['__comlibs_edit_']
 }
 
-async function getComponentWithNamespace (namespace: any) {
+async function getComponentWithNamespace(namespace: any) {
   return new Promise((resolve) => {
     if (!namespace) {
       resolve(null);
       return;
-    };
+    }
+    ;
 
     let rst;
 
     const comlibs = windowComlibsEdit();
     const cb = (com: any) => {
-      const { comAray, namespace: comNamespace } = com;
-      
+      const {comAray, namespace: comNamespace} = com;
+
       if (Array.isArray(comAray)) {
         return deepFind(comAray, cb)
       }
@@ -38,8 +39,8 @@ async function getComponentWithNamespace (namespace: any) {
     }
 
     comlibs.find((comlib: any) => {
-      const { comAray } = comlib;
-  
+      const {comAray} = comlib;
+
       return deepFind(comAray, cb);
     });
 
@@ -148,7 +149,10 @@ type ShowComponentLibraries = Array<{
 /**
  * 获取可展示的组件库列表
  */
-function getComponentLibraries ({ schema, rtType }: { schema: Options['schema'], rtType: Options['rtType'] }): ShowComponentLibraries {
+function getComponentLibraries({schema, rtType}: {
+  schema: Options['schema'],
+  rtType: Options['rtType']
+}): ShowComponentLibraries {
   const schemaType = Object.prototype.toString.call(schema);
 
   if (!['[object String]', '[object Array]', '[object Undefined]'].includes(schemaType)) return [];
@@ -158,7 +162,7 @@ function getComponentLibraries ({ schema, rtType }: { schema: Options['schema'],
   const result: any = []
 
   componentLibraries.forEach((componentLibrary: ComponentLibrary) => {
-    const components = traverseComponents(componentLibrary, { schema, rtType })
+    const components = traverseComponents(componentLibrary, {schema, rtType})
 
     if (components.length) {
       result.push({
@@ -175,7 +179,7 @@ function getComponentLibraries ({ schema, rtType }: { schema: Options['schema'],
 /**
  * 判断组件是否应该显示
  */
-function showComponent(props: Component, { schema, rtType }: { schema: Options['schema'], rtType: Options['rtType'] }) {
+function showComponent(props: Component, {schema, rtType}: { schema: Options['schema'], rtType: Options['rtType'] }) {
   const {
     enable,
     rtType: comRtType,
@@ -185,7 +189,7 @@ function showComponent(props: Component, { schema, rtType }: { schema: Options['
   } = props;
 
   let bool = false
-  
+
   if (namespace) {
     // 非启用
     if (enable !== void 0 && enable === false) {
@@ -247,16 +251,19 @@ function showComponent(props: Component, { schema, rtType }: { schema: Options['
 /**
  * 遍历组件库
  */
-function traverseComponents(props: Component | ComponentsCollection, { schema, rtType }: { schema: Options['schema'], rtType: Options['rtType'] }, result: Array<Component> = []) {
+function traverseComponents(props: Component | ComponentsCollection, {schema, rtType}: {
+  schema: Options['schema'],
+  rtType: Options['rtType']
+}, result: Array<Component> = []) {
   if ("comAray" in props) {
-    const { comAray } = props
+    const {comAray} = props
     if (Array.isArray(comAray)) {
       comAray.forEach((com) => {
-        traverseComponents(com, { schema, rtType }, result)
+        traverseComponents(com, {schema, rtType}, result)
       })
     }
   } else {
-    if (showComponent(props, { schema, rtType })) {
+    if (showComponent(props, {schema, rtType})) {
       result.push(props)
     }
   }
@@ -291,9 +298,13 @@ interface Options {
   rtType: string
 }
 
-type PopView = (title: string, fn: ({close}: {close: () => void}) => JSX.Element, options: {width: number, beforeEditView: boolean}) => void
+type PopView = (title: string, fn: ({close}: { close: () => void }) => JSX.Element, options: {
+  width: number,
+  beforeEditView: boolean
+}) => void
 
 interface EditConfig {
+  title
   options: Options
   popView: PopView
   value: {
@@ -306,10 +317,19 @@ interface Props {
   editConfig: EditConfig
 }
 
-export default function (props: Props) {
+export default function (args) {
+  return {
+    render() {
+      return <ComSelector {...args}/>
+    },
+    showTitle: false
+  }
+}
+
+function ComSelector(props: Props) {
   const render = useMemo(() => {
-    const { options, popView, value } = props.editConfig
-    const { schema, rtType} = options
+    const {options, popView, value} = props.editConfig
+    const {schema, rtType} = options
     const componentLibraries = getComponentLibraries({schema, rtType: rtType || 'ui'})
     const handleClick = (component: Component | null) => {
       if (!rtType) {
@@ -319,15 +339,17 @@ export default function (props: Props) {
         value.set(component || null)
       }
     }
-    
+
     let jsx = <></>
 
     switch (options.type) {
       case 'add':
-        jsx = <AddComponent onClick={handleClick} popView={popView} componentLibraries={componentLibraries}/>
+        jsx = <AddComponent title={props.editConfig?.title} onClick={handleClick} popView={popView}
+                            componentLibraries={componentLibraries}/>
         break
       default:
-        jsx = <SelectComponent defaultValue={value.get()} onClick={handleClick} popView={popView} componentLibraries={componentLibraries}/>
+        jsx = <SelectComponent defaultValue={value.get()} onClick={handleClick} popView={popView}
+                               componentLibraries={componentLibraries}/>
         break
     }
 
@@ -341,15 +363,20 @@ export default function (props: Props) {
   return render
 }
 
+//ComSelector.showTitle = false
+
 function CaretRightSvg() {
-  return <svg viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="3732" width="16" height="16"><path d="M836.512 512l-648.992-512 0 1024 648.992-512z" p-id="3733"></path></svg>
+  return <svg viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="3732" width="16"
+              height="16">
+    <path d="M836.512 512l-648.992-512 0 1024 648.992-512z" p-id="3733"></path>
+  </svg>
 }
 
 // 步骤 1: 添加防抖函数
 function debounce(func: any, delay: number) {
   let timeoutId: any;
-  
-  return function(...args: any) {
+
+  return function (...args: any) {
     clearTimeout(timeoutId);
     timeoutId = setTimeout(() => {
       func(...args);
@@ -357,7 +384,10 @@ function debounce(func: any, delay: number) {
   };
 }
 
-function PopView ({componentLibraries, onClick}: {componentLibraries: ShowComponentLibraries, onClick: (component: Component) => void}) {
+function PopView({componentLibraries, onClick}: {
+  componentLibraries: ShowComponentLibraries,
+  onClick: (component: Component) => void
+}) {
   const [showComponentLibraries, setShowComponentLibraries] = useState(componentLibraries)
   const [componentLibraryOpenMap, setComponentLibraryOpenMap] = useState(componentLibraries.reduce((p, _c, index) => {
     p[index] = true
@@ -365,11 +395,11 @@ function PopView ({componentLibraries, onClick}: {componentLibraries: ShowCompon
   }, {} as any))
 
   const searchInput = useMemo(() => {
-    function handleSearchInputChange (e: React.ChangeEvent<HTMLInputElement>) {
+    function handleSearchInputChange(e: React.ChangeEvent<HTMLInputElement>) {
       const value = e.target.value.toLowerCase()
       if (value) {
         const showComponentLibraries: ShowComponentLibraries = []
-        componentLibraries.forEach(({ title, version, components }) => {
+        componentLibraries.forEach(({title, version, components}) => {
           const likeTitleComponents = components.filter(({title}) => {
             return title.toLowerCase().indexOf(value) !== -1
           })
@@ -386,10 +416,16 @@ function PopView ({componentLibraries, onClick}: {componentLibraries: ShowCompon
         setShowComponentLibraries(componentLibraries)
       }
     }
+
     const debouncedHandleInputChange = debounce(handleSearchInputChange, 300);
     return (
       <div className={css.search}>
-        <svg viewBox='0 0 1057 1024' version='1.1' xmlns='http://www.w3.org/2000/svg' p-id='6542' width='16' height='16'><path d='M835.847314 455.613421c0-212.727502-171.486774-385.271307-383.107696-385.271307C241.135212 70.35863 69.648437 242.869403 69.648437 455.613421c0 212.760534 171.486774 385.271307 383.091181 385.271307 109.666973 0 211.769567-46.525883 283.961486-126.645534a384.891436 384.891436 0 0 0 99.14621-258.625773zM1045.634948 962.757107c33.560736 32.421125-14.583725 83.257712-48.144461 50.853103L763.176429 787.28995a449.79975 449.79975 0 0 1-310.436811 123.953408C202.735255 911.243358 0 707.269395 0 455.613421S202.735255 0 452.739618 0C702.760497 0 905.495752 203.957447 905.495752 455.613421a455.662969 455.662969 0 0 1-95.330989 279.716846l235.486702 227.42684z' p-id='6543'></path></svg>
+        <svg viewBox='0 0 1057 1024' version='1.1' xmlns='http://www.w3.org/2000/svg' p-id='6542' width='16'
+             height='16'>
+          <path
+            d='M835.847314 455.613421c0-212.727502-171.486774-385.271307-383.107696-385.271307C241.135212 70.35863 69.648437 242.869403 69.648437 455.613421c0 212.760534 171.486774 385.271307 383.091181 385.271307 109.666973 0 211.769567-46.525883 283.961486-126.645534a384.891436 384.891436 0 0 0 99.14621-258.625773zM1045.634948 962.757107c33.560736 32.421125-14.583725 83.257712-48.144461 50.853103L763.176429 787.28995a449.79975 449.79975 0 0 1-310.436811 123.953408C202.735255 911.243358 0 707.269395 0 455.613421S202.735255 0 452.739618 0C702.760497 0 905.495752 203.957447 905.495752 455.613421a455.662969 455.662969 0 0 1-95.330989 279.716846l235.486702 227.42684z'
+            p-id='6543'></path>
+        </svg>
         <input placeholder='搜索' onChange={debouncedHandleInputChange} autoFocus/>
       </div>
     )
@@ -409,20 +445,20 @@ function PopView ({componentLibraries, onClick}: {componentLibraries: ShowCompon
       </div>
       <div className={css.popView}>
         <div className={css.list}>
-          {showComponentLibraries?.length ? showComponentLibraries.map(({ title, version, components }, index) => {
+          {showComponentLibraries?.length ? showComponentLibraries.map(({title, version, components}, index) => {
             const open = componentLibraryOpenMap[index]
             return (
               <div key={index} className={css.comlib}>
                 <div className={css.header} onClick={() => componentLibraryHeaderClick(index)}>
                   <div className={`${css.title}${open ? ` ${css.open}` : ''}`}>
-                    <CaretRightSvg />
+                    <CaretRightSvg/>
                     <span className={css.name}>{title}</span>
                     <span className={css.version}>({version})</span>
                   </div>
                 </div>
                 <div className={css.body} style={{display: open ? 'flex' : 'none'}}>
                   {components.map((component) => {
-                    const { namespace, title, icon, preview } = component
+                    const {namespace, title, icon, preview} = component
                     return (
                       <div
                         key={namespace}
@@ -450,7 +486,11 @@ function PopView ({componentLibraries, onClick}: {componentLibraries: ShowCompon
   )
 }
 
-function AddComponent ({onClick, popView, componentLibraries}: {onClick: ({ namespace }: Component) => void, popView: PopView, componentLibraries: ShowComponentLibraries}) {
+function AddComponent({title, onClick, popView, componentLibraries}: {
+  onClick: ({namespace}: Component) => void,
+  popView: PopView,
+  componentLibraries: ShowComponentLibraries
+}) {
   const handleClick = useCallback(() => {
     popView('选择组件', ({close}) => {
       return (
@@ -463,14 +503,19 @@ function AddComponent ({onClick, popView, componentLibraries}: {onClick: ({ name
         />
       )
     }, {width: 380, beforeEditView: true})
-  },[])
+  }, [])
 
   return (
-    <button onClick={handleClick}>添加组件</button>
+    <button onClick={handleClick}>{title || '添加组件'}</button>
   )
 }
 
-function SelectComponent ({defaultValue, onClick, popView, componentLibraries}: {defaultValue: string | null | Component,onClick: (arg0: Component | null) => void, popView: PopView, componentLibraries: ShowComponentLibraries}) {
+function SelectComponent({defaultValue, onClick, popView, componentLibraries}: {
+  defaultValue: string | null | Component,
+  onClick: (arg0: Component | null) => void,
+  popView: PopView,
+  componentLibraries: ShowComponentLibraries
+}) {
   const [component, setComponent] = useState<Component | null>(null)
 
   const handleClick = useCallback(() => {
@@ -486,20 +531,20 @@ function SelectComponent ({defaultValue, onClick, popView, componentLibraries}: 
         />
       )
     }, {width: 380, beforeEditView: true})
-  },[])
+  }, [])
 
   const handleDeleteClick = useCallback(() => {
     onClick(null)
     setComponent(null)
   }, [])
-  
+
   const componentBox = useMemo(() => {
     let jsx = <div>点击选择组件</div>
 
     if (component) {
       jsx = <RenderImg {...component}/>
     }
-    
+
     return (
       <>
         <div className={css.box} onClick={handleClick}>
@@ -578,7 +623,7 @@ function ifSchemaMatch(sParent: string, sChild: string) {
   }
 }
 
-function RenderImg ({icon = '', title = '', preview = ''}: any): JSX.Element {
+function RenderImg({icon = '', title = '', preview = ''}: any): JSX.Element {
   let jsx = <div className={css.comIconFallback}>{title?.substr(0, 1)}</div>
   if (icon) {
     if (!(icon === './icon.png' || !/^(https:)/.test(icon)) || icon.startsWith('data:image/')) {

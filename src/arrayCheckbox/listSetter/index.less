@@ -22,7 +22,7 @@
 .listItem {
   width: 100%;
   height: 26px;
-  padding-right: 7px;
+  padding-right: 10px;
   font-size: 12px;
   border-radius: @border-radius;
   display: flex;
@@ -30,7 +30,23 @@
   margin-bottom: 5px;
   background-color: #F5F5F5;
   color: #555;
+  padding-left: 10px;
   //border: 1px solid #E9E9E9;////TODO 继续样式的美化
+
+  :global {
+    .ant-checkbox:not(.ant-checkbox-disabled):hover .ant-checkbox-inner {
+      border-color: @color-primary !important;
+    }
+
+    .ant-checkbox-checked .ant-checkbox-inner {
+      background-color: @color-primary;
+      border-color: @color-primary;
+    }
+
+    .ant-checkbox-checked:not(.ant-checkbox-disabled):hover .ant-checkbox-inner {
+      background-color: @color-primary !important;
+    }
+  }
 
   .grab {
     cursor: move;
@@ -57,7 +73,7 @@
     .listItemBtn();
     margin-top: 3px;
     margin-bottom: 3px;
-    margin-right: 3px;
+    //margin-right: 3px;
     height: 22px;
     width: 22px;
     align-items: center;
@@ -93,6 +109,7 @@
   }
 
   .listItemContent {
+    margin-left: 5px;
     flex: 1;
     height: 100%;
     overflow: hidden;

@@ -175,9 +175,23 @@ export default function ({
                 setEditId(null);
               }}
             >
+              <Checkbox
+                onChange={({ target }) => {
+                  const { checked } = target;
+                  listModel.setItemChecked({ checked, id: item?._id });
+                }}
+                checked={item && item[checkField]}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  // setEditId(() => {
+                  //   setSubFormVisible(true)
+                  //   return item._id
+                  // })
+                }}
+              />
               <div
                 className={css.listItemContent}
-                style={{ paddingLeft: "8px" }}
+                //style={{ paddingLeft: "8px" }}
               >
                 <Title
                   items={
@@ -208,22 +222,8 @@ export default function ({
                   <ExpandIcon />
                 </div>
               )}
-              <Checkbox
-                onChange={({ target }) => {
-                  const { checked } = target;
-                  listModel.setItemChecked({ checked, id: item?._id });
-                }}
-                checked={item && item[checkField]}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  // setEditId(() => {
-                  //   setSubFormVisible(true)
-                  //   return item._id
-                  // })
-                }}
-              />
             </div>
-          );
+          )
         })}
       </div>
       <Drawer
