@@ -5,14 +5,15 @@ import React, {
   useCallback,
   CSSProperties,
 } from "react";
-import { createPortal } from "react-dom";
+import {createPortal} from "react-dom";
 
-import { Panel, GradientEditor, TransparentColorOutlined } from "../";
+import {Panel, GradientEditor, TransparentColorOutlined} from "../";
 
-import { ReloadOutlined } from "@ant-design/icons";
+import {ReloadOutlined} from "@ant-design/icons";
 
 import css from "./index.less";
-import { gradientOptions, shapeOptions } from "../GradientEditor/constants";
+import {gradientOptions, shapeOptions} from "../GradientEditor/constants";
+
 // import { Angle, Circle, Ellipse, Linear, Radial } from "../GradientEditor/Icon";
 
 interface GradientEditorProps {
@@ -22,10 +23,10 @@ interface GradientEditorProps {
 }
 
 export function Gradient({
-  defaultValue,
-  style = {},
-  onChange,
-}: GradientEditorProps) {
+                           defaultValue,
+                           style = {},
+                           onChange,
+                         }: GradientEditorProps) {
   const presetRef = useRef<HTMLDivElement>(null);
   const [show, setShow] = useState(false);
   const [open, setOpen] = useState(false);
@@ -78,18 +79,19 @@ export function Gradient({
   }, []);
   return (
     <Panel.Item style={style} className={css.container}>
-      <div className={css.color} data-mybricks-tip={"渐变色"}>
-        <div className={css.colorPickerContainer} onClick={onPresetClick}>
+      <div className={css.color} onClick={onPresetClick}>
+        <div className={css.colorPickerContainer}>
           <div
             ref={presetRef}
             className={css.block}
-            style={{ backgroundImage }}
+            style={{backgroundImage}}
+            //data-mybricks-tip={"渐变颜色"}
           />
           {(!backgroundImage ||
             backgroundImage === "none" ||
             backgroundImage === "initial") && (
             <div className={css.icon}>
-              <TransparentColorOutlined />
+              <TransparentColorOutlined/>
             </div>
           )}
         </div>
@@ -103,9 +105,9 @@ export function Gradient({
           onGradientChange("none");
           setShow(false);
         }}
-        data-mybricks-tip={"重置渐变色"}
+        data-mybricks-tip={"重置"}
       >
-        <ReloadOutlined />
+        <ReloadOutlined/>
       </div>
       {show &&
         createPortal(
@@ -123,12 +125,12 @@ export function Gradient({
 }
 
 const GradientPanel = ({
-  open,
-  positionElement,
-  onChange,
-  defaultValue,
-  onTypeChange,
-}: {
+                         open,
+                         positionElement,
+                         onChange,
+                         defaultValue,
+                         onTypeChange,
+                       }: {
   defaultValue: string;
   open: boolean;
   onChange: (value: string) => void;
@@ -175,7 +177,7 @@ const GradientPanel = ({
 
   return (
     <div ref={ref} className={css.panel} onClick={(e) => e.stopPropagation()}>
-      <div style={{ marginTop: 30 }} />
+      <div style={{marginTop: 30}}/>
       <GradientEditor
         defaultValue={defaultValue}
         onTypeChange={onTypeChange}

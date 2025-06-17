@@ -92,7 +92,7 @@ export function Radius({ value, onChange, config, showTitle, collapse }: BorderP
                 <BorderRadiusSplitOutlined />
               </div>
               <InputNumber
-                tip="圆角半径"
+                //tip="圆角半径"
                 style={DEFAULT_STYLE}
                 defaultValue={borderValue.borderTopLeftRadius}
                 unitOptions={UNIT_OPTIONS}

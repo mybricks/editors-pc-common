@@ -42,7 +42,7 @@ const DEFAULT_STYLE = {
   padding: 0,
   fontSize: 10,
   minWidth: 71,
-  maxWidth: 71,
+  //maxWidth: 71,
   marginLeft: 4,
 };
 
@@ -172,7 +172,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
               </div>
               {disableBorderWidth ? null : (
                 <InputNumber
-                  tip="边框宽度"
+                  //tip="边框宽度"
                   style={DEFAULT_STYLE_SMALL}
                   value={borderValue.borderTopWidth}
                   // suffix={'px'}
@@ -592,7 +592,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                 <BorderRadiusSplitOutlined />
               </div>
               <InputNumber
-                tip="圆角半径"
+                //tip="圆角半径"
                 style={DEFAULT_STYLE}
                 // suffix={'px'}
                 defaultValue={borderValue.borderTopLeftRadius}
@@ -624,11 +624,11 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
         <div className={css.row}>
           <Panel.Content style={{ padding: 3 }}>
             <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
-              <div className={css.icon} data-mybricks-tip={"左上角半径"}>
+              <div className={css.icon} data-mybricks-tip={"左上"}>
                 <BorderTopLeftRadiusOutlined />
               </div>
               <InputNumber
-                tip="左上角半径"
+                //tip="左上"
                 style={DEFAULT_STYLE__NEW}
                 defaultValue={borderValue.borderTopLeftRadius}
                 unitOptions={UNIT_OPTIONS}
@@ -639,11 +639,11 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                   setSplitRadiusIcon(<BorderTopLeftRadiusOutlined />)
                 }
               />
-              <div className={css.icon} data-mybricks-tip={"右上角半径"}>
+              <div className={css.icon} data-mybricks-tip={"右上"}>
                 <BorderTopRightRadiusOutlined />
               </div>
               <InputNumber
-                tip="右上角半径"
+                //tip="右上角半径"
                 style={DEFAULT_STYLE__NEW}
                 defaultValue={borderValue.borderTopRightRadius}
                 unitOptions={UNIT_OPTIONS}
@@ -654,11 +654,11 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                   setSplitRadiusIcon(<BorderTopRightRadiusOutlined />)
                 }
               />
-              <div className={css.icon} data-mybricks-tip={"右下角半径"}>
+              <div className={css.icon} data-mybricks-tip={"右下"}>
                 <BorderBottomRightRadiusOutlined />
               </div>
               <InputNumber
-                tip="右下角半径"
+                //tip="右下角半径"
                 style={DEFAULT_STYLE__NEW}
                 defaultValue={borderValue.borderBottomRightRadius}
                 unitOptions={UNIT_OPTIONS}
@@ -669,11 +669,11 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                   setSplitRadiusIcon(<BorderBottomRightRadiusOutlined />)
                 }
               />
-              <div className={css.icon} data-mybricks-tip={"左下角半径"}>
+              <div className={css.icon} data-mybricks-tip={"左下"}>
                 <BorderBottomLeftRadiusOutlined />
               </div>
               <InputNumber
-                tip="左下角半径"
+                //tip="左下角半径"
                 style={DEFAULT_STYLE__NEW}
                 defaultValue={borderValue.borderBottomLeftRadius}
                 unitOptions={UNIT_OPTIONS}

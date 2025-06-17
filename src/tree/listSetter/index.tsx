@@ -1,13 +1,13 @@
-import React, { useEffect, useMemo, useRef, useState, useContext, Children } from 'react'
-import { Drawer, Tooltip, Tree, TreeProps,TreeDataNode } from 'antd'
+import React, {useEffect, useMemo, useRef, useState, useContext, Children} from 'react'
+import {Drawer, Tooltip, Tree, TreeProps, TreeDataNode} from 'antd'
 // import {
 //   SortableContainer,
 //   SortableElement,
 //   SortableHandle,
 // } from 'react-sortable-hoc'
-import { arrayMoveImmutable } from '../../utils'
+import {arrayMoveImmutable} from '../../utils'
 import RenderEditor from './renderEditor'
-import { editorsConfigKey } from '../../constant'
+import {editorsConfigKey} from '../../constant'
 import {
   SortableContainer,
   SortableElement,
@@ -62,11 +62,11 @@ const initData = (val: any) => {
   if (!Array.isArray(val)) {
     return []
   } else {
-    return val.map((t) => ({ _id: getUid(), ...t }))
+    return val.map((t) => ({_id: getUid(), ...t}))
   }
 }
 
-const Title = ({ items, heavy = false }: TitleProps) => {
+const Title = ({items, heavy = false}: TitleProps) => {
   const titles = Array.isArray(items) ? items : [items]
   return (
     <div className={heavy ? `${css.titles} ${css.titlesHeavy}` : css.titles}>
@@ -75,7 +75,7 @@ const Title = ({ items, heavy = false }: TitleProps) => {
           title?.toLocaleLowerCase &&
           /\.(png|jpe?g|gif|svg)(\?.*)?$/.test(title.toLocaleLowerCase())
         ) {
-          return <img key={`${title}_${index}`} src={title} />
+          return <img key={`${title}_${index}`} src={title} alt={`图片`}/>
         }
         return <div key={`${title}_${index}`}>{title}</div>
       })}
@@ -83,19 +83,22 @@ const Title = ({ items, heavy = false }: TitleProps) => {
   )
 }
 
-const SortableList = SortableContainer(({ children }) => {
+const SortableList = SortableContainer(({children}) => {
   return <div className={css.list}>{children}</div>
 })
 
 const SortableItem = SortableElement(
-  ({ children, className = '', onClick = () => { } }) => (
+  ({
+     children, className = '', onClick = () => {
+    }
+   }) => (
     <div className={`${css.listItem} ${className}`} onClick={onClick}>
       {children}
     </div>
   )
 )
 
-const DragHandle = SortableHandle(({ }) => (
+const DragHandle = SortableHandle(({}) => (
   // [TODO] 用 Tooltip 好像antd版本的会死循环，别问为什么
   // <Tooltip
   //   placement="left"
@@ -104,33 +107,34 @@ const DragHandle = SortableHandle(({ }) => (
   // >
   <div className={css.grab} title="拖动当前项">
     <svg viewBox="0 0 20 20" width="12">
-      <path d="M7 2a2 2 0 1 0 .001 4.001A2 2 0 0 0 7 2zm0 6a2 2 0 1 0 .001 4.001A2 2 0 0 0 7 8zm0 6a2 2 0 1 0 .001 4.001A2 2 0 0 0 7 14zm6-8a2 2 0 1 0-.001-4.001A2 2 0 0 0 13 6zm0 2a2 2 0 1 0 .001 4.001A2 2 0 0 0 13 8zm0 6a2 2 0 1 0 .001 4.001A2 2 0 0 0 13 14z"></path>
+      <path
+        d="M7 2a2 2 0 1 0 .001 4.001A2 2 0 0 0 7 2zm0 6a2 2 0 1 0 .001 4.001A2 2 0 0 0 7 8zm0 6a2 2 0 1 0 .001 4.001A2 2 0 0 0 7 14zm6-8a2 2 0 1 0-.001-4.001A2 2 0 0 0 13 6zm0 2a2 2 0 1 0 .001 4.001A2 2 0 0 0 13 8zm0 6a2 2 0 1 0 .001 4.001A2 2 0 0 0 13 14z"></path>
     </svg>
   </div>
   // </Tooltip>
 ))
 
 export default function ({
-  onChange,
-  value,
-  items = [],
-  getTitle,
-  onSelect,
-  onAdd,
-  onRemove,
-  draggable = true,
-  editable = true,
-  selectable = false,
-  deletable = true,
-  addable = true,
-  locales = null,
-  addText = '添加一项',
-  customOptRender,
-  extraContext,
-  cdnMap,
-  addItemGoal,
-  getDefaultOptions
-}: ListSetterProps) {
+                           onChange,
+                           value,
+                           items = [],
+                           getTitle,
+                           onSelect,
+                           onAdd,
+                           onRemove,
+                           draggable = true,
+                           editable = true,
+                           selectable = false,
+                           deletable = true,
+                           addable = true,
+                           locales = null,
+                           addText = '添加一项',
+                           customOptRender,
+                           extraContext,
+                           cdnMap,
+                           addItemGoal,
+                           getDefaultOptions
+                         }: ListSetterProps) {
   const [list, setList] = useState(initData(value) || [])
   //[TODO] activeId 和 editId 为了支持这个交互不得已做的，写的太乱了
   const [activeId, setActiveId] = useState<ActiveId>(null)
@@ -152,33 +156,33 @@ export default function ({
     return expandable || selectable
   }, [selectable, expandable])
 
-  function updateValue(id: string, key: string, val: string, list: any){
+  function updateValue(id: string, key: string, val: string, list: any) {
     const newList = [...list]
-    newList.map((item)=>{
-      if(item._id === id ){
+    newList.map((item) => {
+      if (item._id === id) {
         item[key] = val
-      }else if(item.children && Array.isArray(item.children) && item.children.length > 0){
+      } else if (item.children && Array.isArray(item.children) && item.children.length > 0) {
         updateValue(id, key, val, item.children)
       }
     })
     return newList
   }
 
-  function filterDel(arr: any, id:string) {
-    arr.map((item:any, index:number) => {
-      if(item._id == id) {
-          arr.splice(index, 1)
+  function filterDel(arr: any, id: string) {
+    arr.map((item: any, index: number) => {
+      if (item._id == id) {
+        arr.splice(index, 1)
       }
-      if(item.children) {
+      if (item.children) {
         filterDel(item.children, id)
       }
     })
     return arr
   }
 
-  function addItem(val:any, id:string, list:any){
+  function addItem(val: any, id: string, list: any) {
     const newList = [...list]
-    newList.forEach(ele=> {
+    newList.forEach(ele => {
       if (ele._id === id) {
         ele.children ? ele.children.push(val) : ele.children = [val]
       } else {
@@ -205,7 +209,7 @@ export default function ({
       },
       remove: (id: string) => {
         setList((prev) => {
-          const copy = filterDel([...prev],id)
+          const copy = filterDel([...prev], id)
           return copy
         })
       },
@@ -242,13 +246,13 @@ export default function ({
       return;
     }
     typeof onChange === 'function' &&
-      onChange(
-        JSON.parse(
-          JSON.stringify(
-            list
-          )
+    onChange(
+      JSON.parse(
+        JSON.stringify(
+          list
         )
       )
+    )
   }, [list, onChange])
 
   useEffect(() => {
@@ -261,10 +265,10 @@ export default function ({
     }
 
     typeof onSelect === 'function' &&
-      onSelect(
-        activeId as string,
-        list.findIndex((t) => t._id === activeId)
-      )
+    onSelect(
+      activeId as string,
+      list.findIndex((t) => t._id === activeId)
+    )
   }, [activeId, list, onSelect, _selectable])
 
   useEffect(() => {
@@ -302,9 +306,9 @@ export default function ({
   }, [editId, list])
 
   const handleSortEnd = ({
-    oldIndex,
-    newIndex,
-  }: {
+                           oldIndex,
+                           newIndex,
+                         }: {
     oldIndex: number
     newIndex: number
   }) => {
@@ -326,7 +330,7 @@ export default function ({
     setActiveId(list.find((t) => t)?._id ?? null)
   }, [didMount, expandable])
 
-  function getNodeById(tree:any, id:any) {
+  function getNodeById(tree: any, id: any) {
     let arr = Array.isArray(tree) ? tree : [tree]
     let result = null
     while (arr.length) {
@@ -342,13 +346,13 @@ export default function ({
   }
 
   //查找对应节点层级
-  function findLevel(tree:any, id:any){
+  function findLevel(tree: any, id: any) {
     let arr = Array.isArray(tree) ? tree : [tree]
     let level = 0;
     while (arr.length) {
       let item = arr.pop()
       if (item && item._id === id) {
-        level += 1; 
+        level += 1;
         break
       } else if (item && item.children && item.children.length) {
         level += 1;
@@ -360,36 +364,36 @@ export default function ({
 
   const SubEditors = useMemo(() => {
     return (
-      <div style={{ padding: '15px' }} onClick={(e) => e.stopPropagation()}>
+      <div style={{padding: '15px'}} onClick={(e) => e.stopPropagation()}>
         {items.map((item, idx) => {
           const itemValue = JSON.parse(JSON.stringify(getNodeById([...list], editId)))
           const value = getNodeById([...list], editId)?.[item.value]
           const level = findLevel([...list], editId);
 
-          if (typeof item.ifVisible === 'function' 
-            && value !== undefined 
-            && item.ifVisible(itemValue) === false 
+          if (typeof item.ifVisible === 'function'
+            && value !== undefined
+            && item.ifVisible(itemValue) === false
           ) {
-           return
-          }
-
-          //通过组件设置的index，决定编辑器的显示和隐藏
-          if(item.frontIndex && typeof item.frontIndex === 'number' &&  level > item.frontIndex){
             return
           }
 
-          if(item.afterIndex && typeof item.afterIndex === 'number' &&  level < item.afterIndex){
+          //通过组件设置的index，决定编辑器的显示和隐藏
+          if (item.frontIndex && typeof item.frontIndex === 'number' && level > item.frontIndex) {
+            return
+          }
+
+          if (item.afterIndex && typeof item.afterIndex === 'number' && level < item.afterIndex) {
             return
           }
 
           return (
             <RenderEditor
               key={`${editId}_${idx}_${item.type}`}
-              editConfig={{ ...item, locales, getDefaultOptions }}
+              editConfig={{...item, locales, getDefaultOptions}}
               extraContext={extraContext}
               value={value}
               onChange={(v) => {
-                listModel.setItemKey(editId||'', item.value, v)
+                listModel.setItemKey(editId || '', item.value, v)
               }}
             />
           )
@@ -400,7 +404,7 @@ export default function ({
 
   const loaded = useLazy(cdnMap.sortableHoc);
 
-  const editFun = ((e: any, item:any) => {
+  const editFun = ((e: any, item: any) => {
     e.stopPropagation()
     setEditId((c) => {
       if (c == item._id) {
@@ -417,7 +421,7 @@ export default function ({
     setEditItem(item);
   })
 
-  const deleteFun = (e:any, item:any) => {
+  const deleteFun = (e: any, item: any) => {
     e.stopPropagation()
     if (activeId === item._id) {
       setSubFormVisible(false)
@@ -431,7 +435,7 @@ export default function ({
     typeof onRemove === 'function' && onRemove(item._id)
   }
 
-  const addFun = (item:any) => {
+  const addFun = (item: any) => {
     const uid = getUid()
     return listModel.addItem(
       {
@@ -444,11 +448,11 @@ export default function ({
     )
   }
 
-  const judgeFun =(item:any)=>{
+  const judgeFun = (item: any) => {
     let judge = false;
-    if(addItemGoal.value && Array.isArray(addItemGoal.value) && addItemGoal.value.length > 0){
-      for(let i=0; i<addItemGoal.value.length; i++){
-        if(item[addItemGoal.key] ===  addItemGoal.value[i]){
+    if (addItemGoal.value && Array.isArray(addItemGoal.value) && addItemGoal.value.length > 0) {
+      for (let i = 0; i < addItemGoal.value.length; i++) {
+        if (item[addItemGoal.key] === addItemGoal.value[i]) {
           judge = true;
           break;
         }
@@ -459,79 +463,79 @@ export default function ({
 
   const valueTransFun = ((val: any) => {
     let newVal = [];
-    newVal = val.map((item: any)=>{
-      if(!item.children || (item.children && Array.isArray(item.children) && item.children.length === 0)){
+    newVal = val.map((item: any) => {
+      if (!item.children || (item.children && Array.isArray(item.children) && item.children.length === 0)) {
         return {
           ...item,
-          title: <div style={{display: 'flex',justifyContent:"space-around", alignItems: 'center'}}>
-          <div style={{marginRight: '20px'}}>
-            {getTitle(item)}
-          </div>
-          <div className={css.editBox} style={{display: 'flex'}}>
+          title: <div style={{display: 'flex', justifyContent: "space-around", alignItems: 'center'}}>
+            <div style={{marginRight: '20px'}}>
+              {getTitle(item)}
+            </div>
+            <div className={css.editBox} style={{display: 'flex'}}>
 
-          {judgeFun(item) ? 
-            <div
+              {judgeFun(item) ?
+                <div
+                  className={css.edit}
+                  onClick={() => addFun(item)}
+                >
+                  <Icon name="add"/>
+                </div> :
+                void 0
+              }
+
+              <div
+                className={
+                  editId === item._id ? css.editActive : css.edit
+                }
+                onClick={(e) => editFun(e, item)}
+              >
+                <ExpandIcon/>
+              </div>
+              <div
                 className={css.edit}
-                onClick={() => addFun(item)}
+                onClick={(e) => deleteFun(e, item)}
               >
-                <Icon name="add"/>
-            </div> :
-            void 0
-          }
+                <DeleteIcon/>
+              </div>
+            </div>
 
-            <div
-              className={
-                editId === item._id ? css.editActive : css.edit
-              }
-              onClick={(e) => editFun(e, item)}
-            >
-              <ExpandIcon/>
-            </div>
-            <div
-              className={css.edit}
-              onClick={(e) => deleteFun(e,item)}
-            >
-              <DeleteIcon/>
-            </div>
           </div>
-
-        </div>
         }
-      }else if(item.children && Array.isArray(item.children) && item.children.length > 0){
+      } else if (item.children && Array.isArray(item.children) && item.children.length > 0) {
         return {
           ...item,
-          title: <div style={{display: 'flex',justifyContent:"space-around", alignItems: 'center'}}>
-          <div style={{marginRight: '20px'}}>
-            {getTitle(item)}
-          </div>
-          <div className={css.editBox} style={{display: 'flex'}}>
+          title: <div style={{display: 'flex', justifyContent: "space-around", alignItems: 'center'}}>
+            <div style={{marginRight: '20px'}}>
+              {getTitle(item)}
+            </div>
+            <div className={css.editBox} style={{display: 'flex'}}>
 
-          {judgeFun(item) ? 
-            <div
-                className={css.add}
-                onClick={() => addFun(item)}
-              >
-                <Icon name="add"/>
-            </div> :
-            void 0
-          }
-            <div 
-              className={
-                editId === item._id ? css.editActive : css.edit
+              {judgeFun(item) ?
+                <div
+                  className={css.add}
+                  onClick={() => addFun(item)}
+                >
+                  <Icon name="add"/>
+                </div> :
+                void 0
               }
-              onClick={(e) => editFun(e, item)}
-            >
-              <ExpandIcon/>
+              <div
+                className={
+                  editId === item._id ? css.editActive : css.edit
+                }
+                onClick={(e) => editFun(e, item)}
+              >
+                <ExpandIcon/>
+              </div>
+              <div
+                className={css.delete}
+                onClick={(e) => deleteFun(e, item)}
+              >
+                <DeleteIcon/>
+              </div>
             </div>
-            <div 
-              className={css.delete}
-              onClick={(e) => deleteFun(e,item)}
-            >
-              <DeleteIcon/>
-            </div>
-          </div>
 
-        </div>,
+          </div>,
           children: valueTransFun(item.children)
         }
       }
@@ -543,7 +547,7 @@ export default function ({
     const dropKey = info.node.key;
     const dragKey = info.dragNode.key;
     const dropPos = info.node.pos.split('-');
-    const dropPosition = info.dropPosition - Number(dropPos[dropPos.length - 1]); 
+    const dropPosition = info.dropPosition - Number(dropPos[dropPos.length - 1]);
 
     const loop = (
       data: TreeDataNode[],
@@ -592,7 +596,8 @@ export default function ({
   const drag = (
     <span className={`${css.drag}`}>
       <svg viewBox="0 0 20 20" width="12">
-        <path d="M7 2a2 2 0 1 0 .001 4.001A2 2 0 0 0 7 2zm0 6a2 2 0 1 0 .001 4.001A2 2 0 0 0 7 8zm0 6a2 2 0 1 0 .001 4.001A2 2 0 0 0 7 14zm6-8a2 2 0 1 0-.001-4.001A2 2 0 0 0 13 6zm0 2a2 2 0 1 0 .001 4.001A2 2 0 0 0 13 8zm0 6a2 2 0 1 0 .001 4.001A2 2 0 0 0 13 14z"></path>
+        <path
+          d="M7 2a2 2 0 1 0 .001 4.001A2 2 0 0 0 7 2zm0 6a2 2 0 1 0 .001 4.001A2 2 0 0 0 7 8zm0 6a2 2 0 1 0 .001 4.001A2 2 0 0 0 7 14zm6-8a2 2 0 1 0-.001-4.001A2 2 0 0 0 13 6zm0 2a2 2 0 1 0 .001 4.001A2 2 0 0 0 13 8zm0 6a2 2 0 1 0 .001 4.001A2 2 0 0 0 13 14z"></path>
       </svg>
     </span>
   )
@@ -640,8 +645,8 @@ export default function ({
             document.querySelector('div[class^="lyStage-"]') ||
             document.querySelector('#root div[class^="sketchSection"]')
           }
-          style={{ position: 'absolute' }}
-          rootStyle={{position: "absolute",left:'unset'}}
+          style={{position: 'absolute'}}
+          rootStyle={{position: "absolute", left: 'unset'}}
         >
           <div>
             <Title

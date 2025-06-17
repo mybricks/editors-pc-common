@@ -1,16 +1,20 @@
+@import "../theme.less";
+
 .container {
   button {
     font-size: 12px;
     cursor: pointer;
-    display: block;
     width: 100%;
-    text-align: center;
-    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     height: 26px;
-    line-height: 26px;
-    border-radius: 3px;
-    background-color: #f9f9f9;
-    box-shadow: 0 1px 4px -1px #777;
+    box-sizing: border-box;
+    border-radius: @border-radius;
+    border: 1px solid rgba(2, 9, 16, 0.13);
+    background-color: #FFF;
+    color: #333;
+    //box-shadow: 0 1px 4px -1px #777;
   }
 
   .selectContainer {
@@ -36,6 +40,7 @@
         display: flex;
         justify-content: center;
         align-items: center;
+
         .comIconFallback {
           width: 24px;
           height: 24px;
@@ -83,10 +88,11 @@
     background: #FFF;
     display: flex;
     align-items: center;
-  
+
     svg {
       width: 13px;
     }
+
     input {
       height: 100%;
       width: 100%;
@@ -99,7 +105,7 @@
   background-color: #F7F7F7;
   height: 100%;
   overflow: hidden;
-  
+
   .list {
     width: 100%;
     overflow: auto;
@@ -114,6 +120,7 @@
         display: flex;
         align-items: center;
         cursor: pointer;
+
         .title {
           display: flex;
           align-items: center;
@@ -123,11 +130,13 @@
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
+
           svg {
             margin-right: 5px;
             max-width: 7px;
             opacity: 0.5;
           }
+
           .name {
             line-height: 18px;
             color: #555;
@@ -135,6 +144,7 @@
             overflow: hidden;
             text-overflow: ellipsis;
           }
+
           .version {
             color: #999;
             font-style: italic;
@@ -144,11 +154,13 @@
           }
         }
       }
+
       .open {
         svg {
           transform: rotate(90deg);
         }
       }
+
       .body {
         display: flex;
         flex-wrap: wrap;
@@ -166,17 +178,20 @@
       position: relative;
       border: 1px transparent solid;
       height: fit-content;
-  
+
       &:nth-of-type(2n) {
         margin-left: 16px;
       }
+
       &:hover {
         background: rgba(225, 228, 231, 0.5);
         border-color: #616C81;
       }
+
       img {
         width: 100%;
       }
+
       .content {
         width: 145px;
         height: 145px;
@@ -187,6 +202,7 @@
         overflow: hidden;
         align-items: center;
         justify-content: center;
+
         .img {
           height: 100%;
           width: 100%;
@@ -195,6 +211,7 @@
           background-size: contain;
         }
       }
+
       .itemTitle {
         padding: 5px;
         width: 100%;

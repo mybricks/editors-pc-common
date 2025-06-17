@@ -114,12 +114,13 @@
   padding: 0 8px;
   border-radius: @border-radius;
   background-color: #F5F5F5;
+  color: #333;
 
   &:has(input:disabled) {
-    background-color: #DDD;
+    background-color: #FAFAFA;
 
     .panelItem {
-      background-color: #DDD;
+      background-color: #FAFAFA;
     }
   }
 
@@ -133,10 +134,16 @@
   }
 
   &:hover {
-    border: 1px solid #DDD;
+    //border: 1px solid #DDD;
+    outline: 1px solid #DDD;
+
+    * {
+      outline: none;
+    }
   }
 
   &.active {
-    border: 1px solid @color-primary;
+    outline: none !important;
+    border: 1px solid @color-primary !important;
   }
 }

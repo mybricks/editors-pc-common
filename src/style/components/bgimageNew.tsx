@@ -108,7 +108,7 @@ export default function Image({}) {
   const icon = useMemo(() => {
     const src = getBackgroundImage(value.backgroundImage);
     if (src) {
-      return <img src={src} />;
+      return <img src={src} alt={`图片`}/>;
     }
 
     return <ImageOutlined />;

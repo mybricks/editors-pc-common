@@ -3,41 +3,46 @@
 
 .editor-upload {
   position: relative;
+
   .container {
     display: flex;
     position: relative;
     align-items: center;
+
     .input {
       width: 100%;
       height: 26px;
       display: block;
       padding: 5px 10px;
-      margin-right: 4px;
-      border-radius: 3px;
-      border: 1px solid #eee;
-      background-color: #ffffff;
+      margin-right: 10px;
+      border-radius: @border-radius;
+      //border: 1px solid #eee;
+      background-color: #F5F5F5;
       box-sizing: border-box;
-      transition: all 0.3s, height 0s;
+      //transition: all 0.3s, height 0s;
+
       &:hover {
         border-color: @color-primary;
       }
+
       &:focus {
         border-color: @color-primary;
         box-shadow: var(--box-shadow);
       }
     }
+
     .btn {
       width: 50px;
       cursor: pointer;
-      display: block;
       text-align: center;
-      border: none;
-      height: 24px;
-      line-height: 24px;
-      border-radius: 3px;
-      background-color: #f9f9f9;
-      box-shadow: 0 1px 4px -1px #777;
+      height: 26px;
+      border-radius: @border-radius;
+      background-color: #FFF;
+      border: 1px solid #DDD;
+      box-sizing: border-box;
+      //box-shadow: 0 1px 4px -1px #777;
     }
+
     .linkBtn {
       flex-shrink: 0;
       padding-left: 6px;
@@ -49,6 +54,7 @@
       // text-align: center;
       color: rgba(0, 0, 0, 0.85);
       position: relative;
+
       &::after {
         content: "";
         position: absolute;
@@ -74,6 +80,7 @@
     margin-right: 12px;
     cursor: pointer;
   }
+
   &__btn {
     display: inline-block;
     vertical-align: middle;
@@ -87,14 +94,17 @@
     line-height: 55px;
     text-align: center;
   }
+
   &__input {
     position: fixed;
     left: 0;
     top: -9999px;
     visibility: hidden;
   }
+
   &__modal {
     position: relative;
+
     &-text {
       width: 100%;
       height: 200px;
@@ -103,12 +113,14 @@
       opacity: 0.1;
       margin-top: 8px;
     }
+
     &-placeholder {
       width: 100%;
       height: 200px;
       position: absolute;
       top: 8px;
       border: 1px dashed #d0c7c7;
+
       &-text {
         top: 50%;
         left: 50%;
@@ -116,6 +128,7 @@
         transform: translate(-50%, -50%);
         color: rgba(0, 0, 0, 0.5);
       }
+
       &-img {
         height: 198px;
         background-position: center;
@@ -124,6 +137,7 @@
       }
     }
   }
+
   &__modalbtn {
     cursor: pointer;
     display: block;
@@ -137,9 +151,11 @@
     box-shadow: 0 1px 3px -1px #777;
     color: rgba(0, 0, 0, 0.85);
   }
+
   &__footBtn {
     position: relative;
     height: 25px;
+
     &-determine {
       position: absolute;
       right: 8px;
@@ -150,6 +166,7 @@
 .popconfirmBtn {
   color: var(--primary-color-confirm) !important;
   border-color: var(--primary-color-confirm) !important;
+
   :hover {
     color: @color-primary !important;
   }
@@ -160,13 +177,15 @@
   width: 100%;
   z-index: 2000;
   position: absolute;
+  font-size: 12px;
+
   img {
     width: 100%;
     border-radius: 4px;
     box-shadow: 0 1px 4px -1px #777;
-    background: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAwAAAAMCAIAAADZF8uwAAAAGUlEQVQYV2M4gwH+YwCGIasIUwhT25BVBADtzYNYrHvv4gAAAABJRU5ErkJggg==)
-      repeat;
+    background: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAwAAAAMCAIAAADZF8uwAAAAGUlEQVQYV2M4gwH+YwCGIasIUwhT25BVBADtzYNYrHvv4gAAAABJRU5ErkJggg==) repeat;
   }
+
   div {
     width: 100%;
     height: 100px;

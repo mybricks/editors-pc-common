@@ -51,8 +51,9 @@ const Title = ({items, heavy = false}: TitleProps) => {
           title?.toLocaleLowerCase &&
           /\.(png|jpe?g|gif|svg)(\?.*)?$/.test(title.toLocaleLowerCase())
         ) {
-          return <img key={`${title}_${index}`} src={title}/>;
+          return <img key={`${title}_${index}`} src={title} alt={`图片`}/>;
         }
+
         return <div key={`${title}_${index}`}>{title}</div>;
       })}
     </div>
@@ -116,20 +117,20 @@ export default function ({
   const [editId, setEditId] = useState<EditId>(null);
   const [subFormVisible, setSubFormVisible] = useState(false);
   const listRef = useRef(null);
-  
+
   /** 数据变化来自外部 */
   const changeFromOuter = useRef(false);
-  
+
   const didMount = useRef(false);
-  
+
   const expandable = useMemo(() => {
     return (window as any)[editorsConfigKey]?.expandable ?? false;
   }, []);
-  
+
   const _selectable = useMemo(() => {
     return expandable || selectable;
   }, [selectable, expandable]);
-  
+
   const listModel = useMemo(() => {
     return {
       add: (item: any) => {
@@ -163,16 +164,16 @@ export default function ({
       },
     };
   }, []);
-  
+
   useEffect(() => {
     const curList = list;
-    
+
     if (JSON.stringify(curList) !== JSON.stringify(value)) {
       changeFromOuter.current = true;
       setList(initData(value));
     }
   }, [JSON.stringify(value)]);
-  
+
   useEffect(() => {
     if (!didMount.current) {
       return;
@@ -184,27 +185,27 @@ export default function ({
     typeof onChange === "function" &&
     onChange(JSON.parse(JSON.stringify(list)));
   }, [list, onChange]);
-  
+
   useEffect(() => {
     if (!didMount.current) {
       return;
     }
-    
+
     if (!_selectable) {
       return;
     }
-    
+
     typeof onSelect === "function" &&
     onSelect(
       activeId as string,
       list.findIndex((t) => t._id === activeId)
     );
   }, [activeId, list, onSelect, _selectable]);
-  
+
   useEffect(() => {
     didMount.current = true;
   }, []);
-  
+
   useEffect(() => {
     const editViewEle =
       document.querySelector('div[class^="lyEdt-"]') ||
@@ -230,11 +231,11 @@ export default function ({
       editViewEle.removeEventListener("click", handleClick);
     };
   }, [listRef]);
-  
+
   const editIndex = useMemo(() => {
     return list.findIndex((t) => t._id === editId);
   }, [editId, list]);
-  
+
   const handleSortEnd = ({
                            oldIndex,
                            newIndex,
@@ -244,14 +245,14 @@ export default function ({
   }) => {
     listModel.move(oldIndex, newIndex);
   };
-  
+
   useEffect(() => {
     //expandable情况下，将editId与activeId同步，不需要editId了
     if (expandable) {
       setEditId(activeId);
     }
   }, [activeId, expandable]);
-  
+
   useEffect(() => {
     //expandable情况下，第一次默认展开第一个
     if (!didMount || !expandable) {
@@ -259,7 +260,7 @@ export default function ({
     }
     setActiveId(list.find((t) => t)?._id ?? null);
   }, [didMount, expandable]);
-  
+
   useEffect(() => {
     if (didMount.current && selectable && !activeId && defaultSelect) {
       let target = list.find(
@@ -270,7 +271,7 @@ export default function ({
       }
     }
   }, [defaultSelect, activeId, didMount, selectable, list]);
-  
+
   const getI18nText = useCallback(
     (val: any): string | string[] => {
       if (!val?.id) {
@@ -286,13 +287,13 @@ export default function ({
     },
     [locales]
   );
-  
+
   const SubEditors = useMemo(() => {
     return (
       <div style={{padding: "15px"}} onClick={(e) => e.stopPropagation()}>
         {items.map((item, idx) => {
           const value = list[editIndex]?.[item.value];
-          
+
           const itemValue = JSON.parse(JSON.stringify(list[editIndex] || {}));
           if (
             typeof item.ifVisible === "function" &&
@@ -300,7 +301,7 @@ export default function ({
           ) {
             return;
           }
-          
+
           return (
             <RenderEditor
               key={`${editIndex}_${idx}_${item.type}`}
@@ -316,9 +317,9 @@ export default function ({
       </div>
     );
   }, [items, list, listModel, editIndex]);
-  
+
   const loaded = useLazy(cdnMap.sortableHoc);
-  
+
   const tagsList = useCallback(
     (item: any) => {
       if (tagsRender && tagsRender(item).length > 0) {
@@ -347,7 +348,7 @@ export default function ({
     },
     [tagsRender]
   );
-  
+
   return (
     <div className={`${css.listSetter} fangzhou-theme`} ref={listRef}>
       {addable && (
@@ -507,7 +508,7 @@ export default function ({
             document.querySelector('#root div[class^="sketchSection"]')
           }
           style={{position: "absolute"}}
-          rootStyle={{position: "absolute",left:'unset'}}
+          rootStyle={{position: "absolute", left: 'unset'}}
         >
           <div>
             <Title

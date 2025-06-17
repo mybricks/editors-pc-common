@@ -1,4 +1,4 @@
-import React, { useState, CSSProperties } from "react";
+import React, {useState, CSSProperties} from "react";
 
 import {
   Panel,
@@ -11,13 +11,14 @@ import {
   MinHeightOutlined,
 } from "../../components";
 
-import type { ChangeEvent, PanelBaseProps } from "../../type";
+import type {ChangeEvent, PanelBaseProps} from "../../type";
+import css from './index.less'
 
 const UNIT_OPTIONS = [
-  { label: "%", value: "%" },
-  { label: "px", value: "px" },
-  { label: "继承", value: "inherit" },
-  { label: "默认", value: "auto" },
+  {label: "%", value: "%"},
+  {label: "px", value: "px"},
+  {label: "继承", value: "inherit"},
+  {label: "默认", value: "auto"},
 ];
 const UNIT_DISABLED_LIST = ["auto", "inherit"];
 
@@ -35,8 +36,8 @@ const DEFAULT_CONFIG = {
   disableMinHeight: true,
 };
 
-export function Size({ value, onChange, config, showTitle, collapse }: SizeProps) {
-  const [cfg] = useState({ ...DEFAULT_CONFIG, ...config });
+export function Size({value, onChange, config, showTitle, collapse}: SizeProps) {
+  const [cfg] = useState({...DEFAULT_CONFIG, ...config});
   // console.warn("Size", value, cfg.disableWidth, cfg.disableHeight);
   return (
     <Panel title="尺寸" showTitle={showTitle} collapse={collapse}>
@@ -44,25 +45,21 @@ export function Size({ value, onChange, config, showTitle, collapse }: SizeProps
         <Panel.Content>
           {cfg.disableWidth ? null : (
             <InputNumber
-              tip="宽"
-              prefix={<WidthOutlined />}
-              prefixTip={"宽"}
+              prefix={<span className={css.tip}>宽度</span>}
               defaultValue={value.width}
               unitOptions={UNIT_OPTIONS}
               unitDisabledList={UNIT_DISABLED_LIST}
-              onChange={(value) => onChange({ key: "width", value })}
+              onChange={(value) => onChange({key: "width", value})}
               showIcon={true}
             />
           )}
           {cfg.disableHeight ? null : (
             <InputNumber
-              tip="高"
-              prefix={<HeightOutlined />}
-              prefixTip={"高"}
+              prefix={<span className={css.tip}>高度</span>}
               defaultValue={value.height}
               unitOptions={UNIT_OPTIONS}
               unitDisabledList={UNIT_DISABLED_LIST}
-              onChange={(value) => onChange({ key: "height", value })}
+              onChange={(value) => onChange({key: "height", value})}
               showIcon={true}
             />
           )}
@@ -72,25 +69,21 @@ export function Size({ value, onChange, config, showTitle, collapse }: SizeProps
         <Panel.Content>
           {cfg.disableMaxWidth ? null : (
             <InputNumber
-              tip="最大宽"
-              prefix={<MaxWidthOutlined />}
-              prefixTip={"最大宽"}
+              prefix={<span className={css.tip}>最大宽</span>}
               defaultValue={value.maxWidth}
               unitOptions={UNIT_OPTIONS}
               unitDisabledList={UNIT_DISABLED_LIST}
-              onChange={(value) => onChange({ key: "max-width", value })}
+              onChange={(value) => onChange({key: "max-width", value})}
               showIcon={true}
             />
           )}
           {cfg.disableMaxHeight ? null : (
             <InputNumber
-              tip="最大高"
-              prefix={<MaxHeightOutlined />}
-              prefixTip={"最大高"}
+              prefix={<span className={css.tip}>最大高</span>}
               defaultValue={value.maxHeight}
               unitOptions={UNIT_OPTIONS}
               unitDisabledList={UNIT_DISABLED_LIST}
-              onChange={(value) => onChange({ key: "max-height", value })}
+              onChange={(value) => onChange({key: "max-height", value})}
               showIcon={true}
             />
           )}
@@ -100,25 +93,21 @@ export function Size({ value, onChange, config, showTitle, collapse }: SizeProps
         <Panel.Content>
           {cfg.disableMinWidth ? null : (
             <InputNumber
-              tip="最小宽"
-              prefix={<MinWidthOutlined />}
-              prefixTip={"最小宽"}
+              prefix={<span className={css.tip}>最小宽</span>}
               defaultValue={value.minWidth}
               unitOptions={UNIT_OPTIONS}
               unitDisabledList={UNIT_DISABLED_LIST}
-              onChange={(value) => onChange({ key: "min-width", value })}
+              onChange={(value) => onChange({key: "min-width", value})}
               showIcon={true}
             />
           )}
           {cfg.disableMinHeight ? null : (
             <InputNumber
-              tip="最小高"
-              prefix={<MinHeightOutlined />}
-              prefixTip={"最小高"}
+              prefix={<span className={css.tip}>最小高</span>}
               defaultValue={value.minHeight}
               unitOptions={UNIT_OPTIONS}
               unitDisabledList={UNIT_DISABLED_LIST}
-              onChange={(value) => onChange({ key: "min-height", value })}
+              onChange={(value) => onChange({key: "min-height", value})}
               showIcon={true}
             />
           )}

@@ -3,6 +3,7 @@ import React, {CSSProperties} from 'react';
 import {Panel, Select, WidthOutlined, HeightOutlined} from '../../components';
 
 import type {ChangeEvent, PanelBaseProps} from '../../type';
+import css from './index.less'
 
 type OverFlowValueType = Partial<{
   overflowX: CSSProperties['overflowX'];
@@ -15,11 +16,11 @@ export interface OverFlowProps extends PanelBaseProps {
 }
 
 const VALUE_OPTIONS = [
-  {label: '默认', value: 'unset'},
+  // {label: '默认', value: 'unset'},
   {label: '自动', value: 'auto'},
-  {label: '滚动', value: 'scroll'},
+  {label: '显示', value: 'scroll'},
   {label: '隐藏', value: 'hidden'},
-  {label: '显示', value: 'visible'}
+  // {label: '显示', value: 'visible'}
 ];
 
 export const OverFlow = ({value, onChange, showTitle, collapse}: OverFlowProps) => {
@@ -27,16 +28,14 @@ export const OverFlow = ({value, onChange, showTitle, collapse}: OverFlowProps) 
     <Panel title='滚动条' showTitle={showTitle} collapse={collapse}>
       <Panel.Content>
         <Select
-          tip='水平'
-          prefix={<WidthOutlined/>}
+          prefix={<span className={css.tip}>水平</span>}
           style={{padding: 0}}
           defaultValue={value.overflowX}
           options={VALUE_OPTIONS}
           onChange={(val) => onChange({key: 'overflowX', value: val})}
         />
         <Select
-          tip='垂直'
-          prefix={<HeightOutlined/>}
+          prefix={<span className={css.tip}>垂直</span>}
           style={{padding: 0}}
           defaultValue={value.overflowY}
           options={VALUE_OPTIONS}

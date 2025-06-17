@@ -2,17 +2,32 @@
 
 .editorSelect {
   :global(.ant-select) {
+    background: #F5F5F5;
     font-size: 12px;
     width: 100%;
+    border-radius: @border-radius;
   }
 
   :global(.ant-select:not(.ant-select-customize-input, .ant-select-multiple) .ant-select-selector) {
     height: 26px;
-    border-radius: @border-radius;
-    border: 1px solid #E3E3E3 !important;
+    border: 1px solid transparent !important;
     box-shadow: none !important;
     outline: none;
     font-size: 12px;
+    background: #F5F5F5;
+    transition: none !important;
+
+    &:hover {
+      border-color: #D9D9D9 !important;
+    }
+  }
+
+  :global(.ant-select:not(.ant-select-customize-input, .ant-select-multiple) .ant-select-arrow) {
+    svg {
+      path {
+        fill: #555;
+      }
+    }
   }
 }
 

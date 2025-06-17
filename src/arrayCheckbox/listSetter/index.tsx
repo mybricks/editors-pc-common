@@ -44,7 +44,7 @@ const Title = ({ items, heavy = false }: TitleProps) => {
           title?.toLocaleLowerCase &&
           /\.(png|jpe?g|gif|svg)(\?.*)?$/.test(title.toLocaleLowerCase())
         ) {
-          return <img key={`${title}_${index}`} src={title} />;
+          return <img key={`${title}_${index}`} src={title} alt={`图片`}/>;
         }
         return <div key={`${title}_${index}`}>{title}</div>;
       })}

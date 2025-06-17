@@ -1,56 +1,36 @@
-import React, {
-  useRef,
-  useMemo,
-  useState,
-  useEffect,
-  useCallback,
-  CSSProperties
-} from 'react'
-import { createPortal } from "react-dom";
+import React, {CSSProperties, useCallback, useMemo, useRef, useState} from 'react'
+import {createPortal} from "react-dom";
 
 // @ts-ignore
 import colorUtil from 'color-string'
 // @ts-ignore
-import { toCSS, toJSON } from 'cssjson';
+import {toCSS, toJSON} from 'cssjson';
 // @ts-ignore
-import { calculate, compare } from 'specificity';
+import {calculate, compare} from 'specificity';
 
-import { Tooltip, message } from "antd";
+import {message, Tooltip} from "antd";
 
-import {
-  CodeOutlined,
-  ReloadOutlined,
-  CopyOutlined,
-  AppstoreOutlined,
-  CaretDownOutlined,
-  CaretRightOutlined,
-  FullscreenOutlined,
-  CaretUpOutlined
-} from '@ant-design/icons'
+import {AppstoreOutlined, CaretRightOutlined, CodeOutlined, CopyOutlined, ReloadOutlined} from '@ant-design/icons'
 // @ts-ignore
 import MonacoEditor from "@mybricks/code-editor";
 
-import { deepCopy, copyText } from '../utils'
-import StyleEditor, { DEFAULT_OPTIONS, StyleEditorProvider } from './StyleEditor'
+import {copyText, deepCopy} from '../utils'
+import StyleEditor, {DEFAULT_OPTIONS, StyleEditorProvider} from './StyleEditor'
 
-import { mergeCSSProperties, splitCSSProperties, getSuggestOptionsByElement } from './StyleEditor/helper'
+import {getSuggestOptionsByElement, mergeCSSProperties, splitCSSProperties} from './StyleEditor/helper'
 
-import type {
-  EditorProps,
-  GetDefaultConfigurationProps
-} from './type'
-import type { Style, Options, ChangeEvent } from './StyleEditor/type'
+import type {EditorProps, GetDefaultConfigurationProps} from './type'
+import type {ChangeEvent, Options, Style} from './StyleEditor/type'
 
-import { useUpdateEffect } from './StyleEditor/hooks'
+import {useUpdateEffect} from './StyleEditor/hooks'
 
 import css from './index.less'
+import {fullScreenIcon, goBackIcon} from './icon';
 
 interface State {
   open: boolean
   editMode: boolean
 }
-
-import { fullScreenIcon,goBackIcon } from './icon';
 
 export default function ({editConfig}: EditorProps) {
   const [titleContent, setTitleContent] = useState("");
@@ -150,13 +130,13 @@ export default function ({editConfig}: EditorProps) {
         className={css.titleContainer}
         //style={{ marginBottom: open ? 3 : 0 }}
       >
-        <div className={css.title} style={{fontWeight: styleProps?.options?.length > 1 ? 800 : "normal"}} onClick={onOpenClick}>
-          {finalDisabledSwitch ? null : <div
-            className={`${css.icon}${open ? ` ${css.iconOpen}` : ''}`}
-            data-mybricks-tip={open ? '收起' : '展开'}
-          >
-            <CaretRightOutlined />
-          </div>}
+        <div className={css.title} onClick={onOpenClick}>
+          {/*{finalDisabledSwitch ? null : <div*/}
+          {/*  className={`${css.icon}${open ? ` ${css.iconOpen}` : ''}`}*/}
+          {/*  data-mybricks-tip={open ? '收起' : '展开'}*/}
+          {/*>*/}
+          {/*  <CaretRightOutlined />*/}
+          {/*</div>}*/}
           <div>{editConfig.title}<span className={css.tips}>{titleContent}</span></div>
         </div>
         <div className={css.actions}>

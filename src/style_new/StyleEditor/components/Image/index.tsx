@@ -6,7 +6,7 @@ import React, {
   useCallback,
   CSSProperties
 } from 'react'
-import { createPortal } from 'react-dom'
+import {createPortal} from 'react-dom'
 
 import {
   Input,
@@ -16,10 +16,10 @@ import {
   ImageOutlined
 } from '..'
 
-import { ReloadOutlined } from '@ant-design/icons'
+import {ReloadOutlined} from '@ant-design/icons'
 
 import css from './index.less'
-import { ExtractBackground } from './ExtractBackground'
+import {ExtractBackground} from './ExtractBackground'
 
 const DEFAULT_IMAGE = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAAXNSR0IArs4c6QAAAEpJREFUSEvtlKEOAEAIQuH/P5pLNgkXLIrRuTGBPQIQmpHaNUh257D3ESi/Flsk89t3W0y7GIFqkbN0gUVBxQFUjIccVBxAxXTID1edp90t8GAGAAAAAElFTkSuQmCC'
 
@@ -31,17 +31,17 @@ interface ImageProps {
   tip?: string
 }
 
-function getBackgroundImage (image: string = '', defaultValue = '') {
+function getBackgroundImage(image: string = '', defaultValue = '') {
   return /url\s*\(\s*["']?([^"'\r\n\)\(]+)["']?\s*\)/gi.exec(ExtractBackground(image, 'image')?.[0] || '')?.[1] || defaultValue
 }
 
-export function Image ({
-  defaultValue,
-  style = {},
-  onChange,
-  upload,
-  tip
-}: ImageProps) {
+export function Image({
+                        defaultValue,
+                        style = {},
+                        onChange,
+                        upload,
+                        tip
+                      }: ImageProps) {
   const ref = useRef<HTMLDivElement>(null)
   const childRef = useRef<HTMLDivElement>(null)
   const [value, setValue] = useState<CSSProperties>(defaultValue)
@@ -51,7 +51,7 @@ export function Image ({
   useEffect(() => {
     // 兼容下之前的backgroundSize BACKGROUND_SIZE_OPTIONS
     if (value.backgroundSize && ["100% auto", "auto 100%"].includes(value.backgroundSize as string)) {
-      setValue({ ...value, backgroundSize: "100% 100%" })
+      setValue({...value, backgroundSize: "100% 100%"})
     }
   }, [])
 
@@ -70,7 +70,7 @@ export function Image ({
     })
   }, [])
 
-  const handleChange = useCallback((value: { key:string, value: any }) => {
+  const handleChange = useCallback((value: { key: string, value: any }) => {
     onChange(value)
     setValue((val) => {
       return {
@@ -108,11 +108,11 @@ export function Image ({
     const src = getBackgroundImage(value.backgroundImage)
     if (src) {
       return (
-        <img src={src} />
+        <img src={src} alt={`图片`}/>
       )
     }
 
-    return <ImageOutlined />
+    return <ImageOutlined/>
   }, [value.backgroundImage])
 
   return (
@@ -121,8 +121,8 @@ export function Image ({
         <div ref={ref} className={css.block} onClick={handleImageClick}>
           {icon}
         </div>
-        <div className={css.reset} onClick={handleReset} data-mybricks-tip={'重置图片'}>
-          <ReloadOutlined onPointerOverCapture={void 0} onPointerMoveCapture={void 0} />
+        <div className={css.reset} onClick={handleReset} data-mybricks-tip={'重置'}>
+          <ReloadOutlined onPointerOverCapture={void 0} onPointerMoveCapture={void 0}/>
         </div>
       </div>
       {show && createPortal(
@@ -148,46 +148,46 @@ interface PopupProps {
 }
 
 const BACKGROUND_REPEAT_OPTIONS = [
-  { label: '平铺', value: 'repeat' },
-  { label: '不平铺', value: 'no-repeat' }
+  {label: '平铺', value: 'repeat'},
+  {label: '不平铺', value: 'no-repeat'}
 ]
 
 const BACKGROUND_POSITION_OPTIONS = [
-  { label: '居上', value: 'center top' },
-  { label: '居中', value: 'center center' },
-  { label: '居下', value: 'center bottom' },
-  { label: '居左', value: 'left center' },
-  { label: '居右', value: 'right center' },
-  { label: '左上', value: 'left top' },
-  { label: '左下', value: 'left bottom' },
-  { label: '右上', value: 'right top' },
-  { label: '右下', value: 'right bottom' }
+  {label: '居上', value: 'center top'},
+  {label: '居中', value: 'center center'},
+  {label: '居下', value: 'center bottom'},
+  {label: '居左', value: 'left center'},
+  {label: '居右', value: 'right center'},
+  {label: '左上', value: 'left top'},
+  {label: '左下', value: 'left bottom'},
+  {label: '右上', value: 'right top'},
+  {label: '右下', value: 'right bottom'}
 ]
 
 const BACKGROUND_SIZE_OPTIONS = [
-  { label: '默认', value: 'auto' },
-  { label: '适应', value: 'contain' },
-  { label: '填充', value: 'cover' },
-  { label: '铺满', value: '100% 100%' },
-  { label: '铺满x轴', value: '100% auto' },
-  { label: '铺满y轴', value: 'auto 100%' }
+  {label: '默认', value: 'auto'},
+  {label: '适应', value: 'contain'},
+  {label: '填充', value: 'cover'},
+  {label: '铺满', value: '100% 100%'},
+  {label: '铺满x轴', value: '100% auto'},
+  {label: '铺满y轴', value: 'auto 100%'}
 ]
 
 const BACKGROUND_SIZE_OPTIONS_NEW = [
-  { label: "填充（无留白）", value: "cover" },
-  { label: "适应（有留白）", value: "contain" },
-  { label: "拉伸", value: "100% 100%" },
-  { label: "原始大小", value: "auto" },
+  {label: "填充（无留白）", value: "cover"},
+  {label: "适应（有留白）", value: "contain"},
+  {label: "拉伸", value: "100% 100%"},
+  {label: "原始大小", value: "auto"},
 ]
 
-function Popup ({
-  value,
-  onChange,
-  childRef,
-  open,
-  positionElement,
-  upload
-}: PopupProps) {
+function Popup({
+                 value,
+                 onChange,
+                 childRef,
+                 open,
+                 positionElement,
+                 upload
+               }: PopupProps) {
   const ref = childRef
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -224,17 +224,17 @@ function Popup ({
   const handleBackgroundChange = useCallback((newBackground: string) => {
     const gradient = ExtractBackground(value.backgroundImage, 'gradient')?.[0];
     const newValue = gradient ? `${gradient}, url(${newBackground})` : `url(${newBackground})`;
-    onChange({ key: 'backgroundImage', value: newValue });
+    onChange({key: 'backgroundImage', value: newValue});
   }, [value.backgroundImage]);
-  
+
   const handleFileInputChange = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target?.files?.[0];
     if (!file) return;
-  
+
     const [neValue] = await (typeof upload === 'function' ? upload([file], {}) : file2Base64(file));
     handleBackgroundChange(neValue);
   }, [handleBackgroundChange]);
-  
+
   const handleUrlInputChange = useCallback((url: string) => {
     handleBackgroundChange(url);
   }, [handleBackgroundChange]);
@@ -244,11 +244,12 @@ function Popup ({
   return (
     <div ref={ref} className={css.popup}>
       <div className={css.image}>
-        <div className={`${css.imageContainer} ${imgSrc !== DEFAULT_IMAGE ? css.hasImage : ""}`} onClick={handleImageClick}>
-          <img style={{ opacity: imgSrc === DEFAULT_IMAGE ? 0.5 : 1}} src={imgSrc}/>
+        <div className={`${css.imageContainer} ${imgSrc !== DEFAULT_IMAGE ? css.hasImage : ""}`}
+             onClick={handleImageClick}>
+          <img style={{opacity: imgSrc === DEFAULT_IMAGE ? 0.5 : 1}} src={imgSrc} alt={`图片`}/>
           <button className={css.uploadButton}>点击上传</button>
         </div>
-        
+
         <input
           type='file'
           accept={'image/*'}
@@ -269,7 +270,7 @@ function Popup ({
             defaultValue={value.backgroundSize}
             options={BACKGROUND_SIZE_OPTIONS_NEW}
             onChange={((value: string) => {
-              onChange({ key: "backgroundSize", value })
+              onChange({key: "backgroundSize", value})
             })}
           />
         </div>
@@ -279,10 +280,10 @@ function Popup ({
           <div className={css.label}>平铺</div>
           <div className={css.value}>
             <Select
-              style={{ padding: 0 }}
+              style={{padding: 0}}
               defaultValue={value.backgroundRepeat}
               options={BACKGROUND_REPEAT_OPTIONS}
-              onChange={(value) => onChange({ key: "backgroundRepeat", value })}
+              onChange={(value) => onChange({key: "backgroundRepeat", value})}
             />
           </div>
         </div>
@@ -292,11 +293,11 @@ function Popup ({
           <div className={css.label}>位置</div>
           <div className={css.value}>
             <Select
-              style={{ padding: 0 }}
+              style={{padding: 0}}
               defaultValue={value.backgroundPosition}
               options={BACKGROUND_POSITION_OPTIONS}
               onChange={(value) =>
-                onChange({ key: "backgroundPosition", value })
+                onChange({key: "backgroundPosition", value})
               }
             />
           </div>
