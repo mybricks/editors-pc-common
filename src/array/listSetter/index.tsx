@@ -393,6 +393,7 @@ export default function ({
                 if (!_selectable) {
                   return;
                 }
+
                 setSubFormVisible(false);
                 setActiveId((c) => {
                   if (c === item._id) {
