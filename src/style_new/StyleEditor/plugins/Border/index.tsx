@@ -165,7 +165,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
     if (borderToggleValue === "all") {
       return (
         <div className={css.row}>
-          <Panel.Content style={{ padding: 3 }}>
+          <Panel.Content style={{ padding: 3, minWidth:120 }}>
             <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
               <div className={css.icon} data-mybricks-tip={"边框宽度"}>
                 <BorderAllOutlined />
