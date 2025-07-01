@@ -14,7 +14,7 @@
   .title {
     width: 100%;
     display: flex;
-    color: #415058;
+    color: #AAA;
     overflow: hidden;
     white-space: nowrap;
     align-items: center;
@@ -59,20 +59,25 @@
       align-items: center;
       justify-content: center;
       cursor: pointer;
+      margin: 0 4px;
 
       svg {
-        height: 12px;
-        width: 12px;
+        max-height: 11px;
+        max-width: 11px;
+
+        path {
+          fill: #555;
+        }
       }
 
-      &:first-child {
-        margin-right: 4px;
-      }
-
-      &:not(:first-child) {
-        margin-left: 4px;
-        margin-right: 4.5px;
-      }
+      //&:first-child {
+      //  margin-right: 4px;
+      //}
+      //
+      //&:not(:first-child) {
+      //  margin-left: 4px;
+      //  margin-right: 4.5px;
+      //}
     }
   }
 
@@ -86,20 +91,25 @@
       align-items: center;
       justify-content: center;
       cursor: pointer;
+      margin: 0 4px;
 
       svg {
-        height: 12px;
-        width: 12px;
+        max-height: 11px;
+        max-width: 11px;
+
+        path {
+          fill: #555;
+        }
       }
 
-      &:first-child {
-        margin-right: 4px;
-      }
-
-      &:not(:first-child) {
-        margin-left: 4px;
-        margin-right: 4.5px;
-      }
+      //&:first-child {
+      //  margin-right: 4px;
+      //}
+      //
+      //&:not(:first-child) {
+      //  margin-left: 4px;
+      //  margin-right: 4.5px;
+      //}
     }
   }
 }
@@ -158,6 +168,7 @@
       z-index: 1;
       cursor: pointer;
       visibility: hidden;
+
       &:hover {
         color: #f86508;
       }
