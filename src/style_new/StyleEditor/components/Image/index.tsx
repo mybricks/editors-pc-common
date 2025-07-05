@@ -16,7 +16,7 @@ import {
   ImageOutlined
 } from '..'
 
-import {ReloadOutlined} from '@ant-design/icons'
+import {DeleteOutlined, ReloadOutlined} from '@ant-design/icons'
 
 import css from './index.less'
 import {ExtractBackground} from './ExtractBackground'
@@ -122,7 +122,7 @@ export function Image({
           {icon}
         </div>
         <div className={css.reset} onClick={handleReset} data-mybricks-tip={'重置'}>
-          <ReloadOutlined onPointerOverCapture={void 0} onPointerMoveCapture={void 0}/>
+          <DeleteOutlined onPointerOverCapture={void 0} onPointerMoveCapture={void 0}/>
         </div>
       </div>
       {show && createPortal(

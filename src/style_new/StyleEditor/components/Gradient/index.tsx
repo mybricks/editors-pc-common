@@ -9,7 +9,7 @@ import {createPortal} from "react-dom";
 
 import {Panel, GradientEditor, TransparentColorOutlined} from "../";
 
-import {ReloadOutlined} from "@ant-design/icons";
+import {DeleteOutlined, ReloadOutlined} from "@ant-design/icons";
 
 import css from "./index.less";
 import {gradientOptions, shapeOptions} from "../GradientEditor/constants";
@@ -107,7 +107,7 @@ export function Gradient({
         }}
         data-mybricks-tip={"重置"}
       >
-        <ReloadOutlined/>
+        <DeleteOutlined/>
       </div>
       {show &&
         createPortal(

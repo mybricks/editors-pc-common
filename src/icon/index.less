@@ -5,12 +5,12 @@
     display: block;
     width: 100%;
     text-align: center;
-    border: none;
     height: 24px;
     line-height: 24px;
-    border-radius: 3px;
-    background-color: #ffffff;
-    box-shadow: 0 1px 3px -1px #777;
+    border-radius: @border-radius;
+    background-color: #fff;
+    border: 1px solid #DDD;
+    //box-shadow: 0 1px 3px -1px #777;
     &-editIcon {
       margin-right: 8px;
     }
@@ -19,11 +19,13 @@
 
 .iconBody {
   height: 100%;
+
   :global {
     .ant-modal-body {
       div:hover {
         background-color: #ffd1d6;
         color: #fff;
+
         span {
           transform: scale(1.2);
           transition: transform 0.3s ease-in-out;
@@ -41,7 +43,8 @@
     overflow-y: auto;
     //width: 624px;
     width: 424px;
-    :hover{
+
+    :hover {
       background-color: @color-primary;
       color: #fff;
       border-radius: 4px;
@@ -71,7 +74,7 @@
   padding: 50px;
 }
 
-.text{
+.text {
   font-family: "Lucida Console", Consolas, Monaco, "Andale Mono", "Ubuntu Mono", monospace;
   font-size: 12px;
   overflow: hidden;
@@ -83,7 +86,7 @@
   padding: 10px 10px 0 10px;
 }
 
-.popoverText{
+.popoverText {
   font-family: "Lucida Console", Consolas, Monaco, "Andale Mono", "Ubuntu Mono", monospace;
 }
 
@@ -126,7 +129,7 @@
   background-color: rgb(247, 247, 247);
 }
 
-.styleChoose{
+.styleChoose {
   display: flex;
   justify-content: space-between;
   padding: 10px 10px 0 10px
@@ -144,21 +147,22 @@
   font-size: 14px
 }
 
-.anchor{
-  :global{
-    .ant-anchor{
+.anchor {
+  :global {
+    .ant-anchor {
       position: fixed;
       left: 5px;
       top: 40%;
       //transform: translateY(-50%);
     }
+
     .ant-anchor-ink::before {
       background-color: unset;
     }
   }
 }
 
-.typeList{
+.typeList {
   padding-top: 126px;
   margin-top: -126px;
 }

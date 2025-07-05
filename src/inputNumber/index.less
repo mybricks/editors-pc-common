@@ -52,6 +52,12 @@
       }
 
       .ant-input-number-sm {
+        border-radius: @border-radius;
+
+        &:hover {
+          outline: 1px solid #EEE;
+        }
+
         // width: 100%!important;
         // width: 60px!important;
       }
@@ -74,18 +80,24 @@
 
       .ant-input-number:hover {
         border-color: @color-primary;
+        box-shadow: none !important;
+        outline: 1px solid #EEE;
+        //outline-offset: -1px;
       }
 
       .ant-input-number-focused,
       .ant-input-number:focus {
         //border-color: @color-primary;
         //-webkit-box-shadow: var(--box-shadow);
-        outline: 1px solid @color-primary;
+        outline: 1px solid @color-primary !important;
+        box-shadow: none !important;
       }
 
       .ant-input-number-handler-wrap {
         width: 16px !important;
         z-index: 2;
+        border-start-end-radius: @border-radius;
+        border-end-end-radius: @border-radius;
       }
     }
   }

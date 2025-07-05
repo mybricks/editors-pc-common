@@ -10,7 +10,7 @@ import {calculate, compare} from 'specificity';
 
 import {message, Tooltip} from "antd";
 
-import {AppstoreOutlined, CaretRightOutlined, CodeOutlined, CopyOutlined, ReloadOutlined} from '@ant-design/icons'
+import {AppstoreOutlined, CaretRightOutlined, CodeOutlined, CopyOutlined, ReloadOutlined,DeleteOutlined} from '@ant-design/icons'
 // @ts-ignore
 import MonacoEditor from "@mybricks/code-editor";
 
@@ -152,7 +152,7 @@ export default function ({editConfig}: EditorProps) {
             data-mybricks-tip={'重置'}
             onClick={refresh}
           >
-            <ReloadOutlined />
+            <DeleteOutlined />
           </div>
           <div
             className={css.icon}
@@ -192,7 +192,7 @@ export default function ({editConfig}: EditorProps) {
             data-mybricks-tip={'重置'}
             onClick={refresh}
           >
-            <ReloadOutlined />
+            <DeleteOutlined />
           </div>
           <div
             className={css.icon}

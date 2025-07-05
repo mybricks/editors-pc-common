@@ -7,7 +7,7 @@ import React, {
   CSSProperties,
 } from "react";
 import { createPortal } from "react-dom";
-import { ReloadOutlined } from "@ant-design/icons";
+import { ReloadOutlined,DeleteOutlined } from "@ant-design/icons";
 import {
   Input,
   Panel,

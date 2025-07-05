@@ -362,7 +362,7 @@ export default function ({
             });
           }}
         >
-          {addText}
+          <span>+</span>{addText}
         </div>
       )}
       <SortableList
