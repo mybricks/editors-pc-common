@@ -258,7 +258,15 @@ export default function ({editConfig}: any): JSX.Element {
         }}
         onBlur={onBlur}
         onChange={onChange}
-        options={{readOnly: readonly, fontSize: 12}}
+        options={{
+          readOnly: readonly, fontSize: 12,
+          scrollbar: {
+            horizontal: "auto",
+            horizontalScrollbarSize: 4,
+            vertical: "auto",
+            verticalScrollbarSize: 4,
+          }
+        }}
         comment={{
           value: comments,
           className: styles.comment,
