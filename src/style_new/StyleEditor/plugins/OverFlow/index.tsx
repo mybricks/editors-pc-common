@@ -29,14 +29,14 @@ export const OverFlow = ({value, onChange, showTitle, collapse}: OverFlowProps) 
       <Panel.Content>
         <Select
           prefix={<span className={css.tip}>水平</span>}
-          style={{padding: 0}}
+          // style={{padding: 0}}
           defaultValue={value.overflowX}
           options={VALUE_OPTIONS}
           onChange={(val) => onChange({key: 'overflowX', value: val})}
         />
         <Select
           prefix={<span className={css.tip}>垂直</span>}
-          style={{padding: 0}}
+          // style={{padding: 0}}
           defaultValue={value.overflowY}
           options={VALUE_OPTIONS}
           onChange={(val) => onChange({key: 'overflowY', value: val})}

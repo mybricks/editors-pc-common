@@ -93,7 +93,9 @@ export function Select({
   }, [value]);
 
   return (
-    <Panel.Item style={style}>
+    <Panel.Item
+      style={style}
+    >
       <Dropdown
         multiple={multiple}
         options={options}

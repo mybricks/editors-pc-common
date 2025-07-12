@@ -11,6 +11,9 @@
 
   .btnAdd {
     .button-base();
+    display: flex;
+    align-items: center;
+    justify-content: center;
     outline-width: unset;
     outline-style: unset;
     outline-offset: unset;
@@ -21,6 +24,7 @@
     span {
       font-size: 16px;
       margin-right: 5px;
+      margin-top: -3px;
       color: #AAA;
     }
 
@@ -87,6 +91,12 @@
 
       &:last-child {
         padding-bottom: 0px;
+      }
+    }
+
+    &:hover {
+      .btns {
+        display: flex;
       }
     }
   }
@@ -206,11 +216,11 @@
   }
 
   .btns {
-    display: flex;
+    display: none;
     align-items: center;
     justify-content: center;
     margin-left: auto;
-    //gap: 5px;
+    gap: 3px;
   }
 }
 
