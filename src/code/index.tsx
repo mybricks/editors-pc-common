@@ -265,7 +265,8 @@ export default function ({editConfig}: any): JSX.Element {
             horizontalScrollbarSize: 4,
             vertical: "auto",
             verticalScrollbarSize: 4,
-          }
+          },
+          lineNumbers: open ? 'on' : 'off'
         }}
         comment={{
           value: comments,
