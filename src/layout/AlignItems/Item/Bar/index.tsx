@@ -85,10 +85,25 @@ const getTitle = ({ flexItem, flexDirection }: Params) => {
 };
 
 const Bar = ({ flexItem, flexDirection }: Params) => {
+
+  const style = () => {
+    if (flexItem.justifyContent === "space-around" || flexItem.justifyContent === "space-between") {
+      if (flexDirection === "column") {
+        return {
+          height: '100%'
+        }
+      } else if (flexDirection === "row") {
+        return {
+          width: '100%'
+        }
+      }
+    }
+  }
+
   return (
     <div
       data-mybricks-tip={getTitle({ flexItem, flexDirection })}
-      style={{ display: "flex", ...flexItem, flexDirection }}
+      style={{ display: "flex", ...flexItem, flexDirection, ...style()}}
     >
       <LeftBar />
       <CenterBar />
