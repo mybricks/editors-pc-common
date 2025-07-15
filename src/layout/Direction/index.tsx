@@ -11,7 +11,7 @@ export interface AlignItemsProps {
 
 const defaultFlexFlow = [
   {
-    title: "智能排版",
+    title: "智能排版<br/>(设计时自由排版、运行时自动排版)",
     value: "smart",
     render: () => <Icon name="smart" />,
   },
@@ -64,11 +64,11 @@ export default ({
 
   const flexFlow = useMemo(() => {
     if (defaultDirection.length === 0) {
-      return defaultFlexFlow;
+      return defaultFlexFlow
     } else {
       return defaultFlexFlow.filter(({ value }) =>
         defaultDirection.includes(value as Layout)
-      );
+      )
     }
   }, [defaultDirection]);
 
