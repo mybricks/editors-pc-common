@@ -51,7 +51,7 @@ export default ({
         }`}
         onClick={() => onWrapToggle(flexWrap === "wrap" ? "nowrap" : "wrap")}
       >
-        <Icon name="wrap" />
+        <Icon name="wrap" style={{opacity:0.85}}/>
       </div>
     );
   };

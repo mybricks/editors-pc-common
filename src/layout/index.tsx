@@ -208,6 +208,7 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
       <div className={styles.layout}>
         <div className={styles.left}>
           {renderFlexDirection()}
+          {renderJustifyContent()}
           {renderGap()}
         </div>
         <div className={styles.centerLayout}>
@@ -223,7 +224,7 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
             {renderAlignItems()}
           </div>
         </div>
-        <div className={styles.rightLayout}>{renderJustifyContent()}</div>
+        {/* <div className={styles.rightLayout}>{renderJustifyContent()}</div> */}
       </div>
       {/* {renderPadding()} */}
     </div>

@@ -8,7 +8,7 @@
 .selected {
   background-color:@color-primary;
   color: #fff;
-  border-radius: 3px;
+  border-radius: 6px;
   border: 1px solid @color-primary;
   opacity: 1;
 }
@@ -20,8 +20,12 @@
 .justifyWrap {
   display: flex;
   flex-flow: column;
-  justify-content: space-between;
-  column-gap: 4px;
+  flex-direction: row;
+  align-items: center;
+  // justify-content: space-between;
+  padding: 5px;
+  padding-top: 3px;
+  column-gap: 3px;
   .svgWrapper {
     cursor: pointer;
     color: #555;
@@ -31,7 +35,7 @@
   .svgWrapper:hover {
     background-color: #fff8f4;
     color: @color-primary;
-    border-radius: 3px;
+    border-radius: 6px;
     border: 1px solid @color-primary;
     opacity: 1;
   }
@@ -43,7 +47,7 @@
 .wrap {
   cursor: pointer;
   .unselected;
-  margin-top: 4px;
+  // margin-top: 4px;
   svg {
     display: inline-block;
     width: 12px;
@@ -56,7 +60,7 @@
 .wrap:hover {
   background-color: #fff8f4;
   color: @color-primary;
-  border-radius: 3px;
+  border-radius: 6px;
   border: 1px solid @color-primary;
   opacity: 1;
 }
