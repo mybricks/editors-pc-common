@@ -79,7 +79,7 @@ export function BoxShadow ({value, onChange, config, showTitle, collapse}: BoxSh
       <Panel.Content>
         <Select
           tip='扩散方式'
-          style={{width: 98, padding: 0}}
+          style={{width: 98}}
           defaultValue={boxShadowValues.inset}
           options={INSET_OPTIONS}
           prefix={boxShadowValues.inset ? <BoxShadowInnerOutlined /> : <BoxShadowOuterOutlined />}

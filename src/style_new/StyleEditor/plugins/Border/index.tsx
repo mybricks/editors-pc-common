@@ -197,7 +197,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
               {disableBorderColor ? null : (
                 <ColorEditor
                   // tip='边框颜色'
-                  style={{ padding: "0 0 0 1px", marginLeft: 5 }}
+                  style={{ padding: "0 0 0 1px", marginLeft: 2 }}
                   defaultValue={borderValue.borderTopColor}
                   onChange={(value: string) => {
                     setBorderValue((val) => {
@@ -309,7 +309,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                     {disableBorderColor ? null : (
                       <ColorEditor
                         // tip='上边框颜色'
-                        style={{ padding: 0, marginLeft: 5 }}
+                        style={{ padding: 0, marginLeft: 2 }}
                         defaultValue={borderValue.borderTopColor}
                         onChange={(value: string) => {
                           const newValue: Record<string, any> = {
@@ -391,7 +391,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                     {disableBorderColor ? null : (
                       <ColorEditor
                         // tip='右边框颜色'
-                        style={{ padding: 0, marginLeft: 5 }}
+                        style={{ padding: 0, marginLeft: 2 }}
                         defaultValue={borderValue.borderRightColor}
                         onChange={(value: string) => {
                           const newValue: Record<string, any> = {
@@ -462,7 +462,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                     {disableBorderColor ? null : (
                       <ColorEditor
                         // tip='下边框颜色'
-                        style={{ padding: 0, marginLeft: 5 }}
+                        style={{ padding: 0, marginLeft: 2 }}
                         defaultValue={borderValue.borderBottomColor}
                         onChange={(value: string) => {
                           const newValue: Record<string, any> = {
@@ -533,7 +533,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                     {disableBorderColor ? null : (
                       <ColorEditor
                         // tip='左边框颜色'
-                        style={{ padding: 0, marginLeft: 5 }}
+                        style={{ padding: 0, marginLeft: 2 }}
                         defaultValue={borderValue.borderLeftColor}
                         onChange={(value: string) => {
                           const newValue: Record<string, any> = {
