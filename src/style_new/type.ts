@@ -12,6 +12,7 @@ export interface EditorProps {
      autoOptions?: boolean;
     //  autoCollapse?: boolean
      exclude?: string[]
+     comId?: string
     }
     | undefined
     value: {

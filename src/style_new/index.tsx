@@ -32,6 +32,11 @@ interface State {
   editMode: boolean
 }
 
+function getDocument() {
+  const root = document.getElementById('_mybricks-geo-webview_')?.shadowRoot || document
+  return root
+}
+
 export default function ({editConfig}: EditorProps) {
   const [titleContent, setTitleContent] = useState("");
   const [targetStyle, setTargetStyle] = useState<any>(null);
@@ -538,7 +543,7 @@ function getDefaultConfiguration ({value, options}: GetDefaultConfigurationProps
     // options是一个数组，直接使用
     finalOptions = options
   } else {
-    const { plugins, selector, targetDom, defaultOpen = false, autoOptions = false, exclude } = options
+    const { plugins, selector, targetDom, defaultOpen = false, autoOptions = false, exclude, comId } = options
     dom = targetDom
     finalSelector = selector
     finalOpen = defaultOpen
@@ -569,30 +574,30 @@ function getDefaultConfiguration ({value, options}: GetDefaultConfigurationProps
     if ((userNoConfig || autoOptions) && !!realTargetDom) {
       finalOptions = getSuggestOptionsByElement(realTargetDom) ?? finalOptions
     }
-
-    if (!!realTargetDom) {
-      getDefaultValue = false
-      const [styleValues, options] = getEffectedCssPropertyAndOptions(realTargetDom, Array.isArray(selector) ? selector[0] : selector);
-
-      effctedOptions = options
-
+    
+    // 如果有真实DOM就用DOM，否则对于伪元素选择器使用selector逻辑
+    const realSelector = Array.isArray(selector) ? selector[0] : selector;
+    const isPseudoSelector = typeof realSelector === 'string' && /:(:)?[a-zA-Z0-9\-\_]+/.test(realSelector);
+    const realDom = !!realTargetDom ? realTargetDom : null;
+    if (realDom || isPseudoSelector) {
+      getDefaultValue = false;
+      const [styleValues, options] = getEffectedCssPropertyAndOptions(realDom, realSelector, comId);
+      effctedOptions = options;
       finalOptions.forEach((option) => {
-        let type, config
-  
+        let type, config;
         if (typeof option === 'string') {
-          type = option.toLowerCase()
-          config = {}
+          type = option.toLowerCase();
+          config = {};
         } else {
-          type = option.type.toLowerCase()
-          config = option.config || {}
+          type = option.type.toLowerCase();
+          config = option.config || {};
         }
-
         // @ts-ignore
         if (DEFAULT_OPTIONS.includes(type)) {
           // @ts-ignore TODO: 类型补全
-          Object.assign(defaultValue, getDefaultValueFunctionMap[type](styleValues, config))
+          Object.assign(defaultValue, getDefaultValueFunctionMap[type](styleValues, config));
         }
-      })
+      });
     }
   }
 
@@ -742,13 +747,13 @@ const getDefaultValueFunctionMap = {
 const getDefaultValueFunctionMap2 = {
   font() {
     return {
-      color: 'inherit',
-      fontSize: 'inherit',
+      color: 'transparent',
+      fontSize: '14px',
       textAlign: 'start',
-      fontWeight: 'inherit',
-      fontFamily: 'inherit',
+      fontWeight: '400',
+      fontFamily: '默认',
       lineHeight: 'inherit',
-      letterSpacing: 'inherit',
+      letterSpacing: 0,
       whiteSpace: 'normal'
     }
   },
@@ -831,34 +836,85 @@ const getDefaultValueFunctionMap2 = {
 }
 
 /** 获取当前CSS规则下生效的样式以及插件 */
-function getEffectedCssPropertyAndOptions (element: HTMLElement, selector: string) {
-  const classListValue = element.classList.value
-  // const finalRules = getStyleRules(element, classListValue.indexOf(selector) !== -1 ? null : selector).map((finalRule: any) => {
-  //   finalRule.tempCompare = calculate(finalRule.selectorText)
-  //   return finalRule
-  // }).sort((a, b) => {
-  //   return compare(a.tempCompare, b.tempCompare)
-  // })
-  const finalRules = getStyleRules(element, classListValue.indexOf(selector) !== -1 ? null : selector).filter((finalRule: any) => {
-    let tempCompare
-    try {
-      tempCompare = calculate(finalRule.selectorText)
-    } catch {}
+function getEffectedCssPropertyAndOptions (element: HTMLElement | null, selector: string, comId?: string) {
+  let finalRules;
+  let computedValues;
 
-    if (tempCompare) {
-      finalRule.tempCompare = tempCompare
-      return true
+  if (element) {
+    // 处理真实DOM元素的情况
+    const classListValue = element.classList.value
+    finalRules = getStyleRules(element, classListValue.indexOf(selector) !== -1 ? null : selector).filter((finalRule: any) => {
+      let tempCompare
+      try {
+        tempCompare = calculate(finalRule.selectorText)
+      } catch {}
+
+      if (tempCompare) {
+        finalRule.tempCompare = tempCompare
+        return true
+      }
+
+      return false
+    }).sort((a, b) => {
+      // @ts-ignore
+      return compare(a.tempCompare, b.tempCompare)
+    })
+
+    // 检查是否是伪元素选择器（使用::或:before/:after）
+    const isPseudoElement = selector.includes('::') || selector.includes(':before') || selector.includes(':after')
+    if (isPseudoElement) {
+      // 对于伪元素，使用第二个参数来获取其计算样式
+      const pseudoSelector = selector.split(':')[1]
+      computedValues = window.getComputedStyle(element, pseudoSelector)
+    } else {
+      computedValues = window.getComputedStyle(element)
     }
+  } else if (selector) {
+    // 处理纯selector的情况（包括伪类如:hover, :disabled等）
+    finalRules = getStyleRules(null, selector).filter((finalRule: any) => {
+      let tempCompare
+      try {
+        tempCompare = calculate(finalRule.selectorText)
+      } catch {}
 
-    return false
-  }).sort((a, b) => {
-    // @ts-ignore
-    return compare(a.tempCompare, b.tempCompare)
-  })
+      if (tempCompare) {
+        finalRule.tempCompare = tempCompare
+        return true
+      }
+
+      return false
+    }).sort((a, b) => {
+      // @ts-ignore
+      return compare(a.tempCompare, b.tempCompare)
+    })
+
+
+    // 获取基础选择器对应的元素
+    const root = getDocument()
+    const baseSelector = selector.split(':')[0]
+    const targetElement = root.querySelector(`#${comId} ${baseSelector}`)
+    
+    if (targetElement) {
+      // 检查是否是伪元素（如::before、::after、::placeholder）
+      const pseudoMatch = selector.match(/(::[a-zA-Z0-9\-]+)/);
+      const pseudoSelector = pseudoMatch ? pseudoMatch[0] : null;
+      if (pseudoSelector) {
+        computedValues = window.getComputedStyle(targetElement, pseudoSelector);
+      } else {
+        // TDDO，现在获取不到样式表的 finalRules，因为类名可能不一样
+
+        // 属于伪类（如:hover、:disabled等），则获取普通元素的computedStyle作为基础样式
+        computedValues = window.getComputedStyle(targetElement);
+      }
+    } else {
+      // 如果找不到对应元素，创建一个空的，防止报错
+      computedValues = window.getComputedStyle(document.createElement('div'))
+    }
+  } else {
+    return [{}, []]
+  }
 
   const effectedPanels = getEffectedPanelsFromCssRules(finalRules)
-
-  const computedValues = window.getComputedStyle(element)
   const values = getValues(finalRules, computedValues)
 
   return [values, effectedPanels]
@@ -874,6 +930,7 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration) 
   let lineHeight // 继承属性
   let fontFamily // 继承属性
   let letterSpacing // 继承属性
+  let linHeight // 继承属性
   let whiteSpace // 继承属性
   /** font */
 
@@ -1188,30 +1245,32 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration) 
     /** opacity */
   })
 
+  const isNotSet = (v: any) => v === undefined || v === 'inherit';
+
   /** font */
-  if (!color || !colorUtil.get(color)) {
+  if (isNotSet(color) || !colorUtil.get(color)) {
     color = computedValues.color
   }
-  if (!fontSize) {
+  if (isNotSet(fontSize)) {
     fontSize = computedValues.fontSize
   }
-  if (!textAlign) {
+  if (isNotSet(textAlign)) {
     textAlign = computedValues.textAlign
   }
-  if (!fontWeight) {
+  if (isNotSet(fontWeight)) {
     fontWeight = computedValues.fontWeight
   }
-  if (!lineHeight) {
+  if (isNotSet(lineHeight)) {
     lineHeight = computedValues.lineHeight
   }
   if (!fontFamily) {
     // fontFamily = computedValues.fontFamily
     fontFamily = 'inherit'
   }
-  if (!letterSpacing) {
+  if (isNotSet(letterSpacing)) {
     letterSpacing = computedValues.letterSpacing
   }
-  if (!whiteSpace) {
+  if (isNotSet(whiteSpace)) {
     whiteSpace = computedValues.whiteSpace
   }
   /** font */
@@ -1427,9 +1486,10 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration) 
   }, computedValues)
 }
 
-function getStyleRules (element: HTMLElement, selector: string | null) {
+// 修改getStyleRules函数以更好地处理伪类选择器
+function getStyleRules (element: HTMLElement | null, selector: string | null) {
   const finalRules = []
-  const root = document.getElementById('_mybricks-geo-webview_')?.shadowRoot || document
+  const root = getDocument()
 
   for (let i = 0; i < root.styleSheets.length; i++) {
     try {
@@ -1440,7 +1500,7 @@ function getStyleRules (element: HTMLElement, selector: string | null) {
         const rule = rules[j]
         if (rule instanceof CSSStyleRule) {
           const { selectorText } = rule
-          if (element.matches(selectorText) || selector === selectorText) {
+          if ((element && element.matches(selectorText)) || selector === selectorText) {
             finalRules.push(rule)
           }
         }

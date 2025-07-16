@@ -341,8 +341,7 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
               type="number"
               style={{ flex: 1 }}
               prefix={<LineHeightOutlined />}
-              value={lineHeight}
-              defaultUnitValue="inherit"
+              value={['unset', 'normal', 'inherit'].includes(lineHeight as string) ? '1' : lineHeight}
               unitOptions={LINEHEIGHT_UNIT_OPTIONS}
               // unitDisabledList={LINEHEIGHT_UNIT_DISABLED_LIST}
               onChange={onLineHeightChange}
