@@ -73,7 +73,7 @@ export default ({
             {render(flexDirection)}
           </div>
         ))}
-          {renderWrap()}
+          {flexDirection === "row" && renderWrap()}
       </div>
     </>
   );
