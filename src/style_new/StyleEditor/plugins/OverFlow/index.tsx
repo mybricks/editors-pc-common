@@ -76,7 +76,7 @@ export const OverFlow = ({ value, onChange, showTitle, collapse }: OverFlowProps
   }
 
   return (
-    <Panel title='内容溢出行为' showTitle={showTitle} collapse={collapse}>
+    <Panel title='内容溢出时' showTitle={showTitle} collapse={collapse}>
       <Panel.Content>
         <Select
           prefix={<span className={css.tip}>水平</span>}
