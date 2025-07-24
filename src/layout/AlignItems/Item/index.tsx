@@ -27,6 +27,35 @@ export default ({
       flexItem.alignItems === alignItems
     );
   }, [flexItem, justifyContent, alignItems]);
+
+  const dot = useMemo(() => {
+    if (justifyContent == "normal" || justifyContent == "center" || justifyContent == "flex-start" || justifyContent == "flex-end" ) {
+      return <Point />
+    }
+
+    if (flexDirection == "column") {
+      return (
+        <div style={{ display: "flex", flexDirection: "column", justifyContent, height: "100%" }}>
+          <Point />
+          <Point />
+          <Point />
+        </div>
+      )
+    }
+
+    if (flexDirection == "row") {
+      return (
+        <div style={{ display: "flex", flexDirection: "row", justifyContent, width: "100%" }}>
+          <Point />
+          <Point />
+          <Point />
+        </div>
+      )
+    }
+
+    return <Point />
+  }, [flexDirection, justifyContent, alignItems, flexItem])
+
   return (
     <FlexContext.Provider value={{ flexDirection, hover, active: isActive }}>
       <div
@@ -45,7 +74,7 @@ export default ({
         ) : hover ? (
           <Bar flexItem={flexItem} flexDirection={flexDirection} />
         ) : (
-          <Point />
+          dot
         )}
       </div>
     </FlexContext.Provider>

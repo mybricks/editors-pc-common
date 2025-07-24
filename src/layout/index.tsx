@@ -82,16 +82,23 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
   const renderFlexDirection = () => {
     const onSelect = (layout: Layout) => {
       const isAbsolute = layout === "absolute" || layout === "smart";
-      const flexDirection = !isAbsolute ? layout : model.flexDirection;
-      setModel((pre) => ({
-        ...pre,
+      const flexDirection = isAbsolute ? model.flexDirection : layout;
+    
+      const newStyles: Partial<LayoutProps> = {
         flexDirection,
         display: isAbsolute ? "block" : "flex",
+        position: isAbsolute ? layout : undefined, // Changed from "inherit" to undefined
+        ...(layout === "column" && { flexWrap: "nowrap" })
+      };
+
+      setModel(prev => ({
+        ...prev,
+        ...newStyles,
         position: isAbsolute ? layout : "inherit",
       }));
+
       updateValue({
-        flexDirection,
-        display: isAbsolute ? "block" : "flex",
+        ...newStyles,
         position: isAbsolute ? layout : "inherit",
       });
     };
