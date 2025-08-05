@@ -17,7 +17,7 @@ import {
   QuestionCircleOutlined,
   TransparentColorOutlined,
 } from "../../components";
-import { Panel, Colorpicker, UnbindingOutlined } from "../";
+import { Panel, Colorpicker, UnbindingOutlined, BindingOutlined } from "../";
 import { color2rgba } from "../../utils";
 
 import css from "./index.less";
@@ -419,11 +419,10 @@ export function ColorEditor({
     }
     return (
       <div ref={presetRef} className={css.preset} onClick={onPresetClick}>
-        {/* <BindOutlined /> */}
-        <UnbindingOutlined />
+        {state?.nonColorValue ? <BindingOutlined /> : <UnbindingOutlined />}
       </div>
     );
-  }, []);
+  }, [state]);
 
   const onPresetColorChange = useCallback(
     (value: any, label: any, resetValue: any) => {
