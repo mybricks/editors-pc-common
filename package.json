@@ -21,7 +21,7 @@
   "dependencies": {
     "@mybricks/code-editor": "1.1.24",
     "@mybricks/coder": "^0.0.89",
-    "@mybricks/color-picker": "^1.0.9",
+    "@mybricks/color-picker": "^1.0.10",
     "@tinymce/tinymce-react": "^5.1.1",
     "color": "^4.2.3",
     "color-string": "^1.9.1",
