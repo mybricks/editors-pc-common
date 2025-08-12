@@ -1,9 +1,9 @@
 import { EditConfig } from "@/interface";
-import React, { useEffect, useMemo, useState, useContext } from "react";
-import DefaultEditors from "./defaultEditors";
-import AryContext from "./../context";
-import css from "./index.less";
 import { InfoCircleOutlined } from "@ant-design/icons";
+import React, { useContext, useEffect, useMemo, useState } from "react";
+import AryContext from "./../context";
+import DefaultEditors from "./defaultEditors";
+import css from "./index.less";
 
 const useModel = ({ value, onChange }: { value: any; onChange: Function }) => {
   const [closure, setClosure] = useState(value);
@@ -32,11 +32,13 @@ export default ({
   extraContext,
   value,
   onChange,
+  showTitle = true,
 }: {
   editConfig: EditConfig;
   extraContext: any;
   value: any;
   onChange: (val: any) => void;
+  showTitle?: boolean;
 }) => {
   const { injectEditors } = useContext(AryContext);
 
@@ -69,25 +71,40 @@ export default ({
   const Component =
     window?.__editorAppender__?.(editorProps) ?? Editors(editorProps);
 
-  const description = editConfig?.description || false;
-
   return (
-    <div className={css.item}>
+    <div className={css.item} style={editConfig.css}>
       {Component?.render ? (
         Component.render
       ) : (
         <>
-          <div className={css.itemDesc}>
-            <span className={css.itemTitle}>{editConfig.title}</span>
-            {description && (
-              <div data-mybricks-tip={description} className={css.description}>
-                <InfoCircleOutlined />
-              </div>
-            )}
-          </div>
+          {showTitle && (
+            <FormItemTitle
+              title={editConfig.title}
+              description={editConfig?.description}
+            />
+          )}
           <div className={css.itemContent}>{Component}</div>
         </>
       )}
     </div>
   );
 };
+
+export function FormItemTitle({
+  title,
+  description,
+}: {
+  title: string;
+  description?: string;
+}) {
+  return (
+    <div className={css.itemDesc}>
+      <span className={css.itemTitle}>{title}</span>
+      {description && (
+        <div data-mybricks-tip={description} className={css.description}>
+          <InfoCircleOutlined />
+        </div>
+      )}
+    </div>
+  );
+}

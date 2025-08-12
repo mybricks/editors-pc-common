@@ -1,3 +1,5 @@
+import { Drawer, Table } from "antd";
+import type { ColumnType } from "antd/lib/table";
 import React, {
   useCallback,
   useEffect,
@@ -5,24 +7,23 @@ import React, {
   useRef,
   useState,
 } from "react";
-import {Drawer, Tag} from "antd";
-import {arrayMoveImmutable} from "../../utils";
-import RenderEditor from "./renderEditor";
-import {editorsConfigKey} from "./../../constant";
+import { arrayMoveImmutable } from "../../utils";
+import { editorsConfigKey } from "./../../constant";
+import { DeleteIcon, DragIcon, ExpandIcon } from "./constants";
+import css from "./index.less";
 import {
   SortableContainer,
   SortableElement,
   SortableHandle,
   useLazy,
 } from "./lazySortableHoc";
-import css from "./index.less";
-import {DeleteIcon, ExpandIcon, DragIcon} from "./constants";
+import RenderEditor, { FormItemTitle } from "./renderEditor";
 import {
-  ListSetterProps,
-  TitleProps,
   ActiveId,
   EditId,
+  ListSetterProps,
   TagType,
+  TitleProps,
 } from "./types";
 
 const getUid = (len = 6) => {
@@ -38,11 +39,11 @@ const initData = (val: any) => {
   if (!Array.isArray(val)) {
     return [];
   } else {
-    return val.map((t) => ({_id: getUid(), ...t}));
+    return val.map((t) => ({ _id: getUid(), ...t }));
   }
 };
 
-const Title = ({items, heavy = false}: TitleProps) => {
+const Title = ({ items, heavy = false }: TitleProps) => {
   const titles = Array.isArray(items) ? items : [items];
   return (
     <div className={heavy ? `${css.titles} ${css.titlesHeavy}` : css.titles}>
@@ -51,7 +52,7 @@ const Title = ({items, heavy = false}: TitleProps) => {
           title?.toLocaleLowerCase &&
           /\.(png|jpe?g|gif|svg)(\?.*)?$/.test(title.toLocaleLowerCase())
         ) {
-          return <img key={`${title}_${index}`} src={title} alt={`图片`}/>;
+          return <img key={`${title}_${index}`} src={title} alt={`图片`} />;
         }
 
         return <div key={`${title}_${index}`}>{title}</div>;
@@ -60,15 +61,12 @@ const Title = ({items, heavy = false}: TitleProps) => {
   );
 };
 
-const SortableList = SortableContainer(({children}) => {
+const SortableList = SortableContainer(({ children }) => {
   return <div className={css.content}>{children}</div>;
 });
 
 const SortableItem = SortableElement(
-  ({
-     children, className = "", onClick = () => {
-    }
-   }) => (
+  ({ children, className = "", onClick = () => {} }) => (
     <div className={`${css.listItem} ${className}`} onClick={onClick}>
       {children}
     </div>
@@ -83,40 +81,43 @@ const DragHandle = SortableHandle(({}) => (
   //   overlayInnerStyle={{ fontSize: 12 }}
   // >
   <div className={css.grab} title="拖动当前项">
-    <DragIcon/>
+    <DragIcon />
   </div>
   // </Tooltip>
 ));
 
 export default function ({
-                           onChange,
-                           value,
-                           items = [],
-                           getTitle,
-                           onSelect,
-                           onAdd,
-                           onRemove,
-                           draggable = true,
-                           editable = true,
-                           selectable = false,
-                           deletable = true,
-                           addable = true,
-                           locales = null,
-                           addText = "添加一项",
-                           customOptRender,
-                           extraContext,
-                           cdnMap,
-                           defaultSelect,
-                           getDefaultOptions,
-                           handleDelete,
-                           tagsRender,
-                         }: ListSetterProps) {
+  onChange,
+  value,
+  items = [],
+  getTitle,
+  onSelect,
+  onAdd,
+  onRemove,
+  draggable = true,
+  editable = true,
+  batchEditable = true,
+  batchWidth = "50%",
+  selectable = false,
+  deletable = true,
+  addable = true,
+  locales = null,
+  addText = "添加一项",
+  customOptRender,
+  extraContext,
+  cdnMap,
+  defaultSelect,
+  getDefaultOptions,
+  handleDelete,
+  tagsRender,
+}: ListSetterProps) {
   const [list, setList] = useState(initData(value) || []);
   //[TODO] activeId 和 editId 为了支持这个交互不得已做的，写的太乱了
   const [activeId, setActiveId] = useState<ActiveId>(null);
   const [editId, setEditId] = useState<EditId>(null);
   const [subFormVisible, setSubFormVisible] = useState(false);
   const listRef = useRef(null);
+  const [batchEditVisible, setBatchEditVisible] = useState(false);
 
   /** 数据变化来自外部 */
   const changeFromOuter = useRef(false);
@@ -183,7 +184,7 @@ export default function ({
       return;
     }
     typeof onChange === "function" &&
-    onChange(JSON.parse(JSON.stringify(list)));
+      onChange(JSON.parse(JSON.stringify(list)));
   }, [list, onChange]);
 
   useEffect(() => {
@@ -196,10 +197,10 @@ export default function ({
     }
 
     typeof onSelect === "function" &&
-    onSelect(
-      activeId as string,
-      list.findIndex((t) => t._id === activeId)
-    );
+      onSelect(
+        activeId as string,
+        list.findIndex((t) => t._id === activeId)
+      );
   }, [activeId, list, onSelect, _selectable]);
 
   useEffect(() => {
@@ -237,9 +238,9 @@ export default function ({
   }, [editId, list]);
 
   const handleSortEnd = ({
-                           oldIndex,
-                           newIndex,
-                         }: {
+    oldIndex,
+    newIndex,
+  }: {
     oldIndex: number;
     newIndex: number;
   }) => {
@@ -290,7 +291,7 @@ export default function ({
 
   const SubEditors = useMemo(() => {
     return (
-      <div style={{padding: "15px"}} onClick={(e) => e.stopPropagation()}>
+      <div style={{ padding: "15px" }} onClick={(e) => e.stopPropagation()}>
         {items.map((item, idx) => {
           const value = list[editIndex]?.[item.value];
 
@@ -305,7 +306,7 @@ export default function ({
           return (
             <RenderEditor
               key={`${editIndex}_${idx}_${item.type}`}
-              editConfig={{...item, locales, getDefaultOptions}}
+              editConfig={{ ...item, locales, getDefaultOptions }}
               extraContext={extraContext}
               value={value}
               onChange={(v) => {
@@ -318,13 +319,62 @@ export default function ({
     );
   }, [items, list, listModel, editIndex]);
 
+  const BatchSubEditorsList = useMemo(() => {
+    const columns = items.map((item, idx) => {
+      const column: ColumnType<any> = {
+        key: item.value,
+        title: (
+          <FormItemTitle title={item.title} description={item.description} />
+        ),
+        dataIndex: item.value,
+        width: item.width,
+        render: (value, record, index) => {
+          const itemValue = JSON.parse(JSON.stringify(record || {}));
+          if (
+            typeof item.ifVisible === "function" &&
+            item.ifVisible(itemValue, index) === false
+          ) {
+            return;
+          }
+          return (
+            <RenderEditor
+              key={`${index}_${idx}_${item.type}`}
+              editConfig={{ ...item, locales, getDefaultOptions }}
+              extraContext={extraContext}
+              value={value}
+              onChange={(v) => {
+                listModel.setItemKey(index, item.value, v);
+              }}
+              showTitle={false}
+            />
+          );
+        },
+      };
+      return column;
+    });
+
+    return (
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className={css.batchEditorWrapper}
+      >
+        <Table
+          columns={columns}
+          dataSource={list}
+          pagination={false}
+          size="small"
+        />
+      </div>
+    );
+  }, [items, list, listModel]);
+
   const loaded = useLazy(cdnMap.sortableHoc);
 
   const tagsList = useCallback(
     (item: any) => {
       if (tagsRender && tagsRender(item).length > 0) {
         return tagsRender(item)?.map(
-          ({color, text}: TagType) =>
+          ({ color, text }: TagType) =>
             text && (
               <div key={`${color}-${text}`} className={css.tag}>
                 {text}
@@ -349,22 +399,40 @@ export default function ({
     [tagsRender]
   );
 
+  console.log(activeId, editId, subFormVisible);
   return (
     <div className={`${css.listSetter} fangzhou-theme`} ref={listRef}>
-      {addable && (
-        <div
-          className={css.btnAdd}
-          onClick={() => {
-            const uid = getUid();
-            return listModel.add({
-              _id: uid,
-              ...(typeof onAdd === "function" ? onAdd(uid) || {} : {}),
-            });
-          }}
-        >
-          <span>+</span>{addText}
+      {(addable || (editable && batchEditable)) && (
+        <div className={css.btnGroup}>
+          {addable && (
+            <div
+              className={css.btn}
+              onClick={() => {
+                const uid = getUid();
+                return listModel.add({
+                  _id: uid,
+                  ...(typeof onAdd === "function" ? onAdd(uid) || {} : {}),
+                });
+              }}
+            >
+              <span>+</span>
+              {addText}
+            </div>
+          )}
+          {editable && batchEditable && (
+            <div
+              className={css.btn}
+              onClick={() => {
+                setBatchEditVisible((v) => !v);
+                subFormVisible && setSubFormVisible(false);
+              }}
+            >
+              批量编辑
+            </div>
+          )}
         </div>
       )}
+
       <SortableList
         useDragHandle
         loaded={loaded}
@@ -393,7 +461,6 @@ export default function ({
                 if (!_selectable) {
                   return;
                 }
-
                 setSubFormVisible(false);
                 setActiveId((c) => {
                   if (c === item._id) {
@@ -408,7 +475,7 @@ export default function ({
             >
               <div className={css.listItemCard}>
                 <div className={css.listItemCardTop}>
-                  {draggable && <DragHandle loaded={loaded}/>}
+                  {draggable && <DragHandle loaded={loaded} />}
                   <div
                     className={css.listItemContent}
                     //style={{paddingLeft: draggable ? "7px" : "3px"}}
@@ -433,6 +500,7 @@ export default function ({
                         }
                         onClick={(e) => {
                           e.stopPropagation();
+                          batchEditVisible && setBatchEditVisible(false);
                           setEditId((c) => {
                             if (c == item._id) {
                               setSubFormVisible((curVisible) => {
@@ -447,38 +515,34 @@ export default function ({
                           });
                         }}
                       >
-                        <ExpandIcon/>
+                        <ExpandIcon />
                       </div>
                     )}
-                    {customOptRender
-                      ? (
-                        <div className={css.visible}>
-                          {customOptRender({item, index, setList})}
-                        </div>
-                      )
-                      : null}
-                    {
-                      showDelete ? (
-                        <div
-                          className={css.delete}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (activeId === item._id) {
-                              setSubFormVisible(false);
-                              setActiveId(list.find((t) => t._id)._id);
-                            }
-                            if (editId === item._id) {
-                              setEditId(null);
-                            }
-                            listModel.remove(item._id);
-                            // 务必放在后面
-                            typeof onRemove === "function" && onRemove(item._id);
-                          }}
-                        >
-                          <DeleteIcon/>
-                        </div>
-                      ) : null
-                    }
+                    {customOptRender ? (
+                      <div className={css.visible}>
+                        {customOptRender({ item, index, setList })}
+                      </div>
+                    ) : null}
+                    {showDelete ? (
+                      <div
+                        className={css.delete}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (activeId === item._id) {
+                            setSubFormVisible(false);
+                            setActiveId(list.find((t) => t._id)._id);
+                          }
+                          if (editId === item._id) {
+                            setEditId(null);
+                          }
+                          listModel.remove(item._id);
+                          // 务必放在后面
+                          typeof onRemove === "function" && onRemove(item._id);
+                        }}
+                      >
+                        <DeleteIcon />
+                      </div>
+                    ) : null}
                   </div>
                 </div>
                 {expandable && editId === item._id && SubEditors}
@@ -503,13 +567,14 @@ export default function ({
           onClose={() => setSubFormVisible(false)}
           mask={false}
           visible={subFormVisible && !!editId}
+          open={subFormVisible && !!editId}
           // @ts-ignore
           getContainer={() =>
             document.querySelector('div[class^="lyStage-"]') ||
             document.querySelector('#root div[class^="sketchSection"]')
           }
-          style={{position: "absolute"}}
-          rootStyle={{position: "absolute", left: 'unset'}}
+          style={{ position: "absolute" }}
+          rootStyle={{ position: "absolute", left: "unset" }}
         >
           <div>
             <Title
@@ -522,6 +587,38 @@ export default function ({
             />
           </div>
           {!expandable && SubEditors}
+        </Drawer>
+      )}
+      {editable && batchEditable && (
+        <Drawer
+          // className={css.drawerWrapper}
+          // @ts-ignore
+          // rootClassName={css.drawerWrapper}
+          bodyStyle={{
+            borderLeft: "1px solid #bbb",
+            backgroundColor: "#F7F7F7",
+            padding: 0,
+          }}
+          width={batchWidth ?? "50%"}
+          key="batchEdit" // 用来触发forceRender，因为有些编辑器初始化后就不接收value参数了，不是完全受控的
+          placement="right"
+          closable={false}
+          onClose={() => setBatchEditVisible(false)}
+          mask={false}
+          visible={batchEditVisible}
+          open={batchEditVisible}
+          // @ts-ignore
+          getContainer={() =>
+            document.querySelector('div[class^="lyStage-"]') ||
+            document.querySelector('#root div[class^="sketchSection"]')
+          }
+          style={{ position: "absolute" }}
+          rootStyle={{ position: "absolute", left: "unset" }}
+        >
+          <div>
+            <Title heavy items="批量编辑" />
+            {BatchSubEditorsList}
+          </div>
         </Drawer>
       )}
     </div>
