@@ -1,8 +1,8 @@
-import React, { useCallback, useMemo } from "react";
 import { EditConfig } from "@/interface";
-import ListSetter from "./listSetter/index";
+import React, { useCallback, useMemo } from "react";
 import { getOptionsFromEditor, isValid } from "../utils";
 import AryContext from "./context";
+import ListSetter from "./listSetter/index";
 
 export default function ({
   editConfig,
@@ -55,6 +55,8 @@ export default function ({
         getDefaultOptions={getDefaultOptions}
         handleDelete={opt.handleDelete}
         tagsRender={opt.tagsRender}
+        batchEditable={opt.batchEditable}
+        batchWidth={opt.batchWidth}
       />
     </AryContext.Provider>
   );

@@ -1,7 +1,7 @@
-type ActiveId = string | null;
-type EditId = string | null;
+export type ActiveId = string | null;
+export type EditId = string | null;
 
-type ListSetterProps = {
+export type ListSetterProps = {
   onSelect?: (activeId: string, activeIndex: number) => void;
   onAdd?: (id: string) => void | object;
   onChange: Function;
@@ -12,6 +12,10 @@ type ListSetterProps = {
   getTitle: (item: any, index: number) => string | Array<string>;
   draggable: boolean;
   editable: boolean;
+  /** 是否支持批量编辑 */
+  batchEditable?: boolean;
+  /** 批量编辑时Drawer宽度 */
+  batchWidth?: string|number;
   selectable: boolean;
   deletable: boolean;
   addable: boolean;
@@ -26,14 +30,14 @@ type ListSetterProps = {
   tagsRender?: (item: any) => Array<TagType>;
 };
 
-type TagType = {
+export type TagType = {
   color: string;
   text: string;
 }
 
-type TitleProps = {
+export type TitleProps = {
   items: string | Array<string>;
   heavy?: boolean;
 };
 
-export type { ListSetterProps, TitleProps, ActiveId, EditId, TagType };
+
