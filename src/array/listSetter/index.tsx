@@ -399,7 +399,7 @@ export default function ({
     [tagsRender]
   );
 
-  console.log(`activeId=${activeId}, editId=${editId}, subFormVisible=${subFormVisible}, editable=${editable}, batchEditable=${batchEditable} `);
+  //console.log(`activeId=${activeId}, editId=${editId}, subFormVisible=${subFormVisible}, editable=${editable}, batchEditable=${batchEditable} `);
   return (
     <div className={`${css.listSetter} fangzhou-theme`} ref={listRef}>
       {(addable || (editable && batchEditable)) && (
