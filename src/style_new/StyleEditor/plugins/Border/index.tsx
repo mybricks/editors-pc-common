@@ -54,6 +54,14 @@ const DEFAULT_STYLE_SMALL = {
   marginLeft: 4,
 };
 
+const DEFAULT_STYLE_MINI = {
+  padding: 0,
+  fontSize: 10,
+  minWidth: 18,
+  maxWidth: 18,
+  marginLeft: 2,
+}
+
 const DEFAULT_STYLE__NEW = {
   padding: 0,
   fontSize: 10,
@@ -166,6 +174,15 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
     return /^.{7}00$/.test(str);
   };
 
+
+  const shouldShowMiniLayout = useMemo(() => {
+    const colorOptions = Array.isArray(window.MYBRICKS_CSS_VARIABLE_LIST)
+    ? window.MYBRICKS_CSS_VARIABLE_LIST
+    : [];
+    const showPreset = !!colorOptions.length;
+    return showPreset
+  }, [])
+
   const borderConfig = useMemo(() => {
     if (disableBorderWidth && disableBorderColor && disableBorderStyle) {
       return null;
@@ -181,7 +198,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
               {disableBorderWidth ? null : (
                 <InputNumber
                   tip="边框宽度"
-                  style={DEFAULT_STYLE_SMALL}
+                  style={shouldShowMiniLayout ? DEFAULT_STYLE_MINI : DEFAULT_STYLE_SMALL}
                   value={borderValue.borderTopWidth}
                   // suffix={'px'}
                   onChange={(value) => {
@@ -205,7 +222,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
               {disableBorderColor ? null : (
                 <ColorEditor
                   // tip='边框颜色'
-                  style={{ padding: "0 0 0 1px", marginLeft: 2 }}
+                  style={{ padding: "0 0 0 1px", marginLeft: shouldShowMiniLayout ? 0 : 2 }}
                   defaultValue={borderValue.borderTopColor}
                   onChange={(value: string) => {
                     setBorderValue((val) => {

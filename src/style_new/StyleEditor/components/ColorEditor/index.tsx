@@ -419,7 +419,7 @@ export function ColorEditor({
     }
     return (
       <div ref={presetRef} className={css.preset} onClick={onPresetClick}>
-        {state?.nonColorValue ? <BindingOutlined /> : <UnbindingOutlined />}
+        {state?.nonColorValue ? <BindingOutlined size={13} /> : <UnbindingOutlined size={13} />}
       </div>
     );
   }, [state]);
