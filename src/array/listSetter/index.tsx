@@ -419,17 +419,17 @@ export default function ({
               {addText}
             </div>
           )}
-          {editable && batchEditable && (
-            <div
-              className={css.btn}
-              onClick={() => {
-                setBatchEditVisible((v) => !v);
-                subFormVisible && setSubFormVisible(false);
-              }}
-            >
-              批量编辑
-            </div>
-          )}
+          {/*{editable && batchEditable && (*/}
+          {/*  <div*/}
+          {/*    className={css.btn}*/}
+          {/*    onClick={() => {*/}
+          {/*      setBatchEditVisible((v) => !v);*/}
+          {/*      subFormVisible && setSubFormVisible(false);*/}
+          {/*    }}*/}
+          {/*  >*/}
+          {/*    批量编辑*/}
+          {/*  </div>*/}
+          {/*)}*/}
         </div>
       )}
 
