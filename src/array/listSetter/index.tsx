@@ -399,7 +399,7 @@ export default function ({
     [tagsRender]
   );
 
-  console.log(activeId, editId, subFormVisible);
+  console.log(`activeId=${activeId}, editId=${editId}, subFormVisible=${subFormVisible}, editable=${editable}, batchEditable=${batchEditable} `);
   return (
     <div className={`${css.listSetter} fangzhou-theme`} ref={listRef}>
       {(addable || (editable && batchEditable)) && (
@@ -591,9 +591,9 @@ export default function ({
       )}
       {editable && batchEditable && (
         <Drawer
-          // className={css.drawerWrapper}
+          className={css.batchEditDrawerWrapper}
           // @ts-ignore
-          // rootClassName={css.drawerWrapper}
+          rootClassName={css.batchEditDrawerWrapper}
           bodyStyle={{
             borderLeft: "1px solid #bbb",
             backgroundColor: "#F7F7F7",
