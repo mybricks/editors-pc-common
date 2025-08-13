@@ -317,7 +317,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                     {disableBorderWidth ? null : (
                       <InputNumber
                         tip="上边框宽度"
-                        style={DEFAULT_STYLE_SMALL}
+                        style={shouldShowMiniLayout ? DEFAULT_STYLE_MINI : DEFAULT_STYLE_SMALL}
                         value={borderValue.borderTopWidth}
                         // suffix={'px'}
                         onChange={(value) =>
@@ -399,7 +399,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                     {disableBorderWidth ? null : (
                       <InputNumber
                         tip="右边框宽度"
-                        style={DEFAULT_STYLE_SMALL}
+                        style={shouldShowMiniLayout ? DEFAULT_STYLE_MINI : DEFAULT_STYLE_SMALL}
                         value={borderValue.borderRightWidth}
                         // suffix={'px'}
                         onChange={(value) =>
@@ -470,7 +470,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                     {disableBorderWidth ? null : (
                       <InputNumber
                         tip="下边框宽度"
-                        style={DEFAULT_STYLE_SMALL}
+                        style={shouldShowMiniLayout ? DEFAULT_STYLE_MINI : DEFAULT_STYLE_SMALL}
                         value={borderValue.borderBottomWidth}
                         // suffix={'px'}
                         onChange={(value) =>
@@ -541,7 +541,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                     {disableBorderWidth ? null : (
                       <InputNumber
                         tip="左边框宽度"
-                        style={DEFAULT_STYLE_SMALL}
+                        style={shouldShowMiniLayout ? DEFAULT_STYLE_MINI : DEFAULT_STYLE_SMALL}
                         value={borderValue.borderLeftWidth}
                         // suffix={'px'}
                         onChange={(value) =>
