@@ -17,6 +17,7 @@ export default function ({editConfig}: EditorProps): JSX.Element {
   const [useLocale, setUseLocale] = useState(false)
 
   const val = value.get()
+
   const {
     readonly = false,
     style = {
@@ -31,7 +32,13 @@ export default function ({editConfig}: EditorProps): JSX.Element {
     selectContent,
     locale = false,
     ...res
-  } = getOptionsFromEditor(options);
+  } = getOptionsFromEditor(options)
+
+  const [edtSize, setEdtSize] = useState({
+    width,
+    height
+  })
+
   const localeEnable = !!locales && !!locale
 
   const styles = useMemo(() => {
@@ -40,11 +47,27 @@ export default function ({editConfig}: EditorProps): JSX.Element {
     };
   }, []);
 
-  const changedRef = useRef<HTMLInputElement>()
+  const textAreaRef = useRef<HTMLInputElement>()
+
+  const setVal = useCallback(val => {
+    const textarea = textAreaRef.current as HTMLTextAreaElement
+    textarea.style.height = '20px'//重置高度，才能获取正确的scrollHeight
+    const nowHeight = Math.max(textarea.scrollHeight, height)
+    //console.log('...nowHeight',nowHeight)
+
+    setEdtSize({...edtSize, height: nowHeight})
+    setCurText(val)
+
+    requestAnimationFrame(v => {
+      textarea.style.height = 'auto'
+      textarea.scrollTop = 0//置顶
+    })
+
+  }, [edtSize])
 
   const updateVal = useCallback((evt) => {
     value.set(evt.target.value)
-    changedRef.current = void 0
+    textAreaRef.current = void 0
   }, [])
 
   const openLocale = useCallback(e => {
@@ -52,6 +75,7 @@ export default function ({editConfig}: EditorProps): JSX.Element {
       console.error(`未找到 locales.edit`)
       return
     }
+
     locales.edit({
       value: {
         get() {
@@ -97,17 +121,16 @@ export default function ({editConfig}: EditorProps): JSX.Element {
 
 
   useEffect(() => {
-    if (changedRef.current) {
+    if (textAreaRef.current) {
       if (focusNow) {
-        changedRef.current.focus()
+        textAreaRef.current.focus()
         if (selectContent) {
-          changedRef.current.select()
+          textAreaRef.current.select()
         }
       }
     }
-
   }, [
-    changedRef.current
+    textAreaRef.current
   ])
 
   // useEffect(() => {
@@ -119,38 +142,36 @@ export default function ({editConfig}: EditorProps): JSX.Element {
   //   }
   // }, [useLocale])
 
-  if(vCenter){
+  if (vCenter) {
     return (
       <div className={`${css.textArea} ${css.vCenter}`}
-           style={{
-             width,
-             height
-           }}>
+           style={edtSize}>
         <textarea ref={el => {
           if (el) {
-            changedRef.current = el
+            textAreaRef.current = el
           }
         }}
-                        style={styles}
-                        onDoubleClick={e => {
-                          e.stopPropagation()
-                        }}
-                        onChange={evt => {
-                          setCurText(evt.target.value)
-                        }}
-                        onKeyPress={evt => {
-                          if (onEnterSet) {
-                            if (evt.key !== 'Enter') return
-                            updateVal(evt)
-                          }
-                        }}
-                        onBlur={(evt) => {
-                          updateVal(evt)
-                        }}
-                        disabled={readonly || useLocale}
-                        defaultValue={val}
-                        {...res}
-                        value={curText}
+          //style={styles}
+                  onDoubleClick={e => {
+                    e.stopPropagation()
+                  }}
+                  onChange={evt => {
+                    setVal(evt.target.value)
+                  }}
+                  maxLength={1000}
+                  onKeyPress={evt => {
+                    if (onEnterSet) {
+                      if (evt.key !== 'Enter') return
+                      updateVal(evt)
+                    }
+                  }}
+                  onBlur={(evt) => {
+                    updateVal(evt)
+                  }}
+                  disabled={readonly || useLocale}
+                  defaultValue={val}
+                  {...res}
+                  value={curText}
         />
         {
           localeEnable ? (
@@ -163,7 +184,7 @@ export default function ({editConfig}: EditorProps): JSX.Element {
         }
       </div>
     )
-  }else{
+  } else {
     return (
       <div className={`${css.textArea}`}
            style={{
@@ -172,7 +193,7 @@ export default function ({editConfig}: EditorProps): JSX.Element {
            }}>
         <Input.TextArea ref={el => {
           if (el) {
-            changedRef.current = el
+            textAreaRef.current = el
           }
         }}
                         style={styles}

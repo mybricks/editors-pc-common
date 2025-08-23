@@ -40,7 +40,7 @@
 
 .vCenter {
   display: flex;
-  align-items: center;
+  //align-items: center;
   background: #ffffff;
   outline: 2px solid @color-primary;
   border-radius: @border-radius;
@@ -53,10 +53,20 @@
     border: none;
     outline: none;
     box-shadow: none !important;
+    //padding: 5px;
     //padding: 10px 0 0 0 !important;
     resize: none;
+    height: auto;
     width: 100%;
+    margin: 0;
+    box-sizing: border-box;
+    overflow: scroll;
+    //padding: 5px;
     //line-height: 1;
+
+    &::-webkit-scrollbar {
+      display: none
+    }
 
     &:active {
       border: none !important;
