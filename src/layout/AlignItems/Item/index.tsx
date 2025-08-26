@@ -101,6 +101,7 @@ export default ({
   }, [flexDirection, justifyContent, alignItems, flexItem])
 
   const handleMouseEnter = () => {
+    setShowTip('')
     setTimeout(() => {
       setShowTip(getTitle({ flexItem, flexDirection }));
     }, 400);
