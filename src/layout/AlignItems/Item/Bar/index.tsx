@@ -11,9 +11,9 @@ type Params = {
 const LeftBar = () => {
   const { flexDirection, hover, active } = useContext(FlexContext);
   const style =
-    flexDirection === "row"
-      ? { width: 4, height: 14 }
-      : { width: 14, height: 4 };
+    flexDirection !== "row"
+      ? { width: 4, height: 6}
+      : { width: 6, height: 4 };
   const className = active ? styles.selected : hover ? styles.hover : "";
   return (
     <div style={style} className={`${styles["align-bar"]} ${className}`} />
@@ -23,9 +23,9 @@ const LeftBar = () => {
 const CenterBar = () => {
   const { flexDirection, hover, active } = useContext(FlexContext);
   const style =
-    flexDirection === "row"
-      ? { width: 4, height: 18, margin: "0 2px" }
-      : { width: 18, height: 4, margin: "2px 0" };
+    flexDirection !== "row"
+      ? { width: 4, height: 9, margin: "2px 0" }
+      : { width: 9, height: 4, margin: "0 2px" };
   const className = active ? styles.selected : hover ? styles.hover : "";
   return (
     <div style={style} className={`${styles["align-bar"]} ${className}`} />
@@ -35,9 +35,9 @@ const CenterBar = () => {
 const RightBar = () => {
   const { flexDirection, hover, active } = useContext(FlexContext);
   const style =
-    flexDirection === "row"
-      ? { width: 4, height: 12 }
-      : { width: 12, height: 4 };
+    flexDirection !== "row"
+      ? { width: 4, height: 6 }
+      : { width: 6, height: 4 };
   const className = active ? styles.selected : hover ? styles.hover : "";
   return (
     <div style={style} className={`${styles["align-bar"]} ${className}`} />
