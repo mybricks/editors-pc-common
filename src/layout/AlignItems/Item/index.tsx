@@ -70,7 +70,6 @@ export default ({
     );
   }, [flexItem, justifyContent, alignItems]);
 
-  const [showTip, setShowTip] = useState('');
 
   const dot = useMemo(() => {
     if (justifyContent == "normal" || justifyContent == "center" || justifyContent == "flex-start" || justifyContent == "flex-end" ) {
@@ -101,15 +100,10 @@ export default ({
   }, [flexDirection, justifyContent, alignItems, flexItem])
 
   const handleMouseEnter = () => {
-    setShowTip('')
-    setTimeout(() => {
-      setShowTip(getTitle({ flexItem, flexDirection }));
-    }, 400);
     setHover(true)
   }
 
   const handleMouseLeave = () => {
-    setShowTip('');
     setHover(false)
   }
 
@@ -122,7 +116,7 @@ export default ({
           alignItems: "center",
           cursor: "pointer"
         }}
-        data-mybricks-tip={showTip}
+        data-mybricks-tip={getTitle({ flexItem, flexDirection })}
         onMouseEnter={() => handleMouseEnter()}
         onMouseLeave={() => handleMouseLeave()}
         onClick={() => onSelected(flexItem)}

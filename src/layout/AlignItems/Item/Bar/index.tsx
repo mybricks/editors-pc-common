@@ -9,10 +9,10 @@ type Params = {
 
 const LeftBar = () => {
   const { flexDirection, hover, active } = useContext(FlexContext);
-  const style =
+  const style : CSSProperties =
     flexDirection !== "row"
-      ? { width: 4, height: 5}
-      : { width: 5, height: 4 };
+      ? { width: 4, height: 5, pointerEvents: "none"}
+      : { width: 5, height: 4, pointerEvents: "none"};
   const className = active ? styles.selected : hover ? styles.hover : "";
   return (
     <div style={style} className={`${styles["align-bar"]} ${className}`} />
@@ -21,10 +21,10 @@ const LeftBar = () => {
 
 const CenterBar = () => {
   const { flexDirection, hover, active } = useContext(FlexContext);
-  const style =
+  const style : CSSProperties =
     flexDirection !== "row"
-      ? { width: 4, height: 9, margin: "2px 0" }
-      : { width: 9, height: 4, margin: "0 2px" };
+      ? { width: 4, height: 9, margin: "2px 0", pointerEvents: "none" }
+      : { width: 9, height: 4, margin: "0 2px", pointerEvents: "none" };
   const className = active ? styles.selected : hover ? styles.hover : "";
   return (
     <div style={style} className={`${styles["align-bar"]} ${className}`} />
@@ -33,10 +33,10 @@ const CenterBar = () => {
 
 const RightBar = () => {
   const { flexDirection, hover, active } = useContext(FlexContext);
-  const style =
+  const style : CSSProperties =
     flexDirection !== "row"
-      ? { width: 4, height: 5 }
-      : { width: 5, height: 4 };
+      ? { width: 4, height: 5, pointerEvents: "none" }
+      : { width: 5, height: 4, pointerEvents: "none" };
   const className = active ? styles.selected : hover ? styles.hover : "";
   return (
     <div style={style} className={`${styles["align-bar"]} ${className}`} />
@@ -66,7 +66,7 @@ const Bar = ({ flexItem, flexDirection }: Params) => {
 
   return (
     <div
-      style={{ display: "flex", ...flexItem, flexDirection, ...style()}}
+      style={{ display: "flex", ...flexItem, flexDirection, ...style(), pointerEvents:"none"}}
     >
       <LeftBar />
       <CenterBar />
