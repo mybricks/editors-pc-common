@@ -272,3 +272,14 @@ export function copyText(txt: string): boolean {
   document.body.removeChild(input)
   return true;
 }
+
+function debounce(func: any, delay: number) {
+  let timeoutId: any;
+
+  return function (...args: any) {
+    clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => {
+      func(...args);
+    }, delay);
+  };
+}
