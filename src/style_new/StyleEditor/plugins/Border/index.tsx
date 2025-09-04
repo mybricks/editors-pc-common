@@ -177,8 +177,8 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
 
   const shouldShowMiniLayout = useMemo(() => {
     const colorOptions = Array.isArray(window.MYBRICKS_CSS_VARIABLE_LIST)
-    ? window.MYBRICKS_CSS_VARIABLE_LIST
-    : [];
+      ? window.MYBRICKS_CSS_VARIABLE_LIST
+      : [];
     const showPreset = !!colorOptions.length;
     return showPreset
   }, [])
@@ -190,7 +190,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
     if (borderToggleValue === "all") {
       return (
         <div className={css.row}>
-          <Panel.Content style={{ padding: 3, minWidth:120 }}>
+          <Panel.Content style={{ padding: 3, minWidth: 120 }}>
             <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
               <div className={css.icon} data-mybricks-tip={"边框宽度"}>
                 <BorderAllOutlined />
@@ -306,7 +306,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
           <div className={css.col}>
             {!disableBorderTop && (
               <div className={css.row}>
-                <Panel.Content style={{ padding: 3, minWidth:120 }}>
+                <Panel.Content style={{ padding: 3, minWidth: 120 }}>
                   <Panel.Item
                     className={css.editArea}
                     style={{ padding: "0px 8px" }}
@@ -388,7 +388,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
 
             {!disableBorderRight && (
               <div className={css.row}>
-                <Panel.Content style={{ padding: 3, minWidth:120 }}>
+                <Panel.Content style={{ padding: 3, minWidth: 120 }}>
                   <Panel.Item
                     className={css.editArea}
                     style={{ padding: "0px 8px" }}
@@ -459,7 +459,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
 
             {!disableBorderBottom && (
               <div className={css.row}>
-                <Panel.Content style={{ padding: 3, minWidth:120 }}>
+                <Panel.Content style={{ padding: 3, minWidth: 120 }}>
                   <Panel.Item
                     className={css.editArea}
                     style={{ padding: "0px 8px" }}
@@ -530,7 +530,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
 
             {!disableBorderLeft && (
               <div className={css.row}>
-                <Panel.Content style={{ padding: 3, minWidth:120 }}>
+                <Panel.Content style={{ padding: 3, minWidth: 120 }}>
                   <Panel.Item
                     className={css.editArea}
                     style={{ padding: "0px 8px" }}
@@ -646,79 +646,94 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
       );
     } else {
       return (
-        <div className={css.row}>
-          <Panel.Content style={{ padding: 3 }}>
-            <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
-              <div className={css.icon} data-mybricks-tip={"左上"}>
-                <BorderTopLeftRadiusOutlined />
-              </div>
-              <InputNumber
-                //tip="左上"
-                style={DEFAULT_STYLE__NEW}
-                defaultValue={borderValue.borderTopLeftRadius}
-                unitOptions={UNIT_OPTIONS}
-                onChange={(value) =>
-                  handleChange({ borderTopLeftRadius: value })
-                }
-                onFocus={() =>
-                  setSplitRadiusIcon(<BorderTopLeftRadiusOutlined />)
-                }
-              />
-              <div className={css.icon} data-mybricks-tip={"右上"}>
-                <BorderTopRightRadiusOutlined />
-              </div>
-              <InputNumber
-                //tip="右上角半径"
-                style={DEFAULT_STYLE__NEW}
-                defaultValue={borderValue.borderTopRightRadius}
-                unitOptions={UNIT_OPTIONS}
-                onChange={(value) =>
-                  handleChange({ borderTopRightRadius: value })
-                }
-                onFocus={() =>
-                  setSplitRadiusIcon(<BorderTopRightRadiusOutlined />)
-                }
-              />
-              <div className={css.icon} data-mybricks-tip={"右下"}>
-                <BorderBottomRightRadiusOutlined />
-              </div>
-              <InputNumber
-                //tip="右下角半径"
-                style={DEFAULT_STYLE__NEW}
-                defaultValue={borderValue.borderBottomRightRadius}
-                unitOptions={UNIT_OPTIONS}
-                onChange={(value) =>
-                  handleChange({ borderBottomRightRadius: value })
-                }
-                onFocus={() =>
-                  setSplitRadiusIcon(<BorderBottomRightRadiusOutlined />)
-                }
-              />
-              <div className={css.icon} data-mybricks-tip={"左下"}>
-                <BorderBottomLeftRadiusOutlined />
-              </div>
-              <InputNumber
-                //tip="左下角半径"
-                style={DEFAULT_STYLE__NEW}
-                defaultValue={borderValue.borderBottomLeftRadius}
-                unitOptions={UNIT_OPTIONS}
-                onChange={(value) =>
-                  handleChange({ borderBottomLeftRadius: value })
-                }
-                onFocus={() =>
-                  setSplitRadiusIcon(<BorderBottomLeftRadiusOutlined />)
-                }
-              />
-            </Panel.Item>
-          </Panel.Content>
+        <div className={css.independentBox}>
+          <div style={{ minWidth: "120px",flex:1}}>
+            <div className={css.row} style={{paddingRight: 0}}>
+              <Panel.Content style={{ padding: 3 }}>
+                <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
+                  <div className={css.icon} data-mybricks-tip={"左上"}>
+                    <BorderTopLeftRadiusOutlined />
+                  </div>
+                  <InputNumber
+                    //tip="左上"
+                    style={DEFAULT_STYLE__NEW}
+                    defaultValue={borderValue.borderTopLeftRadius}
+                    unitOptions={UNIT_OPTIONS}
+                    onChange={(value) =>
+                      handleChange({ borderTopLeftRadius: value })
+                    }
+                    onFocus={() =>
+                      setSplitRadiusIcon(<BorderTopLeftRadiusOutlined />)
+                    }
+                  />
+                  <div className={css.icon} data-mybricks-tip={"右上"}>
+                    <BorderTopRightRadiusOutlined />
+                  </div>
+                  <InputNumber
+                    //tip="右上角半径"
+                    style={DEFAULT_STYLE__NEW}
+                    defaultValue={borderValue.borderTopRightRadius}
+                    unitOptions={UNIT_OPTIONS}
+                    onChange={(value) =>
+                      handleChange({ borderTopRightRadius: value })
+                    }
+                    onFocus={() =>
+                      setSplitRadiusIcon(<BorderTopRightRadiusOutlined />)
+                    }
+                  />
+                </Panel.Item>
+
+              </Panel.Content>
+            </div>
+            <div className={css.row}  style={{paddingRight: 0}}>
+              <Panel.Content style={{ padding: 3 }}>
+
+                <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
+
+                  <div className={css.icon} data-mybricks-tip={"左下"}>
+                    <BorderBottomLeftRadiusOutlined />
+                  </div>
+                  <InputNumber
+                    //tip="左下角半径"
+                    style={DEFAULT_STYLE__NEW}
+                    defaultValue={borderValue.borderBottomLeftRadius}
+                    unitOptions={UNIT_OPTIONS}
+                    onChange={(value) =>
+                      handleChange({ borderBottomLeftRadius: value })
+                    }
+                    onFocus={() =>
+                      setSplitRadiusIcon(<BorderBottomLeftRadiusOutlined />)
+                    }
+                  />
+
+                  <div className={css.icon} data-mybricks-tip={"右下"}>
+                    <BorderBottomRightRadiusOutlined />
+                  </div>
+                  <InputNumber
+                    //tip="右下角半径"
+                    style={DEFAULT_STYLE__NEW}
+                    defaultValue={borderValue.borderBottomRightRadius}
+                    unitOptions={UNIT_OPTIONS}
+                    onChange={(value) =>
+                      handleChange({ borderBottomRightRadius: value })
+                    }
+                    onFocus={() =>
+                      setSplitRadiusIcon(<BorderBottomRightRadiusOutlined />)
+                    }
+                  />
+                </Panel.Item>
+              </Panel.Content>
+            </div>
+          </div>
+
           <div
             data-mybricks-tip={`{content:'切换为统一配置',position:'left'}`}
-            className={css.actionIcon}
+            className={css.independentActionIcon}
             onClick={() =>
               handleToggleChange({ key: "radiusToggleValue", value: "all" })
             }
           >
-            <BorderTopLeftRadiusOutlined />
+            <BorderRadiusSplitOutlined />
           </div>
         </div>
       );
@@ -780,18 +795,18 @@ function getToggleDefaultValue(value: CSSProperties) {
         value.borderBottomWidth,
         value.borderLeftWidth,
       ]) &&
-      allEqual([
-        value.borderTopStyle,
-        value.borderRightStyle,
-        value.borderBottomStyle,
-        value.borderLeftStyle,
-      ]) &&
-      allEqual([
-        value.borderTopColor,
-        value.borderRightColor,
-        value.borderBottomColor,
-        value.borderLeftColor,
-      ])
+        allEqual([
+          value.borderTopStyle,
+          value.borderRightStyle,
+          value.borderBottomStyle,
+          value.borderLeftStyle,
+        ]) &&
+        allEqual([
+          value.borderTopColor,
+          value.borderRightColor,
+          value.borderBottomColor,
+          value.borderLeftColor,
+        ])
         ? "all"
         : "split",
     radiusToggleValue: allEqual([
