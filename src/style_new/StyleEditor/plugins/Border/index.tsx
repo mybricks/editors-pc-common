@@ -647,8 +647,8 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
     } else {
       return (
         <div className={css.independentBox}>
-          <div style={{ minWidth: "120px",flex:1}}>
-            <div className={css.row} style={{paddingRight: 0}}>
+          <div style={{ minWidth: "120px", flex: 1 }}>
+            <div className={css.row} style={{ paddingRight: 0 }}>
               <Panel.Content style={{ padding: 3 }}>
                 <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
                   <div className={css.icon} data-mybricks-tip={"左上"}>
@@ -666,11 +666,13 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                       setSplitRadiusIcon(<BorderTopLeftRadiusOutlined />)
                     }
                   />
-                  <div className={css.icon} data-mybricks-tip={"右上"}>
-                    <BorderTopRightRadiusOutlined />
-                  </div>
+                </Panel.Item>
+              </Panel.Content>
+              <Panel.Content style={{ padding: 3 }}>
+                <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
                   <InputNumber
                     //tip="右上角半径"
+                    align="right"
                     style={DEFAULT_STYLE__NEW}
                     defaultValue={borderValue.borderTopRightRadius}
                     unitOptions={UNIT_OPTIONS}
@@ -681,15 +683,17 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                       setSplitRadiusIcon(<BorderTopRightRadiusOutlined />)
                     }
                   />
+                  <div className={css.icon} data-mybricks-tip={"右上"}>
+                    <BorderTopRightRadiusOutlined />
+                  </div>
                 </Panel.Item>
 
               </Panel.Content>
             </div>
-            <div className={css.row}  style={{paddingRight: 0}}>
+            <div className={css.row} style={{ paddingRight: 0 }}>
               <Panel.Content style={{ padding: 3 }}>
 
                 <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
-
                   <div className={css.icon} data-mybricks-tip={"左下"}>
                     <BorderBottomLeftRadiusOutlined />
                   </div>
@@ -705,12 +709,13 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                       setSplitRadiusIcon(<BorderBottomLeftRadiusOutlined />)
                     }
                   />
-
-                  <div className={css.icon} data-mybricks-tip={"右下"}>
-                    <BorderBottomRightRadiusOutlined />
-                  </div>
+                </Panel.Item>
+              </Panel.Content>
+              <Panel.Content style={{ padding: 3 }}>
+                <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
                   <InputNumber
                     //tip="右下角半径"
+                    align="right"
                     style={DEFAULT_STYLE__NEW}
                     defaultValue={borderValue.borderBottomRightRadius}
                     unitOptions={UNIT_OPTIONS}
@@ -721,6 +726,9 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                       setSplitRadiusIcon(<BorderBottomRightRadiusOutlined />)
                     }
                   />
+                  <div className={css.icon} data-mybricks-tip={"右下"}>
+                    <BorderBottomRightRadiusOutlined />
+                  </div>
                 </Panel.Item>
               </Panel.Content>
             </div>

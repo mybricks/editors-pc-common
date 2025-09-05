@@ -23,6 +23,7 @@ interface InputNumberProps extends InputProps {
   showIcon?: boolean
   prefixTip?: string
   type?: string
+  align?: 'left' | 'right'
   onFocus?: () => void;
 }
 
@@ -35,6 +36,7 @@ export function InputNumber ({
   suffix: customSuffix,
   style = {},
   disabled = false,
+  align = 'left',
   unitOptions,
   unitDisabledList = [],
   defaultUnitValue,
@@ -87,7 +89,7 @@ export function InputNumber ({
       return (
         <Select
           tip='单位'
-          style={{ padding: 0, fontSize: 10 }}
+          style={{ padding: 0, fontSize: 10,backgroundColor: 'transparent' }}
           defaultValue={unit}
           options={unitOptions}
           showIcon={showIcon} // 带Select的数字输入框showIcon 便于提示用户可以切换Select选项 但字体的输入框太小下拉icon会遮挡
@@ -132,6 +134,7 @@ export function InputNumber ({
       onFocus={onFocus}
       onKeyDown={onKeyDown}
       onBlur={onBlur}
+      align={align}
       tip={tip}
       // numberTip={"光标键可增减"}
       type={type} // TODO 后续调整 现在因为面板宽度不够只给小部分加 type = 'number'
