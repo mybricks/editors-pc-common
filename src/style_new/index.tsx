@@ -142,28 +142,33 @@ export default function ({editConfig}: EditorProps) {
           {/*>*/}
           {/*  <CaretRightOutlined />*/}
           {/*</div>}*/}
-          <div 
-            data-mybricks-tip={finalSelector}
-            onClick={copy}
-            >
+          <div>
               {editConfig.title}
             {/* <span className={css.tips}>{titleContent}</span> */}
             </div>
         </div>
         <div className={css.actions}>
-          {/* <div
+          <div
+            className={css.selector}
+            data-mybricks-tip={'复制selector'}        
+            onClick={copy}
+            >
+            {finalSelector}
+          </div>
+
+          <div
             className={css.icon}
             data-mybricks-tip={'复制selector'}
             onClick={copy}
           >
             <CopyOutlined />
-          </div> */}
+          </div>
           <div
             className={css.icon}
             data-mybricks-tip={'重置'}
             onClick={refresh}
           >
-            <DeleteOutlined />
+            <ReloadOutlined />
           </div>
           <div
             className={css.icon}
@@ -181,16 +186,28 @@ export default function ({editConfig}: EditorProps) {
         className={css.titleContainer}
         //style={{ marginBottom: open ? 3 : 0 }}
       >
-        <div className={css.title} style={{fontWeight: styleProps?.options?.length > 1 ? 800 : "normal"}} onClick={onOpenClick}>
+        <div className={css.title} style={{fontWeight: "normal"}} onClick={onOpenClick}>
           {finalDisabledSwitch ? null : <div
             className={`${css.icon}${open ? ` ${css.iconOpen}` : ''}`}
             data-mybricks-tip={open ? '收起' : '展开'}
           >
             <CaretRightOutlined />
           </div>}
-          <div>{editConfig.title}<span className={css.tips}>{titleContent}</span></div>
+          <div>
+            {editConfig.title}
+            {/* <span className={css.tips}>
+              {titleContent}
+            </span> */}
+          </div>
         </div>
         <div className={css.actions_allawys_display}>
+          <div
+            className={css.selector}
+            data-mybricks-tip={'复制selector'}        
+            onClick={copy}
+            >
+            {finalSelector}
+          </div>
           <div
             className={css.icon}
             data-mybricks-tip={'复制selector'}
@@ -203,7 +220,7 @@ export default function ({editConfig}: EditorProps) {
             data-mybricks-tip={'重置'}
             onClick={refresh}
           >
-            <DeleteOutlined />
+            <ReloadOutlined/>
           </div>
           <div
             className={css.icon}

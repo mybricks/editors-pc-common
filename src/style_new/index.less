@@ -4,6 +4,7 @@
   cursor: pointer;
   align-items: center;
   justify-content: start;
+  margin-right: 25px;
 
   &:hover {
     .actions {
@@ -54,6 +55,15 @@
     color: #555;
     visibility: hidden;
     margin-left: 5px;
+    width: calc(100% - 60px);
+
+    .selector {
+      color: rgb(170, 170, 170);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-right: 6px;
+    }
 
     .icon {
       display: flex;
@@ -86,6 +96,17 @@
     display: flex;
     align-items: center;
     color: #555;
+    margin-left: 5px;
+    width: calc(100% - 60px);
+
+    .selector {
+      color: rgb(170, 170, 170);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-right: 6px;
+    }
+
 
     .icon {
       display: flex;
