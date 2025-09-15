@@ -150,7 +150,7 @@ export default function ({editConfig}: EditorProps) {
         <div className={css.actions}>
           <div
             className={css.selector}
-            data-mybricks-tip={'复制selector'}        
+            data-mybricks-tip={finalSelector}        
             onClick={copy}
             >
             {finalSelector}
@@ -203,7 +203,7 @@ export default function ({editConfig}: EditorProps) {
         <div className={css.actions_allawys_display}>
           <div
             className={css.selector}
-            data-mybricks-tip={'复制selector'}        
+            data-mybricks-tip={finalSelector}        
             onClick={copy}
             >
             {finalSelector}

@@ -4,7 +4,8 @@
   cursor: pointer;
   align-items: center;
   justify-content: start;
-  margin-right: 25px;
+  margin-right: 30px;
+  min-width: 0; 
 
   &:hover {
     .actions {
@@ -13,13 +14,12 @@
   }
 
   .title {
-    // width: 100%;
     display: flex;
     color: #AAA;
-    overflow: hidden;
-    white-space: nowrap;
     align-items: center;
     padding-left: 3px;
+    flex-shrink: 0; 
+    min-width: 0; 
 
     .preview {
       color: #999999;
@@ -27,6 +27,7 @@
       margin-left: 4px;
       font-weight: normal;
       text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .icon {
@@ -36,6 +37,7 @@
       cursor: pointer;
       transition: transform 0.2s ease-in-out 0s;
       margin-right: 2px;
+      flex-shrink: 0; 
     }
 
     .iconOpen {
@@ -47,6 +49,7 @@
     font-style: italic;
     margin-left: 10px;
     color: #aaa;
+    flex-shrink: 0; 
   }
 
   .actions {
@@ -55,7 +58,8 @@
     color: #555;
     visibility: hidden;
     margin-left: 5px;
-    width: calc(100% - 60px);
+    min-width: 0;
+    flex: 1; 
 
     .selector {
       color: rgb(170, 170, 170);
@@ -63,6 +67,7 @@
       overflow: hidden;
       text-overflow: ellipsis;
       margin-right: 6px;
+      min-width: 0; 
     }
 
     .icon {
@@ -71,6 +76,7 @@
       justify-content: center;
       cursor: pointer;
       margin: 0 4px;
+      flex-shrink: 0; 
 
       svg {
         max-height: 11px;
@@ -80,15 +86,6 @@
           fill: #555;
         }
       }
-
-      //&:first-child {
-      //  margin-right: 4px;
-      //}
-      //
-      //&:not(:first-child) {
-      //  margin-left: 4px;
-      //  margin-right: 4.5px;
-      //}
     }
   }
 
@@ -97,7 +94,8 @@
     align-items: center;
     color: #555;
     margin-left: 5px;
-    width: calc(100% - 60px);
+    min-width: 0; 
+    flex: 1; 
 
     .selector {
       color: rgb(170, 170, 170);
@@ -105,8 +103,8 @@
       overflow: hidden;
       text-overflow: ellipsis;
       margin-right: 6px;
+      min-width: 0; 
     }
-
 
     .icon {
       display: flex;
@@ -114,6 +112,7 @@
       justify-content: center;
       cursor: pointer;
       margin: 0 4px;
+      flex-shrink: 0;
 
       svg {
         max-height: 11px;
@@ -123,15 +122,6 @@
           fill: #555;
         }
       }
-
-      //&:first-child {
-      //  margin-right: 4px;
-      //}
-      //
-      //&:not(:first-child) {
-      //  margin-left: 4px;
-      //  margin-right: 4.5px;
-      //}
     }
   }
 }
