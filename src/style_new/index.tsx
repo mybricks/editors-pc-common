@@ -142,16 +142,22 @@ export default function ({editConfig}: EditorProps) {
           {/*>*/}
           {/*  <CaretRightOutlined />*/}
           {/*</div>}*/}
-          <div>{editConfig.title}<span className={css.tips}>{titleContent}</span></div>
+          <div 
+            data-mybricks-tip={finalSelector}
+            onClick={copy}
+            >
+              {editConfig.title}
+            {/* <span className={css.tips}>{titleContent}</span> */}
+            </div>
         </div>
         <div className={css.actions}>
-          <div
+          {/* <div
             className={css.icon}
             data-mybricks-tip={'复制selector'}
             onClick={copy}
           >
             <CopyOutlined />
-          </div>
+          </div> */}
           <div
             className={css.icon}
             data-mybricks-tip={'重置'}
@@ -161,7 +167,7 @@ export default function ({editConfig}: EditorProps) {
           </div>
           <div
             className={css.icon}
-            data-mybricks-tip={`{content:'代码编辑',position:'left'}`}
+            data-mybricks-tip={'代码编辑'}
             onClick={onEditModeClick}
           >
             {editMode ? <CodeOutlined /> : <AppstoreOutlined />}
