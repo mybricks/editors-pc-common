@@ -130,8 +130,8 @@ export default function ({editConfig}: EditorProps) {
       <>
       {/* 可视化编辑态的工具条 */}
       {editMode &&  (<div
-        onMouseEnter={onMouseEnter}
-        onMouseLeave={onMouseLeave}
+        // onMouseEnter={onMouseEnter}
+        // onMouseLeave={onMouseLeave}
         className={css.titleContainer}
         //style={{ marginBottom: open ? 3 : 0 }}
       >
