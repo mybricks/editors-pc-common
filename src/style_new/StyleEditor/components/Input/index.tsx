@@ -22,6 +22,7 @@ export interface InputProps {
   onBlur?: React.FocusEventHandler<HTMLInputElement>;
   onFocus?: React.FocusEventHandler<HTMLInputElement>;
   onKeyDown?: React.KeyboardEventHandler<HTMLInputElement>;
+  align?: 'left' | 'right';
   tip?: string;
   numberTip?: string;
   type?: string;
@@ -40,6 +41,7 @@ export function Input({
   onKeyDown = () => {},
   onBlur = () => {},
   tip,
+  align = 'left',
   numberTip,
   type = void 0,
 }: InputProps) {
@@ -61,23 +63,50 @@ export function Input({
   return (
     <Panel.Item style={style}>
       <div className={css.input} data-mybricks-tip={tip}>
-        {prefix && (
-          <div className={css.prefix} data-mybricks-tip={prefixTip}>
-            {prefix}
-          </div>
+        {align == 'left' && (
+          <>
+            {prefix && (
+              <div className={css.prefix} data-mybricks-tip={prefixTip}>
+                {prefix}
+              </div>
+            )}
+            <input
+              // value={value || inputValue}
+              defaultValue={inputValue}
+              onChange={handleInputChange}
+              disabled={disabled}
+              onFocus={onFocus}
+              onBlur={onBlur}
+              onKeyDown={onKeyDown}
+              data-mybricks-tip={numberTip}
+              type={type}
+            />
+            {suffix && <div className={css.suffix}>{suffix}</div>}
+          </>
         )}
-        <input
-          // value={value || inputValue}
-          defaultValue={inputValue}
-          onChange={handleInputChange}
-          disabled={disabled}
-          onFocus={onFocus}
-          onBlur={onBlur}
-          onKeyDown={onKeyDown}
-          data-mybricks-tip={numberTip}
-          type={type}
-        />
-        {suffix && <div className={css.suffix}>{suffix}</div>}
+
+        {align == 'right' && (
+          <>
+            {suffix && <div className={css.suffix}>{suffix}</div>}
+            <input
+              // value={value || inputValue}
+              style={{ textAlign: 'right',paddingRight: 3 }}
+              defaultValue={inputValue}
+              onChange={handleInputChange}
+              disabled={disabled}
+              onFocus={onFocus}
+              onBlur={onBlur}
+              onKeyDown={onKeyDown}
+              data-mybricks-tip={numberTip}
+              type={type}
+            />
+            {prefix && (
+              <div className={css.prefix} data-mybricks-tip={prefixTip}>
+                {prefix}
+              </div>
+            )}
+          </>
+        )}
       </div>
     </Panel.Item>
   );

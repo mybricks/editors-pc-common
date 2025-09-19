@@ -22,6 +22,9 @@ import { color2rgba } from "../../utils";
 
 import css from "./index.less";
 
+
+const UnBindingIcon = <svg width="24" height="20" fill="currentColor" viewBox="0 0 24 24"><path fill="var(--color-icon)" d="M8.111 11.648a.5.5 0 0 1 .708.707l-1.232 1.232a2 2 0 0 0 2.828 2.828l1.232-1.232a.5.5 0 0 1 .707.707l-1.232 1.232A3 3 0 0 1 6.88 12.88zM6.147 6.147a.5.5 0 0 1 .629-.065l.078.065 11 11 .064.078a.5.5 0 0 1-.693.693l-.078-.064-11-11-.065-.078a.5.5 0 0 1 .065-.63m6.844.627a3 3 0 0 1 4.238 4.237l-.107.111-1.232 1.233a.5.5 0 0 1-.707-.707l1.232-1.233.138-.151a2.002 2.002 0 0 0-2.815-2.815l-.15.138-1.233 1.232a.5.5 0 0 1-.707-.707L12.88 6.88z"></path></svg>
+
 type ColorOption = {
   label: string;
   value: string;
@@ -57,9 +60,11 @@ interface State {
 function getInitialState({
   value,
   options,
+  optionsValueToAllMap
 }: {
   value: string;
   options: ColorOptions;
+  optionsValueToAllMap: any
 }): State {
   let finalValue = value;
   let nonColorValue = false;
@@ -73,37 +78,39 @@ function getInitialState({
     nonColorValue = true;
   }
 
-  const optionsValueToAllMap: any = {};
+  // const optionsValueToAllMap: any = {};
 
-  const colorOptions = Array.isArray(window.MYBRICKS_CSS_VARIABLE_LIST)
-    ? window.MYBRICKS_CSS_VARIABLE_LIST
-    : [];
+  // const colorOptions = Array.isArray(window.MYBRICKS_CSS_VARIABLE_LIST)
+  //   ? window.MYBRICKS_CSS_VARIABLE_LIST
+  //   : [];
 
-  const showPreset = !!colorOptions.length;
+  // const showPreset = !!colorOptions.length;
 
-  if (showPreset) {
-    colorOptions.forEach(({ title, options }) => {
-      if (Array.isArray(options)) {
-        options.forEach((option) => {
-          optionsValueToAllMap[option.value] = option;
-        });
-      }
-    });
-  }
+  // if (showPreset) {
+  //   colorOptions.forEach(({ title, options }) => {
+  //     if (Array.isArray(options)) {
+  //       options.forEach((option) => {
+  //         optionsValueToAllMap[option.value] = option;
+  //       });
+  //     }
+  //   });
+  // }
 
   const result = {
     value: finalValue,
     finalValue: nonColorValue ? "" : finalValue,
     nonColorValue,
-    showPreset,
-    options: colorOptions,
+    showPreset: false,
+    // showPreset,
+    // options: colorOptions,
+    options: [],
     optionsValueToAllMap,
   };
 
   if (nonColorValue) {
     const option = optionsValueToAllMap[finalValue];
     if (option) {
-      result.value = option.label;
+      result.value = option.name;
       result.finalValue = finalValue;
     }
   }
@@ -122,6 +129,20 @@ function reducer(state: State, action: any): State {
 //   {label: 'inherit', value: 'inherit'}
 // ]
 
+const getOptionsValueToAllMap = () => {
+  const optionsValueToAllMap: any = {}
+
+  if (window.MYBRICKS_THEME_PACKAGE_VARIABLES) {
+    window.MYBRICKS_THEME_PACKAGE_VARIABLES.variables.forEach((variable: any) => {
+      variable.configs.forEach((config: any) => {
+        optionsValueToAllMap[`var(${config.key})`] = config;
+      })
+    })
+  }
+
+  return optionsValueToAllMap
+}
+
 export function ColorEditor({
   defaultValue,
   style = {},
@@ -130,17 +151,23 @@ export function ColorEditor({
   onFocus,
 }: ColorEditorProps) {
   const presetRef = useRef<HTMLDivElement>(null);
+
+  const [optionsValueToAllMap] = useState(() => getOptionsValueToAllMap())
+
   const [state, dispatch] = useReducer(
     reducer,
-    getInitialState({ value: defaultValue, options })
+    getInitialState({ value: defaultValue, options, optionsValueToAllMap })
   );
   const [show, setShow] = useState(false);
   const [open, setOpen] = useState(false);
+  const [colorPickerContext] = useState({});
 
   const onPresetClick = useCallback(() => {
-    setShow(true);
-    setOpen((open) => !open);
-  }, [open]);
+    // setShow(true);
+    // setOpen((open) => !open);
+
+    colorPickerContext.open();
+  }, []);
 
   const handleColorpickerChange = useCallback((color: Record<string, any>) => {
     const hex = getHex(color.hexa);
@@ -240,12 +267,28 @@ export function ColorEditor({
     }
   };
   const input = useMemo(() => {
-    const { value, nonColorValue } = state;
+    const { value, nonColorValue, finalValue } = state;
     if (nonColorValue) {
       return (
-        <div className={css.text} onClick={onPresetClick}>
-          {value}
-        </div>
+        <>
+          <div className={css.text} onClick={onPresetClick}>
+            {value}
+          </div>
+          {finalValue && <div
+            className={css.unbind}
+            data-mybricks-tip={`解除绑定`}
+            onClick={() => {
+              const option = state.optionsValueToAllMap[finalValue];
+              const hex = getHex(option.value)
+
+              dispatch({
+                nonColorValue: false,
+                value: hex,
+                finalValue: hex
+              })
+            }}
+          >{UnBindingIcon}</div>}
+        </>
       );
     }
     return (
@@ -316,6 +359,21 @@ export function ColorEditor({
     );
   }, [opacityNumber, state.nonColorValue, handleOpacityChange]);
 
+  const onBindingChange = useCallback((params: any) => {
+    const { name, value, resetValue } = params;
+    onChange(color2rgba(value));
+
+    dispatch({
+      nonColorValue: true,
+      value: name,
+      finalValue: value
+      // value: option.label || value,
+      // finalValue: option.resetValue || "",
+    });
+
+    setCheckColor(value + name + resetValue);
+  }, [])
+
   const block = useMemo(() => {
     const { finalValue, nonColorValue } = state;
     const style = nonColorValue
@@ -338,9 +396,11 @@ export function ColorEditor({
 
     return (
       <Colorpicker
+        context={colorPickerContext}
         // value={finalValue}
         value={pickerValue}
         onChange={handleColorpickerChange}
+        onBindingChange={onBindingChange}
         // disabled={nonColorValue}
         className={css.colorPickerContainer}
       >
@@ -419,29 +479,29 @@ export function ColorEditor({
     }
     return (
       <div ref={presetRef} className={css.preset} onClick={onPresetClick}>
-        {state?.nonColorValue ? <BindingOutlined /> : <UnbindingOutlined />}
+        {state?.nonColorValue ? <BindingOutlined size={13} /> : <UnbindingOutlined size={13} />}
       </div>
     );
   }, [state]);
 
-  const onPresetColorChange = useCallback(
-    (value: any, label: any, resetValue: any) => {
-      onChange(color2rgba(value));
+  // const onPresetColorChange = useCallback(
+  //   (value: any, label: any, resetValue: any) => {
+  //     onChange(color2rgba(value));
 
-      const option = state.optionsValueToAllMap[value];
+  //     const option = state.optionsValueToAllMap[value];
 
-      dispatch({
-        nonColorValue: true,
-        value: option.label || value,
-        finalValue: option.resetValue || "",
-      });
+  //     dispatch({
+  //       nonColorValue: true,
+  //       value: option.label || value,
+  //       finalValue: option.resetValue || "",
+  //     });
 
-      setCheckColor(value + label + resetValue);
+  //     setCheckColor(value + label + resetValue);
 
-      // setOpen(false)
-    },
-    []
-  );
+  //     // setOpen(false)
+  //   },
+  //   []
+  // );
 
   const handleClick = useCallback(() => {
     setOpen(false);
@@ -476,7 +536,7 @@ export function ColorEditor({
         {opacityInput}
       </div>
       {preset}
-      {show &&
+      {/* {show &&
         createPortal(
           <PresetColorPanel
             checkColor={checkColor}
@@ -486,7 +546,7 @@ export function ColorEditor({
             onChange={onPresetColorChange}
           />,
           document.body
-        )}
+        )} */}
     </Panel.Item>
   );
 }

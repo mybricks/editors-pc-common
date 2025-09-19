@@ -273,7 +273,6 @@ export default function ({editConfig}: any): JSX.Element {
           className: styles.comment,
         }}
         theme={theme ?? "light"}
-        height={height}
         className={styles.editor}
         wrapperClassName={showBtn ? styles["btn-wrapper"] : styles['editor-wrapper']}
         path={path}

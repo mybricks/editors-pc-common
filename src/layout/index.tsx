@@ -114,6 +114,10 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
 
   const renderJustifyContent = () => {
     const onSelect = (justifyContent: CSSProperties["justifyContent"]) => {
+      //如果直接返回normal会导致九宫格没有高亮点
+      if(justifyContent == "normal"){
+        justifyContent = "flex-start"
+      }
       setModel((pre) => ({ ...pre, justifyContent }));
       updateValue({ justifyContent });
     };

@@ -130,8 +130,8 @@ export default function ({editConfig}: EditorProps) {
       <>
       {/* 可视化编辑态的工具条 */}
       {editMode &&  (<div
-        onMouseEnter={onMouseEnter}
-        onMouseLeave={onMouseLeave}
+        // onMouseEnter={onMouseEnter}
+        // onMouseLeave={onMouseLeave}
         className={css.titleContainer}
         //style={{ marginBottom: open ? 3 : 0 }}
       >
@@ -142,9 +142,20 @@ export default function ({editConfig}: EditorProps) {
           {/*>*/}
           {/*  <CaretRightOutlined />*/}
           {/*</div>}*/}
-          <div>{editConfig.title}<span className={css.tips}>{titleContent}</span></div>
+          <div>
+              {editConfig.title}
+            {/* <span className={css.tips}>{titleContent}</span> */}
+            </div>
         </div>
         <div className={css.actions}>
+          <div
+            className={css.selector}
+            data-mybricks-tip={finalSelector}        
+            onClick={copy}
+            >
+            {finalSelector}
+          </div>
+
           <div
             className={css.icon}
             data-mybricks-tip={'复制selector'}
@@ -157,11 +168,11 @@ export default function ({editConfig}: EditorProps) {
             data-mybricks-tip={'重置'}
             onClick={refresh}
           >
-            <DeleteOutlined />
+            <ReloadOutlined />
           </div>
           <div
             className={css.icon}
-            data-mybricks-tip={`{content:'代码编辑',position:'left'}`}
+            data-mybricks-tip={'代码编辑'}
             onClick={onEditModeClick}
           >
             {editMode ? <CodeOutlined /> : <AppstoreOutlined />}
@@ -175,16 +186,28 @@ export default function ({editConfig}: EditorProps) {
         className={css.titleContainer}
         //style={{ marginBottom: open ? 3 : 0 }}
       >
-        <div className={css.title} style={{fontWeight: styleProps?.options?.length > 1 ? 800 : "normal"}} onClick={onOpenClick}>
+        <div className={css.title} style={{fontWeight: "normal"}} onClick={onOpenClick}>
           {finalDisabledSwitch ? null : <div
             className={`${css.icon}${open ? ` ${css.iconOpen}` : ''}`}
             data-mybricks-tip={open ? '收起' : '展开'}
           >
             <CaretRightOutlined />
           </div>}
-          <div>{editConfig.title}<span className={css.tips}>{titleContent}</span></div>
+          <div>
+            {editConfig.title}
+            {/* <span className={css.tips}>
+              {titleContent}
+            </span> */}
+          </div>
         </div>
         <div className={css.actions_allawys_display}>
+          <div
+            className={css.selector}
+            data-mybricks-tip={finalSelector}        
+            onClick={copy}
+            >
+            {finalSelector}
+          </div>
           <div
             className={css.icon}
             data-mybricks-tip={'复制selector'}
@@ -197,7 +220,7 @@ export default function ({editConfig}: EditorProps) {
             data-mybricks-tip={'重置'}
             onClick={refresh}
           >
-            <DeleteOutlined />
+            <ReloadOutlined/>
           </div>
           <div
             className={css.icon}
@@ -837,87 +860,91 @@ const getDefaultValueFunctionMap2 = {
 
 /** 获取当前CSS规则下生效的样式以及插件 */
 function getEffectedCssPropertyAndOptions (element: HTMLElement | null, selector: string, comId?: string) {
-  let finalRules;
-  let computedValues;
+  try {
+    let finalRules;
+    let computedValues;
 
-  if (element) {
-    // 处理真实DOM元素的情况
-    const classListValue = element.classList.value
-    finalRules = getStyleRules(element, classListValue.indexOf(selector) !== -1 ? null : selector).filter((finalRule: any) => {
-      let tempCompare
-      try {
-        tempCompare = calculate(finalRule.selectorText)
-      } catch {}
+    if (element) {
+      // 处理真实DOM元素的情况
+      const classListValue = element.classList.value
+      finalRules = getStyleRules(element, classListValue.indexOf(selector) !== -1 ? null : selector).filter((finalRule: any) => {
+        let tempCompare
+        try {
+          tempCompare = calculate(finalRule.selectorText)
+        } catch {}
 
-      if (tempCompare) {
-        finalRule.tempCompare = tempCompare
-        return true
-      }
+        if (tempCompare) {
+          finalRule.tempCompare = tempCompare
+          return true
+        }
 
-      return false
-    }).sort((a, b) => {
-      // @ts-ignore
-      return compare(a.tempCompare, b.tempCompare)
-    })
+        return false
+      }).sort((a, b) => {
+        // @ts-ignore
+        return compare(a.tempCompare, b.tempCompare)
+      })
 
-    // 检查是否是伪元素选择器（使用::或:before/:after）
-    const isPseudoElement = selector.includes('::') || selector.includes(':before') || selector.includes(':after')
-    if (isPseudoElement) {
-      // 对于伪元素，使用第二个参数来获取其计算样式
-      const pseudoSelector = selector.split(':')[1]
-      computedValues = window.getComputedStyle(element, pseudoSelector)
-    } else {
-      computedValues = window.getComputedStyle(element)
-    }
-  } else if (selector) {
-    // 处理纯selector的情况（包括伪类如:hover, :disabled等）
-    finalRules = getStyleRules(null, selector).filter((finalRule: any) => {
-      let tempCompare
-      try {
-        tempCompare = calculate(finalRule.selectorText)
-      } catch {}
-
-      if (tempCompare) {
-        finalRule.tempCompare = tempCompare
-        return true
-      }
-
-      return false
-    }).sort((a, b) => {
-      // @ts-ignore
-      return compare(a.tempCompare, b.tempCompare)
-    })
-
-
-    // 获取基础选择器对应的元素
-    const root = getDocument()
-    const baseSelector = selector.split(':')[0]
-    const targetElement = root.querySelector(`#${comId} ${baseSelector}`)
-    
-    if (targetElement) {
-      // 检查是否是伪元素（如::before、::after、::placeholder）
-      const pseudoMatch = selector.match(/(::[a-zA-Z0-9\-]+)/);
-      const pseudoSelector = pseudoMatch ? pseudoMatch[0] : null;
-      if (pseudoSelector) {
-        computedValues = window.getComputedStyle(targetElement, pseudoSelector);
+      // 检查是否是伪元素选择器（使用::或:before/:after）
+      const isPseudoElement = selector.includes('::') || selector.includes(':before') || selector.includes(':after')
+      if (isPseudoElement) {
+        // 对于伪元素，使用第二个参数来获取其计算样式
+        const pseudoSelector = selector.split(':')[1]
+        computedValues = window.getComputedStyle(element, pseudoSelector)
       } else {
-        // TDDO，现在获取不到样式表的 finalRules，因为类名可能不一样
+        computedValues = window.getComputedStyle(element)
+      }
+    } else if (selector) {
+      // 处理纯selector的情况（包括伪类如:hover, :disabled等）
+      finalRules = getStyleRules(null, selector).filter((finalRule: any) => {
+        let tempCompare
+        try {
+          tempCompare = calculate(finalRule.selectorText)
+        } catch {}
 
-        // 属于伪类（如:hover、:disabled等），则获取普通元素的computedStyle作为基础样式
-        computedValues = window.getComputedStyle(targetElement);
+        if (tempCompare) {
+          finalRule.tempCompare = tempCompare
+          return true
+        }
+
+        return false
+      }).sort((a, b) => {
+        // @ts-ignore
+        return compare(a.tempCompare, b.tempCompare)
+      })
+
+
+      // 获取基础选择器对应的元素
+      const root = getDocument()
+      const baseSelector = selector.split(':')[0]
+      const targetElement = root.querySelector(`#${comId} ${baseSelector}`)
+      
+      if (targetElement) {
+        // 检查是否是伪元素（如::before、::after、::placeholder）
+        const pseudoMatch = selector.match(/(::[a-zA-Z0-9\-]+)/);
+        const pseudoSelector = pseudoMatch ? pseudoMatch[0] : null;
+        if (pseudoSelector) {
+          computedValues = window.getComputedStyle(targetElement, pseudoSelector);
+        } else {
+          // TDDO，现在获取不到样式表的 finalRules，因为类名可能不一样
+
+          // 属于伪类（如:hover、:disabled等），则获取普通元素的computedStyle作为基础样式
+          computedValues = window.getComputedStyle(targetElement);
+        }
+      } else {
+        // 如果找不到对应元素，创建一个空的，防止报错
+        computedValues = window.getComputedStyle(document.createElement('div'))
       }
     } else {
-      // 如果找不到对应元素，创建一个空的，防止报错
-      computedValues = window.getComputedStyle(document.createElement('div'))
+      return [{}, []]
     }
-  } else {
+
+    const effectedPanels = getEffectedPanelsFromCssRules(finalRules)
+    const values = getValues(finalRules, computedValues)
+
+    return [values, effectedPanels]
+  } catch (e) {
     return [{}, []]
   }
-
-  const effectedPanels = getEffectedPanelsFromCssRules(finalRules)
-  const values = getValues(finalRules, computedValues)
-
-  return [values, effectedPanels]
 }
 
 function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration) {
