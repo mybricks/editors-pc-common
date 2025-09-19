@@ -1,9 +1,8 @@
-import React, { useMemo } from 'react';
-import {InputNumber} from 'antd';
-import {useCallback} from 'react';
-import {useComputed, useObservable} from '@mybricks/rxui';
+import { useComputed, useObservable } from '@mybricks/rxui';
+import { InputNumber } from 'antd';
+import React, { useCallback } from 'react';
+import { editorsConfigKey } from '../constant';
 import css from './index.less';
-import {editorsConfigKey} from '../constant';
 
 export default function ({editConfig}): any {
   const {value, options = []} = editConfig;
@@ -76,6 +75,9 @@ function Item({index, model, formatter, item, width}) {
 
   const updateValue = (e: React.FocusEvent<HTMLInputElement, Element>) => {
     const curVal = parseFloat(e.target.value)
+    if(curVal === model.val[index] ){
+      return
+    }
 
     if (typeof curVal === 'number') {
       if (isNaN(curVal)) {
