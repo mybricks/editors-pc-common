@@ -1,0 +1,20 @@
+@import '../theme';
+
+.editor {
+  :global {
+    .ant-checkbox-checked:after,
+    .ant-checkbox:not(.ant-checkbox-disabled):hover .ant-checkbox-inner,
+    .ant-checkbox-wrapper:not(.ant-checkbox-wrapper-disabled):hover .ant-checkbox-inner {
+      border-color: @color-primary !important;
+    }
+
+    .ant-checkbox-checked .ant-checkbox-inner {
+      background-color: @color-primary;
+      border-color: @color-primary;
+    }
+
+    .ant-checkbox-checked:not(.ant-checkbox-disabled):hover .ant-checkbox-inner {
+      background-color: @color-primary !important;
+    }
+  }
+}

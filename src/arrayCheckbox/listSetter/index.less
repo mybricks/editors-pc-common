@@ -34,7 +34,9 @@
   //border: 1px solid #E9E9E9;////TODO 继续样式的美化
 
   :global {
-    .ant-checkbox:not(.ant-checkbox-disabled):hover .ant-checkbox-inner {
+    .ant-checkbox-checked:after,
+    .ant-checkbox:not(.ant-checkbox-disabled):hover .ant-checkbox-inner,
+    .ant-checkbox-wrapper:not(.ant-checkbox-wrapper-disabled):hover .ant-checkbox-inner {
       border-color: @color-primary !important;
     }
 
