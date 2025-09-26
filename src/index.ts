@@ -18,9 +18,8 @@ import EditorIcon from "./icon";
 import EditorIconRadio from "./iconRadio";
 import EditorImageSelector from "./imageSelector";
 import EditorImageShowType from "./imageShowType";
-import "./index.less";
 import EditorInputNumber from "./inputNumber";
-import { EditorProps } from "./interface";
+import type { EditorProps } from "./interface";
 import EditorJSON from "./json";
 import EditorLayout from "./layout";
 import EditorLine from "./line";
@@ -43,7 +42,13 @@ import Tree from "./tree";
 import { typeCheck } from "./utils";
 import EditorValueSelect from "./valueSelect";
 
+import "./index.less";
+
 export { config } from "./configProvider";
+
+
+
+console.log('')
 
 const PcEditorMap: any = {
   ALIGN: EditorAlign,
