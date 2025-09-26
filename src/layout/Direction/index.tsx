@@ -11,7 +11,7 @@ export interface AlignItemsProps {
 
 const defaultFlexFlow = [
   {
-    title: "智能排版<br/>(设计时自由排版、运行时自动排版)",
+    title: "自动排版<br/>(设计时自由排版、运行时自动排版)",
     value: "smart",
     render: () => <Icon name="smart" />,
   },

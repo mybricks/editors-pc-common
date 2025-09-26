@@ -1,10 +1,8 @@
-import React, {useMemo, useCallback, useEffect, useRef, useState} from "react";
-import {world} from './icons'
-import {Input} from "antd";
-import {debounce} from "../util/lodash";
-import {EditorProps} from "../interface";
-import {useObservable} from "@mybricks/rxui";
-import {getOptionsFromEditor, isValid} from "../utils";
+import { Input } from "antd";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { EditorProps } from "../interface";
+import { getOptionsFromEditor } from "../utils";
+import { world } from './icons';
 
 import css from "./index.less";
 
@@ -145,20 +143,25 @@ export default function ({editConfig}: EditorProps): JSX.Element {
   if (vCenter) {
     return (
       <div className={`${css.textArea} ${css.vCenter}`}
-           style={edtSize}>
+           onMouseDown={e => {
+             e.stopPropagation()
+           }}
+           style={{
+             width,
+             height
+           }}>
         <textarea ref={el => {
           if (el) {
             textAreaRef.current = el
           }
         }}
-          //style={styles}
+                  style={styles}
                   onDoubleClick={e => {
                     e.stopPropagation()
                   }}
                   onChange={evt => {
-                    setVal(evt.target.value)
+                    setCurText(evt.target.value)
                   }}
-                  maxLength={1000}
                   onKeyPress={evt => {
                     if (onEnterSet) {
                       if (evt.key !== 'Enter') return
