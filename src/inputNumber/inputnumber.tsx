@@ -76,6 +76,9 @@ function Item({index, model, formatter, item, width}) {
 
   const updateValue = (e: React.FocusEvent<HTMLInputElement, Element>) => {
     const curVal = parseFloat(e.target.value)
+    if(curVal === model.val[index] ){
+      return
+    }
 
     if (typeof curVal === 'number') {
       if (isNaN(curVal)) {

@@ -119,9 +119,12 @@ export default function ({editConfig}: EditorProps): JSX.Element {
   //   }
   // }, [useLocale])
 
-  if(vCenter){
+  if (vCenter) {
     return (
       <div className={`${css.textArea} ${css.vCenter}`}
+           onMouseDown={e => {
+             e.stopPropagation()
+           }}
            style={{
              width,
              height
@@ -131,26 +134,26 @@ export default function ({editConfig}: EditorProps): JSX.Element {
             changedRef.current = el
           }
         }}
-                        style={styles}
-                        onDoubleClick={e => {
-                          e.stopPropagation()
-                        }}
-                        onChange={evt => {
-                          setCurText(evt.target.value)
-                        }}
-                        onKeyPress={evt => {
-                          if (onEnterSet) {
-                            if (evt.key !== 'Enter') return
-                            updateVal(evt)
-                          }
-                        }}
-                        onBlur={(evt) => {
-                          updateVal(evt)
-                        }}
-                        disabled={readonly || useLocale}
-                        defaultValue={val}
-                        {...res}
-                        value={curText}
+                  style={styles}
+                  onDoubleClick={e => {
+                    e.stopPropagation()
+                  }}
+                  onChange={evt => {
+                    setCurText(evt.target.value)
+                  }}
+                  onKeyPress={evt => {
+                    if (onEnterSet) {
+                      if (evt.key !== 'Enter') return
+                      updateVal(evt)
+                    }
+                  }}
+                  onBlur={(evt) => {
+                    updateVal(evt)
+                  }}
+                  disabled={readonly || useLocale}
+                  defaultValue={val}
+                  {...res}
+                  value={curText}
         />
         {
           localeEnable ? (
@@ -163,7 +166,7 @@ export default function ({editConfig}: EditorProps): JSX.Element {
         }
       </div>
     )
-  }else{
+  } else {
     return (
       <div className={`${css.textArea}`}
            style={{
