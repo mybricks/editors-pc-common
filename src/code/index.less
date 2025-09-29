@@ -36,10 +36,13 @@
 
 .toolbar {
   position: absolute;
-  top: -20px;
-  right: 5px;
+  top: 8px;
+  right: 10px;
   display: flex;
   column-gap: 8px;
+  padding: 0px 4px;
+  border-radius: 4px;
+  background-color: #ffffffc8;
 
   .icon {
     svg {
@@ -47,12 +50,13 @@
       height: 14px;
 
       path {
-        fill: #333;
+        fill: #c2c2c2;
       }
 
       &:hover {
         path {
-          fill: @color-primary;
+          // fill: @color-primary;
+          fill: #333
         }
       }
     }
