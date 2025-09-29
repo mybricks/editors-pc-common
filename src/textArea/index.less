@@ -17,12 +17,16 @@
 
     .ant-input:hover {
       border-color: @color-primary;
-      outline: 1px solid @color-primary;;      
+      outline: none;
+      //outline: 1px solid @color-primary;;
     }
 
     .ant-input-focused,
     .ant-input:focus {
-      outline: 1px solid @color-primary;
+      border-color: @color-primary;
+      outline: none !important;
+      box-shadow: none !important;
+      //outline: 1px solid @color-primary;
       //-webkit-box-shadow: var(--box-shadow);
       //box-shadow: var(--box-shadow);
     }
