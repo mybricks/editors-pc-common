@@ -13,6 +13,8 @@ export default function ({editConfig}: EditorProps): JSX.Element {
     value, options = {}, locales
   } = editConfig;
 
+  //debugger
+
   const [curText, setCurText] = useState('')
   const [useLocale, setUseLocale] = useState(false)
 
@@ -31,14 +33,17 @@ export default function ({editConfig}: EditorProps): JSX.Element {
     selectContent,
     locale = false,
     ...res
-  } = getOptionsFromEditor(options);
+  } = getOptionsFromEditor(options)
+
   const localeEnable = !!locales && !!locale
 
   const styles = useMemo(() => {
-    return {
+    return Object.assign({}, style, {
       height: height || style.height || 100
-    };
-  }, []);
+    })
+  }, [])
+
+  console.log('.....styles',styles)
 
   const changedRef = useRef<HTMLInputElement>()
 
