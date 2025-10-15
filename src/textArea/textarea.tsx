@@ -43,7 +43,7 @@ export default function ({editConfig}: EditorProps): JSX.Element {
     })
   }, [])
 
-  console.log('.....styles',styles)
+  //console.log('.....styles',styles)
 
   const changedRef = useRef<HTMLInputElement>()
 
