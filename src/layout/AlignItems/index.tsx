@@ -13,9 +13,9 @@ import {
 import styles from "./index.less";
 
 export default ({
-  flexDirection,
-  justifyContent,
-  alignItems,
+  flexDirection = "column",
+  justifyContent = "flex-start",
+  alignItems = "flex-start",
   onSelected,
 }: Omit<FlexItemProps, "flexItem">) => {
   const gridItems = useMemo(() => {
