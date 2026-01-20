@@ -26,6 +26,7 @@ import { uuid } from "../../../../utils";
 import PanelRender from "./PanelRender";
 import { ExtractBackground } from "../Image/ExtractBackground";
 import debounce from "lodash/debounce";
+import { AngleKnob } from "./AngleKnob"; // 导入旋钮组件
 
 export function GradientEditor({
   defaultValue,
@@ -188,7 +189,11 @@ export function GradientEditor({
   }, [deg]);
 
   return (
-    <div style={{ width: "100%", marginTop: 6, maxHeight: 360 }}>
+    <div style={{ width: "100%", marginTop: gradientType === "linear-gradient" ? 6 : 20, maxHeight: 360 }}>
+      {/* 在线性渐变模式下显示旋钮 */}
+      {gradientType === "linear-gradient" && (
+        <AngleKnob value={deg} onChange={setDeg} />
+      )}
       <PanelRender
         gradientColor={finalValueRight}
         stops={stops}

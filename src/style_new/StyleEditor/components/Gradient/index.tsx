@@ -177,7 +177,6 @@ const GradientPanel = ({
 
   return (
     <div ref={ref} className={css.panel} onClick={(e) => e.stopPropagation()}>
-      <div style={{marginTop: 30}}/>
       <GradientEditor
         defaultValue={defaultValue}
         onTypeChange={onTypeChange}
