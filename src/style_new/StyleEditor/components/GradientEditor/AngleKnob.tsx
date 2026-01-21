@@ -10,7 +10,7 @@ interface AngleKnobProps {
 export const AngleKnob: React.FC<AngleKnobProps> = ({
     value,
     onChange,
-    size = 90,
+    size = 70,
 }) => {
     const [isDragging, setIsDragging] = useState(false);
     const [displayAngle, setDisplayAngle] = useState(value);
