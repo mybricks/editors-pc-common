@@ -54,6 +54,13 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
     ..._value,
   });
 
+  const [rowFlexWrap, setRowFlexWrap] = useState<CSSProperties["flexWrap"]>(
+    _value.flexDirection === "row" ? (_value.flexWrap || defaultValue.flexWrap) : "nowrap"
+  );
+  const [columnFlexWrap, setColumnFlexWrap] = useState<CSSProperties["flexWrap"]>(
+    _value.flexDirection === "column" ? (_value.flexWrap || defaultValue.flexWrap) : "nowrap"
+  );
+
   const updateValue = useCallback(
     (
       style: Partial<
@@ -84,11 +91,20 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
       const isAbsolute = layout === "absolute" || layout === "smart";
       const flexDirection = isAbsolute ? model.flexDirection : layout;
     
+      let flexWrap = model.flexWrap;
+      if (layout === "column" && model.flexDirection === "row") {
+        setRowFlexWrap(model.flexWrap);
+        flexWrap = columnFlexWrap;
+      } else if (layout === "row" && model.flexDirection === "column") {
+        setColumnFlexWrap(model.flexWrap);
+        flexWrap = rowFlexWrap;
+      }
+
       const newStyles: Partial<LayoutProps> = {
         flexDirection,
         display: isAbsolute ? "block" : "flex",
-        position: isAbsolute ? layout : undefined, // Changed from "inherit" to undefined
-        ...(layout === "column" && { flexWrap: "nowrap" })
+        position: isAbsolute ? layout : undefined,
+        flexWrap,
       };
 
       setModel(prev => ({
@@ -124,6 +140,11 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
     const onWrapToggle = (flexWrap: CSSProperties["flexWrap"]) => {
       setModel((pre) => ({ ...pre, flexWrap }));
       updateValue({ flexWrap });
+      if (model.flexDirection === "row") {
+        setRowFlexWrap(flexWrap);
+      } else if (model.flexDirection === "column") {
+        setColumnFlexWrap(flexWrap);
+      }
     };
     return model.position !== "absolute" && model.position !== "smart" ? (
       <JustifyContent
