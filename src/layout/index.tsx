@@ -52,6 +52,9 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
   const [model, setModel] = useState<LayoutProps>({
     ...defaultValue,
     ..._value,
+    position: ["absolute", "smart", "inherit"].includes(_value.position) 
+      ? _value.position 
+      : "inherit"
   });
 
   const [rowFlexWrap, setRowFlexWrap] = useState<CSSProperties["flexWrap"]>(
