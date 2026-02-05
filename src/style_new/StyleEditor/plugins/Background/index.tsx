@@ -1,8 +1,10 @@
-import React, { useMemo, useState, CSSProperties, useCallback } from "react";
+import React, { useMemo, useState, CSSProperties, useCallback, useEffect } from "react";
 import { getRealKey } from "../../utils";
 import { useStyleEditorContext } from "../..";
 import { PanelBaseProps } from "./../../type";
 import { Panel, Image, ColorEditor, Gradient } from "../../components";
+import { DeleteOutlined, ReloadOutlined } from "@ant-design/icons";
+import css from "./index.less";
 
 interface BackgroundProps extends PanelBaseProps {
   value: CSSProperties;
@@ -19,13 +21,10 @@ const DEFAULT_CONFIG = {
   useImportant: false,
 };
 
-const defaultValue = {
-  backgroundColor: "rgba(0, 0, 0, 0)",
-  backgroundImage: "none",
-  backgroundRepeat: "repeat",
-  backgroundPosition: "left top",
-  backgroundSize: "auto",
-};
+// 背景图片相关的 CSS 属性
+const IMAGE_KEYS = ['backgroundImage', 'backgroundRepeat', 'backgroundPosition', 'backgroundSize'] as const;
+// 所有背景相关的 CSS 属性
+const ALL_BACKGROUND_KEYS = ['backgroundColor', ...IMAGE_KEYS] as const;
 
 export function Background({
   value,
@@ -46,8 +45,13 @@ export function Background({
   ] = useState({ ...DEFAULT_CONFIG, ...config });
   const [forceRenderKey, setForceRenderKey] = useState<number>(Math.random()); // 用于点击重置按钮重新渲染获取新value
 
+  const [isReset, setIsReset] = useState(false);
+
   const defaultBackgroundValue: CSSProperties & Record<string, any> =
     useMemo(() => {
+      if (isReset) {
+        return {};
+      }
       const defaultValue = Object.assign({}, value);
       Object.entries(defaultValue).forEach(([key, value]) => {
         if (typeof value === "string") {
@@ -58,18 +62,41 @@ export function Background({
       });
 
       return defaultValue;
-    }, [forceRenderKey]);
+    }, [value, isReset]);
 
   const refresh = useCallback(() => {
-    onChange([
-      { key: "backgroundColor", value: void 0 },
-      { key: "backgroundImage", value: void 0 },
-      { key: "backgroundRepeat", value: void 0 },
-      { key: "backgroundPosition", value: void 0 },
-      { key: "backgroundSize", value: void 0 },
-    ]);
-    setForceRenderKey(forceRenderKey + 1);
-  }, [forceRenderKey]);
+    onChange(ALL_BACKGROUND_KEYS.map(key => ({ key, value: void 0 })));
+    setIsReset(true);
+    setForceRenderKey(prev => prev + 1);
+  }, [onChange]);
+
+  // 当外部 value 有实际值时，取消重置状态
+  useEffect(() => {
+    if (isReset && value && Object.keys(value).length > 0) {
+      const hasValue = Object.values(value).some(v => v !== undefined && v !== '' && v !== 'none');
+      if (hasValue) {
+        setIsReset(false);
+      }
+    }
+  }, [value, isReset]);
+
+  // 计算 ColorEditor 的 defaultValue，优先使用 backgroundImage（图片或渐变）
+  const colorEditorDefaultValue = useMemo(() => {
+    const bgImage = defaultBackgroundValue[getRealKey(keyMap, "backgroundImage")] 
+      || defaultBackgroundValue.backgroundImage;
+    const bgColor = defaultBackgroundValue[getRealKey(keyMap, "backgroundColor")] 
+      || defaultBackgroundValue.backgroundColor;
+    if (bgImage && typeof bgImage === 'string' && /url\(|gradient/.test(bgImage)) {
+      return bgImage;
+    }
+    return bgColor;
+  }, [defaultBackgroundValue, keyMap]);
+
+  const imageValue = useMemo(() => 
+    Object.fromEntries(
+      IMAGE_KEYS.map(key => [key, defaultBackgroundValue[key] as string | undefined])
+    ) as Record<typeof IMAGE_KEYS[number], string | undefined>,
+  [defaultBackgroundValue]);
 
   return (
     <Panel
@@ -81,24 +108,20 @@ export function Background({
       resetFunction={refresh}
     >
       <Panel.Content>
-        {disableBackgroundColor ? null : (
           <ColorEditor
-            // TODO
-            // @ts-ignore
             style={{ flex: 2 }}
-            defaultValue={
-              defaultBackgroundValue[getRealKey(keyMap, "backgroundColor")] ||
-              defaultBackgroundValue.backgroundColor
-            }
-            onChange={(value) => {
-              onChange({
-                key: getRealKey(keyMap, "backgroundColor"),
-                value: `${value}${useImportant ? "!important" : ""}`,
-              });
-            }}
+            defaultValue={colorEditorDefaultValue}
+            onChange={onChange as (value: { key: string; value: string } | { key: string; value: string }[] | string) => void}
+            keyMap={keyMap}
+            useImportant={useImportant}
+            upload={context?.editConfig?.upload as any}
+            imageValue={imageValue}
+            disableBackgroundColor={disableBackgroundColor}
+            disableBackgroundImage={disableBackgroundImage}
+            disableGradient={disableGradient}
           />
-        )}
-        {disableBackgroundImage ? null : (
+        
+        {/* {disableBackgroundImage ? null : (
           <Image
             style={{ flex: 1 }}
             tip="背景图"
@@ -116,9 +139,15 @@ export function Background({
             }}
             upload={context?.editConfig?.upload}
           />
-        )}
+        )} */}
+
+        {<div
+          className={css.unbind}
+          data-mybricks-tip="重置"
+          onClick={refresh}
+        ><DeleteOutlined /></div>}
       </Panel.Content>
-      <Panel.Content>
+      {/* <Panel.Content>
         {!disableGradient ? (
           <Gradient
             defaultValue={
@@ -131,7 +160,7 @@ export function Background({
             onChange={(value) => onChange({ key: "backgroundImage", value })}
           />
         ) : null}
-      </Panel.Content>
+      </Panel.Content> */}
     </Panel>
   );
 }

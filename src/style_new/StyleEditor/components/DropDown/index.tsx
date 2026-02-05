@@ -132,7 +132,7 @@ const Items = React.forwardRef<HTMLDivElement, ItemsProps>((props, forwardRef) =
   }, [open, ref.current]);
 
   return (
-    <div ref={ref} className={css.items}>
+    <div ref={ref} className={css.items} data-dropdown-portal="true">
       {options.map(({ label, value }, index) => {
         return (
           <div key={index} className={css.item} onClick={() => onClick(value)}>

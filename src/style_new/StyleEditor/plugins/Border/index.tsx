@@ -224,6 +224,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                   // tip='边框颜色'
                   style={{ padding: "0 0 0 1px", marginLeft: shouldShowMiniLayout ? 0 : 2 }}
                   defaultValue={borderValue.borderTopColor}
+                  showSubTabs={false}
                   onChange={(value: string) => {
                     setBorderValue((val) => {
                       let newValue: Record<string, any> = {
@@ -336,6 +337,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                         // tip='上边框颜色'
                         style={{ padding: 0, marginLeft: 2 }}
                         defaultValue={borderValue.borderTopColor}
+                        showSubTabs={false}
                         onChange={(value: string) => {
                           const newValue: Record<string, any> = {
                             borderTopColor: value,
@@ -418,6 +420,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                         // tip='右边框颜色'
                         style={{ padding: 0, marginLeft: 2 }}
                         defaultValue={borderValue.borderRightColor}
+                        showSubTabs={false}
                         onChange={(value: string) => {
                           const newValue: Record<string, any> = {
                             borderRightColor: value,
@@ -489,6 +492,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                         // tip='下边框颜色'
                         style={{ padding: 0, marginLeft: 2 }}
                         defaultValue={borderValue.borderBottomColor}
+                        showSubTabs={false}
                         onChange={(value: string) => {
                           const newValue: Record<string, any> = {
                             borderBottomColor: value,
@@ -560,6 +564,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                         // tip='左边框颜色'
                         style={{ padding: 0, marginLeft: 2 }}
                         defaultValue={borderValue.borderLeftColor}
+                        showSubTabs={false}
                         onChange={(value: string) => {
                           const newValue: Record<string, any> = {
                             borderLeftColor: value,

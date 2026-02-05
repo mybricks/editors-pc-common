@@ -57,6 +57,7 @@ export function GradientEditor({
       if (stops.length > 0) {
         setStops(stopSort(stops));
         setCurElementId(stops[0]?.id);
+        isInitialMount.current = false;
       }
     }
   }, [defaultValue]);
@@ -189,7 +190,7 @@ export function GradientEditor({
   }, [deg]);
 
   return (
-    <div style={{ width: "100%", marginTop: gradientType === "linear-gradient" ? 6 : 20, maxHeight: 360 }}>
+    <div style={{ width: "85%", margin:"0 auto", marginTop: gradientType === "linear-gradient" ? 6 : 20, maxHeight: 360 }}>
       {/* 在线性渐变模式下显示旋钮 */}
       {gradientType === "linear-gradient" && (
         <AngleKnob value={deg} onChange={setDeg} />
@@ -278,11 +279,13 @@ export function GradientEditor({
                 />
                 <ColorEditor
                   defaultValue={color}
+                  showSubTabs={false}
                   key={color}
                   style={{ flex: 5, border }}
                   onFocus={() => setCurElementId(id)}
-                  onChange={(color) => {
-                    changeProperty("color", color, id);
+                  onChange={(colorValue) => {
+                    console.log('GradientEditor ColorEditor onChange:', colorValue);
+                    changeProperty("color", colorValue as string, id);
                     setCurElementId(id);
                   }}
                 />

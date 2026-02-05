@@ -6,7 +6,7 @@
   visibility: hidden;
   overflow: hidden;
 
-  width: 240px;
+  width: 270px;
   border-radius: 13px;
   color: #000000e5;
   background-color: #ffffff;
@@ -17,7 +17,7 @@
     display: flex;
     align-items: center;
     height: 40px;
-    box-shadow: inset 0 -1px #e6e6e6;
+    box-shadow: inset 0 -1px #ededed;
     gap: 20px;
 
     .tabs {
@@ -75,7 +75,7 @@
   }
 
   .content {
-    height: 347px;
+    height: 390px;
     position: relative;
 
     .tabItem {
@@ -85,6 +85,125 @@
       width: 100%;
       height: 100%;
       background-color: #ffffff;
+      display: flex;
+      flex-direction: column;
+
+      .subTabs {
+        display: flex;
+        gap: 4px;
+        padding: 8px;
+        //border-bottom: 1px solid #f0f0f0;
+
+        button {
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          height: 24px;
+          padding: 0 8px;
+          color: #00000080;
+          border: none;
+          border-radius: 5px;
+          background-color: #ffffff;
+          outline: none;
+          font-size: 11px;
+          font-weight: 450;
+          line-height: 16px;
+          cursor: pointer;
+
+          &:hover {
+            background-color: #f5f5f5;
+          }
+
+          &[data-active="true"] {
+            color: #000000e5;
+            background-color: #f5f5f5;
+            font-weight: 550;
+          }
+        }
+      }
+
+      .subContent {
+        flex: 1;
+        overflow: hidden;
+      }
+
+      .imagePanel {
+        padding: 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+
+        .imageUpload {
+          .imageContainer {
+            position: relative;
+            width: 100%;
+            height: 120px;
+            border: 1px dashed #d9d9d9;
+            border-radius: 8px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            overflow: hidden;
+            background: #fafafa;
+
+            &:hover {
+              border-color: #FA6400;
+            }
+
+            &.hasImage {
+              border-style: solid;
+              background: transparent;
+
+              .uploadButton {
+                opacity: 0;
+              }
+
+              &:hover .uploadButton {
+                opacity: 1;
+              }
+            }
+
+            img {
+              max-width: 100%;
+              max-height: 100%;
+              object-fit: contain;
+            }
+
+            .uploadButton {
+              position: absolute;
+              padding: 6px 12px;
+              background: rgba(0, 0, 0, 0.6);
+              color: #fff;
+              border: none;
+              border-radius: 4px;
+              font-size: 12px;
+              cursor: pointer;
+
+              &:hover {
+                background: rgba(0, 0, 0, 0.8);
+              }
+            }
+          }
+        }
+
+        .imageItem {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+
+          .imageLabel {
+            width: 36px;
+            font-size: 11px;
+            color: #666;
+            flex-shrink: 0;
+          }
+
+          .imageValue {
+            flex: 1;
+          }
+        }
+      }
 
       .variableListContainer {
         padding-bottom: 10px;

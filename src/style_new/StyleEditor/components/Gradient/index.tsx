@@ -180,7 +180,9 @@ const GradientPanel = ({
       <GradientEditor
         defaultValue={defaultValue}
         onTypeChange={onTypeChange}
-        onChange={(backgroundImage) => onChange(backgroundImage)}
+        onChange={(backgroundImage) => {
+          onChange(backgroundImage)
+        }}
       />
     </div>
   );

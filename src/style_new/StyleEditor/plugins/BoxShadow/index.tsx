@@ -120,6 +120,7 @@ export function BoxShadow ({value, onChange, config, showTitle, collapse}: BoxSh
           // tip='颜色'
           style={{width: 140}}
           defaultValue={boxShadowValues.color}
+          showSubTabs={false}
           onChange={(value) => setBoxShadowValues((boxShadowValues) => {
             return {
               ...boxShadowValues,

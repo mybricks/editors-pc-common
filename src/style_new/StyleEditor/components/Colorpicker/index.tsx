@@ -10,16 +10,34 @@ import { createPortal } from "react-dom";
 import ColorUtil from "color";
 import Sketch, { ColorResult } from "@mybricks/color-picker";
 import { useDebounceFn } from "../../../../hooks"
+import { GradientEditor } from "../GradientEditor"
+import { ImagePanel } from "../ImagePanel"
 
 import css from "./index.less";
 interface ColorpickerProps {
   context: any;
   value: string;
-  onChange: (value: Record<string, any>) => void;
+  onChange: (value: { key: string; value: string } | { key: string; value: string }[]) => void;
   children: ReactNode;
   disabled?: boolean;
   className?: string;
-  onBindingChange: (value: any) => void;
+  showSubTabs?: boolean;
+  onBindingChange?: (value: any) => void;
+  /** 图片上传函数 */
+  upload?: (files: Array<File>, args: any) => Promise<Array<string>>;
+  /** 背景图片相关值 */
+  imageValue?: {
+    backgroundImage?: string;
+    backgroundSize?: string;
+    backgroundRepeat?: string;
+    backgroundPosition?: string;
+  };
+  /** 禁用纯色背景 tab */
+  disableBackgroundColor?: boolean;
+  /** 禁用背景图片 tab */
+  disableBackgroundImage?: boolean;
+  /** 禁用渐变 tab */
+  disableGradient?: boolean;
 }
 
 export function Colorpicker({
@@ -30,6 +48,12 @@ export function Colorpicker({
   children,
   disabled,
   className,
+  showSubTabs = true,
+  upload,
+  imageValue,
+  disableBackgroundColor,
+  disableBackgroundImage,
+  disableGradient,
 }: ColorpickerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const childRef = useRef<HTMLDivElement>(null);
@@ -46,24 +70,11 @@ export function Colorpicker({
 
   context.open = handleColorpickerClick
 
-  const handleColorSketchChange = useCallback(
-    (value: ColorResult, oldValue: ColorResult) => {
-      // 点击面板选择颜色时不带透明度 这时就需要把后两位置FF
-      if (
-        value.hexa !== "#ffffff00" &&
-        value.hexa?.length === 9 &&
-        value?.hex !== oldValue?.hex // 判断是否只改变透明度
-      ) {
-        if (value.hexa[value.hexa.length - 1] === "0") {
-          value.hexa = value.hexa.replace(/00$/, "FF");
-        }
-      }
-      onChange(value);
-    },
-    []
-  );
-
   const handleClick = useCallback((event: any) => {
+    if (event.target?.closest?.('[data-dropdown-portal="true"]')) {
+      return; 
+    }
+    
     if (!childRef.current?.contains(event.target)) {
       setOpen(false);
     }
@@ -95,11 +106,17 @@ export function Colorpicker({
         createPortal(
           <ColorSketch
             value={value}
-            onChange={handleColorSketchChange}
+            onChange={onChange}
             onBindingChange={onBindingChange}
             open={open}
             positionElement={containerRef.current!}
             childRef={childRef}
+            showSubTabs={showSubTabs}
+            upload={upload}
+            imageValue={imageValue}
+            disableBackgroundColor={disableBackgroundColor}
+            disableBackgroundImage={disableBackgroundImage}
+            disableGradient={disableGradient}
           />,
           document.body
         )}
@@ -108,15 +125,29 @@ export function Colorpicker({
 }
 interface ColorSketchProps {
   value: string;
-  onChange: (value: ColorResult, oldValue: ColorResult) => void;
+  onChange: (value: { key: string; value: string } | { key: string; value: string }[]) => void;
   open: boolean;
+  showSubTabs?: boolean;
   positionElement: HTMLDivElement;
+  upload?: (files: Array<File>, args: any) => Promise<Array<string>>;
+  imageValue?: {
+    backgroundImage?: string;
+    backgroundSize?: string;
+    backgroundRepeat?: string;
+    backgroundPosition?: string;
+  };
   childRef: React.RefObject<HTMLDivElement>;
-  onBindingChange: (value: {
+  onBindingChange?: (value: {
     name: string;
     value: string;
     resetValue: string;
   }) => void;
+  /** 禁用纯色背景 tab */
+  disableBackgroundColor?: boolean;
+  /** 禁用背景图片 tab */
+  disableBackgroundImage?: boolean;
+  /** 禁用渐变 tab */
+  disableGradient?: boolean;
 }
 
 const TAB_LIST = [
@@ -137,6 +168,12 @@ function ColorSketch({
   onBindingChange,
   value,
   childRef,
+  showSubTabs = true,
+  upload,
+  imageValue = {},
+  disableBackgroundColor = false,
+  disableBackgroundImage = false,
+  disableGradient = false,
 }: ColorSketchProps) {
   useEffect(() => {
     const menusContainer = childRef.current!;
@@ -158,23 +195,95 @@ function ColorSketch({
     }
   }, [open]);
 
+  const [selectTab, setSelectTab] = useState("custom")
+  const [list, setList] = useState(window.MYBRICKS_THEME_PACKAGE_VARIABLES?.variables || [])
+  
+  // 默认纯色和渐变值
+  const defaultColor = "rgba(255,255,255,1)"
+  const defaultGradient = "linear-gradient(90deg, rgba(255,255,255,1) 0%, rgba(255,255,255,1) 100%)"
+  
+  // 根据 value 判断初始 subTab（优先检查图片），同时考虑禁用配置
+  const isImage = value?.includes?.("url(")
+  const isGradient = value?.includes?.("gradient")
+  const getInitialSubTab = () => {
+    // 优先根据 value 选择
+    if (isImage && !disableBackgroundImage) return "image"
+    if (isGradient && !disableGradient) return "gradient"
+    if (!disableBackgroundColor) return "background"
+    // 如果背景色被禁用，选择第一个可用的 tab
+    if (!disableGradient) return "gradient"
+    if (!disableBackgroundImage) return "image"
+    return "background"
+  }
+  const [subTab, setSubTab] = useState(getInitialSubTab())
+  
+  // 保存纯色和渐变值，切换 tab 时使用
+  const [colorValue, setColorValue] = useState<string>(
+    (isGradient || isImage) ? defaultColor : (value || defaultColor)
+  )
+  const [gradientValue, setGradientValue] = useState<string>(
+    (isGradient && !isImage) ? value : defaultGradient
+  )
+  
+  // 使用 colorValue 计算 Sketch 的颜色
   const sketchColor = useCallback(() => {
     try {
       // @ts-ignore
-      const { color, valpha } = ColorUtil.rgb(value);
+      const { color, valpha } = ColorUtil.rgb(colorValue);
       return `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${valpha.toFixed(
         2
       )})`;
     } catch {
       return "rgba(0, 0, 0, 1)";
     }
-  }, [value]);
-
-  const [selectTab, setSelectTab] = useState("custom")
-  const [list, setList] = useState(window.MYBRICKS_THEME_PACKAGE_VARIABLES?.variables || [])
-  const tabClick = (selectTab: string) => {
-    setSelectTab(selectTab)
+  }, [colorValue]);
+  
+  useEffect(() => {
+    if (value?.includes?.("url(")) {
+      setSubTab("image")
+    } else if (value?.includes?.("gradient")) {
+      setGradientValue(value)
+      setSubTab("gradient")
+    } else if (value) {
+      setColorValue(value)
+      setSubTab("background")
+    }
+  }, [value])
+  
+  const tabClick = (tab: string) => {
+    setSelectTab(tab)
   }
+  
+  const subTabClick = (tab: string) => {
+    setSubTab(tab)
+    if (tab === "background") {
+      onChange([
+        { key: 'backgroundColor', value: colorValue },
+        { key: 'backgroundImage', value: 'none' }
+      ])
+    } else if (tab === "gradient") {
+      onChange({ key: 'backgroundImage', value: gradientValue })
+    } else if (tab === "image") {
+      const bgImage = imageValue.backgroundImage
+      if (bgImage && bgImage !== 'none') {
+        onChange([
+          { key: 'backgroundImage', value: bgImage },
+          { key: 'backgroundSize', value: imageValue.backgroundSize || 'auto' },
+          { key: 'backgroundRepeat', value: imageValue.backgroundRepeat || 'no-repeat' },
+          { key: 'backgroundPosition', value: imageValue.backgroundPosition || 'center center' }
+        ])
+      }
+    }
+  }
+
+  const handleGradientChange = useCallback((newGradientValue: string) => {
+    setGradientValue(newGradientValue);
+    onChange({ key: 'backgroundImage', value: newGradientValue });
+  }, [onChange]);
+
+  const handleImagePanelChange = useCallback((key: string, value: string) => {
+    onChange({ key, value });
+  }, [onChange]);
 
   const search = useDebounceFn((e: any) => {
     const searchValue = e.target.value
@@ -234,17 +343,97 @@ function ColorSketch({
         </div>}
       </div>
       <div className={css.content}>
-        <div className={css.tabItem} style={{ zIndex: selectTab === "custom" ? 1 : 0 }}>
-          <Sketch color={sketchColor()} onChange={onChange} />
-        </div>
-        {Array.isArray(list) && <div className={css.tabItem} style={{ zIndex: selectTab === "variable" ? 1 : 0 }}>
-          <VariableList list={list} onBindingChange={onBindingChange} />
-        </div>}
+        {selectTab === "custom" && showSubTabs && (
+          <div className={css.tabItem}>
+            <div className={css.subTabs}>
+              {!disableBackgroundColor && (
+                <button
+                  data-active={subTab === "background"}
+                  onClick={() => subTabClick("background")}
+                >
+                  填充
+                </button>
+              )}
+              {!disableGradient && (
+                <button
+                  data-active={subTab === "gradient"}
+                  onClick={() => subTabClick("gradient")}
+                >
+                  渐变
+                </button>
+              )}
+              {!disableBackgroundImage && (
+                <button
+                  data-active={subTab === "image"}
+                  onClick={() => subTabClick("image")}
+                >
+                  图片
+                </button>
+              )}
+            </div>
+            <div className={css.subContent}>
+              {subTab === "background" && (
+                <Sketch color={sketchColor()} onChange={(colorResult: ColorResult, oldValue: ColorResult) => {
+                  if (
+                    colorResult.hexa !== "#ffffff00" &&
+                    colorResult.hexa?.length === 9 &&
+                    colorResult?.hex !== oldValue?.hex
+                  ) {
+                    if (colorResult.hexa[colorResult.hexa.length - 1] === "0") {
+                      colorResult.hexa = colorResult.hexa.replace(/00$/, "FF");
+                    }
+                  }
+                  setColorValue(colorResult.hexa);
+                  onChange([
+                    { key: 'backgroundColor', value: colorResult.hexa },
+                    { key: 'backgroundImage', value: 'none' }
+                  ]);
+                }} />
+              )}
+              {subTab === "gradient" && (
+                <GradientEditor
+                  defaultValue={gradientValue}
+                  onChange={handleGradientChange}
+                />
+              )}
+              {subTab === "image" && (
+                <ImagePanel
+                  value={imageValue}
+                  onChange={handleImagePanelChange}
+                  upload={upload}
+                />
+              )}
+            </div>
+          </div>
+        )}
+
+        {selectTab === "custom" && !showSubTabs && (
+          <div className={css.tabItem}>
+            <div className={css.subContent}>
+            <Sketch color={sketchColor()} onChange={(colorResult: ColorResult, oldValue: ColorResult) => {
+                  if (
+                    colorResult.hexa !== "#ffffff00" &&
+                    colorResult.hexa?.length === 9 &&
+                    colorResult?.hex !== oldValue?.hex
+                  ) {
+                    if (colorResult.hexa[colorResult.hexa.length - 1] === "0") {
+                      colorResult.hexa = colorResult.hexa.replace(/00$/, "FF");
+                    }
+                  }
+                  onChange({ key: 'backgroundColor', value: colorResult.hexa });
+                }} />
+            </div>
+          </div>
+        )}
+        {selectTab === "variable" && Array.isArray(list) && (
+          <div className={css.tabItem}>
+            <VariableList list={list} onBindingChange={onBindingChange} />
+          </div>
+        )}
       </div>
     </div>
   );
 }
-
 const VariableList = (props: any) => {
   return (
     <div className={css.variableListContainer}>
@@ -279,3 +468,4 @@ const VariableList = (props: any) => {
     </div>
   )
 }
+

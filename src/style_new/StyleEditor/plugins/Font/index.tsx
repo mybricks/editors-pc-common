@@ -291,6 +291,7 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
               paddingLeft: 8,
             }}
             defaultValue={value.color}
+            showSubTabs={false}
             onChange={(value) => onChange({ key: "color", value })}
           />
         </Panel.Content>

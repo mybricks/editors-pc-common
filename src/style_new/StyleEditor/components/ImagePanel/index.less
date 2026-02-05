@@ -1,0 +1,77 @@
+.imagePanel {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+
+  .imageUpload {
+    .imageContainer {
+      position: relative;
+      width: 100%;
+      height: 120px;
+      border: 1px dashed #d9d9d9;
+      border-radius: 8px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      cursor: pointer;
+      overflow: hidden;
+      background: #fafafa;
+
+      &:hover {
+        border-color: #FA6400;
+      }
+
+      &.hasImage {
+        border-style: solid;
+        background: transparent;
+
+        .uploadButton {
+          opacity: 0;
+        }
+
+        &:hover .uploadButton {
+          opacity: 1;
+        }
+      }
+
+      img {
+        max-width: 100%;
+        max-height: 100%;
+        object-fit: contain;
+      }
+
+      .uploadButton {
+        position: absolute;
+        padding: 6px 12px;
+        background: rgba(0, 0, 0, 0.6);
+        color: #fff;
+        border: none;
+        border-radius: 4px;
+        font-size: 12px;
+        cursor: pointer;
+
+        &:hover {
+          background: rgba(0, 0, 0, 0.8);
+        }
+      }
+    }
+  }
+
+  .imageItem {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    .imageLabel {
+      width: 36px;
+      font-size: 11px;
+      color: #666;
+      flex-shrink: 0;
+    }
+
+    .imageValue {
+      flex: 1;
+    }
+  }
+}

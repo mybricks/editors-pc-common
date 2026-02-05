@@ -7,20 +7,37 @@ import React, {
   useCallback,
   CSSProperties,
 } from "react";
-import { createPortal } from "react-dom";
-
 import ColorUtil from "color";
-
-import { Tooltip } from "antd";
 
 import {
   QuestionCircleOutlined,
   TransparentColorOutlined,
 } from "../../components";
 import { Panel, Colorpicker, UnbindingOutlined, BindingOutlined } from "../";
-import { color2rgba } from "../../utils";
+import { color2rgba, getRealKey } from "../../utils";
 
 import css from "./index.less";
+
+const IMAGE_RELATED_KEYS = ['backgroundSize', 'backgroundRepeat', 'backgroundPosition'] as const;
+const ALL_BACKGROUND_KEYS = ['backgroundColor', 'backgroundImage', ...IMAGE_RELATED_KEYS] as const;
+
+const fixHex = (hex: string) => {
+  if (hex[hex.length - 1] === "0") {
+    return hex.replace(/00$/, "FF");
+  }
+  return hex;
+};
+
+const getHex = (str: string) => {
+  let finalValue = str;
+  try {
+    const color = new ColorUtil(str);
+    finalValue = (
+      color.alpha() === 1 ? color.hex() : color.hexa()
+    ).toLowerCase();
+  } catch {}
+  return finalValue;
+};
 
 
 const UnBindingIcon = <svg width="24" height="20" fill="currentColor" viewBox="0 0 24 24"><path fill="var(--color-icon)" d="M8.111 11.648a.5.5 0 0 1 .708.707l-1.232 1.232a2 2 0 0 0 2.828 2.828l1.232-1.232a.5.5 0 0 1 .707.707l-1.232 1.232A3 3 0 0 1 6.88 12.88zM6.147 6.147a.5.5 0 0 1 .629-.065l.078.065 11 11 .064.078a.5.5 0 0 1-.693.693l-.078-.064-11-11-.065-.078a.5.5 0 0 1 .065-.63m6.844.627a3 3 0 0 1 4.238 4.237l-.107.111-1.232 1.233a.5.5 0 0 1-.707-.707l1.232-1.233.138-.151a2.002 2.002 0 0 0-2.815-2.815l-.15.138-1.233 1.232a.5.5 0 0 1-.707-.707L12.88 6.88z"></path></svg>
@@ -38,8 +55,29 @@ interface ColorEditorProps {
   options?: ColorOptions;
   defaultValue: any;
   style?: CSSProperties;
-  onChange: (value: any) => void;
+  /** 
+   * onChange 回调
+   * - 当 showSubTabs=true 时，返回 { key: string; value: string } 或数组格式
+   * - 当 showSubTabs=false 时，返回字符串格式（向后兼容）
+   */
+  onChange: (value: { key: string; value: string } | { key: string; value: string }[] | string) => void;
   onFocus?: () => void;
+  keyMap?: Record<string, string>;
+  useImportant?: boolean;
+  showSubTabs?: boolean;
+  upload?: (files: Array<File>, args: any) => Promise<Array<string>>;
+  imageValue?: {
+    backgroundImage?: string;
+    backgroundSize?: string;
+    backgroundRepeat?: string;
+    backgroundPosition?: string;
+  };
+  /** 禁用纯色背景 tab */
+  disableBackgroundColor?: boolean;
+  /** 禁用背景图片 tab */
+  disableBackgroundImage?: boolean;
+  /** 禁用渐变 tab */
+  disableGradient?: boolean;
 }
 
 interface State {
@@ -69,40 +107,25 @@ function getInitialState({
   let finalValue = value;
   let nonColorValue = false;
 
-  try {
-    const color = new ColorUtil(value);
-    finalValue = (
-      color.alpha() === 1 ? color.hex() : color.hexa()
-    ).toLowerCase();
-  } catch {
-    nonColorValue = true;
+  const isImage = value?.includes?.("url(");
+  const isGradient = value?.includes?.("gradient");
+
+  if (!isGradient && !isImage) {
+    try {
+      const color = new ColorUtil(value);
+      finalValue = (
+        color.alpha() === 1 ? color.hex() : color.hexa()
+      ).toLowerCase();
+    } catch {
+      nonColorValue = true;
+    }
   }
 
-  // const optionsValueToAllMap: any = {};
-
-  // const colorOptions = Array.isArray(window.MYBRICKS_CSS_VARIABLE_LIST)
-  //   ? window.MYBRICKS_CSS_VARIABLE_LIST
-  //   : [];
-
-  // const showPreset = !!colorOptions.length;
-
-  // if (showPreset) {
-  //   colorOptions.forEach(({ title, options }) => {
-  //     if (Array.isArray(options)) {
-  //       options.forEach((option) => {
-  //         optionsValueToAllMap[option.value] = option;
-  //       });
-  //     }
-  //   });
-  // }
-
-  const result = {
+  const result: State = {
     value: finalValue,
     finalValue: nonColorValue ? "" : finalValue,
     nonColorValue,
     showPreset: false,
-    // showPreset,
-    // options: colorOptions,
     options: [],
     optionsValueToAllMap,
   };
@@ -118,16 +141,9 @@ function getInitialState({
   return result;
 }
 
-function reducer(state: State, action: any): State {
-  return {
-    ...state,
-    ...action,
-  };
+function reducer(state: State, action: Partial<State>): State {
+  return { ...state, ...action };
 }
-
-// const COLOR_OPTIONS = [
-//   {label: 'inherit', value: 'inherit'}
-// ]
 
 const getOptionsValueToAllMap = () => {
   const optionsValueToAllMap: any = {}
@@ -149,6 +165,14 @@ export function ColorEditor({
   onChange,
   options = [],
   onFocus,
+  keyMap = {},
+  useImportant = false,
+  showSubTabs = true,
+  upload,
+  imageValue,
+  disableBackgroundColor,
+  disableBackgroundImage,
+  disableGradient,
 }: ColorEditorProps) {
   const presetRef = useRef<HTMLDivElement>(null);
 
@@ -158,27 +182,79 @@ export function ColorEditor({
     reducer,
     getInitialState({ value: defaultValue, options, optionsValueToAllMap })
   );
-  const [show, setShow] = useState(false);
-  const [open, setOpen] = useState(false);
-  const [colorPickerContext] = useState({});
+  const [colorPickerContext] = useState<{ open?: () => void }>({});
 
   const onPresetClick = useCallback(() => {
-    // setShow(true);
-    // setOpen((open) => !open);
-
-    colorPickerContext.open();
+    colorPickerContext.open?.();
   }, []);
 
-  const handleColorpickerChange = useCallback((color: Record<string, any>) => {
-    const hex = getHex(color.hexa);
+  const emitChange = useCallback((key: string, value: string) => {
+    const realKey = getRealKey(keyMap, key);
+    const finalValue = `${value}${useImportant ? "!important" : ""}`;
 
-    dispatch({
-      value: hex,
-      nonColorValue: false,
-      finalValue: hex,
-    });
-    onChange(color2rgba(hex));
-  }, []);
+
+    if (showSubTabs) {
+      onChange({ key: realKey, value: finalValue });
+    } else {
+      onChange(value);
+    }
+  }, [onChange, keyMap, useImportant, showSubTabs]);
+
+  const handleColorpickerChange = useCallback((input: { key: string; value: string } | { key: string; value: string }[]) => {
+    if (Array.isArray(input)) {
+      const bgColor = input.find(item => item.key === 'backgroundColor');
+      const bgImage = input.find(item => item.key === 'backgroundImage' && item.value !== 'none');
+
+      if (bgImage) {
+        dispatch({
+          value: bgImage.value,
+          nonColorValue: false,
+          finalValue: bgImage.value,
+        });
+      } else if (bgColor) {
+        const hex = getHex(bgColor.value);
+        dispatch({
+          value: hex,
+          nonColorValue: false,
+          finalValue: hex,
+        });
+      }
+
+      if (showSubTabs) {
+        const result = input.map(item => ({
+          key: getRealKey(keyMap, item.key),
+          value: `${item.value}${useImportant ? "!important" : ""}`
+        }));
+        onChange(result);
+      }
+      return;
+    }
+
+    const { key, value } = input;
+
+    if (IMAGE_RELATED_KEYS.includes(key as typeof IMAGE_RELATED_KEYS[number])) {
+      emitChange(key, value);
+      return;
+    }
+
+    if (key === 'backgroundImage') {
+      dispatch({
+        value: value,
+        nonColorValue: false,
+        finalValue: value,
+      });
+      emitChange(key, value);
+    } else {
+      const hex = getHex(value);
+      const rgbaValue = color2rgba(hex);
+      dispatch({
+        value: hex,
+        nonColorValue: false,
+        finalValue: hex,
+      });
+      emitChange(key, rgbaValue);
+    }
+  }, [emitChange, showSubTabs, keyMap, useImportant, onChange]);
 
   const [colorString, opacityNumber] = useMemo(() => {
     try {
@@ -212,12 +288,6 @@ export function ColorEditor({
     }
   }, [state.finalValue, state.nonColorValue]);
 
-  const fixHex = (hex: string) => {
-    if (hex[hex.length - 1] === "0") {
-      return hex.replace(/00$/, "FF");
-    }
-    return hex;
-  };
   const handleInputChange = useCallback(
     (value: string) => {
       let finalValue = state.value;
@@ -225,14 +295,15 @@ export function ColorEditor({
       try {
         const color = new ColorUtil(value).alpha(opacityNumber);
         finalValue = fixHex(color.hexa());
-        onChange(color2rgba(finalValue));
+        const rgbaValue = color2rgba(finalValue);
+        emitChange('backgroundColor', rgbaValue);
         dispatch({
           value: finalValue,
           finalValue,
         });
-      } catch {}
+      } catch { }
     },
-    [state.value, opacityNumber]
+    [state.value, opacityNumber, emitChange]
   );
 
   const handleInputBlur = useCallback(() => {
@@ -266,8 +337,42 @@ export function ColorEditor({
       handleInputChange(pastedText);
     }
   };
+
+  const handleReset = useCallback(() => {
+    const defaultHex = '#FFFFFF';
+    dispatch({
+      value: defaultHex,
+      nonColorValue: false,
+      finalValue: defaultHex,
+    });
+    if (showSubTabs) {
+      onChange(ALL_BACKGROUND_KEYS.map(key => ({ key, value: '' })));
+    } else {
+      emitChange('backgroundColor', defaultHex);
+    }
+  }, [showSubTabs, onChange, emitChange]);
+
   const input = useMemo(() => {
     const { value, nonColorValue, finalValue } = state;
+
+    const isGradient = finalValue?.includes?.("gradient");
+    if (isGradient) {
+      return (
+          <div className={css.text} style={{ marginLeft: 5 }} onClick={onPresetClick}>
+            渐变色
+          </div>
+      );
+    }
+
+    const isImage = finalValue?.includes?.("url(");
+    if (isImage) {
+      return (
+          <div className={css.text} style={{ marginLeft: 5 }} onClick={onPresetClick}>
+            背景图
+          </div>
+      );
+    }
+
     if (nonColorValue) {
       return (
         <>
@@ -313,7 +418,7 @@ export function ColorEditor({
         disabled={nonColorValue}
       />
     );
-  }, [userInput, state.nonColorValue]);
+  }, [userInput, state.nonColorValue, state.finalValue, onPresetClick, handleReset]);
 
   const handleOpacityChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -325,13 +430,14 @@ export function ColorEditor({
         finalValue = color.hexa();
       } catch {}
 
-      onChange(color2rgba(finalValue));
+      const rgbaValue = color2rgba(finalValue);
+      emitChange('backgroundColor', rgbaValue);
       dispatch({
         value: finalValue,
         finalValue: finalValue,
       });
     },
-    [state.value]
+    [state.value, emitChange]
   );
 
   const inputRef = useRef<HTMLInputElement>(null);
@@ -361,7 +467,8 @@ export function ColorEditor({
 
   const onBindingChange = useCallback((params: any) => {
     const { name, value, resetValue } = params;
-    onChange(color2rgba(value));
+    const rgbaValue = color2rgba(value);
+    emitChange('backgroundColor', rgbaValue);
 
     dispatch({
       nonColorValue: true,
@@ -376,14 +483,29 @@ export function ColorEditor({
 
   const block = useMemo(() => {
     const { finalValue, nonColorValue } = state;
-    const style = nonColorValue
-      ? {
-          backgroundColor: finalValue || "transparent",
-          // cursor: 'not-allowed'
-        }
-      : {
-          backgroundColor: finalValue,
-        };
+    const isImage = finalValue?.includes?.("url(");
+    const isGradient = finalValue?.includes?.("gradient");
+
+    let style: React.CSSProperties;
+    if (nonColorValue) {
+      style = {
+        backgroundColor: finalValue || "transparent",
+      };
+    } else if (isImage) {
+      style = {
+        backgroundImage: finalValue,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+      };
+    } else if (isGradient) {
+      style = {
+        backgroundImage: finalValue,
+      };
+    } else {
+      style = {
+        backgroundColor: finalValue,
+      };
+    }
 
     let pickerValue = finalValue;
 
@@ -403,6 +525,12 @@ export function ColorEditor({
         onBindingChange={onBindingChange}
         // disabled={nonColorValue}
         className={css.colorPickerContainer}
+        showSubTabs={showSubTabs}
+        upload={upload}
+        imageValue={imageValue}
+        disableBackgroundColor={disableBackgroundColor}
+        disableBackgroundImage={disableBackgroundImage}
+        disableGradient={disableGradient}
       >
         <div className={css.block} style={style} />
         <div className={css.icon}>
@@ -418,60 +546,7 @@ export function ColorEditor({
         </div>
       </Colorpicker>
     );
-  }, [state.finalValue, state.nonColorValue]);
-
-  // /** 绑定 */
-  // const bind = useCallback((value) => {
-  //   const option = state.options.find((option) => option.value === value) as ColorOption
-  //   const { label, resetValue } = option
-
-  //   dispatch({
-  //     nonColorValue: true,
-  //     value: label || value,
-  //     finalValue: resetValue || ''
-  //   })
-  // }, [])
-
-  // /** 解除绑定 */
-  // const unBind = useCallback(() => {
-  //   const { value, finalValue } = state
-  //   const option = state.options.find((option) => option.resetValue ? (option.resetValue === finalValue) : option.value === value) as ColorOption
-  //   const resetValue = option?.resetValue || ''
-  //   const hex = getHex(resetValue || '')
-
-  //   dispatch({
-  //     nonColorValue: false,
-  //     value: hex,
-  //     finalValue: hex
-  //   })
-  // }, [state.nonColorValue])
-
-  /** 绑定操作按钮 */
-  // const preset = useMemo(() => {
-  //   const { options, finalValue, nonColorValue } = state
-
-  //   return (
-  //     <div
-  //       className={`${css.preset} ${nonColorValue ? css.binding : css.unBinding}`}
-  //       data-mybricks-tip={nonColorValue ? '解除绑定' : '绑定'}
-  //     >
-  //       {nonColorValue ? (
-  //         <div onClick={unBind} className={css.iconContainer}>
-  //           <BindingOutlined />
-  //         </div>
-  //       ) : (
-  //         <Dropdown
-  //           className={css.iconContainer}
-  //           options={options}
-  //           value={finalValue}
-  //           onClick={bind}
-  //         >
-  //           <UnbindingOutlined />
-  //         </Dropdown>
-  //       )}
-  //     </div>
-  //   )
-  // }, [state.finalValue, state.nonColorValue])
+  }, [state.finalValue, state.nonColorValue, handleColorpickerChange, showSubTabs, upload, imageValue]);
 
   const preset = useMemo(() => {
     if (!state.showPreset) {
@@ -484,203 +559,18 @@ export function ColorEditor({
     );
   }, [state]);
 
-  // const onPresetColorChange = useCallback(
-  //   (value: any, label: any, resetValue: any) => {
-  //     onChange(color2rgba(value));
-
-  //     const option = state.optionsValueToAllMap[value];
-
-  //     dispatch({
-  //       nonColorValue: true,
-  //       value: option.label || value,
-  //       finalValue: option.resetValue || "",
-  //     });
-
-  //     setCheckColor(value + label + resetValue);
-
-  //     // setOpen(false)
-  //   },
-  //   []
-  // );
-
-  const handleClick = useCallback(() => {
-    setOpen(false);
-  }, []);
-
-  useEffect(() => {
-    if (open) {
-      setTimeout(() => {
-        // TODO
-        document.addEventListener("click", handleClick);
-      });
-    } else {
-      document.removeEventListener("click", handleClick);
-    }
-  }, [open]);
-
-  useEffect(() => {
-    return () => {
-      document.removeEventListener("click", handleClick);
-    };
-  }, []);
-
   return (
     <Panel.Item style={style} className={css.container}>
       <div
         // className={`${css.color}${state.nonColorValue ? ` ${css.disabled}` : ''}`}
         className={css.color}
-        
+
       >
         {block}
         {input}
         {opacityInput}
       </div>
       {preset}
-      {/* {show &&
-        createPortal(
-          <PresetColorPanel
-            checkColor={checkColor}
-            options={state.options}
-            positionElement={presetRef.current!}
-            open={open}
-            onChange={onPresetColorChange}
-          />,
-          document.body
-        )} */}
     </Panel.Item>
-  );
-}
-
-const getHex = (str: string) => {
-  let finalValue = str;
-  try {
-    const color = new ColorUtil(str);
-    finalValue = (
-      color.alpha() === 1 ? color.hex() : color.hexa()
-    ).toLowerCase();
-  } catch {}
-
-  return finalValue;
-};
-
-function BindOutlined() {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-      fill="currentColor"
-    >
-      <path
-        fillRule="evenodd"
-        clipRule="evenodd"
-        d="M7.5 9C8.32843 9 9 8.32843 9 7.5C9 6.67157 8.32843 6 7.5 6C6.67157 6 6 6.67157 6 7.5C6 8.32843 6.67157 9 7.5 9ZM7.5 18C8.32843 18 9 17.3284 9 16.5C9 15.6716 8.32843 15 7.5 15C6.67157 15 6 15.6716 6 16.5C6 17.3284 6.67157 18 7.5 18ZM18 7.5C18 8.32843 17.3284 9 16.5 9C15.6716 9 15 8.32843 15 7.5C15 6.67157 15.6716 6 16.5 6C17.3284 6 18 6.67157 18 7.5ZM16.5 18C17.3284 18 18 17.3284 18 16.5C18 15.6716 17.3284 15 16.5 15C15.6716 15 15 15.6716 15 16.5C15 17.3284 15.6716 18 16.5 18Z"
-      ></path>
-    </svg>
-  );
-}
-
-function PresetColorPanel({
-  open,
-  positionElement,
-  onChange,
-  options,
-  checkColor,
-}: {
-  open: boolean;
-  options: ColorOptions;
-  onChange: (value: any, label: any, resetValue: any) => void;
-  [k: string]: any;
-}) {
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const menusContainer = ref.current!;
-    if (open) {
-      const positionElementBct = positionElement.getBoundingClientRect();
-      const menusContainerBct = ref.current!.getBoundingClientRect();
-      const totalHeight =
-        window.innerHeight || document.documentElement.clientHeight;
-      const top = positionElementBct.top + positionElementBct.height;
-      const right = positionElementBct.left + positionElementBct.width;
-      const left = right - positionElementBct.width;
-      const bottom = top + menusContainerBct.height;
-
-      if (bottom > totalHeight) {
-        // 目前判断下方是否超出即可
-        // 向上
-        menusContainer.style.top =
-          positionElementBct.top - menusContainerBct.height + "px";
-      } else {
-        menusContainer.style.top = top + "px";
-      }
-
-      // 保证完全展示
-      if (menusContainerBct.width > positionElementBct.width) {
-        menusContainer.style.left =
-          left - menusContainerBct.width + positionElementBct.width + "px";
-      } else {
-        menusContainer.style.width = positionElementBct.width + "px";
-        menusContainer.style.left = left + "px";
-      }
-
-      menusContainer.style.visibility = "visible";
-    } else {
-      menusContainer.style.visibility = "hidden";
-    }
-  }, [open]);
-
-  const onColorCircelClick = useCallback(
-    ({ value, label, resetValue }: Record<string, any>) => {
-      onChange(value, label, resetValue);
-    },
-    []
-  );
-
-  return (
-    <div ref={ref} className={css.panel} onClick={(e) => e.stopPropagation()}>
-      {/* {options.map(({label, value}, index) => {
-        return (
-          <div key={index} className={css.item} onClick={() => onClick(value)}>
-            {value === currentValue ? <CheckOutlined /> : <></>}
-            {label}
-          </div>
-        )
-      })} */}
-      {options.map(({ title, options }) => {
-        return (
-          <div key={title} className={css.catelog}>
-            <div className={css.title}>{title}</div>
-            {options && options?.length > 0 && (
-              <div className={css.colorList}>
-                {options.map(({ label, value, resetValue }) => {
-                  return (
-                    <div key={label + value} className={css.colorItem}>
-                      {/* TODO: 临时先用antd组件 */}
-                      <Tooltip title={label}>
-                        <div
-                          className={`${css.circel} ${
-                            checkColor &&
-                            value + label + resetValue === checkColor
-                              ? css.checked
-                              : ""
-                          }`}
-                          style={{ backgroundColor: value }}
-                          onClick={() =>
-                            onColorCircelClick({ label, value, resetValue })
-                          }
-                        ></div>
-                      </Tooltip>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        );
-      })}
-    </div>
   );
 }
