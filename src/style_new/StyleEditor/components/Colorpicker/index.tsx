@@ -313,35 +313,37 @@ function ColorSketch({
 
   return (
     <div ref={childRef} className={css.colorSketch} onFocus={(e) => e.stopPropagation()}>
-      <div className={css.header}>
-        <div className={css.tabs}>
-          {TAB_LIST.slice(0, window.MYBRICKS_THEME_PACKAGE_VARIABLES ? 2 : 1).map(({ key, title }) => {
-            return (
-              <button
-                data-active={selectTab === key}
-                onClick={() => {
-                  tabClick(key)
-                }}
-              >
-                {title}
-              </button>
-            )
-          })}
+      {window.MYBRICKS_THEME_PACKAGE_VARIABLES && (
+        <div className={css.header}>
+          <div className={css.tabs}>
+            {TAB_LIST.map(({ key, title }) => {
+              return (
+                <button
+                  data-active={selectTab === key}
+                  onClick={() => {
+                    tabClick(key)
+                  }}
+                >
+                  {title}
+                </button>
+              )
+            })}
+          </div>
+          {selectTab === "variable" && <div className={css.search}>
+            <svg viewBox='0 0 1057 1024' version='1.1' xmlns='http://www.w3.org/2000/svg' p-id='6542' width='16'
+              height='16'>
+              <path
+                d='M835.847314 455.613421c0-212.727502-171.486774-385.271307-383.107696-385.271307C241.135212 70.35863 69.648437 242.869403 69.648437 455.613421c0 212.760534 171.486774 385.271307 383.091181 385.271307 109.666973 0 211.769567-46.525883 283.961486-126.645534a384.891436 384.891436 0 0 0 99.14621-258.625773zM1045.634948 962.757107c33.560736 32.421125-14.583725 83.257712-48.144461 50.853103L763.176429 787.28995a449.79975 449.79975 0 0 1-310.436811 123.953408C202.735255 911.243358 0 707.269395 0 455.613421S202.735255 0 452.739618 0C702.760497 0 905.495752 203.957447 905.495752 455.613421a455.662969 455.662969 0 0 1-95.330989 279.716846l235.486702 227.42684z'
+                p-id='6543'></path>
+            </svg>
+            <input
+              placeholder='搜索'
+              onChange={search}
+              autoFocus
+            />
+          </div>}
         </div>
-        {selectTab === "variable" && <div className={css.search}>
-          <svg viewBox='0 0 1057 1024' version='1.1' xmlns='http://www.w3.org/2000/svg' p-id='6542' width='16'
-            height='16'>
-            <path
-              d='M835.847314 455.613421c0-212.727502-171.486774-385.271307-383.107696-385.271307C241.135212 70.35863 69.648437 242.869403 69.648437 455.613421c0 212.760534 171.486774 385.271307 383.091181 385.271307 109.666973 0 211.769567-46.525883 283.961486-126.645534a384.891436 384.891436 0 0 0 99.14621-258.625773zM1045.634948 962.757107c33.560736 32.421125-14.583725 83.257712-48.144461 50.853103L763.176429 787.28995a449.79975 449.79975 0 0 1-310.436811 123.953408C202.735255 911.243358 0 707.269395 0 455.613421S202.735255 0 452.739618 0C702.760497 0 905.495752 203.957447 905.495752 455.613421a455.662969 455.662969 0 0 1-95.330989 279.716846l235.486702 227.42684z'
-              p-id='6543'></path>
-          </svg>
-          <input
-            placeholder='搜索'
-            onChange={search}
-            autoFocus
-          />
-        </div>}
-      </div>
+      )}
       <div className={css.content}>
         {selectTab === "custom" && showSubTabs && (
           <div className={css.tabItem}>
