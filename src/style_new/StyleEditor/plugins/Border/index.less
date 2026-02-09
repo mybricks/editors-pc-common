@@ -32,11 +32,13 @@
 }
 
 .actionIcon {
-  width: 15px;
-  height: 15px;
   .icon();
   cursor: pointer;
-  margin-left: 3px;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .label {
@@ -52,12 +54,19 @@
 }
 
 .independentActionIcon {
-  width: 15px;
-  height: 15px;
   .icon();
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
   cursor: pointer;
-  margin-left: 3px;  
-  margin-right: 3px;
-  margin-top: 9.5px;
-  color: var(--mybricks-color-primary, #FA6400);
+  // margin-left: 3px;
+  // margin-right: 3px;
+  margin-top: 4px;
+  // color: var(--mybricks-color-primary, #FA6400);
+  background-color: rgba(0, 0, 0, 0.05);
+  border-radius: 5px;
+
 }

@@ -1,8 +1,7 @@
 import React, { CSSProperties, ReactNode, useCallback, useState } from 'react'
 
-import { ReloadOutlined, DownOutlined, PlusOutlined, MinusOutlined } from '@ant-design/icons'
-
 import { useStyleEditorContext } from '../../context'
+import { PlusOutlined, MinusOutlined } from '../Icon'
 
 import css from './index.less'
 
@@ -28,36 +27,37 @@ interface ItemProps {
   activeWhenBlur?: boolean
 }
 
-const PlusIcon = () => <svg viewBox="0 0 1024 1024" version="1.1" fill='currentColor' width="64" height="64"><path d="M550.4 550.4v332.8c0 21.20704-17.19296 38.4-38.4 38.4s-38.4-17.19296-38.4-38.4v-332.8h-332.8c-21.20704 0-38.4-17.19296-38.4-38.4s17.19296-38.4 38.4-38.4h332.8v-332.8c0-21.20704 17.19296-38.4 38.4-38.4s38.4 17.19296 38.4 38.4v332.8h332.8c21.20704 0 38.4 17.19296 38.4 38.4s-17.19296 38.4-38.4 38.4h-332.8z"></path></svg>
-
 export function Panel ({title, children, showReset = false, showTitle = true, resetFunction = () => {}, isActive = false, collapse = false}: PanelProps) {
   const [collapsed, setCollapsed] = useState(collapse)
 
-  const { autoCollapseWhenUnusedProperty } = useStyleEditorContext()
-  
+  const handleDelete = useCallback(() => {
+    resetFunction()
+    setCollapsed(true)
+  }, [resetFunction])
+
   return (
-    <div className={`${css.panel} ${autoCollapseWhenUnusedProperty && collapsed ? css.collapsed : ''}`}>
+    <div className={`${css.panel} ${collapsed ? css.collapsed : ''}`}>
       <div className={css.header}>
         {showTitle && <div className={css.title}>{title}</div>}
-        {/* {showReset && (
-          <div
-            className={`${css.icon} ${isActive ? css.active : ''}`}
-            data-mybricks-tip={`{content:'重置${title}',position:'left'}`}
-            onClick={resetFunction}
-          >
-            <ReloadOutlined />
-          </div>
-        )} */}
         {
-          autoCollapseWhenUnusedProperty && collapsed &&<div className={css.right} onClick={() => setCollapsed(c => !c)}  data-mybricks-tip={`{content:'展开配置',position:'left'}`}>
-            <PlusIcon />
-          </div>
+          collapsed && (
+            <div className={css.right} onClick={() => setCollapsed(false)}>
+              <PlusOutlined />
+            </div>
+          )
         }
       </div>
       {
-        autoCollapseWhenUnusedProperty && collapsed ? null : <div className={css.wrap}>
-          {children}
-        </div>
+        collapsed ? null : (
+          <div className={css.wrapContainer}>
+            <div className={css.wrap}>
+              {children}
+            </div>
+            <div className={css.deleteBtn} onClick={handleDelete}>
+              <MinusOutlined />
+            </div>
+          </div>
+        )
       }
     </div>
   )

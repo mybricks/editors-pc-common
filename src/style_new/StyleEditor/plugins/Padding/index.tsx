@@ -101,61 +101,72 @@ export function Padding({value, onChange, config, showTitle, collapse}: PaddingP
       )
     } else {
       return (
-        <div className={css.row}>
-          <Panel.Content style={{padding: 3}}>
-            <Panel.Item className={css.editArea} style={{padding: '0px 8px'}}>
-              <div className={css.icon} data-mybricks-tip={'上边距'}>
-                <PaddingTopOutlined/>
-              </div>
-              <InputNumber
-                tip='上边距'
-                style={DEFAULT_STYLE}
-                defaultValue={paddingValue.paddingTop}
-                // suffix={'px'}
-                onFocus={() => setSplitPaddingIcon(<PaddingTopOutlined/>)}
-                onChange={(value) => handleChange({paddingTop: value})}
-              />
-              <div className={css.icon} data-mybricks-tip={'右边距'}>
-                <PaddingRightOutlined/>
-              </div>
-              <InputNumber
-                tip='右边距'
-                style={DEFAULT_STYLE}
-                defaultValue={paddingValue.paddingRight}
-                // suffix={'px'}
-                onFocus={() => setSplitPaddingIcon(<PaddingRightOutlined/>)}
-                onChange={(value) => handleChange({paddingRight: value})}
-              />
-              <div className={css.icon} data-mybricks-tip={'下边距'}>
-                <PaddingBottomOutlined/>
-              </div>
-              <InputNumber
-                tip='下边距'
-                style={DEFAULT_STYLE}
-                defaultValue={paddingValue.paddingBottom}
-                // suffix={'px'}
-                onFocus={() => setSplitPaddingIcon(<PaddingBottomOutlined/>)}
-                onChange={(value) => handleChange({paddingBottom: value})}
-              />
-              <div className={css.icon} data-mybricks-tip={'左边距'}>
-                <PaddingLeftOutlined/>
-              </div>
-              <InputNumber
-                tip='左边距'
-                style={DEFAULT_STYLE}
-                defaultValue={paddingValue.paddingLeft}
-                // suffix={'px'}
-                onFocus={() => setSplitPaddingIcon(<PaddingLeftOutlined/>)}
-                onChange={(value) => handleChange({paddingLeft: value})}
-              />
-            </Panel.Item>
-          </Panel.Content>
+        <div className={css.independentBox}>
+          <div style={{ minWidth: "120px", flex: 1 }}>
+            <div className={css.row} style={{ paddingRight: 0 }}>
+              <Panel.Content style={{ padding: 3 }}>
+                <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
+                  <div className={css.icon} data-mybricks-tip={'左边距'}>
+                    <PaddingLeftOutlined/>
+                  </div>
+                  <InputNumber
+                    style={DEFAULT_STYLE}
+                    defaultValue={paddingValue.paddingLeft}
+                    onChange={(value) => handleChange({paddingLeft: value})}
+                    onFocus={() => setSplitPaddingIcon(<PaddingLeftOutlined/>)}
+                  />
+                </Panel.Item>
+              </Panel.Content>
+              <Panel.Content style={{ padding: 3 }}>
+                <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
+                  <div className={css.icon} data-mybricks-tip={'上边距'}>
+                    <PaddingTopOutlined/>
+                  </div>
+                  <InputNumber
+                    style={DEFAULT_STYLE}
+                    defaultValue={paddingValue.paddingTop}
+                    onChange={(value) => handleChange({paddingTop: value})}
+                    onFocus={() => setSplitPaddingIcon(<PaddingTopOutlined/>)}
+                  />
+                </Panel.Item>
+              </Panel.Content>
+            </div>
+            <div className={css.row} style={{ paddingRight: 0 }}>
+              <Panel.Content style={{ padding: 3 }}>
+                <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
+                  <div className={css.icon} data-mybricks-tip={'右边距'}>
+                    <PaddingRightOutlined/>
+                  </div>
+                  <InputNumber
+                    style={DEFAULT_STYLE}
+                    defaultValue={paddingValue.paddingRight}
+                    onChange={(value) => handleChange({paddingRight: value})}
+                    onFocus={() => setSplitPaddingIcon(<PaddingRightOutlined/>)}
+                  />
+                </Panel.Item>
+              </Panel.Content>
+              <Panel.Content style={{ padding: 3 }}>
+                <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
+                  <div className={css.icon} data-mybricks-tip={'下边距'}>
+                    <PaddingBottomOutlined/>
+                  </div>
+                  <InputNumber
+                    style={DEFAULT_STYLE}
+                    defaultValue={paddingValue.paddingBottom}
+                    onChange={(value) => handleChange({paddingBottom: value})}
+                    onFocus={() => setSplitPaddingIcon(<PaddingBottomOutlined/>)}
+                  />
+                </Panel.Item>
+              </Panel.Content>
+            </div>
+          </div>
+
           <div
             data-mybricks-tip={`{content:'切换为统一配置',position:'left'}`}
-            className={css.actionIcon}
+            className={css.independentActionIcon}
             onClick={() => setToggle(true)}
           >
-            <PaddingTopOutlined/>
+            <PaddingAllOutlined/>
           </div>
         </div>
       )

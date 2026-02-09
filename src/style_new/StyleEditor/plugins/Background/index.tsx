@@ -65,7 +65,10 @@ export function Background({
     }, [value, isReset]);
 
   const refresh = useCallback(() => {
-    onChange(ALL_BACKGROUND_KEYS.map(key => ({ key, value: void 0 })));
+    onChange(ALL_BACKGROUND_KEYS.map(key => ({ 
+      key, 
+      value: null 
+    })));
     setIsReset(true);
     setForceRenderKey(prev => prev + 1);
   }, [onChange]);
@@ -102,65 +105,26 @@ export function Background({
     <Panel
       title="背景"
       showTitle={showTitle}
-      key={forceRenderKey}
       showReset={true}
       collapse={collapse}
       resetFunction={refresh}
     >
-      <Panel.Content>
-          <ColorEditor
-            style={{ flex: 2 }}
-            defaultValue={colorEditorDefaultValue}
-            onChange={onChange as (value: { key: string; value: string } | { key: string; value: string }[] | string) => void}
-            keyMap={keyMap}
-            useImportant={useImportant}
-            upload={context?.editConfig?.upload as any}
-            imageValue={imageValue}
-            disableBackgroundColor={disableBackgroundColor}
-            disableBackgroundImage={disableBackgroundImage}
-            disableGradient={disableGradient}
-          />
-        
-        {/* {disableBackgroundImage ? null : (
-          <Image
-            style={{ flex: 1 }}
-            tip="背景图"
-            defaultValue={{
-              backgroundImage: defaultBackgroundValue.backgroundImage,
-              backgroundRepeat: defaultBackgroundValue.backgroundRepeat,
-              backgroundPosition: defaultBackgroundValue.backgroundPosition,
-              backgroundSize: defaultBackgroundValue.backgroundSize,
-            }}
-            onChange={(value: { key: string; value: string }) => {
-              onChange({
-                key: getRealKey(keyMap, value.key),
-                value: `${value.value}${useImportant ? "!important" : ""}`,
-              });
-            }}
-            upload={context?.editConfig?.upload}
-          />
-        )} */}
-
-        {<div
-          className={css.unbind}
-          data-mybricks-tip="重置"
-          onClick={refresh}
-        ><DeleteOutlined /></div>}
-      </Panel.Content>
-      {/* <Panel.Content>
-        {!disableGradient ? (
-          <Gradient
-            defaultValue={
-              defaultBackgroundValue?.backgroundImage ||
-              (defaultBackgroundValue?.backgroundImage === "none" &&
-                defaultBackgroundValue?.background &&
-                defaultBackgroundValue?.background) ||
-              ""
-            }
-            onChange={(value) => onChange({ key: "backgroundImage", value })}
-          />
-        ) : null}
-      </Panel.Content> */}
+      <React.Fragment key={forceRenderKey}>
+        <Panel.Content>
+            <ColorEditor
+              style={{ flex: 2 }}
+              defaultValue={colorEditorDefaultValue}
+              onChange={onChange as (value: { key: string; value: string } | { key: string; value: string }[] | string) => void}
+              keyMap={keyMap}
+              useImportant={useImportant}
+              upload={context?.editConfig?.upload as any}
+              imageValue={imageValue}
+              disableBackgroundColor={disableBackgroundColor}
+              disableBackgroundImage={disableBackgroundImage}
+              disableGradient={disableGradient}
+            />
+        </Panel.Content>
+      </React.Fragment>
     </Panel>
   );
 }

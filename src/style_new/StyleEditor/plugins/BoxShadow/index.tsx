@@ -75,85 +75,87 @@ export function BoxShadow ({value, onChange, config, showTitle, collapse}: BoxSh
   }, [forceRenderKey, boxShadowValues]);
 
   return (
-    <Panel title='阴影' showTitle={showTitle} key={forceRenderKey} showReset={true} resetFunction={refresh} collapse={collapse}>
-      <Panel.Content>
-        <Select
-          tip='扩散方式'
-          style={{width: 98}}
-          defaultValue={boxShadowValues.inset}
-          options={INSET_OPTIONS}
-          prefix={boxShadowValues.inset ? <BoxShadowInnerOutlined /> : <BoxShadowOuterOutlined />}
-          onChange={(value) => setBoxShadowValues((boxShadowValues) => {
-            return {
-              ...boxShadowValues,
-              inset: value
-            }
-          })}
-        />
-        <InputNumber
-          tip='x轴偏移'
-          style={{flex: '1 1 0%'}}
-          prefix={<BoxShadowOfsetXOutlined />}
-          defaultValue={boxShadowValues.offsetX}
-          onChange={(value) => setBoxShadowValues((boxShadowValues) => {
-            return {
-              ...boxShadowValues,
-              offsetX: value
-            }
-          })}
-        />
-        <InputNumber
-          tip='y轴偏移'
-          style={{flex: '1 1 0%'}}
-          prefix={<BoxShadowOfsetYOutlined />}
-          defaultValue={boxShadowValues.offsetY}
-          onChange={(value) => setBoxShadowValues((boxShadowValues) => {
-            return {
-              ...boxShadowValues,
-              offsetY: value
-            }
-          })}
-        />
-      </Panel.Content>
-      <Panel.Content>
-        <ColorEditor
-          // tip='颜色'
-          style={{width: 140}}
-          defaultValue={boxShadowValues.color}
-          showSubTabs={false}
-          onChange={(value) => setBoxShadowValues((boxShadowValues) => {
-            return {
-              ...boxShadowValues,
-              color: value
-            }
-          })}
-        />
-        <InputNumber
-          tip='模糊'
-          style={{flex: '1 1 0%'}}
-          prefix={<BoxShadowBlurRadiusOutlined />}
-          defaultValue={boxShadowValues.blurRadius}
-          onChange={(value) => setBoxShadowValues((boxShadowValues) => {
-            return {
-              ...boxShadowValues,
-              blurRadius: value
-            }
-          })}
-        />
-        <InputNumber
-          tip='扩散'
-          style={{flex: '1 1 0%'}}
-          prefix={<BoxShadowSpreadRadiusOutlined />}
-          defaultValue={boxShadowValues.spreadRadius}
-          onChange={(value) => setBoxShadowValues((boxShadowValues) => {
-            return {
-              ...boxShadowValues,
-              spreadRadius: value
-            }
-          })}
-        />
-        {/* <div style={{ width: "21px" }}/> */}
-      </Panel.Content>
+    <Panel title='阴影' showTitle={showTitle} showReset={true} resetFunction={refresh} collapse={collapse}>
+      <React.Fragment key={forceRenderKey}>
+        <Panel.Content>
+          <Select
+            tip='扩散方式'
+            style={{width: 98}}
+            defaultValue={boxShadowValues.inset}
+            options={INSET_OPTIONS}
+            prefix={boxShadowValues.inset ? <BoxShadowInnerOutlined /> : <BoxShadowOuterOutlined />}
+            onChange={(value) => setBoxShadowValues((boxShadowValues) => {
+              return {
+                ...boxShadowValues,
+                inset: value
+              }
+            })}
+          />
+          <InputNumber
+            tip='x轴偏移'
+            style={{flex: '1 1 0%'}}
+            prefix={<BoxShadowOfsetXOutlined />}
+            defaultValue={boxShadowValues.offsetX}
+            onChange={(value) => setBoxShadowValues((boxShadowValues) => {
+              return {
+                ...boxShadowValues,
+                offsetX: value
+              }
+            })}
+          />
+          <InputNumber
+            tip='y轴偏移'
+            style={{flex: '1 1 0%'}}
+            prefix={<BoxShadowOfsetYOutlined />}
+            defaultValue={boxShadowValues.offsetY}
+            onChange={(value) => setBoxShadowValues((boxShadowValues) => {
+              return {
+                ...boxShadowValues,
+                offsetY: value
+              }
+            })}
+          />
+        </Panel.Content>
+        <Panel.Content>
+          <ColorEditor
+            // tip='颜色'
+            style={{width: 140}}
+            defaultValue={boxShadowValues.color}
+            showSubTabs={false}
+            onChange={(value) => setBoxShadowValues((boxShadowValues) => {
+              return {
+                ...boxShadowValues,
+                color: value
+              }
+            })}
+          />
+          <InputNumber
+            tip='模糊'
+            style={{flex: '1 1 0%'}}
+            prefix={<BoxShadowBlurRadiusOutlined />}
+            defaultValue={boxShadowValues.blurRadius}
+            onChange={(value) => setBoxShadowValues((boxShadowValues) => {
+              return {
+                ...boxShadowValues,
+                blurRadius: value
+              }
+            })}
+          />
+          <InputNumber
+            tip='扩散'
+            style={{flex: '1 1 0%'}}
+            prefix={<BoxShadowSpreadRadiusOutlined />}
+            defaultValue={boxShadowValues.spreadRadius}
+            onChange={(value) => setBoxShadowValues((boxShadowValues) => {
+              return {
+                ...boxShadowValues,
+                spreadRadius: value
+              }
+            })}
+          />
+          {/* <div style={{ width: "21px" }}/> */}
+        </Panel.Content>
+      </React.Fragment>
     </Panel>
   )
 }

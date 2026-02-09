@@ -143,7 +143,9 @@ export function BorderRightWidthOutlined () {
 
 export function BorderSplitOutlined () {
   return (
-    <svg width="15" height="15" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="7" y="5.025" width="1" height="1" rx=".5" fill="currentColor"></rect><rect x="7" y="3.025" width="1" height="1" rx=".5" fill="currentColor"></rect><rect x="7" y="7.025" width="1" height="1" rx=".5" fill="currentColor"></rect><rect x="7" y="13.025" width="1" height="1" rx=".5" fill="currentColor"></rect><rect x="7" y="1.025" width="1" height="1" rx=".5" fill="currentColor"></rect><rect x="13" y="7.025" width="1" height="1" rx=".5" fill="currentColor"></rect><rect x="5" y="7.025" width="1" height="1" rx=".5" fill="currentColor"></rect><rect x="3" y="7.025" width="1" height="1" rx=".5" fill="currentColor"></rect><rect x="9" y="7.025" width="1" height="1" rx=".5" fill="currentColor"></rect><rect x="11" y="7.025" width="1" height="1" rx=".5" fill="currentColor"></rect><rect x="7" y="9.025" width="1" height="1" rx=".5" fill="currentColor"></rect><rect x="7" y="11.025" width="1" height="1" rx=".5" fill="currentColor"></rect><rect x="1" y="7.025" width="1" height="1" rx=".5" fill="currentColor"></rect><path d="M1 1.49994C1 1.2238 1.22386 0.999939 1.5 0.999939H6V1.99994H2V5.99994H1V1.49994ZM13 1.99994H9V0.999939H13.5C13.7761 0.999939 14 1.2238 14 1.49994V5.99994H13V1.99994ZM1 13.4999V8.99994H2V12.9999H6V13.9999H1.5C1.22386 13.9999 1 13.7761 1 13.4999ZM13 12.9999V8.99994H14V13.4999C14 13.7761 13.7761 13.9999 13.5 13.9999H9.5V12.9999H13Z" fill="currentColor" fillRule="evenodd" clipRule="evenodd"></path></svg>
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ transform: 'scale(1.6)' }}>
+      <path fill="currentColor" fillRule="evenodd" d="M6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1zm3 2v6h6V9zM7.5 7H7v10h10V7zM8 9V8h8v8H8z" clipRule="evenodd" />
+    </svg>
   )
 }
 
@@ -211,6 +213,46 @@ export function BorderTopWidthOutlined () {
         fill="#000"
         stroke="none"
       ></path>
+    </svg>
+  )
+}
+
+export function BorderWeightOutlined () {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ transform: 'scale(1.6)' }}>
+      <path fill="currentColor" fillRule="evenodd" d="M6 6.5a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5M7 10v1h10v-1zm-.25-1a.75.75 0 0 0-.75.75v1.5c0 .414.336.75.75.75h10.5a.75.75 0 0 0 .75-.75v-1.5a.75.75 0 0 0-.75-.75zM7 17v-2h10v2zm-1-2.25a.75.75 0 0 1 .75-.75h10.5a.75.75 0 0 1 .75.75v2.5a.75.75 0 0 1-.75.75H6.75a.75.75 0 0 1-.75-.75z" clipRule="evenodd" />
+    </svg>
+  )
+}
+
+export function BorderTopOutlined () {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ transform: 'scale(1.6)' }}>
+      <path fill="currentColor" fillRule="evenodd" d="M7 6a1 1 0 0 0-1 1v1a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1zm0 1h10v1H7zm1 3a.5.5 0 0 0-1 0v1a.5.5 0 0 0 1 0zm9 0a.5.5 0 0 0-1 0v1a.5.5 0 0 0 1 0zm-9 3a.5.5 0 0 0-1 0v1a.5.5 0 0 0 1 0zm9 0a.5.5 0 0 0-1 0v1a.5.5 0 0 0 1 0zm-9 3a.5.5 0 0 0-1 0 1 1 0 0 0 1 1 .5.5 0 0 0 0-1m9 0a.5.5 0 0 0-1 0 .5.5 0 0 0 0 1 1 1 0 0 0 1-1m-7 0a.5.5 0 0 0 0 1h1a.5.5 0 0 0 0-1zm3 0a.5.5 0 0 0 0 1h1a.5.5 0 0 0 0-1z" clipRule="evenodd" />
+    </svg>
+  )
+}
+
+export function BorderBottomOutlined () {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ transform: 'scale(1.6)' }}>
+      <path fill="currentColor" fillRule="evenodd" d="M8 7a1 1 0 0 0-1 1 .5.5 0 0 0 1 0 .5.5 0 0 0 0-1m2 0a.5.5 0 0 0 0 1h1a.5.5 0 0 0 0-1zm3 0a.5.5 0 0 0 0 1h1a.5.5 0 0 0 0-1zm3 0a.5.5 0 0 0 0 1 .5.5 0 0 0 1 0 1 1 0 0 0-1-1m-8 3a.5.5 0 0 0-1 0v1a.5.5 0 0 0 1 0zm9 0a.5.5 0 0 0-1 0v1a.5.5 0 0 0 1 0zm-9 3a.5.5 0 0 0-1 0v1a.5.5 0 0 0 1 0zm9 0a.5.5 0 0 0-1 0v1a.5.5 0 0 0 1 0zM7 15a1 1 0 0 0-1 1v1a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-1a1 1 0 0 0-1-1zm0 1h10v1H7z" clipRule="evenodd" />
+    </svg>
+  )
+}
+
+export function BorderLeftOutlined () {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ transform: 'scale(1.6)' }}>
+      <path fill="currentColor" fillRule="evenodd" d="M9 7a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h1a1 1 0 0 0 1-1zM8 7v10H7V7zm2 0a.5.5 0 0 0 0 1h1a.5.5 0 0 0 0-1zm3 0a.5.5 0 0 0 0 1h1a.5.5 0 0 0 0-1zm3 0a.5.5 0 0 0 0 1 .5.5 0 0 0 1 0 1 1 0 0 0-1-1m1 3a.5.5 0 0 0-1 0v1a.5.5 0 0 0 1 0zm0 3a.5.5 0 0 0-1 0v1a.5.5 0 0 0 1 0zm0 3a.5.5 0 0 0-1 0 .5.5 0 0 0 0 1 1 1 0 0 0 1-1m-7 0a.5.5 0 0 0 0 1h1a.5.5 0 0 0 0-1zm3 0a.5.5 0 0 0 0 1h1a.5.5 0 0 0 0-1z" clipRule="evenodd" />
+    </svg>
+  )
+}
+
+export function BorderRightOutlined () {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ transform: 'scale(1.6)' }}>
+      <path fill="currentColor" fillRule="evenodd" d="M18 7a1 1 0 0 0-1-1h-1a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h1a1 1 0 0 0 1-1zm-1 0v10h-1V7zM8 7a1 1 0 0 0-1 1 .5.5 0 0 0 1 0 .5.5 0 0 0 0-1m2 0a.5.5 0 0 0 0 1h1a.5.5 0 0 0 0-1zm3 0a.5.5 0 0 0 0 1h1a.5.5 0 0 0 0-1zm-5 3a.5.5 0 0 0-1 0v1a.5.5 0 0 0 1 0zm0 3a.5.5 0 0 0-1 0v1a.5.5 0 0 0 1 0zm0 3a.5.5 0 0 0-1 0 1 1 0 0 0 1 1 .5.5 0 0 0 0-1m2 0a.5.5 0 0 0 0 1h1a.5.5 0 0 0 0-1zm3 0a.5.5 0 0 0 0 1h1a.5.5 0 0 0 0-1z" clipRule="evenodd" />
     </svg>
   )
 }

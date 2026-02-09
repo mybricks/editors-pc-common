@@ -5,17 +5,17 @@ import {
   Select,
   ColorEditor,
   InputNumber,
-  BorderAllOutlined,
-  BorderSplitOutlined,
-  BorderTopWidthOutlined,
-  BorderLeftWidthOutlined,
-  BorderRightWidthOutlined,
   BorderRadiusSplitOutlined,
-  BorderBottomWidthOutlined,
   BorderTopLeftRadiusOutlined,
   BorderTopRightRadiusOutlined,
   BorderBottomLeftRadiusOutlined,
   BorderBottomRightRadiusOutlined,
+  BorderWeightOutlined,
+  BorderSplitOutlined,
+  BorderTopOutlined,
+  BorderBottomOutlined,
+  BorderLeftOutlined,
+  BorderRightOutlined,
 } from "../../components";
 import { allEqual } from "../../utils";
 import { useUpdateEffect } from "../../hooks";
@@ -193,7 +193,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
           <Panel.Content style={{ padding: 3, minWidth: 120 }}>
             <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
               <div className={css.icon} data-mybricks-tip={"边框宽度"}>
-                <BorderAllOutlined />
+                <BorderWeightOutlined />
               </div>
               {disableBorderWidth ? null : (
                 <InputNumber
@@ -262,7 +262,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                   style={{
                     padding: 0,
                     width: 30,
-                    minWidth: 30,
+                    minWidth: 20,
                     marginLeft: 0,
                     textAlign: "right",
                   }}
@@ -289,7 +289,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
               handleToggleChange({ key: "borderToggleValue", value: "split" })
             }
           >
-            <BorderAllOutlined />
+            <BorderSplitOutlined />
           </div>
         </div>
       );
@@ -313,7 +313,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                     style={{ padding: "0px 8px" }}
                   >
                     <div className={css.icon} data-mybricks-tip={"上边框宽度"}>
-                      <BorderTopWidthOutlined />
+                      <BorderTopOutlined />
                     </div>
                     {disableBorderWidth ? null : (
                       <InputNumber
@@ -375,7 +375,8 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                 </Panel.Content>
                 <div
                   data-mybricks-tip={`{content:'切换为统一配置',position:'left'}`}
-                  className={css.actionIcon}
+                  className={css.independentActionIcon}
+                  style={{ marginTop: 0 }}
                   onClick={() =>
                     handleToggleChange({
                       key: "borderToggleValue",
@@ -396,7 +397,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                     style={{ padding: "0px 8px" }}
                   >
                     <div className={css.icon} data-mybricks-tip={"右边框宽度"}>
-                      <BorderRightWidthOutlined />
+                      <BorderRightOutlined />
                     </div>
                     {disableBorderWidth ? null : (
                       <InputNumber
@@ -468,7 +469,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                     style={{ padding: "0px 8px" }}
                   >
                     <div className={css.icon} data-mybricks-tip={"下边框宽度"}>
-                      <BorderBottomWidthOutlined />
+                      <BorderBottomOutlined />
                     </div>
                     {disableBorderWidth ? null : (
                       <InputNumber
@@ -540,7 +541,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                     style={{ padding: "0px 8px" }}
                   >
                     <div className={css.icon} data-mybricks-tip={"左边框宽度"}>
-                      <BorderLeftWidthOutlined />
+                      <BorderLeftOutlined />
                     </div>
                     {disableBorderWidth ? null : (
                       <InputNumber

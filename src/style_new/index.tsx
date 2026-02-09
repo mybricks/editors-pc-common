@@ -349,10 +349,18 @@ function Style ({editConfig, options, setValue, collapsedOptions, autoCollapseWh
   const handleChange: ChangeEvent = useCallback((value) => {
     if (Array.isArray(value)) {
       value.forEach(({key, value}) => {
-        setValue[key] = value
+        if (value === null) {
+          delete setValue[key]
+        } else {
+          setValue[key] = value
+        }
       })
     } else {
-      setValue[value.key] = value.value;
+      if (value.value === null) {
+        delete setValue[value.key]
+      } else {
+        setValue[value.key] = value.value;
+      }
     }
 
     // 计算合并后的CssProperties，可以精简 CSS 属性
@@ -550,7 +558,7 @@ function getDefaultConfiguration ({value, options}: GetDefaultConfigurationProps
   let finalOpen = false
   let finalOptions
   /** 自动收起没有生效的 CSS 插件 */
-  let autoCollapseWhenUnusedProperty = false;
+  let autoCollapseWhenUnusedProperty = true;
   let defaultValue: CSSProperties = {}
   let finalSelector
   const setValue = deepCopy(value.get() || {})
