@@ -18,7 +18,7 @@ import {
   BorderRightOutlined,
 } from "../../components";
 import { allEqual } from "../../utils";
-import { useUpdateEffect } from "../../hooks";
+import { useUpdateEffect, useDragNumber } from "../../hooks";
 
 import type { ChangeEvent, PanelBaseProps } from "../../type";
 
@@ -109,9 +109,12 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
     return defaultValue;
   }, []);
   const [borderValue, setBorderValue] = useState(defaultBorderValue);
+  const [forceRenderKey, setForceRenderKey] = useState<number>(Math.random());
   const [splitRadiusIcon, setSplitRadiusIcon] = useState(
     <BorderTopLeftRadiusOutlined />
   );
+  const getDragPropsRadius = useDragNumber({ continuous: true });
+  const getDragPropsBorder = useDragNumber({ continuous: true });
 
   const handleChange = useCallback(
     (value: CSSProperties & Record<string, any>) => {
@@ -192,14 +195,14 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
         <div className={css.row}>
           <Panel.Content style={{ padding: 3, minWidth: 120 }}>
             <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
-              <div className={css.icon} data-mybricks-tip={"边框宽度"}>
+              <div className={css.icon} {...getDragPropsBorder(borderValue.borderTopWidth, '拖拽调整边框宽度')}>
                 <BorderWeightOutlined />
               </div>
               {disableBorderWidth ? null : (
                 <InputNumber
                   tip="边框宽度"
                   style={shouldShowMiniLayout ? DEFAULT_STYLE_MINI : DEFAULT_STYLE_SMALL}
-                  value={borderValue.borderTopWidth}
+                  defaultValue={borderValue.borderTopWidth}
                   // suffix={'px'}
                   onChange={(value) => {
                     const borderStyle =
@@ -305,6 +308,89 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
       return (
         <div className={css.row}>
           <div className={css.col}>
+          {!disableBorderLeft && (
+              <div className={css.row}>
+                <Panel.Content style={{ padding: 3, minWidth: 120 }}>
+                  <Panel.Item
+                    className={css.editArea}
+                    style={{ padding: "0px 8px" }}
+                  >
+                    <div className={css.icon} {...getDragPropsBorder(borderValue.borderLeftWidth, '拖拽调整左边框宽度')}>
+                      <BorderLeftOutlined />
+                    </div>
+                    {disableBorderWidth ? null : (
+                      <InputNumber
+                        tip="左边框宽度"
+                        style={shouldShowMiniLayout ? DEFAULT_STYLE_MINI : DEFAULT_STYLE_SMALL}
+                        defaultValue={borderValue.borderLeftWidth}
+                        // suffix={'px'}
+                        onChange={(value) =>
+                          handleChange({
+                            borderLeftWidth: value,
+                            borderLeftStyle:
+                              borderValue.borderLeftStyle === "none"
+                                ? "solid"
+                                : borderValue.borderLeftStyle,
+                          })
+                        }
+                      />
+                    )}
+                    {disableBorderColor ? null : (
+                      <ColorEditor
+                        // tip='左边框颜色'
+                        style={{ padding: 0, marginLeft: 2 }}
+                        defaultValue={borderValue.borderLeftColor}
+                        showSubTabs={false}
+                        onChange={(value: string) => {
+                          const newValue: Record<string, any> = {
+                            borderLeftColor: value,
+                          };
+                          if (
+                            !isLengthNineAndEndsWithZeroes(value) &&
+                            borderValue.borderLeftWidth === "0px"
+                          ) {
+                            newValue.borderLeftWidth = "1px";
+                          }
+                          handleChange(newValue);
+                        }}
+                      />
+                    )}
+                    {disableBorderStyle ? null : (
+                      <Select
+                        tip="左边框线条样式"
+                        style={{
+                          padding: 0,
+                          width: 30,
+                          minWidth: 30,
+                          marginLeft: 0,
+                          textAlign: "right",
+                        }}
+                        labelClassName={css.label}
+                        value={borderValue.borderLeftStyle}
+                        options={BORDER_STYLE_OPTIONS}
+                        showIcon={false}
+                        onChange={(value) =>
+                          handleChange({ borderLeftStyle: value })
+                        }
+                      />
+                    )}
+                  </Panel.Item>
+                </Panel.Content>
+                <div
+                  data-mybricks-tip={`{content:'切换为统一配置',position:'left'}`}
+                  className={css.independentActionIcon}
+                  style={{ marginTop: 0 }}
+                  onClick={() =>
+                    handleToggleChange({
+                      key: "borderToggleValue",
+                      value: "all",
+                    })
+                  }
+                >
+                  <BorderSplitOutlined />
+                </div>
+              </div>
+            )}
             {!disableBorderTop && (
               <div className={css.row}>
                 <Panel.Content style={{ padding: 3, minWidth: 120 }}>
@@ -312,14 +398,14 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                     className={css.editArea}
                     style={{ padding: "0px 8px" }}
                   >
-                    <div className={css.icon} data-mybricks-tip={"上边框宽度"}>
+                    <div className={css.icon} {...getDragPropsBorder(borderValue.borderTopWidth, '拖拽调整上边框宽度')}>
                       <BorderTopOutlined />
                     </div>
                     {disableBorderWidth ? null : (
                       <InputNumber
                         tip="上边框宽度"
                         style={shouldShowMiniLayout ? DEFAULT_STYLE_MINI : DEFAULT_STYLE_SMALL}
-                        value={borderValue.borderTopWidth}
+                        defaultValue={borderValue.borderTopWidth}
                         // suffix={'px'}
                         onChange={(value) =>
                           handleChange({
@@ -373,19 +459,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                     )}
                   </Panel.Item>
                 </Panel.Content>
-                <div
-                  data-mybricks-tip={`{content:'切换为统一配置',position:'left'}`}
-                  className={css.independentActionIcon}
-                  style={{ marginTop: 0 }}
-                  onClick={() =>
-                    handleToggleChange({
-                      key: "borderToggleValue",
-                      value: "all",
-                    })
-                  }
-                >
-                  <BorderSplitOutlined />
-                </div>
+                <div className={css.actionIcon} />
               </div>
             )}
 
@@ -396,14 +470,14 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                     className={css.editArea}
                     style={{ padding: "0px 8px" }}
                   >
-                    <div className={css.icon} data-mybricks-tip={"右边框宽度"}>
+                    <div className={css.icon} {...getDragPropsBorder(borderValue.borderRightWidth, '拖拽调整右边框宽度')}>
                       <BorderRightOutlined />
                     </div>
                     {disableBorderWidth ? null : (
                       <InputNumber
                         tip="右边框宽度"
                         style={shouldShowMiniLayout ? DEFAULT_STYLE_MINI : DEFAULT_STYLE_SMALL}
-                        value={borderValue.borderRightWidth}
+                        defaultValue={borderValue.borderRightWidth}
                         // suffix={'px'}
                         onChange={(value) =>
                           handleChange({
@@ -468,14 +542,14 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                     className={css.editArea}
                     style={{ padding: "0px 8px" }}
                   >
-                    <div className={css.icon} data-mybricks-tip={"下边框宽度"}>
+                    <div className={css.icon} {...getDragPropsBorder(borderValue.borderBottomWidth, '拖拽调整下边框宽度')}>
                       <BorderBottomOutlined />
                     </div>
                     {disableBorderWidth ? null : (
                       <InputNumber
                         tip="下边框宽度"
                         style={shouldShowMiniLayout ? DEFAULT_STYLE_MINI : DEFAULT_STYLE_SMALL}
-                        value={borderValue.borderBottomWidth}
+                        defaultValue={borderValue.borderBottomWidth}
                         // suffix={'px'}
                         onChange={(value) =>
                           handleChange({
@@ -532,83 +606,12 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                 <div className={css.actionIcon} />
               </div>
             )}
-
-            {!disableBorderLeft && (
-              <div className={css.row}>
-                <Panel.Content style={{ padding: 3, minWidth: 120 }}>
-                  <Panel.Item
-                    className={css.editArea}
-                    style={{ padding: "0px 8px" }}
-                  >
-                    <div className={css.icon} data-mybricks-tip={"左边框宽度"}>
-                      <BorderLeftOutlined />
-                    </div>
-                    {disableBorderWidth ? null : (
-                      <InputNumber
-                        tip="左边框宽度"
-                        style={shouldShowMiniLayout ? DEFAULT_STYLE_MINI : DEFAULT_STYLE_SMALL}
-                        value={borderValue.borderLeftWidth}
-                        // suffix={'px'}
-                        onChange={(value) =>
-                          handleChange({
-                            borderLeftWidth: value,
-                            borderLeftStyle:
-                              borderValue.borderLeftStyle === "none"
-                                ? "solid"
-                                : borderValue.borderLeftStyle,
-                          })
-                        }
-                      />
-                    )}
-                    {disableBorderColor ? null : (
-                      <ColorEditor
-                        // tip='左边框颜色'
-                        style={{ padding: 0, marginLeft: 2 }}
-                        defaultValue={borderValue.borderLeftColor}
-                        showSubTabs={false}
-                        onChange={(value: string) => {
-                          const newValue: Record<string, any> = {
-                            borderLeftColor: value,
-                          };
-                          if (
-                            !isLengthNineAndEndsWithZeroes(value) &&
-                            borderValue.borderLeftWidth === "0px"
-                          ) {
-                            newValue.borderLeftWidth = "1px";
-                          }
-                          handleChange(newValue);
-                        }}
-                      />
-                    )}
-                    {disableBorderStyle ? null : (
-                      <Select
-                        tip="左边框线条样式"
-                        style={{
-                          padding: 0,
-                          width: 30,
-                          minWidth: 30,
-                          marginLeft: 0,
-                          textAlign: "right",
-                        }}
-                        labelClassName={css.label}
-                        value={borderValue.borderLeftStyle}
-                        options={BORDER_STYLE_OPTIONS}
-                        showIcon={false}
-                        onChange={(value) =>
-                          handleChange({ borderLeftStyle: value })
-                        }
-                      />
-                    )}
-                  </Panel.Item>
-                </Panel.Content>
-                <div className={css.actionIcon} />
-              </div>
-            )}
+            
           </div>
         </div>
       );
     }
-  }, [borderToggleValue, borderValue]);
+  }, [borderToggleValue, borderValue, getDragPropsBorder]);
 
   const radiusConfig = useMemo(() => {
     if (disableBorderRadius) {
@@ -619,7 +622,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
         <div className={css.row}>
           <Panel.Content style={{ padding: 3 }}>
             <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
-              <div className={css.icon} data-mybricks-tip={"圆角半径"}>
+              <div className={css.icon} {...getDragPropsRadius(borderValue.borderTopLeftRadius, '拖拽调整圆角半径')}>
                 <BorderRadiusSplitOutlined />
               </div>
               <InputNumber
@@ -657,7 +660,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
             <div className={css.row} style={{ paddingRight: 0 }}>
               <Panel.Content style={{ padding: 3 }}>
                 <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
-                  <div className={css.icon} data-mybricks-tip={"左上"}>
+                  <div className={css.icon} {...getDragPropsRadius(borderValue.borderTopLeftRadius, '拖拽调整左上圆角')}>
                     <BorderTopLeftRadiusOutlined />
                   </div>
                   <InputNumber
@@ -689,7 +692,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                       setSplitRadiusIcon(<BorderTopRightRadiusOutlined />)
                     }
                   />
-                  <div className={css.icon} data-mybricks-tip={"右上"}>
+                  <div className={css.icon} {...getDragPropsRadius(borderValue.borderTopRightRadius, '拖拽调整右上圆角')}>
                     <BorderTopRightRadiusOutlined />
                   </div>
                 </Panel.Item>
@@ -700,7 +703,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
               <Panel.Content style={{ padding: 3 }}>
 
                 <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
-                  <div className={css.icon} data-mybricks-tip={"左下"}>
+                  <div className={css.icon} {...getDragPropsRadius(borderValue.borderBottomLeftRadius, '拖拽调整左下圆角')}>
                     <BorderBottomLeftRadiusOutlined />
                   </div>
                   <InputNumber
@@ -732,7 +735,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                       setSplitRadiusIcon(<BorderBottomRightRadiusOutlined />)
                     }
                   />
-                  <div className={css.icon} data-mybricks-tip={"右下"}>
+                  <div className={css.icon} {...getDragPropsRadius(borderValue.borderBottomRightRadius, '拖拽调整右下圆角')}>
                     <BorderBottomRightRadiusOutlined />
                   </div>
                 </Panel.Item>
@@ -752,7 +755,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
         </div>
       );
     }
-  }, [radiusToggleValue, splitRadiusIcon]);
+  }, [radiusToggleValue, splitRadiusIcon, borderValue, getDragPropsRadius]);
 
   const handleToggleChange = useCallback(
     ({ key, value }: { key: string; value: string }) => {
@@ -792,10 +795,24 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
     });
   }, [radiusToggleValue]);
 
+  const refresh = useCallback(() => {
+    const borderKeys = [
+      'borderTopWidth', 'borderRightWidth', 'borderBottomWidth', 'borderLeftWidth',
+      'borderTopColor', 'borderRightColor', 'borderBottomColor', 'borderLeftColor',
+      'borderTopStyle', 'borderRightStyle', 'borderBottomStyle', 'borderLeftStyle',
+      'borderTopLeftRadius', 'borderTopRightRadius', 'borderBottomLeftRadius', 'borderBottomRightRadius',
+    ];
+    onChange(borderKeys.map(key => ({ key, value: null })));
+    setBorderValue({} as any);
+    setForceRenderKey(prev => prev + 1);
+  }, [onChange]);
+
   return (
-    <Panel title="边框" showTitle={showTitle} collapse={collapse}>
-      {borderConfig}
-      {radiusConfig}
+    <Panel title="边框" showTitle={showTitle} showReset={true} resetFunction={refresh} collapse={collapse}>
+      <React.Fragment key={forceRenderKey}>
+        {borderConfig}
+        {radiusConfig}
+      </React.Fragment>
     </Panel>
   );
 }

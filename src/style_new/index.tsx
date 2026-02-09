@@ -66,20 +66,29 @@ export default function ({editConfig}: EditorProps) {
     editMode: true
   })
 
+  const [key, setKey] = useState(0)
+  const isResetRef = useRef(false)
+
   // 切换面板的时候要重新获取样式，否则CSS面板的样式写完就不回显了
   const [{
     targetDom,
     ...styleProps
   },] = useMemo(() => {
-    return [
-      getDefaultConfiguration(editConfig), 
-    ]
-  }, [editMode])
-
-  const [key, setKey] = useState(0)
+    const config = getDefaultConfiguration(editConfig)
+    // 重置后，所有面板都应该折叠
+    if (isResetRef.current) {
+      isResetRef.current = false
+      const allOptionKeys = (config.options || []).map((t: any) =>
+        typeof t === 'string' ? t.toLowerCase() : t?.type?.toLowerCase()
+      )
+      config.collapsedOptions = allOptionKeys
+    }
+    return [config]
+  }, [editMode, key])
 
   const refresh = useCallback(() => {
     editConfig.value.set({})
+    isResetRef.current = true
     setKey(key => key + 1)
   }, [])
 
@@ -248,7 +257,7 @@ export default function ({editConfig}: EditorProps) {
         }}/>
       )
     }
-  }, [editMode])
+  }, [editMode, key])
 
   function onMouseEnter() {
     try {

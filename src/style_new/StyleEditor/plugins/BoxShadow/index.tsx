@@ -1,4 +1,4 @@
-import React, { useState, CSSProperties, useCallback } from 'react'
+import React, { useState, useRef, CSSProperties, useCallback } from 'react'
 
 import {
   Panel,
@@ -12,7 +12,7 @@ import {
   BoxShadowBlurRadiusOutlined,
   BoxShadowSpreadRadiusOutlined
 } from '../../components'
-import { useUpdateEffect } from '../../hooks'
+import { useUpdateEffect, useDragNumber } from '../../hooks'
 
 import type { ChangeEvent, PanelBaseProps } from '../../type'
 import isEqual from 'lodash/isEqual';
@@ -48,8 +48,14 @@ const defaultValue = {
 export function BoxShadow ({value, onChange, config, showTitle, collapse}: BoxShadowProps) {
   const [boxShadowValues, setBoxShadowValues] = useState<boxShadowType>(getInitValue(value.boxShadow))
   const [forceRenderKey, setForceRenderKey] = useState<number>(Math.random()); // 用于点击重置按钮重新渲染获取新value
+  const isResettingRef = useRef(false);
+  const getDragProps = useDragNumber({ continuous: true })
   
   useUpdateEffect(() => {
+    if (isResettingRef.current) {
+      isResettingRef.current = false;
+      return;
+    }
     const {
       inset,
       offsetX,
@@ -63,16 +69,14 @@ export function BoxShadow ({value, onChange, config, showTitle, collapse}: BoxSh
       value = value + 'inset '
     }
     onChange({key: 'boxShadow', value: value + `${offsetX} ${offsetY} ${blurRadius} ${spreadRadius} ${color}`})
-  }, [boxShadowValues, forceRenderKey]);
+  }, [boxShadowValues]);
 
-  // TODO useUpdateEffect导致比较特殊 refresh先设置为默认值 一般是没有boxShadow这个属性
   const refresh = useCallback(() => {
-    if (isEqual(defaultValue, boxShadowValues)) {
-      return ;
-    }
+    isResettingRef.current = true;
+    onChange({key: 'boxShadow', value: null});
     setBoxShadowValues(defaultValue);
-    setForceRenderKey(forceRenderKey + 1);
-  }, [forceRenderKey, boxShadowValues]);
+    setForceRenderKey(prev => prev + 1);
+  }, [onChange]);
 
   return (
     <Panel title='阴影' showTitle={showTitle} showReset={true} resetFunction={refresh} collapse={collapse}>
@@ -94,7 +98,11 @@ export function BoxShadow ({value, onChange, config, showTitle, collapse}: BoxSh
           <InputNumber
             tip='x轴偏移'
             style={{flex: '1 1 0%'}}
-            prefix={<BoxShadowOfsetXOutlined />}
+            prefix={
+              <div {...getDragProps(boxShadowValues.offsetX, '拖拽调整x轴偏移')}>
+                <BoxShadowOfsetXOutlined />
+              </div>
+            }
             defaultValue={boxShadowValues.offsetX}
             onChange={(value) => setBoxShadowValues((boxShadowValues) => {
               return {
@@ -106,7 +114,11 @@ export function BoxShadow ({value, onChange, config, showTitle, collapse}: BoxSh
           <InputNumber
             tip='y轴偏移'
             style={{flex: '1 1 0%'}}
-            prefix={<BoxShadowOfsetYOutlined />}
+            prefix={
+              <div {...getDragProps(boxShadowValues.offsetY, '拖拽调整y轴偏移')}>
+                <BoxShadowOfsetYOutlined />
+              </div>
+            }
             defaultValue={boxShadowValues.offsetY}
             onChange={(value) => setBoxShadowValues((boxShadowValues) => {
               return {
@@ -132,7 +144,11 @@ export function BoxShadow ({value, onChange, config, showTitle, collapse}: BoxSh
           <InputNumber
             tip='模糊'
             style={{flex: '1 1 0%'}}
-            prefix={<BoxShadowBlurRadiusOutlined />}
+            prefix={
+              <div {...getDragProps(boxShadowValues.blurRadius, '拖拽调整模糊半径')}>
+                <BoxShadowBlurRadiusOutlined />
+              </div>
+            }
             defaultValue={boxShadowValues.blurRadius}
             onChange={(value) => setBoxShadowValues((boxShadowValues) => {
               return {
@@ -144,7 +160,11 @@ export function BoxShadow ({value, onChange, config, showTitle, collapse}: BoxSh
           <InputNumber
             tip='扩散'
             style={{flex: '1 1 0%'}}
-            prefix={<BoxShadowSpreadRadiusOutlined />}
+            prefix={
+              <div {...getDragProps(boxShadowValues.spreadRadius, '拖拽调整扩散半径')}>
+                <BoxShadowSpreadRadiusOutlined />
+              </div>
+            }
             defaultValue={boxShadowValues.spreadRadius}
             onChange={(value) => setBoxShadowValues((boxShadowValues) => {
               return {

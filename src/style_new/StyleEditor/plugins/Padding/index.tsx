@@ -15,7 +15,7 @@ import {
   PaddingBottomOutlined
 } from '../../components'
 import {allEqual} from '../../utils'
-import {useUpdateEffect} from '../../hooks'
+import {useUpdateEffect, useDragNumber} from '../../hooks'
 
 import type {ChangeEvent, PanelBaseProps} from '../../type'
 
@@ -37,7 +37,9 @@ const DEFAULT_STYLE = {
 export function Padding({value, onChange, config, showTitle, collapse}: PaddingProps) {
   const [toggle, setToggle] = useState(getToggleDefaultValue(value))
   const [paddingValue, setPaddingValue] = useState({...value})
+  const [forceRenderKey, setForceRenderKey] = useState<number>(Math.random())
   const [splitPaddingIcon, setSplitPaddingIcon] = useState(<PaddingTopOutlined/>)
+  const getDragProps = useDragNumber({ continuous: true })
 
   const handleChange = useCallback((value: any) => {
     setPaddingValue((val) => {
@@ -72,8 +74,10 @@ export function Padding({value, onChange, config, showTitle, collapse}: PaddingP
         >
           <Panel.Content style={{padding: 3}}>
             <Panel.Item className={css.editArea} style={{padding: '0px 8px'}}>
-              <div className={css.icon}
-                   data-mybricks-tip={`{content:'内边距',position:'top'}`}>
+              <div 
+                className={css.icon}
+                {...getDragProps(paddingValue.paddingTop, `{content:'拖拽调整内边距',position:'top'}`)}
+              >
                 <PaddingAllOutlined/>
               </div>
               <InputNumber
@@ -106,7 +110,10 @@ export function Padding({value, onChange, config, showTitle, collapse}: PaddingP
             <div className={css.row} style={{ paddingRight: 0 }}>
               <Panel.Content style={{ padding: 3 }}>
                 <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
-                  <div className={css.icon} data-mybricks-tip={'左边距'}>
+                  <div 
+                    className={css.icon} 
+                    {...getDragProps(paddingValue.paddingLeft, '拖拽调整左边距')}
+                  >
                     <PaddingLeftOutlined/>
                   </div>
                   <InputNumber
@@ -119,7 +126,10 @@ export function Padding({value, onChange, config, showTitle, collapse}: PaddingP
               </Panel.Content>
               <Panel.Content style={{ padding: 3 }}>
                 <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
-                  <div className={css.icon} data-mybricks-tip={'上边距'}>
+                  <div 
+                    className={css.icon} 
+                    {...getDragProps(paddingValue.paddingTop, '拖拽调整上边距')}
+                  >
                     <PaddingTopOutlined/>
                   </div>
                   <InputNumber
@@ -134,7 +144,10 @@ export function Padding({value, onChange, config, showTitle, collapse}: PaddingP
             <div className={css.row} style={{ paddingRight: 0 }}>
               <Panel.Content style={{ padding: 3 }}>
                 <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
-                  <div className={css.icon} data-mybricks-tip={'右边距'}>
+                  <div 
+                    className={css.icon} 
+                    {...getDragProps(paddingValue.paddingRight, '拖拽调整右边距')}
+                  >
                     <PaddingRightOutlined/>
                   </div>
                   <InputNumber
@@ -147,7 +160,10 @@ export function Padding({value, onChange, config, showTitle, collapse}: PaddingP
               </Panel.Content>
               <Panel.Content style={{ padding: 3 }}>
                 <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
-                  <div className={css.icon} data-mybricks-tip={'下边距'}>
+                  <div 
+                    className={css.icon} 
+                    {...getDragProps(paddingValue.paddingBottom, '拖拽调整下边距')}
+                  >
                     <PaddingBottomOutlined/>
                   </div>
                   <InputNumber
@@ -171,11 +187,20 @@ export function Padding({value, onChange, config, showTitle, collapse}: PaddingP
         </div>
       )
     }
-  }, [toggle, splitPaddingIcon])
+  }, [toggle, splitPaddingIcon, paddingValue, getDragProps, handleChange])
+
+  const refresh = useCallback(() => {
+    const paddingKeys = ['paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft']
+    onChange(paddingKeys.map(key => ({ key, value: null })))
+    setPaddingValue({} as any)
+    setForceRenderKey(prev => prev + 1)
+  }, [onChange])
 
   return (
-    <Panel title='内边距' showTitle={showTitle} collapse={collapse}>
-      {paddingConfig}
+    <Panel title='内边距' showTitle={showTitle} showReset={true} resetFunction={refresh} collapse={collapse}>
+      <React.Fragment key={forceRenderKey}>
+        {paddingConfig}
+      </React.Fragment>
     </Panel>
   )
 }
