@@ -83,6 +83,7 @@ export function Padding({value, onChange, config, showTitle, collapse}: PaddingP
               <InputNumber
                 style={DEFAULT_STYLE}
                 defaultValue={paddingValue.paddingTop}
+                defaultUnitValue="px"
                 // suffix={'px'}
                 onChange={(value) => handleChange({
                   paddingTop: value,
@@ -119,6 +120,7 @@ export function Padding({value, onChange, config, showTitle, collapse}: PaddingP
                   <InputNumber
                     style={DEFAULT_STYLE}
                     defaultValue={paddingValue.paddingLeft}
+                    defaultUnitValue="px"
                     onChange={(value) => handleChange({paddingLeft: value})}
                     onFocus={() => setSplitPaddingIcon(<PaddingLeftOutlined/>)}
                   />
@@ -135,6 +137,7 @@ export function Padding({value, onChange, config, showTitle, collapse}: PaddingP
                   <InputNumber
                     style={DEFAULT_STYLE}
                     defaultValue={paddingValue.paddingTop}
+                    defaultUnitValue="px"
                     onChange={(value) => handleChange({paddingTop: value})}
                     onFocus={() => setSplitPaddingIcon(<PaddingTopOutlined/>)}
                   />
@@ -153,6 +156,7 @@ export function Padding({value, onChange, config, showTitle, collapse}: PaddingP
                   <InputNumber
                     style={DEFAULT_STYLE}
                     defaultValue={paddingValue.paddingRight}
+                    defaultUnitValue="px"
                     onChange={(value) => handleChange({paddingRight: value})}
                     onFocus={() => setSplitPaddingIcon(<PaddingRightOutlined/>)}
                   />
@@ -169,6 +173,7 @@ export function Padding({value, onChange, config, showTitle, collapse}: PaddingP
                   <InputNumber
                     style={DEFAULT_STYLE}
                     defaultValue={paddingValue.paddingBottom}
+                    defaultUnitValue="px"
                     onChange={(value) => handleChange({paddingBottom: value})}
                     onFocus={() => setSplitPaddingIcon(<PaddingBottomOutlined/>)}
                   />

@@ -248,7 +248,7 @@ export const splitCSSProperties = (
     }
   }
 
-  // border
+  // border 完整简写
   if (cssProperties.border) {
     splitStyles.borderTopWidth = computedStyle.borderTopWidth
     splitStyles.borderTopStyle = computedStyle.borderTopStyle
@@ -263,6 +263,32 @@ export const splitCSSProperties = (
     splitStyles.borderLeftStyle = computedStyle.borderLeftStyle
     splitStyles.borderLeftColor = computedStyle.borderLeftColor
     delete splitStyles.border
+  }
+
+  // border 单侧简写（mergeCSSProperties 在各侧不同时会生成 borderTop/borderBottom 等）
+  if (cssProperties.borderTop) {
+    splitStyles.borderTopWidth = computedStyle.borderTopWidth
+    splitStyles.borderTopStyle = computedStyle.borderTopStyle
+    splitStyles.borderTopColor = computedStyle.borderTopColor
+    delete splitStyles.borderTop
+  }
+  if (cssProperties.borderRight) {
+    splitStyles.borderRightWidth = computedStyle.borderRightWidth
+    splitStyles.borderRightStyle = computedStyle.borderRightStyle
+    splitStyles.borderRightColor = computedStyle.borderRightColor
+    delete splitStyles.borderRight
+  }
+  if (cssProperties.borderBottom) {
+    splitStyles.borderBottomWidth = computedStyle.borderBottomWidth
+    splitStyles.borderBottomStyle = computedStyle.borderBottomStyle
+    splitStyles.borderBottomColor = computedStyle.borderBottomColor
+    delete splitStyles.borderBottom
+  }
+  if (cssProperties.borderLeft) {
+    splitStyles.borderLeftWidth = computedStyle.borderLeftWidth
+    splitStyles.borderLeftStyle = computedStyle.borderLeftStyle
+    splitStyles.borderLeftColor = computedStyle.borderLeftColor
+    delete splitStyles.borderLeft
   }
 
   return {

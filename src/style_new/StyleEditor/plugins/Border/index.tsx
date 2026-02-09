@@ -159,13 +159,15 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
         }
 
         onChange(
-          Object.keys(newValues).map((key) => {
-            return {
-              key,
-              // TODO
-              value: `${newValues[key]}${useImportant ? "!important" : ""}`,
-            };
-          })
+          Object.keys(newValues)
+            .filter((key) => newValues[key] != null)
+            .map((key) => {
+              return {
+                key,
+                // TODO
+                value: `${newValues[key]}${useImportant ? "!important" : ""}`,
+              };
+            })
         );
         return newValues;
       });
@@ -203,10 +205,11 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                   tip="边框宽度"
                   style={shouldShowMiniLayout ? DEFAULT_STYLE_MINI : DEFAULT_STYLE_SMALL}
                   defaultValue={borderValue.borderTopWidth}
+                  defaultUnitValue="px"
                   // suffix={'px'}
                   onChange={(value) => {
                     const borderStyle =
-                      borderValue.borderTopStyle === "none"
+                      !borderValue.borderTopStyle || borderValue.borderTopStyle === "none"
                         ? "solid"
                         : borderValue.borderTopStyle;
                     handleChange({
@@ -270,7 +273,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                     textAlign: "right",
                   }}
                   labelClassName={css.label}
-                  value={borderValue.borderTopStyle}
+                  value={borderValue.borderTopStyle ?? 'none'}
                   options={BORDER_STYLE_OPTIONS}
                   showIcon={false}
                   onChange={(value) =>
@@ -323,12 +326,13 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                         tip="左边框宽度"
                         style={shouldShowMiniLayout ? DEFAULT_STYLE_MINI : DEFAULT_STYLE_SMALL}
                         defaultValue={borderValue.borderLeftWidth}
+                        defaultUnitValue="px"
                         // suffix={'px'}
                         onChange={(value) =>
                           handleChange({
                             borderLeftWidth: value,
                             borderLeftStyle:
-                              borderValue.borderLeftStyle === "none"
+                              !borderValue.borderLeftStyle || borderValue.borderLeftStyle === "none"
                                 ? "solid"
                                 : borderValue.borderLeftStyle,
                           })
@@ -366,7 +370,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                           textAlign: "right",
                         }}
                         labelClassName={css.label}
-                        value={borderValue.borderLeftStyle}
+                        value={borderValue.borderLeftStyle ?? 'none'}
                         options={BORDER_STYLE_OPTIONS}
                         showIcon={false}
                         onChange={(value) =>
@@ -406,12 +410,13 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                         tip="上边框宽度"
                         style={shouldShowMiniLayout ? DEFAULT_STYLE_MINI : DEFAULT_STYLE_SMALL}
                         defaultValue={borderValue.borderTopWidth}
+                        defaultUnitValue="px"
                         // suffix={'px'}
                         onChange={(value) =>
                           handleChange({
                             borderTopWidth: value,
                             borderTopStyle:
-                              borderValue.borderTopStyle === "none"
+                              !borderValue.borderTopStyle || borderValue.borderTopStyle === "none"
                                 ? "solid"
                                 : borderValue.borderTopStyle,
                           })
@@ -449,7 +454,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                           textAlign: "right",
                         }}
                         labelClassName={css.label}
-                        value={borderValue.borderTopStyle}
+                        value={borderValue.borderTopStyle ?? 'none'}
                         options={BORDER_STYLE_OPTIONS}
                         showIcon={false}
                         onChange={(value) =>
@@ -478,12 +483,13 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                         tip="右边框宽度"
                         style={shouldShowMiniLayout ? DEFAULT_STYLE_MINI : DEFAULT_STYLE_SMALL}
                         defaultValue={borderValue.borderRightWidth}
+                        defaultUnitValue="px"
                         // suffix={'px'}
                         onChange={(value) =>
                           handleChange({
                             borderRightWidth: value,
                             borderRightStyle:
-                              borderValue.borderRightStyle === "none"
+                              !borderValue.borderRightStyle || borderValue.borderRightStyle === "none"
                                 ? "solid"
                                 : borderValue.borderRightStyle,
                           })
@@ -521,7 +527,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                           textAlign: "right",
                         }}
                         labelClassName={css.label}
-                        value={borderValue.borderRightStyle}
+                        value={borderValue.borderRightStyle ?? 'none'}
                         options={BORDER_STYLE_OPTIONS}
                         showIcon={false}
                         onChange={(value) =>
@@ -550,12 +556,13 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                         tip="下边框宽度"
                         style={shouldShowMiniLayout ? DEFAULT_STYLE_MINI : DEFAULT_STYLE_SMALL}
                         defaultValue={borderValue.borderBottomWidth}
+                        defaultUnitValue="px"
                         // suffix={'px'}
                         onChange={(value) =>
                           handleChange({
                             borderBottomWidth: value,
                             borderBottomStyle:
-                              borderValue.borderBottomStyle === "none"
+                              !borderValue.borderBottomStyle || borderValue.borderBottomStyle === "none"
                                 ? "solid"
                                 : borderValue.borderBottomStyle,
                           })
@@ -593,7 +600,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                           textAlign: "right",
                         }}
                         labelClassName={css.label}
-                        value={borderValue.borderBottomStyle}
+                        value={borderValue.borderBottomStyle ?? 'none'}
                         options={BORDER_STYLE_OPTIONS}
                         showIcon={false}
                         onChange={(value) =>
@@ -801,6 +808,9 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
       'borderTopColor', 'borderRightColor', 'borderBottomColor', 'borderLeftColor',
       'borderTopStyle', 'borderRightStyle', 'borderBottomStyle', 'borderLeftStyle',
       'borderTopLeftRadius', 'borderTopRightRadius', 'borderBottomLeftRadius', 'borderBottomRightRadius',
+      // mergeCSSProperties 可能生成的简写属性
+      'border', 'borderTop', 'borderRight', 'borderBottom', 'borderLeft',
+      'borderRadius', 'borderWidth', 'borderStyle', 'borderColor',
     ];
     onChange(borderKeys.map(key => ({ key, value: null })));
     setBorderValue({} as any);
