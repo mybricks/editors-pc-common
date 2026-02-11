@@ -99,7 +99,7 @@ export function InputNumber ({
     }
 
     return null
-  }, [])
+  }, [unit])
 
   useUpdateEffect(() => {
     if (value) {

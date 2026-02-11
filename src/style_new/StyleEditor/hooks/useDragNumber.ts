@@ -6,6 +6,8 @@ interface DragState {
   startValue: number
   inputEl: HTMLInputElement | null
   rafId: number | null
+  /** 标记 onDragStart 是否覆盖了起始值（如单位从 auto 切换到 px） */
+  useCustomEnd: boolean
 }
 
 interface DragNumberOptions {
@@ -17,6 +19,10 @@ interface DragNumberOptions {
   sensitivity?: number
   /** 是否在拖拽过程中持续提交值，默认 false（只在松手时提交） */
   continuous?: boolean
+  /** 拖拽开始时的回调，可返回数字覆盖起始值 */
+  onDragStart?: (currentValue: any, inputEl: HTMLInputElement | null) => number | void
+  /** 拖拽结束时的回调，当 onDragStart 返回了覆盖值时调用（替代 blur 提交） */
+  onDragEnd?: (finalValue: number) => void
 }
 
 /**
@@ -34,13 +40,21 @@ interface DragNumberOptions {
  * <InputNumber defaultValue={...} onChange={...} />
  */
 export function useDragNumber(options: DragNumberOptions = {}) {
-  const { min = 0, max = Infinity, sensitivity = 1, continuous = false } = options
+  const { min = 0, max = Infinity, sensitivity = 1, continuous = false, onDragStart, onDragEnd } = options
+
+  // 用 ref 保存回调，避免 handler 因回调变化而重建
+  const onDragStartRef = useRef(onDragStart)
+  onDragStartRef.current = onDragStart
+  const onDragEndRef = useRef(onDragEnd)
+  onDragEndRef.current = onDragEnd
+
   const dragStateRef = useRef<DragState>({
     isDragging: false,
     startX: 0,
     startValue: 0,
     inputEl: null,
-    rafId: null
+    rafId: null,
+    useCustomEnd: false
   })
 
   const findInputEl = useCallback((iconEl: HTMLElement): HTMLInputElement | null => {
@@ -64,12 +78,32 @@ export function useDragNumber(options: DragNumberOptions = {}) {
     const iconEl = e.currentTarget as HTMLElement
     const inputEl = findInputEl(iconEl)
 
+    // 优先从 DOM input 读取最新值（上次拖拽/输入的结果），避免因父组件未及时回传而使用过期的 props 值
+    let startValue = parseFloat(currentValue) || 0
+    if (inputEl) {
+      const domValue = parseFloat(inputEl.value)
+      if (!isNaN(domValue)) {
+        startValue = domValue
+      }
+    }
+
+    let useCustomEnd = false
+
+    if (onDragStartRef.current) {
+      const overrideValue = onDragStartRef.current(currentValue, inputEl)
+      if (typeof overrideValue === 'number') {
+        startValue = overrideValue
+        useCustomEnd = true
+      }
+    }
+
     dragStateRef.current = {
       isDragging: true,
       startX: e.clientX,
-      startValue: parseFloat(currentValue) || 0,
+      startValue,
       inputEl,
-      rafId: null
+      rafId: null,
+      useCustomEnd
     }
     document.body.style.cursor = 'ew-resize'
     document.body.style.userSelect = 'none'
@@ -113,10 +147,17 @@ export function useDragNumber(options: DragNumberOptions = {}) {
       state.rafId = null
     }
 
-    // 触发 input 的 focus -> blur，让 InputNumber 内部走 onBlur 逻辑提交值
-    if (state.inputEl) {
-      state.inputEl.focus()
-      state.inputEl.blur()
+    if (state.useCustomEnd && onDragEndRef.current) {
+      // 当 onDragStart 覆盖了起始值时（如单位从 auto 切到 px），
+      // 由外部回调直接提交最终值，绕过 InputNumber 内部可能还未同步的 unit 状态
+      const finalValue = state.inputEl ? (parseFloat(state.inputEl.value) || 0) : state.startValue
+      onDragEndRef.current(finalValue)
+    } else {
+      // 触发 input 的 focus -> blur，让 InputNumber 内部走 onBlur 逻辑提交值
+      if (state.inputEl) {
+        state.inputEl.focus()
+        state.inputEl.blur()
+      }
     }
 
     state.isDragging = false

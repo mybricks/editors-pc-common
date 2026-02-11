@@ -1,4 +1,4 @@
-import React, { useState, useCallback, CSSProperties } from "react";
+import React, { useState, useCallback, useRef, CSSProperties } from "react";
 
 import {
   Panel,
@@ -18,6 +18,7 @@ import {
 import { splitValueAndUnit } from "../../utils";
 import { isObject } from "../../../../util/lodash/isObject";
 import { PanelBaseProps } from "../../type";
+import { useDragNumber } from "../../hooks";
 import uniq from "lodash/uniq";
 
 interface FontProps extends PanelBaseProps {
@@ -118,6 +119,9 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
         .filter(Boolean)
         .map((item) => item.trim().replace(/^"|"$/g, ""))
   );
+  const getDragPropsFontSize = useDragNumber({ continuous: true });
+  const getDragPropsLineHeight = useDragNumber({ continuous: true });
+  const getDragPropsLetterSpacing = useDragNumber({ continuous: true });
 
   function mergeFonts(additionalFonts: string[]) {
     // 去除空格去重
@@ -170,6 +174,9 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
   const [lineHeight, setLineHeight] = useState<string | number>(
     value.lineHeight!
   );
+  
+  const throttleTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const lastUpdateTimeRef = useRef<number>(0);
 
   const onFontSizeChange = useCallback(
     (fontSize: string | number) => {
@@ -179,27 +186,49 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
       if (fontSizeUnit === "px") {
         const fontSizeNumber = Number(fontSizeValue);
         const lineHeightNumber = fontSizeNumber + 8; // 根据fontSizeNumber需设置的行高
-        if (lineHeightUnit === "px") {
-          onLineHeightChange(`${lineHeightNumber}px`, fontSize);
-        } else if (lineHeightUnit === "%") {
-          onLineHeightChange(
-            `${parseFloat(
-              ((lineHeightNumber * 100) / fontSizeNumber).toFixed(4)
-            )}%`,
-            fontSize
-          );
-        } else if (!isNaN(Number(lineHeight))) {
-          // parseFloat和toFixed保留四位小数并去除尾0 防止上下键无法增减
-          onLineHeightChange(
-            `${parseFloat((lineHeightNumber / fontSizeNumber).toFixed(4))}`,
-            fontSize
-          );
-        } else {
-          onLineHeightChange(
-            `${parseFloat((lineHeightNumber / fontSizeNumber).toFixed(4))}`,
-            fontSize
-          );
+        
+        const executeUpdate = () => {
+          if (lineHeightUnit === "px") {
+            onLineHeightChange(`${lineHeightNumber}px`, fontSize);
+          } else if (lineHeightUnit === "%") {
+            onLineHeightChange(
+              `${parseFloat(
+                ((lineHeightNumber * 100) / fontSizeNumber).toFixed(4)
+              )}%`,
+              fontSize
+            );
+          } else if (!isNaN(Number(lineHeight))) {
+            // 计算倍数并保留一位小数，避免拖拽时出现过多小数位
+            const ratio = lineHeightNumber / fontSizeNumber;
+            const roundedRatio = Math.round(ratio * 10) / 10;
+            onLineHeightChange(`${roundedRatio}`, fontSize);
+          } else {
+            // 计算倍数并保留一位小数，避免拖拽时出现过多小数位
+            const ratio = lineHeightNumber / fontSizeNumber;
+            const roundedRatio = Math.round(ratio * 10) / 10;
+            onLineHeightChange(`${roundedRatio}`, fontSize);
+          }
+        };
+        
+        // 使用节流控制更新频率，每200ms最多更新一次
+        const now = Date.now();
+        if (now - lastUpdateTimeRef.current < 200) {
+          // 清除之前的定时器
+          if (throttleTimerRef.current) {
+            clearTimeout(throttleTimerRef.current);
+          }
+          // 设置新的定时器，确保最后一次更新能执行
+          throttleTimerRef.current = setTimeout(() => {
+            lastUpdateTimeRef.current = Date.now();
+            executeUpdate();
+          }, 200);
+          // 先只更新字体大小
+          onChange({ key: "fontSize", value: fontSize });
+          return;
         }
+        
+        lastUpdateTimeRef.current = now;
+        executeUpdate();
       } else {
         // 需要修改lineHeight就合并，不需要就单独修改
         onChange({ key: "fontSize", value: fontSize });
@@ -319,16 +348,30 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
           )}
 
           {cfg.disableFontSize ? null : (
-            <InputNumber
-              tip="字号"
-              type="number"
-              style={{ flex: 1 }}
-              prefix={<FontSizeOutlined />}
-              defaultValue={value.fontSize}
-              unitOptions={FONT_SIZE_OPTIONS}
-              // unitDisabledList={FONT_SIZE_DISABLED_LIST}
-              onChange={onFontSizeChange}
-            />
+            <Panel.Item style={{ display: "flex", alignItems: "center", flex: 1, padding: "0 8px" }}>
+              <div 
+                {...getDragPropsFontSize(value.fontSize, '拖拽调整字号')}
+                style={{ 
+                  height: "100%", 
+                  display: "flex", 
+                  alignItems: "center", 
+                  justifyContent: "center", 
+                  minWidth: 15,
+                  cursor: "ew-resize"
+                }}
+              >
+                <FontSizeOutlined />
+              </div>
+              <InputNumber
+                tip="字号"
+                type="number"
+                style={{ flex: 1, marginLeft: 4 }}
+                defaultValue={value.fontSize}
+                unitOptions={FONT_SIZE_OPTIONS}
+                // unitDisabledList={FONT_SIZE_DISABLED_LIST}
+                onChange={onFontSizeChange}
+              />
+            </Panel.Item>
           )}
         </Panel.Content>
       )}
@@ -337,28 +380,56 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
         cfg.disableFontSize ? null : (
         <Panel.Content>
           {cfg.disableLineHeight ? null : (
-            <InputNumber
-              tip="行高"
-              type="number"
-              style={{ flex: 1 }}
-              prefix={<LineHeightOutlined />}
-              value={['unset', 'normal', 'inherit'].includes(lineHeight as string) ? '1' : lineHeight}
-              unitOptions={LINEHEIGHT_UNIT_OPTIONS}
-              // unitDisabledList={LINEHEIGHT_UNIT_DISABLED_LIST}
-              onChange={onLineHeightChange}
-            />
+            <Panel.Item style={{ display: "flex", alignItems: "center", flex: 1, padding: "0 8px" }}>
+              <div 
+                {...getDragPropsLineHeight(lineHeight, '拖拽调整行高')}
+                style={{ 
+                  height: "100%", 
+                  display: "flex", 
+                  alignItems: "center", 
+                  justifyContent: "center", 
+                  minWidth: 15,
+                  cursor: "ew-resize"
+                }}
+              >
+                <LineHeightOutlined />
+              </div>
+              <InputNumber
+                tip="行高"
+                type="number"
+                style={{ flex: 1, marginLeft: 4 }}
+                value={['unset', 'normal', 'inherit'].includes(lineHeight as string) ? '1' : lineHeight}
+                unitOptions={LINEHEIGHT_UNIT_OPTIONS}
+                // unitDisabledList={LINEHEIGHT_UNIT_DISABLED_LIST}
+                onChange={onLineHeightChange}
+              />
+            </Panel.Item>
           )}
           {cfg.disableLetterSpacing ? null : (
-            <InputNumber
-              tip="字间距"
-              type="number"
-              style={{ flex: 1 }}
-              prefix={<LetterSpacingOutlined />}
-              defaultValue={value.letterSpacing}
-              unitOptions={LETTERSPACING_UNIT_OPTIONS}
-              // unitDisabledList={LETTERSPACING_UNIT_DISABLED_LIST}
-              onChange={(value) => onChange({ key: "letterSpacing", value })}
-            />
+            <Panel.Item style={{ display: "flex", alignItems: "center", flex: 1, padding: "0 8px" }}>
+              <div 
+                {...getDragPropsLetterSpacing(value.letterSpacing, '拖拽调整字间距')}
+                style={{ 
+                  height: "100%", 
+                  display: "flex", 
+                  alignItems: "center", 
+                  justifyContent: "center", 
+                  minWidth: 15,
+                  cursor: "ew-resize"
+                }}
+              >
+                <LetterSpacingOutlined />
+              </div>
+              <InputNumber
+                tip="字间距"
+                type="number"
+                style={{ flex: 1, marginLeft: 4 }}
+                defaultValue={value.letterSpacing}
+                unitOptions={LETTERSPACING_UNIT_OPTIONS}
+                // unitDisabledList={LETTERSPACING_UNIT_DISABLED_LIST}
+                onChange={(value) => onChange({ key: "letterSpacing", value })}
+              />
+            </Panel.Item>
           )}
         </Panel.Content>
       )}

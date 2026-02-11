@@ -38,5 +38,16 @@
     &:disabled {
       cursor: not-allowed;
     }
+
+    /* 隐藏 number 类型输入框的上下箭头 */
+    &[type="number"]::-webkit-inner-spin-button,
+    &[type="number"]::-webkit-outer-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+
+    &[type="number"] {
+      -moz-appearance: textfield;
+    }
   }
 }

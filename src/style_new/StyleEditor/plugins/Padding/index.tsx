@@ -113,7 +113,7 @@ export function Padding({value, onChange, config, showTitle, collapse}: PaddingP
                 <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
                   <div 
                     className={css.icon} 
-                    {...getDragProps(paddingValue.paddingLeft, '拖拽调整左边距')}
+                    {...getDragProps(paddingValue.paddingLeft, '拖拽调整左内边距')}
                   >
                     <PaddingLeftOutlined/>
                   </div>
@@ -130,7 +130,7 @@ export function Padding({value, onChange, config, showTitle, collapse}: PaddingP
                 <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
                   <div 
                     className={css.icon} 
-                    {...getDragProps(paddingValue.paddingTop, '拖拽调整上边距')}
+                    {...getDragProps(paddingValue.paddingTop, '拖拽调整上内边距')}
                   >
                     <PaddingTopOutlined/>
                   </div>
@@ -149,7 +149,7 @@ export function Padding({value, onChange, config, showTitle, collapse}: PaddingP
                 <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
                   <div 
                     className={css.icon} 
-                    {...getDragProps(paddingValue.paddingRight, '拖拽调整右边距')}
+                    {...getDragProps(paddingValue.paddingRight, '拖拽调整右内边距')}
                   >
                     <PaddingRightOutlined/>
                   </div>
@@ -166,7 +166,7 @@ export function Padding({value, onChange, config, showTitle, collapse}: PaddingP
                 <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
                   <div 
                     className={css.icon} 
-                    {...getDragProps(paddingValue.paddingBottom, '拖拽调整下边距')}
+                    {...getDragProps(paddingValue.paddingBottom, '拖拽调整下内边距')}
                   >
                     <PaddingBottomOutlined/>
                   </div>

@@ -8,14 +8,14 @@ import React, {
 import {
   Panel,
   InputNumber,
-  MarginAllOutlined,
-  MarginTopOutlined,
-  MarginLeftOutlined,
-  MarginRightOutlined,
-  MarginBottomOutlined
+  PaddingAllOutlined,
+  PaddingTopOutlined,
+  PaddingLeftOutlined,
+  PaddingRightOutlined,
+  PaddingBottomOutlined
 } from '../../components'
 import { allEqual } from '../../utils'
-import { useUpdateEffect } from '../../hooks'
+import { useUpdateEffect, useDragNumber } from '../../hooks'
 
 import type { ChangeEvent, PanelBaseProps } from '../../type'
 
@@ -44,8 +44,9 @@ const DEFAULT_CONFIG = {
 export function Margin ({value, onChange, config, showTitle, collapse}: MarginProps) {
   const [toggle, setToggle] = useState(getToggleDefaultValue(value))
   const [marginValue, setMarginValue] = useState({...value})
-  // const [splitMarginIcon, setSplitMarginIcon] = useState(<MarginTopOutlined />)
-  const [splitMarginIcon, setSplitMarginIcon] = useState(<MarginTopOutlined />)
+  const [forceRenderKey, setForceRenderKey] = useState<number>(Math.random())
+  const [splitMarginIcon, setSplitMarginIcon] = useState(<PaddingTopOutlined />)
+  const getDragProps = useDragNumber({ continuous: true })
 
   const cfg = useMemo(() => ({ ...DEFAULT_CONFIG, ...(config ?? {}) }), [config]);
 
@@ -78,17 +79,20 @@ export function Margin ({value, onChange, config, showTitle, collapse}: MarginPr
   const marginConfig = useMemo(() => {
     if (toggle) {
       return (
-        <div className={css.row}>
+        <div className={css.row}
+        >
           <Panel.Content style={{padding: 3}}>
             <Panel.Item className={css.editArea} style={{padding: '0px 8px'}}>
-              <div className={css.icon}>
-                <MarginAllOutlined />
+              <div 
+                className={css.icon}
+                {...getDragProps(marginValue.marginTop, `{content:'拖拽调整外边距',position:'top'}`)}
+              >
+                <PaddingAllOutlined />
               </div>
               <InputNumber
-                data-mybricks-tip={"内边距"}
                 style={DEFAULT_STYLE}
                 defaultValue={marginValue.marginTop}
-                // suffix={'px'}
+                defaultUnitValue="px"
                 allowNegative
                 onChange={(value) => handleChange({
                   marginTop: value,
@@ -96,104 +100,125 @@ export function Margin ({value, onChange, config, showTitle, collapse}: MarginPr
                   marginBottom: value,
                   marginLeft: value,
                 })}
+                tip={`{content:'外边距',position:'top'}`}
               />
             </Panel.Item>
           </Panel.Content>
           <div
-            data-mybricks-tip={`{content:'统一设置',position:'left'}`}
+            data-mybricks-tip={`{content:'切换为单独配置',position:'left'}`}
             className={css.actionIcon}
             onClick={() => setToggle(false)}
           >
-            <MarginAllOutlined />
+            <PaddingAllOutlined />
           </div>
         </div>
       )
     } else {
       return (
-        <div className={css.row}>
-          <Panel.Content style={{padding: 3}}>
-            <Panel.Item className={css.editArea} style={{padding: '0px 8px'}}>
-              {
-                cfg.disableMarginTop ? null : <>
-                  <div className={css.icon} data-mybricks-tip={"上边距"}>
-                    <MarginTopOutlined />
+        <div className={css.independentBox}>
+          <div style={{ minWidth: "120px", flex: 1 }}>
+            <div className={css.row} style={{ paddingRight: 0 }}>
+              <Panel.Content style={{ padding: 3 }}>
+                <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
+                  <div 
+                    className={css.icon} 
+                    {...getDragProps(marginValue.marginLeft, '拖拽调整左外边距')}
+                  >
+                    <PaddingLeftOutlined/>
                   </div>
                   <InputNumber
-                    tip='上边距'
-                    style={DEFAULT_STYLE}
-                    defaultValue={marginValue.marginTop}
-                    // suffix={'px'}
-                    allowNegative
-                    onFocus={() => setSplitMarginIcon(<MarginTopOutlined />)}
-                    onChange={(value) => handleChange({marginTop: value})}
-                  />
-                </>
-              }
-              {
-                cfg.disableMarginRight ? null : <>
-                  <div className={css.icon} data-mybricks-tip={"右边距"}>
-                    <MarginRightOutlined />
-                  </div>
-                  <InputNumber
-                    tip='右边距'
-                    style={DEFAULT_STYLE}
-                    defaultValue={marginValue.marginRight}
-                    // suffix={'px'}
-                    allowNegative
-                    onFocus={() => setSplitMarginIcon(<MarginRightOutlined />)}
-                    onChange={(value) => handleChange({marginRight: value})}
-                  />
-                </>
-              }
-              {
-                cfg.disableMarginBottom ? null : <>
-                  <div className={css.icon} data-mybricks-tip={"下边距"}>
-                    <MarginBottomOutlined />
-                  </div>
-                  <InputNumber
-                    tip='下边距'
-                    style={DEFAULT_STYLE}
-                    defaultValue={marginValue.marginBottom}
-                    // suffix={'px'}
-                    allowNegative
-                    onFocus={() => setSplitMarginIcon(<MarginBottomOutlined />)}
-                    onChange={(value) => handleChange({marginBottom: value})}
-                  />
-                </>
-              }
-              {
-                cfg.disableMarginLeft ? null : <>
-                  <div className={css.icon} data-mybricks-tip={"左边距"}>
-                    <MarginLeftOutlined />
-                  </div>
-                  <InputNumber
-                    tip='左边距'
                     style={DEFAULT_STYLE}
                     defaultValue={marginValue.marginLeft}
-                    // suffix={'px'}
+                    defaultUnitValue="px"
                     allowNegative
-                    onFocus={() => setSplitMarginIcon(<MarginLeftOutlined />)}
                     onChange={(value) => handleChange({marginLeft: value})}
+                    onFocus={() => setSplitMarginIcon(<PaddingLeftOutlined/>)}
                   />
-                </>
-              }
-            </Panel.Item>
-          </Panel.Content>
+                </Panel.Item>
+              </Panel.Content>
+              <Panel.Content style={{ padding: 3 }}>
+                <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
+                  <div 
+                    className={css.icon} 
+                    {...getDragProps(marginValue.marginTop, '拖拽调整上外边距')}
+                  >
+                    <PaddingTopOutlined/>
+                  </div>
+                  <InputNumber
+                    style={DEFAULT_STYLE}
+                    defaultValue={marginValue.marginTop}
+                    defaultUnitValue="px"
+                    allowNegative
+                    onChange={(value) => handleChange({marginTop: value})}
+                    onFocus={() => setSplitMarginIcon(<PaddingTopOutlined/>)}
+                  />
+                </Panel.Item>
+              </Panel.Content>
+            </div>
+            <div className={css.row} style={{ paddingRight: 0 }}>
+              <Panel.Content style={{ padding: 3 }}>
+                <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
+                  <div 
+                    className={css.icon} 
+                    {...getDragProps(marginValue.marginRight, '拖拽调整右外边距')}
+                  >
+                    <PaddingRightOutlined/>
+                  </div>
+                  <InputNumber
+                    style={DEFAULT_STYLE}
+                    defaultValue={marginValue.marginRight}
+                    defaultUnitValue="px"
+                    allowNegative
+                    onChange={(value) => handleChange({marginRight: value})}
+                    onFocus={() => setSplitMarginIcon(<PaddingRightOutlined/>)}
+                  />
+                </Panel.Item>
+              </Panel.Content>
+              <Panel.Content style={{ padding: 3 }}>
+                <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
+                  <div 
+                    className={css.icon} 
+                    {...getDragProps(marginValue.marginBottom, '拖拽调整下外边距')}
+                  >
+                    <PaddingBottomOutlined/>
+                  </div>
+                  <InputNumber
+                    style={DEFAULT_STYLE}
+                    defaultValue={marginValue.marginBottom}
+                    defaultUnitValue="px"
+                    allowNegative
+                    onChange={(value) => handleChange({marginBottom: value})}
+                    onFocus={() => setSplitMarginIcon(<PaddingBottomOutlined/>)}
+                  />
+                </Panel.Item>
+              </Panel.Content>
+            </div>
+          </div>
+
           <div
-            data-mybricks-tip={`{content:'切换编辑方式',position:'left'}`}
-            className={css.actionIcon}
+            data-mybricks-tip={`{content:'切换为统一配置',position:'left'}`}
+            className={css.independentActionIcon}
             onClick={() => setToggle(true)}
           >
-            <MarginTopOutlined />
+            <PaddingAllOutlined/>
           </div>
         </div>
       )
     }
-  }, [toggle, splitMarginIcon])
+  }, [toggle, splitMarginIcon, marginValue, getDragProps, handleChange])
+
+  const refresh = useCallback(() => {
+    const marginKeys = ['marginTop', 'marginRight', 'marginBottom', 'marginLeft']
+    onChange(marginKeys.map(key => ({ key, value: null })))
+    setMarginValue({} as any)
+    setForceRenderKey(prev => prev + 1)
+  }, [onChange])
 
   return (
-    <Panel title='外边距' showTitle={showTitle} collapse={collapse}>
-      {marginConfig}
+    <Panel title='外边距' showTitle={showTitle} showReset={true} resetFunction={refresh} collapse={collapse}>
+      <React.Fragment key={forceRenderKey}>
+        {marginConfig}
+      </React.Fragment>
     </Panel>
   )
 }
