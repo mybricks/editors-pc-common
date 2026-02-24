@@ -40,6 +40,7 @@ function getDocument() {
 export default function ({editConfig}: EditorProps) {
   const [titleContent, setTitleContent] = useState("");
   const [targetStyle, setTargetStyle] = useState<any>(null);
+
   const [
     {
       finalOpen,
@@ -83,6 +84,7 @@ export default function ({editConfig}: EditorProps) {
       )
       config.collapsedOptions = allOptionKeys
     }
+
     return [config]
   }, [editMode, key])
 
@@ -571,6 +573,7 @@ function getDefaultConfiguration ({value, options}: GetDefaultConfigurationProps
   let defaultValue: CSSProperties = {}
   let finalSelector
   const setValue = deepCopy(value.get() || {})
+
   let getDefaultValue = true
   let dom;
   let effctedOptions: string[] | null = null;
@@ -617,6 +620,7 @@ function getDefaultConfiguration ({value, options}: GetDefaultConfigurationProps
     
     // 如果有真实DOM就用DOM，否则对于伪元素选择器使用selector逻辑
     const realSelector = Array.isArray(selector) ? selector[0] : selector;
+
     const isPseudoSelector = typeof realSelector === 'string' && /:(:)?[a-zA-Z0-9\-\_]+/.test(realSelector);
     const realDom = !!realTargetDom ? realTargetDom : null;
     if (realDom || isPseudoSelector) {
@@ -911,6 +915,7 @@ function getEffectedCssPropertyAndOptions (element: HTMLElement | null, selector
         computedValues = window.getComputedStyle(element)
       }
     } else if (selector) {
+
       // 处理纯selector的情况（包括伪类如:hover, :disabled等）
       finalRules = getStyleRules(null, selector).filter((finalRule: any) => {
         let tempCompare
@@ -928,7 +933,6 @@ function getEffectedCssPropertyAndOptions (element: HTMLElement | null, selector
         // @ts-ignore
         return compare(a.tempCompare, b.tempCompare)
       })
-
 
       // 获取基础选择器对应的元素
       const root = getDocument()
@@ -1535,17 +1539,67 @@ function getStyleRules (element: HTMLElement | null, selector: string | null) {
   const finalRules = []
   const root = getDocument()
 
+
+
+  // 匹配选择器末尾的伪类/伪元素部分
+  // 如 :hover, :active, :focus, :disabled, ::before, ::after, :nth-child(2) 等
+  const PSEUDO_REGEX = /(:{1,2}[a-zA-Z\-]+(?:\([^)]*\))?)$/
+
+
+  // 提取目标 selector 中的伪类部分
+  const selectorPseudoMatch = selector ? selector.match(PSEUDO_REGEX) : null
+  const selectorPseudo = selectorPseudoMatch ? selectorPseudoMatch[0] : null
+
   for (let i = 0; i < root.styleSheets.length; i++) {
     try {
       const sheet = root.styleSheets[i]
       const rules = sheet.cssRules ? sheet.cssRules : sheet.rules
-  
+
       for (let j = 0; j < rules.length; j++) {
         const rule = rules[j]
         if (rule instanceof CSSStyleRule) {
           const { selectorText } = rule
-          if ((element && element.matches(selectorText)) || selector === selectorText) {
+
+          if (selectorPseudo && element) {
+            // 有伪类 + 有真实DOM：去掉伪类后用 element.matches 匹配基础选择器
+            const rulePseudoMatch = selectorText.match(PSEUDO_REGEX)
+            const rulePseudo = rulePseudoMatch ? rulePseudoMatch[0] : null
+            if (rulePseudo === selectorPseudo) {
+              const ruleBase = selectorText.slice(0, selectorText.length - rulePseudo.length).trim()
+              try {
+                if (element.matches(ruleBase)) {
+                  finalRules.push(rule)
+                }
+              } catch {}
+            }
+          } else if (selectorPseudo && !element && selector === selectorText) {
+            // 有伪类 + 无真实DOM：直接全文匹配
             finalRules.push(rule)
+          } else {
+            // 无伪类分支
+
+            // 过滤掉:has(...)、:hover 防止默认态回显被污染
+            const ruleHasAnyPseudo = /:[a-zA-Z\-]/.test(selectorText)
+            if (!ruleHasAnyPseudo) {
+              try {
+                const elementMatches = element && element.matches(selectorText)
+
+                if (elementMatches) {
+                  
+                  if (selector && elementMatches) {
+                    // 判断最后一个 token 是否与 selector 完全相等
+                    const lastSegment = selectorText.split(' ').pop() || selectorText
+                    const classTokens = lastSegment.split('.').filter(Boolean)
+                    const lastToken = classTokens.length > 0 ? '.' + classTokens[classTokens.length - 1] : lastSegment
+                    if (lastToken === selector) {
+                      finalRules.push(rule)
+                    }
+                  } else {
+                    finalRules.push(rule)
+                  }
+                }
+              } catch {}
+            }
           }
         }
       }
