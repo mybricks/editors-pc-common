@@ -50,6 +50,17 @@ const DEFAULT_CONFIG = {
 export function Size({value, onChange, config, showTitle, collapse}: SizeProps) {
   const [cfg] = useState({...DEFAULT_CONFIG, ...config});
 
+  const refresh = useCallback(() => {
+    onChange([
+      { key: 'width', value: null },
+      { key: 'height', value: null },
+      { key: 'maxWidth', value: null },
+      { key: 'maxHeight', value: null },
+      { key: 'minWidth', value: null },
+      { key: 'minHeight', value: null },
+    ]);
+  }, [onChange]);
+
   // 拖拽结束时暂存值，用于在父组件回传新值前立即让 InputNumber 以正确的值/单位重新挂载
   const [widthPending, setWidthPending] = useState<string | undefined>();
   const [heightPending, setHeightPending] = useState<string | undefined>();
@@ -102,7 +113,7 @@ export function Size({value, onChange, config, showTitle, collapse}: SizeProps) 
   });
 
   return (
-    <Panel title="尺寸" showTitle={showTitle} collapse={collapse}>
+    <Panel title="尺寸" showTitle={showTitle} showReset={true} resetFunction={refresh} collapse={collapse}>
       {!(cfg.disableWidth && cfg.disableHeight) && (
         <Panel.Content>
           {cfg.disableWidth ? null : (
