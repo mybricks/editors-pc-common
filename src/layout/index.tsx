@@ -16,12 +16,34 @@ interface LayoutProps {
   flexWrap: CSSProperties["flexWrap"];
   rowGap: CSSProperties["rowGap"];
   columnGap: CSSProperties["columnGap"];
+  overflow?: CSSProperties["overflow"] | "visible" | "hidden";
   paddingType: "independentPadding" | "dependentPadding";
   padding: CSSProperties["padding"];
   paddingTop: CSSProperties["paddingTop"];
   paddingRight: CSSProperties["paddingRight"];
   paddingBottom: CSSProperties["paddingBottom"];
   paddingLeft: CSSProperties["paddingLeft"];
+}
+
+/** 写出：将样式对象中的裸数字值补上 px 单位（仅 number 类型触发，字符串原样保留） */
+function normalizePx(style: Record<string, unknown>): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+  for (const [key, val] of Object.entries(style)) {
+    result[key] = typeof val === "number" ? `${val}px` : val;
+  }
+  return result;
+}
+
+/** 读入：将 "11px" 形式的 px 字符串还原为数字，供内部 InputNumber 组件正常回显 */
+function parsePxValues(style: Record<string, unknown>): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+  for (const [key, val] of Object.entries(style)) {
+    result[key] =
+      typeof val === "string" && /^-?\d+(\.\d+)?px$/.test(val)
+        ? parseFloat(val)
+        : val;
+  }
+  return result;
 }
 
 const defaultOptions = {
@@ -35,7 +57,7 @@ const defaultOptions = {
 const defaultValue = {
   display: "flex",
   position: "inherit",
-  flexDirection: "column",
+  flexDirection: "row",
   alignItems: "flex-start",
   justifyContent: "flex-start",
   flexWrap: "nowrap",
@@ -47,21 +69,22 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
   const { value, options } = editConfig;
   let option = typeof options === "function" ? options() : { ...options };
   option = { ...defaultOptions, ...option };
-  const _value = value.get();
+  const _value = parsePxValues(value.get() || {});
 
   const [model, setModel] = useState<LayoutProps>({
     ...defaultValue,
     ..._value,
-    position: ["absolute", "smart", "inherit"].includes(_value.position) 
-      ? _value.position 
-      : "inherit"
+    position: ["absolute", "smart", "inherit"].includes(_value.position)
+      ? _value.position
+      : "inherit",
   });
 
+  const initialFlexDirection = _value.flexDirection ?? defaultValue.flexDirection;
   const [rowFlexWrap, setRowFlexWrap] = useState<CSSProperties["flexWrap"]>(
-    _value.flexDirection === "row" ? (_value.flexWrap || defaultValue.flexWrap) : "nowrap"
+    initialFlexDirection === "row" ? (_value.flexWrap || defaultValue.flexWrap) : "nowrap"
   );
   const [columnFlexWrap, setColumnFlexWrap] = useState<CSSProperties["flexWrap"]>(
-    _value.flexDirection === "column" ? (_value.flexWrap || defaultValue.flexWrap) : "nowrap"
+    initialFlexDirection === "column" ? (_value.flexWrap || defaultValue.flexWrap) : "nowrap"
   );
 
   const updateValue = useCallback(
@@ -83,7 +106,7 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
       value.set(
         style.position === "smart"
           ? { position: "smart" }
-          : { ...model, ...style }
+          : normalizePx({ ...model, ...style })
       );
     },
     [model]
@@ -203,6 +226,28 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
     ) : null;
   };
 
+  const renderOverflow = () => {
+    const isHidden = model.overflow === "hidden";
+    const toggle = () => {
+      const overflow = isHidden ? "visible" : "hidden";
+      const newModel = { ...model, overflow };
+      setModel(newModel);
+      value.set(normalizePx(newModel));
+    };
+    return (
+      <div className={styles.overflowRow} onClick={toggle}>
+        <div className={`${styles.checkbox} ${isHidden ? styles.checkboxChecked : ""}`}>
+          {isHidden && (
+            <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+              <path d="M1 3.5L3.8 6.5L9 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          )}
+        </div>
+        <span className={styles.overflowLabel}>超出容器不显示</span>
+      </div>
+    );
+  };
+
   //边距渲染
   const renderPadding = () => {
     const onPaddingToggle = (
@@ -240,12 +285,8 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
 
   return (
     <div>
+      {renderFlexDirection()}
       <div className={styles.layout}>
-        <div className={styles.left}>
-          {renderFlexDirection()}
-          {renderJustifyContent()}
-          {renderGap()}
-        </div>
         <div className={styles.centerLayout}>
           <div
             className={styles.right}
@@ -259,9 +300,12 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
             {renderAlignItems()}
           </div>
         </div>
-        {/* <div className={styles.rightLayout}>{renderJustifyContent()}</div> */}
+        <div className={styles.left}>
+          {renderGap()}
+          {renderJustifyContent()}
+        </div>
       </div>
-      {/* {renderPadding()} */}
+      {renderOverflow()}
     </div>
   );
 }

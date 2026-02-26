@@ -262,8 +262,21 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
     [lineHeight]
   );
 
+  const refresh = useCallback(() => {
+    onChange([
+      { key: 'color', value: null },
+      { key: 'fontSize', value: null },
+      { key: 'fontWeight', value: null },
+      { key: 'fontFamily', value: null },
+      { key: 'lineHeight', value: null },
+      { key: 'letterSpacing', value: null },
+      { key: 'textAlign', value: null },
+      { key: 'whiteSpace', value: null },
+    ]);
+  }, [onChange]);
+
   return (
-    <Panel title="字体" showTitle={showTitle} collapse={collapse}>
+    <Panel title="字体" showTitle={showTitle} showReset={true} resetFunction={refresh} collapse={collapse}>
 
       {cfg.disableFontFamily ? null : (
         <Panel.Content>

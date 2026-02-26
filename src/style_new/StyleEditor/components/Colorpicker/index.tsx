@@ -312,7 +312,7 @@ function ColorSketch({
   }, 300)
 
   return (
-    <div ref={childRef} className={css.colorSketch} onFocus={(e) => e.stopPropagation()}>
+    <div ref={childRef} className={css.colorSketch} data-dropdown-portal="true" onFocus={(e) => e.stopPropagation()}>
       {window.MYBRICKS_THEME_PACKAGE_VARIABLES && (
         <div className={css.header}>
           <div className={css.tabs}>

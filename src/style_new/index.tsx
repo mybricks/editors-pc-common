@@ -1,4 +1,4 @@
-import React, {CSSProperties, useCallback, useMemo, useRef, useState} from 'react'
+import React, {CSSProperties, useCallback, useMemo, useRef, useState,useEffect} from 'react'
 import {createPortal} from "react-dom";
 
 // @ts-ignore
@@ -358,9 +358,14 @@ interface StyleProps extends EditorProps {
 }
 function Style ({editConfig, options, setValue, collapsedOptions, autoCollapseWhenUnusedProperty, finnalExcludeOptions, defaultValue }: StyleProps) {
   const handleChange: ChangeEvent = useCallback((value) => {
+    // 每次操作开始前清空上次可能残留的删除信号，防止普通组件的删除操作污染 AI 组件
+    ;(window as any).__mybricks_style_deletions = null
+    const deletedKeys: string[] = []
+
     if (Array.isArray(value)) {
       value.forEach(({key, value}) => {
         if (value === null) {
+          deletedKeys.push(key)
           delete setValue[key]
         } else {
           setValue[key] = value
@@ -368,14 +373,21 @@ function Style ({editConfig, options, setValue, collapsedOptions, autoCollapseWh
       })
     } else {
       if (value.value === null) {
+        deletedKeys.push(value.key)
         delete setValue[value.key]
       } else {
         setValue[value.key] = value.value;
       }
     }
 
-    // 计算合并后的CssProperties，可以精简 CSS 属性
+    // 删除信号通过 window 侧通道传递给 valueProxy.set，
+    // 不污染 editConfig.value（代码编辑器不会看到 null 值）
+    if (deletedKeys.length > 0) {
+      (window as any).__mybricks_style_deletions = deletedKeys
+    }
+
     const mergedCssProperties = mergeCSSProperties(deepCopy(setValue))
+
     editConfig.value.set(mergedCssProperties)
   }, [])
 
@@ -665,14 +677,21 @@ function getDefaultConfiguration ({value, options}: GetDefaultConfigurationProps
     })
   }
 
+  const splitedSetValue = splitCSSProperties(setValue)
+
+  const setValueEffectedPanels = new Set<string>();
+  Object.keys(splitedSetValue).forEach(property => {
+    if (PANEL_MAP[property]) {
+      setValueEffectedPanels.add(PANEL_MAP[property])
+    }
+  })
+
   let collapsedOptions: any = [];
   if (effctedOptions) {
     collapsedOptions = finalOptions.map(t => {
       return typeof t === 'string' ? t.toLowerCase() : t?.type.toLowerCase()
-    }).filter(t => !effctedOptions.includes(t))
+    }).filter(t => !effctedOptions.includes(t) && !setValueEffectedPanels.has(t))
   }
-
-  const splitedSetValue = splitCSSProperties(setValue)
 
   return {
     options: finalOptions,
@@ -1536,19 +1555,18 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration) 
 
 // 修改getStyleRules函数以更好地处理伪类选择器
 function getStyleRules (element: HTMLElement | null, selector: string | null) {
-  const finalRules = []
+  const finalRules = [] // 最终返回的规则
   const root = getDocument()
+  const PSEUDO_REGEX = /(:{1,2}[a-zA-Z\-]+(?:\([^)]*\))?)$/    // 匹配选择器末尾的伪类/伪元素部分 如 :hover等
 
 
-
-  // 匹配选择器末尾的伪类/伪元素部分
-  // 如 :hover, :active, :focus, :disabled, ::before, ::after, :nth-child(2) 等
-  const PSEUDO_REGEX = /(:{1,2}[a-zA-Z\-]+(?:\([^)]*\))?)$/
-
-
-  // 提取目标 selector 中的伪类部分
+  // 提取目标 selector 末尾的伪类部分（如 :hover、:active、::before）
   const selectorPseudoMatch = selector ? selector.match(PSEUDO_REGEX) : null
   const selectorPseudo = selectorPseudoMatch ? selectorPseudoMatch[0] : null
+
+  // 用于区分三种匹配情况
+  const isPseudoSelector = !!selectorPseudo
+  const hasRealDom      = !!element
 
   for (let i = 0; i < root.styleSheets.length; i++) {
     try {
@@ -1557,51 +1575,55 @@ function getStyleRules (element: HTMLElement | null, selector: string | null) {
 
       for (let j = 0; j < rules.length; j++) {
         const rule = rules[j]
-        if (rule instanceof CSSStyleRule) {
-          const { selectorText } = rule
+        if (!(rule instanceof CSSStyleRule)) continue
+        const { selectorText } = rule
 
-          if (selectorPseudo && element) {
-            // 有伪类 + 有真实DOM：去掉伪类后用 element.matches 匹配基础选择器
-            const rulePseudoMatch = selectorText.match(PSEUDO_REGEX)
-            const rulePseudo = rulePseudoMatch ? rulePseudoMatch[0] : null
-            if (rulePseudo === selectorPseudo) {
-              const ruleBase = selectorText.slice(0, selectorText.length - rulePseudo.length).trim()
-              try {
-                if (element.matches(ruleBase)) {
-                  finalRules.push(rule)
-                }
-              } catch {}
-            }
-          } else if (selectorPseudo && !element && selector === selectorText) {
-            // 有伪类 + 无真实DOM：直接全文匹配
-            finalRules.push(rule)
-          } else {
-            // 无伪类分支
-
-            // 过滤掉:has(...)、:hover 防止默认态回显被污染
-            const ruleHasAnyPseudo = /:[a-zA-Z\-]/.test(selectorText)
-            if (!ruleHasAnyPseudo) {
-              try {
-                const elementMatches = element && element.matches(selectorText)
-
-                if (elementMatches) {
-                  
-                  if (selector && elementMatches) {
-                    // 判断最后一个 token 是否与 selector 完全相等
-                    const lastSegment = selectorText.split(' ').pop() || selectorText
-                    const classTokens = lastSegment.split('.').filter(Boolean)
-                    const lastToken = classTokens.length > 0 ? '.' + classTokens[classTokens.length - 1] : lastSegment
-                    if (lastToken === selector) {
-                      finalRules.push(rule)
-                    }
-                  } else {
-                    finalRules.push(rule)
-                  }
-                }
-              } catch {}
-            }
-          }
+        // ─── 情况1：编辑伪类态 + 有真实DOM ────────────────────────────────────
+        // 例：selector=".mainBtn:hover"，element=<div class="mainBtn">
+        // 策略：规则的伪类必须与目标相同，再剥掉伪类用 element.matches 验证基础选择器
+        if (isPseudoSelector && hasRealDom) {
+          const rulePseudoMatch = selectorText.match(PSEUDO_REGEX)
+          const rulePseudo = rulePseudoMatch ? rulePseudoMatch[0] : null
+          if (rulePseudo !== selectorPseudo) continue        // 伪类不同（如 :active vs :hover）直接跳过
+          const ruleBase = selectorText.slice(0, selectorText.length - rulePseudo.length).trim()
+          try {
+            if (element.matches(ruleBase)) finalRules.push(rule)
+          } catch {}
+          continue
         }
+
+        // ─── 情况2：编辑伪类态 + 无真实DOM（antd 全局伪类规则）──────────────
+        // 例：selector=".ant-btn:not(:disabled):hover"，element=null
+        // 策略：没有 DOM 节点可做 matches，用字符串匹配
+        // 同时兼容平台加了作用域前缀的规则（selectorText = ".u_xxx .ant-btn:...:hover"）
+        // 和 antd 注入的全局规则（selectorText = ".ant-btn:...:hover"）
+        if (isPseudoSelector && !hasRealDom && selector) {
+          // antd 全局规则：selectorText 与 selector 完全一致
+          const isGlobalRule = selectorText === selector
+          // 用户自定义规则：平台加了作用域前缀，格式为 "[scope] [selector]"
+          const isScopedRule = selectorText.endsWith(' ' + selector)
+          if (isGlobalRule || isScopedRule) finalRules.push(rule)
+          continue
+        }
+
+        // ─── 情况3：编辑默认态（selector 无伪类）────────────────────────────
+        // 例：selector=".tabItem"，element=<div class="tabItem active">
+        // 策略：两道过滤防止其他规则污染默认态回显
+
+        // 过滤①：规则本身含任何伪类（:has(...)、:hover 等）→ 直接跳过
+        // 防止平台注入的全局规则（如 ":has(.geoView) *"）混入默认态
+        if (/:[a-zA-Z\-]/.test(selectorText)) continue
+
+        // 过滤②：element.matches 会命中元素身上所有类的规则，
+        // 需验证规则主体（最后一个空格后的部分）的末尾 class token 与 selector 完全相等，
+        // 防止 ".tabItem.active" 在编辑默认态时被纳入（lastToken=".active" ≠ ".tabItem"）
+        try {
+          if (!element || !element.matches(selectorText)) continue
+          const lastSegment  = selectorText.split(' ').pop() || selectorText
+          const classTokens  = lastSegment.split('.').filter(Boolean)
+          const lastToken    = classTokens.length > 0 ? '.' + classTokens[classTokens.length - 1] : lastSegment
+          if (lastToken === selector) finalRules.push(rule)
+        } catch {}
       }
     } catch {}
   }

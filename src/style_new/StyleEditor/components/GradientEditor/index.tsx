@@ -284,7 +284,6 @@ export function GradientEditor({
                   style={{ flex: 5, border }}
                   onFocus={() => setCurElementId(id)}
                   onChange={(colorValue) => {
-                    console.log('GradientEditor ColorEditor onChange:', colorValue);
                     changeProperty("color", colorValue as string, id);
                     setCurElementId(id);
                   }}

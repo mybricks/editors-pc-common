@@ -39,7 +39,7 @@ export function Select({
   multiple = false,
   tip,
 }: SelectProps) {
-  const [value, setValue] = useState(propsValue || defaultValue);
+  const [value, setValue] = useState(propsValue !== undefined ? propsValue : defaultValue);
   const [label, setLabel] = useState(
     Array.isArray(value)
       ? value
