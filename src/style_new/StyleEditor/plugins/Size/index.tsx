@@ -117,7 +117,7 @@ export function Size({value, onChange, config, showTitle, collapse}: SizeProps) 
       {!(cfg.disableWidth && cfg.disableHeight) && (
         <Panel.Content>
           {cfg.disableWidth ? null : (
-            <Panel.Item style={{ display: "flex", alignItems: "center", flex: 1, padding: "0 8px" }}>
+            <Panel.Item style={{ display: "flex", alignItems: "center", flex: 1, paddingLeft: 8 }}>
               <div
                 {...getDragPropsWidth(widthEffective, '拖拽调整宽度')}
                 style={{
@@ -141,7 +141,7 @@ export function Size({value, onChange, config, showTitle, collapse}: SizeProps) 
             </Panel.Item>
           )}
           {cfg.disableHeight ? null : (
-            <Panel.Item style={{ display: "flex", alignItems: "center", flex: 1 }}>
+            <Panel.Item style={{ display: "flex", alignItems: "center", flex: 1, paddingLeft: 8 }}>
               <div
                 {...getDragPropsHeight(heightEffective, '拖拽调整高度')}
                 style={{

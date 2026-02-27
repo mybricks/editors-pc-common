@@ -89,7 +89,7 @@ export function InputNumber ({
       return (
         <Select
           tip='单位'
-          style={{ padding: 0, fontSize: 10,backgroundColor: 'transparent' }}
+          style={{ padding: 0, fontSize: 10 }}
           defaultValue={unit}
           options={unitOptions}
           showIcon={showIcon} // 带Select的数字输入框showIcon 便于提示用户可以切换Select选项 但字体的输入框太小下拉icon会遮挡
