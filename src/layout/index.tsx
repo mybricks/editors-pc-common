@@ -154,6 +154,11 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
     );
   };
 
+  const hasSelectedDirection =
+    model.position === "absolute" ||
+    model.position === "smart" ||
+    (model.position === "inherit" && (model.flexDirection === "row" || model.flexDirection === "column"));
+
   const renderJustifyContent = () => {
     const onSelect = (justifyContent: CSSProperties["justifyContent"]) => {
       //如果直接返回normal会导致九宫格没有高亮点
@@ -172,7 +177,7 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
         setColumnFlexWrap(flexWrap);
       }
     };
-    return model.position !== "absolute" && model.position !== "smart" ? (
+    return hasSelectedDirection && model.position !== "absolute" && model.position !== "smart" ? (
       <JustifyContent
         flexDirection={model.flexDirection}
         justifyContent={model.justifyContent}
@@ -195,7 +200,7 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
       }));
       updateValue({ justifyContent, alignItems });
     };
-    return model.position !== "absolute" && model.position !== "smart" ? (
+    return hasSelectedDirection && model.position !== "absolute" && model.position !== "smart" ? (
       <AlignItems
         flexDirection={model?.flexDirection}
         justifyContent={model.justifyContent}
@@ -214,7 +219,8 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
       setModel((pre) => ({ ...pre, ...value }));
       updateValue({ ...value });
     };
-    return model.position !== "absolute" &&
+    return hasSelectedDirection &&
+      model.position !== "absolute" &&
       model.position !== "smart" &&
       option.gap ? (
       <Gap
@@ -234,6 +240,7 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
       setModel(newModel);
       value.set(normalizePx(newModel));
     };
+    if (!hasSelectedDirection) return null;
     return (
       <div className={styles.overflowRow} onClick={toggle}>
         <div className={`${styles.checkbox} ${isHidden ? styles.checkboxChecked : ""}`}>
@@ -266,6 +273,7 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
       //updateValue({ ...value });
     };
 
+    if (!hasSelectedDirection) return null;
     return (
       <Padding
         value={{
@@ -286,25 +294,27 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
   return (
     <div>
       {renderFlexDirection()}
-      <div className={styles.layout}>
-        <div className={styles.centerLayout}>
-          <div
-            className={styles.right}
-            style={{
-              display:
-                model.position !== "absolute" && model.position !== "smart"
-                  ? void 0
-                  : "none",
-            }}
-          >
-            {renderAlignItems()}
+      {hasSelectedDirection && (
+        <div className={styles.layout}>
+          <div className={styles.centerLayout}>
+            <div
+              className={styles.right}
+              style={{
+                display:
+                  model.position !== "absolute" && model.position !== "smart"
+                    ? void 0
+                    : "none",
+              }}
+            >
+              {renderAlignItems()}
+            </div>
+          </div>
+          <div className={styles.left}>
+            {renderGap()}
+            {renderJustifyContent()}
           </div>
         </div>
-        <div className={styles.left}>
-          {renderGap()}
-          {renderJustifyContent()}
-        </div>
-      </div>
+      )}
       {renderOverflow()}
     </div>
   );

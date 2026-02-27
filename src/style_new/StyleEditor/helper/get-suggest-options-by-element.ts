@@ -109,6 +109,9 @@ export function getSuggestOptionsByElement(selectDom: HTMLElement): { type: stri
     }
 
     const suggestion = [
+      {
+        type: 'layout'
+      },
       fontOption,
       marginOption,
       paddingOption,

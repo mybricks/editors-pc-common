@@ -1,4 +1,5 @@
 export const DEFAULT_OPTIONS = [
+  'layout',
   'font',
   'border',
   'background',
