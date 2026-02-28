@@ -631,7 +631,11 @@ function getDefaultConfiguration ({value, options}: GetDefaultConfigurationProps
     }
     
     // 如果有真实DOM就用DOM，否则对于伪元素选择器使用selector逻辑
-    const realSelector = Array.isArray(selector) ? selector[0] : selector;
+    // 将引擎传入的 [data-zone-selector='[".listContainer .card"]'] 格式转换为 CSS 选择器
+    // 否则 getStyleRules 无法在样式表里匹配到对应规则，导致 effectedPanels 为空、面板全部折叠
+    const rawSelector = Array.isArray(selector) ? selector[0] : selector;
+    const zoneMatch = rawSelector?.match(/\[data-zone-selector=['"]?\[?["']([^"']+)["']\]?['"]?\]/);
+    const realSelector = zoneMatch ? zoneMatch[1] : rawSelector;
 
     const isPseudoSelector = typeof realSelector === 'string' && /:(:)?[a-zA-Z0-9\-\_]+/.test(realSelector);
     const realDom = !!realTargetDom ? realTargetDom : null;
@@ -804,6 +808,23 @@ const getDefaultValueFunctionMap = {
     return {
       opacity: values.opacity
     }
+  },
+  layout(values: CSSProperties, config: any) {
+    return {
+      display: values.display,
+      flexDirection: values.flexDirection,
+      alignItems: values.alignItems,
+      justifyContent: values.justifyContent,
+      flexWrap: values.flexWrap,
+      rowGap: values.rowGap,
+      columnGap: values.columnGap,
+      position: values.position,
+      overflow: values.overflow,
+      paddingTop: values.paddingTop,
+      paddingRight: values.paddingRight,
+      paddingBottom: values.paddingBottom,
+      paddingLeft: values.paddingLeft,
+    }
   }
 }
 
@@ -894,6 +915,23 @@ const getDefaultValueFunctionMap2 = {
   opacity() {
     return {
       opacity: 1
+    }
+  },
+  layout() {
+    return {
+      display: 'flex',
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      justifyContent: 'flex-start',
+      flexWrap: 'nowrap',
+      rowGap: '0px',
+      columnGap: '0px',
+      position: 'inherit',
+      overflow: 'visible',
+      paddingTop: '0px',
+      paddingRight: '0px',
+      paddingBottom: '0px',
+      paddingLeft: '0px',
     }
   }
 }
@@ -1617,12 +1655,20 @@ function getStyleRules (element: HTMLElement | null, selector: string | null) {
         // 过滤②：element.matches 会命中元素身上所有类的规则，
         // 需验证规则主体（最后一个空格后的部分）的末尾 class token 与 selector 完全相等，
         // 防止 ".tabItem.active" 在编辑默认态时被纳入（lastToken=".active" ≠ ".tabItem"）
+        // 兼容多级选择器：selector=".listContainer .card .detailInfo .infoRow" 时
+        // lastToken 只是 ".infoRow"，需额外用 endsWith 验证整条规则是否以该选择器结尾
         try {
-          if (!element || !element.matches(selectorText)) continue
-          const lastSegment  = selectorText.split(' ').pop() || selectorText
-          const classTokens  = lastSegment.split('.').filter(Boolean)
-          const lastToken    = classTokens.length > 0 ? '.' + classTokens[classTokens.length - 1] : lastSegment
-          if (lastToken === selector) finalRules.push(rule)
+          if (!element || !element.matches(selectorText) || !selector) continue
+          // selectorText 最后一段的最后一个 class token（防止 .tabItem.active 污染 .tabItem）
+          const lastSegment      = selectorText.split(' ').pop() || selectorText
+          const classTokens      = lastSegment.split('.').filter(Boolean)
+          const lastToken        = classTokens.length > 0 ? '.' + classTokens[classTokens.length - 1] : lastSegment
+          // selector 最后一段的最后一个 class token（兼容引擎传入完整路径如 .a .b .c）
+          const selectorLastSeg  = selector.split(' ').pop() || selector
+          const selectorTokens   = selectorLastSeg.split('.').filter(Boolean)
+          const selectorLastToken = selectorTokens.length > 0 ? '.' + selectorTokens[selectorTokens.length - 1] : selectorLastSeg
+          // 两边取最后 token 比较：防止 .tabItem.active ≠ .tabItem，同时兼容多级路径
+          if (lastToken === selectorLastToken) finalRules.push(rule)
         } catch {}
       }
     } catch {}
