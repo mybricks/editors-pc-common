@@ -71,6 +71,9 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
   option = { ...defaultOptions, ...option };
   const _value = parsePxValues(value.get() || {});
 
+  if ((_value as any).alignItems === "normal") (_value as any).alignItems = "flex-start";
+  if ((_value as any).justifyContent === "normal") (_value as any).justifyContent = "flex-start";
+
   const [model, setModel] = useState<LayoutProps>({
     ...defaultValue,
     ..._value,
