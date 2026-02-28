@@ -1,4 +1,4 @@
-import React, { CSSProperties } from 'react'
+import React, { CSSProperties, useCallback, useEffect, useState } from 'react'
 
 import { Panel, Select } from '../../components'
 
@@ -19,15 +19,32 @@ const CURSOR_OPTIONS = [
 ]
 
 export function Cursor ({value, onChange, config, showTitle, collapse}: CursorProps) {
+  const [forceRenderKey, setForceRenderKey] = useState<number>(Math.random())
+  const [isReset, setIsReset] = useState(false)
+
+  useEffect(() => {
+    if (isReset && value?.cursor != null) {
+      setIsReset(false)
+    }
+  }, [value, isReset])
+
+  const refresh = useCallback(() => {
+    onChange({ key: 'cursor', value: null })
+    setIsReset(true)
+    setForceRenderKey(prev => prev + 1)
+  }, [onChange])
+
   return (
-    <Panel title='光标' showTitle={showTitle} collapse={collapse}>
+    <Panel title='光标' showTitle={showTitle} showReset={true} resetFunction={refresh} collapse={collapse}>
       <Panel.Content>
-        <Select
-          style={{padding: 0}}
-          defaultValue={value.cursor}
-          options={CURSOR_OPTIONS}
-          onChange={(value) => onChange({key: 'cursor', value})}
-        />
+        <React.Fragment key={forceRenderKey}>
+          <Select
+            style={{padding: 0}}
+            defaultValue={isReset ? undefined : value.cursor}
+            options={CURSOR_OPTIONS}
+            onChange={(value) => onChange({key: 'cursor', value})}
+          />
+        </React.Fragment>
       </Panel.Content>
     </Panel>
   )

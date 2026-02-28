@@ -24,8 +24,10 @@ const VALUE_OPTIONS = [
 ];
 
 export const OverFlow = ({ value, onChange, showTitle, collapse }: OverFlowProps) => {
+  const [isReset, setIsReset] = useState(false)
   const [overflowX, setOverflowX] = useState(value.overflowX)
   const [overflowY, setOverflowY] = useState(value.overflowY)
+  const [forceRenderKey, setForceRenderKey] = useState<number>(Math.random())
 
   const overflowXChange = (val: string) => {
     onChange({ key: 'overflowX', value: val })
@@ -75,26 +77,47 @@ export const OverFlow = ({ value, onChange, showTitle, collapse }: OverFlowProps
     }
   }
 
+  useEffect(() => {
+    if (isReset && (value.overflowX != null || value.overflowY != null)) {
+      setIsReset(false)
+      setOverflowX(value.overflowX)
+      setOverflowY(value.overflowY)
+    }
+  }, [value, isReset])
+
+  const refresh = useCallback(() => {
+    onChange([
+      { key: 'overflowX', value: null },
+      { key: 'overflowY', value: null },
+    ])
+    setIsReset(true)
+    setOverflowX(undefined)
+    setOverflowY(undefined)
+    setForceRenderKey(prev => prev + 1)
+  }, [onChange])
+
   return (
-    <Panel title='内容溢出' showTitle={showTitle} collapse={collapse}>
-      <Panel.Content>
-        <Select
-          prefix={<span className={css.tip}>水平</span>}
-          // style={{padding: 0}}
-          // defaultValue={overflowX}
-          value={overflowX}
-          options={VALUE_OPTIONS}
-          onChange={(val) => overflowXChange(val)}
-        />
-        <Select
-          prefix={<span className={css.tip}>垂直</span>}
-          // style={{padding: 0}}
-          // defaultValue={overflowY}
-          value={overflowY}
-          options={VALUE_OPTIONS}
-          onChange={(val) => overflowYChange(val)}
-        />
-      </Panel.Content>
+    <Panel title='内容溢出' showTitle={showTitle} showReset={true} resetFunction={refresh} collapse={collapse}>
+      <React.Fragment key={forceRenderKey}>
+        <Panel.Content>
+          <Select
+            prefix={<span className={css.tip}>水平</span>}
+            // style={{padding: 0}}
+            // defaultValue={overflowX}
+            value={overflowX}
+            options={VALUE_OPTIONS}
+            onChange={(val) => overflowXChange(val)}
+          />
+          <Select
+            prefix={<span className={css.tip}>垂直</span>}
+            // style={{padding: 0}}
+            // defaultValue={overflowY}
+            value={overflowY}
+            options={VALUE_OPTIONS}
+            onChange={(val) => overflowYChange(val)}
+          />
+        </Panel.Content>
+      </React.Fragment>
     </Panel>
   )
 }

@@ -1,4 +1,5 @@
 import React, {
+  useEffect,
   useMemo,
   useState,
   useCallback,
@@ -47,6 +48,7 @@ export function Margin ({value, onChange, config, showTitle, collapse}: MarginPr
   const [forceRenderKey, setForceRenderKey] = useState<number>(Math.random())
   const [splitMarginIcon, setSplitMarginIcon] = useState(<PaddingTopOutlined />)
   const getDragProps = useDragNumber({ continuous: true })
+  const [isReset, setIsReset] = useState(false)
 
   const cfg = useMemo(() => ({ ...DEFAULT_CONFIG, ...(config ?? {}) }), [config]);
 
@@ -207,12 +209,22 @@ export function Margin ({value, onChange, config, showTitle, collapse}: MarginPr
     }
   }, [toggle, splitMarginIcon, marginValue, getDragProps, handleChange])
 
+  const MARGIN_KEYS = new Set(['marginTop', 'marginRight', 'marginBottom', 'marginLeft'])
+
   const refresh = useCallback(() => {
-    const marginKeys = ['marginTop', 'marginRight', 'marginBottom', 'marginLeft']
-    onChange(marginKeys.map(key => ({ key, value: null })))
+    const keys = Object.keys(value ?? {}).filter(key => MARGIN_KEYS.has(key))
+    console.log("margin refresh", keys);
+    onChange(keys.map(key => ({ key, value: null })))
+    setIsReset(true)
     setMarginValue({} as any)
     setForceRenderKey(prev => prev + 1)
-  }, [onChange])
+  }, [value,onChange])
+
+  useEffect(() => {
+    if (isReset && value && Object.keys(value).some(k => value[k] != null)) {
+      setIsReset(false)
+    }
+  }, [value, isReset])
 
   return (
     <Panel title='外边距' showTitle={showTitle} showReset={true} resetFunction={refresh} collapse={collapse}>
