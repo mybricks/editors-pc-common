@@ -9,6 +9,7 @@ interface LayoutProps extends PanelBaseProps {
 }
 
 export function Layout({ value, onChange, showTitle, collapse }: LayoutProps) {
+
   const editConfig = {
     value: {
       get: () => Object.fromEntries(
@@ -24,6 +25,7 @@ export function Layout({ value, onChange, showTitle, collapse }: LayoutProps) {
       },
     },
   };
+
 
   return (
     <Panel title="布局" showTitle={showTitle} collapse={collapse}>

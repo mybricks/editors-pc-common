@@ -1106,6 +1106,18 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration) 
   let opacity // 非继承属性
   /** opacity */
 
+  /** layout */
+  let display // 非继承属性
+  let flexDirection // 非继承属性
+  let alignItems // 非继承属性
+  let justifyContent // 非继承属性
+  let flexWrap // 非继承属性
+  let rowGap // 非继承属性
+  let columnGap // 非继承属性
+  let position // 非继承属性
+  let overflow // 非继承属性
+  /** layout */
+
   rules.forEach((rule) => {
     const { style } = rule
 
@@ -1348,6 +1360,29 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration) 
       opacity = styleOpacity
     }
     /** opacity */
+
+    /** layout */
+    const {
+      display: styleDisplay,
+      flexDirection: styleFlexDirection,
+      alignItems: styleAlignItems,
+      justifyContent: styleJustifyContent,
+      flexWrap: styleFlexWrap,
+      rowGap: styleRowGap,
+      columnGap: styleColumnGap,
+      position: stylePosition,
+      overflow: styleOverflow,
+    } = style
+    if (styleDisplay) { display = styleDisplay }
+    if (styleFlexDirection) { flexDirection = styleFlexDirection }
+    if (styleAlignItems) { alignItems = styleAlignItems }
+    if (styleJustifyContent) { justifyContent = styleJustifyContent }
+    if (styleFlexWrap) { flexWrap = styleFlexWrap }
+    if (styleRowGap) { rowGap = styleRowGap }
+    if (styleColumnGap) { columnGap = styleColumnGap }
+    if (stylePosition) { position = stylePosition }
+    if (styleOverflow) { overflow = styleOverflow }
+    /** layout */
   })
 
   const isNotSet = (v: any) => v === undefined || v === 'inherit';
@@ -1530,6 +1565,21 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration) 
   }
   /** opacity */
 
+  /** layout */
+  // 若 CSS 规则里没有显式设置这些属性，则从 computedValues 读取当前计算值作为回显基准。
+  // position 默认为 'static'（浏览器计算值），回显时直接使用即可。
+  if (!display) { display = computedValues.display }
+  if (!flexDirection) { flexDirection = computedValues.flexDirection }
+  if (!alignItems) { alignItems = computedValues.alignItems }
+  if (!justifyContent) { justifyContent = computedValues.justifyContent }
+  if (!flexWrap) { flexWrap = computedValues.flexWrap }
+  // 浏览器对非 flex/grid 容器的 gap 计算值是 'normal'，InputNumber 无法解析，统一归零
+  if (!rowGap || rowGap === 'normal') { rowGap = computedValues.rowGap === 'normal' ? '0px' : (computedValues.rowGap || '0px') }
+  if (!columnGap || columnGap === 'normal') { columnGap = computedValues.columnGap === 'normal' ? '0px' : (computedValues.columnGap || '0px') }
+  if (!position) { position = computedValues.position }
+  if (!overflow) { overflow = computedValues.overflow }
+  /** layout */
+
   return getRealValue({
     color,
     fontSize,
@@ -1587,7 +1637,17 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration) 
     overflowX,
     overflowY,
 
-    opacity
+    opacity,
+
+    display,
+    flexDirection,
+    alignItems,
+    justifyContent,
+    flexWrap,
+    rowGap,
+    columnGap,
+    position,
+    overflow,
   }, computedValues)
 }
 
