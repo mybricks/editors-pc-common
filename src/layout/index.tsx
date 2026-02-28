@@ -1,5 +1,5 @@
 import { EditorProps } from "@/interface";
-import React, { CSSProperties, useCallback, useState } from "react";
+import React, { CSSProperties, useCallback, useEffect, useState } from "react";
 import Direction from "./Direction";
 import AlignItems from "./AlignItems";
 import JustifyContent from "./JustifyContent";
@@ -77,6 +77,13 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
   const [model, setModel] = useState<LayoutProps>({
     ...defaultValue,
     ..._value,
+    // 根据 display 推断元素实际排列方向：
+    // block 类 → 纵向叠放 → column；inline 类 → 横向排列 → row；flex → 取 CSS 实际值
+    flexDirection: (_value as any).display !== "flex"
+      ? (['inline', 'inline-block', 'inline-flex', 'inline-grid'].includes((_value as any).display)
+          ? "row"
+          : "column")
+      : ((_value as any).flexDirection ?? defaultValue.flexDirection),
     position: ["absolute", "smart", "inherit"].includes(_value.position)
       ? _value.position
       : "inherit",
