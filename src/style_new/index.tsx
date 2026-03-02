@@ -629,19 +629,31 @@ function getDefaultConfiguration ({value, options}: GetDefaultConfigurationProps
     if ((userNoConfig || autoOptions) && !!realTargetDom) {
       finalOptions = getSuggestOptionsByElement(realTargetDom) ?? finalOptions
     }
+
+
     
-    // 如果有真实DOM就用DOM，否则对于伪元素选择器使用selector逻辑
-    // 将引擎传入的 [data-zone-selector='[".listContainer .card"]'] 格式转换为 CSS 选择器
-    // 否则 getStyleRules 无法在样式表里匹配到对应规则，导致 effectedPanels 为空、面板全部折叠
+    // 将引擎传入的 [data-zone-selector='[...]'] 格式解析为 CSS 选择器数组
     const rawSelector = Array.isArray(selector) ? selector[0] : selector;
-    const zoneMatch = rawSelector?.match(/\[data-zone-selector=['"]?\[?["']([^"']+)["']\]?['"]?\]/);
-    const realSelector = zoneMatch ? zoneMatch[1] : rawSelector;
+    const zoneArrayMatch = rawSelector?.match(/\[data-zone-selector=['"]?(\[[^\]]*\])['"]?\]/);
+
+    // realSelectors：完整数组，用于多类名场景（如 [".actionBtn", ".primary"]）覆盖所有规则
+    // realSelector：最后一个，用于伪类判断等需要单值的场景
+    let realSelectors: string[] = rawSelector ? [rawSelector] : [];
+    let realSelector: string | undefined = rawSelector;
+
+    if (zoneArrayMatch) {
+      try {
+        const selectors: string[] = JSON.parse(zoneArrayMatch[1]);
+        realSelectors = selectors;
+        realSelector = selectors[selectors.length - 1];
+      } catch {}
+    }
 
     const isPseudoSelector = typeof realSelector === 'string' && /:(:)?[a-zA-Z0-9\-\_]+/.test(realSelector);
     const realDom = !!realTargetDom ? realTargetDom : null;
     if (realDom || isPseudoSelector) {
       getDefaultValue = false;
-      const [styleValues, options] = getEffectedCssPropertyAndOptions(realDom, realSelector, comId);
+      const [styleValues, options] = getEffectedCssPropertyAndOptions(realDom, realSelectors.length > 1 ? realSelectors : (realSelector ?? ''), comId);
       effctedOptions = options;
       finalOptions.forEach((option) => {
         let type, config;
@@ -936,16 +948,31 @@ const getDefaultValueFunctionMap2 = {
   }
 }
 
-/** 获取当前CSS规则下生效的样式以及插件 */
-function getEffectedCssPropertyAndOptions (element: HTMLElement | null, selector: string, comId?: string) {
+/** 获取当前 CSS 规则下生效的样式及面板配置 */
+function getEffectedCssPropertyAndOptions (element: HTMLElement | null, selector: string | string[], comId?: string) {
+  // 多类名时传数组，对每个 selector 分别查规则后去重合并；单个 selector 行为不变
+  const selectorArray = Array.isArray(selector) ? selector : [selector];
+  const primarySelector = selectorArray[selectorArray.length - 1] ?? '';
+
   try {
     let finalRules;
     let computedValues;
 
     if (element) {
-      // 处理真实DOM元素的情况
-      const classListValue = element.classList.value
-      finalRules = getStyleRules(element, classListValue.indexOf(selector) !== -1 ? null : selector).filter((finalRule: any) => {
+      const classListValue = element.classList.value;
+
+      // 按 selectorText 去重，避免多次查询返回重复规则
+      const rulesMap = new Map<string, any>();
+      for (const sel of selectorArray) {
+        const rules = getStyleRules(element, classListValue.indexOf(sel) !== -1 ? null : sel);
+        rules.forEach((rule: any) => {
+          if (!rulesMap.has(rule.selectorText)) {
+            rulesMap.set(rule.selectorText, rule);
+          }
+        });
+      }
+
+      finalRules = Array.from(rulesMap.values()).filter((finalRule: any) => {
         let tempCompare
         try {
           tempCompare = calculate(finalRule.selectorText)
@@ -962,19 +989,17 @@ function getEffectedCssPropertyAndOptions (element: HTMLElement | null, selector
         return compare(a.tempCompare, b.tempCompare)
       })
 
-      // 检查是否是伪元素选择器（使用::或:before/:after）
-      const isPseudoElement = selector.includes('::') || selector.includes(':before') || selector.includes(':after')
+      const isPseudoElement = primarySelector.includes('::') || primarySelector.includes(':before') || primarySelector.includes(':after')
       if (isPseudoElement) {
-        // 对于伪元素，使用第二个参数来获取其计算样式
-        const pseudoSelector = selector.split(':')[1]
+        const pseudoSelector = primarySelector.split(':')[1]
         computedValues = window.getComputedStyle(element, pseudoSelector)
       } else {
         computedValues = window.getComputedStyle(element)
       }
-    } else if (selector) {
+    } else if (primarySelector) {
 
-      // 处理纯selector的情况（包括伪类如:hover, :disabled等）
-      finalRules = getStyleRules(null, selector).filter((finalRule: any) => {
+      // 无真实 DOM（伪类如 :hover、:disabled 等）
+      finalRules = getStyleRules(null, primarySelector).filter((finalRule: any) => {
         let tempCompare
         try {
           tempCompare = calculate(finalRule.selectorText)
@@ -993,12 +1018,12 @@ function getEffectedCssPropertyAndOptions (element: HTMLElement | null, selector
 
       // 获取基础选择器对应的元素
       const root = getDocument()
-      const baseSelector = selector.split(':')[0]
+      const baseSelector = primarySelector.split(':')[0]
       const targetElement = root.querySelector(`#${comId} ${baseSelector}`)
       
       if (targetElement) {
         // 检查是否是伪元素（如::before、::after、::placeholder）
-        const pseudoMatch = selector.match(/(::[a-zA-Z0-9\-]+)/);
+        const pseudoMatch = primarySelector.match(/(::[a-zA-Z0-9\-]+)/);
         const pseudoSelector = pseudoMatch ? pseudoMatch[0] : null;
         if (pseudoSelector) {
           computedValues = window.getComputedStyle(targetElement, pseudoSelector);
@@ -1016,10 +1041,15 @@ function getEffectedCssPropertyAndOptions (element: HTMLElement | null, selector
       return [{}, []]
     }
 
-    const effectedPanels = getEffectedPanelsFromCssRules(finalRules)
-    const values = getValues(finalRules, computedValues)
+    const effectedFromRules = getEffectedPanelsFromCssRules(finalRules);
+    const values = getValues(finalRules, computedValues);
 
-    return [values, effectedPanels]
+    const effectedFromAncestors = element ? getEffectedPanelsFromAncestors(element, comId) : [];
+    const finalEffectedPanels = Array.from(
+      new Set([...(effectedFromRules as string[]), ...effectedFromAncestors])
+    );
+
+    return [values, finalEffectedPanels]
   } catch (e) {
     return [{}, []]
   }
@@ -1733,7 +1763,6 @@ function getStyleRules (element: HTMLElement | null, selector: string | null) {
       }
     } catch {}
   }
-
   return finalRules
 }
 
@@ -1769,7 +1798,6 @@ Object.keys(getDefaultValueFunctionMap2).forEach(panelType => {
 function getEffectedPanelsFromCssRules (rules: CSSStyleRule[]) {
   let effectedPanels = new Set();
   rules.filter(rule => {
-    // 设计器默认的CSS样式去除掉
     if (rule.selectorText.indexOf('.desn-') === 0 && rule.selectorText.indexOf('*') > -1) {
       return false
     }
@@ -1782,4 +1810,51 @@ function getEffectedPanelsFromCssRules (rules: CSSStyleRule[]) {
     })
   })
   return Array.from(effectedPanels)
+}
+
+// CSS 规范中默认可继承的属性（驼峰），用于祖先规则扫描时过滤出真正会向下传递的属性
+const CSS_INHERITABLE_PROPS = new Set([
+  'color', 'fontSize', 'fontWeight', 'fontFamily', 'fontStyle', 'fontVariant',
+  'lineHeight', 'letterSpacing', 'textAlign', 'textIndent', 'textTransform',
+  'whiteSpace', 'wordSpacing', 'cursor', 'visibility', 'direction',
+  'listStyleType', 'listStylePosition', 'listStyleImage',
+  'borderCollapse', 'borderSpacing', 'captionSide', 'emptyCells',
+]);
+
+/**
+ * 向上遍历祖先，找出可继承到当前元素的 CSS 属性对应的面板名。
+ * 直接遍历 styleSheets 而非 getStyleRules，避免后者的 !selector 守卫跳过祖先规则。
+ */
+function getEffectedPanelsFromAncestors (element: HTMLElement, comId?: string): string[] {
+  const panelsSet = new Set<string>();
+  const root = getDocument();
+  let current = element.parentElement;
+
+  while (current) {
+    // 到达组件根节点或 body 停止
+    if (current.id === comId || current === document.body) break;
+
+    for (let i = 0; i < root.styleSheets.length; i++) {
+      try {
+        const rules = root.styleSheets[i].cssRules ?? (root.styleSheets[i] as any).rules;
+        for (let j = 0; j < rules.length; j++) {
+          const rule = rules[j];
+          if (!(rule instanceof CSSStyleRule)) continue;
+          if (/:[a-zA-Z\-]/.test(rule.selectorText)) continue; // 跳过伪类规则
+          if (!current.matches(rule.selectorText)) continue;
+
+          rule.styleMap.forEach((_: any, key: string) => {
+            const camelKey = toHump(key);
+            if (CSS_INHERITABLE_PROPS.has(camelKey) && PANEL_MAP[camelKey]) {
+              panelsSet.add(PANEL_MAP[camelKey]);
+            }
+          });
+        }
+      } catch {}
+    }
+
+    current = current.parentElement;
+  }
+
+  return Array.from(panelsSet);
 }
