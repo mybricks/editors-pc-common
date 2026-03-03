@@ -10,6 +10,7 @@ interface PanelProps {
   children: ReactNode
   showReset?: boolean
   showTitle?: boolean;
+  showDelete?: boolean
   resetFunction?: () => void
   isActive?: boolean
   collapse?: boolean | 'inherited'
@@ -27,7 +28,7 @@ interface ItemProps {
   activeWhenBlur?: boolean
 }
 
-export function Panel ({title, children, showReset = false, showTitle = true, resetFunction = () => {}, isActive = false, collapse = false}: PanelProps) {
+export function Panel ({title, children, showReset = false, showTitle = true, showDelete = true, resetFunction = () => {}, isActive = false, collapse = false}: PanelProps) {
   const isInherited = collapse === 'inherited'
   const [collapsed, setCollapsed] = useState(collapse === true)
 
@@ -54,7 +55,7 @@ export function Panel ({title, children, showReset = false, showTitle = true, re
             <div className={css.wrap}>
               {children}
             </div>
-            {isInherited ? (
+            {isInherited || !showDelete ? (
               <div style={{ width: 22, flexShrink: 0 }} />
             ) : (
               <div className={css.deleteBtn} onClick={handleDelete}>

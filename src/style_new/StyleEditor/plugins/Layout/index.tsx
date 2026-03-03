@@ -50,7 +50,7 @@ export function Layout({ value, onChange, showTitle, collapse }: LayoutProps) {
   }, [value, isReset])
 
   return (
-    <Panel title="布局" showTitle={showTitle} showReset={true} resetFunction={refresh} collapse={collapse}>
+    <Panel title="布局" showTitle={showTitle} showReset={true} showDelete={false} resetFunction={refresh} collapse={collapse}>
       <React.Fragment key={forceRenderKey}>
         <LayoutEditor editConfig={editConfig as any} />
       </React.Fragment>
