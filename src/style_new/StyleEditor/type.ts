@@ -23,6 +23,7 @@ export interface StyleEditorProps {
   defaultValue: CSSProperties;
   options: Options;
   collapsedOptions: Options;
+  readonlyExpandedOptions?: string[];
   finnalExcludeOptions?: Options;
   onChange: ChangeEvent;
 }
@@ -37,5 +38,5 @@ export interface PanelBaseProps {
     [key: string]: any;
   };
   showTitle: boolean;
-  collapse: boolean;
+  collapse: boolean | 'inherited';
 }

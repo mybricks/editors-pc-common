@@ -12,7 +12,7 @@ interface PanelProps {
   showTitle?: boolean;
   resetFunction?: () => void
   isActive?: boolean
-  collapse?: boolean
+  collapse?: boolean | 'inherited'
 }
 interface ContentProps {
   style?: CSSProperties
@@ -28,7 +28,8 @@ interface ItemProps {
 }
 
 export function Panel ({title, children, showReset = false, showTitle = true, resetFunction = () => {}, isActive = false, collapse = false}: PanelProps) {
-  const [collapsed, setCollapsed] = useState(collapse)
+  const isInherited = collapse === 'inherited'
+  const [collapsed, setCollapsed] = useState(collapse === true)
 
   const handleDelete = useCallback(() => {
     resetFunction()
@@ -53,9 +54,13 @@ export function Panel ({title, children, showReset = false, showTitle = true, re
             <div className={css.wrap}>
               {children}
             </div>
-            <div className={css.deleteBtn} onClick={handleDelete}>
-              <MinusOutlined />
-            </div>
+            {isInherited ? (
+              <div style={{ width: 22, flexShrink: 0 }} />
+            ) : (
+              <div className={css.deleteBtn} onClick={handleDelete}>
+                <MinusOutlined />
+              </div>
+            )}
           </div>
         )
       }

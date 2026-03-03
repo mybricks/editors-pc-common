@@ -339,7 +339,7 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
         </Panel.Content>
       )}
 
-      {cfg.disableFontWeight && cfg.disableColor ? null : (
+      {cfg.disableFontWeight && cfg.disableColor && cfg.disableFontSize ? null : (
         <Panel.Content>
 
           {cfg.disableFontWeight ? null : (
@@ -388,9 +388,7 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
           )}
         </Panel.Content>
       )}
-      {cfg.disableLineHeight &&
-        cfg.disableLetterSpacing &&
-        cfg.disableFontSize ? null : (
+      {cfg.disableLineHeight && cfg.disableLetterSpacing ? null : (
         <Panel.Content>
           {cfg.disableLineHeight ? null : (
             <Panel.Item style={{ display: "flex", alignItems: "center", flex: 1, padding: "0 8px" }}>

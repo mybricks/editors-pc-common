@@ -356,7 +356,7 @@ export default function ({editConfig}: EditorProps) {
 interface StyleProps extends EditorProps {
   [key: string]: any;
 }
-function Style ({editConfig, options, setValue, collapsedOptions, autoCollapseWhenUnusedProperty, finnalExcludeOptions, defaultValue }: StyleProps) {
+function Style ({editConfig, options, setValue, collapsedOptions, readonlyExpandedOptions, autoCollapseWhenUnusedProperty, finnalExcludeOptions, defaultValue }: StyleProps) {
   const handleChange: ChangeEvent = useCallback((value) => {
     // 每次操作开始前清空上次可能残留的删除信号，防止普通组件的删除操作污染 AI 组件
     ;(window as any).__mybricks_style_deletions = null
@@ -405,6 +405,7 @@ function Style ({editConfig, options, setValue, collapsedOptions, autoCollapseWh
         options={options}
         finnalExcludeOptions={finnalExcludeOptions}
         collapsedOptions={collapsedOptions}
+        readonlyExpandedOptions={readonlyExpandedOptions}
         onChange={handleChange}
       />
     </StyleEditorProvider>
@@ -589,6 +590,8 @@ function getDefaultConfiguration ({value, options}: GetDefaultConfigurationProps
   let getDefaultValue = true
   let dom;
   let effctedOptions: string[] | null = null;
+  let effectedFromRulesOnly: string[] = [];
+  let effectedFromAncestorsOnly: string[] = [];
   let finnalExcludeOptions: string[] | null = null;
 
   if (!options) {
@@ -653,8 +656,10 @@ function getDefaultConfiguration ({value, options}: GetDefaultConfigurationProps
     const realDom = !!realTargetDom ? realTargetDom : null;
     if (realDom || isPseudoSelector) {
       getDefaultValue = false;
-      const [styleValues, options] = getEffectedCssPropertyAndOptions(realDom, realSelectors.length > 1 ? realSelectors : (realSelector ?? ''), comId);
+      const [styleValues, options, ownRulesPanels, ancestorPanels] = getEffectedCssPropertyAndOptions(realDom, realSelectors.length > 1 ? realSelectors : (realSelector ?? ''), comId);
       effctedOptions = options;
+      effectedFromRulesOnly = ownRulesPanels as string[] ?? [];
+      effectedFromAncestorsOnly = ancestorPanels as string[] ?? [];
       finalOptions.forEach((option) => {
         let type, config;
         if (typeof option === 'string') {
@@ -709,9 +714,13 @@ function getDefaultConfiguration ({value, options}: GetDefaultConfigurationProps
     }).filter(t => !effctedOptions.includes(t) && !setValueEffectedPanels.has(t))
   }
 
+  const ownEffectedSet = new Set([...effectedFromRulesOnly, ...Array.from(setValueEffectedPanels)]);
+  const readonlyExpandedOptions = effectedFromAncestorsOnly.filter(p => !ownEffectedSet.has(p));
+
   return {
     options: finalOptions,
     collapsedOptions,
+    readonlyExpandedOptions,
     autoCollapseWhenUnusedProperty,
     defaultValue: Object.assign(defaultValue, splitedSetValue),
     setValue: Object.assign({}, splitedSetValue),
@@ -722,6 +731,7 @@ function getDefaultConfiguration ({value, options}: GetDefaultConfigurationProps
   } as {
     options: Options,
     collapsedOptions: string[]
+    readonlyExpandedOptions: string[]
     autoCollapseWhenUnusedProperty: boolean,
     defaultValue: CSSProperties,
     setValue: CSSProperties & Record<string, any>,
@@ -1044,12 +1054,12 @@ function getEffectedCssPropertyAndOptions (element: HTMLElement | null, selector
     const effectedFromRules = getEffectedPanelsFromCssRules(finalRules);
     const values = getValues(finalRules, computedValues);
 
-    const effectedFromAncestors = element ? getEffectedPanelsFromAncestors(element, comId) : [];
+    const effectedFromDirectParent = element ? getEffectedPanelsFromDirectParent(element, comId) : [];
     const finalEffectedPanels = Array.from(
-      new Set([...(effectedFromRules as string[]), ...effectedFromAncestors])
+      new Set([...(effectedFromRules as string[]), ...effectedFromDirectParent])
     );
 
-    return [values, finalEffectedPanels]
+    return [values, finalEffectedPanels, effectedFromRules as string[], effectedFromDirectParent]
   } catch (e) {
     return [{}, []]
   }
@@ -1822,38 +1832,36 @@ const CSS_INHERITABLE_PROPS = new Set([
 ]);
 
 /**
- * 向上遍历祖先，找出可继承到当前元素的 CSS 属性对应的面板名。
- * 直接遍历 styleSheets 而非 getStyleRules，避免后者的 !selector 守卫跳过祖先规则。
+ * 扫描直接父元素上命中的 CSS 可继承属性，返回对应的面板名列表。
+ * 用于判断面板是否因父级样式继承而展开（显示为 inherited 无减号状态）。
+ * 只看一层，避免 .container 等远距离根容器的通用样式影响所有后代。
  */
-function getEffectedPanelsFromAncestors (element: HTMLElement, comId?: string): string[] {
+function getEffectedPanelsFromDirectParent (element: HTMLElement, comId?: string): string[] {
   const panelsSet = new Set<string>();
+  const parent = element.parentElement;
+
+  if (!parent || parent.id === comId || parent === document.body) {
+    return [];
+  }
+
   const root = getDocument();
-  let current = element.parentElement;
+  for (let i = 0; i < root.styleSheets.length; i++) {
+    try {
+      const rules = root.styleSheets[i].cssRules ?? (root.styleSheets[i] as any).rules;
+      for (let j = 0; j < rules.length; j++) {
+        const rule = rules[j];
+        if (!(rule instanceof CSSStyleRule)) continue;
+        if (/:[a-zA-Z\-]/.test(rule.selectorText)) continue;
+        if (!parent.matches(rule.selectorText)) continue;
 
-  while (current) {
-    // 到达组件根节点或 body 停止
-    if (current.id === comId || current === document.body) break;
-
-    for (let i = 0; i < root.styleSheets.length; i++) {
-      try {
-        const rules = root.styleSheets[i].cssRules ?? (root.styleSheets[i] as any).rules;
-        for (let j = 0; j < rules.length; j++) {
-          const rule = rules[j];
-          if (!(rule instanceof CSSStyleRule)) continue;
-          if (/:[a-zA-Z\-]/.test(rule.selectorText)) continue; // 跳过伪类规则
-          if (!current.matches(rule.selectorText)) continue;
-
-          rule.styleMap.forEach((_: any, key: string) => {
-            const camelKey = toHump(key);
-            if (CSS_INHERITABLE_PROPS.has(camelKey) && PANEL_MAP[camelKey]) {
-              panelsSet.add(PANEL_MAP[camelKey]);
-            }
-          });
-        }
-      } catch {}
-    }
-
-    current = current.parentElement;
+        rule.styleMap.forEach((_: any, key: string) => {
+          const camelKey = toHump(key);
+          if (CSS_INHERITABLE_PROPS.has(camelKey) && PANEL_MAP[camelKey]) {
+            panelsSet.add(PANEL_MAP[camelKey]);
+          }
+        });
+      }
+    } catch {}
   }
 
   return Array.from(panelsSet);

@@ -214,7 +214,8 @@ function shouldHeritPropertyDisabled(selectDom: HTMLElement, property: string, {
             }
           }
           // 文本子元素被配置 同时 selectDom 中也不命中这个规则（selectDom命中的话，说明是*或者其他的通用匹配，匹配到了selectDom和下方所有子元素，这种就应该可以覆盖）
-          return !!isConfig && !selectDom.matches(cssRule.selectorText)
+          const result = !!isConfig && !selectDom.matches(cssRule.selectorText)
+          return result
         }
         return false
       })

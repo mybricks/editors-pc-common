@@ -39,6 +39,7 @@ export default function ({
   defaultValue,
   options,
   collapsedOptions,
+  readonlyExpandedOptions,
   finnalExcludeOptions,
   onChange,
 }: StyleEditorProps) {
@@ -101,7 +102,13 @@ export default function ({
           value={defaultValue}
           onChange={handleValueChange}
           config={config}
-          collapse={collapsedOptions.includes(pluginKey.toLowerCase())}
+          collapse={
+            collapsedOptions.includes(pluginKey.toLowerCase())
+              ? true
+              : readonlyExpandedOptions?.includes(pluginKey.toLowerCase())
+                ? 'inherited' as const
+                : false
+          }
           showTitle={showTitle}
         />
       ) : null;
