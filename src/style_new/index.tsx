@@ -657,6 +657,7 @@ function getDefaultConfiguration ({value, options}: GetDefaultConfigurationProps
     if (realDom || isPseudoSelector) {
       getDefaultValue = false;
       const [styleValues, options, ownRulesPanels, ancestorPanels] = getEffectedCssPropertyAndOptions(realDom, realSelectors.length > 1 ? realSelectors : (realSelector ?? ''), comId);
+
       effctedOptions = options;
       effectedFromRulesOnly = ownRulesPanels as string[] ?? [];
       effectedFromAncestorsOnly = ancestorPanels as string[] ?? [];
@@ -715,7 +716,8 @@ function getDefaultConfiguration ({value, options}: GetDefaultConfigurationProps
   }
 
   const ownEffectedSet = new Set([...effectedFromRulesOnly, ...Array.from(setValueEffectedPanels)]);
-  const readonlyExpandedOptions = effectedFromAncestorsOnly.filter(p => !ownEffectedSet.has(p));
+  
+  let readonlyExpandedOptions = Array.from(new Set(effectedFromAncestorsOnly.filter(p => !ownEffectedSet.has(p))));
 
   return {
     options: finalOptions,
@@ -1059,7 +1061,43 @@ function getEffectedCssPropertyAndOptions (element: HTMLElement | null, selector
       new Set([...(effectedFromRules as string[]), ...effectedFromDirectParent])
     );
 
-    return [values, finalEffectedPanels, effectedFromRules as string[], effectedFromDirectParent]
+    // 当前编辑的选择器由 selectorArray 里多个 selector 共同描述（如 [".primary", ".actionBtn"]），
+    // 每项取末尾段后，只有 selectorText 末尾同时满足所有末尾段的规则，才真正属于"当前编辑的状态"。
+    // 例：selectorArray = [".userBtnGroup .primary", ".userBtnGroup .actionBtn"]
+    //   → tailSegments = [".primary", ".actionBtn"]
+    //   → ".u_VvteU .actionBtn.primary" 末尾含 ".primary" 且含 ".actionBtn" → 命中 ✅
+    //   → ".u_VvteU .actionBtn"         末尾含 ".actionBtn" 但不含 ".primary" → 排除 ❌
+    const tailSegments = selectorArray.map(sel =>
+      sel.includes(' ') ? sel.slice(sel.lastIndexOf(' ') + 1) : sel
+    ).filter(Boolean);
+
+    const ruleMatchesTailSegment = (selectorText: string, tail: string): boolean => {
+      if (selectorText === tail) return true;
+      const idx = selectorText.lastIndexOf(tail);
+      if (idx === -1) return false;
+      if (idx + tail.length !== selectorText.length) return false;
+      const charBefore = selectorText[idx - 1];
+      return charBefore === ' ' || charBefore === '>' || charBefore === '+' || charBefore === '~';
+    };
+
+    const ownSelectorRules = tailSegments.length > 0
+      ? finalRules.filter((rule: any) => {
+          const st: string = rule.selectorText ?? '';
+          return tailSegments.every(tail => {
+            // 对于单段（无空格）的 tail，用末尾精确匹配
+            // 对于包含空格的 tail（不应出现，做兜底），直接 endsWith
+            return ruleMatchesTailSegment(st, tail) || st.includes(tail);
+          });
+        })
+      : finalRules;
+    const ownRulesPanels = getEffectedPanelsFromCssRules(ownSelectorRules) as string[];
+
+    // 其他命中当前 DOM 但不属于当前编辑选择器的规则（如 .actionBtn 当编辑 .actionBtn.primary 时），
+    // 产生的面板需要展开回显但不能有减号，单独返回供外层计算 readonlyExpandedOptions。
+    const otherRules = finalRules.filter((rule: any) => !ownSelectorRules.includes(rule));
+    const otherRulesPanels = getEffectedPanelsFromCssRules(otherRules) as string[];
+
+    return [values, finalEffectedPanels, ownRulesPanels, [...effectedFromDirectParent, ...otherRulesPanels]]
   } catch (e) {
     return [{}, []]
   }
