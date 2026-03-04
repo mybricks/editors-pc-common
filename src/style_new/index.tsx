@@ -719,6 +719,37 @@ function getDefaultConfiguration ({value, options}: GetDefaultConfigurationProps
   
   let readonlyExpandedOptions = Array.from(new Set(effectedFromAncestorsOnly.filter(p => !ownEffectedSet.has(p))));
 
+  // 检测被折叠的面板中是否有 UA/computedStyle 默认值（即 defaultValue 里的属性值与空白默认值不同）。
+  // 若直接折叠，用户展开后会看到有值却显示 - 号（可误删），因此将它们移入 readonlyExpandedOptions，
+  // 渲染为 collapse='inherited'，展开且无 - 号，与父级继承样式的处理方式保持一致。
+  if (collapsedOptions.length > 0) {
+    const uaFilledPanels: string[] = [];
+    collapsedOptions = collapsedOptions.filter((panelKey: string) => {
+      // @ts-ignore
+      const emptyValues: Record<string, any> = getDefaultValueFunctionMap2[panelKey]?.() ?? {};
+      const diffProps: Array<{prop: string, empty: any, current: any}> = [];
+      const hasUAValue = Object.keys(emptyValues).some(prop => {
+        const emptyVal = emptyValues[prop];
+        // @ts-ignore
+        const currentVal = defaultValue[prop];
+        // 当前值存在且与空白默认值不同，说明有 UA 或 computed 值填充
+        const isDiff = currentVal !== undefined && currentVal !== emptyVal;
+        if (isDiff) diffProps.push({ prop, empty: emptyVal, current: currentVal });
+        return isDiff;
+      });
+      if (hasUAValue) {
+        //console.log(`[StylePanel] "${panelKey}" 有UA值，移入 readonlyExpanded（展开无-号）`, diffProps);
+        uaFilledPanels.push(panelKey);
+        return false;
+      }
+      return true;
+    });
+    // 将有 UA 值的面板加入 readonlyExpandedOptions（去重，且不能与 ownEffectedSet 重叠）
+    const newReadonly = uaFilledPanels.filter(p => !ownEffectedSet.has(p) && !readonlyExpandedOptions.includes(p));
+    readonlyExpandedOptions = [...readonlyExpandedOptions, ...newReadonly];
+    //console.log('[StylePanel] UA检测结果 → collapsedOptions:', collapsedOptions, '| readonlyExpandedOptions:', readonlyExpandedOptions);
+  }
+
   return {
     options: finalOptions,
     collapsedOptions,
