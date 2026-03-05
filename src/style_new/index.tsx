@@ -406,7 +406,6 @@ export default function ({editConfig}: EditorProps) {
       })()
       const config = getDefaultConfiguration(resolvedEditConfig)
 
-      // console.log("getDefaultConfiguration",config)
 
       const { targetDom: _td, ...activeStyleProps } = config
       if (isResetRef.current) {
@@ -2005,9 +2004,19 @@ function getStyleRules (element: HTMLElement | null, selector: string | null) {
   const selectorPseudoMatch = selector ? selector.match(PSEUDO_REGEX) : null
   const selectorPseudo = selectorPseudoMatch ? selectorPseudoMatch[0] : null
 
-  // 用于区分三种匹配情况
   const isPseudoSelector = !!selectorPseudo
   const hasRealDom      = !!element
+
+  // 预判：DOM 是否不处于 selector 描述的状态
+  // 条件：无 CSS 伪类、有真实 DOM、selector 末尾段的某个 class 不在 element.classList 里
+  // 典型场景1（复合类）：selector=".ant-tabs-tab.ant-tabs-tab-active"，DOM 只有 .ant-tabs-tab
+  // 典型场景2（状态类）：selector=".formTabs .formTabActive"，DOM 只有 formTab（非激活项）
+  // 这类情况下 element.matches 必然失败，需走字符串 endsWith 匹配来找激活态 CSS 规则
+  const isStateSelector = !isPseudoSelector && hasRealDom && !!selector && (() => {
+    const lastSeg = selector.trim().split(/\s+/).pop() || selector
+    const classesInSel = (lastSeg.match(/\.([^.#\[:]+)/g) ?? []).map(c => c.slice(1))
+    return classesInSel.length >= 1 && classesInSel.some(c => !element!.classList.contains(c))
+  })()
 
   for (let i = 0; i < root.styleSheets.length; i++) {
     try {
@@ -2025,61 +2034,63 @@ function getStyleRules (element: HTMLElement | null, selector: string | null) {
         if (isPseudoSelector && hasRealDom) {
           const rulePseudoMatch = selectorText.match(PSEUDO_REGEX)
           const rulePseudo = rulePseudoMatch ? rulePseudoMatch[0] : null
-          if (rulePseudo !== selectorPseudo) continue        // 伪类不同（如 :active vs :hover）直接跳过
+          if (rulePseudo !== selectorPseudo) continue
           const ruleBase = selectorText.slice(0, selectorText.length - rulePseudo.length).trim()
-          // console.log("ruleBase",ruleBase)
           try {
             if (element.matches(ruleBase)) {
-              // console.log("编辑伪类态 + 有真实DOM rule",rule)
               finalRules.push(rule)
             }
           } catch {}
           continue
         }
 
-        // ─── 情况2：编辑伪类态 + 无真实DOM（antd 全局伪类规则）──────────────
+        // ─── 情况2：伪类态 + 无真实DOM ──────────────────────────────────────
         // 例：selector=".ant-btn:not(:disabled):hover"，element=null
-        // 策略：没有 DOM 节点可做 matches，用字符串匹配
-        // 同时兼容平台加了作用域前缀的规则（selectorText = ".u_xxx .ant-btn:...:hover"）
-        // 和 antd 注入的全局规则（selectorText = ".ant-btn:...:hover"）
+        // 兼容带作用域前缀的用户规则和 antd 注入的全局规则
         if (isPseudoSelector && !hasRealDom && selector) {
-          // antd 全局规则：selectorText 与 selector 完全一致
           const isGlobalRule = selectorText === selector
-          // 用户自定义规则：平台加了作用域前缀，格式为 "[scope] [selector]"
           const isScopedRule = selectorText.endsWith(' ' + selector)
           if (isGlobalRule || isScopedRule) {
-            // console.log("编辑伪类态 + 无真实DOM rule",rule)
             finalRules.push(rule)
           }
           continue
         }
 
-        // ─── 情况3：编辑默认态（selector 无伪类）────────────────────────────
-        // 例：selector=".tabItem"，element=<div class="tabItem active">
-        // 策略：两道过滤防止其他规则污染默认态回显
+        // ─── 情况2.5：DOM 不处于目标状态（状态类/复合类）────────────────────
+        // 例：selector=".formTabs .formTabActive"，element=<div class="formTab">（非激活项）
+        // element.matches 对该 DOM 必然失败，改用 selector 末尾段做 endsWith 字符串匹配。
+        // 用末尾段而非完整路径，是因为用户的 LESS 可能写扁平规则（.formTabActive），
+        // 编译后 selectorText 不含中间层级，完整路径无法 endsWith 命中。
+        // 同时过滤含伪类的规则，避免 .formTabActive:hover 等混入。
+        if (isStateSelector && selector) {
+          const lastSeg = selector.trim().split(/\s+/).pop() || selector
+          if (!/:[a-zA-Z\-]/.test(selectorText)) {
+            const isGlobalRule = selectorText === lastSeg
+            const isScopedRule = selectorText.endsWith(' ' + lastSeg)
+            if (isGlobalRule || isScopedRule) {
+              finalRules.push(rule)
+            }
+          }
+          continue
+        }
 
-        // 过滤①：规则本身含任何伪类（:has(...)、:hover 等）→ 直接跳过
-        // 防止平台注入的全局规则（如 ":has(.geoView) *"）混入默认态
+        // ─── 情况3：默认态（selector 无伪类，DOM 处于该状态）────────────────
+        // 例：selector=".tabItem"，element=<div class="tabItem">
+        // 过滤①：跳过含伪类的规则，防止 :has()、:hover 等全局规则混入
         if (/:[a-zA-Z\-]/.test(selectorText)) continue
 
-        // 过滤②：element.matches 会命中元素身上所有类的规则，
-        // 需验证规则主体（最后一个空格后的部分）的末尾 class token 与 selector 完全相等，
-        // 防止 ".tabItem.active" 在编辑默认态时被纳入（lastToken=".active" ≠ ".tabItem"）
-        // 兼容多级选择器：selector=".listContainer .card .detailInfo .infoRow" 时
-        // lastToken 只是 ".infoRow"，需额外用 endsWith 验证整条规则是否以该选择器结尾
+        // 过滤②：element.matches 会命中 DOM 上所有类的规则，
+        // 需确认规则末尾 class token 与 selector 末尾 class token 一致，
+        // 防止 ".tabItem.active" 在编辑 ".tabItem" 默认态时被误纳入
         try {
           if (!element || !element.matches(selectorText) || !selector) continue
-          // selectorText 最后一段的最后一个 class token（防止 .tabItem.active 污染 .tabItem）
           const lastSegment      = selectorText.split(' ').pop() || selectorText
           const classTokens      = lastSegment.split('.').filter(Boolean)
           const lastToken        = classTokens.length > 0 ? '.' + classTokens[classTokens.length - 1] : lastSegment
-          // selector 最后一段的最后一个 class token（兼容引擎传入完整路径如 .a .b .c）
           const selectorLastSeg  = selector.split(' ').pop() || selector
           const selectorTokens   = selectorLastSeg.split('.').filter(Boolean)
           const selectorLastToken = selectorTokens.length > 0 ? '.' + selectorTokens[selectorTokens.length - 1] : selectorLastSeg
-          // 两边取最后 token 比较：防止 .tabItem.active ≠ .tabItem，同时兼容多级路径
           if (lastToken === selectorLastToken) {
-            // console.log("编辑默认态 rule",rule)
             finalRules.push(rule)
           }
         } catch {}
