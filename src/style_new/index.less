@@ -197,3 +197,66 @@
   position: absolute;
   background-color: rgb(64 169 255 / 70%);
 }
+
+.zoneTabBar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 4px 6px 6px;
+  position: relative;
+
+  // &::before {
+  //   content: '';
+  //   position: absolute;
+  //   left: 0;
+  //   right: 0;
+  //   top: 50%;
+  //   height: 1px;
+  //   background-color: rgba(230, 230, 230, 0.63922);
+  //   transform: translateY(-50%);
+  // }
+}
+
+.zoneTab {
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 10px;
+  font-size: 12px;
+  cursor: pointer;
+  color: #555;
+  background-color: #fff;
+  border: 1px solid #CCC;
+  margin-right: -1px;
+  white-space: nowrap;
+  position: relative;
+  z-index: 1;
+  transition: background-color 0.15s, color 0.15s, border-color 0.15s;
+
+  &:first-child {
+    border-top-left-radius: 6px;
+    border-bottom-left-radius: 6px;
+  }
+
+  &:last-child {
+    border-top-right-radius: 6px;
+    border-bottom-right-radius: 6px;
+    margin-right: 0;
+  }
+
+  &:hover {
+    color: #333;
+  }
+}
+
+.zoneTabActive {
+  color: #fff;
+  z-index: 1;
+  border-color: #616C81;
+  background-color: #616C81;
+
+  &:hover {
+    color: #fff;
+  }
+}

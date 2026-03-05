@@ -37,6 +37,93 @@ function getDocument() {
   return root
 }
 
+/** 将字符串中的正则特殊字符转义，用于把 CSS 选择器安全地嵌入 RegExp */
+function escapeRegExp(str: string) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+/**
+ * 伪类的展示优先级顺序。
+ * 扫描到的伪类按此列表排序，不在列表里的排到末尾。
+ */
+const PSEUDO_ORDER = [':hover', ':focus', ':focus-visible', ':focus-within', ':active', ':disabled', ':checked', ':placeholder-shown']
+
+/**
+ * 扫描 shadow DOM 里的 <style> 标签，找出指定选择器在当前组件（comId）样式表中
+ * 实际存在的伪类变体。
+ *
+ * 例：baseSelector=".searchArea .hotWords span"，comId="u_VvteU"
+ * 若样式表中有 ".u_VvteU .hotWords span:hover"
+ * 则返回 [".searchArea .hotWords span:hover"]
+ *
+ * 注意：匹配时只取 baseSelector 的最后一段（如 "span"）与 comId 组合做正则，
+ * 因为 LESS 嵌套展开后的路径与 JSX 祖先链不一定完全一致（中间层级可能不同）。
+ *
+ * @param baseSelectors - 基础选择器列表（不含伪类，不含 comId 前缀）
+ * @param comId         - 组件 ID，用于隔离不同组件的同名选择器
+ */
+function scanPseudoSelectors(baseSelectors: string[], comId: string): string[] {
+  if (!baseSelectors.length || !comId) return []
+
+  // 收集每个基础选择器对应的伪类集合
+  const pseudoMap = new Map<string, Set<string>>()
+  for (const sel of baseSelectors) {
+    pseudoMap.set(sel, new Set())
+  }
+
+  const root = getDocument()
+
+  // 平台样式注入在 shadow DOM 里，document.styleSheets 拿不到
+  // 需要从 shadow root 里的 <style> 标签手动提取 cssRules
+  const styleEls = Array.from((root as any).querySelectorAll?.('style') || [])
+
+  for (const styleEl of styleEls as HTMLStyleElement[]) {
+    let rules: CSSRuleList | null = null
+    try {
+      rules = styleEl.sheet?.cssRules ?? null
+    } catch {
+      continue
+    }
+    if (!rules) continue
+
+    for (const rule of Array.from(rules)) {
+      const selectorText = (rule as CSSStyleRule).selectorText
+      if (!selectorText) continue
+
+      for (const sel of baseSelectors) {
+        // 只用选择器的最后一段来匹配（最具体的片段）
+        // 例：sel=".searchArea .hotWords span"，最后一段是 "span"
+        // 样式表里是 ".u_VvteU .hotWords span:hover"，用最后一段能正确命中
+        // 用完整路径匹配会因为中间层级不一致（LESS嵌套展开后路径与JSX祖先链不同）而失败
+        const lastSegment = sel.trim().split(/\s+/).pop() || sel
+        const regex = new RegExp(
+          escapeRegExp(comId) + '.*' + escapeRegExp(lastSegment) + '(:{1,2}[a-zA-Z\\-]+(?:\\([^)]*\\))?)$'
+        )
+        const match = selectorText.match(regex)
+        if (match) {
+          pseudoMap.get(sel)!.add(match[1])
+        }
+      }
+    }
+  }
+
+  // 按 PSEUDO_ORDER 排序后，为每个基础选择器生成带伪类的完整选择器
+  const result: string[] = []
+  for (const sel of baseSelectors) {
+    const pseudoSet = pseudoMap.get(sel)!
+    const sorted = Array.from(pseudoSet).sort((a, b) => {
+      const ai = PSEUDO_ORDER.indexOf(a)
+      const bi = PSEUDO_ORDER.indexOf(b)
+      // 不在列表里的排末尾（indexOf 返回 -1，用 Infinity 替代）
+      return (ai === -1 ? Infinity : ai) - (bi === -1 ? Infinity : bi)
+    })
+    for (const pseudo of sorted) {
+      result.push(sel + pseudo)
+    }
+  }
+  return result
+}
+
 export default function ({editConfig}: EditorProps) {
   const [titleContent, setTitleContent] = useState("");
   const [targetStyle, setTargetStyle] = useState<any>(null);
@@ -68,25 +155,50 @@ export default function ({editConfig}: EditorProps) {
   })
 
   const [key, setKey] = useState(0)
+  const [activeZoneIdx, setActiveZoneIdx] = useState(0)
   const isResetRef = useRef(false)
 
-  // 切换面板的时候要重新获取样式，否则CSS面板的样式写完就不回显了
-  const [{
-    targetDom,
-    ...styleProps
-  },] = useMemo(() => {
-    const config = getDefaultConfiguration(editConfig)
-    // 重置后，所有面板都应该折叠
-    if (isResetRef.current) {
-      isResetRef.current = false
-      const allOptionKeys = (config.options || []).map((t: any) =>
-        typeof t === 'string' ? t.toLowerCase() : t?.type?.toLowerCase()
-      )
-      config.collapsedOptions = allOptionKeys
+  // 只从 editConfig 中拿 targetDom，用于 hover 标记效果
+  const targetDom = useMemo(() => {
+    if (!editConfig.options || Array.isArray(editConfig.options)) return null
+    return (editConfig.options as any).targetDom ?? null
+  }, [editConfig])
+
+  // 从样式表中扫描到的伪类选择器列表，如 [".searchArea .hotWords span:hover"]
+  const [pseudoSelectorList, setPseudoSelectorList] = useState<string[]>([])
+
+  useEffect(() => {
+    if (!open) return
+
+    // 提取基础选择器列表（不含伪类的条目）
+    const domList = Object.prototype.toString.call(targetDom) === '[object NodeList]'
+      ? Array.from(targetDom as NodeList)
+      : targetDom ? [targetDom as Element] : []
+
+    const baseSelectors: string[] = []
+    for (const dom of domList as Element[]) {
+      const raw = dom?.getAttribute?.('data-zone-selector')
+      if (raw) {
+        try {
+          const parsed: string[] = JSON.parse(raw)
+          if (Array.isArray(parsed)) {
+            parsed.forEach(s => {
+              // 只取不含伪类的基础选择器
+              if (!s.includes(':') && !baseSelectors.includes(s)) {
+                baseSelectors.push(s)
+              }
+            })
+          }
+        } catch {}
+      }
     }
 
-    return [config]
-  }, [editMode, key])
+    const comId = (!editConfig.options || Array.isArray(editConfig.options))
+      ? ''
+      : (editConfig.options as any).comId ?? ''
+
+    setPseudoSelectorList(scanPseudoSelectors(baseSelectors, comId))
+  }, [open, targetDom])
 
   const refresh = useCallback(() => {
     editConfig.value.set({})
@@ -247,19 +359,78 @@ export default function ({editConfig}: EditorProps) {
     )
   }, [open, editMode, titleContent])
 
+  const zoneSelectorList = useMemo(() => {
+    const domList = Object.prototype.toString.call(targetDom) === '[object NodeList]'
+      ? Array.from(targetDom as NodeList)
+      : targetDom
+        ? [targetDom as Element]
+        : []
+    const result: string[] = []
+    for (const dom of domList as Element[]) {
+      const raw = dom?.getAttribute?.('data-zone-selector')
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw)
+          if (Array.isArray(parsed)) {
+            parsed.forEach((s: string) => {
+              if (!result.includes(s)) result.push(s)
+            })
+          }
+        } catch {}
+      }
+    }
+    // 基础选择器排前面（第 0 位默认激活），伪类变体追加到末尾
+    // 去重：pseudoSelectorList 里的条目不再重复加入
+    for (const pseudo of pseudoSelectorList) {
+      if (!result.includes(pseudo)) result.push(pseudo)
+    }
+    return result
+  }, [targetDom, pseudoSelectorList])
+
+  useEffect(() => {
+    if (zoneSelectorList.length >= 2) {
+      ;(window as any).__mybricks_active_zone_selector = zoneSelectorList[0]
+      setActiveZoneIdx(0)
+    } else {
+      ;(window as any).__mybricks_active_zone_selector = undefined
+    }
+  }, [zoneSelectorList])
+
   const editor = useMemo(() => {
     if (editMode) {
+      const resolvedEditConfig = (() => {
+        const originalOptions = editConfig.options
+        if (zoneSelectorList.length < 2 || !originalOptions || Array.isArray(originalOptions)) {
+          return editConfig
+        }
+        return {
+          ...editConfig,
+          options: { ...originalOptions, selector: zoneSelectorList[activeZoneIdx] }
+        }
+      })()
+      const config = getDefaultConfiguration(resolvedEditConfig)
+
+      console.log("config",config)
+      const { targetDom: _td, ...activeStyleProps } = config
+      if (isResetRef.current) {
+        isResetRef.current = false
+        const allOptionKeys = (config.options || []).map((t: any) =>
+          typeof t === 'string' ? t.toLowerCase() : t?.type?.toLowerCase()
+        )
+        activeStyleProps.collapsedOptions = allOptionKeys
+      }
       return (
-        <Style editConfig={editConfig} {...styleProps}/>
+        <Style editConfig={resolvedEditConfig} {...activeStyleProps}/>
       )
     } else {
       return (
         <CssEditor {...editConfig} selector={':root'} onChange={(value: any) => {
+          console.log("value",value)
           editConfig.value.set(deepCopy(value))
         }}/>
       )
     }
-  }, [editMode, key])
+  }, [editMode, key, activeZoneIdx])
 
   function onMouseEnter() {
     try {
@@ -319,11 +490,42 @@ export default function ({editConfig}: EditorProps) {
     } catch {}
   }
 
+  const zoneTabBar = useMemo(() => {
+    if (zoneSelectorList.length < 2) return null
+    return (
+      <div className={css.zoneTabBar}>
+        {zoneSelectorList.map((sel, idx) => {
+          const parts = sel.trim().split(/\s+/)
+          const lastPart = parts[parts.length - 1]
+          // 含伪类的选择器只显示伪类部分（如 ":hover"），基础态选择器保持原逻辑
+          const pseudoMatch = lastPart.match(/(:{1,2}[a-zA-Z\-]+(?:\([^)]*\))?)$/)
+          const label = pseudoMatch
+            ? pseudoMatch[1]
+            : lastPart.replace(/^\./, '')
+          return (
+            <div
+              key={sel}
+              className={`${css.zoneTab}${idx === activeZoneIdx ? ` ${css.zoneTabActive}` : ''}`}
+              onClick={() => {
+                setActiveZoneIdx(idx)
+                //editConfig.value.set({},{selector:sel})
+                ;(window as any).__mybricks_active_zone_selector = sel
+              }}
+            >
+              {label}
+            </div>
+          )
+        })}
+      </div>
+    )
+  }, [zoneSelectorList, activeZoneIdx])
+
   return {
     render: (
       <>
+        {zoneTabBar}
         {title}
-        <div key={key} style={{display: open ? 'block' : 'none'}}>
+        <div key={`${key}_${activeZoneIdx}`} style={{display: open ? 'block' : 'none'}}>
           {show && editor}
         </div>
         {canvasEle && targetStyle && createPortal(
@@ -388,6 +590,7 @@ function Style ({editConfig, options, setValue, collapsedOptions, readonlyExpand
 
     const mergedCssProperties = mergeCSSProperties(deepCopy(setValue))
 
+    console.log("mergedCssProperties",mergedCssProperties)
     editConfig.value.set(mergedCssProperties)
   }, [])
 
@@ -996,7 +1199,9 @@ function getEffectedCssPropertyAndOptions (element: HTMLElement | null, selector
   // 多类名时传数组，对每个 selector 分别查规则后去重合并；单个 selector 行为不变
   const selectorArray = Array.isArray(selector) ? selector : [selector];
   const primarySelector = selectorArray[selectorArray.length - 1] ?? '';
-
+  const _selectorStr = Array.isArray(selector) ? selector.join(',') : (selector ?? '');
+  const _isTarget = /navItem|active/i.test(_selectorStr);
+  if (_isTarget) console.log('[getEffectedCssPropertyAndOptions] selector:', selector, '| selectorArray:', selectorArray)
   try {
     let finalRules;
     let computedValues;
@@ -1128,13 +1333,17 @@ function getEffectedCssPropertyAndOptions (element: HTMLElement | null, selector
     const otherRules = finalRules.filter((rule: any) => !ownSelectorRules.includes(rule));
     const otherRulesPanels = getEffectedPanelsFromCssRules(otherRules) as string[];
 
+    if (_isTarget) console.log('[getEffectedCssPropertyAndOptions] 结果 values(关键):', { color: (values as any).color, fontSize: (values as any).fontSize, backgroundColor: (values as any).backgroundColor })
     return [values, finalEffectedPanels, ownRulesPanels, [...effectedFromDirectParent, ...otherRulesPanels]]
   } catch (e) {
+    console.warn('[getEffectedCssPropertyAndOptions] 异常:', e)
     return [{}, []]
   }
 }
 
 function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration) {
+  const _isTarget = rules.some(r => /navItem|active/i.test(r.selectorText));
+  if (_isTarget) console.log('[getValues] 命中 rules selectors:', rules.map(r => r.selectorText))
   // TODO: 先一个个来吧，后面改一下
   /** font */
   let color // 继承属性
@@ -1689,7 +1898,17 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration) 
   if (!overflow) { overflow = computedValues.overflow }
   /** layout */
 
-  return getRealValue({
+  const rawValues = {
+    color, fontSize, textAlign, fontWeight, lineHeight, fontFamily, letterSpacing, whiteSpace,
+    paddingTop, paddingRight, paddingBottom, paddingLeft,
+    marginTop, marginRight, marginBottom, marginLeft,
+    backgroundColor, backgroundImage, width, height,
+    borderTopColor, borderTopStyle, borderTopWidth, borderTopLeftRadius,
+    boxShadow, opacity, display, position,
+  }
+  if (_isTarget) console.log('[getValues] 提取到的原始属性:', rawValues)
+
+  const result = getRealValue({
     color,
     fontSize,
     textAlign,
@@ -1758,12 +1977,16 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration) 
     position,
     overflow,
   }, computedValues)
+  if (_isTarget) console.log('[getValues] 最终 styleValues:', result)
+  return result
 }
 
 // 修改getStyleRules函数以更好地处理伪类选择器
 function getStyleRules (element: HTMLElement | null, selector: string | null) {
   const finalRules = [] // 最终返回的规则
   const root = getDocument()
+  const _isTarget = /navItem|active/i.test(selector ?? '');
+  if (_isTarget) console.log('[getStyleRules] selector:', selector, '| element classList:', (element as HTMLElement)?.classList?.value)
   const PSEUDO_REGEX = /(:{1,2}[a-zA-Z\-]+(?:\([^)]*\))?)$/    // 匹配选择器末尾的伪类/伪元素部分 如 :hover等
 
 
@@ -1842,6 +2065,7 @@ function getStyleRules (element: HTMLElement | null, selector: string | null) {
       }
     } catch {}
   }
+  if (_isTarget) console.log('[getStyleRules] 命中规则:', (finalRules as CSSStyleRule[]).map(r => r.selectorText))
   return finalRules
 }
 
