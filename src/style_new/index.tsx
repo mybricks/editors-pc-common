@@ -387,13 +387,9 @@ export default function ({editConfig}: EditorProps) {
     return result
   }, [targetDom, pseudoSelectorList])
 
+  // zoneSelectorList 变化（targetDom / 伪类扫描结果更新）时，重置激活下标到第 0 项
   useEffect(() => {
-    if (zoneSelectorList.length >= 2) {
-      ;(window as any).__mybricks_active_zone_selector = zoneSelectorList[0]
-      setActiveZoneIdx(0)
-    } else {
-      ;(window as any).__mybricks_active_zone_selector = undefined
-    }
+    setActiveZoneIdx(0)
   }, [zoneSelectorList])
 
   const editor = useMemo(() => {
@@ -410,7 +406,7 @@ export default function ({editConfig}: EditorProps) {
       })()
       const config = getDefaultConfiguration(resolvedEditConfig)
 
-      console.log("config",config)
+      // console.log("config",config)
       const { targetDom: _td, ...activeStyleProps } = config
       if (isResetRef.current) {
         isResetRef.current = false
@@ -425,7 +421,7 @@ export default function ({editConfig}: EditorProps) {
     } else {
       return (
         <CssEditor {...editConfig} selector={':root'} onChange={(value: any) => {
-          console.log("value",value)
+          // console.log("value",value)
           editConfig.value.set(deepCopy(value))
         }}/>
       )
@@ -508,8 +504,8 @@ export default function ({editConfig}: EditorProps) {
               className={`${css.zoneTab}${idx === activeZoneIdx ? ` ${css.zoneTabActive}` : ''}`}
               onClick={() => {
                 setActiveZoneIdx(idx)
-                //editConfig.value.set({},{selector:sel})
-                ;(window as any).__mybricks_active_zone_selector = sel
+                editConfig.value.set({},{selector:sel})
+                //;(window as any).__mybricks_active_zone_selector = sel
               }}
             >
               {label}
@@ -523,6 +519,11 @@ export default function ({editConfig}: EditorProps) {
   return {
     render: (
       <>
+        {/* <div onClick={()=>{
+          const sel = ".test"
+          editConfig.value.set({},{selector:sel})
+          console.log("测试设置selector",sel)
+        }}>测试设置selector</div> */}
         {zoneTabBar}
         {title}
         <div key={`${key}_${activeZoneIdx}`} style={{display: open ? 'block' : 'none'}}>
@@ -590,7 +591,7 @@ function Style ({editConfig, options, setValue, collapsedOptions, readonlyExpand
 
     const mergedCssProperties = mergeCSSProperties(deepCopy(setValue))
 
-    console.log("mergedCssProperties",mergedCssProperties)
+    // console.log("mergedCssProperties",mergedCssProperties)
     editConfig.value.set(mergedCssProperties)
   }, [])
 
@@ -1201,7 +1202,7 @@ function getEffectedCssPropertyAndOptions (element: HTMLElement | null, selector
   const primarySelector = selectorArray[selectorArray.length - 1] ?? '';
   const _selectorStr = Array.isArray(selector) ? selector.join(',') : (selector ?? '');
   const _isTarget = /navItem|active/i.test(_selectorStr);
-  if (_isTarget) console.log('[getEffectedCssPropertyAndOptions] selector:', selector, '| selectorArray:', selectorArray)
+  //if (_isTarget) console.log('[getEffectedCssPropertyAndOptions] selector:', selector, '| selectorArray:', selectorArray)
   try {
     let finalRules;
     let computedValues;
@@ -1333,7 +1334,7 @@ function getEffectedCssPropertyAndOptions (element: HTMLElement | null, selector
     const otherRules = finalRules.filter((rule: any) => !ownSelectorRules.includes(rule));
     const otherRulesPanels = getEffectedPanelsFromCssRules(otherRules) as string[];
 
-    if (_isTarget) console.log('[getEffectedCssPropertyAndOptions] 结果 values(关键):', { color: (values as any).color, fontSize: (values as any).fontSize, backgroundColor: (values as any).backgroundColor })
+    //if (_isTarget) console.log('[getEffectedCssPropertyAndOptions] 结果 values(关键):', { color: (values as any).color, fontSize: (values as any).fontSize, backgroundColor: (values as any).backgroundColor })
     return [values, finalEffectedPanels, ownRulesPanels, [...effectedFromDirectParent, ...otherRulesPanels]]
   } catch (e) {
     console.warn('[getEffectedCssPropertyAndOptions] 异常:', e)
@@ -1343,7 +1344,7 @@ function getEffectedCssPropertyAndOptions (element: HTMLElement | null, selector
 
 function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration) {
   const _isTarget = rules.some(r => /navItem|active/i.test(r.selectorText));
-  if (_isTarget) console.log('[getValues] 命中 rules selectors:', rules.map(r => r.selectorText))
+  //'[getValues] 命中 rules selectors:', rules.map(r => r.selectorText))
   // TODO: 先一个个来吧，后面改一下
   /** font */
   let color // 继承属性
@@ -1906,7 +1907,7 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration) 
     borderTopColor, borderTopStyle, borderTopWidth, borderTopLeftRadius,
     boxShadow, opacity, display, position,
   }
-  if (_isTarget) console.log('[getValues] 提取到的原始属性:', rawValues)
+  //if (_isTarget) console.log('[getValues] 提取到的原始属性:', rawValues)
 
   const result = getRealValue({
     color,
@@ -1977,7 +1978,7 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration) 
     position,
     overflow,
   }, computedValues)
-  if (_isTarget) console.log('[getValues] 最终 styleValues:', result)
+  //if (_isTarget) console.log('[getValues] 最终 styleValues:', result)
   return result
 }
 
@@ -1986,7 +1987,7 @@ function getStyleRules (element: HTMLElement | null, selector: string | null) {
   const finalRules = [] // 最终返回的规则
   const root = getDocument()
   const _isTarget = /navItem|active/i.test(selector ?? '');
-  if (_isTarget) console.log('[getStyleRules] selector:', selector, '| element classList:', (element as HTMLElement)?.classList?.value)
+  //if (_isTarget) console.log('[getStyleRules] selector:', selector, '| element classList:', (element as HTMLElement)?.classList?.value)
   const PSEUDO_REGEX = /(:{1,2}[a-zA-Z\-]+(?:\([^)]*\))?)$/    // 匹配选择器末尾的伪类/伪元素部分 如 :hover等
 
 
@@ -2016,8 +2017,12 @@ function getStyleRules (element: HTMLElement | null, selector: string | null) {
           const rulePseudo = rulePseudoMatch ? rulePseudoMatch[0] : null
           if (rulePseudo !== selectorPseudo) continue        // 伪类不同（如 :active vs :hover）直接跳过
           const ruleBase = selectorText.slice(0, selectorText.length - rulePseudo.length).trim()
+          // console.log("ruleBase",ruleBase)
           try {
-            if (element.matches(ruleBase)) finalRules.push(rule)
+            if (element.matches(ruleBase)) {
+              // console.log("编辑伪类态 + 有真实DOM rule",rule)
+              finalRules.push(rule)
+            }
           } catch {}
           continue
         }
@@ -2032,7 +2037,10 @@ function getStyleRules (element: HTMLElement | null, selector: string | null) {
           const isGlobalRule = selectorText === selector
           // 用户自定义规则：平台加了作用域前缀，格式为 "[scope] [selector]"
           const isScopedRule = selectorText.endsWith(' ' + selector)
-          if (isGlobalRule || isScopedRule) finalRules.push(rule)
+          if (isGlobalRule || isScopedRule) {
+            // console.log("编辑伪类态 + 无真实DOM rule",rule)
+            finalRules.push(rule)
+          }
           continue
         }
 
@@ -2060,12 +2068,15 @@ function getStyleRules (element: HTMLElement | null, selector: string | null) {
           const selectorTokens   = selectorLastSeg.split('.').filter(Boolean)
           const selectorLastToken = selectorTokens.length > 0 ? '.' + selectorTokens[selectorTokens.length - 1] : selectorLastSeg
           // 两边取最后 token 比较：防止 .tabItem.active ≠ .tabItem，同时兼容多级路径
-          if (lastToken === selectorLastToken) finalRules.push(rule)
+          if (lastToken === selectorLastToken) {
+            // console.log("编辑默认态 rule",rule)
+            finalRules.push(rule)
+          }
         } catch {}
       }
     } catch {}
   }
-  if (_isTarget) console.log('[getStyleRules] 命中规则:', (finalRules as CSSStyleRule[]).map(r => r.selectorText))
+  //if (_isTarget) console.log('[getStyleRules] 命中规则:', (finalRules as CSSStyleRule[]).map(r => r.selectorText))
   return finalRules
 }
 

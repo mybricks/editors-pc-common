@@ -16,7 +16,7 @@ export interface EditorProps {
     }
     | undefined
     value: {
-      set(style: Style): void
+      set(style: Style, options?: { selector?: string }): void
       get(): Style
     }
     upload: (file: Array<File>) => Array<string>
