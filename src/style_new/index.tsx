@@ -396,7 +396,7 @@ export default function ({editConfig}: EditorProps) {
     if (editMode) {
       const resolvedEditConfig = (() => {
         const originalOptions = editConfig.options
-        if (zoneSelectorList.length < 2 || !originalOptions || Array.isArray(originalOptions)) {
+        if (zoneSelectorList.length < 1 || !originalOptions || Array.isArray(originalOptions)) {
           return editConfig
         }
         return {
@@ -406,7 +406,8 @@ export default function ({editConfig}: EditorProps) {
       })()
       const config = getDefaultConfiguration(resolvedEditConfig)
 
-      // console.log("config",config)
+      // console.log("getDefaultConfiguration",config)
+
       const { targetDom: _td, ...activeStyleProps } = config
       if (isResetRef.current) {
         isResetRef.current = false
@@ -599,6 +600,8 @@ function Style ({editConfig, options, setValue, collapsedOptions, readonlyExpand
 
     // debugger
     //在这里把selector放在了第二个参数
+    //bug: 有时候这个selector是："[data-zone-selector='[".searchArea .hotWords span"]']"
+    // console.log("编辑器传递selector",selector)
     editConfig.value.set(mergedCssProperties, selector ? { selector } : undefined)
   }, [editConfig])
 
