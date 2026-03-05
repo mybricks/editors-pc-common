@@ -504,7 +504,7 @@ export default function ({editConfig}: EditorProps) {
               className={`${css.zoneTab}${idx === activeZoneIdx ? ` ${css.zoneTabActive}` : ''}`}
               onClick={() => {
                 setActiveZoneIdx(idx)
-                editConfig.value.set({},{selector:sel})
+                // editConfig.value.set({},{selector:sel})
                 // ;(window as any).__mybricks_active_zone_selector = sel
               }}
             >
@@ -597,7 +597,7 @@ function Style ({editConfig, options, setValue, collapsedOptions, readonlyExpand
           ? (editConfig.options as any).selector
           : undefined)
 
-    debugger
+    // debugger
     //在这里把selector放在了第二个参数
     editConfig.value.set(mergedCssProperties, selector ? { selector } : undefined)
   }, [editConfig])
