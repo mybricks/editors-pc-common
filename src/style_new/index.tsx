@@ -505,7 +505,7 @@ export default function ({editConfig}: EditorProps) {
               onClick={() => {
                 setActiveZoneIdx(idx)
                 editConfig.value.set({},{selector:sel})
-                //;(window as any).__mybricks_active_zone_selector = sel
+                // ;(window as any).__mybricks_active_zone_selector = sel
               }}
             >
               {label}
@@ -591,9 +591,16 @@ function Style ({editConfig, options, setValue, collapsedOptions, readonlyExpand
 
     const mergedCssProperties = mergeCSSProperties(deepCopy(setValue))
 
-    // console.log("mergedCssProperties",mergedCssProperties)
-    editConfig.value.set(mergedCssProperties)
-  }, [])
+    // options?.selector 优先；兜底从 editConfig.options.selector 读取当前激活的 selector
+    const selector = options?.selector
+      ?? ((!Array.isArray(editConfig.options) && editConfig.options)
+          ? (editConfig.options as any).selector
+          : undefined)
+
+    debugger
+    //在这里把selector放在了第二个参数
+    editConfig.value.set(mergedCssProperties, selector ? { selector } : undefined)
+  }, [editConfig])
 
   const editorContext = useMemo(() => {
     return {
