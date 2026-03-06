@@ -102,6 +102,28 @@ function scanPseudoSelectors(baseSelectors: string[], comId: string): string[] {
         const match = selectorText.match(regex)
         if (match) {
           pseudoMap.get(sel)!.add(match[1])
+          continue
+        }
+
+        // ── 父级伪类兜底 ──────────────────────────────────────────────────────
+        // 场景：sel 末尾是纯 HTML 标签名（如 "span"），自身没有 :hover 规则，
+        // 但父级选择器（如 ".actionItem"）有 :hover 规则，子元素会继承其样式。
+        // 此时也应为 sel 生成 hover tab，让用户能感知/覆盖继承值。
+        // 判断条件：lastSegment 无 . # : 前缀（纯标签名），
+        //           且样式表中存在 comId 作用域内、以父级末尾段+伪类结尾的规则。
+        const lastSegIsTag = /^[a-z][a-zA-Z0-9]*$/.test(lastSegment)
+        if (lastSegIsTag) {
+          const segments = sel.trim().split(/\s+/)
+          if (segments.length >= 2) {
+            const parentLastSeg = segments[segments.length - 2]
+            const parentPseudoRegex = new RegExp(
+              escapeRegExp(comId) + '.*' + escapeRegExp(parentLastSeg) + '(:{1,2}[a-zA-Z\\-]+(?:\\([^)]*\\))?)$'
+            )
+            const parentMatch = selectorText.match(parentPseudoRegex)
+            if (parentMatch) {
+              pseudoMap.get(sel)!.add(parentMatch[1])
+            }
+          }
         }
       }
     }
@@ -519,11 +541,6 @@ export default function ({editConfig}: EditorProps) {
   return {
     render: (
       <>
-        {/* <div onClick={()=>{
-          const sel = ".test"
-          editConfig.value.set({},{selector:sel})
-          console.log("测试设置selector",sel)
-        }}>测试设置selector</div> */}
         {zoneTabBar}
         {title}
         <div key={`${key}_${activeZoneIdx}`} style={{display: open ? 'block' : 'none'}}>
@@ -1210,11 +1227,11 @@ function getEffectedCssPropertyAndOptions (element: HTMLElement | null, selector
   const selectorArray = Array.isArray(selector) ? selector : [selector];
   const primarySelector = selectorArray[selectorArray.length - 1] ?? '';
   const _selectorStr = Array.isArray(selector) ? selector.join(',') : (selector ?? '');
-  const _isTarget = /navItem|active/i.test(_selectorStr);
-  //if (_isTarget) console.log('[getEffectedCssPropertyAndOptions] selector:', selector, '| selectorArray:', selectorArray)
   try {
-    let finalRules;
+    let finalRules: CSSStyleRule[];
     let computedValues;
+    // 汇总所有来自父级继承来源的规则，传给 getValues 做 inheritOnly 过滤
+    const allInheritOnlyRules = new Set<CSSStyleRule>()
 
     if (element) {
       const classListValue = element.classList.value;
@@ -1222,12 +1239,13 @@ function getEffectedCssPropertyAndOptions (element: HTMLElement | null, selector
       // 按 selectorText 去重，避免多次查询返回重复规则
       const rulesMap = new Map<string, any>();
       for (const sel of selectorArray) {
-        const rules = getStyleRules(element, classListValue.indexOf(sel) !== -1 ? null : sel);
+        const { rules, inheritOnlyRules } = getStyleRules(element, classListValue.indexOf(sel) !== -1 ? null : sel);
         rules.forEach((rule: any) => {
           if (!rulesMap.has(rule.selectorText)) {
             rulesMap.set(rule.selectorText, rule);
           }
         });
+        inheritOnlyRules.forEach(r => allInheritOnlyRules.add(r))
       }
 
       finalRules = Array.from(rulesMap.values()).filter((finalRule: any) => {
@@ -1256,8 +1274,10 @@ function getEffectedCssPropertyAndOptions (element: HTMLElement | null, selector
       }
     } else if (primarySelector) {
 
-      // 无真实 DOM（伪类如 :hover、:disabled 等）
-      finalRules = getStyleRules(null, primarySelector).filter((finalRule: any) => {
+      // 无真实 DOM（伪类如 :hover、:disabled 等，或 span 等无 class 的子标签）
+      const { rules: rawRules, inheritOnlyRules } = getStyleRules(null, primarySelector)
+      inheritOnlyRules.forEach(r => allInheritOnlyRules.add(r))
+      finalRules = rawRules.filter((finalRule: any) => {
         let tempCompare
         try {
           tempCompare = calculate(finalRule.selectorText)
@@ -1276,8 +1296,11 @@ function getEffectedCssPropertyAndOptions (element: HTMLElement | null, selector
 
       // 获取基础选择器对应的元素
       const root = getDocument()
-      const baseSelector = primarySelector.split(':')[0]
+      // 去掉末尾伪类/伪元素部分，得到真实 DOM 的选择器
+      const baseSelector = primarySelector.replace(/:{1,2}[a-zA-Z\-]+(\([^)]*\))?$/, '').trim()
+      // 先在 comId 作用域内查找，找不到则去掉 comId 再试一次（comId 不匹配时的兜底）
       const targetElement = root.querySelector(`#${comId} ${baseSelector}`)
+        ?? root.querySelector(baseSelector)
       
       if (targetElement) {
         // 检查是否是伪元素（如::before、::after、::placeholder）
@@ -1286,8 +1309,6 @@ function getEffectedCssPropertyAndOptions (element: HTMLElement | null, selector
         if (pseudoSelector) {
           computedValues = window.getComputedStyle(targetElement, pseudoSelector);
         } else {
-          // TDDO，现在获取不到样式表的 finalRules，因为类名可能不一样
-
           // 属于伪类（如:hover、:disabled等），则获取普通元素的computedStyle作为基础样式
           computedValues = window.getComputedStyle(targetElement);
         }
@@ -1300,7 +1321,8 @@ function getEffectedCssPropertyAndOptions (element: HTMLElement | null, selector
     }
 
     const effectedFromRules = getEffectedPanelsFromCssRules(finalRules);
-    const values = getValues(finalRules, computedValues);
+
+    const values = getValues(finalRules, computedValues, allInheritOnlyRules);
 
     const effectedFromDirectParent = element ? getEffectedPanelsFromDirectParent(element, comId) : [];
     const finalEffectedPanels = Array.from(
@@ -1343,7 +1365,6 @@ function getEffectedCssPropertyAndOptions (element: HTMLElement | null, selector
     const otherRules = finalRules.filter((rule: any) => !ownSelectorRules.includes(rule));
     const otherRulesPanels = getEffectedPanelsFromCssRules(otherRules) as string[];
 
-    //if (_isTarget) console.log('[getEffectedCssPropertyAndOptions] 结果 values(关键):', { color: (values as any).color, fontSize: (values as any).fontSize, backgroundColor: (values as any).backgroundColor })
     return [values, finalEffectedPanels, ownRulesPanels, [...effectedFromDirectParent, ...otherRulesPanels]]
   } catch (e) {
     console.warn('[getEffectedCssPropertyAndOptions] 异常:', e)
@@ -1351,8 +1372,17 @@ function getEffectedCssPropertyAndOptions (element: HTMLElement | null, selector
   }
 }
 
-function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration) {
-  const _isTarget = rules.some(r => /navItem|active/i.test(r.selectorText));
+// CSS 中可被子元素继承的属性集合（font 系列 + color + cursor + 少量文本属性）
+// 用于父级规则纳入时的过滤：只允许这些属性从父级规则中读取，
+// 防止 display / padding / margin 等非继承属性被误带入子元素面板。
+const INHERITABLE_PROPS = new Set([
+  'color', 'fontSize', 'fontWeight', 'fontFamily', 'fontStyle',
+  'lineHeight', 'letterSpacing', 'textAlign', 'whiteSpace', 'cursor',
+  'font-size', 'font-weight', 'font-family', 'font-style',
+  'line-height', 'letter-spacing', 'text-align', 'white-space',
+])
+
+function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration, inheritOnlyRules?: Set<CSSStyleRule>) {
   //'[getValues] 命中 rules selectors:', rules.map(r => r.selectorText))
   // TODO: 先一个个来吧，后面改一下
   /** font */
@@ -1448,6 +1478,8 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration) 
 
   rules.forEach((rule) => {
     const { style } = rule
+    // 父级规则（继承来源）只允许提取可继承属性，跳过 display/padding/margin 等非继承属性
+    const inheritOnly = !!(inheritOnlyRules?.has(rule))
 
     /** font */
     const {
@@ -1485,6 +1517,9 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration) 
       whiteSpace = styleWhiteSpace
     }
     /** font */
+
+    // 以下均为非继承属性，父级规则模式下跳过
+    if (inheritOnly) return
 
     /** padding */
     const {
@@ -1916,7 +1951,6 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration) 
     borderTopColor, borderTopStyle, borderTopWidth, borderTopLeftRadius,
     boxShadow, opacity, display, position,
   }
-  //if (_isTarget) console.log('[getValues] 提取到的原始属性:', rawValues)
 
   const result = getRealValue({
     color,
@@ -1987,16 +2021,16 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration) 
     position,
     overflow,
   }, computedValues)
-  //if (_isTarget) console.log('[getValues] 最终 styleValues:', result)
   return result
 }
 
 // 修改getStyleRules函数以更好地处理伪类选择器
-function getStyleRules (element: HTMLElement | null, selector: string | null) {
-  const finalRules = [] // 最终返回的规则
+function getStyleRules (element: HTMLElement | null, selector: string | null): { rules: CSSStyleRule[], inheritOnlyRules: Set<CSSStyleRule> } {
+  const finalRules: CSSStyleRule[] = [] // 最终返回的规则
+  // 标记哪些规则是"父级继承来源"——这些规则命中的原因是子元素（如 span）继承了父级样式，
+  // getValues 中对这些规则只读可继承属性（color/font 系列），跳过 display/padding 等非继承属性。
+  const inheritOnlyRules = new Set<CSSStyleRule>()
   const root = getDocument()
-  const _isTarget = /navItem|active/i.test(selector ?? '');
-  //if (_isTarget) console.log('[getStyleRules] selector:', selector, '| element classList:', (element as HTMLElement)?.classList?.value)
   const PSEUDO_REGEX = /(:{1,2}[a-zA-Z\-]+(?:\([^)]*\))?)$/    // 匹配选择器末尾的伪类/伪元素部分 如 :hover等
 
 
@@ -2031,27 +2065,80 @@ function getStyleRules (element: HTMLElement | null, selector: string | null) {
         // ─── 情况1：编辑伪类态 + 有真实DOM ────────────────────────────────────
         // 例：selector=".mainBtn:hover"，element=<div class="mainBtn">
         // 策略：规则的伪类必须与目标相同，再剥掉伪类用 element.matches 验证基础选择器
+        // 兜底（情况1.5）：selector 末尾段是纯标签名（如 span:hover），element 为该标签，
+        // element.matches('.actionItem') 必然失败，但 span 会从父级 .actionItem:hover 继承，
+        // 需把父级 :hover 规则纳入并标记 inheritOnly。
         if (isPseudoSelector && hasRealDom) {
           const rulePseudoMatch = selectorText.match(PSEUDO_REGEX)
           const rulePseudo = rulePseudoMatch ? rulePseudoMatch[0] : null
           if (rulePseudo !== selectorPseudo) continue
-          const ruleBase = selectorText.slice(0, selectorText.length - rulePseudo.length).trim()
+          const ruleBase = selectorText.slice(0, selectorText.length - (rulePseudo?.length ?? 0)).trim()
+          let matched = false
           try {
             if (element.matches(ruleBase)) {
               finalRules.push(rule)
+              matched = true
             }
           } catch {}
+          // 情况1.5：末尾段是纯标签名时的父级伪类兜底
+          if (!matched && selector) {
+            const segs1 = selector.trim().split(/\s+/)
+            const lastSeg1 = segs1[segs1.length - 1]
+            const lastSeg1Base = lastSeg1.replace(/:{1,2}[a-zA-Z\-]+(\([^)]*\))?$/, '')
+            const lastSeg1IsTag = /^[a-z][a-zA-Z0-9]*$/.test(lastSeg1Base)
+            if (lastSeg1IsTag && segs1.length >= 2) {
+              const parentSel1     = segs1.slice(0, -1).join(' ')
+              const parentLastSeg1 = segs1[segs1.length - 2]
+              const parentFull1    = parentSel1 + (selectorPseudo ?? '')
+              const parentLast1    = parentLastSeg1 + (selectorPseudo ?? '')
+              const isParentFull1  = selectorText === parentFull1 || selectorText.endsWith(' ' + parentFull1)
+              const isParentLast1  = selectorText === parentLast1 || selectorText.endsWith(' ' + parentLast1)
+              if (isParentFull1 || isParentLast1) {
+                finalRules.push(rule)
+                inheritOnlyRules.add(rule)
+              }
+            }
+          }
           continue
         }
 
         // ─── 情况2：伪类态 + 无真实DOM ──────────────────────────────────────
         // 例：selector=".ant-btn:not(:disabled):hover"，element=null
         // 兼容带作用域前缀的用户规则和 antd 注入的全局规则
+        // 同时支持末尾段匹配（样式表编译后路径与 selector 中间路径不同时兜底）
         if (isPseudoSelector && !hasRealDom && selector) {
           const isGlobalRule = selectorText === selector
           const isScopedRule = selectorText.endsWith(' ' + selector)
-          if (isGlobalRule || isScopedRule) {
+          const lastSeg = selector.trim().split(/\s+/).pop() || selector
+          const isLastSegMatch = selectorText === lastSeg || selectorText.endsWith(' ' + lastSeg)
+
+          // 父级伪类兜底（element=null 分支）：当末尾段是 "纯标签名:伪类"（如 "span:hover"）时，
+          // 向上回溯父级末尾段 + 相同伪类（如 ".actionItem:hover"），将父级规则纳入，
+          // 并标记为 inheritOnlyRules，getValues 只从中读取可继承属性。
+          // 注：element 存在时同等逻辑由情况1.5 处理。
+          let isParentPseudoMatch = false
+          const lastSegBase   = lastSeg.replace(/:{1,2}[a-zA-Z\-]+(\([^)]*\))?$/, '')
+          const lastSegPseudo = (lastSeg.match(/(:{1,2}[a-zA-Z\-]+(?:\([^)]*\))?)$/) || [])[1] || ''
+          const lastSegIsTag  = /^[a-z][a-zA-Z0-9]*$/.test(lastSegBase)
+          if (lastSegIsTag && lastSegPseudo) {
+            const segs          = selector.trim().split(/\s+/)
+            const parentSel     = segs.length > 1 ? segs.slice(0, -1).join(' ') : null
+            const parentLastSeg = parentSel ? (parentSel.trim().split(/\s+/).pop() || parentSel) : null
+            const parentFull    = parentSel     ? parentSel     + lastSegPseudo : null
+            const parentLast    = parentLastSeg ? parentLastSeg + lastSegPseudo : null
+            if (
+              (parentFull && (selectorText === parentFull || selectorText.endsWith(' ' + parentFull))) ||
+              (parentLast && (selectorText === parentLast || selectorText.endsWith(' ' + parentLast)))
+            ) {
+              isParentPseudoMatch = true
+            }
+          }
+
+          if (isGlobalRule || isScopedRule || isLastSegMatch) {
             finalRules.push(rule)
+          } else if (isParentPseudoMatch) {
+            finalRules.push(rule)
+            inheritOnlyRules.add(rule)
           }
           continue
         }
@@ -2072,6 +2159,62 @@ function getStyleRules (element: HTMLElement | null, selector: string | null) {
             }
           }
           continue
+        }
+
+        // ─── 情况2.7：无真实DOM + 无伪类（默认态，DOM 不在页面中）────────────
+        // 例：selector=".userActions .actionItem span"，element=null
+        // targetDom 未传入时通过末尾段做字符串匹配找 CSS 规则；
+        // 若末尾段是纯标签名（如 span），还会向上找父级规则（如 .actionItem）
+        // 并标记为 inheritOnly，getValues 只从中读取可继承属性。
+        if (!hasRealDom && !isPseudoSelector && selector) {
+          const segs    = selector.trim().split(/\s+/)
+          const lastSeg = segs[segs.length - 1]
+          if (!/:[a-zA-Z\-]/.test(selectorText)) {
+            const isGlobalRule = selectorText === lastSeg
+            const isScopedRule = selectorText.endsWith(' ' + lastSeg)
+            if (isGlobalRule || isScopedRule) {
+              finalRules.push(rule)
+            } else {
+              const lastSegIsTag  = /^[a-z][a-zA-Z0-9]*$/.test(lastSeg)
+              if (lastSegIsTag && segs.length >= 2) {
+                const parentSel     = segs.slice(0, -1).join(' ')
+                const parentLastSeg = segs[segs.length - 2]
+                const isParentFull  = selectorText === parentSel     || selectorText.endsWith(' ' + parentSel)
+                const isParentLast  = selectorText === parentLastSeg || selectorText.endsWith(' ' + parentLastSeg)
+                if (isParentFull || isParentLast) {
+                  finalRules.push(rule)
+                  inheritOnlyRules.add(rule)
+                }
+              }
+            }
+
+          }
+          continue
+        }
+
+        // ─── 情况2.9：有真实DOM + 无伪类 + 末尾段是纯标签名（如 span）──────
+        // 例：selector=".userActions .actionItem span"，element=<span>
+        // span 无 class，情况3 的 element.matches('.actionItem') 必然失败；
+        // 向上找父级规则（如 .actionItem），纳入 finalRules 并标记为 inheritOnly，
+        // getValues 只从中提取 color/font 等可继承属性，display/padding 等不会带入。
+        // 注：有伪类时（如 span:hover）同等逻辑由情况1.5 处理。
+        if (hasRealDom && !isPseudoSelector && !isStateSelector && selector) {
+          const segs29   = selector.trim().split(/\s+/)
+          const lastSeg29 = segs29[segs29.length - 1]
+          const lastSegIsTag29 = /^[a-z][a-zA-Z0-9]*$/.test(lastSeg29)
+          if (lastSegIsTag29 && segs29.length >= 2) {
+            if (!/:[a-zA-Z\-]/.test(selectorText)) {
+              const parentSel29     = segs29.slice(0, -1).join(' ')
+              const parentLastSeg29 = segs29[segs29.length - 2]
+              const isParentFull29  = selectorText === parentSel29 || selectorText.endsWith(' ' + parentSel29)
+              const isParentLast29  = selectorText === parentLastSeg29 || selectorText.endsWith(' ' + parentLastSeg29)
+              if (isParentFull29 || isParentLast29) {
+                finalRules.push(rule)
+                inheritOnlyRules.add(rule)
+                continue
+              }
+            }
+          }
         }
 
         // ─── 情况3：默认态（selector 无伪类，DOM 处于该状态）────────────────
@@ -2097,8 +2240,7 @@ function getStyleRules (element: HTMLElement | null, selector: string | null) {
       }
     } catch {}
   }
-  //if (_isTarget) console.log('[getStyleRules] 命中规则:', (finalRules as CSSStyleRule[]).map(r => r.selectorText))
-  return finalRules
+  return { rules: finalRules, inheritOnlyRules }
 }
 
 // TODO: 之后的主题配置，按理说所有编辑器均需要做好兼容
