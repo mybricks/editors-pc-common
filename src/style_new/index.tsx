@@ -178,6 +178,7 @@ export default function ({editConfig}: EditorProps) {
 
   const [key, setKey] = useState(0)
   const [activeZoneIdx, setActiveZoneIdx] = useState(0)
+  const [affectedCount, setAffectedCount] = useState<number | null>(null)
   const isResetRef = useRef(false)
 
   // 只从 editConfig 中拿 targetDom，用于 hover 标记效果
@@ -414,6 +415,21 @@ export default function ({editConfig}: EditorProps) {
     setActiveZoneIdx(0)
   }, [zoneSelectorList])
 
+  // 计算当前激活 selector 在 shadow root 中命中的元素个数
+  useEffect(() => {
+    const selector = zoneSelectorList[activeZoneIdx]
+    if (!selector) { setAffectedCount(null); return }
+    // 去掉伪类部分，得到可用于 querySelectorAll 的基础选择器
+    const baseSelector = selector.replace(/:{1,2}[a-zA-Z\-]+(\([^)]*\))?/g, '').trim()
+    try {
+      const root = getDocument()
+      const count = (root as any).querySelectorAll?.(baseSelector)?.length ?? 0
+      setAffectedCount(count)
+    } catch {
+      setAffectedCount(null)
+    }
+  }, [activeZoneIdx, zoneSelectorList])
+
   const editor = useMemo(() => {
     if (editMode) {
       const resolvedEditConfig = (() => {
@@ -542,6 +558,11 @@ export default function ({editConfig}: EditorProps) {
     render: (
       <>
         {zoneTabBar}
+        {affectedCount !== null && affectedCount > 1 && (
+          <div className={css.affectedHint} style={{marginTop: zoneSelectorList.length > 1 ? '10px' : '0'}}>
+            修改当前样式会影响 {affectedCount} 个区域
+          </div>
+        )}
         {title}
         <div key={`${key}_${activeZoneIdx}`} style={{display: open ? 'block' : 'none'}}>
           {show && editor}
