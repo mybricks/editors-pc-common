@@ -417,18 +417,33 @@ export default function ({editConfig}: EditorProps) {
 
   // 计算当前激活 selector 在 shadow root 中命中的元素个数
   useEffect(() => {
-    const selector = zoneSelectorList[activeZoneIdx]
-    if (!selector) { setAffectedCount(null); return }
-    // 去掉伪类部分，得到可用于 querySelectorAll 的基础选择器
-    const baseSelector = selector.replace(/:{1,2}[a-zA-Z\-]+(\([^)]*\))?/g, '').trim()
-    try {
-      const root = getDocument()
-      const count = (root as any).querySelectorAll?.(baseSelector)?.length ?? 0
-      setAffectedCount(count)
-    } catch {
-      setAffectedCount(null)
+    // 去掉伪类，得到可用于 querySelectorAll 的基础选择器，返回命中数；出错返回 0
+    function countBySelector(sel: string): number {
+      const base = sel.replace(/:{1,2}[a-zA-Z\-]+(\([^)]*\))?/g, '').trim()
+      try {
+        const root = getDocument()
+        return (root as any).querySelectorAll?.(base)?.length ?? 0
+      } catch {
+        return 0
+      }
     }
-  }, [activeZoneIdx, zoneSelectorList])
+
+    const selector = zoneSelectorList[activeZoneIdx]
+    if (selector) {
+      // 正常路径：zoneSelectorList 有值，直接查当前激活 selector
+      setAffectedCount(countBySelector(selector))
+      return
+    }
+
+    // fallback：zoneSelectorList 为空（targetDom 不存在或无 data-zone-selector 属性）
+    // 此时降级到 finalSelector（editConfig.options.selector）
+    if (!finalSelector) { setAffectedCount(null); return }
+
+    // finalSelector 支持 string 和 string[] 两种格式，对所有 selector 累加命中数
+    const selectors = Array.isArray(finalSelector) ? finalSelector : [finalSelector]
+    const total = selectors.reduce((sum, s) => sum + countBySelector(s), 0)
+    setAffectedCount(total)
+  }, [activeZoneIdx, zoneSelectorList, finalSelector])
 
   const editor = useMemo(() => {
     if (editMode) {
