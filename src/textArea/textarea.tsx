@@ -125,14 +125,17 @@ export default function ({editConfig}: EditorProps): JSX.Element {
   // }, [useLocale])
 
   if (vCenter) {
+    const nowWidth = Math.max(width, 80)
+    const nowHeight = Math.max(styles.height, 26)
+
     return (
       <div className={`${css.textArea} ${css.vCenter}`}
            onMouseDown={e => {
              e.stopPropagation()
            }}
            style={{
-             width,
-             height
+             width: nowWidth,
+             height: nowHeight
            }}>
         <textarea ref={el => {
           if (el) {

@@ -5,7 +5,7 @@
   align-items: center;
   justify-content: start;
   margin-right: 30px;
-  min-width: 0; 
+  min-width: 0;
 
   &:hover {
     .actions {
@@ -18,8 +18,8 @@
     color: #AAA;
     align-items: center;
     padding-left: 3px;
-    flex-shrink: 0; 
-    min-width: 0; 
+    flex-shrink: 0;
+    min-width: 0;
 
     .preview {
       color: #999999;
@@ -37,7 +37,7 @@
       cursor: pointer;
       transition: transform 0.2s ease-in-out 0s;
       margin-right: 2px;
-      flex-shrink: 0; 
+      flex-shrink: 0;
     }
 
     .iconOpen {
@@ -49,7 +49,7 @@
     font-style: italic;
     margin-left: 10px;
     color: #aaa;
-    flex-shrink: 0; 
+    flex-shrink: 0;
   }
 
   .actions {
@@ -59,7 +59,7 @@
     visibility: hidden;
     margin-left: 5px;
     min-width: 0;
-    flex: 1; 
+    flex: 1;
 
     .selector {
       color: rgb(170, 170, 170);
@@ -67,7 +67,7 @@
       overflow: hidden;
       text-overflow: ellipsis;
       margin-right: 6px;
-      min-width: 0; 
+      min-width: 0;
     }
 
     .icon {
@@ -76,7 +76,7 @@
       justify-content: center;
       cursor: pointer;
       margin: 0 4px;
-      flex-shrink: 0; 
+      flex-shrink: 0;
 
       svg {
         max-height: 11px;
@@ -94,8 +94,8 @@
     align-items: center;
     color: #555;
     margin-left: 5px;
-    min-width: 0; 
-    flex: 1; 
+    min-width: 0;
+    flex: 1;
 
     .selector {
       color: rgb(170, 170, 170);
@@ -103,7 +103,7 @@
       overflow: hidden;
       text-overflow: ellipsis;
       margin-right: 6px;
-      min-width: 0; 
+      min-width: 0;
     }
 
     .icon {
@@ -263,6 +263,17 @@
 
 .affectedHint {
   font-size: 12px;
-  color: #AAA;
+  color: #eab303;
   text-align: center;
+  font-style: italic;
+
+  &:before {
+    content: '(';
+    margin-right: 2px;
+  }
+
+  &:after {
+    content: ')';
+    margin-left: 4px;
+  }
 }
