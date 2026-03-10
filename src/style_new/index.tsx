@@ -389,6 +389,30 @@ export default function ({editConfig}: EditorProps) {
         ? [targetDom as Element]
         : []
     const result: string[] = []
+
+    const comId = (!editConfig.options || Array.isArray(editConfig.options))
+      ? ''
+      : (editConfig.options as any).comId ?? ''
+
+    // 预先收集当前组件样式表中所有出现过的 class 名，用于过滤动态 class 噪音
+    const classesInStyleSheet = new Set<string>()
+    if (comId) {
+      const root = getDocument()
+      const styleEls = Array.from((root as any).querySelectorAll?.('style') || [])
+      for (const styleEl of styleEls as HTMLStyleElement[]) {
+        let rules: CSSRuleList | null = null
+        try { rules = (styleEl as HTMLStyleElement).sheet?.cssRules ?? null } catch { continue }
+        if (!rules) continue
+        for (const rule of Array.from(rules)) {
+          const selectorText = (rule as CSSStyleRule).selectorText
+          if (!selectorText || !selectorText.includes(comId)) continue
+          // 提取选择器中所有 .className 片段
+          const matches = selectorText.match(/\.([a-zA-Z_][a-zA-Z0-9_-]*)/g)
+          if (matches) matches.forEach(m => classesInStyleSheet.add(m.slice(1)))
+        }
+      }
+    }
+
     for (const dom of domList as Element[]) {
       const raw = dom?.getAttribute?.('data-zone-selector')
       if (raw) {
@@ -401,7 +425,39 @@ export default function ({editConfig}: EditorProps) {
           }
         } catch {}
       }
+
+      // 从 data-loc.cn 取编译期已知的静态 class 列表
+      const knownClasses: string[] = (() => {
+        try { return JSON.parse(dom?.getAttribute?.('data-loc') ?? '{}')?.cn ?? [] } catch { return [] }
+      })()
+      // 运行时实际 class 与静态 class 的差集 = 动态 class（如 iconUser）
+      // comId 为空时跳过，避免无样式表过滤依据时产生噪音
+      // 再过滤：只保留在组件样式表中真实存在的 class，排除平台注入的噪音 class
+      const dynamicClasses = comId
+        ? Array.from((dom as Element)?.classList ?? []).filter(c =>
+            !knownClasses.includes(c) && classesInStyleSheet.has(c)
+          )
+        : []
+      // 有动态 class 时，与静态选择器组合成复合选择器（无空格，即同元素上多个 class）
+      // 例：".statCard .statIcon" + "iconUser" → ".statCard .statIcon.iconUser"
+      // 复合选择器插到 result 最前面，使 activeZoneIdx=0 时默认回显实际生效的样式
+      if (dynamicClasses.length > 0 && raw) {
+        try {
+          const staticSelectors: string[] = JSON.parse(raw)
+          const compoundSelectors: string[] = []
+          for (const dc of dynamicClasses) {
+            for (const sel of staticSelectors) {
+              const compound = `${sel}.${dc}`
+              if (!result.includes(compound) && !compoundSelectors.includes(compound)) {
+                compoundSelectors.push(compound)
+              }
+            }
+          }
+          result.unshift(...compoundSelectors)
+        } catch {}
+      }
     }
+
     // 基础选择器排前面（第 0 位默认激活），伪类变体追加到末尾
     // 去重：pseudoSelectorList 里的条目不再重复加入
     for (const pseudo of pseudoSelectorList) {

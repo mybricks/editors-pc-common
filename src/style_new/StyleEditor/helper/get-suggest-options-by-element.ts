@@ -51,7 +51,21 @@ export function getSuggestOptionsByElement(selectDom: HTMLElement): { type: stri
         disableTextAlign: isMoreThanOne ? true : shouldTextAlignDisabled(selectDom),
       }
     } else if (Array.isArray(textElemnts) && textElemnts.length === 0) { // 未找到文本元素，隐藏字体配置
-      fontOption = void 0;
+      const hasIconChild = !!selectDom.querySelector('svg, .anticon, [role="img"]');
+      if (hasIconChild) {
+        fontOption.config = {
+          disableFontFamily: true,
+          disableColor: false,
+          disableFontSize: false,
+          disableFontWeight: true,
+          disableLetterSpacing: true,
+          disableLineHeight: true,
+          disableWhiteSpace: true,
+          disableTextAlign: true,
+        }
+      } else {
+        fontOption = void 0;
+      }
     } else { // 本身就是含文本的元素，开启字体配置，除了textAlign需要测量距离
       fontOption.config = {
         disableFontFamily: false,
