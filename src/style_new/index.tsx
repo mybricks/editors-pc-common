@@ -1054,8 +1054,11 @@ function getDefaultConfiguration ({value, options}: GetDefaultConfigurationProps
         const emptyVal = emptyValues[prop];
         // @ts-ignore
         const currentVal = defaultValue[prop];
+        // CSS "无值"关键字，与空字符串视为等价，避免 UA 默认值（如 boxShadow:'none'）被误判为有效值
+        const CSS_NONE_KEYWORDS = CSS_TRIVIAL_VALUES
+        const normalize = (v: any) => (v === '' || CSS_NONE_KEYWORDS.has(v)) ? null : v
         // 当前值存在且与空白默认值不同，说明有 UA 或 computed 值填充
-        const isDiff = currentVal !== undefined && currentVal !== emptyVal;
+        const isDiff = currentVal !== undefined && normalize(currentVal) !== normalize(emptyVal);
         if (isDiff) diffProps.push({ prop, empty: emptyVal, current: currentVal });
         return isDiff;
       });
@@ -1280,7 +1283,7 @@ const getDefaultValueFunctionMap2 = {
   },
   boxshadow() {
     return {
-      boxShadow: ''
+      boxShadow: 'none'
     }
   },
   overflow() {
@@ -2381,6 +2384,13 @@ function getEffectedPanelsFromCssRules (rules: CSSStyleRule[]) {
   return Array.from(effectedPanels)
 }
 
+// CSS "无语义"值集合：这些值等价于"未设置"，不应触发 inherited 展开态
+// 供 UA 检测（normalize）和父级规则扫描（getEffectedPanelsFromDirectParent）共用
+const CSS_TRIVIAL_VALUES = new Set([
+  'none', 'normal', 'auto', 'initial', 'unset', 'revert',
+  'default', // cursor 特有的无语义默认值
+])
+
 // CSS 规范中默认可继承的属性（驼峰），用于祖先规则扫描时过滤出真正会向下传递的属性
 const CSS_INHERITABLE_PROPS = new Set([
   'color', 'fontSize', 'fontWeight', 'fontFamily', 'fontStyle', 'fontVariant',
@@ -2413,10 +2423,13 @@ function getEffectedPanelsFromDirectParent (element: HTMLElement, comId?: string
         if (/:[a-zA-Z\-]/.test(rule.selectorText)) continue;
         if (!parent.matches(rule.selectorText)) continue;
 
-        rule.styleMap.forEach((_: any, key: string) => {
+        rule.styleMap.forEach((val: any, key: string) => {
           const camelKey = toHump(key);
           if (CSS_INHERITABLE_PROPS.has(camelKey) && PANEL_MAP[camelKey]) {
-            panelsSet.add(PANEL_MAP[camelKey]);
+            const rawVal = typeof val?.toString === 'function' ? val.toString().trim() : String(val).trim();
+            if (!CSS_TRIVIAL_VALUES.has(rawVal)) {
+              panelsSet.add(PANEL_MAP[camelKey]);
+            }
           }
         });
       }

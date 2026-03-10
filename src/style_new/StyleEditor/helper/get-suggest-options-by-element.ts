@@ -255,6 +255,11 @@ function shouldTextAlignDisabled(selectDom: HTMLElement) {
       totalChildrenWidth += calculateTextNodeWidth(child)
       return acc && true
     } else if (child.nodeType === Node.ELEMENT_NODE) {
+      // br 是纯换行符，offsetWidth=0，不影响 textAlign 是否有意义，跳过
+      if ((child as HTMLElement).tagName === 'BR') {
+        return acc && true
+      }
+
       const childStyle = window.getComputedStyle(child as HTMLElement);
 
       // TODO，这好像是设计器加的Dom，审查不到
@@ -273,7 +278,8 @@ function shouldTextAlignDisabled(selectDom: HTMLElement) {
     return true
   }
 
-  return calculateDomInnerWidth(selectDom) - totalChildrenWidth <= 4
+  const innerWidth = calculateDomInnerWidth(selectDom)
+  return innerWidth - totalChildrenWidth <= 4
 }
 
 function shouldBorderDisabled(selectDom: HTMLElement) {
@@ -583,13 +589,14 @@ function calculateTextNodeWidth(textNode: Node) {
     const range = document.createRange();
     range.selectNodeContents(textNode);
     const rects = range.getClientRects();
-    let width = 0;
 
-    // 处理可能的换行情况，累加所有 rect 的宽度
-    for (let i = 0; i < rects.length; i++) {
-      width += rects[i].width;
+    // 多行文本（rects > 1）说明内容已换行，text-align 对每行末尾对齐有意义，返回 0 让外层判断放行
+    if (rects.length > 1) {
+      range.detach();
+      return 0;
     }
 
+    const width = rects[0]?.width ?? 0;
     range.detach();
     return Math.round(width * 100) / 100;
   }
