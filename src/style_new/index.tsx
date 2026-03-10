@@ -1306,7 +1306,7 @@ const getDefaultValueFunctionMap2 = {
       flexWrap: 'nowrap',
       rowGap: '0px',
       columnGap: '0px',
-      position: 'inherit',
+      position: 'static',
       overflow: 'visible',
       paddingTop: '0px',
       paddingRight: '0px',

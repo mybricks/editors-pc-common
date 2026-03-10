@@ -113,11 +113,16 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
         >
       >
     ) => {
-      value.set(
-        style.position === "smart"
-          ? { position: "smart" }
-          : normalizePx({ ...model, ...style })
-      );
+      if (style.position === "smart") {
+        value.set({ position: "smart" });
+        return;
+      }
+      // "inherit" 是 LayoutEditor 内部 UI 状态，不是合法 CSS 值，写出时清除 position
+      const outStyle = { ...model, ...style };
+      if (outStyle.position === "inherit") {
+        outStyle.position = null as any;
+      }
+      value.set(normalizePx(outStyle));
     },
     [model]
   );
@@ -248,7 +253,9 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
       const overflow = isHidden ? "visible" : "hidden";
       const newModel = { ...model, overflow };
       setModel(newModel);
-      value.set(normalizePx(newModel));
+      const outModel = { ...newModel } as any;
+      if (outModel.position === "inherit") outModel.position = null;
+      value.set(normalizePx(outModel));
     };
     if (!hasSelectedDirection) return null;
     return (

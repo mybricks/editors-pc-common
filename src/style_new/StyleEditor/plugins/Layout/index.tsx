@@ -14,10 +14,16 @@ export function Layout({ value, onChange, showTitle, collapse }: LayoutProps) {
 
   const currentValue = isReset ? {} : (value ?? {})
 
+  const LAYOUT_KEYS = new Set([
+    'display', 'position', 'flexDirection', 'alignItems', 'justifyContent',
+    'flexWrap', 'rowGap', 'columnGap', 'overflow',
+    'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft',
+  ])
+
   const editConfig = {
     value: {
       get: () => Object.fromEntries(
-        Object.entries(currentValue).filter(([, v]) => v != null)
+        Object.entries(currentValue).filter(([key, v]) => v != null && LAYOUT_KEYS.has(key))
       ),
       set: (newVal: Record<string, any>) => {
         const NON_CSS_KEYS = new Set(['paddingType']);
@@ -29,12 +35,6 @@ export function Layout({ value, onChange, showTitle, collapse }: LayoutProps) {
       },
     },
   };
-
-  const LAYOUT_KEYS = new Set([
-    'display', 'position', 'flexDirection', 'alignItems', 'justifyContent',
-    'flexWrap', 'rowGap', 'columnGap', 'overflow',
-    'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft',
-  ])
 
   const refresh = useCallback(() => {
     const keys = Object.keys(value ?? {}).filter(key => LAYOUT_KEYS.has(key))
