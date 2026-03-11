@@ -38,6 +38,12 @@ export default ({
     typeof onChange === "function" &&
       onChange(value.trim() ? parseFloat(value) : value);
   }
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.currentTarget.blur();
+    }
+  }
   
   return (
     <div
@@ -54,7 +60,8 @@ export default ({
         type="number" 
         value={value} min={0} 
         onChange={handleOnChange}
-        onBlur={handleOnBlur} 
+        onBlur={handleOnBlur}
+        onKeyDown={handleKeyDown}
         onFocus={handleFocus}
         disabled={disabled}
         style={{marginLeft: '20px'}}

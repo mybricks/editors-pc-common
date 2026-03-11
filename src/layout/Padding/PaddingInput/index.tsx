@@ -38,6 +38,12 @@ export default ({
     typeof onChange === "function" &&
       onChange(value.trim() ? parseFloat(value) : value);
   }
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.currentTarget.blur();
+    }
+  }
   
   const valueOpt = (()=>{
     const valueArr = Object.values(value);
@@ -64,6 +70,7 @@ export default ({
         value={valueOpt()}
         onChange={handleOnChange}
         onBlur={handleBlur}
+        onKeyDown={handleKeyDown}
         disabled={disabled}
         onFocus={handleFocus}
         //style={{paddingLeft: '20px'}}
