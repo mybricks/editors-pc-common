@@ -1056,14 +1056,22 @@ function getDefaultConfiguration ({value, options}: GetDefaultConfigurationProps
         const currentVal = defaultValue[prop];
         // CSS "无值"关键字，与空字符串视为等价，避免 UA 默认值（如 boxShadow:'none'）被误判为有效值
         const CSS_NONE_KEYWORDS = CSS_TRIVIAL_VALUES
-        const normalize = (v: any) => (v === '' || CSS_NONE_KEYWORDS.has(v)) ? null : v
+        const normalize = (v: any) => {
+          if (v === '' || CSS_NONE_KEYWORDS.has(v)) return null
+          // rgba(0,0,0,0) 是 transparent 的 computedStyle 等价形式，统一视为无语义值
+          if (v === 'rgba(0, 0, 0, 0)') return null
+          return v
+        }
+        // 空白基准为 '' 的属性（如 borderTopColor / backgroundColor）
+        // 其 computedStyle 兜底值是 currentColor 继承来的任意 RGB，无法与"无配置"状态区分，
+        // 直接跳过，不参与 diff，避免误判为有 UA 值
+        if (emptyVal === '') return false
         // 当前值存在且与空白默认值不同，说明有 UA 或 computed 值填充
         const isDiff = currentVal !== undefined && normalize(currentVal) !== normalize(emptyVal);
         if (isDiff) diffProps.push({ prop, empty: emptyVal, current: currentVal });
         return isDiff;
       });
       if (hasUAValue) {
-        //console.log(`[StylePanel] "${panelKey}" 有UA值，移入 readonlyExpanded（展开无-号）`, diffProps);
         uaFilledPanels.push(panelKey);
         return false;
       }
@@ -1072,7 +1080,6 @@ function getDefaultConfiguration ({value, options}: GetDefaultConfigurationProps
     // 将有 UA 值的面板加入 readonlyExpandedOptions（去重，且不能与 ownEffectedSet 重叠）
     const newReadonly = uaFilledPanels.filter(p => !ownEffectedSet.has(p) && !readonlyExpandedOptions.includes(p));
     readonlyExpandedOptions = [...readonlyExpandedOptions, ...newReadonly];
-    //console.log('[StylePanel] UA检测结果 → collapsedOptions:', collapsedOptions, '| readonlyExpandedOptions:', readonlyExpandedOptions);
   }
 
   return {
@@ -1223,10 +1230,10 @@ const getDefaultValueFunctionMap2 = {
   },
   border() {
     return {
-      borderTopColor: 'transparent',
-      borderBottomColor: 'transparent',
-      borderRightColor: 'transparent',
-      borderLeftColor: 'transparent',
+      borderTopColor: '',
+      borderBottomColor: '',
+      borderRightColor: '',
+      borderLeftColor: '',
       borderTopLeftRadius: '0px',
       borderTopRightRadius: '0px',
       borderBottomRightRadius: '0px',
@@ -1243,11 +1250,11 @@ const getDefaultValueFunctionMap2 = {
   },
   background() {
     return {
-      backgroundColor: 'transparent',
+      backgroundColor: '',
       backgroundImage: 'none',
       backgroundRepeat: 'repeat',
       backgroundPosition: 'left top',
-      backgroundSize: 'cover'
+      backgroundSize: 'auto'
     }
   },
   padding() {
@@ -2389,6 +2396,7 @@ function getEffectedPanelsFromCssRules (rules: CSSStyleRule[]) {
 const CSS_TRIVIAL_VALUES = new Set([
   'none', 'normal', 'auto', 'initial', 'unset', 'revert',
   'default', // cursor 特有的无语义默认值
+  'transparent', // 颜色透明值，语义上等同于未设置
 ])
 
 // CSS 规范中默认可继承的属性（驼峰），用于祖先规则扫描时过滤出真正会向下传递的属性

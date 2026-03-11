@@ -77,16 +77,11 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
   const [model, setModel] = useState<LayoutProps>({
     ...defaultValue,
     ..._value,
-    // 根据 display 推断元素实际排列方向：
-    // block 类 → 纵向叠放 → column；inline 类 → 横向排列 → row；flex → 取 CSS 实际值
-    flexDirection: (_value as any).display !== "flex"
-      ? (['inline', 'inline-block', 'inline-flex', 'inline-grid'].includes((_value as any).display)
-          ? "row"
-          : "column")
-      : ((_value as any).flexDirection ?? defaultValue.flexDirection),
-    position: ["absolute", "smart", "inherit"].includes(_value.position)
+    flexDirection: (_value as any).flexDirection ?? defaultValue.flexDirection,
+    // display 不是 flex 时，默认高亮 smart，对齐/gap 面板不展示；用户主动点击后才写入 CSS
+    position: ["absolute", "smart"].includes(_value.position)
       ? _value.position
-      : "inherit",
+      : (_value.display === "flex" ? "inherit" : "smart"),
   });
 
   const initialFlexDirection = _value.flexDirection ?? defaultValue.flexDirection;
@@ -118,9 +113,7 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
         return;
       }
       // "inherit" 是 LayoutEditor 内部 UI 状态，不是合法 CSS 值，写出时清除 position
-      const FLEX_PROPS = new Set(['alignItems', 'justifyContent', 'flexWrap', 'rowGap', 'columnGap']);
-      const needsFlex = Object.keys(style).some(k => FLEX_PROPS.has(k)) && style.display == null;
-      const outStyle = { ...model, ...style, ...(needsFlex ? { display: 'flex' } : {}) };
+      const outStyle = { ...model, ...style };
       if (outStyle.position === "inherit") {
         outStyle.position = null as any;
       }
