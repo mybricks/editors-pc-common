@@ -118,7 +118,9 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
         return;
       }
       // "inherit" 是 LayoutEditor 内部 UI 状态，不是合法 CSS 值，写出时清除 position
-      const outStyle = { ...model, ...style };
+      const FLEX_PROPS = new Set(['alignItems', 'justifyContent', 'flexWrap', 'rowGap', 'columnGap']);
+      const needsFlex = Object.keys(style).some(k => FLEX_PROPS.has(k)) && style.display == null;
+      const outStyle = { ...model, ...style, ...(needsFlex ? { display: 'flex' } : {}) };
       if (outStyle.position === "inherit") {
         outStyle.position = null as any;
       }
