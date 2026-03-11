@@ -2,7 +2,7 @@ import { useCallback, useState } from 'react'
 
 import { useLatest } from './'
 
-export function useInputNumber<D>(defaultValue?: D, onChange?: (value: string) => void): [string, (value: string) => void] {
+export function useInputNumber<D>(defaultValue?: D, onChange?: (value: string) => void): [string, (value: string) => string] {
   const [value, setValue] = useState<string>(getInitValue(defaultValue))
   const changeRef = useLatest(onChange)
 

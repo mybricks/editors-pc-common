@@ -122,8 +122,10 @@ export function getSuggestOptionsByElement(selectDom: HTMLElement): { type: stri
       type: 'overflow',
     }
 
+    const isImgElement = selectDom.tagName.toUpperCase() === 'IMG';
+
     const suggestion = [
-      {
+      isImgElement ? void 0 : {
         type: 'layout'
       },
       fontOption,

@@ -18,10 +18,13 @@ interface SelectProps {
   style?: CSSProperties;
   labelStyle?: CSSProperties;
   onChange: (value: any) => void;
-  options: Array<{ value: any; label: string | number }>;
+  onAction?: (value: any) => void;
+  options: Array<{ value: any; label: string | number; type?: 'action'; checked?: boolean }>;
   multiple?: boolean;
   /** 是否展示下拉的icon */
   showIcon?: boolean;
+  /** 隐藏当前选中 label，只保留下拉箭头 */
+  hideLabel?: boolean;
   labelClassName?: string;
   tip?: string;
 }
@@ -33,8 +36,10 @@ export function Select({
   style = {padding: "0 8px"},
   labelStyle,
   onChange,
+  onAction,
   options,
   showIcon = true,
+  hideLabel = false,
   labelClassName,
   multiple = false,
   tip,
@@ -50,6 +55,11 @@ export function Select({
   );
 
   const handleDropDownClick = useCallback((clickValue: any) => {
+    const clickedOption = options.find(o => o.value === clickValue);
+    if (clickedOption?.type === 'action') {
+      onAction?.(clickValue);
+      return;
+    }
     setValue((value: any) => {
       if (multiple) {
         const nextValue = Array.isArray(value) ? value.slice() : [value];
@@ -101,6 +111,7 @@ export function Select({
         options={options}
         value={value}
         onClick={handleDropDownClick}
+        onAction={onAction}
       >
         <div
           data-mybricks-tip={tip}
@@ -108,14 +119,14 @@ export function Select({
           style={showIcon ? {} : { padding: 0 }}
         >
           {prefix && <div className={css.prefix}>{prefix}</div>}
-          <div
-            style={labelStyle}
-            className={`${css.value}${
-              labelClassName ? ` ${labelClassName}` : ""
-            }`}
-          >
-            {label}
-          </div>
+          {!hideLabel && (
+            <div
+              style={labelStyle}
+              className={`${css.value}${labelClassName ? ` ${labelClassName}` : ''}`}
+            >
+              {label}
+            </div>
+          )}
           {showIcon && (
             <span className={css.icon}>
               <DownOutlined />

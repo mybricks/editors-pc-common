@@ -5,16 +5,24 @@ import { CheckOutlined } from "../";
 
 import css from "./index.less";
 
+interface DropdownOption {
+  label: string | number;
+  value: any;
+  type?: 'action';
+  checked?: boolean;
+}
+
 interface DropdownProps {
   value: any;
-  options: Array<{ label: string | number; value: any }>;
+  options: Array<DropdownOption>;
   children: ReactNode;
   multiple?: boolean;
   onClick: (value: any) => void;
+  onAction?: (value: any) => void;
   className?: string;
 }
 
-export function Dropdown({ value, options, children, onClick, className, multiple }: DropdownProps) {
+export function Dropdown({ value, options, children, onClick, onAction, className, multiple }: DropdownProps) {
   const positionRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const [show, setShow] = useState(false);
@@ -25,10 +33,15 @@ export function Dropdown({ value, options, children, onClick, className, multipl
     setOpen(true);
   }, []);
 
-  const handleItemClick = useCallback((value: any) => {
-    onClick(value);
-    if (!multiple)setOpen(false);
-  }, []);
+  const handleItemClick = useCallback((value: any, isAction?: boolean) => {
+    if (isAction) {
+      onAction?.(value);
+      setOpen(false);
+    } else {
+      onClick(value);
+      if (!multiple) setOpen(false);
+    }
+  }, [onAction]);
 
   const handleClick = useCallback((event: { target: any; }) => {
     if (multiple) {
@@ -86,8 +99,8 @@ export function Dropdown({ value, options, children, onClick, className, multipl
 
 interface ItemsProps {
   value: any;
-  options: Array<{ label: string | number; value: any }>;
-  onClick: (value: any) => void;
+  options: Array<DropdownOption>;
+  onClick: (value: any, isAction?: boolean) => void;
   open: boolean;
   positionElement: HTMLDivElement;
 }
@@ -133,10 +146,13 @@ const Items = React.forwardRef<HTMLDivElement, ItemsProps>((props, forwardRef) =
 
   return (
     <div ref={ref} className={css.items} data-dropdown-portal="true">
-      {options.map(({ label, value }, index) => {
+      {options.map(({ label, value, type, checked }, index) => {
+        const isAction = type === 'action';
         return (
-          <div key={index} className={css.item} onClick={() => onClick(value)}>
-            {value === currentValue || (Array.isArray(currentValue) && currentValue.includes(value)) ? (
+          <div key={index} className={css.item} onClick={() => onClick(value, isAction)}>
+            {!isAction && (value === currentValue || (Array.isArray(currentValue) && currentValue.includes(value))) ? (
+              <CheckOutlined />
+            ) : isAction && checked ? (
               <CheckOutlined />
             ) : (
               <></>

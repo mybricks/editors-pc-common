@@ -16,6 +16,7 @@ export interface InputProps {
   suffix?: ReactNode;
   defaultValue?: string | number;
   value?: string | number;
+  placeholder?: string;
   style?: CSSProperties;
   onChange?: (value: string) => void;
   disabled?: boolean;
@@ -37,6 +38,7 @@ export function Input({
   suffix,
   style = {},
   disabled = false,
+  placeholder,
   onFocus = () => {},
   onKeyDown = () => {},
   onBlur = () => {},
@@ -75,6 +77,7 @@ export function Input({
               defaultValue={inputValue}
               onChange={handleInputChange}
               disabled={disabled}
+              placeholder={placeholder}
               onFocus={onFocus}
               onBlur={onBlur}
               onKeyDown={onKeyDown}
@@ -94,6 +97,7 @@ export function Input({
               defaultValue={inputValue}
               onChange={handleInputChange}
               disabled={disabled}
+              placeholder={placeholder}
               onFocus={onFocus}
               onBlur={onBlur}
               onKeyDown={onKeyDown}
