@@ -242,8 +242,6 @@ function shouldHeritPropertyDisabled(selectDom: HTMLElement, property: string, {
 
 
 function shouldTextAlignDisabled(selectDom: HTMLElement) {
-  let totalChildrenWidth = 0;
-
   const selectDomStyle = window.getComputedStyle(selectDom);
 
   if (selectDomStyle.display === 'flex' || selectDomStyle.display === 'grid') {
@@ -252,7 +250,6 @@ function shouldTextAlignDisabled(selectDom: HTMLElement) {
 
   const isAllInline = Array.from(selectDom.childNodes).reduce((acc, child) => {
     if (child.nodeType === Node.TEXT_NODE) {
-      totalChildrenWidth += calculateTextNodeWidth(child)
       return acc && true
     } else if (child.nodeType === Node.ELEMENT_NODE) {
       // br 是纯换行符，offsetWidth=0，不影响 textAlign 是否有意义，跳过
@@ -267,7 +264,6 @@ function shouldTextAlignDisabled(selectDom: HTMLElement) {
         return true
       }
 
-      totalChildrenWidth += (child as HTMLElement).offsetWidth;
       return childStyle.display === 'inline' || childStyle.display === 'inline-block' || childStyle.display === 'inline-flex' || childStyle.display === 'inline-grid' || childStyle.display === 'inline-table'
     } else {
       return true
@@ -278,8 +274,7 @@ function shouldTextAlignDisabled(selectDom: HTMLElement) {
     return true
   }
 
-  const innerWidth = calculateDomInnerWidth(selectDom)
-  return innerWidth - totalChildrenWidth <= 4
+  return false
 }
 
 function shouldBorderDisabled(selectDom: HTMLElement) {
@@ -546,92 +541,6 @@ function traverseDomFromChildToCurrent(
   }
 }
 
-
-/** 计算Dom内部剩余可以布局的宽度 */
-function calculateDomInnerWidth(element: HTMLElement) {
-  const computedStyle = window.getComputedStyle(element);
-
-  // 获取元素的总宽度
-  const totalWidth = element.offsetWidth;
-
-  // 获取padding和border的宽度
-  const paddingLeft = parseFloat(computedStyle.paddingLeft) || 0;
-  const paddingRight = parseFloat(computedStyle.paddingRight) || 0;
-  const borderLeft = parseFloat(computedStyle.borderLeftWidth) || 0;
-  const borderRight = parseFloat(computedStyle.borderRightWidth) || 0;
-
-  // 根据box-sizing计算实际的内部可用宽度
-  const boxSizing = computedStyle.boxSizing;
-
-  if (boxSizing === 'border-box') {
-    // border-box模式下需要减去padding和border
-    return totalWidth - paddingLeft - paddingRight - borderLeft - borderRight;
-  } else {
-    // content-box模式下offsetWidth已经不包含padding和border
-    return totalWidth;
-  }
-}
-
-
-/**
- * @description 计算文本节点的宽度
- * @param textNode 
- * @returns 
- */
-function calculateTextNodeWidth(textNode: Node) {
-  // 参数校验
-  if (!textNode || textNode.nodeType !== Node.TEXT_NODE) {
-    return 0
-  }
-
-  // Range API
-  if (typeof document.createRange === 'function') {
-    const range = document.createRange();
-    range.selectNodeContents(textNode);
-    const rects = range.getClientRects();
-
-    // 多行文本（rects > 1）说明内容已换行，text-align 对每行末尾对齐有意义，返回 0 让外层判断放行
-    if (rects.length > 1) {
-      range.detach();
-      return 0;
-    }
-
-    const width = rects[0]?.width ?? 0;
-    range.detach();
-    return Math.round(width * 100) / 100;
-  }
-
-  // Canvas计算
-  const canvas = document.createElement('canvas');
-  const context = canvas.getContext('2d');
-  const text = textNode.textContent;
-
-  if (context && text) {
-    // 获取文本节点的计算样式
-    const computedStyle = window.getComputedStyle(textNode.parentElement as Element);
-    const font = [
-      computedStyle.fontStyle,
-      computedStyle.fontVariant,
-      computedStyle.fontWeight,
-      computedStyle.fontSize,
-      computedStyle.fontFamily,
-    ].join(' ');
-
-    // 设置 canvas 字体并测量
-    context.font = font;
-    const width = context.measureText(text).width;
-
-    // 考虑 letter-spacing 的影响
-    const letterSpacing = parseFloat(computedStyle.letterSpacing);
-    if (!isNaN(letterSpacing) && letterSpacing > 0) {
-      return Math.round((width + (text.length - 1) * letterSpacing) * 100) / 100;
-    }
-
-    return Math.round(width * 100) / 100;
-  }
-
-  return 0;
-}
 
 
 // 定义类型
