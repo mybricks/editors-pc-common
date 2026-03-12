@@ -357,6 +357,10 @@ function shouldMarginDisabled(selectDom: HTMLElement) {
 function shouldPaddingDisabled(selectDom: HTMLElement) {
   let cannotSetPadding = false
 
+  if (selectDom.tagName === 'IMG') {
+    return true;
+  }
+
   const selectDomStyle = window.getComputedStyle(selectDom);
   function isFixedSize(value: string) {
     // 1. 具体的数值单位（px, em, rem, vh, vw等）
