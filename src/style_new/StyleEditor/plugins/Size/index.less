@@ -3,3 +3,66 @@
   color: #AAA;
   white-space: nowrap;
 }
+
+.sizeRows {
+  display: flex;
+  flex-direction: column;
+}
+
+.sizeActions {
+  display: flex;
+  flex-direction: column;
+  width: 22px;
+  flex-shrink: 0;
+  align-items: center;
+}
+
+.sizeActionPlaceholder {
+  width: 22px;
+  height: 30px;
+  flex-shrink: 0;
+}
+
+.sizeRemoveBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 30px;
+  flex-shrink: 0;
+  cursor: pointer;
+  color: #000000e6;
+
+  svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  &:hover {
+    svg {
+      background-color: rgba(0, 0, 0, 0.05);
+      border-radius: 5px;
+    }
+  }
+}
+
+.removeBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  cursor: pointer;
+  color: #000000e6;
+
+  svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  &:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+    border-radius: 5px;
+  }
+}

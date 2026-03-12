@@ -1,9 +1,15 @@
-import React, { CSSProperties, ReactNode, useCallback, useState } from 'react'
+import React, { CSSProperties, ReactNode, useCallback, useEffect, useRef, useState } from 'react'
 
 import { useStyleEditorContext } from '../../context'
 import { PlusOutlined, MinusOutlined } from '../Icon'
+import { Dropdown } from '../DropDown'
 
 import css from './index.less'
+
+interface AddOption {
+  label: string;
+  value: string;
+}
 
 interface PanelProps {
   title: string
@@ -11,9 +17,17 @@ interface PanelProps {
   showReset?: boolean
   showTitle?: boolean;
   showDelete?: boolean
+  deleteNode?: ReactNode
+  onDelete?: () => void
+  rightColumn?: ReactNode
+  deleteRef?: React.MutableRefObject<(() => void) | null>
   resetFunction?: () => void
   isActive?: boolean
   collapse?: boolean | 'inherited'
+  onAdd?: () => void
+  addTip?: string
+  addOptions?: AddOption[]
+  onAddOption?: (value: string) => void
 }
 interface ContentProps {
   style?: CSSProperties
@@ -28,7 +42,7 @@ interface ItemProps {
   activeWhenBlur?: boolean
 }
 
-export function Panel ({title, children, showReset = false, showTitle = true, showDelete = true, resetFunction = () => {}, isActive = false, collapse = false}: PanelProps) {
+export function Panel ({title, children, showReset = false, showTitle = true, showDelete = true, deleteNode, onDelete, rightColumn, deleteRef, resetFunction = () => {}, isActive = false, collapse = false, onAdd, addTip, addOptions, onAddOption}: PanelProps) {
   const isInherited = collapse === 'inherited'
   const [collapsed, setCollapsed] = useState(collapse === true)
 
@@ -37,16 +51,52 @@ export function Panel ({title, children, showReset = false, showTitle = true, sh
     setCollapsed(true)
   }, [resetFunction])
 
+  const handleAddOptionCollapsed = useCallback((val: string) => {
+    setCollapsed(false);
+    onAddOption?.(val);
+  }, [onAddOption]);
+
+  const handleAddOptionExpanded = useCallback((val: string) => {
+    onAddOption?.(val);
+  }, [onAddOption]);
+
+  useEffect(() => {
+    if (deleteRef) deleteRef.current = handleDelete
+  }, [deleteRef, handleDelete])
   return (
     <div className={`${css.panel} ${collapsed ? css.collapsed : ''}`}>
       <div className={css.header}>
         {showTitle && <div className={css.title}>{title}</div>}
         {
-          collapsed && (
-            <div className={css.right} onClick={() => setCollapsed(false)}>
+          collapsed ? (
+            addOptions && addOptions.length > 0 ? (
+              <Dropdown
+                value={null}
+                options={addOptions}
+                onClick={handleAddOptionCollapsed}
+                className={css.right}
+              >
+                <PlusOutlined />
+              </Dropdown>
+            ) : (
+              <div className={css.right} onClick={() => setCollapsed(false)}>
+                <PlusOutlined />
+              </div>
+            )
+          ) : addOptions && addOptions.length > 0 ? (
+            <Dropdown
+              value={null}
+              options={addOptions}
+              onClick={handleAddOptionExpanded}
+              className={css.addBtn}
+            >
+              <PlusOutlined />
+            </Dropdown>
+          ) : onAdd ? (
+            <div className={css.addBtn} onClick={onAdd} {...(addTip ? { 'data-mybricks-tip': addTip } : {})}>
               <PlusOutlined />
             </div>
-          )
+          ) : null
         }
       </div>
       {
@@ -55,7 +105,9 @@ export function Panel ({title, children, showReset = false, showTitle = true, sh
             <div className={css.wrap}>
               {children}
             </div>
-            {isInherited || !showDelete ? (
+            {rightColumn ? rightColumn : deleteNode ? (
+              <div className={css.deleteBtn} onClick={onDelete}>{deleteNode}</div>
+            ) : isInherited || !showDelete ? (
               <div style={{ width: 22, flexShrink: 0 }} />
             ) : (
               <div className={css.deleteBtn} onClick={handleDelete}>

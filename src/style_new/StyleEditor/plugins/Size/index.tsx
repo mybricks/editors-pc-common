@@ -1,4 +1,4 @@
-import React, {useState, useEffect, useCallback, useRef, CSSProperties} from "react";
+import React, {useState, useEffect, useCallback, useMemo, useRef, CSSProperties} from "react";
 
 import {
   Panel,
@@ -9,6 +9,7 @@ import {
   MaxHeightOutlined,
   MinWidthOutlined,
   MinHeightOutlined,
+  MinusOutlined,
 } from "../../components";
 import { useDragNumber } from "../../hooks";
 
@@ -21,20 +22,9 @@ const BASE_UNIT_OPTIONS = [
   {label: "%", value: "%"},
   {label: "适应", value: "max-content"},
 ];
-const WIDTH_UNIT_OPTIONS = [
-  ...BASE_UNIT_OPTIONS,
-  { label: '添加最大宽度', value: 'add-max-width', type: 'action' as const },
-  { label: '添加最小宽度', value: 'add-min-width', type: 'action' as const },
-];
-const HEIGHT_UNIT_OPTIONS = [
-  ...BASE_UNIT_OPTIONS,
-  { label: '添加最大高度', value: 'add-max-height', type: 'action' as const },
-  { label: '添加最小高度', value: 'add-min-height', type: 'action' as const },
-];
 const MAX_MIN_UNIT_OPTIONS = [
   { label: 'px', value: 'px' },
   { label: '%', value: '%' },
-  { label: '移除', value: 'remove', type: 'action' as const },
 ];
 const UNIT_DISABLED_LIST = ["max-content", "default"];
 const UNIT_DISPLAY_LABEL_MAP: Record<string, string> = {
@@ -75,10 +65,15 @@ const DEFAULT_CONFIG = {
 export function Size({value, onChange, config, showTitle, collapse}: SizeProps) {
   const [cfg] = useState({...DEFAULT_CONFIG, ...config});
 
-  const [showMaxWidth, setShowMaxWidth] = useState(() => !!normalizeSizeValue(value.maxWidth));
-  const [showMinWidth, setShowMinWidth] = useState(() => !!normalizeSizeValue(value.minWidth));
-  const [showMaxHeight, setShowMaxHeight] = useState(() => !!normalizeSizeValue(value.maxHeight));
-  const [showMinHeight, setShowMinHeight] = useState(() => !!normalizeSizeValue(value.minHeight));
+  const hasInitWidthHeight = !!normalizeSizeValue(value.width) || !!normalizeSizeValue(value.height);
+  const hasInitMax = !!normalizeSizeValue(value.maxWidth) || !!normalizeSizeValue(value.maxHeight);
+  const hasInitMin = !!normalizeSizeValue(value.minWidth) || !!normalizeSizeValue(value.minHeight);
+
+  const [showWidthHeight, setShowWidthHeight] = useState(() => hasInitWidthHeight);
+  const [showMaxWidth, setShowMaxWidth] = useState(() => hasInitMax);
+  const [showMinWidth, setShowMinWidth] = useState(() => hasInitMin);
+  const [showMaxHeight, setShowMaxHeight] = useState(() => hasInitMax);
+  const [showMinHeight, setShowMinHeight] = useState(() => hasInitMin);
 
   const refresh = useCallback(() => {
     onChange([
@@ -89,10 +84,27 @@ export function Size({value, onChange, config, showTitle, collapse}: SizeProps) 
       { key: 'minWidth', value: null },
       { key: 'minHeight', value: null },
     ]);
+    setShowWidthHeight(false);
     setShowMaxWidth(false);
     setShowMinWidth(false);
     setShowMaxHeight(false);
     setShowMinHeight(false);
+    setWidthPending(undefined);
+    setHeightPending(undefined);
+    setMaxWidthPending(undefined);
+    setMaxHeightPending(undefined);
+    setMinWidthPending(undefined);
+    setMinHeightPending(undefined);
+  }, [onChange]);
+
+  const handleDeleteWidthHeight = useCallback(() => {
+    onChange([
+      { key: 'width', value: null },
+      { key: 'height', value: null },
+    ]);
+    setShowWidthHeight(false);
+    setWidthPending(undefined);
+    setHeightPending(undefined);
   }, [onChange]);
 
   const isDraggingWidth = useRef(false);
@@ -124,8 +136,8 @@ export function Size({value, onChange, config, showTitle, collapse}: SizeProps) 
     if (minHeightPending !== undefined) setMinHeightPending(undefined);
   }, [value.minHeight]);
 
-  const widthEffective = (showMaxWidth || showMinWidth) ? undefined : normalizeSizeValue(widthPending ?? value.width);
-  const heightEffective = (showMaxHeight || showMinHeight) ? undefined : normalizeSizeValue(heightPending ?? value.height);
+  const widthEffective = normalizeSizeValue(widthPending ?? value.width);
+  const heightEffective = normalizeSizeValue(heightPending ?? value.height);
   const maxWidthEffective = normalizeSizeValue(maxWidthPending ?? value.maxWidth);
   const minWidthEffective = normalizeSizeValue(minWidthPending ?? value.minWidth);
   const maxHeightEffective = normalizeSizeValue(maxHeightPending ?? value.maxHeight);
@@ -147,12 +159,7 @@ export function Size({value, onChange, config, showTitle, collapse}: SizeProps) 
     onDragEnd: (finalValue: number) => {
       isDraggingWidth.current = false;
       const newVal = `${finalValue}px`;
-      const updates: any[] = [{key: 'width', value: newVal}];
-      if (showMaxWidth) updates.push({key: 'maxWidth', value: null});
-      if (showMinWidth) updates.push({key: 'minWidth', value: null});
-      onChange(updates.length > 1 ? updates : updates[0]);
-      if (showMaxWidth) setShowMaxWidth(false);
-      if (showMinWidth) setShowMinWidth(false);
+      onChange({key: 'width', value: newVal});
       setWidthPending(newVal);
     },
     continuous: true
@@ -174,12 +181,7 @@ export function Size({value, onChange, config, showTitle, collapse}: SizeProps) 
     onDragEnd: (finalValue: number) => {
       isDraggingHeight.current = false;
       const newVal = `${finalValue}px`;
-      const updates: any[] = [{key: 'height', value: newVal}];
-      if (showMaxHeight) updates.push({key: 'maxHeight', value: null});
-      if (showMinHeight) updates.push({key: 'minHeight', value: null});
-      onChange(updates.length > 1 ? updates : updates[0]);
-      if (showMaxHeight) setShowMaxHeight(false);
-      if (showMinHeight) setShowMinHeight(false);
+      onChange({key: 'height', value: newVal});
       setHeightPending(newVal);
     },
     continuous: true
@@ -245,170 +247,144 @@ export function Size({value, onChange, config, showTitle, collapse}: SizeProps) 
     continuous: true
   });
 
-  const handleWidthAction = useCallback((actionValue: string) => {
-    if (actionValue === 'add-max-width') {
-      if (!showMaxWidth) {
-        onChange([{key: 'width', value: null}, {key: 'maxWidth', value: null}]);
-        setWidthPending(undefined);
-      } else {
-        onChange({key: 'maxWidth', value: null});
-      }
-      setShowMaxWidth(v => !v);
-    } else if (actionValue === 'add-min-width') {
-      if (!showMinWidth) {
-        onChange([{key: 'width', value: null}, {key: 'minWidth', value: null}]);
-        setWidthPending(undefined);
-      } else {
-        onChange({key: 'minWidth', value: null});
-      }
-      setShowMinWidth(v => !v);
-    }
-  }, [showMaxWidth, showMinWidth, onChange]);
-
-  const handleHeightAction = useCallback((actionValue: string) => {
-    if (actionValue === 'add-max-height') {
-      if (!showMaxHeight) {
-        onChange([{key: 'height', value: null}, {key: 'maxHeight', value: null}]);
-        setHeightPending(undefined);
-      } else {
-        onChange({key: 'maxHeight', value: null});
-      }
-      setShowMaxHeight(v => !v);
-    } else if (actionValue === 'add-min-height') {
-      if (!showMinHeight) {
-        onChange([{key: 'height', value: null}, {key: 'minHeight', value: null}]);
-        setHeightPending(undefined);
-      } else {
-        onChange({key: 'minHeight', value: null});
-      }
-      setShowMinHeight(v => !v);
-    }
-  }, [showMaxHeight, showMinHeight, onChange]);
-
-  const handleMaxWidthAction = useCallback((actionValue: string) => {
-    if (actionValue === 'remove') {
-      onChange({key: 'maxWidth', value: null});
-      setShowMaxWidth(false);
-    }
-  }, [onChange]);
-
-  const handleMinWidthAction = useCallback((actionValue: string) => {
-    if (actionValue === 'remove') {
-      onChange({key: 'minWidth', value: null});
-      setShowMinWidth(false);
-    }
-  }, [onChange]);
-
-  const handleMaxHeightAction = useCallback((actionValue: string) => {
-    if (actionValue === 'remove') {
-      onChange({key: 'maxHeight', value: null});
-      setShowMaxHeight(false);
-    }
-  }, [onChange]);
-
-  const handleMinHeightAction = useCallback((actionValue: string) => {
-    if (actionValue === 'remove') {
-      onChange({key: 'minHeight', value: null});
-      setShowMinHeight(false);
-    }
-  }, [onChange]);
 
   const handleWidthChange = useCallback((val: string) => {
     const realVal = val === 'default' ? null : val;
-    if (realVal && (showMaxWidth || showMinWidth) && !isDraggingWidth.current) {
-      const updates: any[] = [{key: 'width', value: realVal}];
-      if (showMaxWidth) updates.push({key: 'maxWidth', value: null});
-      if (showMinWidth) updates.push({key: 'minWidth', value: null});
-      onChange(updates);
-      setShowMaxWidth(false);
-      setShowMinWidth(false);
-      setWidthPending(realVal);
-    } else {
-      onChange({key: 'width', value: realVal});
-    }
-  }, [showMaxWidth, showMinWidth, onChange]);
+    onChange({key: 'width', value: realVal});
+  }, [onChange]);
 
   const handleHeightChange = useCallback((val: string) => {
     const realVal = val === 'default' ? null : val;
-    if (realVal && (showMaxHeight || showMinHeight) && !isDraggingHeight.current) {
-      const updates: any[] = [{key: 'height', value: realVal}];
-      if (showMaxHeight) updates.push({key: 'maxHeight', value: null});
-      if (showMinHeight) updates.push({key: 'minHeight', value: null});
-      onChange(updates);
-      setShowMaxHeight(false);
-      setShowMinHeight(false);
-      setHeightPending(realVal);
-    } else {
-      onChange({key: 'height', value: realVal});
-    }
-  }, [showMaxHeight, showMinHeight, onChange]);
+    onChange({key: 'height', value: realVal});
+  }, [onChange]);
 
-  const widthUnitOptions = WIDTH_UNIT_OPTIONS.filter(opt => {
-    if (!('type' in opt)) return true;
-    if (opt.value === 'add-max-width') return !showMaxWidth;
-    if (opt.value === 'add-min-width') return !showMinWidth;
-    return true;
-  });
-  const heightUnitOptions = HEIGHT_UNIT_OPTIONS.filter(opt => {
-    if (!('type' in opt)) return true;
-    if (opt.value === 'add-max-height') return !showMaxHeight;
-    if (opt.value === 'add-min-height') return !showMinHeight;
-    return true;
-  });
+  const widthUnitOptions = BASE_UNIT_OPTIONS;
+  const heightUnitOptions = BASE_UNIT_OPTIONS;
+
+  const showMaxRow = showMaxWidth || showMaxHeight;
+  const showMinRow = showMinWidth || showMinHeight;
+
+  const addOptions = useMemo(() => {
+    const opts: { label: string; value: string }[] = [];
+    if (!showWidthHeight) opts.push({ label: '普通宽/高', value: 'add-normal' });
+    if (!showMinRow) opts.push({ label: '最小宽/高', value: 'add-min' });
+    if (!showMaxRow) opts.push({ label: '最大宽/高', value: 'add-max' });
+    return opts;
+  }, [showWidthHeight, showMinRow, showMaxRow]);
+
+  const handleAddOption = useCallback((val: string) => {
+    if (val === 'add-normal') {
+      setShowWidthHeight(true);
+    } else if (val === 'add-min') {
+      const updates: any[] = [];
+      if (!showMinWidth) { updates.push({key: 'minWidth', value: null}); setShowMinWidth(true); }
+      if (!showMinHeight) { updates.push({key: 'minHeight', value: null}); setShowMinHeight(true); }
+      if (updates.length) onChange(updates.length === 1 ? updates[0] : updates);
+    } else if (val === 'add-max') {
+      const updates: any[] = [];
+      if (!showMaxWidth) { updates.push({key: 'maxWidth', value: null}); setShowMaxWidth(true); }
+      if (!showMaxHeight) { updates.push({key: 'maxHeight', value: null}); setShowMaxHeight(true); }
+      if (updates.length) onChange(updates.length === 1 ? updates[0] : updates);
+    }
+  }, [showMinWidth, showMinHeight, showMaxWidth, showMaxHeight, onChange]);
+
+  const handleRemoveMax = useCallback(() => {
+    const updates: any[] = [];
+    if (showMaxWidth) { updates.push({key: 'maxWidth', value: null}); setShowMaxWidth(false); setMaxWidthPending(undefined); }
+    if (showMaxHeight) { updates.push({key: 'maxHeight', value: null}); setShowMaxHeight(false); setMaxHeightPending(undefined); }
+    if (updates.length) onChange(updates.length === 1 ? updates[0] : updates);
+  }, [showMaxWidth, showMaxHeight, onChange]);
+
+  const handleRemoveMin = useCallback(() => {
+    const updates: any[] = [];
+    if (showMinWidth) { updates.push({key: 'minWidth', value: null}); setShowMinWidth(false); setMinWidthPending(undefined); }
+    if (showMinHeight) { updates.push({key: 'minHeight', value: null}); setShowMinHeight(false); setMinHeightPending(undefined); }
+    if (updates.length) onChange(updates.length === 1 ? updates[0] : updates);
+  }, [showMinWidth, showMinHeight, onChange]);
+
+  const allHidden = !showWidthHeight && !showMinRow && !showMaxRow;
 
   return (
-    <Panel title="尺寸" showTitle={showTitle} showReset={true} resetFunction={refresh} collapse={collapse}>
-      {!(cfg.disableWidth && cfg.disableHeight) && (
-        <Panel.Content style={{ gap: 8 }}>
-          {cfg.disableWidth ? null : (
-            <div style={{ display: "flex", flexDirection: "column", flex: 1, gap: 8 }}>
-              <Panel.Item style={{ display: "flex", alignItems: "center", paddingLeft: 8 }}>
-                <div
-                  {...getDragPropsWidth(widthEffective, '拖拽调整宽度')}
-                  style={{
-                    height: "100%",
-                    display: "flex",
-                    alignItems: "center",
-                    cursor: "ew-resize"
-                  }}
-                >
-                  <span className={css.tip} style={{ width: 30, flexShrink: 0 }}>宽度</span>
-                </div>
-                <InputNumber
-                  key={`${getUnitKey(widthEffective)}-${showMaxWidth ? 1 : 0}-${showMinWidth ? 1 : 0}`}
-                  style={{ flex: 1, marginLeft: 4 }}
-                  defaultValue={widthEffective}
-                  defaultUnitValue="px"
-                  unitOptions={widthUnitOptions}
-                  unitDisabledList={UNIT_DISABLED_LIST}
-                  unitDisplayLabelMap={UNIT_DISPLAY_LABEL_MAP}
-                  onChange={handleWidthChange}
-                  onAction={handleWidthAction}
-                  showIcon={true}
-                />
-              </Panel.Item>
-              {showMaxWidth && (
-                <Panel.Item style={{ display: "flex", alignItems: "center", paddingLeft: 8, marginLeft: 0 }}>
+    <Panel
+      title="尺寸"
+      showTitle={showTitle}
+      showReset={true}
+      resetFunction={refresh}
+      collapse={allHidden ? true : (collapse || false)}
+      showDelete={false}
+      addOptions={addOptions.length > 0 ? addOptions : undefined}
+      onAddOption={handleAddOption}
+      rightColumn={
+        <div className={css.sizeActions}>
+          {showWidthHeight && !(cfg.disableWidth && cfg.disableHeight) && (
+            <div className={css.sizeRemoveBtn} onClick={handleDeleteWidthHeight}>
+              <MinusOutlined />
+            </div>
+          )}
+          {showMinRow && (
+            <div className={css.sizeRemoveBtn} onClick={handleRemoveMin}>
+              <MinusOutlined />
+            </div>
+          )}
+          {showMaxRow && (
+            <div className={css.sizeRemoveBtn} onClick={handleRemoveMax}>
+              <MinusOutlined />
+            </div>
+          )}
+        </div>
+      }
+    >
+      <div className={css.sizeRows}>
+          {showWidthHeight && !(cfg.disableWidth && cfg.disableHeight) && (
+            <Panel.Content style={{ gap: 8 }}>
+              {cfg.disableWidth ? null : (
+                <Panel.Item style={{ display: "flex", alignItems: "center", paddingLeft: 8 }}>
                   <div
-                    {...getDragPropsMaxWidth(maxWidthEffective, '拖拽调整最大宽度')}
+                    {...getDragPropsWidth(widthEffective, '拖拽调整宽度')}
                     style={{ height: "100%", display: "flex", alignItems: "center", cursor: "ew-resize" }}
                   >
-                    <span className={css.tip} style={{ width: 30, flexShrink: 0 }}>最大宽</span>
+                    <span className={css.tip} style={{ width: 30, flexShrink: 0 }}>宽度</span>
                   </div>
                   <InputNumber
-                    key={getUnitKey(maxWidthEffective)}
+                    key={getUnitKey(widthEffective)}
                     style={{ flex: 1, marginLeft: 4 }}
-                    defaultValue={maxWidthEffective}
+                    defaultValue={widthEffective}
                     defaultUnitValue="px"
-                    unitOptions={MAX_MIN_UNIT_OPTIONS}
-                    onChange={(val) => onChange({key: 'maxWidth', value: val})}
-                    onAction={handleMaxWidthAction}
+                    unitOptions={widthUnitOptions}
+                    unitDisabledList={UNIT_DISABLED_LIST}
+                    unitDisplayLabelMap={UNIT_DISPLAY_LABEL_MAP}
+                    onChange={handleWidthChange}
                     showIcon={true}
                   />
                 </Panel.Item>
               )}
-              {showMinWidth && (
-                <Panel.Item style={{ display: "flex", alignItems: "center", paddingLeft: 8, marginLeft: 0 }}>
+              {cfg.disableHeight ? null : (
+                <Panel.Item style={{ display: "flex", alignItems: "center", paddingLeft: 8 }}>
+                  <div
+                    {...getDragPropsHeight(heightEffective, '拖拽调整高度')}
+                    style={{ height: "100%", display: "flex", alignItems: "center", cursor: "ew-resize" }}
+                  >
+                    <span className={css.tip} style={{ width: 30, flexShrink: 0 }}>高度</span>
+                  </div>
+                  <InputNumber
+                    key={getUnitKey(heightEffective)}
+                    style={{ flex: 1, marginLeft: 4 }}
+                    defaultValue={heightEffective}
+                    defaultUnitValue="px"
+                    unitOptions={heightUnitOptions}
+                    unitDisabledList={UNIT_DISABLED_LIST}
+                    unitDisplayLabelMap={UNIT_DISPLAY_LABEL_MAP}
+                    onChange={handleHeightChange}
+                    showIcon={true}
+                  />
+                </Panel.Item>
+              )}
+            </Panel.Content>
+          )}
+          {showMinRow && (
+            <Panel.Content style={{ gap: 8 }}>
+              {showMinWidth && !cfg.disableWidth ? (
+                <Panel.Item style={{ display: "flex", alignItems: "center", paddingLeft: 8 }}>
                   <div
                     {...getDragPropsMinWidth(minWidthEffective, '拖拽调整最小宽度')}
                     style={{ height: "100%", display: "flex", alignItems: "center", cursor: "ew-resize" }}
@@ -422,62 +398,12 @@ export function Size({value, onChange, config, showTitle, collapse}: SizeProps) 
                     defaultUnitValue="px"
                     unitOptions={MAX_MIN_UNIT_OPTIONS}
                     onChange={(val) => onChange({key: 'minWidth', value: val})}
-                    onAction={handleMinWidthAction}
                     showIcon={true}
                   />
                 </Panel.Item>
-              )}
-            </div>
-          )}
-          {cfg.disableHeight ? null : (
-            <div style={{ display: "flex", flexDirection: "column", flex: 1, gap: 8 }}>
-              <Panel.Item style={{ display: "flex", alignItems: "center", paddingLeft: 8 }}>
-                <div
-                  {...getDragPropsHeight(heightEffective, '拖拽调整高度')}
-                  style={{
-                    height: "100%",
-                    display: "flex",
-                    alignItems: "center",
-                    cursor: "ew-resize"
-                  }}
-                >
-                  <span className={css.tip} style={{ width: 30, flexShrink: 0 }}>高度</span>
-                </div>
-                <InputNumber
-                  key={`${getUnitKey(heightEffective)}-${showMaxHeight ? 1 : 0}-${showMinHeight ? 1 : 0}`}
-                  style={{ flex: 1, marginLeft: 4 }}
-                  defaultValue={heightEffective}
-                  defaultUnitValue="px"
-                  unitOptions={heightUnitOptions}
-                  unitDisabledList={UNIT_DISABLED_LIST}
-                  unitDisplayLabelMap={UNIT_DISPLAY_LABEL_MAP}
-                  onChange={handleHeightChange}
-                  onAction={handleHeightAction}
-                  showIcon={true}
-                />
-              </Panel.Item>
-              {showMaxHeight && (
-                <Panel.Item style={{ display: "flex", alignItems: "center", paddingLeft: 8, marginLeft:0 }}>
-                  <div
-                    {...getDragPropsMaxHeight(maxHeightEffective, '拖拽调整最大高度')}
-                    style={{ height: "100%", display: "flex", alignItems: "center", cursor: "ew-resize" }}
-                  >
-                    <span className={css.tip} style={{ width: 30, flexShrink: 0 }}>最大高</span>
-                  </div>
-                  <InputNumber
-                    key={getUnitKey(maxHeightEffective)}
-                    style={{ flex: 1, marginLeft: 4 }}
-                    defaultValue={maxHeightEffective}
-                    defaultUnitValue="px"
-                    unitOptions={MAX_MIN_UNIT_OPTIONS}
-                    onChange={(val) => onChange({key: 'maxHeight', value: val})}
-                    onAction={handleMaxHeightAction}
-                    showIcon={true}
-                  />
-                </Panel.Item>
-              )}
-              {showMinHeight && (
-                <Panel.Item style={{ display: "flex", alignItems: "center", paddingLeft: 8, marginLeft:0 }}>
+              ) : <div style={{ flex: 1 }} />}
+              {showMinHeight && !cfg.disableHeight ? (
+                <Panel.Item style={{ display: "flex", alignItems: "center", paddingLeft: 8 }}>
                   <div
                     {...getDragPropsMinHeight(minHeightEffective, '拖拽调整最小高度')}
                     style={{ height: "100%", display: "flex", alignItems: "center", cursor: "ew-resize" }}
@@ -491,63 +417,55 @@ export function Size({value, onChange, config, showTitle, collapse}: SizeProps) 
                     defaultUnitValue="px"
                     unitOptions={MAX_MIN_UNIT_OPTIONS}
                     onChange={(val) => onChange({key: 'minHeight', value: val})}
-                    onAction={handleMinHeightAction}
                     showIcon={true}
                   />
                 </Panel.Item>
-              )}
-            </div>
+              ) : <div style={{ flex: 1 }} />}
+            </Panel.Content>
           )}
-        </Panel.Content>
-      )}
-      {!(cfg.disableMaxWidth && cfg.disableMaxHeight) && (
-        <Panel.Content style={{ gap: 8 }}>
-          {cfg.disableMaxWidth ? null : (
-            <InputNumber
-              prefix={<span className={css.tip}>最大宽</span>}
-              defaultValue={value.maxWidth}
-              unitOptions={BASE_UNIT_OPTIONS}
-              unitDisabledList={UNIT_DISABLED_LIST}
-              onChange={(value) => onChange({key: "maxWidth", value})}
-              showIcon={true}
-            />
+          {showMaxRow && (
+            <Panel.Content style={{ gap: 8 }}>
+              {showMaxWidth && !cfg.disableWidth ? (
+                <Panel.Item style={{ display: "flex", alignItems: "center", paddingLeft: 8 }}>
+                  <div
+                    {...getDragPropsMaxWidth(maxWidthEffective, '拖拽调整最大宽度')}
+                    style={{ height: "100%", display: "flex", alignItems: "center", cursor: "ew-resize" }}
+                  >
+                    <span className={css.tip} style={{ width: 30, flexShrink: 0 }}>最大宽</span>
+                  </div>
+                  <InputNumber
+                    key={getUnitKey(maxWidthEffective)}
+                    style={{ flex: 1, marginLeft: 4 }}
+                    defaultValue={maxWidthEffective}
+                    defaultUnitValue="px"
+                    unitOptions={MAX_MIN_UNIT_OPTIONS}
+                    onChange={(val) => onChange({key: 'maxWidth', value: val})}
+                    showIcon={true}
+                  />
+                </Panel.Item>
+              ) : <div style={{ flex: 1 }} />}
+              {showMaxHeight && !cfg.disableHeight ? (
+                <Panel.Item style={{ display: "flex", alignItems: "center", paddingLeft: 8 }}>
+                  <div
+                    {...getDragPropsMaxHeight(maxHeightEffective, '拖拽调整最大高度')}
+                    style={{ height: "100%", display: "flex", alignItems: "center", cursor: "ew-resize" }}
+                  >
+                    <span className={css.tip} style={{ width: 30, flexShrink: 0 }}>最大高</span>
+                  </div>
+                  <InputNumber
+                    key={getUnitKey(maxHeightEffective)}
+                    style={{ flex: 1, marginLeft: 4 }}
+                    defaultValue={maxHeightEffective}
+                    defaultUnitValue="px"
+                    unitOptions={MAX_MIN_UNIT_OPTIONS}
+                    onChange={(val) => onChange({key: 'maxHeight', value: val})}
+                    showIcon={true}
+                  />
+                </Panel.Item>
+              ) : <div style={{ flex: 1 }} />}
+            </Panel.Content>
           )}
-          {cfg.disableMaxHeight ? null : (
-            <InputNumber
-              prefix={<span className={css.tip}>最大高</span>}
-              defaultValue={value.maxHeight}
-              unitOptions={BASE_UNIT_OPTIONS}
-              unitDisabledList={UNIT_DISABLED_LIST}
-              onChange={(value) => onChange({key: "maxHeight", value})}
-              showIcon={true}
-            />
-          )}
-        </Panel.Content>
-      )}
-      {!(cfg.disableMinWidth && cfg.disableMinHeight) && (
-        <Panel.Content style={{ gap: 8 }}>
-          {cfg.disableMinWidth ? null : (
-            <InputNumber
-              prefix={<span className={css.tip}>最小宽</span>}
-              defaultValue={value.minWidth}
-              unitOptions={BASE_UNIT_OPTIONS}
-              unitDisabledList={UNIT_DISABLED_LIST}
-              onChange={(value) => onChange({key: "minWidth", value})}
-              showIcon={true}
-            />
-          )}
-          {cfg.disableMinHeight ? null : (
-            <InputNumber
-              prefix={<span className={css.tip}>最小高</span>}
-              defaultValue={value.minHeight}
-              unitOptions={BASE_UNIT_OPTIONS}
-              unitDisabledList={UNIT_DISABLED_LIST}
-              onChange={(value) => onChange({key: "minHeight", value})}
-              showIcon={true}
-            />
-          )}
-        </Panel.Content>
-      )}
+        </div>
     </Panel>
   );
 }

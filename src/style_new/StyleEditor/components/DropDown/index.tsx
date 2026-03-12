@@ -41,7 +41,7 @@ export function Dropdown({ value, options, children, onClick, onAction, classNam
       onClick(value);
       if (!multiple) setOpen(false);
     }
-  }, [onAction]);
+  }, [onClick, onAction, multiple]);
 
   const handleClick = useCallback((event: { target: any; }) => {
     if (multiple) {
