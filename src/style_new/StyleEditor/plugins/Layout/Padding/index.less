@@ -1,0 +1,53 @@
+@import "../../../../../theme";
+
+.gap {
+  margin-top: 10px;
+  display: flex;
+  text-align: center;
+  align-items: center;
+  flex-flow: wrap;
+  padding-right: 14px;
+  .input {
+    &:not(:last-child) {
+      margin-bottom: 4px;
+    }
+  }
+}
+
+.flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.selected {
+  background-color: @color-primary;
+  color: #fff;
+  border-radius: 3px;
+  border: 1px solid @color-primary;
+  opacity: 1;
+}
+.unselected {
+  width: 24px;
+  height: 24px;
+  .flex-center;
+}
+
+.padding {
+  cursor: pointer;
+  .unselected;
+  svg {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    line-height: 1;
+    fill: currentColor;
+  }
+}
+
+.padding:hover {
+  background-color: #fff8f4;
+  color: @color-primary;
+  border-radius: 3px;
+  border: 1px solid @color-primary;
+  opacity: 1;
+}
