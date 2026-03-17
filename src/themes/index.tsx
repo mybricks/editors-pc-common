@@ -12,7 +12,7 @@ interface ThemeVar {
 }
 
 let uid = 0;
-const genKey = () => `theme-var-${++uid}`;
+const genKey = () => `--theme-var-${++uid}`;
 
 export default function ({ editConfig }: EditorProps): JSX.Element {
   const { value } = editConfig;
