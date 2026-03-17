@@ -26,28 +26,39 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
   }, []);
 
   const handleColorChange = useCallback((propertyName: string, newValue: string) => {
-    commit(themeVars.map((v) =>
-      v.propertyName === propertyName ? { ...v, value: newValue } : v
-    ));
-  }, [themeVars]);
+    setThemeVars((prev) => {
+      const next = prev.map((v) => v.propertyName === propertyName ? { ...v, value: newValue } : v);
+      value.set(next);
+      return next;
+    });
+  }, []);
 
   const handleDelete = useCallback((propertyName: string) => {
-    commit(themeVars.filter((v) => v.propertyName !== propertyName));
-  }, [themeVars]);
+    setThemeVars((prev) => {
+      const next = prev.filter((v) => v.propertyName !== propertyName);
+      value.set(next);
+      return next;
+    });
+  }, []);
 
   const handleAdd = useCallback(() => {
     const key = genKey();
     const newVar: ThemeVar = { propertyName: key, title: "新主题颜色", value: "#1890ff", type: "color" };
-    const next = [...themeVars, newVar];
-    commit(next);
-  }, [themeVars]);
+    setThemeVars((prev) => {
+      const next = [...prev, newVar];
+      value.set(next);
+      return next;
+    });
+  }, []);
 
   const handleTitleBlur = useCallback((propertyName: string, title: string) => {
-    commit(themeVars.map((v) =>
-      v.propertyName === propertyName ? { ...v, title } : v
-    ));
+    setThemeVars((prev) => {
+      const next = prev.map((v) => v.propertyName === propertyName ? { ...v, title } : v);
+      value.set(next);
+      return next;
+    });
     setEditingKey(null);
-  }, [themeVars]);
+  }, []);
 
   return (
     <div className={css.themesEditor}>
