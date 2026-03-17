@@ -40,6 +40,7 @@ import Tree from "./tree";
 import EditorLine from "./line";
 import "./index.less";
 import StyleNew from "./style_new";
+import Themes from "./themes";
 import CssEditor from "./css-editor";
 import json from "@/json";
 
@@ -87,6 +88,7 @@ const PcEditorMap: any = {
   SCENECOMSELECTOR: EditorSceneComSelector,
   TREE: Tree,
   LINE: EditorLine,
+  THEMES: Themes,
 }
 
 
