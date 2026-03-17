@@ -1,5 +1,5 @@
 import { EditorProps } from "@/interface";
-import React, { useCallback, useRef, useState } from "react";
+import React, { useCallback, useState } from "react";
 import { Colorpicker } from "../style_new/StyleEditor/components/Colorpicker";
 import { PlusOutlined, MinusOutlined } from "../style_new/StyleEditor/components/Icon";
 import css from "./index.less";
@@ -19,7 +19,6 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
 
   const [themeVars, setThemeVars] = useState<ThemeVar[]>(value.get() || []);
   const [editingKey, setEditingKey] = useState<string | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
 
   const commit = useCallback((next: ThemeVar[]) => {
     setThemeVars(next);
@@ -38,11 +37,9 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
 
   const handleAdd = useCallback(() => {
     const key = genKey();
-    const newVar: ThemeVar = { propertyName: key, title: "新主题变量", value: "#1890ff", type: "color" };
+    const newVar: ThemeVar = { propertyName: key, title: "新主题颜色", value: "#1890ff", type: "color" };
     const next = [...themeVars, newVar];
     commit(next);
-    setEditingKey(key);
-    setTimeout(() => inputRef.current?.select(), 0);
   }, [themeVars]);
 
   const handleTitleBlur = useCallback((propertyName: string, title: string) => {
@@ -86,7 +83,6 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
             <div className={css.themeInfo}>
               {editingKey === themeVar.propertyName ? (
                 <input
-                  ref={inputRef}
                   className={css.titleInput}
                   defaultValue={themeVar.title}
                   onBlur={(e) => handleTitleBlur(themeVar.propertyName, e.target.value)}
