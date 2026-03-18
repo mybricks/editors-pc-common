@@ -220,7 +220,11 @@ export default function ({editConfig}: EditorProps) {
       ? ''
       : (editConfig.options as any).comId ?? ''
 
-    setPseudoSelectorList(scanPseudoSelectors(baseSelectors, comId))
+    setPseudoSelectorList(prev => {
+      const next = scanPseudoSelectors(baseSelectors, comId)
+      if (prev.length === next.length && prev.every((v, i) => v === next[i])) return prev
+      return next
+    })
   }, [open, targetDom])
 
   const refresh = useCallback(() => {
@@ -466,6 +470,10 @@ export default function ({editConfig}: EditorProps) {
     return result
   }, [targetDom, pseudoSelectorList])
 
+  const isVibe = useMemo(() => {
+    return zoneSelectorList.length > 0
+  }, [zoneSelectorList])
+
   // zoneSelectorList 变化（targetDom / 伪类扫描结果更新）时，重置激活下标到第 0 项
   useEffect(() => {
     setActiveZoneIdx(0)
@@ -628,8 +636,8 @@ export default function ({editConfig}: EditorProps) {
   return {
     render: (
       <>
-        {zoneTabBar}
-        {affectedCount !== null && affectedCount > 1 && (
+        {isVibe && zoneTabBar}
+        {isVibe && affectedCount !== null && affectedCount > 1 && (
           <div className={css.affectedHint} style={{marginTop: zoneSelectorList.length > 1 ? '10px' : '0'}}>
             修改当前样式会影响 {affectedCount} 个区域
           </div>
