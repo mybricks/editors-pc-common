@@ -4,20 +4,48 @@
   padding: 4px 0;
 }
 
-.header {
+.editorTitle {
+  font-size: 12px;
+  color: #222;
+  font-weight: 500;
+  padding-left: 2px;
+  flex: 1;
+  flex-shrink: 0;
+}
+
+/* ---- 分组 ---- */
+
+.group {
+  padding-top: 2px;
+  padding-bottom: 5px;
+  border-bottom: 1px solid #e6e6e6a3;
+}
+
+.groupCollapsed {
+  padding-bottom: 2px;
+}
+
+.group:last-child:not(.groupCollapsed) {
+  border-bottom: none;
+}
+
+.groupHeader {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 3px 3px 3px 8px;
+  height: 28px;
+}
+
+.groupTitle {
+  font-size: 12px;
+  color: #222;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 6px 0px;
+  flex: 1;
 }
 
-.headerTitle {
-  font-size: 12px;
-  color: #999;
-  font-weight: 400;
-}
-
-.addIconBtn {
+.addBtn {
   svg {
     width: 13px;
     height: 13px;
@@ -28,6 +56,7 @@
 
   width: 22px;
   height: 22px;
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -39,41 +68,70 @@
   }
 }
 
-.list {
-  padding: 0 0px;
-}
+/* ---- 每项行 ---- */
 
-.themeItem {
+.wrapContainer {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 5px 0px;
-  border-radius: 6px;
-  cursor: pointer;
+  flex-direction: row;
+  align-items: flex-start;
+  padding: 2px 3px 2px 8px;
 
   &:hover {
-    background-color: #f5f5f5;
-
     .deleteBtn {
       opacity: 1;
     }
   }
 }
 
+.wrap {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.themeItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 3px;
+  border-radius: @border-radius;
+  cursor: pointer;
+
+  &:hover {
+    background-color: #f5f5f5;
+  }
+}
+
 .colorSwatch {
-  width: 20px;
-  height: 20px;
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
   border: 1px solid rgba(0, 0, 0, 0.08);
   cursor: pointer;
   flex-shrink: 0;
-  margin-left: 6px;
+}
+
+.inputIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #555;
+  cursor: ew-resize;
+  flex-shrink: 0;
+
+  svg {
+    width: 13px;
+    height: 13px;
+  }
 }
 
 .themeInfo {
   flex: 1;
   min-width: 0;
   cursor: text;
+  overflow: hidden;
 }
 
 .themeTitle {
@@ -85,21 +143,157 @@
   cursor: text;
   user-select: none;
   display: block;
-
-  &:hover {
-    cursor: text;
-  }
 }
 
 .titleInput {
   width: 100%;
-  height: 22px;
-  padding: 0 4px;
+  height: 20px;
+  padding: 0 2px;
   font-size: 12px;
   border: 1px solid @color-primary;
   border-radius: 3px;
   outline: none;
   box-sizing: border-box;
+  background: transparent;
+}
+
+/* ---- Tab 栏 ---- */
+
+.titleRow {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 3px 3px 3px 8px;
+  height: 28px;
+}
+
+.tabListWrap {
+  position: relative;
+
+  &::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 30px;
+    height: 100%;
+    background: linear-gradient(to right, transparent, #fff);
+    pointer-events: none;
+  }
+}
+
+.tabList {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  gap: 2px;
+  padding: 2px 6px 6px;
+  padding-top: 6px;
+  scroll-behavior: smooth;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 7px;
+  border-radius: 4px;
+  font-size: 12px;
+  color: #555;
+  cursor: pointer;
+  flex-shrink: 0;
+  white-space: nowrap;
+  border: 1px solid transparent;
+  user-select: none;
+  position: relative;
+
+  &:hover {
+    background-color: #f0f0f0;
+
+    .tabCloseBtn {
+      opacity: 1;
+    }
+  }
+}
+
+.tabActive {
+  background-color: color-mix(in srgb, var(--mybricks-color-primary, #FA6400) 12%, transparent);
+  color: @color-primary;
+  border-color: color-mix(in srgb, var(--mybricks-color-primary, #FA6400) 30%, transparent);
+
+  &:hover {
+    background-color: color-mix(in srgb, var(--mybricks-color-primary, #FA6400) 18%, transparent);
+  }
+}
+
+.tabName {
+  max-width: 90px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tabInput {
+  width: 60px;
+  height: 16px;
+  padding: 0 2px;
+  font-size: 12px;
+  border: 1px solid @color-primary;
+  border-radius: 3px;
+  outline: none;
+  box-sizing: border-box;
+  background: #fff;
+  color: #222;
+}
+
+.tabCloseBtn {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  color: #fff;
+  background-color: #bbb;
+  border-radius: 50%;
+  opacity: 0;
+  transition: opacity 0.15s;
+  width: 11px;
+  height: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+
+  &:hover {
+    background-color: #888;
+  }
+}
+
+.addTab {
+  svg {
+    width: 13px;
+    height: 13px;
+  }
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  border-radius: 5px;
+  color: #555;
+  cursor: pointer;
+
+  &:hover {
+    color: #555;
+    background-color: rgba(0, 0, 0, 0.05);
+  }
 }
 
 .deleteBtn {
@@ -118,4 +312,5 @@
   color: #000000e6;
   opacity: 0;
   transition: opacity 0.15s;
+  margin-top: 2px;
 }
