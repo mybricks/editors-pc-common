@@ -1,5 +1,5 @@
 import { EditorProps } from "@/interface";
-import React, { useCallback, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Colorpicker } from "../style_new/StyleEditor/components/Colorpicker";
 import { PlusOutlined, MinusOutlined } from "../style_new/StyleEditor/components/Icon";
 import { InputNumber } from "./InputNumber";
@@ -41,9 +41,14 @@ const DEFAULT_TITLES: Record<ThemeVar["type"], string> = {
   spacing: "新间距",
 };
 
-let uid = 0;
-const genKey = (type: string) => `--theme-${type}-${++uid}`;
-const genId = () => `theme-${++uid}`;
+//随机id生成器
+const _genUid = () => Math.random().toString(36).slice(2, 10);
+
+//唯一css变量名生成器
+const genKey = (type: string) => `--theme-${type}-${_genUid()}`;
+
+//唯一主题id生成器
+const genId = () => `theme-${_genUid()}`;
 
 function migrateData(raw: any): ThemeData {
   if (!raw) {
