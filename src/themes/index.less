@@ -6,7 +6,7 @@
 
 .editorTitle {
   font-size: 12px;
-  color: #222;
+  color: @font-color-content;
   font-weight: 500;
   padding-left: 2px;
   flex: 1;
@@ -18,7 +18,7 @@
 .group {
   padding-top: 2px;
   padding-bottom: 5px;
-  border-bottom: 1px solid #e6e6e6a3;
+  border-bottom: 1px solid @boder-color;
 }
 
 .groupCollapsed {
@@ -39,7 +39,7 @@
 
 .groupTitle {
   font-size: 12px;
-  color: #222;
+  color: @font-color-content;
   display: flex;
   align-items: center;
   flex: 1;
@@ -60,10 +60,10 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #555;
+  color: @font-color-content;
 
   &:hover {
-    background-color: rgba(0, 0, 0, 0.05);
+    background-color: @bg-color-active;
     border-radius: 5px;
   }
 }
@@ -100,7 +100,7 @@
   cursor: pointer;
 
   &:hover {
-    background-color: #f5f5f5;
+    background-color: @bg-color-hover;
   }
 }
 
@@ -108,7 +108,7 @@
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  border: 1px solid @boder-color;
   cursor: pointer;
   flex-shrink: 0;
 }
@@ -117,7 +117,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #555;
+  color: @font-color-content;
   cursor: ew-resize;
   flex-shrink: 0;
 
@@ -136,7 +136,7 @@
 
 .themeTitle {
   font-size: 12px;
-  color: #333;
+  color: @font-color-content;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -177,7 +177,7 @@
     right: 0;
     width: 30px;
     height: 100%;
-    background: linear-gradient(to right, transparent, #fff);
+    background: linear-gradient(to right, transparent, var(--mybricks-bg-color-main, #fff));
     pointer-events: none;
   }
 }
@@ -206,7 +206,7 @@
   padding: 3px 7px;
   border-radius: 4px;
   font-size: 12px;
-  color: #555;
+  color: @font-color-content;
   cursor: pointer;
   flex-shrink: 0;
   white-space: nowrap;
@@ -215,7 +215,7 @@
   position: relative;
 
   &:hover {
-    background-color: #f0f0f0;
+    background-color: @bg-color-hover;
 
     .tabCloseBtn {
       opacity: 1;
@@ -249,16 +249,16 @@
   border-radius: 3px;
   outline: none;
   box-sizing: border-box;
-  background: #fff;
-  color: #222;
+  background: @bg-color-main;
+  color: @font-color-content;
 }
 
 .tabCloseBtn {
   position: absolute;
   top: -4px;
   right: -4px;
-  color: #fff;
-  background-color: #bbb;
+  color: @font-color-hover;
+  background-color: @boder-color;
   border-radius: 50%;
   opacity: 0;
   transition: opacity 0.15s;
@@ -270,7 +270,7 @@
   flex-shrink: 0;
 
   &:hover {
-    background-color: #888;
+    background-color: @color-primary;
   }
 }
 
@@ -287,12 +287,12 @@
   height: 22px;
   flex-shrink: 0;
   border-radius: 5px;
-  color: #555;
+  color: @font-color-content;
   cursor: pointer;
 
   &:hover {
-    color: #555;
-    background-color: rgba(0, 0, 0, 0.05);
+    color: @font-color-content;
+    background-color: @bg-color-active;
   }
 }
 
@@ -309,7 +309,7 @@
   height: 22px;
   flex-shrink: 0;
   cursor: pointer;
-  color: #000000e6;
+  color: @font-color-content;
   opacity: 0;
   transition: opacity 0.15s;
   margin-top: 2px;
