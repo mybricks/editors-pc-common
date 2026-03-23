@@ -54,9 +54,6 @@ const CloseIcon = (
   </svg>
 )
 
-const selectStyle = { backgroundColor: 'var(--mybricks-bg-color-main, #FFF)', border: '1px solid var(--mybricks-border-color-main, #DDD)' }
-
-
 export function BoxShadow({ value, onChange, config, showTitle, collapse }: BoxShadowProps) {
   const [boxShadowValues, setBoxShadowValues] = useState<boxShadowType>(getInitValue(value.boxShadow))
   const [forceRenderKey, setForceRenderKey] = useState<number>(Math.random()); // 用于点击重置按钮重新渲染获取新value
@@ -138,7 +135,7 @@ export function BoxShadow({ value, onChange, config, showTitle, collapse }: BoxS
           </div>
           <Select
             tip='扩散方式'
-            style={{ width: '100%', ...selectStyle }}
+            style={{ width: '100%' }}
             value={boxShadowValues.inset}
             options={INSET_OPTIONS}
             //prefix={boxShadowValues.inset ? <BoxShadowInnerOutlined /> : <BoxShadowOuterOutlined />}
@@ -317,7 +314,7 @@ function BoxShadowSketch({
           value={values.inset}
           options={INSET_OPTIONS}
           onChange={update('inset')}
-          style={{ ...selectStyle, width: '50%' }}
+          style={{ width: '50%' }}
         />
         <button className={css.shadowHeaderBtn} data-mybricks-tip='关闭' onClick={onClose}>
           {CloseIcon}
