@@ -1,5 +1,4 @@
 @import "../theme.less";
-@import "../global/global.less";
 
 .editor-upload {
   position: relative;
@@ -17,8 +16,7 @@
       margin-right: 10px;
       border-radius: 6px;
       //border: 1px solid #eee;
-      background-color: #F5F5F5;
-      box-sizing: border-box;
+      background-color: @bg-color-hover;
       //transition: all 0.3s, height 0s;
 
       &:hover {
@@ -37,10 +35,10 @@
       text-align: center;
       height: 26px;
       border-radius: 6px;
-      background-color: #F5F5F5;
+      background-color: @bg-color-hover;
+      color: @font-color-content;
       // border: 1px solid #DDD;
       box-sizing: border-box;
-      //box-shadow: 0 1px 4px -1px #777;
     }
 
     .linkBtn {
@@ -52,7 +50,7 @@
       cursor: pointer;
       display: block;
       // text-align: center;
-      color: rgba(0, 0, 0, 0.85);
+      color: @font-color-content;
       position: relative;
 
       width: 60px;
@@ -128,7 +126,7 @@
         left: 50%;
         position: absolute;
         transform: translate(-50%, -50%);
-        color: rgba(0, 0, 0, 0.5);
+        color: @font-color-content;
       }
 
       &-img {
@@ -149,9 +147,9 @@
     height: 24px;
     line-height: 24px;
     border-radius: 3px;
-    background-color: #ffffff;
+    background-color: @bg-color-main;
     box-shadow: 0 1px 3px -1px #777;
-    color: rgba(0, 0, 0, 0.85);
+    color: @font-color-content;
   }
 
   &__footBtn {
@@ -194,9 +192,7 @@
     text-align: center;
     line-height: 100px;
     border-radius: 4px;
-    background-color: #fff;
+    background-color: @bg-color-main;
     box-shadow: 0 1px 4px -1px #777;
   }
 }
-
-@import "../global/global.less";

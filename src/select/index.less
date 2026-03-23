@@ -2,7 +2,7 @@
 
 .editorSelect {
   :global(.ant-select) {
-    background: #F5F5F5;
+    background: @bg-color-hover;
     font-size: 12px;
     width: 100%;
     border-radius: @border-radius;
@@ -14,7 +14,7 @@
     box-shadow: none !important;
     outline: none;
     font-size: 12px;
-    background: #F5F5F5;
+    background: @bg-color-hover;
     transition: none !important;
 
     &:hover {
@@ -38,7 +38,7 @@
 
 
 :global(.ant-select-item-option-selected:not(.ant-select-item-option-disabled) ) {
-  background-color: #EEE;
+  background-color: @bg-color-active;
 }
 
 :global(.ant-select-dropdown .ant-select-item) {
@@ -48,5 +48,5 @@
 
 :global(.ant-select-dropdown .ant-select-item-option-selected:not(.ant-select-item-option-disabled)) {
   background-color: @color-primary;
-  color: #FFF;
+  color: @font-color-hover;
 }

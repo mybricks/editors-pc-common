@@ -1,6 +1,9 @@
 @import "../../theme";
 
 .editor {
+  color: @font-color-content;
+  background-color: @bg-color-main;
+  border-color: @boder-color;
   display: flex;
   flex-direction: column;
   font-size: 12px;
@@ -26,11 +29,7 @@
       margin: 5px 3px;
       cursor: pointer;
       box-shadow: 0 1px 4px -1px #777;
-      background: #FFF;
-    }
-  }
-
-  .content {
+      background: @bg-color-main;
     padding-top: 20px;
     flex: 1;
     overflow: auto;
@@ -68,8 +67,7 @@
           display: none;
           pointer-events: auto;
           position: absolute;
-          background: #FFF;
-          z-index: 1000;
+          background: @bg-color-main;
           width: 80px;
           box-shadow: #ccc 1px 2px 6px;
 
@@ -78,7 +76,7 @@
             cursor: pointer;
 
             &:hover {
-              background: #F7F7F7;
+              background: @bg-color-hover;
             }
           }
         }
@@ -86,7 +84,7 @@
     }
 
     .mover {
-      background: #FFF;
+      background: @bg-color-main;
       border-radius: 5px;
       min-height: 25px;
       outline: 1px solid @color-primary;
@@ -103,7 +101,7 @@
     padding: 10px;
     color: #999;
     background: #FAFAFA;
-    border-top: 1px solid #EEE;
+    border-top: 1px solid @boder-color;
 
     p {
       font-style: italic;
@@ -111,4 +109,5 @@
       margin: 0;
     }
   }
+}
 }

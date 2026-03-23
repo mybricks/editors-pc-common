@@ -34,7 +34,7 @@
       .ant-input-number {
         transition: none;
         font-size: 12px;
-        background: #F5F5F5;
+        background: @bg-color-hover;
         border: none;
         height: 26px;
         padding-left: 3px;
@@ -55,7 +55,7 @@
         border-radius: @border-radius;
 
         &:hover {
-          outline: 1px solid #EEE;
+          outline: 1px solid @boder-color;
         }
 
         // width: 100%!important;
@@ -81,7 +81,7 @@
       .ant-input-number:hover {
         border-color: @color-primary;
         box-shadow: none !important;
-        outline: 1px solid #EEE;
+        outline: 1px solid @boder-color;
         //outline-offset: -1px;
       }
 
@@ -91,7 +91,7 @@
         //-webkit-box-shadow: var(--box-shadow);
         outline: 1px solid @color-primary !important;
         box-shadow: none !important;
-        background: #FFF !important;
+        background: @bg-color-main !important;
       }
 
       .ant-input-number-handler-wrap {

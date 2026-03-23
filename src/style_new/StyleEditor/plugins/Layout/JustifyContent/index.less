@@ -6,8 +6,8 @@
   justify-content: center;
 }
 .selected {
-  background-color:@color-primary;
-  color: #fff;
+  background-color: @color-primary;
+  color: @font-color-hover;
   border-radius: 6px;
   border: 1px solid @color-primary;
   opacity: 1;
@@ -28,12 +28,12 @@
   column-gap: 3px;
   .svgWrapper {
     cursor: pointer;
-    color: #555;
+    color: @font-color-content;
     opacity: 0.65;
     .unselected;
   }
   .svgWrapper:hover {
-    background-color: #fff8f4;
+    background-color: @bg-color-hover;
     color: @color-primary;
     border-radius: 6px;
     border: 1px solid @color-primary;
@@ -47,6 +47,8 @@
 .wrap {
   cursor: pointer;
   .unselected;
+  color: @font-color-content;
+  opacity: 0.65;
   // margin-top: 4px;
   svg {
     display: inline-block;
@@ -58,7 +60,7 @@
 }
 
 .wrap:hover {
-  background-color: #fff8f4;
+  background-color: @bg-color-hover;
   color: @color-primary;
   border-radius: 6px;
   border: 1px solid @color-primary;

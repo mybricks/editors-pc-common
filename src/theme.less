@@ -1,4 +1,4 @@
-﻿/**
+/**
  * MyBricks Opensource
  * https://mybricks.world
  * This source code is licensed under the MIT license.
@@ -39,20 +39,28 @@
 @color-warning: #faad14;
 @color-error: #f5222d;
 
-@bg-color-main: var(--mybricks-bg-color-main);
-@bg-color-hover: @color-primary;
-@bg-color-active: var(--mybricks-bg-color-active);
+@font-color-header: var(--mybricks-text-color-main, #333); // 各类标题文字颜色
+@font-color-content: var(--mybricks-text-color-main, #333); // 主体内容文字颜色
+@font-color-hover: var(--mybricks-text-color-hover, #FFF); // 主色块/按钮上的悬停文字颜色
+@font-color-active: var(--mybricks-text-color-active, #FA6400); // 聚焦态文字颜色
+@font-color-disabled: rgba(0, 0, 0, 0.25); // 失效文字颜色
+
+@bg-color-main: var(--mybricks-bg-color-main, #FFF); // 主背景色
+@bg-color-main-transparent: var(--mybricks-bg-color-main-transparent, rgba(255, 255, 255, 0.93)); // 浮层半透明背景
+@bg-color-hover: var(--mybricks-bg-color-hover, #F5F5F5); // 悬停背景
+@bg-color-active: var(--mybricks-bg-color-active, #EEE); // 激活/选中背景
 
 @shadow-main: var(--mybricks-shadow-main);
-
 @border-color-main: var(--mybricks-border-color-main);
-
 @text-color-main: var(--mybricks-text-color-main);
 @text-color-hover: var(--mybricks-text-color-hover);
 
+@box-shadow-primary: var(--mybricks-shadow-main, rgba(0, 0, 0, 0.2) 0 0 5px); // 阴影
+@box-shadow-hover: 0 3px 6px rgba(208, 2, 27, 0.16),
+  0 3px 6px rgba(208, 2, 27, 0.23); // hover阴影
 
 @border-radius: 6px;
-@boder-color: rgba(0,0,0,0.10196);
+@boder-color: var(--mybricks-border-color-main, #DDD); //边框主色
 
 @font-size-header: 14px; // 各类标题字号
 @font-size-content: 12px; // 主体内容字号
@@ -65,7 +73,7 @@
   line-height: 26px !important;
   //outline-color: @boder-color;
   border-radius: @border-radius;
-  color: #000000e5 !important;
+  color: @font-color-content !important;
   cursor: pointer;
   background: transparent;
   //outline-width: 1px;

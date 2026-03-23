@@ -1,9 +1,12 @@
+@import "../../../../theme";
+
 .icon {
   height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
   min-width: 15px;
+  color: @font-color-content;
 
   svg {
     max-width: 13px;
@@ -39,6 +42,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  color: @font-color-content;
 }
 
 .label {
@@ -66,7 +70,8 @@
   // margin-right: 3px;
   margin-top: 4px;
   // color: var(--mybricks-color-primary, #FA6400);
-  background-color: rgba(0, 0, 0, 0.05);
+  color: @font-color-content;
+  background-color: @bg-color-active;
   border-radius: 5px;
 
 }

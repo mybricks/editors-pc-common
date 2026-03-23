@@ -28,7 +28,7 @@
   display: flex;
   align-items: center;
   margin-bottom: 5px;
-  background-color: #F5F5F5;
+  background-color: @bg-color-hover;
   color: #555;
   padding-left: 10px;
   //border: 1px solid #E9E9E9;////TODO 继续样式的美化
@@ -57,7 +57,7 @@
     padding: 0 2px;
 
     &:hover {
-      background-color: rgba(0, 0, 0, 0.05);
+      background-color: @bg-color-active;
       border-radius: 1px;
     }
   }
@@ -87,7 +87,7 @@
     }
 
     &:hover {
-      background-color: #ddd;
+      background-color: @bg-color-active;
     }
   }
 
@@ -104,7 +104,7 @@
     background-color: @color-primary;
 
     svg {
-      fill: #ffffff;
+      fill: @font-color-hover;
     }
   }
 
@@ -141,7 +141,7 @@
 }
 
 .titlesHeavy {
-  color: #333;
+  color: @font-color-content;
   font-weight: 700;
   height: 36px;
   padding: 5px 15px;

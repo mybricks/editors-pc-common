@@ -1,10 +1,9 @@
 .themePicker {
   width: 200px;
   padding: 4px;
-  background: rgb(255, 255, 255);
+  background: @bg-color-main;
   border-radius: 4px;
-  box-shadow: rgba(0, 0, 0, 0.15) 0px 0px 0px 1px,
-    rgba(0, 0, 0, 0.15) 0px 8px 16px;
+  box-shadow: @box-shadow-primary;
   z-index: 1000;
   position: fixed;
   z-index: 10000;
@@ -71,11 +70,11 @@
 
     .right {
       .text {
-        color: #ffffff;
+          color: @font-color-hover;
       }
 
       .desc {
-        color: #ffffff;
+          color: @font-color-hover;
       }
     }
   }

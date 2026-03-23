@@ -45,6 +45,7 @@ import CssEditor from "./css-editor";
 import json from "@/json";
 
 export {config} from "./configProvider";
+export {typeCheck} from "./utils";
 
 const PcEditorMap: any = {
   ALIGN: EditorAlign,

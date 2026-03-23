@@ -16,12 +16,15 @@
   width: 100%;
   display: block;
   border-radius: 3px;
-  border: 1px solid #EEE;
-  background-color: #ffffff;
+  border: 1px solid @boder-color;
+  background-color: @bg-color-main;
   box-sizing: border-box;
 }
 
 .editor {
+  color: @font-color-content;
+  background-color: @bg-color-main;
+  border-color: @boder-color;
   input {
     padding: 3px 5px;
 
@@ -33,7 +36,7 @@
     padding: 3px 5px 3px 1px;
     appearance: auto;
     height: 26px;
-    border: 1px solid #EEE;
+    border: 1px solid @boder-color;
     border-radius: 3px;
     appearance: auto;
     cursor: pointer;

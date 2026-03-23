@@ -1,4 +1,9 @@
+@import "../theme";
+
 .editor {
+  color: @font-color-content;
+  background-color: @bg-color-main;
+  border-color: @boder-color;
   padding: 5px 2px;
   display: flex;
   flex-direction: row;
@@ -26,11 +31,11 @@
     width: 40px;
     margin-left: 5px;
     border-radius: 6px;
-    background: #FFF;
+    background: @bg-color-main;
     padding: 2px 8px;
     height: 18px;
     cursor: pointer;
-    border:1px solid #DDD;
+    border:1px solid @boder-color;
     //box-shadow: 0 1px 4px -1px #777;
   }
 }

@@ -1,9 +1,11 @@
+@import "../theme";
+
 .wrap {
   position: relative;
   padding: 2px 4px;
   border-radius: 3px;
-  background-color: #fff;
-  border: 1px solid #eee;
+  background-color: @bg-color-main;
+  border: 1px solid @boder-color;
   box-sizing: border-box;
   .marker {
     position: absolute;
@@ -62,23 +64,23 @@
     .suggest-widget {
       left: unset !important;
       border-radius: 4px;
-      background-color: #fff !important;
+      background-color: @bg-color-main !important;
       max-width: 240px !important;
       .shows-details {
         border-radius: 4px;
-        background-color: #fff !important;
+        background-color: @bg-color-main !important;
       }
     }
     .suggest-details {
       border-radius: 4px;
       max-width: 240px !important;
-      background-color: #fff !important;
-      box-shadow: 0 0 8px #eee !important;
+      background-color: @bg-color-main !important;
+      box-shadow: 0 0 8px @boder-color !important;
     }
     .monaco-hover {
       border-radius: 4px;
-      background-color: #fff !important;
-      box-shadow: 0 0 8px #eee !important;
+      background-color: @bg-color-main !important;
+      box-shadow: 0 0 8px @boder-color !important;
       .markdown-hover > .hover-contents:not(.code-hover-contents) {
         [data-item="row"] {
           display: flex;

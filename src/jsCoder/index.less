@@ -1,3 +1,5 @@
+@import "../theme";
+
 .editor-code {
   &__container {
     height: 500px;
@@ -36,7 +38,7 @@
     z-index: 999;
     display: flex;
     flex-direction: column;
-    background-color: #fff;
+    background-color: @bg-color-main;
     margin-top: 45px;
 
     &-toolbar {
@@ -60,7 +62,7 @@
   &__header {
     position: relative;
     flex: 0 0 32px;
-    border-bottom: 1px solid #ddd;
+    border-bottom: 1px solid @boder-color;
 
     .editor-code__modal-toolbar {
       top: unset;
@@ -88,14 +90,14 @@
     justify-content: flex-end;
     &--icon {
       &:hover {
-        background-color: #ddd;
+        background-color: @bg-color-active;
       }
       padding: 4px;
       font-size: 16px;
-      color: #333;
+      color: @font-color-content;
     }
     &--title {
-      color: #333;
+      color: @font-color-content;
     }
   }
   button {
@@ -127,7 +129,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-top: 1px solid #ddd;
+  border-top: 1px solid @boder-color;
   &__left,
   &__right {
     display: flex;
@@ -167,7 +169,7 @@
   font-feature-settings: "liga" 0, "calt" 0;
   line-height: 18px;
   white-space: pre-wrap;
-  color: #000;
+  color: @font-color-content;
 
   &-header {
     &::before {

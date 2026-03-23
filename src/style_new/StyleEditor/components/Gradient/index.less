@@ -1,3 +1,5 @@
+@import "../../../../theme";
+
 .panel {
   width: 280px;
   padding: 14px 16px 8px 16px;
@@ -6,7 +8,7 @@
   visibility: hidden;
   overflow: hidden;
   overflow-y: auto;
-  background-color: white;
+  background-color: @bg-color-main;
   border-radius: 6px;
   box-shadow: 0 10px 38px -10px rgba(22, 23, 24, 0.35),
   0 10px 20px -15px rgba(22, 23, 24, 0.2);
@@ -30,7 +32,7 @@
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    color: #555;
+    color: @font-color-content;
 
     svg {
       height: 12px;
@@ -67,7 +69,7 @@
         margin-right: 8px;
         min-width: 15px;
         min-height: 15px;
-        outline: 1px dashed #fff;
+        // outline: 1px dashed #fff;
         cursor: pointer;
       }
     }

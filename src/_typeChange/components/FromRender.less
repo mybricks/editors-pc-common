@@ -20,7 +20,7 @@
 
   .btnEdit {
     border-radius: @border-radius;
-    background: #FFF;
+    background: @bg-color-main;
     padding: 5px 10px;
     cursor: pointer;
     position: absolute;
@@ -50,7 +50,7 @@
       right: -9px;
       top: 0;
       bottom: 0;
-      border-left: 1px solid #EEE;
+      border-left: 1px solid @boder-color;
       content: '';
     }
 
@@ -59,7 +59,7 @@
         right: -9px;
         top: 0;
         height: 17px;
-        border-left: 1px solid #EEE;
+        border-left: 1px solid @boder-color;
         content: '';
       }
     }
@@ -74,14 +74,14 @@
       margin: 4px 0;
       border-radius: 3px;
       white-space: nowrap;
-      color: #333;
+      color: @font-color-content;
 
       &:before {
         position: absolute;
         right: -14px;
         width: 12px;
         top: 13px;
-        border-bottom: 1px solid #EEE;
+        border-bottom: 1px solid @boder-color;
         content: '';
       }
 
@@ -116,7 +116,7 @@
       outline: 1px solid @color-primary;
 
       &:hover {
-        background: #F5F5F5;
+        background: @bg-color-hover;
       }
     }
   }

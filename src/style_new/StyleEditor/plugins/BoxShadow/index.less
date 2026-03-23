@@ -23,7 +23,7 @@
   align-items: center;
   justify-content: center;
   background-color: transparent;
-  color: #666;
+  color: @font-color-content;
 
   &:hover {
     border-color: #aaa;
@@ -31,9 +31,9 @@
 }
 
 .triggerActive {
-  border-color: #fa6400;
-  background-color: #fa64001a;
-  color: #fa6400;
+  border-color: @color-primary;
+  background-color: @color-primary;
+  color: @color-primary;
 }
 
 .shadowSketch {
@@ -42,7 +42,7 @@
   visibility: hidden;
   width: 248px;
   border-radius: 12px;
-  background-color: #ffffff;
+  background-color: @bg-color-main;
   box-shadow: 0 2px 5px 0 #00000026, 0 10px 16px 0 #0000001f, 0 0 0.5px 0 #0000001f;
   display: flex;
   flex-direction: column;
@@ -56,7 +56,7 @@
     margin-bottom: 2px;
     padding: 8px;
     width: 100%;
-    border-bottom: 1px solid #e6e6e6;
+    border-bottom: 1px solid @boder-color;
 
     .shadowHeaderBtn {
       width: 24px;
@@ -68,7 +68,7 @@
       background: transparent;
       cursor: pointer;
       border-radius: 5px;
-      color: #666;
+      color: @font-color-content;
       flex-shrink: 0;
       padding: 0;
       outline: none;
@@ -77,8 +77,8 @@
       top: 12px;
 
       &:hover {
-        background-color: #f5f5f5;
-        color: #333;
+        background-color: @bg-color-hover;
+        color: @font-color-content;
       }
     }
   }
@@ -96,14 +96,14 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      color: #747474;
+      color: @font-color-content;
       margin-right: 2px;
     }
 
     .shadowLabel {
       width: 34px;
       font-size: 11px;
-      color: #888;
+      color: @font-color-content;
       flex-shrink: 0;
     }
   }

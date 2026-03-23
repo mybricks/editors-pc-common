@@ -1,3 +1,5 @@
+@import "../theme";
+
 .titleContainer {
   line-height: 18px;
   display: flex;
@@ -55,7 +57,7 @@
   .actions {
     display: flex;
     align-items: center;
-    color: #555;
+    color: @font-color-content;
     visibility: hidden;
     margin-left: 5px;
     min-width: 0;
@@ -83,7 +85,7 @@
         max-width: 11px;
 
         path {
-          fill: #555;
+          fill: @font-color-content;
         }
       }
     }
@@ -92,7 +94,7 @@
   .actions_allawys_display {
     display: flex;
     align-items: center;
-    color: #555;
+    color: @font-color-content;
     margin-left: 5px;
     min-width: 0;
     flex: 1;
@@ -119,7 +121,7 @@
         max-width: 11px;
 
         path {
-          fill: #555;
+          fill: @font-color-content;
         }
       }
     }
@@ -136,7 +138,7 @@
 }
 
 .inlineWrap {
-  background-color: #fff;
+  background-color: @bg-color-main;
   border-radius: 4px;
   height: 100%;
 
@@ -182,7 +184,7 @@
       visibility: hidden;
 
       &:hover {
-        color: #f86508;
+        color: @color-primary;
       }
     }
   }
@@ -225,9 +227,9 @@
   padding: 0 10px;
   font-size: 12px;
   cursor: pointer;
-  color: #555;
-  background-color: #fff;
-  border: 1px solid #CCC;
+  color: @font-color-content;
+  background-color: @bg-color-main;
+  border: 1px solid @boder-color;
   margin-right: -1px;
   white-space: nowrap;
   position: relative;
@@ -246,7 +248,7 @@
   }
 
   &:hover {
-    color: #333;
+    color: @font-color-content;
   }
 }
 

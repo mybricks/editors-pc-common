@@ -1,13 +1,13 @@
 @import "../theme";
 
 .wrapper {
-  background-color: #fff;
+  background-color: @bg-color-main;
   position: relative;
 }
 
 .btn-wrapper {
   padding: 0 !important;
-  border: 1px solid #eeee !important;
+  border: 1px solid @boder-color !important;
   border-radius: 6px !important;
 }
 
@@ -15,10 +15,13 @@
   overflow: hidden;
   padding: 3px 0;
   border-radius: 4px;
-  border: 1px solid #ddd;
+  border: 1px solid @boder-color;
 }
 
 .editor {
+  color: @font-color-content;
+  background-color: @bg-color-main;
+  border-color: @boder-color;
   border-radius: @border-radius;
 
 
@@ -42,7 +45,7 @@
   column-gap: 8px;
   padding: 0px 4px;
   border-radius: 4px;
-  background-color: #ffffffc8;
+  background-color: @bg-color-main-transparent;
 
   .icon {
     svg {
@@ -57,7 +60,7 @@
     &:hover {
       path {
         // fill: @color-primary;
-        fill: #333;
+        fill: @font-color-content;
       }
     }
 

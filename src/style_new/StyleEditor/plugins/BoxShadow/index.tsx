@@ -54,7 +54,7 @@ const CloseIcon = (
   </svg>
 )
 
-const selectStyle = { backgroundColor: '#fff', border: '1px solid #e6e6e6' }
+const selectStyle = { backgroundColor: 'var(--mybricks-bg-color-main, #FFF)', border: '1px solid var(--mybricks-border-color-main, #DDD)' }
 
 
 export function BoxShadow({ value, onChange, config, showTitle, collapse }: BoxShadowProps) {

@@ -12,10 +12,10 @@
     box-sizing: border-box;
     //border-radius: @border-radius;
     border: 1px solid rgba(2, 9, 16, 0.13);
-    background-color: #FFF;
+    background-color: @bg-color-main;
     //border: none;
     border-radius: 6px;
-    color: #333;
+    color: @font-color-content;
 
     &:hover {
       border-color: #CCC;
@@ -52,7 +52,7 @@
           width: 24px;
           height: 24px;
           border-radius: 50%;
-          background: #eee;
+          background: @bg-color-active;
           display: flex;
           justify-content: center;
           align-items: center;
@@ -94,7 +94,7 @@
     padding: 0 5px 0 11px;
     display: flex;
     align-items: center;
-    background: #F5F5F5;
+    background: @bg-color-hover;
 
     svg {
       width: 13px;
@@ -109,7 +109,7 @@
 }
 
 .popView {
-  background-color: #F7F7F7;
+  background-color: @bg-color-hover;
   height: 100%;
   overflow: hidden;
 
@@ -222,7 +222,7 @@
         text-align: center;
         overflow: hidden;
         text-overflow: ellipsis;
-        color: #333;
+        color: @font-color-content;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;

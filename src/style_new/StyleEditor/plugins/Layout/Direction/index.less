@@ -10,7 +10,7 @@
   display: flex;
   align-items: center;
   width: 100%;
-  background-color: #f5f5f5;
+  background-color: @bg-color-hover;
   border-radius: 6px;
   padding: 3px;
   gap: 2px;
@@ -27,8 +27,8 @@
 
     svg {
       path {
-        fill: #666;
-        transition: fill 0.15s ease;
+      fill: @font-color-content;
+      transition: fill 0.15s ease;
       }
     }
   }
@@ -38,18 +38,18 @@
 
     svg {
       path {
-        fill: #333;
+        fill: @font-color-content;
       }
     }
   }
 
   .direction-active {
-    background-color: #fff !important;
+    background-color: @bg-color-main !important;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 0 0 0.5px rgba(0, 0, 0, 0.08);
 
     svg {
       path {
-        fill: #333;
+        fill: @font-color-content;
       }
     }
   }

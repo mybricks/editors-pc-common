@@ -1,3 +1,5 @@
+@import "../../../../theme";
+
 .mask {
   position: fixed;
   top: 0;
@@ -16,7 +18,7 @@
 
   .content {
     position: relative;
-    background-color: #fff;
+    background-color: @bg-color-main;
     background-clip: padding-box;
     border: 0;
     border-radius: 8px;
@@ -80,7 +82,7 @@
 
     .header {
       color: rgba(0,0,0,.88);
-      background: #fff;
+      background: @bg-color-main;
       border-radius: 8px 8px 0 0;
       margin-bottom: 8px;
 
@@ -141,7 +143,7 @@
       }
 
       .buttonDefault {
-        background-color: #fff;
+        background-color: @bg-color-main;
         border-color: #d9d9d9;
         box-shadow: 0 2px 0 rgba(0,0,0,.02);
 

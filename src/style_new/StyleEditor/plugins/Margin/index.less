@@ -1,9 +1,11 @@
+@import "../../../../theme";
+
 .icon {
   display: flex;
   align-items: center;
   justify-content: center;
   min-width: 15px;
-  color: rgba(0, 0, 0, 0.5);
+  color: @font-color-content;
 }
 
 .editArea {
@@ -26,6 +28,7 @@
   width: 15px;
   height: 15px;
   margin-left: 3px;
+  color: @font-color-content;
   svg {
     cursor: pointer;
   }
@@ -46,11 +49,9 @@
   justify-content: center;
   min-width: 15px;
   cursor: pointer;
-  // margin-left: 3px;
-  // margin-right: 3px;
   margin-top: 4px;
-  // color: var(--mybricks-color-primary, #FA6400);
-  background-color: rgba(0, 0, 0, 0.05);
+  color: @font-color-content;
+  background-color: @bg-color-active;
   border-radius: 5px;
 }
 

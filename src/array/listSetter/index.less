@@ -6,7 +6,7 @@
   justify-content: center;
   border: 1px solid @boder-color;
   border-radius: @border-radius;
-  background: #fff;
+  background: @bg-color-main;
   overflow: hidden;
   //padding: 1px 0;
 
@@ -24,7 +24,7 @@
       //outline-offset: unset;
       //border-bottom: 1px solid #F5F5F5;
 
-      background: #f5f5f5;
+      background: @bg-color-hover;
       margin: 2px;
 
       span {
@@ -35,7 +35,7 @@
       }
 
       &:hover {
-        background: #f5f5f5;
+        background: @bg-color-hover;
       }
 
       &:last-child {
@@ -109,13 +109,13 @@
 .listItem {
   width: 100%;
   //background-color: hsl(0, 0%, 97%);
-  background: #fff;
+  background: @bg-color-main;
   border: 1px solid transparent;
   //margin-bottom: 10px;
   //border-radius: 4px;
 
   &:hover {
-    background-color: #f5f5f5;
+    background-color: @bg-color-hover;
   }
 
   .listItemCard {
@@ -242,7 +242,7 @@
     }
 
     svg {
-      fill: #fff;
+      fill: @font-color-hover;
     }
   }
 
@@ -270,7 +270,7 @@
   background: @color-primary;
   font-size: 10px;
   font-weight: bold;
-  color: #fff;
+  color: @font-color-hover;
   font-style: italic;
   padding: 0 5px 2px 5px;
   border-radius: 5px;
@@ -297,7 +297,7 @@
 }
 
 .titlesHeavy {
-  color: #333;
+  color: @font-color-content;
   font-weight: 700;
   height: 36px;
   padding: 5px 15px;

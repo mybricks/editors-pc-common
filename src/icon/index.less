@@ -8,8 +8,8 @@
     height: 24px;
     line-height: 24px;
     border-radius: @border-radius;
-    background-color: #fff;
-    border: 1px solid #DDD;
+    background-color: @bg-color-main;
+    border: 1px solid @boder-color;
     //box-shadow: 0 1px 3px -1px #777;
     &-editIcon {
       margin-right: 8px;
@@ -24,7 +24,7 @@
     .ant-modal-body {
       div:hover {
         background-color: #ffd1d6;
-        color: #fff;
+        color: @font-color-hover;
 
         span {
           transform: scale(1.2);
@@ -46,7 +46,7 @@
 
     :hover {
       background-color: @color-primary;
-      color: #fff;
+      color: @font-color-hover;
       border-radius: 4px;
     }
 
@@ -105,10 +105,10 @@
   padding: 0 10px;
   width: 100%;
   height: 32px;
-  border-bottom: 1px solid #d8d8d8;
+  border-bottom: 1px solid @boder-color;
   font-weight: 700;
   font-size: 14px;
-  color: #333;
+  color: @font-color-content;
 }
 
 .classTitle {
@@ -116,17 +116,17 @@
   width: 100%;
   height: 42px;
   text-align: center;
-  border-bottom: 1px solid #d8d8d8;
+  border-bottom: 1px solid @boder-color;
   font-weight: 700;
   font-size: 14px;
-  color: #333;
+  color: @font-color-content;
 }
 
 .sticky {
   position: sticky;
   z-index: 1020;
   top: 0;
-  background-color: rgb(247, 247, 247);
+  background-color: @bg-color-hover;
 }
 
 .styleChoose {

@@ -9,7 +9,7 @@
       // resize: none;
       font-size: 12px;
       height: 26px;
-      background: #FFFFFF;
+      background: @bg-color-main;
       border: 1px solid #D9D9D9;
       border-radius: 4px;
       transition: none;
@@ -32,8 +32,8 @@
     }
 
     .ant-input[disabled] {
-      color: rgba(0, 0, 0, 0.85);
-      background-color: #fff;
+      color: @font-color-content;
+      background-color: @bg-color-main;
       cursor: default;
     }
 
@@ -46,7 +46,7 @@
 .vCenter {
   display: flex;
   align-items: center;
-  background: #ffffff;
+  background: @bg-color-main;
   outline: 2px solid @color-primary;
   border-radius: @border-radius;
   overflow: hidden;

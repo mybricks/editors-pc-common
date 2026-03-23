@@ -4,16 +4,16 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
-  border: 1px solid #EEE;
+  border: 1px solid @boder-color;
   border-radius: 6px;
-  background: #FFF;
+  background: @bg-color-main;
   overflow: hidden;
   :global {
 
     .ant-tree-treenode {
       width: 100%;
       &:hover{
-        background-color: #F7F7F7;
+        background-color: @bg-color-hover;
       }
     }
     .ant-tree-draggable-icon {
@@ -34,12 +34,12 @@
 
     .ant-tree-list {
       font-size: 12px;
-      background-color: #fff;
+      background-color: @bg-color-main;
       padding-top: 5px;
     }
 
     .ant-tree {
-      background-color: #F7F7F7;
+      background-color: @bg-color-hover;
       width: 100%;
     }
 
@@ -63,7 +63,8 @@
     height: 26px;
     line-height: 26px;
     border-radius: 6px 6px 0 0;
-    background-color: #FFF;
+    background-color: @bg-color-main;
+    color: @font-color-content;
     box-shadow: 0 1px 3px 0 #bbb;
     z-index: 2;
   }
@@ -89,7 +90,7 @@
 .listItem {
   width: 100%;
   background-color: hsl(0, 0%, 97%);
-  border: 1px solid #ddd;
+  border: 1px solid @boder-color;
   margin-bottom: 10px;
 
   .listItemCard {
@@ -129,7 +130,7 @@
     padding: 0 2px;
 
     &:hover {
-      background-color: rgba(0, 0, 0, 0.05);
+      background-color: @bg-color-active;
       border-radius: 1px;
     }
   }
@@ -167,7 +168,7 @@
 }
 
 .titlesHeavy {
-  color: #333;
+  color: @font-color-content;
   font-weight: 700;
   height: 36px;
   padding: 5px 15px;
@@ -231,7 +232,7 @@
   padding: 5px;
 
   &:hover {
-    background-color: #ddd;
+    background-color: @bg-color-active;
 
     svg {
       // fill: @color-primary;
@@ -253,7 +254,7 @@
   opacity: 0.9;
 
   &:hover {
-    background-color: #ddd;
+    background-color: @bg-color-active;
 
     svg {
       // fill: @color-primary;
@@ -274,7 +275,7 @@
   opacity: 0.9;
 
   &:hover {
-    background-color: #ddd;
+    background-color: @bg-color-active;
   }
 }
 
@@ -293,6 +294,6 @@
   opacity: 0.9;
 
   svg {
-    fill: #ffffff;
+    fill: @font-color-hover;
   }
 }

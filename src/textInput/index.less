@@ -5,6 +5,9 @@
   :global {
     .ant-input {
       overflow-y: auto !important;
+      color: @font-color-content;
+      background-color: @bg-color-main;
+      border-color: @boder-color;
       // resize: none;
       font-size: 12px;
       padding: 4px 6px;
@@ -23,13 +26,13 @@
     }
 
     .ant-input[disabled] {
-      color: rgba(0, 0, 0, 0.85);
-      background-color: #fff;
+      color: @font-color-content;
+      background-color: @bg-color-main;
       cursor: default;
     }
 
     .ant-input[disabled]:hover {
-      border-color: #d9d9d9;
+      border-color: @boder-color;
     }
   }
 }

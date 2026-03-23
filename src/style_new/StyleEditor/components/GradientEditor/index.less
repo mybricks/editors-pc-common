@@ -1,3 +1,5 @@
+@import "../../../../theme";
+
 .preview {
   height: 12px;
   margin-bottom: 6px;
@@ -18,7 +20,7 @@
 
     div {
       width: 1px;
-      background-color: #e6e6e6;
+      background-color: @boder-color;
       box-shadow: 0 2px 4px 0 rgba(54, 58, 80, 0.32);
     }
   }
@@ -44,8 +46,8 @@
       display: flex;
       justify-content: center;
       align-items: center;
-      border: 1px solid #e6e6e6;
-      background-color: #ffffff;
+      border: 1px solid @boder-color;
+      background-color: @bg-color-main;
 
       div {
         overflow: hidden;
@@ -56,7 +58,7 @@
       }
     }
     .active {
-      border-color: #fa6400;
+      border-color: @color-primary;
       z-index: 5;
     }
   }
@@ -69,13 +71,13 @@
     border-width: 3px;
     border-style: solid;
     border-color: transparent;
-    border-top-color: #e6e6e6;
+    border-top-color: @boder-color;
   }
   .stopActive {
     z-index: 5;
   }
   .stopActive::after {
-    border-top-color: #fa6400;
+    border-top-color: @color-primary;
     z-index: 5;
   }
 }
@@ -91,7 +93,7 @@
     flex: 3;
 
     label {
-      background-color: #F5F5F5;
+      background-color: @bg-color-hover;
       padding: 0 12px !important;
     }
   }
@@ -205,7 +207,7 @@
 }
 
 .gradient-panel__slider-marker_active {
-  box-shadow: 0px 2px 6px #fa6400;
+  box-shadow: 0px 2px 6px @color-primary;
 }
 
 .gradient-panel__slider-marker__color {

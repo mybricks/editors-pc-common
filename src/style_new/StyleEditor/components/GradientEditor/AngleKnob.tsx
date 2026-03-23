@@ -203,7 +203,7 @@ export const AngleKnob: React.FC<AngleKnobProps> = ({
                         cy={size / 2}
                         r={size / 2 - 2}
                         fill="transparent"
-                        stroke="#E5E5E5"
+                        stroke="var(--mybricks-border-color-main, #DDD)"
                         strokeWidth="2"
                     />
 
@@ -224,7 +224,7 @@ export const AngleKnob: React.FC<AngleKnobProps> = ({
                                 y1={y1}
                                 x2={x2}
                                 y2={y2}
-                                stroke="#dbdbdbff"
+                                stroke="var(--mybricks-border-color-main, #DDD)"
                                 strokeWidth="1"
                             />
                         );
@@ -243,7 +243,7 @@ export const AngleKnob: React.FC<AngleKnobProps> = ({
                     <svg className={css.arrowHead} width="12" height="8" viewBox="0 0 12 8">
                         <path
                             d="M 6 0 L 11 8 L 8 8 L 4 8 L 1 8 Z"
-                            fill="#FA6400"
+                            fill="var(--mybricks-color-primary, #FA6400)"
                         />
                     </svg>
 

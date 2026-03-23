@@ -42,7 +42,7 @@ export function Toggle ({
             <div
               data-mybricks-tip={tip}
               key={index}
-              className={css.item}
+              className={`${css.item}${index === toggleIndex ? ` ${css.active}` : ''}`}
               onClick={() => handleItemClick(index)}
             >
               {!index && <MoveBlock index={toggleIndex}/>}

@@ -1,3 +1,5 @@
+@import "../../../../theme";
+
 .knobContainer {
   display: flex;
   justify-content: center;
@@ -11,7 +13,7 @@
   position: relative;
   cursor: pointer;
   border-radius: 50%;
-  background: #fafafa;
+  background: @bg-color-main;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   transition: box-shadow 0.2s;
 
@@ -69,7 +71,7 @@
   transform: translateX(-50%);
   width: 2px;
   height: calc(100% - 20px);
-  background: #FA6400;
+  background: @color-primary;
   border-radius: 1px;
 }
 
@@ -80,10 +82,10 @@
   transform: translate(-50%, -50%);
   font-size: 12px;
   font-weight: 500;
-  color: #333;
+  color: @font-color-content;
   pointer-events: none;
   z-index: 3;
-  background: #fafafa;
+  background: @bg-color-main;
   border-radius: 3px;
   min-width: 24px;
   text-align: center;
