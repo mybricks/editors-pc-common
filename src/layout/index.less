@@ -47,30 +47,30 @@
   user-select: none;
 
   &:hover .checkbox {
-    border-color: #aaa;
+    border-color: @border-color-main;
   }
 }
 
 .overflowLabel {
   font-size: 12px;
-  color: #555;
+  color: @font-color-content;
 }
 
 .checkbox {
   width: 14px;
   height: 14px;
   border-radius: 3px;
-  border: 1px solid #e5e5e5;
-  background-color: @bg-color-hover;
+  border: 1px solid @border-color-main;
+  background-color: @bg-color-main-secondary;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
   transition: border-color 0.15s, background-color 0.15s;
-  color: #555;
+  color: @font-color-content;
 }
 
 .checkboxChecked {
-  background-color: #f0f0f0;
-  border-color: #bbb;
+  background-color: @bg-color-main-secondary;
+  border-color: @border-color-main;
 }

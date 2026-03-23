@@ -1,6 +1,8 @@
+@import "../../../../theme";
+
 .tip {
   font-size: 10px;
-  color: #AAA;
+  color: @font-color-content;
   white-space: nowrap;
 }
 
@@ -31,7 +33,7 @@
   height: 30px;
   flex-shrink: 0;
   cursor: pointer;
-  color: #000000e6;
+  color: @font-color-content;
 
   svg {
     width: 22px;
@@ -40,7 +42,7 @@
 
   &:hover {
     svg {
-      background-color: rgba(0, 0, 0, 0.05);
+      background-color: @bg-color-active;
       border-radius: 5px;
     }
   }
@@ -54,7 +56,7 @@
   height: 22px;
   flex-shrink: 0;
   cursor: pointer;
-  color: #000000e6;
+  color: @font-color-content;
 
   svg {
     width: 22px;
@@ -62,7 +64,7 @@
   }
 
   &:hover {
-    background-color: rgba(0, 0, 0, 0.05);
+    background-color: @bg-color-active;
     border-radius: 5px;
   }
 }
