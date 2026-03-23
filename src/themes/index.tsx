@@ -1,7 +1,7 @@
 import { EditorProps } from "@/interface";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Colorpicker } from "../style_new/StyleEditor/components/Colorpicker";
-import { PlusOutlined, MinusOutlined } from "../style_new/StyleEditor/components/Icon";
+import { PlusOutlined, MinusOutlined, ReloadOutlined } from "../style_new/StyleEditor/components/Icon";
 import { InputNumber } from "./InputNumber";
 import css from "./index.less";
 
@@ -33,6 +33,84 @@ const DEFAULT_VALUES: Record<ThemeVar["type"], string> = {
   color: "#1890ff",
   borderRadius: "4px",
   spacing: "8px",
+};
+
+const DEFAULT_THEME_DATA: ThemeData = {
+  activeThemeId: "theme-light",
+  themes: [
+    {
+      id: "theme-light",
+      name: "亮色主题",
+      vars: [
+        { propertyName: "--color-primary", value: "#1890ff", title: "品牌色", type: "color" },
+        { propertyName: "--color-primary-bg", value: "#e6f7ff", title: "主色浅色背景", type: "color" },
+        { propertyName: "--color-primary-hover", value: "#40a9ff", title: "主色悬浮态", type: "color" },
+        { propertyName: "--color-primary-active", value: "#096dd9", title: "主色激活态", type: "color" },
+        { propertyName: "--color-error", value: "#ff4d4f", title: "错误色", type: "color" },
+        { propertyName: "--color-warning", value: "#faad14", title: "警戒色", type: "color" },
+        { propertyName: "--color-success", value: "#52c41a", title: "成功色", type: "color" },
+        { propertyName: "--color-link", value: "#1890ff", title: "链接色", type: "color" },
+        { propertyName: "--color-link-hover", value: "#69c0ff", title: "链接悬浮色", type: "color" },
+        { propertyName: "--color-text", value: "rgba(0, 0, 0, 0.88)", title: "一级文本色", type: "color" },
+        { propertyName: "--color-text-secondary", value: "rgba(0, 0, 0, 0.65)", title: "二级文本色", type: "color" },
+        { propertyName: "--color-text-tertiary", value: "rgba(0, 0, 0, 0.45)", title: "三级文本色", type: "color" },
+        { propertyName: "--color-bg-base", value: "#ffffff", title: "基础背景色", type: "color" },
+        { propertyName: "--color-bg-container", value: "#ffffff", title: "容器背景色", type: "color" },
+        { propertyName: "--color-bg-layout", value: "#f5f5f5", title: "布局背景色", type: "color" },
+        { propertyName: "--color-bg-mask", value: "rgba(0, 0, 0, 0.45)", title: "蒙层背景色", type: "color" },
+        { propertyName: "--color-border", value: "#d9d9d9", title: "一级边框色", type: "color" },
+        { propertyName: "--color-border-secondary", value: "#f0f0f0", title: "二级边框色", type: "color" },
+        { propertyName: "--color-fill", value: "rgba(0, 0, 0, 0.15)", title: "一级填充色", type: "color" },
+        { propertyName: "--color-fill-secondary", value: "rgba(0, 0, 0, 0.06)", title: "二级填充色", type: "color" },
+        { propertyName: "--radius-sm", value: "4px", title: "小圆角", type: "borderRadius" },
+        { propertyName: "--radius-base", value: "8px", title: "基础圆角", type: "borderRadius" },
+        { propertyName: "--radius-lg", value: "12px", title: "大圆角", type: "borderRadius" },
+        { propertyName: "--radius-pill", value: "100px", title: "胶囊圆角", type: "borderRadius" },
+        { propertyName: "--spacing-xs", value: "4px", title: "超小间距", type: "spacing" },
+        { propertyName: "--spacing-sm", value: "8px", title: "小间距", type: "spacing" },
+        { propertyName: "--spacing-base", value: "16px", title: "基础间距", type: "spacing" },
+        { propertyName: "--spacing-md", value: "24px", title: "中间距", type: "spacing" },
+        { propertyName: "--spacing-lg", value: "32px", title: "大间距", type: "spacing" },
+        { propertyName: "--spacing-xl", value: "40px", title: "超大间距", type: "spacing" },
+      ],
+    },
+    {
+      id: "theme-dark",
+      name: "暗黑主题",
+      vars: [
+        { propertyName: "--color-primary", value: "#1668dc", title: "品牌色", type: "color" },
+        { propertyName: "--color-primary-bg", value: "#111d2c", title: "主色浅色背景", type: "color" },
+        { propertyName: "--color-primary-hover", value: "#3c89e8", title: "主色悬浮态", type: "color" },
+        { propertyName: "--color-primary-active", value: "#0958d9", title: "主色激活态", type: "color" },
+        { propertyName: "--color-error", value: "#dc4446", title: "错误色", type: "color" },
+        { propertyName: "--color-warning", value: "#d89614", title: "警戒色", type: "color" },
+        { propertyName: "--color-success", value: "#49aa19", title: "成功色", type: "color" },
+        { propertyName: "--color-link", value: "#1668dc", title: "链接色", type: "color" },
+        { propertyName: "--color-link-hover", value: "#3c89e8", title: "链接悬浮色", type: "color" },
+        { propertyName: "--color-text", value: "rgba(255, 255, 255, 0.85)", title: "一级文本色", type: "color" },
+        { propertyName: "--color-text-secondary", value: "rgba(255, 255, 255, 0.65)", title: "二级文本色", type: "color" },
+        { propertyName: "--color-text-tertiary", value: "rgba(255, 255, 255, 0.45)", title: "三级文本色", type: "color" },
+        { propertyName: "--color-bg-base", value: "#141414", title: "基础背景色", type: "color" },
+        { propertyName: "--color-bg-container", value: "#1f1f1f", title: "容器背景色", type: "color" },
+        { propertyName: "--color-bg-layout", value: "#141414", title: "布局背景色", type: "color" },
+        { propertyName: "--color-bg-mask", value: "rgba(0, 0, 0, 0.65)", title: "蒙层背景色", type: "color" },
+        { propertyName: "--color-border", value: "#424242", title: "一级边框色", type: "color" },
+        { propertyName: "--color-border-secondary", value: "#303030", title: "二级边框色", type: "color" },
+        { propertyName: "--color-fill", value: "rgba(255, 255, 255, 0.18)", title: "一级填充色", type: "color" },
+        { propertyName: "--color-fill-secondary", value: "rgba(255, 255, 255, 0.08)", title: "二级填充色", type: "color" },
+        { propertyName: "--radius-sm", value: "4px", title: "小圆角", type: "borderRadius" },
+        { propertyName: "--radius-base", value: "8px", title: "基础圆角", type: "borderRadius" },
+        { propertyName: "--radius-lg", value: "12px", title: "大圆角", type: "borderRadius" },
+        { propertyName: "--radius-pill", value: "100px", title: "胶囊圆角", type: "borderRadius" },
+        { propertyName: "--spacing-xs", value: "4px", title: "超小间距", type: "spacing" },
+        { propertyName: "--spacing-sm", value: "8px", title: "小间距", type: "spacing" },
+        { propertyName: "--spacing-base", value: "16px", title: "基础间距", type: "spacing" },
+        { propertyName: "--spacing-md", value: "24px", title: "中间距", type: "spacing" },
+        { propertyName: "--spacing-lg", value: "32px", title: "大间距", type: "spacing" },
+        { propertyName: "--spacing-xl", value: "40px", title: "超大间距", type: "spacing" },
+      ],
+    },
+  ],
 };
 
 const DEFAULT_TITLES: Record<ThemeVar["type"], string> = {
@@ -159,6 +237,16 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
     setEditingTabId(null);
   }, []);
 
+  const handleReset = useCallback(() => {
+    const activeTheme = DEFAULT_THEME_DATA.themes.find((t) => t.id === DEFAULT_THEME_DATA.activeThemeId) || DEFAULT_THEME_DATA.themes[0];
+    const vars = activeTheme?.vars || [];
+    const expandedTypes = new Set(vars.map((v) => v.type));
+    setCollapsedGroups(new Set(GROUPS.map((g) => g.type).filter((t) => !expandedTypes.has(t))));
+    setEditingKey(null);
+    setEditingTabId(null);
+    updateThemeData(() => DEFAULT_THEME_DATA);
+  }, []);
+
   // ---- Var 操作 ----
 
   const handleAdd = useCallback((type: ThemeVar["type"]) => {
@@ -224,9 +312,12 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
 
   return (
     <div className={css.themesEditor}>
-      {/* 标题行：主题 + 新增按钮 */}
+      {/* 标题行：主题 + 重置按钮 + 新增按钮 */}
       <div className={css.titleRow}>
         <span className={css.editorTitle}>主题</span>
+        <div className={css.resetBtn} data-mybricks-tip={`{content:'重置为默认主题',position:'left'}`} onClick={handleReset}>
+          <ReloadOutlined />
+        </div>
         <div className={css.addTab} onClick={handleAddTheme}>
           <PlusOutlined />
         </div>

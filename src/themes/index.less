@@ -165,6 +165,12 @@
   align-items: center;
   padding: 3px 3px 3px 8px;
   height: 28px;
+
+  &:hover {
+    .resetBtn {
+      opacity: 0.45;
+    }
+  }
 }
 
 .tabListWrap {
@@ -293,6 +299,30 @@
   &:hover {
     color: @font-color-content;
     background-color: @bg-color-active;
+  }
+}
+
+.resetBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  border-radius: 5px;
+  color: @font-color-content;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s;
+
+  svg {
+    width: 11px;
+    height: 11px;
+  }
+
+  &:hover {
+    background-color: @bg-color-active;
+    opacity: 1 !important;
   }
 }
 
