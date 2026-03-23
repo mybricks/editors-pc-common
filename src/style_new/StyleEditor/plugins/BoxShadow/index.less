@@ -26,7 +26,7 @@
   color: @font-color-content;
 
   &:hover {
-    border-color: #aaa;
+    border-color: @boder-color;
   }
 }
 
@@ -43,7 +43,8 @@
   width: 248px;
   border-radius: 12px;
   background-color: @bg-color-main;
-  box-shadow: 0 2px 5px 0 #00000026, 0 10px 16px 0 #0000001f, 0 0 0.5px 0 #0000001f;
+  box-shadow: @shadow-main;
+  border: 0.3px solid @boder-color;
   display: flex;
   flex-direction: column;
   gap: 6px;
