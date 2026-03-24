@@ -119,6 +119,11 @@ const DEFAULT_TITLES: Record<ThemeVar["type"], string> = {
   spacing: "新间距",
 };
 
+function syncThemeVarsToWindow(themeData: ThemeData) {
+  const activeTheme = themeData.themes.find((t) => t.id === themeData.activeThemeId) || themeData.themes[0];
+  (window as any).MYBRICKS_AICOM_THEME_VARIABLES = activeTheme?.vars || [];
+}
+
 //随机id生成器
 const _genUid = () => Math.random().toString(36).slice(2, 10);
 
@@ -161,6 +166,10 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
 
   const activeTheme = themeData.themes.find((t) => t.id === themeData.activeThemeId) || themeData.themes[0];
   const themeVars = activeTheme?.vars || [];
+
+  useEffect(() => {
+    syncThemeVarsToWindow(initialData);
+  }, []);
 
   const updateThemeData = useCallback((updater: (prev: ThemeData) => ThemeData) => {
     setThemeData((prev) => {
@@ -206,7 +215,9 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
       const expandedTypes = new Set(vars.map((v) => v.type));
       setCollapsedGroups(new Set(GROUPS.map((g) => g.type).filter((t) => !expandedTypes.has(t))));
       setEditingKey(null);
-      return { ...prev, activeThemeId: id };
+      const next = { ...prev, activeThemeId: id };
+      syncThemeVarsToWindow(next);
+      return next;
     });
     requestAnimationFrame(() => {
       if (tabListRef.current) {

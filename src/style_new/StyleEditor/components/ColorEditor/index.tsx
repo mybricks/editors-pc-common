@@ -135,6 +135,23 @@ function getInitialState({
     if (option) {
       result.value = option.name;
       result.finalValue = finalValue;
+    } else if (finalValue.startsWith('var(') && finalValue.endsWith(')')) {
+      // optionsValueToAllMap 构建时 AICOM 变量可能还未就绪，直接兜底查询
+      const propName = finalValue.slice(4, -1);
+      const aicomVar = (window as any).MYBRICKS_AICOM_THEME_VARIABLES?.find(
+        (item: any) => item.propertyName === propName
+      );
+      if (aicomVar) {
+        result.value = aicomVar.title;
+        result.finalValue = finalValue;
+        // 同步补充到 map，避免后续操作（如解绑）找不到
+        optionsValueToAllMap[finalValue] = {
+          key: propName,
+          name: aicomVar.title,
+          value: aicomVar.value,
+          resetValue: aicomVar.value,
+        };
+      }
     }
   }
 
@@ -153,6 +170,17 @@ const getOptionsValueToAllMap = () => {
       variable.configs.forEach((config: any) => {
         optionsValueToAllMap[`var(${config.key})`] = config;
       })
+    })
+  }
+
+  if (window.MYBRICKS_AICOM_THEME_VARIABLES?.length) {
+    window.MYBRICKS_AICOM_THEME_VARIABLES.forEach((item: any) => {
+      optionsValueToAllMap[`var(${item.propertyName})`] = {
+        key: item.propertyName,
+        name: item.title,
+        value: item.value,
+        resetValue: item.value,
+      };
     })
   }
 
@@ -182,6 +210,35 @@ export function ColorEditor({
     reducer,
     getInitialState({ value: defaultValue, options, optionsValueToAllMap })
   );
+
+  // 处理时序问题：ColorEditor 挂载时 AICOM 变量可能还未就绪，挂载后补尝试解析
+  useEffect(() => {
+    if (
+      state.nonColorValue &&
+      !state.finalValue &&
+      typeof state.value === 'string' &&
+      state.value.startsWith('var(') &&
+      state.value.endsWith(')')
+    ) {
+      const propName = state.value.slice(4, -1);
+      const aicomVar = (window as any).MYBRICKS_AICOM_THEME_VARIABLES?.find(
+        (item: any) => item.propertyName === propName
+      );
+      if (aicomVar) {
+        const freshEntry = {
+          key: propName,
+          name: aicomVar.title,
+          value: aicomVar.value,
+          resetValue: aicomVar.value,
+        };
+        dispatch({
+          value: aicomVar.title,
+          finalValue: state.value,
+          optionsValueToAllMap: { ...state.optionsValueToAllMap, [state.value]: freshEntry },
+        });
+      }
+    }
+  }, []);
   const [colorPickerContext] = useState<{ open?: () => void }>({});
 
   const onPresetClick = useCallback(() => {
@@ -352,6 +409,21 @@ export function ColorEditor({
     }
   }, [showSubTabs, onChange, emitChange]);
 
+  const handleUnbind = useCallback(() => {
+    const { finalValue } = state;
+    const option = state.optionsValueToAllMap[finalValue];
+    if (!option) return;
+    const hex = getHex(option.value);
+    const rgbaValue = color2rgba(hex);
+
+    dispatch({
+      nonColorValue: false,
+      value: hex,
+      finalValue: hex,
+    });
+    emitChange('backgroundColor', rgbaValue);
+  }, [state.finalValue, state.optionsValueToAllMap, emitChange]);
+
   const input = useMemo(() => {
     const { value, nonColorValue, finalValue } = state;
 
@@ -382,16 +454,7 @@ export function ColorEditor({
           {finalValue && <div
             className={css.unbind}
             data-mybricks-tip={`解除绑定`}
-            onClick={() => {
-              const option = state.optionsValueToAllMap[finalValue];
-              const hex = getHex(option.value)
-
-              dispatch({
-                nonColorValue: false,
-                value: hex,
-                finalValue: hex
-              })
-            }}
+            onClick={handleUnbind}
           >{UnBindingIcon}</div>}
         </>
       );
@@ -418,7 +481,7 @@ export function ColorEditor({
         disabled={nonColorValue}
       />
     );
-  }, [userInput, state.nonColorValue, state.finalValue, onPresetClick, handleReset]);
+  }, [userInput, state.value, state.nonColorValue, state.finalValue, onPresetClick, handleReset, handleUnbind]);
 
   const handleOpacityChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -488,8 +551,9 @@ export function ColorEditor({
 
     let style: React.CSSProperties;
     if (nonColorValue) {
+      const resolvedColor = state.optionsValueToAllMap[finalValue]?.value || finalValue;
       style = {
-        backgroundColor: finalValue || "transparent",
+        backgroundColor: resolvedColor || "transparent",
       };
     } else if (isImage) {
       style = {

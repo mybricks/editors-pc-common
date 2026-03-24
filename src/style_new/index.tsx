@@ -470,10 +470,6 @@ export default function ({editConfig}: EditorProps) {
     return result
   }, [targetDom, pseudoSelectorList])
 
-  const isVibe = useMemo(() => {
-    return zoneSelectorList.length > 0
-  }, [zoneSelectorList])
-
   // zoneSelectorList 变化（targetDom / 伪类扫描结果更新）时，重置激活下标到第 0 项
   useEffect(() => {
     setActiveZoneIdx(0)
@@ -636,8 +632,8 @@ export default function ({editConfig}: EditorProps) {
   return {
     render: (
       <>
-        {isVibe && zoneTabBar}
-        {isVibe && affectedCount !== null && affectedCount > 1 && (
+        {zoneSelectorList.length > 0 && zoneTabBar}
+        {zoneSelectorList.length > 0 && affectedCount !== null && affectedCount > 1 && (
           <div className={css.affectedHint} style={{marginTop: zoneSelectorList.length > 1 ? '10px' : '0'}}>
             修改当前样式会影响 {affectedCount} 个区域
           </div>
@@ -724,7 +720,7 @@ function Style ({editConfig, options, setValue, collapsedOptions, readonlyExpand
   const editorContext = useMemo(() => {
     return {
       editConfig,
-      autoCollapseWhenUnusedProperty
+      autoCollapseWhenUnusedProperty,
     }
   }, [editConfig, autoCollapseWhenUnusedProperty])
 
@@ -1859,9 +1855,10 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration, 
   })
 
   const isNotSet = (v: any) => v === undefined || v === 'inherit';
+  const isVarRef = (v: any) => typeof v === 'string' && v.startsWith('var(');
 
   /** font */
-  if (isNotSet(color) || !colorUtil.get(color)) {
+  if (!isVarRef(color) && (isNotSet(color) || !colorUtil.get(color))) {
     color = computedValues.color
   }
   if (isNotSet(fontSize)) {
@@ -1920,7 +1917,7 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration, 
 
 
   /** background */
-  if (!backgroundColor || !colorUtil.get(backgroundColor)) {
+  if (!isVarRef(backgroundColor) && (!backgroundColor || !colorUtil.get(backgroundColor))) {
     backgroundColor = computedValues.backgroundColor
   }
   if (!backgroundImage) {
@@ -1940,16 +1937,16 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration, 
   /** background */
 
   /** border */
-  if (!borderTopColor || !colorUtil.get(borderTopColor)) {
+  if (!isVarRef(borderTopColor) && (!borderTopColor || !colorUtil.get(borderTopColor))) {
     borderTopColor = computedValues.borderTopColor // 默认使用当前元素color,否则为浏览器默认颜色
   }
-  if (!borderRightColor || !colorUtil.get(borderRightColor)) {
+  if (!isVarRef(borderRightColor) && (!borderRightColor || !colorUtil.get(borderRightColor))) {
     borderRightColor = computedValues.borderRightColor
   }
-  if (!borderBottomColor || !colorUtil.get(borderBottomColor)) {
+  if (!isVarRef(borderBottomColor) && (!borderBottomColor || !colorUtil.get(borderBottomColor))) {
     borderBottomColor = computedValues.borderBottomColor
   }
-  if (!borderLeftColor || !colorUtil.get(borderLeftColor)) {
+  if (!isVarRef(borderLeftColor) && (!borderLeftColor || !colorUtil.get(borderLeftColor))) {
     borderLeftColor = computedValues.borderLeftColor
   }
   if (!borderTopLeftRadius) {
@@ -2131,6 +2128,7 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration, 
     position,
     overflow,
   }, computedValues)
+
   return result
 }
 
@@ -2360,8 +2358,12 @@ function getRealValue(style: any, computedValues: CSSStyleDeclaration) {
   Object.keys(style).forEach((key) => {
     const value = style[key]
     if (typeof value === 'string') {
-      // @ts-ignore
-      finalStyle[key] = value.startsWith('var') ? computedValues[key] : value
+      if (value.startsWith('var(')) {
+        // 保留 var() 引用，让 ColorEditor 能识别并回显变量名
+        finalStyle[key] = value
+      } else {
+        finalStyle[key] = value
+      }
     } else {
       finalStyle[key] = value
     }

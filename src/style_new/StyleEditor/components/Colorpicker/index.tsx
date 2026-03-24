@@ -4,6 +4,7 @@ import React, {
   useEffect,
   ReactNode,
   useCallback,
+  useMemo,
 } from "react";
 import { createPortal } from "react-dom";
 
@@ -40,21 +41,23 @@ interface ColorpickerProps {
   disableGradient?: boolean;
 }
 
-export function Colorpicker({
-  context,
-  value,
-  onChange,
-  onBindingChange,
-  children,
-  disabled,
-  className,
-  showSubTabs = true,
-  upload,
-  imageValue,
-  disableBackgroundColor,
-  disableBackgroundImage,
-  disableGradient,
-}: ColorpickerProps) {
+export function Colorpicker(props:any) {
+
+  const {
+    context,
+    value,
+    onChange,
+    onBindingChange,
+    children,
+    disabled,
+    className,
+    showSubTabs = true,
+    upload,
+    imageValue,
+    disableBackgroundColor,
+    disableBackgroundImage,
+    disableGradient,
+  } = props;
   const containerRef = useRef<HTMLDivElement>(null);
   const childRef = useRef<HTMLDivElement>(null);
   const [show, setShow] = useState(false);
@@ -150,7 +153,7 @@ interface ColorSketchProps {
   disableGradient?: boolean;
 }
 
-const TAB_LIST = [
+const TAB_LIST_DEFAULT = [
   {
     key: "custom",
     title: "自定义"
@@ -158,6 +161,17 @@ const TAB_LIST = [
   {
     key: "variable",
     title: "变量"
+  }
+]
+
+const TAB_LIST_VIBE = [
+  {
+    key: "variable",
+    title: "变量"
+  },
+  {
+    key: "custom",
+    title: "自定义"
   }
 ]
 
@@ -195,7 +209,9 @@ function ColorSketch({
     }
   }, [open]);
 
-  const [selectTab, setSelectTab] = useState("custom")
+  const [selectTab, setSelectTab] = useState(
+    (window as any).MYBRICKS_AICOM_THEME_VARIABLES?.length ? "variable" : "custom"
+  )
   const [list, setList] = useState(window.MYBRICKS_THEME_PACKAGE_VARIABLES?.variables || [])
   
   // 默认纯色和渐变值
@@ -311,12 +327,35 @@ function ColorSketch({
     setList(newList);
   }, 300)
 
+  const aicomSearch = useDebounceFn((e: any) => {
+    const searchValue = e.target.value.toLowerCase();
+    if (!searchValue) {
+      setAicomList(window.MYBRICKS_AICOM_THEME_VARIABLES || []);
+      return;
+    }
+    setAicomList(
+      (window.MYBRICKS_AICOM_THEME_VARIABLES || []).filter((item: any) =>
+        item.propertyName?.toLowerCase().includes(searchValue) ||
+        item.title?.toLowerCase().includes(searchValue)
+      )
+    );
+  }, 300)
+
+  const hasThemePackage = !!window.MYBRICKS_THEME_PACKAGE_VARIABLES;
+  const hasAicom = !!(window as any).MYBRICKS_AICOM_THEME_VARIABLES?.length;
+  const tabList = hasAicom ? TAB_LIST_VIBE : TAB_LIST_DEFAULT;
+
+  const [varSubTab, setVarSubTab] = useState<"themePackage" | "aicom">(
+    hasThemePackage ? "themePackage" : "aicom"
+  );
+  const [aicomList, setAicomList] = useState<any[]>(window.MYBRICKS_AICOM_THEME_VARIABLES || []);
+
   return (
     <div ref={childRef} className={css.colorSketch} data-dropdown-portal="true" onFocus={(e) => e.stopPropagation()}>
-      {window.MYBRICKS_THEME_PACKAGE_VARIABLES && (
+      {(hasThemePackage || hasAicom) && (
         <div className={css.header}>
           <div className={css.tabs}>
-            {TAB_LIST.map(({ key, title }) => {
+            {tabList.map(({ key, title }) => {
               return (
                 <button
                   data-active={selectTab === key}
@@ -338,7 +377,7 @@ function ColorSketch({
             </svg>
             <input
               placeholder='搜索'
-              onChange={search}
+              onChange={varSubTab === "aicom" ? aicomSearch : search}
               autoFocus
             />
           </div>}
@@ -429,7 +468,28 @@ function ColorSketch({
         )}
         {selectTab === "variable" && Array.isArray(list) && (
           <div className={css.tabItem}>
-            <VariableList list={list} onBindingChange={onBindingChange} />
+            {hasThemePackage && hasAicom && (
+              <div className={css.subTabs}>
+                <button
+                  data-active={varSubTab === "themePackage"}
+                  onClick={() => setVarSubTab("themePackage")}
+                >
+                  主题包变量
+                </button>
+                <button
+                  data-active={varSubTab === "aicom"}
+                  onClick={() => setVarSubTab("aicom")}
+                >
+                  AI页面变量
+                </button>
+              </div>
+            )}
+            {(hasThemePackage && (!hasAicom || varSubTab === "themePackage")) && (
+              <VariableList list={list} onBindingChange={onBindingChange} />
+            )}
+            {(hasAicom && (!hasThemePackage || varSubTab === "aicom")) && (
+              <AicomVariableList list={aicomList} onBindingChange={onBindingChange} />
+            )}
           </div>
         )}
       </div>
@@ -466,6 +526,56 @@ const VariableList = (props: any) => {
             </>
           )
         })}
+      </div>
+    </div>
+  )
+}
+
+const AICOM_TYPE_TITLES: Record<string, string> = {
+  color: '颜色',
+  borderRadius: '圆角',
+  spacing: '间距',
+}
+
+const AicomVariableList = ({ list, onBindingChange }: any) => {
+  const groups = useMemo(() => {
+    const map: Record<string, any[]> = {};
+    (list || []).filter((item: any) => item.type === 'color').forEach((item: any) => {
+      const type = item.type || 'other';
+      if (!map[type]) map[type] = [];
+      map[type].push(item);
+    });
+    return Object.entries(map).map(([type, items]) => ({
+      type,
+      title: AICOM_TYPE_TITLES[type] || type,
+      items,
+    }));
+  }, [list]);
+
+  return (
+    <div className={css.variableListContainer}>
+      <div className={css.variableList}>
+        {groups.map(({ type, title, items }) => (
+          <React.Fragment key={type}>
+            <div className={css.title}>{title}</div>
+            {items.map((item: any) => (
+              <div
+                key={item.propertyName}
+                className={css.value}
+                onClick={() => {
+                  onBindingChange?.({
+                    name: item.title,
+                    value: `var(${item.propertyName})`,
+                    resetValue: item.value,
+                  });
+                }}
+              >
+                <div className={css.block} style={{ backgroundColor: item.value }} />
+                <span>{item.title}</span>
+              </div>
+            ))}
+          </React.Fragment>
+        ))}
       </div>
     </div>
   )
