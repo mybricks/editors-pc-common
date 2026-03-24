@@ -155,6 +155,7 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
   const initialData = useRef<ThemeData>(migrateData(value.get())).current;
 
   const [themeData, setThemeData] = useState<ThemeData>(initialData);
+  const pendingValueRef = useRef<ThemeData | null>(null);
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [editingTabId, setEditingTabId] = useState<string | null>(null);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => {
@@ -171,10 +172,17 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
     syncThemeVarsToWindow(initialData);
   }, []);
 
+  useEffect(() => {
+    if (pendingValueRef.current !== null) {
+      value.set(pendingValueRef.current);
+      pendingValueRef.current = null;
+    }
+  });
+
   const updateThemeData = useCallback((updater: (prev: ThemeData) => ThemeData) => {
     setThemeData((prev) => {
       const next = updater(prev);
-      value.set(next);
+      pendingValueRef.current = next;
       return next;
     });
   }, []);
