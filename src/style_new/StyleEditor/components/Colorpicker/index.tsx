@@ -386,6 +386,7 @@ function ColorSketch({
               placeholder='搜索'
               onChange={varSubTab === "aicom" ? aicomSearch : search}
               autoFocus
+              style={{ border: 'none', background: 'transparent' }}
             />
           </div>}
         </div>
