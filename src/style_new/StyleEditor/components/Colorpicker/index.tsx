@@ -22,6 +22,8 @@ interface ColorpickerProps {
   children: ReactNode;
   disabled?: boolean;
   className?: string;
+  /** 禁用变量 tab（如主题色编辑入口，不应允许绑定变量） */
+  disableVariable?: boolean;
   showSubTabs?: boolean;
   onBindingChange?: (value: any) => void;
   /** 图片上传函数 */
@@ -41,7 +43,7 @@ interface ColorpickerProps {
   disableGradient?: boolean;
 }
 
-export function Colorpicker(props:any) {
+export function Colorpicker(props:ColorpickerProps) {
 
   const {
     context,
@@ -52,6 +54,7 @@ export function Colorpicker(props:any) {
     disabled,
     className,
     showSubTabs = true,
+    disableVariable = false,
     upload,
     imageValue,
     disableBackgroundColor,
@@ -115,6 +118,7 @@ export function Colorpicker(props:any) {
             positionElement={containerRef.current!}
             childRef={childRef}
             showSubTabs={showSubTabs}
+            disableVariable={disableVariable}
             upload={upload}
             imageValue={imageValue}
             disableBackgroundColor={disableBackgroundColor}
@@ -130,7 +134,9 @@ interface ColorSketchProps {
   value: string;
   onChange: (value: { key: string; value: string } | { key: string; value: string }[]) => void;
   open: boolean;
-  showSubTabs?: boolean;
+  showSubTabs?: boolean; //显示纯色/渐变/图片 tab
+  /** 禁用变量 tab */
+  disableVariable?: boolean;
   positionElement: HTMLDivElement;
   upload?: (files: Array<File>, args: any) => Promise<Array<string>>;
   imageValue?: {
@@ -183,6 +189,7 @@ function ColorSketch({
   value,
   childRef,
   showSubTabs = true,
+  disableVariable = false,
   upload,
   imageValue = {},
   disableBackgroundColor = false,
@@ -210,7 +217,7 @@ function ColorSketch({
   }, [open]);
 
   const [selectTab, setSelectTab] = useState(
-    (window as any).MYBRICKS_AICOM_THEME_VARIABLES?.length ? "variable" : "custom"
+    !disableVariable && (window as any).MYBRICKS_AICOM_THEME_VARIABLES?.length ? "variable" : "custom"
   )
   const [list, setList] = useState(window.MYBRICKS_THEME_PACKAGE_VARIABLES?.variables || [])
   
@@ -342,7 +349,7 @@ function ColorSketch({
   }, 300)
 
   const hasThemePackage = !!window.MYBRICKS_THEME_PACKAGE_VARIABLES;
-  const hasAicom = !!(window as any).MYBRICKS_AICOM_THEME_VARIABLES?.length;
+  const hasAicom = !disableVariable && !!(window as any).MYBRICKS_AICOM_THEME_VARIABLES?.length;
   const tabList = hasAicom ? TAB_LIST_VIBE : TAB_LIST_DEFAULT;
 
   const [varSubTab, setVarSubTab] = useState<"themePackage" | "aicom">(

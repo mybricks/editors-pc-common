@@ -407,6 +407,7 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
                         context={{}}
                         value={themeVar.value || "#000000"}
                         showSubTabs={false}
+                        disableVariable
                         disableBackgroundImage
                         disableGradient
                         onChange={(result) => {
