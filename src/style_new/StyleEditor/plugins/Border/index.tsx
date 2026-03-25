@@ -195,7 +195,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
     if (borderToggleValue === "all") {
       return (
         <div className={css.row}>
-          <Panel.Content style={{ padding: 3, minWidth: 120 }}>
+          <Panel.Content style={{ padding: 3, flex: 1, minWidth: 0 }}>
             <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
               <div className={css.icon} {...getDragPropsBorder(borderValue.borderTopWidth, '拖拽调整边框宽度')}>
                 <BorderWeightOutlined />
@@ -203,7 +203,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
               {disableBorderWidth ? null : (
                 <InputNumber
                   tip="边框宽度"
-                  style={shouldShowMiniLayout ? DEFAULT_STYLE_MINI : DEFAULT_STYLE_SMALL}
+                  style={{ ...shouldShowMiniLayout ? DEFAULT_STYLE_MINI : DEFAULT_STYLE_SMALL, flexShrink: 0 }}
                   defaultValue={borderValue.borderTopWidth}
                   defaultUnitValue="px"
                   // suffix={'px'}
@@ -228,7 +228,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
               {disableBorderColor ? null : (
                 <ColorEditor
                   // tip='边框颜色'
-                  style={{ padding: "0 0 0 1px", marginLeft: shouldShowMiniLayout ? 0 : 2 }}
+                  style={{ padding: "0 0 0 1px", marginLeft: shouldShowMiniLayout ? 0 : 2, flex: 1, minWidth: 26 }}
                   defaultValue={borderValue.borderTopColor}
                   showSubTabs={false}
                   onChange={(value: string) => {
@@ -267,10 +267,11 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                   tip="边框线条样式"
                   style={{
                     padding: 0,
-                    width: 30,
+                    width: 26,
                     minWidth: 20,
                     marginLeft: 0,
                     textAlign: "right",
+                    flexShrink: 0,
                   }}
                   labelClassName={css.label}
                   value={borderValue.borderTopStyle ?? 'none'}
@@ -313,7 +314,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
           <div className={css.col}>
           {!disableBorderLeft && (
               <div className={css.row}>
-                <Panel.Content style={{ padding: 3, minWidth: 120 }}>
+                <Panel.Content style={{ padding: 3, flex: 1, minWidth: 0 }}>
                   <Panel.Item
                     className={css.editArea}
                     style={{ padding: "0px 8px" }}
@@ -324,7 +325,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                     {disableBorderWidth ? null : (
                       <InputNumber
                         tip="左边框宽度"
-                        style={shouldShowMiniLayout ? DEFAULT_STYLE_MINI : DEFAULT_STYLE_SMALL}
+                        style={{ ...shouldShowMiniLayout ? DEFAULT_STYLE_MINI : DEFAULT_STYLE_SMALL, flexShrink: 0 }}
                         defaultValue={borderValue.borderLeftWidth}
                         defaultUnitValue="px"
                         // suffix={'px'}
@@ -342,7 +343,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                     {disableBorderColor ? null : (
                       <ColorEditor
                         // tip='左边框颜色'
-                        style={{ padding: 0, marginLeft: 2 }}
+                        style={{ padding: 0, marginLeft: 2, flex: 1, minWidth: 26 }}
                         defaultValue={borderValue.borderLeftColor}
                         showSubTabs={false}
                         onChange={(value: string) => {
@@ -364,10 +365,11 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                         tip="左边框线条样式"
                         style={{
                           padding: 0,
-                          width: 30,
-                          minWidth: 30,
+                          width: 26,
+                          minWidth: 20,
                           marginLeft: 0,
                           textAlign: "right",
+                          flexShrink: 0,
                         }}
                         labelClassName={css.label}
                         value={borderValue.borderLeftStyle ?? 'none'}
@@ -397,7 +399,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
             )}
             {!disableBorderTop && (
               <div className={css.row}>
-                <Panel.Content style={{ padding: 3, minWidth: 120 }}>
+                <Panel.Content style={{ padding: 3, flex: 1, minWidth: 0 }}>
                   <Panel.Item
                     className={css.editArea}
                     style={{ padding: "0px 8px" }}
@@ -408,7 +410,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                     {disableBorderWidth ? null : (
                       <InputNumber
                         tip="上边框宽度"
-                        style={shouldShowMiniLayout ? DEFAULT_STYLE_MINI : DEFAULT_STYLE_SMALL}
+                        style={{ ...shouldShowMiniLayout ? DEFAULT_STYLE_MINI : DEFAULT_STYLE_SMALL, flexShrink: 0 }}
                         defaultValue={borderValue.borderTopWidth}
                         defaultUnitValue="px"
                         // suffix={'px'}
@@ -426,7 +428,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                     {disableBorderColor ? null : (
                       <ColorEditor
                         // tip='上边框颜色'
-                        style={{ padding: 0, marginLeft: 2 }}
+                        style={{ padding: 0, marginLeft: 2, flex: 1, minWidth: 26 }}
                         defaultValue={borderValue.borderTopColor}
                         showSubTabs={false}
                         onChange={(value: string) => {
@@ -448,10 +450,11 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                         tip="上边框线条样式"
                         style={{
                           padding: 0,
-                          width: 30,
-                          minWidth: 30,
+                          width: 26,
+                          minWidth: 20,
                           marginLeft: 0,
                           textAlign: "right",
+                          flexShrink: 0,
                         }}
                         labelClassName={css.label}
                         value={borderValue.borderTopStyle ?? 'none'}
@@ -470,7 +473,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
 
             {!disableBorderRight && (
               <div className={css.row}>
-                <Panel.Content style={{ padding: 3, minWidth: 120 }}>
+                <Panel.Content style={{ padding: 3, flex: 1, minWidth: 0 }}>
                   <Panel.Item
                     className={css.editArea}
                     style={{ padding: "0px 8px" }}
@@ -481,7 +484,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                     {disableBorderWidth ? null : (
                       <InputNumber
                         tip="右边框宽度"
-                        style={shouldShowMiniLayout ? DEFAULT_STYLE_MINI : DEFAULT_STYLE_SMALL}
+                        style={{ ...shouldShowMiniLayout ? DEFAULT_STYLE_MINI : DEFAULT_STYLE_SMALL, flexShrink: 0 }}
                         defaultValue={borderValue.borderRightWidth}
                         defaultUnitValue="px"
                         // suffix={'px'}
@@ -499,7 +502,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                     {disableBorderColor ? null : (
                       <ColorEditor
                         // tip='右边框颜色'
-                        style={{ padding: 0, marginLeft: 2 }}
+                        style={{ padding: 0, marginLeft: 2, flex: 1, minWidth: 26 }}
                         defaultValue={borderValue.borderRightColor}
                         showSubTabs={false}
                         onChange={(value: string) => {
@@ -521,10 +524,11 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                         tip="右边框线条样式"
                         style={{
                           padding: 0,
-                          width: 30,
-                          minWidth: 30,
+                          width: 26,
+                          minWidth: 20,
                           marginLeft: 0,
                           textAlign: "right",
+                          flexShrink: 0,
                         }}
                         labelClassName={css.label}
                         value={borderValue.borderRightStyle ?? 'none'}
@@ -543,7 +547,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
 
             {!disableBorderBottom && (
               <div className={css.row}>
-                <Panel.Content style={{ padding: 3, minWidth: 120 }}>
+                <Panel.Content style={{ padding: 3, flex: 1, minWidth: 0 }}>
                   <Panel.Item
                     className={css.editArea}
                     style={{ padding: "0px 8px" }}
@@ -554,7 +558,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                     {disableBorderWidth ? null : (
                       <InputNumber
                         tip="下边框宽度"
-                        style={shouldShowMiniLayout ? DEFAULT_STYLE_MINI : DEFAULT_STYLE_SMALL}
+                        style={{ ...shouldShowMiniLayout ? DEFAULT_STYLE_MINI : DEFAULT_STYLE_SMALL, flexShrink: 0 }}
                         defaultValue={borderValue.borderBottomWidth}
                         defaultUnitValue="px"
                         // suffix={'px'}
@@ -572,7 +576,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                     {disableBorderColor ? null : (
                       <ColorEditor
                         // tip='下边框颜色'
-                        style={{ padding: 0, marginLeft: 2 }}
+                        style={{ padding: 0, marginLeft: 2, flex: 1, minWidth: 26 }}
                         defaultValue={borderValue.borderBottomColor}
                         showSubTabs={false}
                         onChange={(value: string) => {
@@ -594,10 +598,11 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                         tip="下边框线条样式"
                         style={{
                           padding: 0,
-                          width: 30,
-                          minWidth: 30,
+                          width: 26,
+                          minWidth: 20,
                           marginLeft: 0,
                           textAlign: "right",
+                          flexShrink: 0,
                         }}
                         labelClassName={css.label}
                         value={borderValue.borderBottomStyle ?? 'none'}
