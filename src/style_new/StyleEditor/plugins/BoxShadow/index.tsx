@@ -130,6 +130,7 @@ export function BoxShadow({ value, onChange, config, showTitle, collapse }: BoxS
             ref={triggerRef}
             className={`${css.trigger}${popupOpen ? ` ${css.triggerActive}` : ''}`}
             onClick={handleTriggerClick}
+            data-mybricks-tip='点击设置阴影参数'
           >
             {boxShadowValues.inset ? <BoxShadowInnerOutlined /> : <BoxShadowOuterOutlined />}
           </div>

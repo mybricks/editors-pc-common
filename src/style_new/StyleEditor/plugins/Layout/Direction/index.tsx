@@ -60,9 +60,15 @@ export default ({
     }
   }, [defaultDirection]);
 
+  const activeIndex = flexFlow.findIndex(({ value }) => isActive(value as Layout));
+
   return (
     <div>
-      <div className={styles.directionWrap}>
+      <div
+        className={styles.directionWrap}
+        style={{ "--active-index": activeIndex, "--n": flexFlow.length } as React.CSSProperties}
+      >
+        <div className={styles.slider} />
         {flexFlow.map(({ title, value, render }) => (
           <div
             key={value}

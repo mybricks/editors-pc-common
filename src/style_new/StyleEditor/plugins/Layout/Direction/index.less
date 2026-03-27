@@ -9,44 +9,48 @@
 .directionWrap {
   display: flex;
   align-items: center;
+  position: relative;
   width: 100%;
   background-color: @bg-color-main-secondary;
   border-radius: 6px;
-  // padding: 1px;
-  gap: 2px;
+  padding: 2px;
   box-sizing: border-box;
+
+  .slider {
+    position: absolute;
+    top: 2px;
+    bottom: 2px;
+    left: 2px;
+    width: calc((100% - 4px) / var(--n));
+    transform: translateX(calc(var(--active-index) * 100%));
+    transition: transform 0.2s cubic-bezier(0.34, 0.69, 0.1, 1);
+    background-color: @bg-color-main;
+    border-radius: 5px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 0 0 0.5px rgba(0, 0, 0, 0.08);
+    border: 1px solid @border-color-main;
+    pointer-events: none;
+    z-index: 0;
+  }
 
   .direction {
     flex: 1;
     min-width: 0;
     height: 26px;
     cursor: pointer;
-    border-radius: 4px;
+    border-radius: 5px;
     .flex-center;
-    transition: background-color 0.15s ease;
-
-    svg {
-      path {
-      fill: @font-color-content;
-      transition: fill 0.15s ease;
-      }
-    }
-  }
-
-  .direction:hover {
-    background-color: rgba(255, 255, 255, 0.6);
+    position: relative;
+    z-index: 1;
 
     svg {
       path {
         fill: @font-color-content;
+        transition: fill 0.15s ease;
       }
     }
   }
 
   .direction-active {
-    background-color: @bg-color-main !important;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 0 0 0.5px rgba(0, 0, 0, 0.08);
-    border: 1px solid @border-color-main;
     svg {
       path {
         fill: @font-color-content;
