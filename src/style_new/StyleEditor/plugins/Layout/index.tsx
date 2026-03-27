@@ -40,6 +40,14 @@ const LAYOUT_KEYS = new Set([
 
 const NON_CSS_KEYS = new Set(['paddingType']);
 
+/** 编辑器内置的 position 语义；其余为真实 CSS 值（fixed/relative 等），读入时需原样保留，避免被当成 inherit 后写出为 null 而丢失 */
+function isPreservedCssPosition(pos: unknown): pos is CSSProperties['position'] {
+  if (pos == null || typeof pos !== 'string') return false;
+  if (pos === 'absolute' || pos === 'default' || pos === 'inherit') return false;
+  if (pos === 'row' || pos === 'column') return false;
+  return true;
+}
+
 /** 写出：将样式对象中的裸数字值补上 px 单位（仅 number 类型触发，字符串原样保留） */
 function normalizePx(style: Record<string, unknown>): Record<string, unknown> {
   const result: Record<string, unknown> = {};
@@ -60,14 +68,6 @@ function parsePxValues(style: Record<string, unknown>): Record<string, unknown> 
   }
   return result;
 }
-
-const defaultOptions = {
-  position: true,
-  direction: true,
-  align: true,
-  gap: true,
-  wrap: true,
-};
 
 const defaultValue: LayoutModel = {
   display: "flex",
@@ -127,7 +127,6 @@ interface LayoutEditorInternalProps {
 }
 
 function LayoutEditor({ editValue, onChangeValue }: LayoutEditorInternalProps): JSX.Element {
-  const option = { ...defaultOptions };
   const _value = parsePxValues(editValue || {});
 
   if ((_value as any).alignItems === "normal") (_value as any).alignItems = "flex-start";
@@ -135,7 +134,9 @@ function LayoutEditor({ editValue, onChangeValue }: LayoutEditorInternalProps): 
 
   const _position: string = ["absolute", "default"].includes(_value.position as string)
     ? (_value.position as string)
-    : (_value.display === "flex" ? "inherit" : "default");
+    : isPreservedCssPosition(_value.position)
+      ? (_value.position as string)
+      : (_value.display === "flex" ? "inherit" : "default");
 
   const [model, setModel] = useState<LayoutModel>({
     ...defaultValue,
@@ -154,11 +155,10 @@ function LayoutEditor({ editValue, onChangeValue }: LayoutEditorInternalProps): 
 
   const emitValue = useCallback(
     (style: Partial<LayoutModel>) => {
+      // 切换到默认：清除所有 flex 布局相关属性；容器自身的 position 不动
       if (style.position === "default") {
-        // 切换到默认：清除所有 flex 布局相关属性
         onChangeValue({
           display: null,
-          position: null,
           flexDirection: null,
           alignItems: null,
           justifyContent: null,
@@ -168,9 +168,9 @@ function LayoutEditor({ editValue, onChangeValue }: LayoutEditorInternalProps): 
         });
         return;
       }
-      // 处于默认状态时，只写出本次变化的属性（如 overflow、padding），不写出 flex 属性
-      // 注意：如果 style 里带有新的 position（说明正在切换方向），则不走此保护
-      if (model.position === "default" && style.position === undefined) {
+      // 处于默认状态时，只写出本次变化的非 flex 属性（如 overflow、padding）
+      // 注意：style.display 有值说明正在切换到 flex 布局，需要放行
+      if (model.position === "default" && style.position === undefined && style.display === undefined) {
         const FLEX_KEYS = new Set(['display', 'flexDirection', 'alignItems', 'justifyContent', 'flexWrap', 'rowGap', 'columnGap', 'position']);
         const out: Record<string, any> = {};
         for (const [k, v] of Object.entries(style)) {
@@ -179,19 +179,16 @@ function LayoutEditor({ editValue, onChangeValue }: LayoutEditorInternalProps): 
         onChangeValue(normalizePx(out));
         return;
       }
-      const outStyle = { ...model, ...style } as any;
-      if (outStyle.position === "inherit") {
-        outStyle.position = null;
-      }
-      onChangeValue(normalizePx(outStyle));
+      // 仅按 patch 写出，不合并 model
+      onChangeValue(normalizePx(style as Record<string, unknown>));
     },
     [model]
   );
 
-  const hasSelectedDirection =
-    model.position === "absolute" ||
-    model.position === "default" ||
-    (model.position === "inherit" && (model.flexDirection === "row" || model.flexDirection === "column"));
+  // isFlexActive：当前是否处于 flex 横/纵布局（与容器 position 无关）
+  const isFlexActive = model.display === "flex" && (model.flexDirection === "row" || model.flexDirection === "column");
+  const hasSelectedDirection = model.position === "default" || model.position === "absolute" || isFlexActive ||
+    isPreservedCssPosition(model.position);
 
   const renderFlexDirection = () => {
     const onSelect = (layout: Layout) => {
@@ -208,28 +205,37 @@ function LayoutEditor({ editValue, onChangeValue }: LayoutEditorInternalProps): 
         flexWrap = rowFlexWrap;
       }
 
-      const newStyles: Partial<LayoutModel> = {
-        flexDirection,
-        display: isAbsolute ? "block" : "flex",
-        position: (isAbsolute || isDefault) ? layout : undefined,
-        flexWrap,
-      };
+      if (isDefault) {
+        // 切换到默认：清空 flex 相关样式，不动容器 position
+        setModel(prev => ({ ...prev, flexDirection, display: undefined, position: "default", flexWrap }));
+        emitValue({ position: "default" });
+        return;
+      }
 
-      setModel(prev => ({
-        ...prev,
-        ...newStyles,
-        position: (isAbsolute || isDefault) ? layout : "inherit",
-      }));
+      if (isAbsolute) {
+        setModel(prev => ({ ...prev, flexDirection, display: "block", position: "absolute", flexWrap }));
+        emitValue({ display: "block", flexDirection, position: "absolute", flexWrap });
+        return;
+      }
 
-      emitValue({
-        ...newStyles,
-        position: (isAbsolute || isDefault) ? layout : "inherit",
-      });
+      // 横/纵切换：只改 display + flex 字段，容器自身的 position 完全不动
+      // model.position 设为 "inherit" 仅用于退出 "default" 内部状态，不会写出
+      // 从默认切换到 flex 时，alignItems / justifyContent 初始化为 center
+      const comingFromDefault = model.position === "default";
+      const alignItems = comingFromDefault ? "center" : model.alignItems;
+      const justifyContent = comingFromDefault ? "center" : model.justifyContent;
+      setModel(prev => ({ ...prev, flexDirection, display: "flex", position: "inherit", flexWrap, alignItems, justifyContent }));
+      if (comingFromDefault) {
+        emitValue({ display: "flex", flexDirection, flexWrap, alignItems, justifyContent });
+      } else {
+        emitValue({ display: "flex", flexDirection, flexWrap });
+      }
     };
     return (
       <Direction
         position={model.position}
         flexDirection={model.flexDirection}
+        display={model.display}
         onSelect={onSelect}
       />
     );
@@ -252,7 +258,7 @@ function LayoutEditor({ editValue, onChangeValue }: LayoutEditorInternalProps): 
         setColumnFlexWrap(flexWrap);
       }
     };
-    return hasSelectedDirection && model.position !== "absolute" && model.position !== "default" ? (
+    return hasSelectedDirection && isFlexActive ? (
       <JustifyContent
         flexDirection={model.flexDirection}
         justifyContent={model.justifyContent}
@@ -275,7 +281,7 @@ function LayoutEditor({ editValue, onChangeValue }: LayoutEditorInternalProps): 
       }));
       emitValue({ justifyContent, alignItems });
     };
-    return hasSelectedDirection && model.position !== "absolute" && model.position !== "default" ? (
+    return hasSelectedDirection && isFlexActive ? (
       <AlignItems
         flexDirection={model?.flexDirection}
         justifyContent={model.justifyContent}
@@ -293,10 +299,7 @@ function LayoutEditor({ editValue, onChangeValue }: LayoutEditorInternalProps): 
       setModel((pre) => ({ ...pre, ...val }));
       emitValue({ ...val });
     };
-    return hasSelectedDirection &&
-      model.position !== "absolute" &&
-      model.position !== "default" &&
-      option.gap ? (
+    return hasSelectedDirection && isFlexActive ? (
       <Gap
         value={{ rowGap: model.rowGap, columnGap: model.columnGap }}
         onChange={onGapChange}
@@ -368,10 +371,7 @@ function LayoutEditor({ editValue, onChangeValue }: LayoutEditorInternalProps): 
             <div
               className={styles.right}
               style={{
-                display:
-                  model.position !== "absolute" && model.position !== "default"
-                    ? void 0
-                    : "none",
+                display: isFlexActive ? void 0 : "none",
               }}
             >
               {renderAlignItems()}

@@ -4,8 +4,11 @@ import { Layout } from "../types";
 import styles from "./index.less";
 
 export interface AlignItemsProps {
+  defaultDirection?: Layout[];
   position?: CSSProperties["position"] | "default";
   flexDirection: CSSProperties["flexDirection"];
+  /** 用于区分「真实 CSS 定位 + display:block」与 flex 布局，避免误高亮横/纵向 */
+  display?: CSSProperties["display"];
   onSelect: (layout: Layout) => void;
 }
 
@@ -31,30 +34,20 @@ export default ({
   defaultDirection = [],
   position,
   flexDirection,
+  display,
   onSelect,
 }: AlignItemsProps) => {
   const isAbsolute = position === "absolute";
-  const isDefault = position === "default";
-  const isInherit = position === "inherit";
   const isRow = flexDirection === "row";
   const isColumn = flexDirection === "column";
 
+  // 高亮逻辑只看 display + flexDirection，与容器自身的 position 无关
   const isActive = (value: Layout) => {
-    if (isAbsolute) {
-      return value === "absolute";
-    }
-
-    if (isDefault) {
-      return value === "default";
-    }
-
-    if (isInherit && isRow) {
-      return value === "row";
-    }
-
-    if (isInherit && isColumn) {
-      return value === "column";
-    }
+    if (value === "absolute") return isAbsolute;
+    if (value === "default") return display !== "flex";
+    if (value === "row") return display === "flex" && isRow;
+    if (value === "column") return display === "flex" && isColumn;
+    return false;
   };
 
   const flexFlow = useMemo(() => {
