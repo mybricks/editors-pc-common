@@ -437,11 +437,15 @@ export default function ({editConfig}: EditorProps) {
       // 运行时实际 class 与静态 class 的差集 = 动态 class（如 iconUser）
       // comId 为空时跳过，避免无样式表过滤依据时产生噪音
       // 再过滤：只保留在组件样式表中真实存在的 class，排除平台注入的噪音 class
-      const dynamicClasses = comId
+      // 过滤掉 pages_StoreDecoration_index_less-pageTitle 前面的文件名 ---> pageTitle
+      const dynamicClasses = (comId
         ? Array.from((dom as Element)?.classList ?? []).filter(c =>
             !knownClasses.includes(c) && classesInStyleSheet.has(c)
           )
         : []
+      ).map(c => c.includes('-') ? c.split('-').pop()! : c)
+
+      
       // 有动态 class 时，与静态选择器组合成复合选择器（无空格，即同元素上多个 class）
       // 例：".statCard .statIcon" + "iconUser" → ".statCard .statIcon.iconUser"
       // 复合选择器插到 result 最前面，使 activeZoneIdx=0 时默认回显实际生效的样式
@@ -451,6 +455,10 @@ export default function ({editConfig}: EditorProps) {
           const compoundSelectors: string[] = []
           for (const dc of dynamicClasses) {
             for (const sel of staticSelectors) {
+              // 若静态选择器末段已包含该 class，则动态 class 与静态重复，跳过
+              // 如动态 class "pageTitle" 已包含在 data-zone-selector 末段 ".pageTitle" 中，则重复，跳过
+              const lastSegment = sel.trim().split(/\s+/).pop() ?? ''
+              if (lastSegment.includes(`.${dc}`)) continue
               const compound = `${sel}.${dc}`
               if (!result.includes(compound) && !compoundSelectors.includes(compound)) {
                 compoundSelectors.push(compound)
@@ -472,6 +480,7 @@ export default function ({editConfig}: EditorProps) {
 
   // zoneSelectorList 变化（targetDom / 伪类扫描结果更新）时，重置激活下标到第 0 项
   useEffect(() => {
+    console.log("zoneSelectorList", zoneSelectorList);
     setActiveZoneIdx(0)
   }, [zoneSelectorList])
 

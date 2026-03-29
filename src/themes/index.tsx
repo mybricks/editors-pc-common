@@ -139,6 +139,12 @@ function migrateData(raw: any): ThemeData {
     return { themes: [{ id, name: "默认主题", vars: [] }], activeThemeId: id };
   }
   if (Array.isArray(raw)) {
+    const firstItem = raw[0];
+    if (firstItem && firstItem.id && firstItem.name && Array.isArray(firstItem.vars)) {
+      // Theme 对象数组
+      return { themes: raw as Theme[], activeThemeId: raw[0].id };
+    }
+    // ThemeVar 数组
     const id = genId();
     return { themes: [{ id, name: "默认主题", vars: raw }], activeThemeId: id };
   }
