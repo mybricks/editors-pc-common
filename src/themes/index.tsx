@@ -145,6 +145,9 @@ function migrateData(raw: any): ThemeData {
   if (raw.themes && Array.isArray(raw.themes)) {
     return raw as ThemeData;
   }
+  if (raw.id && raw.name && Array.isArray(raw.vars)) {
+    return { themes: [raw as Theme], activeThemeId: raw.id };
+  }
   const id = genId();
   return { themes: [{ id, name: "默认主题", vars: [] }], activeThemeId: id };
 }
