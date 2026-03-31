@@ -484,34 +484,47 @@ export default function ({editConfig}: EditorProps) {
     setActiveZoneIdx(0)
   }, [zoneSelectorList])
 
-  // 计算当前激活 selector 在 shadow root 中命中的元素个数
+  // 计算当前激活 selector 在页面中命中的元素个数
   useEffect(() => {
-    // 去掉伪类，得到可用于 querySelectorAll 的基础选择器，返回命中数；出错返回 0
-    function countBySelector(sel: string): number {
+    const root = getDocument()
+    // 遍历所有带 data-zone-selector 的元素，比对其中记录的原始选择器列表。
+    function countByZoneSelector(sel: string): number {
+      const zoneEls = (root as any).querySelectorAll?.('[data-zone-selector]') ?? []
+      return Array.from(zoneEls).filter((el: any) => {
+        try {
+          const sels: string[] = JSON.parse(el.getAttribute('data-zone-selector'))
+          return Array.isArray(sels) && sels.includes(sel)
+        } catch {
+          return false
+        }
+      }).length
+    }
+
+    // 无打标场景（finalSelector fallback）：元素没有 data-zone-selector，直接用 CSS 选择器查找。
+    // 先去掉伪类（::before / :hover 等），避免 querySelectorAll 报错。
+    function countByCssSelector(sel: string): number {
       const base = sel.replace(/:{1,2}[a-zA-Z\-]+(\([^)]*\))?/g, '').trim()
       try {
-        const root = getDocument()
         return (root as any).querySelectorAll?.(base)?.length ?? 0
       } catch {
         return 0
       }
     }
 
-    const selector = zoneSelectorList[activeZoneIdx]
-    if (selector) {
-      // 正常路径：zoneSelectorList 有值，直接查当前激活 selector
-      setAffectedCount(countBySelector(selector))
+    const activeSelector = zoneSelectorList[activeZoneIdx]
+    if (activeSelector) {
+      setAffectedCount(countByZoneSelector(activeSelector))
       return
     }
 
-    // fallback：zoneSelectorList 为空（targetDom 不存在或无 data-zone-selector 属性）
-    // 此时降级到 finalSelector（editConfig.options.selector）
-    if (!finalSelector) { setAffectedCount(null); return }
-
-    // finalSelector 支持 string 和 string[] 两种格式，对所有 selector 累加命中数
-    const selectors = Array.isArray(finalSelector) ? finalSelector : [finalSelector]
-    const total = selectors.reduce((sum, s) => sum + countBySelector(s), 0)
-    setAffectedCount(total)
+    // zoneSelectorList 为空时降级：用编辑器配置中的 finalSelector 统计受影响元素数。
+    // 连 finalSelector 也没有，则无法计算，置为 null（区别于 0）表示"未知"，提示条静默不展示。
+    if (!finalSelector) {
+      setAffectedCount(null)
+      return
+    }
+    const fallbackSelectors = Array.isArray(finalSelector) ? finalSelector : [finalSelector]
+    setAffectedCount(fallbackSelectors.reduce((sum, s) => sum + countByCssSelector(s), 0))
   }, [activeZoneIdx, zoneSelectorList, finalSelector])
 
   const editor = useMemo(() => {
