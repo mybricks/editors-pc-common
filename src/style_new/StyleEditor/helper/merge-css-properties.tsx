@@ -241,11 +241,35 @@ export const splitCSSProperties = (
     delete splitStyles.borderRadius
   }
 
-  // 含有CSS变量暂时不处理
+  // border 简写含 CSS 变量时：用正则从字符串直接解析宽度/样式/颜色。
+  // 不能用 computedStyle，因为 var() 未定义时整个 border 简写在 temp div 中失效，
+  // computedStyle.borderTopWidth 会返回 "0px"。
   if (hasCSSVariable(cssProperties.border)) {
-    return {
-      ...splitStyles
+    const borderStr = String(cssProperties.border).trim()
+    const varMatch = borderStr.match(/var\(--[^)]+\)/)
+    if (varMatch) {
+      const varColor = varMatch[0]
+      // 去掉 var() 部分后剩余的 width 和 style
+      const rest = borderStr.replace(/var\(--[^)]+\)/, '').trim()
+      const widthMatch = rest.match(/(\d+(?:\.\d+)?\s*(?:px|em|rem|%|vh|vw|pt|cm|mm)\b)/)
+      const styleKeywords = /\b(solid|dashed|dotted|double|groove|ridge|inset|outset|none|hidden)\b/
+      const styleMatch = rest.match(styleKeywords)
+      const width = widthMatch ? widthMatch[1].trim() : ''
+      const borderStyle = styleMatch ? styleMatch[1] : ''
+
+      if (width) {
+        splitStyles.borderTopWidth = splitStyles.borderRightWidth =
+        splitStyles.borderBottomWidth = splitStyles.borderLeftWidth = width
+      }
+      if (borderStyle) {
+        splitStyles.borderTopStyle = splitStyles.borderRightStyle =
+        splitStyles.borderBottomStyle = splitStyles.borderLeftStyle = borderStyle as any
+      }
+      splitStyles.borderTopColor = splitStyles.borderRightColor =
+      splitStyles.borderBottomColor = splitStyles.borderLeftColor = varColor
+      delete splitStyles.border
     }
+    return { ...splitStyles }
   }
 
   // border 完整简写

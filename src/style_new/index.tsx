@@ -96,8 +96,13 @@ function scanPseudoSelectors(baseSelectors: string[], comId: string): string[] {
         // 样式表里是 ".u_VvteU .hotWords span:hover"，用最后一段能正确命中
         // 用完整路径匹配会因为中间层级不一致（LESS嵌套展开后路径与JSX祖先链不同）而失败
         const lastSegment = sel.trim().split(/\s+/).pop() || sel
+        // 类选择器（以 . 开头）需同时匹配 CSS Modules 编译后带前缀的形式
+        // 例：lastSegment=".glowBox" → 同时匹配 ".glowBox" 和 "pages_xxx_less-glowBox"
+        const segmentPattern = lastSegment.startsWith('.')
+          ? `(?:${escapeRegExp(lastSegment)}|[\\w\\-]*\\-${escapeRegExp(lastSegment.slice(1))})`
+          : escapeRegExp(lastSegment)
         const regex = new RegExp(
-          escapeRegExp(comId) + '.*' + escapeRegExp(lastSegment) + '(:{1,2}[a-zA-Z\\-]+(?:\\([^)]*\\))?)$'
+          escapeRegExp(comId) + '.*' + segmentPattern + '(:{1,2}[a-zA-Z\\-]+(?:\\([^)]*\\))?)$'
         )
         const match = selectorText.match(regex)
         if (match) {
@@ -116,8 +121,11 @@ function scanPseudoSelectors(baseSelectors: string[], comId: string): string[] {
           const segments = sel.trim().split(/\s+/)
           if (segments.length >= 2) {
             const parentLastSeg = segments[segments.length - 2]
+            const parentSegPattern = parentLastSeg.startsWith('.')
+              ? `(?:${escapeRegExp(parentLastSeg)}|[\\w\\-]*\\-${escapeRegExp(parentLastSeg.slice(1))})`
+              : escapeRegExp(parentLastSeg)
             const parentPseudoRegex = new RegExp(
-              escapeRegExp(comId) + '.*' + escapeRegExp(parentLastSeg) + '(:{1,2}[a-zA-Z\\-]+(?:\\([^)]*\\))?)$'
+              escapeRegExp(comId) + '.*' + parentSegPattern + '(:{1,2}[a-zA-Z\\-]+(?:\\([^)]*\\))?)$'
             )
             const parentMatch = selectorText.match(parentPseudoRegex)
             if (parentMatch) {
@@ -480,7 +488,6 @@ export default function ({editConfig}: EditorProps) {
 
   // zoneSelectorList 变化（targetDom / 伪类扫描结果更新）时，重置激活下标到第 0 项
   useEffect(() => {
-    console.log("zoneSelectorList", zoneSelectorList);
     setActiveZoneIdx(0)
   }, [zoneSelectorList])
 
@@ -1060,7 +1067,7 @@ function getDefaultConfiguration ({value, options}: GetDefaultConfigurationProps
   if (effctedOptions) {
     collapsedOptions = finalOptions.map(t => {
       return typeof t === 'string' ? t.toLowerCase() : t?.type.toLowerCase()
-    }).filter(t => !effctedOptions.includes(t) && !setValueEffectedPanels.has(t))
+    }).filter(t => !effctedOptions.includes(t) && !setValueEffectedPanels.has(t) && !effectedFromAncestorsOnly.includes(t))
   }
 
   const ownEffectedSet = new Set([...effectedFromRulesOnly, ...Array.from(setValueEffectedPanels)]);
@@ -1493,7 +1500,41 @@ function getEffectedCssPropertyAndOptions (element: HTMLElement | null, selector
     const otherRules = finalRules.filter((rule: any) => !ownSelectorRules.includes(rule));
     const otherRulesPanels = getEffectedPanelsFromCssRules(otherRules) as string[];
 
-    return [values, finalEffectedPanels, ownRulesPanels, [...effectedFromDirectParent, ...otherRulesPanels]]
+    // ── 伪类（hover/focus 等）状态下，回填默认态的 var() 引用 ────────────────
+    // hover 规则通常只定义覆盖属性（box-shadow、transform 等），未覆盖的属性
+    // 在视觉上仍显示默认态的值。这里从默认态规则中找出 var() 引用回填到
+    // hover 的 values 中，避免回显时降级为计算后的 rgb 值。
+    // 回填的面板会加入 baseStateVarPanels，以 readonlyExpanded（无减号）方式展示。
+    const baseStateVarPanels: string[] = [];
+    if (element && primarySelector) {
+      const pseudoMatch = primarySelector.match(/(:{1,2}[a-zA-Z\-]+(?:\([^)]*\))?)$/)
+      if (pseudoMatch) {
+        const baseSelector = primarySelector.replace(pseudoMatch[0], '').trim()
+        if (baseSelector) {
+          try {
+            const { rules: baseRules } = getStyleRules(element, baseSelector)
+            if (baseRules.length > 0) {
+              const baseValues = getValues(baseRules, computedValues, new Set<CSSStyleRule>())
+              const _isVarRef = (v: any) => typeof v === 'string' && v.startsWith('var(')
+              Object.keys(baseValues as object).forEach(key => {
+                const baseVal = (baseValues as any)[key]
+                const curVal = (values as any)[key]
+                if (_isVarRef(baseVal) && !_isVarRef(curVal)) {
+                  (values as any)[key] = baseVal
+                  const panel = PANEL_MAP[key]
+                  if (panel && !baseStateVarPanels.includes(panel)) {
+                    baseStateVarPanels.push(panel)
+                  }
+                }
+              })
+            }
+          } catch {}
+        }
+      }
+    }
+    // ────────────────────────────────────────────────────────────────────────
+
+    return [values, finalEffectedPanels, ownRulesPanels, [...effectedFromDirectParent, ...otherRulesPanels, ...baseStateVarPanels]]
   } catch (e) {
     console.warn('[getEffectedCssPropertyAndOptions] 异常:', e)
     return [{}, []]
@@ -1697,10 +1738,16 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration, 
       backgroundImage: styleBackgroundImage,
       backgroundRepeat: styleBackgroundRepeat,
       backgroundPosition: styleBackgroundPosition,
-      backgroundSize: styleBackgroundSize
+      backgroundSize: styleBackgroundSize,
+      background: styleBackground
     } = style
     if (styleBackgroundColor) {
       backgroundColor = styleBackgroundColor
+    } else if (styleBackground && typeof styleBackground === 'string' && styleBackground.startsWith('var(')) {
+      // AI 代码生成有时使用 background 简写（如 background: var(--xxx)）
+      // Chrome 无法在解析期展开含 var() 的简写，rule.style.backgroundColor 会为空
+      // 这里将整体 background 简写值作为 backgroundColor 处理，确保变量引用能正确回显
+      backgroundColor = styleBackground
     }
     if (styleBackgroundImage) {
       backgroundImage = styleBackgroundImage
@@ -1746,6 +1793,28 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration, 
     }
     if (styleBorderLeftColor) {
       borderLeftColor = styleBorderLeftColor
+    }
+    // border-color 简写含 var() 时（如 border-color: var(--xxx)），
+    // rule.style 中四个 longhand 均为空字符串，需通过 getPropertyValue 读取简写值兜底
+    const styleBorderColorShorthand = style.getPropertyValue('border-color')
+    if (styleBorderColorShorthand && styleBorderColorShorthand.trim().startsWith('var(')) {
+      if (!borderTopColor)    borderTopColor    = styleBorderColorShorthand.trim()
+      if (!borderRightColor)  borderRightColor  = styleBorderColorShorthand.trim()
+      if (!borderBottomColor) borderBottomColor = styleBorderColorShorthand.trim()
+      if (!borderLeftColor)   borderLeftColor   = styleBorderColorShorthand.trim()
+    }
+    // border 完整简写含 var() 时（如 border: 1px solid var(--xxx)），
+    // rule.style 的所有 border longhand 均为空，需从 border 简写中提取颜色部分兜底
+    const styleBorderShorthand = style.getPropertyValue('border')
+    if (styleBorderShorthand && styleBorderShorthand.includes('var(')) {
+      const varMatch = styleBorderShorthand.match(/var\(--[^)]+\)/)
+      if (varMatch) {
+        const varColor = varMatch[0]
+        if (!borderTopColor)    borderTopColor    = varColor
+        if (!borderRightColor)  borderRightColor  = varColor
+        if (!borderBottomColor) borderBottomColor = varColor
+        if (!borderLeftColor)   borderLeftColor   = varColor
+      }
     }
     if (styleBorderTopLeftRadius) {
       borderTopLeftRadius = styleBorderTopLeftRadius
@@ -2280,6 +2349,22 @@ function getStyleRules (element: HTMLElement | null, selector: string | null): {
         // 编译后 selectorText 不含中间层级，完整路径无法 endsWith 命中。
         // 同时过滤含伪类的规则，避免 .formTabActive:hover 等混入。
         if (isStateSelector && selector) {
+          // 多文件 :where() 作用域规则：从末尾类名最后一个 '-' 截取真实类名与 selector 比对
+          // 格式：:where(.u_wYqS8) .pages_StoreDecoration_index_less-pageContainer
+          if (/^:where\(/.test(selectorText) && element) {
+            const lastPart = selectorText.trim().split(/\s+/).pop() || ''
+            const realClass = lastPart.includes('-')
+              ? lastPart.slice(lastPart.lastIndexOf('-') + 1)
+              : lastPart.replace(/^\./, '')
+            const selectorLastClass = (selector.trim().split(/\s+/).pop() || selector).replace(/^\./, '')
+            if (realClass === selectorLastClass) {
+              try {
+                if (element.matches(selectorText)) finalRules.push(rule)
+              } catch {}
+            }
+            continue
+          }
+
           const lastSeg = selector.trim().split(/\s+/).pop() || selector
           if (!/:[a-zA-Z\-]/.test(selectorText)) {
             const isGlobalRule = selectorText === lastSeg
