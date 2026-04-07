@@ -742,7 +742,7 @@ function Style ({editConfig, options, setValue, collapsedOptions, readonlyExpand
     // debugger
     //在这里把selector放在了第二个参数
     //bug: 有时候这个selector是："[data-zone-selector='[".searchArea .hotWords span"]']"
-    // console.log("编辑器传递selector",selector)
+    console.log("editConfig.value.set",selector)
     editConfig.value.set(mergedCssProperties, selector ? { selector } : undefined)
   }, [editConfig])
 
