@@ -27,6 +27,7 @@ interface SelectProps {
   hideLabel?: boolean;
   labelClassName?: string;
   tip?: string;
+  disabled?: boolean;
 }
 
 export function Select({
@@ -43,6 +44,7 @@ export function Select({
   labelClassName,
   multiple = false,
   tip,
+  disabled = false,
 }: SelectProps) {
   const [value, setValue] = useState(propsValue !== undefined ? propsValue : defaultValue);
   const [label, setLabel] = useState(
@@ -112,10 +114,11 @@ export function Select({
         value={value}
         onClick={handleDropDownClick}
         onAction={onAction}
+        disabled={disabled}
       >
         <div
           data-mybricks-tip={tip}
-          className={css.select}
+          className={`${css.select}${disabled ? ` ${css.disabled}` : ''}`}
           style={showIcon ? {} : { padding: 0 }}
         >
           {prefix && <div className={css.prefix}>{prefix}</div>}

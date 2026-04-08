@@ -17,21 +17,23 @@ interface DropdownProps {
   options: Array<DropdownOption>;
   children: ReactNode;
   multiple?: boolean;
+  disabled?: boolean;
   onClick: (value: any) => void;
   onAction?: (value: any) => void;
   className?: string;
 }
 
-export function Dropdown({ value, options, children, onClick, onAction, className, multiple }: DropdownProps) {
+export function Dropdown({ value, options, children, onClick, onAction, className, multiple, disabled = false }: DropdownProps) {
   const positionRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const [show, setShow] = useState(false);
   const [open, setOpen] = useState(false);
 
   const handleDropDownClick = useCallback(() => {
+    if (disabled) return;
     setShow(true);
     setOpen(true);
-  }, []);
+  }, [disabled]);
 
   const handleItemClick = useCallback((value: any, isAction?: boolean) => {
     if (isAction) {

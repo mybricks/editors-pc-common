@@ -31,6 +31,7 @@ const UNIT_DISPLAY_LABEL_MAP: Record<string, string> = {
   "max-content": "适应",
   "default": "默认",
 };
+const SIZE_DISABLED_TIP = "当前值由布局控制，不支持直接编辑";
 
 /** 归一化尺寸值：auto / inherit / fit-content / 未配置 → undefined，让输入框显示为空（默认状态） */
 function normalizeSizeValue(val: any): string | undefined {
@@ -316,7 +317,7 @@ export function Size({value, onChange, config, showTitle, collapse}: SizeProps) 
       onAddOption={handleAddOption}
       rightColumn={
         <div className={css.sizeActions}>
-          {showWidthHeight && !(cfg.disableWidth && cfg.disableHeight) && (
+          {showWidthHeight && (
             <div className={css.sizeRemoveBtn} onClick={handleDeleteWidthHeight}>
               <MinusOutlined />
             </div>
@@ -335,61 +336,61 @@ export function Size({value, onChange, config, showTitle, collapse}: SizeProps) 
       }
     >
       <div className={css.sizeRows}>
-          {showWidthHeight && !(cfg.disableWidth && cfg.disableHeight) && (
-            <Panel.Content style={{ gap: 8 }}>
-              {cfg.disableWidth ? null : (
-                <Panel.Item style={{ display: "flex", alignItems: "center", paddingLeft: 8 }}>
-                  <div
-                    {...getDragPropsWidth(widthEffective, '拖拽调整宽度')}
-                    style={{ height: "100%", display: "flex", alignItems: "center", cursor: "ew-resize" }}
-                  >
-                    <span className={css.tip} style={{ width: 30, flexShrink: 0 }}>宽度</span>
-                  </div>
-                  <InputNumber
-                    key={getUnitKey(widthEffective)}
-                    style={{ flex: 1, marginLeft: 4 }}
-                    defaultValue={widthEffective}
-                    defaultUnitValue="px"
-                    unitOptions={widthUnitOptions}
-                    unitDisabledList={UNIT_DISABLED_LIST}
-                    unitDisplayLabelMap={UNIT_DISPLAY_LABEL_MAP}
-                    onChange={handleWidthChange}
-                    showIcon={true}
-                  />
-                </Panel.Item>
-              )}
-              {cfg.disableHeight ? null : (
-                <Panel.Item style={{ display: "flex", alignItems: "center", paddingLeft: 8 }}>
-                  <div
-                    {...getDragPropsHeight(heightEffective, '拖拽调整高度')}
-                    style={{ height: "100%", display: "flex", alignItems: "center", cursor: "ew-resize" }}
-                  >
-                    <span className={css.tip} style={{ width: 30, flexShrink: 0 }}>高度</span>
-                  </div>
-                  <InputNumber
-                    key={getUnitKey(heightEffective)}
-                    style={{ flex: 1, marginLeft: 4 }}
-                    defaultValue={heightEffective}
-                    defaultUnitValue="px"
-                    unitOptions={heightUnitOptions}
-                    unitDisabledList={UNIT_DISABLED_LIST}
-                    unitDisplayLabelMap={UNIT_DISPLAY_LABEL_MAP}
-                    onChange={handleHeightChange}
-                    showIcon={true}
-                  />
-                </Panel.Item>
-              )}
+          {showWidthHeight && (
+            <Panel.Content>
+              <Panel.Item style={{ display: "flex", alignItems: "center", paddingLeft: 8 }}>
+                <div
+                  {...(cfg.disableWidth ? {} : getDragPropsWidth(widthEffective, '拖拽调整宽度'))}
+                  style={{ height: "100%", display: "flex", alignItems: "center", cursor: cfg.disableWidth ? "not-allowed" : "ew-resize" }}
+                >
+                  <span className={`${css.tip} ${cfg.disableWidth ? css.tipDisabled : ''}`} style={{ width: 30, flexShrink: 0 }}>宽度</span>
+                </div>
+                <InputNumber
+                  key={getUnitKey(widthEffective)}
+                  style={{ flex: 1, marginLeft: 4 }}
+                  defaultValue={widthEffective}
+                  defaultUnitValue="px"
+                  unitOptions={widthUnitOptions}
+                  unitDisabledList={UNIT_DISABLED_LIST}
+                  unitDisplayLabelMap={UNIT_DISPLAY_LABEL_MAP}
+                  onChange={handleWidthChange}
+                  showIcon={true}
+                  disabled={cfg.disableWidth}
+                  tip={cfg.disableWidth ? SIZE_DISABLED_TIP : undefined}
+                />
+              </Panel.Item>
+              <Panel.Item style={{ display: "flex", alignItems: "center", paddingLeft: 8 }}>
+                <div
+                  {...(cfg.disableHeight ? {} : getDragPropsHeight(heightEffective, '拖拽调整高度'))}
+                  style={{ height: "100%", display: "flex", alignItems: "center", cursor: cfg.disableHeight ? "not-allowed" : "ew-resize" }}
+                >
+                  <span className={`${css.tip} ${cfg.disableHeight ? css.tipDisabled : ''}`} style={{ width: 30, flexShrink: 0 }}>高度</span>
+                </div>
+                <InputNumber
+                  key={getUnitKey(heightEffective)}
+                  style={{ flex: 1, marginLeft: 4 }}
+                  defaultValue={heightEffective}
+                  defaultUnitValue="px"
+                  unitOptions={heightUnitOptions}
+                  unitDisabledList={UNIT_DISABLED_LIST}
+                  unitDisplayLabelMap={UNIT_DISPLAY_LABEL_MAP}
+                  onChange={handleHeightChange}
+                  showIcon={true}
+                  disabled={cfg.disableHeight}
+                  tip={cfg.disableHeight ? SIZE_DISABLED_TIP : undefined}
+                />
+              </Panel.Item>
             </Panel.Content>
           )}
           {showMinRow && (
-            <Panel.Content style={{ gap: 8 }}>
-              {showMinWidth && !cfg.disableWidth ? (
+            <Panel.Content>
+              {showMinWidth ? (
                 <Panel.Item style={{ display: "flex", alignItems: "center", paddingLeft: 8 }}>
                   <div
-                    {...getDragPropsMinWidth(minWidthEffective, '拖拽调整最小宽度')}
-                    style={{ height: "100%", display: "flex", alignItems: "center", cursor: "ew-resize" }}
+                    {...(cfg.disableWidth ? {} : getDragPropsMinWidth(minWidthEffective, '拖拽调整最小宽度'))}
+                    style={{ height: "100%", display: "flex", alignItems: "center", cursor: cfg.disableWidth ? "not-allowed" : "ew-resize" }}
                   >
-                    <span className={css.tip} style={{ width: 30, flexShrink: 0 }}>最小宽</span>
+                    <span className={`${css.tip} ${cfg.disableWidth ? css.tipDisabled : ''}`} style={{ width: 30, flexShrink: 0 }}>最小宽</span>
                   </div>
                   <InputNumber
                     key={getUnitKey(minWidthEffective)}
@@ -399,16 +400,18 @@ export function Size({value, onChange, config, showTitle, collapse}: SizeProps) 
                     unitOptions={MAX_MIN_UNIT_OPTIONS}
                     onChange={(val) => onChange({key: 'minWidth', value: val})}
                     showIcon={true}
+                    disabled={cfg.disableWidth}
+                    tip={cfg.disableWidth ? SIZE_DISABLED_TIP : undefined}
                   />
                 </Panel.Item>
-              ) : <div style={{ flex: 1 }} />}
-              {showMinHeight && !cfg.disableHeight ? (
+              ) : null}
+              {showMinHeight ? (
                 <Panel.Item style={{ display: "flex", alignItems: "center", paddingLeft: 8 }}>
                   <div
-                    {...getDragPropsMinHeight(minHeightEffective, '拖拽调整最小高度')}
-                    style={{ height: "100%", display: "flex", alignItems: "center", cursor: "ew-resize" }}
+                    {...(cfg.disableHeight ? {} : getDragPropsMinHeight(minHeightEffective, '拖拽调整最小高度'))}
+                    style={{ height: "100%", display: "flex", alignItems: "center", cursor: cfg.disableHeight ? "not-allowed" : "ew-resize" }}
                   >
-                    <span className={css.tip} style={{ width: 30, flexShrink: 0 }}>最小高</span>
+                    <span className={`${css.tip} ${cfg.disableHeight ? css.tipDisabled : ''}`} style={{ width: 30, flexShrink: 0 }}>最小高</span>
                   </div>
                   <InputNumber
                     key={getUnitKey(minHeightEffective)}
@@ -418,20 +421,22 @@ export function Size({value, onChange, config, showTitle, collapse}: SizeProps) 
                     unitOptions={MAX_MIN_UNIT_OPTIONS}
                     onChange={(val) => onChange({key: 'minHeight', value: val})}
                     showIcon={true}
+                    disabled={cfg.disableHeight}
+                    tip={cfg.disableHeight ? SIZE_DISABLED_TIP : undefined}
                   />
                 </Panel.Item>
-              ) : <div style={{ flex: 1 }} />}
+              ) : null}
             </Panel.Content>
           )}
           {showMaxRow && (
-            <Panel.Content style={{ gap: 8 }}>
-              {showMaxWidth && !cfg.disableWidth ? (
+            <Panel.Content>
+              {showMaxWidth ? (
                 <Panel.Item style={{ display: "flex", alignItems: "center", paddingLeft: 8 }}>
                   <div
-                    {...getDragPropsMaxWidth(maxWidthEffective, '拖拽调整最大宽度')}
-                    style={{ height: "100%", display: "flex", alignItems: "center", cursor: "ew-resize" }}
+                    {...(cfg.disableWidth ? {} : getDragPropsMaxWidth(maxWidthEffective, '拖拽调整最大宽度'))}
+                    style={{ height: "100%", display: "flex", alignItems: "center", cursor: cfg.disableWidth ? "not-allowed" : "ew-resize" }}
                   >
-                    <span className={css.tip} style={{ width: 30, flexShrink: 0 }}>最大宽</span>
+                    <span className={`${css.tip} ${cfg.disableWidth ? css.tipDisabled : ''}`} style={{ width: 30, flexShrink: 0 }}>最大宽</span>
                   </div>
                   <InputNumber
                     key={getUnitKey(maxWidthEffective)}
@@ -441,16 +446,18 @@ export function Size({value, onChange, config, showTitle, collapse}: SizeProps) 
                     unitOptions={MAX_MIN_UNIT_OPTIONS}
                     onChange={(val) => onChange({key: 'maxWidth', value: val})}
                     showIcon={true}
+                    disabled={cfg.disableWidth}
+                    tip={cfg.disableWidth ? SIZE_DISABLED_TIP : undefined}
                   />
                 </Panel.Item>
-              ) : <div style={{ flex: 1 }} />}
-              {showMaxHeight && !cfg.disableHeight ? (
+              ) : null}
+              {showMaxHeight ? (
                 <Panel.Item style={{ display: "flex", alignItems: "center", paddingLeft: 8 }}>
                   <div
-                    {...getDragPropsMaxHeight(maxHeightEffective, '拖拽调整最大高度')}
-                    style={{ height: "100%", display: "flex", alignItems: "center", cursor: "ew-resize" }}
+                    {...(cfg.disableHeight ? {} : getDragPropsMaxHeight(maxHeightEffective, '拖拽调整最大高度'))}
+                    style={{ height: "100%", display: "flex", alignItems: "center", cursor: cfg.disableHeight ? "not-allowed" : "ew-resize" }}
                   >
-                    <span className={css.tip} style={{ width: 30, flexShrink: 0 }}>最大高</span>
+                    <span className={`${css.tip} ${cfg.disableHeight ? css.tipDisabled : ''}`} style={{ width: 30, flexShrink: 0 }}>最大高</span>
                   </div>
                   <InputNumber
                     key={getUnitKey(maxHeightEffective)}
@@ -460,9 +467,11 @@ export function Size({value, onChange, config, showTitle, collapse}: SizeProps) 
                     unitOptions={MAX_MIN_UNIT_OPTIONS}
                     onChange={(val) => onChange({key: 'maxHeight', value: val})}
                     showIcon={true}
+                    disabled={cfg.disableHeight}
+                    tip={cfg.disableHeight ? SIZE_DISABLED_TIP : undefined}
                   />
                 </Panel.Item>
-              ) : <div style={{ flex: 1 }} />}
+              ) : null}
             </Panel.Content>
           )}
         </div>

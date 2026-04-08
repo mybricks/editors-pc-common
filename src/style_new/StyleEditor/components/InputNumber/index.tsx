@@ -63,8 +63,9 @@ export function InputNumber ({
   })
 
   const isDisabledUnit = useCallback(() => {
-    return (unitDisabledList && unit) ? unitDisabledList.includes(unit) : disabled
-  }, [unit, disabled])
+    const isUnitDisabled = (unitDisabledList && unit) ? unitDisabledList.includes(unit) : false;
+    return disabled || isUnitDisabled;
+  }, [unit, disabled, unitDisabledList])
 
   const onKeyDown = useCallback((e: {
     target: any, code: any; preventDefault: () => void
@@ -134,6 +135,7 @@ export function InputNumber ({
           hideLabel={isDefaultUnit}
           onChange={setUnit}
           onAction={onAction}
+          disabled={isDisabledUnit()}
         />
       )
     }
