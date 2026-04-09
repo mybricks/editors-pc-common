@@ -1,5 +1,7 @@
 import React, { useState, useCallback, useRef, CSSProperties } from "react";
 
+import { useStyleEditorContext } from "../..";
+
 import {
   Panel,
   Select,
@@ -103,7 +105,43 @@ const DEFAULT_CONFIG = {
   fontfaces: [],
 };
 
+type FontFamilyOption = { label: string; value: string };
+type ExternalFontface = {
+  label?: string;
+  value?: string;
+};
+
+function normalizeFontfaceOptions(fontfaces: ExternalFontface[] = []): FontFamilyOption[] {
+  return fontfaces
+    .map((item) => {
+      const value = item?.value;
+      const label = item?.label;
+      if (!value || !label) {
+        return null;
+      }
+      return { label, value };
+    })
+    .filter(Boolean) as FontFamilyOption[];
+}
+
+function mergeFontOptionsByValue(...optionGroups: FontFamilyOption[][]): FontFamilyOption[] {
+  const map = new Map<string, FontFamilyOption>();
+  optionGroups
+    .flat()
+    .forEach((item) => {
+      if (!item?.value) return;
+      if (!map.has(item.value)) {
+        map.set(item.value, item);
+      }
+    });
+  return Array.from(map.values());
+}
+
 export function Font({ value, onChange, config, showTitle, collapse }: FontProps) {
+  const context = useStyleEditorContext();
+  const editConfig = context?.editConfig;
+  const outterFontFamilyOptions = normalizeFontfaceOptions(editConfig?.fontfaces || []);
+
   // 重置脏数据
   if (isObject(value.fontFamily)) {
     value.fontFamily = "inherit";
@@ -141,17 +179,17 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
     });
 
     // 合并新的选项到原有的 FONT_FAMILY_OPTIONS
-    return uniq([...FONT_FAMILY_OPTIONS, ...newOptions]);
+    return mergeFontOptionsByValue(
+      FONT_FAMILY_OPTIONS as FontFamilyOption[],
+      newOptions as FontFamilyOption[]
+    );
   }
 
   const fontFamilyOptions = useCallback(() => {
     const updatedOptions = mergeFonts(innerFontFamily || []);
-    const fontfaces = (cfg.fontfaces as typeof updatedOptions).filter(
-      (item) => item.label && item.value
-    );
-
-    return uniq([...updatedOptions, ...fontfaces]);
-  }, [innerFontFamily]);
+    const configFontfaces = normalizeFontfaceOptions(cfg.fontfaces as ExternalFontface[]);
+    return mergeFontOptionsByValue(updatedOptions, configFontfaces, outterFontFamilyOptions);
+  }, [cfg.fontfaces, innerFontFamily, outterFontFamilyOptions]);
 
   const getTextAlignOptions = useCallback(() => {
     const useStart = ["start", "end"].includes(value.textAlign as any);
