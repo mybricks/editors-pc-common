@@ -28,3 +28,4 @@ lib
 .history
 
 src/**/*.js
+!src/figma/core/**/*.js
