@@ -32,6 +32,7 @@ import EditorStyle from "./style";
 import EditorStyleC from "./style_c";
 import EditorTypeChange from "./_typeChange";
 import EditorI18nInput from "./i18nInput";
+import Figma from "./figma";
 import EditorSceneSelector from "./sceneSelector";
 import EditorSceneComSelector from "./sceneComSelector";
 import Code from "./code";
@@ -90,6 +91,7 @@ const PcEditorMap: any = {
   TREE: Tree,
   LINE: EditorLine,
   THEMES: Themes,
+  FIGMA: Figma,
 }
 
 
