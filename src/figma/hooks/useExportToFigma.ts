@@ -1,6 +1,6 @@
 import React from 'react';
 import { convertIRToFigmaClipboardHtml, elementToMybricksJsonWithInlineImages } from '../core';
-import { loadFontContext } from '../core/font-loader';
+import { loadFontContextMap } from '../core/font-loader';
 import { writeHtmlToClipboard, isNotFocusedClipboardError } from '../core/clipboard';
 import {
   ExportProgress,
@@ -125,7 +125,7 @@ export function useExportToFigma(
             text: '加载字体...',
             from: 20,
             to: 30,
-            task: () => loadFontContext(),
+            task: () => loadFontContextMap(),
           });
 
           await waitStageWithTrickle({

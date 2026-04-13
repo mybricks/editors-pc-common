@@ -110,9 +110,12 @@ function makeSolidPaint(color, opacity) {
 
 // ─── Font helpers ───
 
+// PingFang SC 在 macOS 上的全部 6 个字重，且无任何 Italic 变体。
+// 700+ 一律降级到 Semibold，italic 一律忽略，避免 Figma 弹出 "Missing font" 弹窗。
+// Ultralight(100) 比 Thin(200) 更细，与 CSS font-weight 数值从小到大对应。
 var PINGFANG_WEIGHT_MAP = {
-  100: 'Thin',
-  200: 'Ultralight',
+  100: 'Ultralight',
+  200: 'Thin',
   300: 'Light',
   400: 'Regular',
   500: 'Medium',
@@ -123,7 +126,7 @@ function resolveFontName(family, weight, italic) {
   var w = weight || 400;
   if (w > 600) w = 600;
   var styleName = PINGFANG_WEIGHT_MAP[w] || 'Regular';
-  if (italic) styleName = styleName === 'Regular' ? 'Italic' : styleName + ' Italic';
+  // PingFang SC 无 Italic 变体，忽略 italic 参数，对应 Figma "Missing font" 替换规则
   var postscript = 'PingFangSC-' + styleName.replace(/\s+/g, '');
   return { family: 'PingFang SC', style: styleName, postscript: postscript };
 }
@@ -1321,7 +1324,7 @@ function measureTextWithFont(text, fontSize, font) {
 
 // ─── Core: Convert single IR node → Figma NodeChange ───
 
-function convertNode(irNode, parentGuid, siblingIndex, fontCtx, blobs, parentLayoutMode, imageCtxGlobal) {
+function convertNode(irNode, parentGuid, siblingIndex, fontCtxMap, blobs, parentLayoutMode, imageCtxGlobal) {
   if (!irNode) return [];
 
   var type = irNode.type;
@@ -1330,7 +1333,7 @@ function convertNode(irNode, parentGuid, siblingIndex, fontCtx, blobs, parentLay
   var changes = [];
 
   if (type === 'text') {
-    changes.push(convertTextNode(irNode, guid, parentGuid, siblingIndex, fontCtx, blobs, parentLayoutMode));
+    changes.push(convertTextNode(irNode, guid, parentGuid, siblingIndex, fontCtxMap, blobs, parentLayoutMode));
   } else if (type === 'svg') {
     changes.push(convertSvgNode(irNode, guid, parentGuid, siblingIndex, parentLayoutMode, blobs, imageCtxGlobal));
   } else if (type === 'image') {
@@ -1343,7 +1346,7 @@ function convertNode(irNode, parentGuid, siblingIndex, fontCtx, blobs, parentLay
     if (irNode.children && irNode.children.length) {
       var orderedChildren = sortChildrenByZIndex(irNode.children, myLayoutMode);
       for (var i = 0; i < orderedChildren.length; i++) {
-        var childChanges = convertNode(orderedChildren[i], guid, i, fontCtx, blobs, myLayoutMode, imageCtxGlobal);
+        var childChanges = convertNode(orderedChildren[i], guid, i, fontCtxMap, blobs, myLayoutMode, imageCtxGlobal);
         for (var j = 0; j < childChanges.length; j++) {
           changes.push(childChanges[j]);
         }
@@ -1542,7 +1545,7 @@ function convertFrameNode(irNode, guid, parentGuid, siblingIndex, parentLayoutMo
   return nc;
 }
 
-function convertTextNode(irNode, guid, parentGuid, siblingIndex, fontCtx, blobs, parentLayoutMode) {
+function convertTextNode(irNode, guid, parentGuid, siblingIndex, fontCtxMap, blobs, parentLayoutMode) {
   var style = irNode.style || {};
   var content = irNode.content || '';
   var fontName = resolveFontName(
@@ -1563,11 +1566,34 @@ function convertTextNode(irNode, guid, parentGuid, siblingIndex, fontCtx, blobs,
   var fontSize = style.fontSize || 14;
   var lineHeightVal = style.lineHeight || (fontSize * 1.4);
 
-  var hasFontCtx = fontCtx && fontCtx.font && fontCtx.fontDigest && blobs && content;
+  // 从 fontCtxMap 中选出与当前字重最匹配的 FontContext。
+  // fontCtxMap 格式：{ 300: ctx, 400: ctx, 500: ctx, 600: ctx }
+  // 向下取整找最近字重，找不到则退而使用 400（Regular）。
+  var _clampedWeight = Math.min(style.fontWeight || 400, 600);
+  var resolvedFontCtx = null;
+  if (fontCtxMap && typeof fontCtxMap === 'object') {
+    resolvedFontCtx = fontCtxMap[_clampedWeight] || null;
+    if (!resolvedFontCtx) {
+      // 向下取整找最近可用字重
+      var _availableWeights = Object.keys(fontCtxMap).map(Number).sort(function(a, b) { return b - a; });
+      for (var _wi = 0; _wi < _availableWeights.length; _wi++) {
+        if (_availableWeights[_wi] <= _clampedWeight) {
+          resolvedFontCtx = fontCtxMap[_availableWeights[_wi]];
+          break;
+        }
+      }
+      // 仍未找到则用最小可用字重
+      if (!resolvedFontCtx && _availableWeights.length > 0) {
+        resolvedFontCtx = fontCtxMap[_availableWeights[_availableWeights.length - 1]];
+      }
+    }
+  }
+
+  var hasFontCtx = resolvedFontCtx && resolvedFontCtx.font && resolvedFontCtx.fontDigest && blobs && content;
   var measured = null;
   if (hasFontCtx) {
     try {
-      measured = measureTextWithFont(content, fontSize, fontCtx.font);
+      measured = measureTextWithFont(content, fontSize, resolvedFontCtx.font);
     } catch (_e) {
       measured = null;
     }
@@ -1664,7 +1690,7 @@ function convertTextNode(irNode, guid, parentGuid, siblingIndex, fontCtx, blobs,
         var _lineYBase = _li * lineHeightVal;
         var _lineMeasured = null;
         if (_lineText.length > 0) {
-          try { _lineMeasured = measureTextWithFont(_lineText, fontSize, fontCtx.font); } catch (_e) {}
+          try { _lineMeasured = measureTextWithFont(_lineText, fontSize, resolvedFontCtx.font); } catch (_e) {}
         }
         var _lineWidth = _lineMeasured ? _lineMeasured.totalWidth : 0;
         var _lineGlyphs = _lineMeasured ? _lineMeasured.glyphs : [];
@@ -1699,10 +1725,10 @@ function convertTextNode(irNode, guid, parentGuid, siblingIndex, fontCtx, blobs,
       var _isEllipsisOverflow = (style.textOverflow === 'ellipsis') && hasExplicitWidth && (measured.totalWidth > nodeWidth);
       if (_isEllipsisOverflow) {
         // ── 省略号截断：计算截断点，生成可见字符字形 + 省略号字形 ──
-        var _eFontScale = fontSize / fontCtx.font.unitsPerEm;
+        var _eFontScale = fontSize / resolvedFontCtx.font.unitsPerEm;
         // 优先使用 Unicode 省略号 '…'；若该字形路径为空（如字体子集不含该字符或为 composite），
         // 降级为 3 个英文句号 '.'，保证初始渲染可见
-        var _eRawGlyphs = fontCtx.font.stringToGlyphs('\u2026');
+        var _eRawGlyphs = resolvedFontCtx.font.stringToGlyphs('\u2026');
         var _eHasPath = _eRawGlyphs && _eRawGlyphs.length > 0 &&
           _eRawGlyphs[0].index !== 0 &&
           _eRawGlyphs[0].path && _eRawGlyphs[0].path.commands && _eRawGlyphs[0].path.commands.length > 0;
@@ -1711,12 +1737,12 @@ function convertTextNode(irNode, guid, parentGuid, siblingIndex, fontCtx, blobs,
           _eOtGlyphs = _eRawGlyphs;
         } else {
           // 降级：用 3 个句号，确保有可见路径
-          var _dotG = fontCtx.font.stringToGlyphs('.')[0];
+          var _dotG = resolvedFontCtx.font.stringToGlyphs('.')[0];
           _eOtGlyphs = (_dotG && _dotG.index !== 0) ? [_dotG, _dotG, _dotG] : [];
         }
         var _eWidth = 0;
         for (var _emi = 0; _emi < _eOtGlyphs.length; _emi++) {
-          _eWidth += (_eOtGlyphs[_emi].advanceWidth || fontCtx.font.unitsPerEm) * _eFontScale;
+          _eWidth += (_eOtGlyphs[_emi].advanceWidth || resolvedFontCtx.font.unitsPerEm) * _eFontScale;
         }
         var _availW = Math.max(0, nodeWidth - _eWidth);
         // 若兜底路径也没有（字体极端情况），退出省略号模式走普通单行
@@ -1763,8 +1789,8 @@ function convertTextNode(irNode, guid, parentGuid, siblingIndex, fontCtx, blobs,
           var _eBlob = encodeGlyphBlob(_eGlyph);
           var _eBlobIdx = blobs.length;
           blobs.push({ bytes: _eBlob });
-          var _eAdvNorm = (_eGlyph.advanceWidth || fontCtx.font.unitsPerEm) / fontCtx.font.unitsPerEm;
-          var _eAdvPx = (_eGlyph.advanceWidth || fontCtx.font.unitsPerEm) * _eFontScale;
+          var _eAdvNorm = (_eGlyph.advanceWidth || resolvedFontCtx.font.unitsPerEm) / resolvedFontCtx.font.unitsPerEm;
+          var _eAdvPx = (_eGlyph.advanceWidth || resolvedFontCtx.font.unitsPerEm) * _eFontScale;
           figmaGlyphs.push({
             commandsBlob: _eBlobIdx,
             position: { x: _eXStart, y: measured.ascender },
@@ -1818,11 +1844,18 @@ function convertTextNode(irNode, guid, parentGuid, siblingIndex, fontCtx, blobs,
       baselines: figmaBaselines,
       glyphs: figmaGlyphs,
       fontMetaData: [{
-        key: { family: fontName.family, style: fontName.style, postscript: '' },
+        // key 必须与 fontDigest 对应：我们始终用 PingFangSC-Regular 做字形测量，
+        // key/digest/fontWeight 与实际加载的字体文件一一对应，
+        // 保证 Figma 能通过 digest 验证字形数据合法，从而立即渲染。
+        key: {
+          family: 'PingFang SC',
+          style: resolvedFontCtx.style || 'Regular',
+          postscript: resolvedFontCtx.postscript || 'PingFangSC-Regular',
+        },
         fontLineHeight: measured.lineHeight / fontSize,
-        fontDigest: fontCtx.fontDigest,
+        fontDigest: resolvedFontCtx.fontDigest,
         fontStyle: 'NORMAL',
-        fontWeight: style.fontWeight || 400,
+        fontWeight: _clampedWeight,
       }],
       truncationStartIndex: _truncationStartIdx,
       truncatedHeight: -1,
@@ -2036,12 +2069,23 @@ function buildClipboardHtml(metaObj, archiveBuf) {
 /**
  * 将 IR JSON 转为 Figma 剪切板 HTML
  * @param {object} irPayload - elementToMybricksJsonWithInlineImages 的返回值 { page: { content: [...] } }
- * @param {object} [fontCtx] - 可选，字体上下文 { font: opentype.Font, fontDigest: Uint8Array }
- *   当提供时，文本节点会生成 derivedTextData + glyph blob，粘贴后立即渲染（无需双击）。
- *   不提供时仍可正常粘贴，但文本需要双击才能显示。
+ * @param {object} [fontCtxOrMap] - 可选，支持两种格式：
+ *   - 旧格式：{ font, fontDigest }（单字重，向后兼容）
+ *   - 新格式：{ 300: ctx, 400: ctx, 500: ctx, 600: ctx }（多字重，推荐）
+ *   提供时文本节点生成 derivedTextData + glyph blob，粘贴后立即渲染（无需双击）。
  * @returns {string} 可直接写入 clipboard 的 HTML
  */
-function convertIRToFigmaClipboardHtml(irPayload, fontCtx) {
+function convertIRToFigmaClipboardHtml(irPayload, fontCtxOrMap) {
+  // 兼容旧的单 ctx 格式：{ font, fontDigest } → 包装为 weight=400 的 map
+  var fontCtxMap = null;
+  if (fontCtxOrMap) {
+    if (fontCtxOrMap.font) {
+      fontCtxMap = { 400: fontCtxOrMap };
+    } else {
+      fontCtxMap = fontCtxOrMap;
+    }
+  }
+
   var compiled = _getCompiled();
   var schemaChunk = _getSchemaChunk();
   var pako = _getPako();
@@ -2058,7 +2102,7 @@ function convertIRToFigmaClipboardHtml(irPayload, fontCtx) {
   var imageCtx = { byHash: {} };
   var rootIR = page.content[0];
   var canvasGuid = { sessionID: 0, localID: 1 };
-  var allNodeChanges = convertNode(rootIR, canvasGuid, 0, fontCtx || null, blobs, null, imageCtx);
+  var allNodeChanges = convertNode(rootIR, canvasGuid, 0, fontCtxMap, blobs, null, imageCtx);
   if (typeof console !== 'undefined' && console.log) {
     var _imageCount = Object.keys(imageCtx.byHash || {}).length;
     console.log('[figma image] 剪贴板打包完成', { imageCount: _imageCount, blobCount: blobs.length });
