@@ -13,6 +13,10 @@ var _kiwiSchema = require('./vendors/kiwi-schema');
 var _schemaData = require('./schema-data');
 var _svgPathDataLib = require('./vendors/svg-pathdata');
 
+// 组件库映射模板（可选），缺失时降级为普通 frame 绘制
+var _componentTemplate = null;
+try { _componentTemplate = require('./figma-component-template'); } catch (e) {}
+
 var _compiledSchema = null;
 var _schemaChunkBytes = null;
 
@@ -1338,6 +1342,14 @@ function convertNode(irNode, parentGuid, siblingIndex, fontCtxMap, blobs, parent
     changes.push(convertSvgNode(irNode, guid, parentGuid, siblingIndex, parentLayoutMode, blobs, imageCtxGlobal));
   } else if (type === 'image') {
     changes.push(convertImageNode(irNode, guid, parentGuid, siblingIndex, parentLayoutMode, blobs, imageCtxGlobal));
+  } else if (type === 'figma-instance') {
+    var inst = convertInstanceNode(irNode, guid, parentGuid, siblingIndex);
+    if (inst) {
+      changes.push(inst);
+    } else {
+      // 模板中找不到对应 componentKey，降级为普通 frame 绘制
+      changes.push(convertFrameNode(irNode, guid, parentGuid, siblingIndex, parentLayoutMode, blobs, imageCtxGlobal));
+    }
   } else {
     var frameChange = convertFrameNode(irNode, guid, parentGuid, siblingIndex, parentLayoutMode, blobs, imageCtxGlobal);
     changes.push(frameChange);
@@ -1355,6 +1367,50 @@ function convertNode(irNode, parentGuid, siblingIndex, fontCtxMap, blobs, parent
   }
 
   return changes;
+}
+
+// ─── Figma 组件库实例节点转换 ───
+// 将 IR 中 type='figma-instance' 的节点转为 Figma INSTANCE NodeChange。
+// 依赖 _componentTemplate 的 componentKeyIndex 查 symbolGuid；找不到时返回 null（调用方降级为 frame）。
+function convertInstanceNode(irNode, guid, parentGuid, siblingIndex) {
+  var ck = irNode.figmaComponentKey;
+  var tpl = _componentTemplate;
+  var entry = tpl && tpl.componentKeyIndex && tpl.componentKeyIndex[ck];
+  if (!entry) return null;
+
+  var symbolGuid = { sessionID: entry.sessionID, localID: entry.localID };
+  var style = irNode.style || {};
+  var instanceText = irNode.name || 'Instance';
+
+  var symData = { symbolID: symbolGuid, uniformScaleFactor: 1 };
+
+  if (entry.textOverrideKey && instanceText) {
+    symData.symbolOverrides = [{
+      guidPath: { guids: [entry.textOverrideKey] },
+      textData: {
+        characters: instanceText,
+        lines: [{ lineType: 'PLAIN', styleId: 0, indentationLevel: 0,
+                  sourceDirectionality: 'AUTO', listStartOffset: 0, isFirstLineOfList: false }],
+      },
+      textUserLayoutVersion: 5,
+      textExplicitLayoutVersion: 1,
+    }];
+  }
+
+  return {
+    guid: guid,
+    phase: 'CREATED',
+    type: 'INSTANCE',
+    name: instanceText,
+    parentIndex: { guid: parentGuid, position: positionForIndex(siblingIndex) },
+    transform: makeTransform(style.x || 0, style.y || 0),
+    size: { x: style.width || 100, y: style.height || 32 },
+    symbolData: symData,
+    visible: true,
+    opacity: 1,
+    blendMode: 'NORMAL',
+    stackPositioning: 'AUTO',
+  };
 }
 
 function convertSvgNode(irNode, guid, parentGuid, siblingIndex, parentLayoutMode, blobs, imageCtxGlobal) {
@@ -1617,6 +1673,11 @@ function convertTextNode(irNode, guid, parentGuid, siblingIndex, fontCtxMap, blo
   var _contentLines = content.split('\n');
   var _isMultiLine = _contentLines.length > 1;
   if (_isMultiLine) {
+    // 多行行间距必须使用 CSS line-height（style.lineHeight），不能用 measured.lineHeight。
+    // measured.lineHeight = opentype ascender+descender（字体包围盒），对 PingFang SC 等 CJK 字体
+    // 远小于 CSS 行高（如 fontSize=14 时约 10px vs CSS 20px），会导致多行字形严重重叠，
+    // Figma 初始渲染看不出换行，双击重渲后才正常。
+    if (style.lineHeight) lineHeightVal = style.lineHeight;
     // 多行高度 = 行数 × 单行行高
     nodeHeight = _contentLines.length * lineHeightVal;
     // 多行文本需要固定宽度（如 style 无宽度则用兜底值）
@@ -1627,6 +1688,28 @@ function convertTextNode(irNode, guid, parentGuid, siblingIndex, fontCtxMap, blo
   if (_isMultiLine) {
     // 多行：宽度固定，高度随内容自适应
     textAutoResize = 'HEIGHT';
+  }
+
+  // ── 富文本颜色范围（来自 inline span 子节点的 colorRuns）──
+  // characterStyleIDs: 长度 = content.length，0 = 默认颜色，非零 = styleOverrideTable 条目的 styleID
+  // styleOverrideTable: NodeChange 数组，每条有 styleID + fillPaints 覆写颜色
+  var _charStyleIDs = null;  // Array<uint>
+  var _styleOverrides = null; // Array<{ styleID, fillPaints }>
+  if (style.colorRuns && style.colorRuns.length > 0) {
+    _charStyleIDs = new Array(content.length).fill(0);
+    _styleOverrides = [];
+    for (var _cri = 0; _cri < style.colorRuns.length; _cri++) {
+      var _cr = style.colorRuns[_cri];
+      var _crStyleID = _cri + 1; // 1-indexed，0 保留给默认样式
+      for (var _crcIdx = Math.max(0, _cr.start); _crcIdx < _cr.end && _crcIdx < content.length; _crcIdx++) {
+        _charStyleIDs[_crcIdx] = _crStyleID;
+      }
+      var _crPaint = makeSolidPaint(_cr.color);
+      _styleOverrides.push({
+        styleID: _crStyleID,
+        fillPaints: _crPaint ? [_crPaint] : undefined,
+      });
+    }
   }
 
   var nc = {
@@ -1643,14 +1726,20 @@ function convertTextNode(irNode, guid, parentGuid, siblingIndex, fontCtxMap, blo
     strokeAlign: 'OUTSIDE',
     strokeJoin: 'MITER',
     fillPaints: fillPaints,
-    textData: {
-      characters: content,
-      lines: (function() {
-        var _lo = { lineType: 'PLAIN', styleId: 0, indentationLevel: 0, sourceDirectionality: 'AUTO', listStartOffset: 0, isFirstLineOfList: false };
-        if (!_isMultiLine) return [_lo];
-        return _contentLines.map(function() { return _lo; });
-      })(),
-    },
+    textData: (function() {
+      var _td = {
+        characters: content,
+        lines: (function() {
+          var _lo = { lineType: 'PLAIN', styleId: 0, indentationLevel: 0, sourceDirectionality: 'AUTO', listStartOffset: 0, isFirstLineOfList: false };
+          if (!_isMultiLine) return [_lo];
+          return _contentLines.map(function() { return _lo; });
+        })(),
+      };
+      // 富文本：同一 text 节点内不同字符的颜色覆写
+      if (_charStyleIDs) _td.characterStyleIDs = _charStyleIDs;
+      if (_styleOverrides) _td.styleOverrideTable = _styleOverrides;
+      return _td;
+    })(),
     fontName: fontName,
     fontSize: fontSize,
     textAlignVertical: style.textAlignVertical || 'TOP',
@@ -1700,13 +1789,16 @@ function convertTextNode(irNode, guid, parentGuid, siblingIndex, fontCtxMap, blo
           var _gblob = encodeGlyphBlob(_gd.otGlyph);
           var _gblobIdx = blobs.length;
           blobs.push({ bytes: _gblob });
-          figmaGlyphs.push({
+          var _glyphObj = {
             commandsBlob: _gblobIdx,
             position: { x: _gd.x + _lineXOffset, y: _lineYBase + measured.ascender },
             fontSize: fontSize,
             firstCharacter: _charOffset + _gi,
             advance: _gd.advanceNorm,
-          });
+          };
+          var _gStyleID = _charStyleIDs ? _charStyleIDs[_charOffset + _gi] : 0;
+          if (_gStyleID) _glyphObj.styleID = _gStyleID;
+          figmaGlyphs.push(_glyphObj);
         }
         figmaBaselines.push({
           firstCharacter: _charOffset,
@@ -1819,13 +1911,16 @@ function convertTextNode(irNode, guid, parentGuid, siblingIndex, fontCtxMap, blo
           var blob = encodeGlyphBlob(gd.otGlyph);
           var blobIndex = blobs.length;
           blobs.push({ bytes: blob });
-          figmaGlyphs.push({
+          var _slGlyphObj = {
             commandsBlob: blobIndex,
             position: { x: gd.x + _slXOffset, y: measured.ascender },
             fontSize: fontSize,
             firstCharacter: gi,
             advance: gd.advanceNorm,
-          });
+          };
+          var _slGStyleID = _charStyleIDs ? _charStyleIDs[gi] : 0;
+          if (_slGStyleID) _slGlyphObj.styleID = _slGStyleID;
+          figmaGlyphs.push(_slGlyphObj);
         }
         figmaBaselines.push({
           firstCharacter: 0,
@@ -2000,7 +2095,7 @@ function buildSceneMessage(contentNodes, opts, blobs) {
         backgroundOpacity: 1,
         backgroundEnabled: true,
       },
-    ].concat(contentNodes).concat([
+    ].concat(contentNodes).concat(opts.iocNodes || [
       {
         guid: { sessionID: 20000069, localID: 2 },
         phase: 'CREATED',
@@ -2108,7 +2203,14 @@ function convertIRToFigmaClipboardHtml(irPayload, fontCtxOrMap) {
     console.log('[figma image] 剪贴板打包完成', { imageCount: _imageCount, blobCount: blobs.length });
   }
 
-  var message = buildSceneMessage(allNodeChanges, {}, blobs);
+  // 若模板存在，注入 fileKey + IOC Canvas/SYMBOL 节点，让 Figma 能解析库组件引用
+  var _msgOpts = {};
+  var tpl = _componentTemplate;
+  if (tpl && tpl.iocCanvasNode) {
+    _msgOpts.fileKey = tpl.fileKey;
+    _msgOpts.iocNodes = [tpl.iocCanvasNode].concat(tpl.componentNodes || []);
+  }
+  var message = buildSceneMessage(allNodeChanges, _msgOpts, blobs);
   var encoded = compiled.encodeMessage(message);
   var msgChunk = pako.deflateRaw(encoded);
   var archive = buildArchive(schemaChunk, msgChunk);

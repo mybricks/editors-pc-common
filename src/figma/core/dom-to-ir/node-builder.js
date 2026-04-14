@@ -107,6 +107,39 @@ function inferNodeType(el, computed, tag) {
       return 'text';
     }
   }
+  // "纯内联子节点文本段落"检测：
+  // 若父元素为非 flex/grid 的块级元素，且所有子元素均为 inline/inline-block/inline-flex
+  // （如 <span>/<a>/<em> 等），则整体当 text 节点处理。
+  // 原因：inline 子节点处于文本流中，各片段无法用绝对定位在 Figma 中精确还原，
+  // 合并为单个 text 节点后再用 Range 检测视觉断行，位置和换行均正确。
+  // 例外：若任一子元素有背景色（如 badge/tag）则跳过合并，保持 frame 处理。
+  if (hasElementChildren && !isFlex && computed.display !== 'grid') {
+    var _allChildInline = true;
+    var _anyChildHasBg = false;
+    for (var _ici = 0; _ici < el.children.length; _ici++) {
+      var _childEl = el.children[_ici];
+      var _childComp = window.getComputedStyle(_childEl);
+      var _childDisp = _childComp.display;
+      if (_childDisp !== 'inline' && _childDisp !== 'inline-block' && _childDisp !== 'inline-flex') {
+        _allChildInline = false;
+        break;
+      }
+      var _childBg = _childComp.backgroundColor || '';
+      if (_childBg && _childBg !== 'rgba(0, 0, 0, 0)' && _childBg !== 'transparent') {
+        _anyChildHasBg = true;
+      }
+    }
+    if (_allChildInline && !_anyChildHasBg && /\S/.test(el.textContent || '')) {
+      // 父元素本身无视觉容器背景/圆角，整体当 text 处理
+      var _pBg = computed.backgroundColor || '';
+      var _pHasBg = _pBg && _pBg !== 'rgba(0, 0, 0, 0)' && _pBg !== 'transparent';
+      var _pRadius = computed.borderRadius || computed.borderTopLeftRadius || '';
+      var _pHasRadius = _pRadius && _pRadius !== '0px' && _pRadius !== '0';
+      if (!_pHasBg && !_pHasRadius) {
+        return 'text';
+      }
+    }
+  }
   // 既有子元素又有文本时当作容器，子列表里会包含文本节点
   if (isFlex || isBlock) return 'frame';
   return 'group';
@@ -294,6 +327,10 @@ function getTextWithActualLineBreaksForElement(el) {
   var prevTop = null;
   for (var p = 0; p < pieces.length; p++) {
     var piece = pieces[p];
+    // Skip original '\n' chars from the HTML source: in white-space:normal they're rendered as
+    // spaces by the browser, not actual line breaks. We insert our own '\n' from visual detection
+    // below. Keeping them would cause a double '\n' (source char + detected visual break).
+    if (piece.ch === '\n') continue;
     if (piece.top !== null && prevTop !== null && piece.top > prevTop + 2) result += '\n';
     result += piece.ch;
     if (piece.top !== null) prevTop = piece.top;
@@ -803,6 +840,75 @@ function getPseudoShapeNode(el, pseudo, ps, geo, parentRect, elRect) {
 }
 
 
+/**
+ * 对含 inline span 子节点的文本元素，提取各 span 的颜色范围，用于 Figma 富文本 characterStyleIDs。
+ * 仅返回颜色与父元素不同的 span 对应的范围，格式为 [{ start, end, color }]（索引基于 finalContent）。
+ *
+ * 原理：
+ *   1. 遍历 el.childNodes，对文本节点按顺序推进搜索位置；对 span 元素在 finalContent（含视觉 \n）
+ *      中搜索其文本，记录 [start, end) 索引与颜色。
+ *   2. 用 mapRawIdx() 将「忽略 \n 的裸字符索引」转换为 finalContent 的实际字符索引。
+ *
+ * @param {Element} el - 父文本元素（inferNodeType 返回 'text' 且有 children 时使用）
+ * @param {string}  finalContent - 已处理的最终文本（含视觉 \n，由 getTextContent/getTextWithActualLineBreaks 产出）
+ * @param {string|null} parentColorStr - 父元素计算颜色字符串，用于过滤相同颜色的 span（不需要记录）
+ * @returns {Array<{start:number, end:number, color:string}>|null}
+ */
+function getColorRunsFromInlineElement(el, finalContent, parentColorStr) {
+  if (!el || !finalContent || !el.children || el.children.length === 0) return null;
+
+  // 将「裸字符索引（忽略 \n）」映射到 finalContent 中的实际字符索引
+  function mapRawIdx(rawIdx) {
+    var count = 0;
+    for (var ci = 0; ci < finalContent.length; ci++) {
+      if (count === rawIdx) return ci;
+      if (finalContent[ci] !== '\n') count++;
+    }
+    return finalContent.length;
+  }
+
+  var contentNoNl = finalContent.replace(/\n/g, '');
+  var searchFrom = 0; // 在 contentNoNl 中从此位置开始搜索，保持与 DOM 顺序一致
+  var runs = [];
+
+  for (var i = 0; i < el.childNodes.length; i++) {
+    var child = el.childNodes[i];
+    if (child.nodeType === 3) {
+      // 文本节点：在 contentNoNl 中找到对应位置后推进 searchFrom
+      var tRaw = (child.textContent || '').replace(/\n/g, '');
+      if (!tRaw) continue;
+      var tIdx = contentNoNl.indexOf(tRaw, searchFrom);
+      if (tIdx !== -1) searchFrom = tIdx + tRaw.length;
+      else searchFrom = Math.min(searchFrom + tRaw.length, contentNoNl.length);
+    } else if (child.nodeType === 1) {
+      var spanComp = window.getComputedStyle(child);
+      var spanColor = spanComp.color;
+      var spanRaw = (child.textContent || '').replace(/\n/g, '');
+      if (!spanRaw) continue;
+
+      var spanIdx = contentNoNl.indexOf(spanRaw, searchFrom);
+      if (spanIdx === -1) {
+        searchFrom = Math.min(searchFrom + spanRaw.length, contentNoNl.length);
+        continue;
+      }
+      var spanRawStart = spanIdx;
+      var spanRawEnd = spanIdx + spanRaw.length;
+      searchFrom = spanRawEnd;
+
+      // 只记录颜色与父元素不同的 span（相同颜色无需覆写）
+      if (spanColor && spanColor !== parentColorStr && spanColor !== 'rgba(0, 0, 0, 0)') {
+        runs.push({
+          start: mapRawIdx(spanRawStart),
+          end: mapRawIdx(spanRawEnd),
+          color: spanColor,
+        });
+      }
+    }
+  }
+
+  return runs.length > 0 ? runs : null;
+}
+
 if (typeof module !== 'undefined') {
   module.exports = {
     shouldSetTextAlignVerticalCenterForAbsoluteTextLeaf: shouldSetTextAlignVerticalCenterForAbsoluteTextLeaf,
@@ -820,5 +926,6 @@ if (typeof module !== 'undefined') {
     isShowingPlaceholder: isShowingPlaceholder,
     getPseudoTextNode: getPseudoTextNode,
     getPseudoShapeNode: getPseudoShapeNode,
+    getColorRunsFromInlineElement: getColorRunsFromInlineElement,
   };
 }

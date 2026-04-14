@@ -78,13 +78,14 @@
   isShowingPlaceholder = _nb.isShowingPlaceholder;
   getPseudoTextNode = _nb.getPseudoTextNode;
   getPseudoShapeNode = _nb.getPseudoShapeNode;
+  getColorRunsFromInlineElement = _nb.getColorRunsFromInlineElement;
   // image-inline
   fetchImageAsBase64DataUrl = _ii.fetchImageAsBase64DataUrl;
   inlineImageFillsInTree = _ii.inlineImageFillsInTree;
 })();
 
 /* ── Stub declarations for Node/webpack module resolution */
-var SHADOW_HOST_ID, GEOVIEW_WRAPPER_ID, getShadowHost, resolveFrameRoot, getCssRulesBySelector, getGeoviewScaleAndOrigin, getDesignRect, hasClassPrefix, simpleSelectorMatches, getMatchedSelectorsForElement, getDeclaredStyleForElement, getFrameTitleFromElement, findArtboardIdFromElement, emptyRoot, normalizeSvgPathForFigma, parseUrlFromBgImage, parseLinearGradientFromBgImage, parseRadialGradientFromBgImage, parseBoxShadow, parseBorderShorthand, parseGridTemplateColumnsCount, serializeSvgElement, parseTransformRotation, cssColorToHex, cssColorToRgba, parseFontFamilyStack, resolveFontFamilyFromStack, getGlobalFont, buildInlineTextStyle, buildStyleJSON, getM, pruneChildMarginsAfterGapMerge, anyChildHasMargin, childrenHaveUniformMargin, applyUniformMarginAsGap, ensureItemSpacingFromPositions, shouldSetTextAlignVerticalCenterForAbsoluteTextLeaf, inferNodeType, shouldMergeTextAndBrChildren, mergeTextAndBrChildNodesContent, getElementContentsTextBlockRect, getTextNodeRect, shouldMarkWidthConstrainedForEdgeWhitespace, applyWidthConstrainedForFigmaEdgeWhitespace, applyTextOverflowEllipsisExport, normalizeTextExportPreserveTrailing, getTextContent, getTextWithActualLineBreaksForElement, isShowingPlaceholder, getPseudoTextNode, getPseudoShapeNode, fetchImageAsBase64DataUrl, inlineImageFillsInTree;
+var SHADOW_HOST_ID, GEOVIEW_WRAPPER_ID, getShadowHost, resolveFrameRoot, getCssRulesBySelector, getGeoviewScaleAndOrigin, getDesignRect, hasClassPrefix, simpleSelectorMatches, getMatchedSelectorsForElement, getDeclaredStyleForElement, getFrameTitleFromElement, findArtboardIdFromElement, emptyRoot, normalizeSvgPathForFigma, parseUrlFromBgImage, parseLinearGradientFromBgImage, parseRadialGradientFromBgImage, parseBoxShadow, parseBorderShorthand, parseGridTemplateColumnsCount, serializeSvgElement, parseTransformRotation, cssColorToHex, cssColorToRgba, parseFontFamilyStack, resolveFontFamilyFromStack, getGlobalFont, buildInlineTextStyle, buildStyleJSON, getM, pruneChildMarginsAfterGapMerge, anyChildHasMargin, childrenHaveUniformMargin, applyUniformMarginAsGap, ensureItemSpacingFromPositions, shouldSetTextAlignVerticalCenterForAbsoluteTextLeaf, inferNodeType, shouldMergeTextAndBrChildren, mergeTextAndBrChildNodesContent, getElementContentsTextBlockRect, getTextNodeRect, shouldMarkWidthConstrainedForEdgeWhitespace, applyWidthConstrainedForFigmaEdgeWhitespace, applyTextOverflowEllipsisExport, normalizeTextExportPreserveTrailing, getTextContent, getTextWithActualLineBreaksForElement, isShowingPlaceholder, getPseudoTextNode, getPseudoShapeNode, getColorRunsFromInlineElement, fetchImageAsBase64DataUrl, inlineImageFillsInTree;
 
 /**
  * ★ Figma 组件库映射开关
@@ -215,6 +216,21 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
 
     // ant-checkbox-inner 是 checkbox 的纯视觉方框，当启用组件库映射时由 Figma 变体组件负责渲染，跳过
     if (COMPONENT_LIBRARY_ENABLED && el.classList && el.classList.contains('ant-checkbox-inner')) return null;
+
+    // ── Figma 组件库实例映射：<button> → 按钮变体 ──
+    // ant-btn-primary → 一级按钮，其他 → 二级按钮
+    if (COMPONENT_LIBRARY_ENABLED && tag === 'button') {
+      var _btnCls = (typeof el.className === 'string') ? el.className : '';
+      var _isPrimary = _btnCls.indexOf('btnSearch') !== -1;
+      return {
+        type: 'figma-instance',
+        figmaComponentKey: _isPrimary
+          ? '25b631121259ef348009e6cdc75fe2db40fcf38e'
+          : '0d72cf9591f663c61227e0086043266b9a523fcc',
+        name: (el.textContent || '').replace(/\s+/g, ' ').trim() || 'Button',
+        style: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
+      };
+    }
 
     // display:contents 节点自身不作为独立 frame，直接将其子节点合并到父级
     if (isDisplayContents) {
@@ -357,6 +373,15 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
       if (nodeType === 'text' && node.style && !node.style.singleLine) {
         var _cwb = getTextWithActualLineBreaksForElement(el);
         if (_cwb) node.content = _cwb;
+      }
+      // 含 inline span 子节点时提取颜色范围（colorRuns），传递到 Figma 的 characterStyleIDs 机制，
+      // 实现同一文本节点内不同字符分别着色（如段落内高亮关键词）。
+      if (nodeType === 'text' && node.style && el.children && el.children.length > 0) {
+        var _parentColorStr = computed ? computed.color : null;
+        var _colorRuns = getColorRunsFromInlineElement(el, node.content, _parentColorStr);
+        if (_colorRuns && _colorRuns.length > 0) {
+          node.style.colorRuns = _colorRuns;
+        }
       }
       // input/textarea 浏览器默认垂直居中，Figma text 节点需要显式设置
       var _itag = (el.tagName || '').toLowerCase();
@@ -602,6 +627,26 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
             };
             if (node.selectors && node.selectors.length) textNodeJson.selectors = node.selectors.slice();
             if (node.className) textNodeJson.className = node.className;
+            // frame 内换行文本子节点：buildInlineTextStyle 若判为 singleLine:false（多行），
+            // 用 Range 逐字符检测视觉断行点并写入 \n，使 ir-to-figma 按多行生成正确字形，
+            // 避免 Figma 初始渲染为单行、需双击才换行的问题。
+            if (textNodeJson.style && textNodeJson.style.singleLine === false) {
+              try {
+                var _cwr = ''; var _cwrPrevTop = null;
+                var _cwrRng = document.createRange();
+                var _cwrT = child.textContent || '';
+                for (var _cwrI = 0; _cwrI < _cwrT.length; _cwrI++) {
+                  _cwrRng.setStart(child, _cwrI);
+                  _cwrRng.setEnd(child, _cwrI + 1);
+                  var _cwrRects = _cwrRng.getClientRects();
+                  var _cwrTop = (_cwrRects && _cwrRects.length) ? Math.round(_cwrRects[0].top) : null;
+                  if (_cwrTop !== null && _cwrPrevTop !== null && _cwrTop > _cwrPrevTop + 2) _cwr += '\n';
+                  _cwr += _cwrT[_cwrI];
+                  if (_cwrTop !== null) _cwrPrevTop = _cwrTop;
+                }
+                if (_cwr.indexOf('\n') !== -1) textNodeJson.content = _cwr;
+              } catch (_eCwr) {}
+            }
             applyTextOverflowEllipsisExport(textNodeJson, el, window.getComputedStyle(el), geo, child, rect);
             applyWidthConstrainedForFigmaEdgeWhitespace(textNodeJson);
             childNodes.push(textNodeJson);
@@ -747,6 +792,17 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
               }
             }
           }
+        }
+        // CSS Grid 显式放置降级：有 layoutGridColumns 的容器说明是 display:grid 且有 grid-template-columns。
+        // 此类容器的子节点通过 grid-area 显式定位（可能跨列/跨行），Auto Layout WRAP 会忽略子节点的
+        // x/y 坐标，导致单元格错位。子节点的 getBoundingClientRect() 已包含正确的绝对坐标，
+        // 直接使用绝对定位可还原真实布局，无需 Auto Layout。
+        if (node.style && node.style.layoutGridColumns != null) {
+          delete node.style.layoutMode;
+          delete node.style.itemSpacing;
+          delete node.style.layoutWrap;
+          delete node.style.counterAxisSpacing;
+          delete node.style.layoutGridColumns;
         }
         // 保持 DOM 原始子节点顺序，避免将所有 absolute 节点统一抬到最上层。
         // 对于“背景图 + 文本”场景，背景图通常在 DOM 更靠前，需保持在文字下方。

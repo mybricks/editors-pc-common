@@ -135,6 +135,7 @@ function buildInlineTextStyle(parentEl, computed, textRect, parentRect, cssRuleM
     var _itLh = (_itLhRaw && _itLhRaw !== 'normal') ? parseFloat(_itLhRaw) : null;
     if (_itLh != null && !Number.isNaN(_itLh) && _itLh > 0) {
       style.singleLine = _itH <= _itLh * 1.2;
+      style.lineHeight = _itLh;
     } else {
       style.singleLine = _itH < _itFs * 2;
     }
@@ -300,9 +301,29 @@ function buildStyleJSON(el, computed, rect, parentRect, cssRuleMap, globalFont) 
   } else if (bgImageFromBackground && (bgImageFromBackground.indexOf('linear-gradient') >= 0 || bgImageFromBackground.indexOf('radial-gradient') >= 0)) {
     bgImage = bgImageFromBackground;
   }
+  // 检测 background-size 是否为具体像素值（如 "200px 200px"），若是则该渐变为平铺图案。
+  // Figma 的 GRADIENT_LINEAR 不支持平铺，需在内联阶段用 Canvas 绘制成位图，以 IMAGE TILE 写入。
+  var _bgSizeRaw = d(['background-size', 'backgroundSize']) || computed.backgroundSize || '';
+  var _bgTileW = 0, _bgTileH = 0;
+  (function () {
+    if (!_bgSizeRaw) return;
+    var _parts = _bgSizeRaw.trim().split(/\s+/);
+    var _kw = /^(auto|cover|contain)$/i;
+    if (_parts[0] && !_kw.test(_parts[0])) {
+      var _w = parseFloat(_parts[0]);
+      var _h = _parts.length >= 2 && !_kw.test(_parts[1]) ? parseFloat(_parts[1]) : _w;
+      if (!isNaN(_w) && _w > 0 && !isNaN(_h) && _h > 0) {
+        _bgTileW = _w;
+        _bgTileH = _h;
+      }
+    }
+  })();
   var gradientFill = bgImage ? (parseLinearGradientFromBgImage(bgImage) || parseRadialGradientFromBgImage(bgImage)) : null;
   var imageUrl = bgImage ? parseUrlFromBgImage(bgImage) : null;
-  if (gradientFill) {
+  if (gradientFill && _bgTileW > 0 && _bgTileH > 0) {
+    // 平铺渐变：标记为 TILED_GRADIENT，由 image-inline.js 在异步阶段用 Canvas 渲染成位图后以 IMAGE TILE 写入
+    style.fills = [{ type: 'TILED_GRADIENT', bgImage: bgImage, bgSizeW: _bgTileW, bgSizeH: _bgTileH }];
+  } else if (gradientFill) {
     // 同时保留背景色作为底层 fill，避免渐变透明区域在 Figma 中透出阴影导致整体变深
     var _bgColorDecl = d(['background-color', 'backgroundColor']) || computed.backgroundColor;
     // 若声明层取到的是 CSS 变量，回退到 computed 实际解析值

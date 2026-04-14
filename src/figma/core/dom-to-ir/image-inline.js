@@ -86,6 +86,47 @@ function fetchImageAsBase64DataUrl(url) {
     });
 }
 
+/**
+ * 将 CSS linear-gradient/radial-gradient 字符串渲染为指定平铺尺寸的 PNG base64 data URL。
+ * 使用 SVG foreignObject 将 CSS 背景交给浏览器渲染引擎处理，避免手动解析渐变角度。
+ * 纯 CSS 内容（无外部 URL 引用）不会污染 Canvas，可安全调用 toDataURL。
+ */
+function renderTiledGradientToDataUrl(bgImage, tileW, tileH) {
+  return new Promise(function (resolve, reject) {
+    // 转义 HTML 属性中的特殊字符（gradient 字符串里偶尔含双引号）
+    var escapedBgImage = bgImage.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+    var svgStr = '<svg xmlns="http://www.w3.org/2000/svg"'
+      + ' width="' + tileW + '" height="' + tileH + '">'
+      + '<foreignObject width="' + tileW + '" height="' + tileH + '">'
+      + '<div xmlns="http://www.w3.org/1999/xhtml"'
+      + ' style="width:' + tileW + 'px;height:' + tileH + 'px;'
+      + 'background-image:' + escapedBgImage + ';'
+      + 'background-size:' + tileW + 'px ' + tileH + 'px;'
+      + 'background-repeat:no-repeat;">'
+      + '</div>'
+      + '</foreignObject>'
+      + '</svg>';
+    var svgDataUrl = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgStr);
+    var img = new window.Image();
+    img.onload = function () {
+      var canvas = document.createElement('canvas');
+      canvas.width = tileW;
+      canvas.height = tileH;
+      var ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+      try {
+        resolve(canvas.toDataURL('image/png'));
+      } catch (e) {
+        reject(e);
+      }
+    };
+    img.onerror = function () {
+      reject(new Error('[tiled-gradient] SVG foreignObject render failed for: ' + bgImage.slice(0, 80)));
+    };
+    img.src = svgDataUrl;
+  });
+}
+
 /** 递归将树中 style.fills 里 type===IMAGE 且仅有 url 的项，请求图片并写入 content（base64 data URL）。 */
 function inlineImageFillsInTree(obj, options) {
   if (!obj) return Promise.resolve();
@@ -99,7 +140,7 @@ function inlineImageFillsInTree(obj, options) {
   var stats = ctxOptions.__imageInlineStats;
   var promises = [];
 
-  // 处理 style.fills 里的 IMAGE fill
+  // 处理 style.fills 里的 IMAGE fill 和 TILED_GRADIENT fill
   var style = obj.style;
   if (style && style.fills && Array.isArray(style.fills)) {
     style.fills.forEach(function (fill, i) {
@@ -115,8 +156,27 @@ function inlineImageFillsInTree(obj, options) {
             console.warn('[image fill] 内联失败（可能是跨域/CORS）', fill.url, err && err.message);
           })
         );
+      } else if (fill && fill.type === 'TILED_GRADIENT' && fill.bgImage) {
+        // 平铺渐变：用 Canvas+SVG foreignObject 渲染平铺单元格，以 IMAGE TILE 写入 Figma
+        stats.attempts += 1;
+        var _tileW = fill.bgSizeW || 100;
+        var _tileH = fill.bgSizeH || 100;
+        promises.push(
+          renderTiledGradientToDataUrl(fill.bgImage, _tileW, _tileH).then(function (dataUrl) {
+            style.fills[i] = { type: 'IMAGE', content: dataUrl, scaleMode: 'TILE' };
+            stats.success += 1;
+            console.log('[tiled-gradient] 渲染成功', { tileW: _tileW, tileH: _tileH });
+          }).catch(function (err) {
+            // 降级：移除该 fill，避免 TILED_GRADIENT 泄漏到消费端
+            style.fills[i] = null;
+            stats.failed += 1;
+            console.warn('[tiled-gradient] 渲染失败，已降级移除该 fill', err && err.message);
+          })
+        );
       }
     });
+    // 清理降级后的 null 项（TILED_GRADIENT 渲染失败时置 null）
+    // 放在 Promise.all 之后统一清理，见下方 then 链
   }
 
   // 处理 type==='image' 节点的 content 字段（img 标签 src），将 URL 内联为 base64
@@ -134,6 +194,10 @@ function inlineImageFillsInTree(obj, options) {
   }
 
   return Promise.all(promises).then(function () {
+    // 清理 TILED_GRADIENT 渲染失败后置 null 的 fill 项
+    if (style && style.fills && Array.isArray(style.fills)) {
+      style.fills = style.fills.filter(function (f) { return f != null; });
+    }
     var children = obj.children;
     if (children && children.length) {
       return Promise.all(children.map(function (child) { return inlineImageFillsInTree(child, ctxOptions); }));

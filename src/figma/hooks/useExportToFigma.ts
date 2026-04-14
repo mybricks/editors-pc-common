@@ -106,7 +106,9 @@ export function useExportToFigma(
 
   const handleExport = React.useCallback(() => {
     if (loading) return;
-    const ele = comEle?.querySelector('[data-zone-type="page"]') as HTMLElement | null;
+    const ele = (comEle?.dataset?.zoneType === 'page'
+      ? comEle
+      : comEle?.querySelector('[data-zone-type="page"]')) as HTMLElement | null;
     if (!ele) {
       console.warn('[导出到 Figma] 未找到 [data-zone-type="page"] 元素');
       return;
@@ -141,7 +143,7 @@ export function useExportToFigma(
             to: 66,
             task: () =>
               elementToMybricksJsonWithInlineImages(ele, comId, {
-                componentLibraryEnabled: false,
+                componentLibraryEnabled: true,
               }),
             taskStartDelayMs: 320,
           });
