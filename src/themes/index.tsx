@@ -1,7 +1,7 @@
 import { EditorProps } from "@/interface";
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Colorpicker } from "../style_new/StyleEditor/components/Colorpicker";
-import { PlusOutlined, MinusOutlined, ReloadOutlined } from "../style_new/StyleEditor/components/Icon";
+// import { Colorpicker } from "../style_new/StyleEditor/components/Colorpicker";
+// import { PlusOutlined, MinusOutlined, ReloadOutlined } from "../style_new/StyleEditor/components/Icon";
 import { InputNumber } from "./InputNumber";
 import css from "./index.less";
 
@@ -343,12 +343,12 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
       {/* 标题行：主题 + 重置按钮 + 新增按钮 */}
       <div className={css.titleRow}>
         <span className={css.editorTitle}>主题</span>
-        <div className={css.resetBtn} data-mybricks-tip={`{content:'重置为默认主题',position:'left'}`} onClick={handleReset}>
+        {/* <div className={css.resetBtn} data-mybricks-tip={`{content:'重置为默认主题',position:'left'}`} onClick={handleReset}>
           <ReloadOutlined />
         </div>
         <div className={css.addTab} onClick={handleAddTheme}>
           <PlusOutlined />
-        </div>
+        </div> */}
       </div>
 
       {/* Tab 列表 */}
@@ -385,7 +385,7 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
                     {theme.name}
                   </span>
                 )}
-                {themeData.themes.length > 1 && (
+                {/* {themeData.themes.length > 1 && (
                   <span
                     className={css.tabCloseBtn}
                     onClick={(e) => { e.stopPropagation(); handleDeleteTheme(theme.id); }}
@@ -395,7 +395,7 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
                       <line x1="9" y1="1" x2="1" y2="9" />
                     </svg>
                   </span>
-                )}
+                )} */}
               </div>
             );
           })}
@@ -410,9 +410,9 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
           <div key={type} className={`${css.group} ${collapsed ? css.groupCollapsed : ""}`}>
             <div className={css.groupHeader}>
               <span className={css.groupTitle}>{label}</span>
-              <div className={css.addBtn} onClick={() => handleAdd(type)}>
+              {/* <div className={css.addBtn} onClick={() => handleAdd(type)}>
                 <PlusOutlined />
-              </div>
+              </div> */}
             </div>
 
             {!collapsed && items.map((themeVar) => (
@@ -420,23 +420,25 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
                 <div className={css.wrap}>
                   <div className={css.themeItem}>
                     {type === "color" && (
-                      <Colorpicker
-                        context={{}}
-                        value={themeVar.value || "#000000"}
-                        showSubTabs={false}
-                        disableVariable
-                        disableBackgroundImage
-                        disableGradient
-                        onChange={(result) => {
-                          const val = Array.isArray(result) ? result[0]?.value : (result as any)?.value;
-                          if (val) handleColorChange(themeVar.propertyName, val);
-                        }}
-                      >
-                        <div
-                          className={css.colorSwatch}
-                          style={{ backgroundColor: themeVar.value || "#000000" }}
-                        />
-                      </Colorpicker>
+                      <div style={{ pointerEvents: "none" }}>
+                        {/* <Colorpicker
+                          context={{}}
+                          value={themeVar.value || "#000000"}
+                          showSubTabs={false}
+                          disableVariable
+                          disableBackgroundImage
+                          disableGradient
+                          onChange={(result) => {
+                            const val = Array.isArray(result) ? result[0]?.value : (result as any)?.value;
+                            if (val) handleColorChange(themeVar.propertyName, val);
+                          }}
+                        > */}
+                          <div
+                            className={css.colorSwatch}
+                            style={{ backgroundColor: themeVar.value || "#000000" }}
+                          />
+                        {/* </Colorpicker> */}
+                      </div>
                     )}
 
                     {(type === "borderRadius" || type === "spacing") && (
@@ -447,12 +449,13 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
                           { label: "px", value: "px" },
                           { label: "%", value: "%" },
                         ]}
+                        disabled
                         onChange={(val) => handleValueChange(themeVar.propertyName, val)}
                       />
                     )}
 
                     <div className={css.themeInfo}>
-                      {editingKey === themeVar.propertyName ? (
+                      {/* {editingKey === themeVar.propertyName ? (
                         <input
                           className={css.titleInput}
                           defaultValue={themeVar.title}
@@ -471,14 +474,17 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
                         >
                           {themeVar.title}
                         </span>
-                      )}
+                      )} */}
+                      <span className={css.themeTitle}>
+                        {themeVar.title}
+                      </span>
                     </div>
                   </div>
                 </div>
 
-                <div className={css.deleteBtn} onClick={() => handleDelete(themeVar.propertyName, type)}>
+                {/* <div className={css.deleteBtn} onClick={() => handleDelete(themeVar.propertyName, type)}>
                   <MinusOutlined />
-                </div>
+                </div> */}
               </div>
             ))}
           </div>
