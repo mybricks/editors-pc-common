@@ -90,15 +90,38 @@ export function ProgressButton({
             zIndex: 1,
             display: 'inline-flex',
             alignItems: 'center',
+            maxWidth: '100%',
+            overflow: 'hidden',
           }}
         >
           {loading ? (
             <>
               <SpinIcon />
-              {progress.text} {displayPercent}%
+              <span
+                style={{
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  flexShrink: 1,
+                  minWidth: 0,
+                }}
+              >
+                {progress.text}
+              </span>
+              <span style={{ flexShrink: 0, marginLeft: 4 }}>
+                {displayPercent}%
+              </span>
             </>
           ) : (
-            label
+            <span
+              style={{
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {label}
+            </span>
           )}
         </span>
       </button>

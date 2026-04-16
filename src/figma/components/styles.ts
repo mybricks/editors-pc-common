@@ -14,6 +14,6 @@ export const figmaButtonStyle: React.CSSProperties = {
   justifyContent: 'center',
   fontSize: 12,
   color: 'var(--mybricks-text-color-main)',
-  padding: 0,
+  padding: '0 8px',
   boxSizing: 'border-box',
 };

@@ -6,7 +6,7 @@ import type { FigmaImportItem } from './types';
 export type { FigmaImportItem };
 
 function FigmaEditor({ editConfig }: any) {
-  const { value, edtContext } = editConfig;
+  const { value, edtContext, fontfaces } = editConfig;
 
   const comId: string = edtContext?.id;
   const comEle: HTMLElement = edtContext?.focusArea?.ele;
@@ -15,7 +15,7 @@ function FigmaEditor({ editConfig }: any) {
 
   return (
     <div>
-      <ExportToFigmaBtn comEle={comEle} comId={comId} />
+      <ExportToFigmaBtn comEle={comEle} comId={comId} fontfaces={fontfaces} />
       {onSyncFromFigma && <SyncFromFigmaBtn onSync={onSyncFromFigma} />}
     </div>
   );

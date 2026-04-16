@@ -109,6 +109,8 @@ type FontFamilyOption = { label: string; value: string };
 type ExternalFontface = {
   label?: string;
   value?: string;
+  /** 字体文件 URL，供导出到 Figma 时加载字形数据使用 */
+  url?: string;
 };
 
 function normalizeFontfaceOptions(fontfaces: ExternalFontface[] = []): FontFamilyOption[] {
@@ -141,6 +143,7 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
   const context = useStyleEditorContext();
   const editConfig = context?.editConfig;
   const outterFontFamilyOptions = normalizeFontfaceOptions(editConfig?.fontfaces || []);
+  console.log("outterFontFamilyOptions",outterFontFamilyOptions)
 
   // 重置脏数据
   if (isObject(value.fontFamily)) {

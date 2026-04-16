@@ -1,6 +1,6 @@
 import React from 'react';
 import { convertIRToFigmaClipboardHtml, elementToMybricksJsonWithInlineImages } from '../core';
-import { loadFontContextMap } from '../core/font-loader';
+import { loadFontContextMapForFamilies, collectFontFamiliesFromIR } from '../core/font-loader';
 import { writeHtmlToClipboard, isNotFocusedClipboardError } from '../core/clipboard';
 import {
   ExportProgress,
@@ -11,9 +11,17 @@ import {
 
 export type { ExportProgress };
 
+export interface FontfaceConfig {
+  label?: string;
+  value?: string;
+  /** 字体文件 URL，用于导出到 Figma 时加载字形数据 */
+  url?: string;
+}
+
 export function useExportToFigma(
   comEle: HTMLElement | null | undefined,
-  comId: string
+  comId: string,
+  options?: { fontfaces?: FontfaceConfig[] }
 ) {
   const [loading, setLoading] = React.useState(false);
   const [progress, setProgress] = React.useState<ExportProgress>({
@@ -104,6 +112,15 @@ export function useExportToFigma(
     [setStage]
   );
 
+  // 从外部 fontfaces 配置构建 { cssName -> url } 映射，供字体加载器使用
+  const fontUrlMap = React.useMemo<Record<string, string>>(() => {
+    const map: Record<string, string> = {};
+    for (const item of options?.fontfaces ?? []) {
+      if (item.value && item.url) map[item.value] = item.url;
+    }
+    return map;
+  }, [options?.fontfaces]);
+
   const handleExport = React.useCallback(() => {
     if (loading) return;
     const ele = (comEle?.dataset?.zoneType === 'page'
@@ -121,34 +138,36 @@ export function useExportToFigma(
     requestAnimationFrame(() => {
       requestAnimationFrame(async () => {
         try {
-          await setStage(8, '准备字体...');
-
-          const fontCtx = await waitStageWithTrickle({
-            text: '加载字体...',
-            from: 20,
-            to: 30,
-            task: () => loadFontContextMap(),
-          });
+          await setStage(8, '准备中...');
 
           await waitStageWithTrickle({
             text: '解析页面结构...',
-            from: 30,
-            to: 45,
+            from: 10,
+            to: 25,
             task: () => sleep(650),
           });
 
+          // 先跑 DOM→IR，收集实际用到的字体族，再按需加载
           const irPayload = await waitStageWithTrickle({
             text: '拉取图片资源...',
-            from: 45,
-            to: 66,
+            from: 25,
+            to: 55,
             task: () =>
               elementToMybricksJsonWithInlineImages(ele, comId, {
-                componentLibraryEnabled: true,
+                componentLibraryEnabled: false,
               }),
             taskStartDelayMs: 320,
           });
 
-          await setStage(72, '生成 Figma 数据...', { smooth: true, durationMs: 360 });
+          const _fontFamilies = collectFontFamiliesFromIR(irPayload);
+          const fontCtx = await waitStageWithTrickle({
+            text: `加载字体（${_fontFamilies.filter(f => f !== 'PingFang SC').join('、') || 'PingFang SC'}）...`,
+            from: 55,
+            to: 70,
+            task: () => loadFontContextMapForFamilies(_fontFamilies, fontUrlMap),
+          });
+
+          await setStage(75, '生成 Figma 数据...', { smooth: true, durationMs: 360 });
           const clipboardHtml = convertIRToFigmaClipboardHtml(irPayload, fontCtx);
 
           await waitStageWithTrickle({
@@ -176,7 +195,7 @@ export function useExportToFigma(
         }
       });
     });
-  }, [loading, comEle, comId, setStage, waitStageWithTrickle]);
+  }, [loading, comEle, comId, fontUrlMap, setStage, waitStageWithTrickle]);
 
   return { loading, progress, handleExport };
 }

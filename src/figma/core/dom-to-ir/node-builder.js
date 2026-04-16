@@ -130,12 +130,18 @@ function inferNodeType(el, computed, tag) {
       }
     }
     if (_allChildInline && !_anyChildHasBg && /\S/.test(el.textContent || '')) {
-      // 父元素本身无视觉容器背景/圆角，整体当 text 处理
+      // 父元素本身无视觉容器背景/圆角/内边距，整体当 text 处理
       var _pBg = computed.backgroundColor || '';
       var _pHasBg = _pBg && _pBg !== 'rgba(0, 0, 0, 0)' && _pBg !== 'transparent';
       var _pRadius = computed.borderRadius || computed.borderTopLeftRadius || '';
       var _pHasRadius = _pRadius && _pRadius !== '0px' && _pRadius !== '0';
-      if (!_pHasBg && !_pHasRadius) {
+      // 有 padding 时不合并为 text：padding 代表可视内边距，需保留为 frame 的 AutoLayout 内边距，
+      // 否则导出后文本直接贴边，padding 丢失（如 tableCellDesc 有 padding 的表格单元格）。
+      var _pPt = computed.paddingTop || ''; var _pPr = computed.paddingRight || '';
+      var _pPb = computed.paddingBottom || ''; var _pPl = computed.paddingLeft || '';
+      var _pHasPadding = (_pPt && _pPt !== '0px') || (_pPr && _pPr !== '0px') ||
+                         (_pPb && _pPb !== '0px') || (_pPl && _pPl !== '0px');
+      if (!_pHasBg && !_pHasRadius && !_pHasPadding) {
         return 'text';
       }
     }

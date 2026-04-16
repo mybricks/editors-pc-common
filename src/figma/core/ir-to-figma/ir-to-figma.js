@@ -126,13 +126,76 @@ var PINGFANG_WEIGHT_MAP = {
   600: 'Semibold',
 };
 
+// 通用字体字重映射（适用于非 PingFang SC 字体）
+var GENERIC_WEIGHT_MAP = {
+  100: 'Thin',       200: 'Extra Light', 300: 'Light',
+  400: 'Regular',    500: 'Medium',      600: 'Semibold',
+  700: 'Bold',       800: 'Extra Bold',  900: 'Black',
+};
+var GENERIC_WEIGHT_KEYS = [100, 200, 300, 400, 500, 600, 700, 800, 900];
+
+// ─── 已知品牌/内部字体映射规则 ───
+// CSS font-family 有时直接使用 PostScript 名（如 "AlibabaPuHuiTi-115-Black"），
+// 无法通过字符串本身推导出 Figma 的 family/style，需要在此维护静态规则。
+// 规则格式：{ pattern: RegExp, family: string, style: fn(match) => string }
+//   - pattern 匹配 CSS font-family 字符串（通常是 PostScript 名）
+//   - family  对应 Figma 中的字体族名
+//   - style   根据正则捕获组生成 Figma style 名的函数
+// 新增字体族只需在此追加一条规则即可。
+var KNOWN_FONT_RULES = [
+  {
+    // 阿里巴巴普惠体 2.0 / 3.0
+    // PostScript: AlibabaPuHuiTi-115-Black / AlibabaPuHuiTi2.0-115-Black
+    // Figma:      "Alibaba PuHuiTi 3.0" / "115 Black"
+    pattern: /^AlibabaPuHuiTi(?:2\.0)?-(\d+)-(.+)$/i,
+    family: 'Alibaba PuHuiTi 3.0',
+    style: function(m) { return m[1] + ' ' + m[2]; },
+  },
+  // 示例：后续内部字体在此追加
+  // {
+  //   pattern: /^DingTalkJinBuTi(.*)$/i,
+  //   family: 'DingTalk JinBuTi',
+  //   style: function() { return 'Regular'; },
+  // },
+];
+
+/** 尝试用已知规则匹配 PostScript 名，命中则返回 { family, style, postscript }，否则返回 null */
+function resolveKnownFont(postscriptName) {
+  if (!postscriptName) return null;
+  for (var _ki = 0; _ki < KNOWN_FONT_RULES.length; _ki++) {
+    var _rule = KNOWN_FONT_RULES[_ki];
+    var _m = postscriptName.match(_rule.pattern);
+    if (_m) {
+      return { family: _rule.family, style: _rule.style(_m), postscript: postscriptName };
+    }
+  }
+  return null;
+}
+
 function resolveFontName(family, weight, italic) {
   var w = weight || 400;
-  if (w > 600) w = 600;
-  var styleName = PINGFANG_WEIGHT_MAP[w] || 'Regular';
-  // PingFang SC 无 Italic 变体，忽略 italic 参数，对应 Figma "Missing font" 替换规则
-  var postscript = 'PingFangSC-' + styleName.replace(/\s+/g, '');
-  return { family: 'PingFang SC', style: styleName, postscript: postscript };
+  var resolvedFamily = family || 'PingFang SC';
+
+  if (!resolvedFamily || resolvedFamily === 'PingFang SC') {
+    // PingFang SC 特殊处理：精确字重映射，忽略 italic（PingFang SC 无 Italic 变体）
+    if (w > 600) w = 600;
+    var styleName = PINGFANG_WEIGHT_MAP[w] || 'Regular';
+    return { family: 'PingFang SC', style: styleName, postscript: 'PingFangSC-' + styleName.replace(/\s+/g, '') };
+  }
+
+  // 优先查已知品牌字体规则表（不依赖 queryLocalFonts，字体装在 Figma 即可）
+  var _known = resolveKnownFont(resolvedFamily);
+  if (_known) return _known;
+
+  // 其他字体：用通用字重映射，找最近档位
+  var _closest = GENERIC_WEIGHT_KEYS.reduce(function(a, b) {
+    return Math.abs(b - w) < Math.abs(a - w) ? b : a;
+  });
+  var _styleName = GENERIC_WEIGHT_MAP[_closest] || 'Regular';
+  if (italic) _styleName = (_styleName === 'Regular') ? 'Italic' : (_styleName + ' Italic');
+  var _postscript = resolvedFamily.replace(/\s+/g, '') +
+    (_styleName === 'Regular' ? '' : ('-' + _styleName.replace(/\s+/g, '')));
+  return { family: resolvedFamily, style: _styleName, postscript: _postscript };
 }
 
 // ─── GUID allocator ───
@@ -200,14 +263,21 @@ function normalizeImageScaleMode(mode) {
 function base64ToUint8Array(base64) {
   if (!base64) return null;
   try {
-    if (typeof Buffer !== 'undefined') return new Uint8Array(Buffer.from(base64, 'base64'));
+    if (typeof Buffer !== 'undefined') {
+      var result = new Uint8Array(Buffer.from(base64, 'base64'));
+      console.log('[DBG base64] Buffer 解码完成', { inputLen: base64.length, outputBytes: result.length });
+      return result;
+    }
     if (typeof atob === 'function') {
       var bin = atob(base64);
       var out = new Uint8Array(bin.length);
       for (var i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+      console.log('[DBG base64] atob 解码完成', { inputLen: base64.length, outputBytes: out.length });
       return out;
     }
-  } catch (_e) {}
+  } catch (_e) {
+    console.warn('[DBG base64] 解码抛出异常', { inputLen: base64 ? base64.length : 0, error: _e && _e.message });
+  }
   return null;
 }
 
@@ -231,8 +301,21 @@ function parseDataUrlToBytes(dataUrl) {
   var body = s.slice(comma + 1);
   var isBase64 = /;base64/i.test(header);
   var mime = (header.split(';')[0] || 'application/octet-stream').toLowerCase();
+  console.log('[DBG parseDataUrl] 解析 data URL', {
+    totalLen: dataUrl.length,
+    commaAt: comma,
+    header: header,
+    bodyLen: body.length,
+    isBase64: isBase64,
+    mime: mime,
+  });
   if (isBase64) {
     var bytes = base64ToUint8Array(body);
+    if (!bytes) {
+      console.warn('[DBG parseDataUrl] base64ToUint8Array 返回 null，解码失败');
+    } else {
+      console.log('[DBG parseDataUrl] 解码成功', { bodyLen: body.length, bytesLen: bytes.length, expectedBytes: Math.floor(body.length * 0.75) });
+    }
     return bytes ? { bytes: bytes, mime: mime } : null;
   }
   try {
@@ -307,10 +390,25 @@ function extFromMime(mime) {
   return 'bin';
 }
 
-function registerImageFromDataUrl(dataUrl, blobs, imageCtx) {
+/**
+ * 注册一张图片（base64 data URL）到 blobs 数组，返回图片注册 entry。
+ * @param {string} dataUrl - base64 data URL
+ * @param {Array} blobs - Message.blobs 数组（共享引用）
+ * @param {object} imageCtx - 图片注册上下文，含 byHash 缓存
+ * @param {string} [optionalHashHex] - 可选的预计算 SHA-1 hash（40位hex），若提供则优先使用，覆盖 FNV
+ */
+function registerImageFromDataUrl(dataUrl, blobs, imageCtx, optionalHashHex) {
   var parsed = parseDataUrlToBytes(dataUrl);
-  if (!parsed || !parsed.bytes || !parsed.bytes.length) return null;
-  var hashHex = computeImageHashHex(parsed.bytes);
+  if (!parsed || !parsed.bytes || !parsed.bytes.length) {
+    console.warn('[DBG ir-to-figma] registerImageFromDataUrl: parseDataUrlToBytes 失败，data URL 解码为 null', {
+      dataUrlPrefix: dataUrl ? dataUrl.slice(0, 60) : 'null/undefined',
+      dataUrlLen: dataUrl ? dataUrl.length : 0,
+    });
+    return null;
+  }
+  // 优先使用外部预计算的 SHA-1 hash（由 image-inline.js 在 async 阶段计算），
+  // 回退到 5×FNV（figma-api.ts computeImageHash 参考实现）。
+  var hashHex = (optionalHashHex && optionalHashHex.length === 40) ? optionalHashHex : computeImageHashHex(parsed.bytes);
   var hashBytes = imageHashHexToBytes(hashHex);
   if (!hashBytes) return null;
   var key = hashHex;
@@ -318,6 +416,15 @@ function registerImageFromDataUrl(dataUrl, blobs, imageCtx) {
 
   var dataBlobIndex = blobs.length;
   blobs.push({ bytes: parsed.bytes });
+
+  // 立即验证 push 是否成功写入
+  var _pushedBlob = blobs[dataBlobIndex];
+  console.log('[DBG register] blobs.push 完成', {
+    dataBlobIndex: dataBlobIndex,
+    pushedBytesLen: _pushedBlob && _pushedBlob.bytes ? _pushedBlob.bytes.length : 'null',
+    totalBlobsNow: blobs.length,
+    blobsRef: blobs === blobs ? '同一引用' : '不同引用',
+  });
 
   var entry = {
     key: key,
@@ -329,7 +436,8 @@ function registerImageFromDataUrl(dataUrl, blobs, imageCtx) {
   imageCtx.byHash[key] = entry;
   if (typeof console !== 'undefined' && console.log) {
     console.log('[figma image] 注册图片资源', {
-      hash: hashHex,
+      hash: hashHex.slice(0, 16) + '...',
+      hashAlgo: (optionalHashHex && optionalHashHex.length === 40) ? 'SHA-1' : 'FNV',
       dataBlob: dataBlobIndex,
       bytes: parsed.bytes.length,
       name: entry.name,
@@ -378,7 +486,18 @@ function irFillsToFigmaPaints(fills, blobs, imageCtx, imageImportList, imageImpo
       if (p) paints.push(p);
     } else if (f && f.type === 'IMAGE') {
       var imageData = (typeof f.content === 'string' && f.content.indexOf('data:') === 0) ? f.content : null;
-      var imageEntry = (imageData && blobs && imageCtx) ? registerImageFromDataUrl(imageData, blobs, imageCtx) : null;
+      console.log('[DBG ir-to-figma] irFillsToFigmaPaints 处理 IMAGE fill', {
+        hasContent: !!f.content,
+        contentType: typeof f.content,
+        isDataUrl: !!imageData,
+        contentPrefix: f.content ? String(f.content).slice(0, 60) : 'null',
+        hasBlobs: !!(blobs),
+        hasImageCtx: !!(imageCtx),
+      });
+      var imageEntry = (imageData && blobs && imageCtx) ? registerImageFromDataUrl(imageData, blobs, imageCtx, f.imageHashHex) : null;
+      if (!imageEntry) {
+        console.warn('[DBG ir-to-figma] IMAGE fill 注册失败（imageEntry 为 null），将降级为灰色占位块', { hasImageData: !!imageData });
+      }
       if (imageEntry) {
         paints.push({
           type: 'IMAGE',
@@ -1293,7 +1412,10 @@ function encodeGlyphBlob(otGlyph) {
 
 // ─── Text measurement with opentype.js ───
 
-function measureTextWithFont(text, fontSize, font) {
+// letterSpacing: CSS letter-spacing in pixels (already resolved by style-builder)
+// Each glyph x position includes accumulated letter-spacing so blob positions are correct.
+function measureTextWithFont(text, fontSize, font, letterSpacing) {
+  var ls = typeof letterSpacing === 'number' ? letterSpacing : 0;
   var scale = fontSize / font.unitsPerEm;
   var otGlyphs = font.stringToGlyphs(text);
   var glyphData = [];
@@ -1305,10 +1427,11 @@ function measureTextWithFont(text, fontSize, font) {
     glyphData.push({
       otGlyph: g,
       x: x,
-      advance: advance,
+      advance: advance + ls,
       advanceNorm: (g.advanceWidth || font.unitsPerEm) / font.unitsPerEm,
     });
-    x += advance;
+    // letter-spacing is added after each glyph (CSS spec: space to the right of each character)
+    x += advance + ls;
     if (i < otGlyphs.length - 1) {
       x += font.getKerningValue(otGlyphs[i], otGlyphs[i + 1]) * scale;
     }
@@ -1622,34 +1745,55 @@ function convertTextNode(irNode, guid, parentGuid, siblingIndex, fontCtxMap, blo
   var fontSize = style.fontSize || 14;
   var lineHeightVal = style.lineHeight || (fontSize * 1.4);
 
-  // 从 fontCtxMap 中选出与当前字重最匹配的 FontContext。
-  // fontCtxMap 格式：{ 300: ctx, 400: ctx, 500: ctx, 600: ctx }
-  // 向下取整找最近字重，找不到则退而使用 400（Regular）。
-  var _clampedWeight = Math.min(style.fontWeight || 400, 600);
+  // 从 fontCtxMap 中选出与当前字体族 + 字重最匹配的 FontContext。
+  // 格式：{ 'PingFang SC': { 300: ctx, 400: ctx }, 'DingTalk JinBuTi': { 400: ctx } }
+  // 注意：font-loader 以 CSS font-family 名（如 "AlibabaPuHuiTi-115-Black"）为 key 存入 map，
+  //       但 resolveFontName / resolveKnownFont 已将 fontName.family 转为 Figma 名（"Alibaba PuHuiTi 3.0"）。
+  //       两者不同时，需用原始 CSS 名（style.fontFamily）作为备选 key。
+  var _clampedWeight = Math.min(style.fontWeight || 400, 900);
   var resolvedFontCtx = null;
   if (fontCtxMap && typeof fontCtxMap === 'object') {
-    resolvedFontCtx = fontCtxMap[_clampedWeight] || null;
-    if (!resolvedFontCtx) {
-      // 向下取整找最近可用字重
-      var _availableWeights = Object.keys(fontCtxMap).map(Number).sort(function(a, b) { return b - a; });
-      for (var _wi = 0; _wi < _availableWeights.length; _wi++) {
-        if (_availableWeights[_wi] <= _clampedWeight) {
-          resolvedFontCtx = fontCtxMap[_availableWeights[_wi]];
-          break;
+    var _targetFamily = fontName.family || 'PingFang SC';
+    var _familyMap = fontCtxMap[_targetFamily] ||
+                     (style.fontFamily && style.fontFamily !== _targetFamily && fontCtxMap[style.fontFamily]) ||
+                     fontCtxMap['PingFang SC'] ||
+                     fontCtxMap[Object.keys(fontCtxMap)[0]] ||
+                     null;
+    if (_familyMap && typeof _familyMap === 'object') {
+      resolvedFontCtx = _familyMap[_clampedWeight] || null;
+      if (!resolvedFontCtx) {
+        // 向下取整找最近可用字重
+        var _availableWeights = Object.keys(_familyMap).map(Number).sort(function(a, b) { return b - a; });
+        for (var _wi = 0; _wi < _availableWeights.length; _wi++) {
+          if (_availableWeights[_wi] <= _clampedWeight) {
+            resolvedFontCtx = _familyMap[_availableWeights[_wi]];
+            break;
+          }
+        }
+        // 仍未找到则用最小可用字重
+        if (!resolvedFontCtx && _availableWeights.length > 0) {
+          resolvedFontCtx = _familyMap[_availableWeights[_availableWeights.length - 1]];
         }
       }
-      // 仍未找到则用最小可用字重
-      if (!resolvedFontCtx && _availableWeights.length > 0) {
-        resolvedFontCtx = fontCtxMap[_availableWeights[_availableWeights.length - 1]];
-      }
     }
+  }
+
+  // CSS font-family 可能是 PostScript 名（如 "AlibabaPuHuiTi-115-Black"），
+  // font-loader 在 PostScript 兜底匹配时会把实际 Figma 字体族/样式存入 figmaFamily/figmaStyle。
+  // 有这两个字段时，优先用它们覆盖 resolveFontName 计算出的 fontName，确保 Figma 显示正确字体。
+  if (resolvedFontCtx && resolvedFontCtx.figmaFamily) {
+    fontName = {
+      family: resolvedFontCtx.figmaFamily,
+      style:  resolvedFontCtx.figmaStyle || resolvedFontCtx.style || fontName.style,
+      postscript: resolvedFontCtx.postscript || fontName.postscript,
+    };
   }
 
   var hasFontCtx = resolvedFontCtx && resolvedFontCtx.font && resolvedFontCtx.fontDigest && blobs && content;
   var measured = null;
   if (hasFontCtx) {
     try {
-      measured = measureTextWithFont(content, fontSize, resolvedFontCtx.font);
+      measured = measureTextWithFont(content, fontSize, resolvedFontCtx.font, style.letterSpacing || 0);
     } catch (_e) {
       measured = null;
     }
@@ -1779,7 +1923,7 @@ function convertTextNode(irNode, guid, parentGuid, siblingIndex, fontCtxMap, blo
         var _lineYBase = _li * lineHeightVal;
         var _lineMeasured = null;
         if (_lineText.length > 0) {
-          try { _lineMeasured = measureTextWithFont(_lineText, fontSize, resolvedFontCtx.font); } catch (_e) {}
+          try { _lineMeasured = measureTextWithFont(_lineText, fontSize, resolvedFontCtx.font, style.letterSpacing || 0); } catch (_e) {}
         }
         var _lineWidth = _lineMeasured ? _lineMeasured.totalWidth : 0;
         var _lineGlyphs = _lineMeasured ? _lineMeasured.glyphs : [];
@@ -1994,8 +2138,18 @@ function convertImageNode(irNode, guid, parentGuid, siblingIndex, parentLayoutMo
   var imageImports = [];
   var imageImportSet = {};
   var imgPaint = null;
+  console.log('[DBG ir-to-figma] convertImageNode', {
+    name: irNode.name,
+    hasContent: !!irNode.content,
+    contentType: typeof irNode.content,
+    isDataUrl: typeof irNode.content === 'string' && irNode.content.indexOf('data:') === 0,
+    contentPrefix: irNode.content ? String(irNode.content).slice(0, 60) : 'null',
+    hasBlobs: !!(blobs),
+  });
   if (typeof irNode.content === 'string' && irNode.content.indexOf('data:') === 0) {
-    imgPaint = { type: 'IMAGE', content: irNode.content };
+    imgPaint = { type: 'IMAGE', content: irNode.content, imageHashHex: irNode.imageHashHex || undefined };
+  } else {
+    console.warn('[DBG ir-to-figma] convertImageNode: content 不是 data URL，图片将显示为灰色占位', { name: irNode.name, content: irNode.content ? String(irNode.content).slice(0, 80) : 'null' });
   }
   var imagePaints = irFillsToFigmaPaints(
     imgPaint ? [imgPaint] : null,
@@ -2038,6 +2192,18 @@ function convertImageNode(irNode, guid, parentGuid, siblingIndex, parentLayoutMo
     nc.stackChildPrimaryGrow = 1;
   }
   if (imageImports.length) nc.imageImports = { imports: imageImports };
+
+  // 打印最终节点结构，确认 imageImports 和 fillPaints 是否正确
+  var _firstFill = nc.fillPaints && nc.fillPaints[0];
+  console.log('[DBG convertImageNode] 最终节点结构', {
+    name: nc.name,
+    fillType: _firstFill && _firstFill.type,
+    imageHashLen: _firstFill && _firstFill.image && _firstFill.image.hash ? _firstFill.image.hash.length : 'null',
+    imageDataBlob: _firstFill && _firstFill.image ? _firstFill.image.dataBlob : 'null',
+    imageName: _firstFill && _firstFill.image ? _firstFill.image.name : 'null',
+    imageImportsCount: nc.imageImports ? nc.imageImports.imports.length : 0,
+    imageScaleMode: _firstFill && _firstFill.imageScaleMode,
+  });
 
   return nc;
 }
@@ -2116,6 +2282,15 @@ function buildSceneMessage(contentNodes, opts, blobs) {
     msg.blobs = blobs;
   }
 
+  var _totalBlobBytes = blobs ? blobs.reduce(function(sum, b) { return sum + (b && b.bytes ? b.bytes.length : 0); }, 0) : 0;
+  var _imageBlobSizes = blobs ? blobs.map(function(b, idx) { return b && b.bytes && b.bytes.length > 10000 ? { idx: idx, bytes: b.bytes.length, kb: Math.round(b.bytes.length / 1024) } : null; }).filter(Boolean) : [];
+  console.log('[DBG ir-to-figma] buildSceneMessage 完成', {
+    nodeChangesCount: msg.nodeChanges ? msg.nodeChanges.length : 0,
+    blobsCount: blobs ? blobs.length : 0,
+    totalBlobMB: (_totalBlobBytes / 1024 / 1024).toFixed(2) + ' MB',
+    largeBlobs: _imageBlobSizes,
+  });
+
   return msg;
 }
 
@@ -2164,20 +2339,29 @@ function buildClipboardHtml(metaObj, archiveBuf) {
 /**
  * 将 IR JSON 转为 Figma 剪切板 HTML
  * @param {object} irPayload - elementToMybricksJsonWithInlineImages 的返回值 { page: { content: [...] } }
- * @param {object} [fontCtxOrMap] - 可选，支持两种格式：
- *   - 旧格式：{ font, fontDigest }（单字重，向后兼容）
- *   - 新格式：{ 300: ctx, 400: ctx, 500: ctx, 600: ctx }（多字重，推荐）
+ * @param {object} [fontCtxOrMap] - 可选，支持三种格式（均向后兼容）：
+ *   - 旧格式 A：{ font, fontDigest }（单字重单字体）
+ *   - 旧格式 B：{ 300: ctx, 400: ctx, 500: ctx, 600: ctx }（多字重单字体）
+ *   - 新格式：{ 'PingFang SC': { 300: ctx, 400: ctx }, 'DingTalk JinBuTi': { 400: ctx } }（多字体多字重）
  *   提供时文本节点生成 derivedTextData + glyph blob，粘贴后立即渲染（无需双击）。
  * @returns {string} 可直接写入 clipboard 的 HTML
  */
 function convertIRToFigmaClipboardHtml(irPayload, fontCtxOrMap) {
-  // 兼容旧的单 ctx 格式：{ font, fontDigest } → 包装为 weight=400 的 map
+  // 统一转换为新格式 { [family]: { [weight]: ctx } }
   var fontCtxMap = null;
   if (fontCtxOrMap) {
     if (fontCtxOrMap.font) {
-      fontCtxMap = { 400: fontCtxOrMap };
+      // 旧格式 A：单 ctx → { 'PingFang SC': { 400: ctx } }
+      fontCtxMap = { 'PingFang SC': { 400: fontCtxOrMap } };
     } else {
-      fontCtxMap = fontCtxOrMap;
+      var _firstKey = Object.keys(fontCtxOrMap)[0];
+      if (_firstKey && !isNaN(Number(_firstKey))) {
+        // 旧格式 B：{ weight: ctx } → { 'PingFang SC': { weight: ctx } }
+        fontCtxMap = { 'PingFang SC': fontCtxOrMap };
+      } else {
+        // 新格式：直接使用
+        fontCtxMap = fontCtxOrMap;
+      }
     }
   }
 
@@ -2203,6 +2387,19 @@ function convertIRToFigmaClipboardHtml(irPayload, fontCtxOrMap) {
     console.log('[figma image] 剪贴板打包完成', { imageCount: _imageCount, blobCount: blobs.length });
   }
 
+  // convertNode 结束后立即检查 blobs 状态
+  var _blobsSnapshot = blobs.map(function(b, i) {
+    return b && b.bytes ? { i: i, len: b.bytes.length } : { i: i, len: 0 };
+  });
+  var _largeInSnapshot = _blobsSnapshot.filter(function(s) { return s.len > 10000; });
+  var _totalBytesSnapshot = _blobsSnapshot.reduce(function(sum, s) { return sum + s.len; }, 0);
+  console.log('[DBG snapshot] convertNode 完成后 blobs 状态', {
+    totalBlobs: blobs.length,
+    totalMB: (_totalBytesSnapshot / 1024 / 1024).toFixed(2) + ' MB',
+    largeBlobs: _largeInSnapshot,
+    imageCtxKeys: Object.keys(imageCtx.byHash || {}),
+  });
+
   // 若模板存在，注入 fileKey + IOC Canvas/SYMBOL 节点，让 Figma 能解析库组件引用
   var _msgOpts = {};
   var tpl = _componentTemplate;
@@ -2214,11 +2411,21 @@ function convertIRToFigmaClipboardHtml(irPayload, fontCtxOrMap) {
   var encoded = compiled.encodeMessage(message);
   var msgChunk = pako.deflateRaw(encoded);
   var archive = buildArchive(schemaChunk, msgChunk);
-
-  return buildClipboardHtml(
+  var clipHtml = buildClipboardHtml(
     { fileKey: message.pasteFileKey, pasteID: message.pasteID, dataType: 'scene' },
     archive
   );
+  console.log('[DBG ir-to-figma] 剪贴板序列化大小', {
+    encodedBytes: encoded.length,
+    encodedMB: (encoded.length / 1024 / 1024).toFixed(2) + ' MB',
+    compressedBytes: msgChunk.length,
+    compressedMB: (msgChunk.length / 1024 / 1024).toFixed(2) + ' MB',
+    archiveBytes: archive.length,
+    archiveMB: (archive.length / 1024 / 1024).toFixed(2) + ' MB',
+    clipHtmlLen: clipHtml.length,
+    clipHtmlMB: (clipHtml.length / 1024 / 1024).toFixed(2) + ' MB',
+  });
+  return clipHtml;
 }
 
 module.exports = {

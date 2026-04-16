@@ -179,11 +179,14 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
     // inline 元素（如 span）在 flex-wrap 或行内布局中可能跨越多个浏览器行，
     // getBoundingClientRect() 返回联合包围盒，导致 y 位置错误（偏到第一行顶部）。
     // 改用 getClientRects() 中面积最大的单行矩形，取其准确的行内位置和尺寸。
+    // _isMultiLineInline：记录 inline 元素跨行事实，用于后续强制 singleLine=false 并触发换行检测。
     var _elDisplayForMultiline = computed.display;
+    var _isMultiLineInline = false;
     if (_elDisplayForMultiline === 'inline' || _elDisplayForMultiline === 'inline-block' || _elDisplayForMultiline === 'inline-flex') {
       try {
         var _crs = el.getClientRects();
         if (_crs && _crs.length > 1) {
+          _isMultiLineInline = true;
           var _maxArea = 0;
           var _primaryVR = null;
           for (var _ri = 0; _ri < _crs.length; _ri++) {
@@ -326,6 +329,9 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
           } else {
             node.style.singleLine = _h < _fs * 2;
           }
+          // inline 元素跨越多个浏览器行时，rect 被修正为主行单行高度，导致上面误判为 singleLine:true。
+          // 此处强制覆盖，确保后续调用 getTextWithActualLineBreaksForElement 检测真实断行。
+          if (_isMultiLineInline) node.style.singleLine = false;
           // 将 lineHeight 写入 JSON，让 Figma 使用与 DOM 一致的行高，
           // 避免 Figma 按自身字体度量重新计算（如 fontSize=48 的 -apple-system 默认行高≈67px）
           if (_lh != null && !Number.isNaN(_lh) && _lh > 0) {
@@ -636,6 +642,10 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
                 var _cwrRng = document.createRange();
                 var _cwrT = child.textContent || '';
                 for (var _cwrI = 0; _cwrI < _cwrT.length; _cwrI++) {
+                  // Skip raw '\n' from HTML source: in white-space:normal they render as spaces,
+                  // not actual line breaks. Visual line breaks are detected below via top comparison.
+                  // Keeping them would cause double '\n' (source char + detected visual break).
+                  if (_cwrT[_cwrI] === '\n') continue;
                   _cwrRng.setStart(child, _cwrI);
                   _cwrRng.setEnd(child, _cwrI + 1);
                   var _cwrRects = _cwrRng.getClientRects();
