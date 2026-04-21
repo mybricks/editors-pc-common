@@ -62,8 +62,10 @@
   childrenHaveUniformMargin = _lu.childrenHaveUniformMargin;
   applyUniformMarginAsGap = _lu.applyUniformMarginAsGap;
   ensureItemSpacingFromPositions = _lu.ensureItemSpacingFromPositions;
+  wrapHorizontalFlowChildrenVerticalMarginAsPadding = _lu.wrapHorizontalFlowChildrenVerticalMarginAsPadding;
   // node-builder
   shouldSetTextAlignVerticalCenterForAbsoluteTextLeaf = _nb.shouldSetTextAlignVerticalCenterForAbsoluteTextLeaf;
+  shouldSetTextAlignVerticalCenterForFlexParentAlignItemsCenter = _nb.shouldSetTextAlignVerticalCenterForFlexParentAlignItemsCenter;
   inferNodeType = _nb.inferNodeType;
   shouldMergeTextAndBrChildren = _nb.shouldMergeTextAndBrChildren;
   mergeTextAndBrChildNodesContent = _nb.mergeTextAndBrChildNodesContent;
@@ -85,7 +87,7 @@
 })();
 
 /* ── Stub declarations for Node/webpack module resolution */
-var SHADOW_HOST_ID, GEOVIEW_WRAPPER_ID, getShadowHost, resolveFrameRoot, getCssRulesBySelector, getGeoviewScaleAndOrigin, getDesignRect, hasClassPrefix, simpleSelectorMatches, getMatchedSelectorsForElement, getDeclaredStyleForElement, getFrameTitleFromElement, findArtboardIdFromElement, emptyRoot, normalizeSvgPathForFigma, parseUrlFromBgImage, parseLinearGradientFromBgImage, parseRadialGradientFromBgImage, parseBoxShadow, parseBorderShorthand, parseGridTemplateColumnsCount, serializeSvgElement, parseTransformRotation, cssColorToHex, cssColorToRgba, parseFontFamilyStack, resolveFontFamilyFromStack, getGlobalFont, buildInlineTextStyle, buildStyleJSON, getM, pruneChildMarginsAfterGapMerge, anyChildHasMargin, childrenHaveUniformMargin, applyUniformMarginAsGap, ensureItemSpacingFromPositions, shouldSetTextAlignVerticalCenterForAbsoluteTextLeaf, inferNodeType, shouldMergeTextAndBrChildren, mergeTextAndBrChildNodesContent, getElementContentsTextBlockRect, getTextNodeRect, shouldMarkWidthConstrainedForEdgeWhitespace, applyWidthConstrainedForFigmaEdgeWhitespace, applyTextOverflowEllipsisExport, normalizeTextExportPreserveTrailing, getTextContent, getTextWithActualLineBreaksForElement, isShowingPlaceholder, getPseudoTextNode, getPseudoShapeNode, getColorRunsFromInlineElement, fetchImageAsBase64DataUrl, inlineImageFillsInTree;
+var SHADOW_HOST_ID, GEOVIEW_WRAPPER_ID, getShadowHost, resolveFrameRoot, getCssRulesBySelector, getGeoviewScaleAndOrigin, getDesignRect, hasClassPrefix, simpleSelectorMatches, getMatchedSelectorsForElement, getDeclaredStyleForElement, getFrameTitleFromElement, findArtboardIdFromElement, emptyRoot, normalizeSvgPathForFigma, parseUrlFromBgImage, parseLinearGradientFromBgImage, parseRadialGradientFromBgImage, parseBoxShadow, parseBorderShorthand, parseGridTemplateColumnsCount, serializeSvgElement, parseTransformRotation, cssColorToHex, cssColorToRgba, parseFontFamilyStack, resolveFontFamilyFromStack, getGlobalFont, buildInlineTextStyle, buildStyleJSON, getM, pruneChildMarginsAfterGapMerge, anyChildHasMargin, childrenHaveUniformMargin, applyUniformMarginAsGap, ensureItemSpacingFromPositions, wrapHorizontalFlowChildrenVerticalMarginAsPadding, shouldSetTextAlignVerticalCenterForAbsoluteTextLeaf, shouldSetTextAlignVerticalCenterForFlexParentAlignItemsCenter, inferNodeType, shouldMergeTextAndBrChildren, mergeTextAndBrChildNodesContent, getElementContentsTextBlockRect, getTextNodeRect, shouldMarkWidthConstrainedForEdgeWhitespace, applyWidthConstrainedForFigmaEdgeWhitespace, applyTextOverflowEllipsisExport, normalizeTextExportPreserveTrailing, getTextContent, getTextWithActualLineBreaksForElement, isShowingPlaceholder, getPseudoTextNode, getPseudoShapeNode, getColorRunsFromInlineElement, fetchImageAsBase64DataUrl, inlineImageFillsInTree;
 
 /**
  * ★ Figma 组件库映射开关
@@ -402,6 +404,8 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
         } else {
           console.warn('[walk:input:align] node.style is undefined! content:', node.content, '| placeholder:', el.placeholder);
         }
+      } else if (node.style && shouldSetTextAlignVerticalCenterForFlexParentAlignItemsCenter(el, node.style)) {
+        node.style.textAlignVertical = 'CENTER';
       } else if (node.style && shouldSetTextAlignVerticalCenterForAbsoluteTextLeaf(node.style, computed)) {
         node.style.textAlignVertical = 'CENTER';
       }
@@ -559,6 +563,7 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
       // 支持 div 内同时有文本和 DOM：按 childNodes 顺序，元素走 walk，文本节点单独成 text 节点；SVG 用占位组件不遍历子节点
       var _mergedTextBr = '';
       var _didMergeTextBr = false;
+      var _didMergeInlineChildrenText = false;
       if (shouldMergeTextAndBrChildren(el)) {
         _mergedTextBr = mergeTextAndBrChildNodesContent(el);
         if (_mergedTextBr) {
@@ -579,7 +584,71 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
           _didMergeTextBr = true;
         }
       }
+      // 容器（尤其带 padding 的 tableCell）内若是“文本 + inline span 高亮”混排，
+      // 不能拆成多个绝对定位子节点，否则 Figma 中易出现 span 数字错位。
+      // 这里保留父 frame（不丢 padding），但把 inline 子内容合并为一个 text 子节点。
       if (!_didMergeTextBr) {
+        var _canMergeInlineChildren = false;
+        if (el && el.children && el.children.length > 0 && /\S/.test(el.textContent || '')) {
+          var _isInlineMergeParent = computed.display !== 'flex' && computed.display !== 'inline-flex' && computed.display !== 'grid';
+          if (_isInlineMergeParent) {
+            _canMergeInlineChildren = true;
+            for (var _imi = 0; _imi < el.children.length; _imi++) {
+              var _imChild = el.children[_imi];
+              var _imComp = window.getComputedStyle(_imChild);
+              var _imDisp = _imComp.display;
+              if (_imDisp !== 'inline' && _imDisp !== 'inline-block' && _imDisp !== 'inline-flex') {
+                _canMergeInlineChildren = false;
+                break;
+              }
+              var _imBg = _imComp.backgroundColor || '';
+              var _imHasBg = _imBg && _imBg !== 'rgba(0, 0, 0, 0)' && _imBg !== 'transparent';
+              var _imHasBorder = (_imComp.borderStyle && _imComp.borderStyle !== 'none' && parseFloat(_imComp.borderWidth || 0) > 0);
+              var _imHasPadding = (parseFloat(_imComp.paddingTop || 0) > 0) ||
+                                  (parseFloat(_imComp.paddingRight || 0) > 0) ||
+                                  (parseFloat(_imComp.paddingBottom || 0) > 0) ||
+                                  (parseFloat(_imComp.paddingLeft || 0) > 0);
+              if (_imHasBg || _imHasBorder || _imHasPadding) {
+                _canMergeInlineChildren = false;
+                break;
+              }
+            }
+          }
+        }
+
+        if (_canMergeInlineChildren) {
+          var _inlineMergedText = getTextContent(el);
+          if (_inlineMergedText) {
+            var _inlineRectVp = getElementContentsTextBlockRect(el);
+            var _inlineRect = _inlineRectVp ? getDesignRect(_inlineRectVp, geo) : null;
+            var _inlineStyle = buildInlineTextStyle(el, window.getComputedStyle(el), _inlineRect, rect, cssRuleMap, globalFont);
+            var _inlineTextJson = {
+              type: 'text',
+              name: 'Text',
+              content: _inlineMergedText,
+              style: _inlineStyle && Object.keys(_inlineStyle).length ? _inlineStyle : undefined,
+            };
+            if (node.selectors && node.selectors.length) _inlineTextJson.selectors = node.selectors.slice();
+            if (node.className) _inlineTextJson.className = node.className;
+            if (_inlineTextJson.style && _inlineTextJson.style.singleLine === false) {
+              var _inlineCwb = getTextWithActualLineBreaksForElement(el);
+              if (_inlineCwb) _inlineTextJson.content = _inlineCwb;
+            }
+            if (_inlineTextJson.style) {
+              var _inlineParentColor = computed ? computed.color : null;
+              var _inlineColorRuns = getColorRunsFromInlineElement(el, _inlineTextJson.content, _inlineParentColor);
+              if (_inlineColorRuns && _inlineColorRuns.length > 0) {
+                _inlineTextJson.style.colorRuns = _inlineColorRuns;
+              }
+            }
+            applyTextOverflowEllipsisExport(_inlineTextJson, el, window.getComputedStyle(el), geo, null, rect);
+            applyWidthConstrainedForFigmaEdgeWhitespace(_inlineTextJson);
+            childNodes.push(_inlineTextJson);
+            _didMergeInlineChildrenText = true;
+          }
+        }
+      }
+      if (!_didMergeTextBr && !_didMergeInlineChildrenText) {
       // ProForm 容器检测：当前节点是 @es/pro-components 的 ProForm 时，
       // 向所有子节点传递 _inProForm=true，让内部无标记按钮得以被识别。
       // 已有 _inProForm 的保持不变（嵌套 ProForm 兜底）。
@@ -736,6 +805,10 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
               if (s.marginLeft != null) delete s.marginLeft;
             }
           } else {
+            // 横向 Auto Layout：子项正 marginTop/marginBottom 在 prune 中会被删；外包纵向 HUG frame，用 padding 与 wrapper 上的左右 margin 还原（如列表圆点）
+            if (layoutMode === 'HORIZONTAL') {
+              wrapHorizontalFlowChildrenVerticalMarginAsPadding(childNodes);
+            }
             // WRAP 容器：在所有 margin 清理操作之前，先提取子节点 marginBottom 作为行间距
             if (node.style && node.style.layoutWrap === 'WRAP' && !node.style.counterAxisSpacing) {
               for (var _wEarly2 = 0; _wEarly2 < childNodes.length; _wEarly2++) {
@@ -827,6 +900,17 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
                 _rgChild2.children = _rgChild2.children.filter(function(c) { return c.name !== 'pseudo-before'; });
               }
             }
+          }
+        }
+        // 父节点启用 Auto Layout 时，流式子节点不应再携带绝对 x/y。
+        // 否则导出到 Figma 后会把 x/y 当成附加偏移，导致纵向间距异常变大。
+        if (node.style && node.style.layoutMode) {
+          for (var _ali = 0; _ali < childNodes.length; _ali++) {
+            var _alChild = childNodes[_ali];
+            if (!_alChild || !_alChild.style) continue;
+            if (_alChild.style.positionType === 'absolute') continue;
+            delete _alChild.style.x;
+            delete _alChild.style.y;
           }
         }
         node.children = childNodes;

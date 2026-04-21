@@ -9,7 +9,8 @@
  *     normalizeTextExportPreserveTrailing
  *   - 文本布局辅助：getTextNodeRect / getElementContentsTextBlockRect /
  *     shouldMarkWidthConstrainedForEdgeWhitespace / applyWidthConstrainedForFigmaEdgeWhitespace /
- *     applyTextOverflowEllipsisExport / shouldSetTextAlignVerticalCenterForAbsoluteTextLeaf
+ *     applyTextOverflowEllipsisExport / shouldSetTextAlignVerticalCenterForAbsoluteTextLeaf /
+ *     shouldSetTextAlignVerticalCenterForFlexParentAlignItemsCenter
  *   - 表单辅助：isShowingPlaceholder
  *   - 伪元素：getPseudoTextNode / getPseudoShapeNode
  * 规则：依赖 css-parsers（颜色/阴影）和 style-builder（buildInlineTextStyle）。
@@ -67,6 +68,40 @@ function shouldSetTextAlignVerticalCenterForAbsoluteTextLeaf(textStyle, computed
   return false;
 }
 
+/**
+ * 横向 flex 父级 align-items:center 时，子文本行框在父交叉轴内垂直居中；IR 上 height 常为整行高、lineHeight 为 CSS 行高。
+ * 若不标 textAlignVertical，Figma textUserLayoutVersion=4 的 derivedTextData 会把行框顶在 0，与浏览器不一致。
+ */
+function shouldSetTextAlignVerticalCenterForFlexParentAlignItemsCenter(el, textStyle) {
+  if (!el || !textStyle) return false;
+  var p = el.parentElement;
+  if (!p) return false;
+  var pcs;
+  try { pcs = window.getComputedStyle(p); } catch (e) { return false; }
+  var disp = String(pcs.display || '').toLowerCase();
+  if (disp !== 'flex' && disp !== 'inline-flex') return false;
+  var flexDir = String(pcs.flexDirection || 'row').toLowerCase();
+  if (flexDir !== 'row' && flexDir !== 'row-reverse') return false;
+  var ai = String(pcs.alignItems || 'stretch').trim().toLowerCase();
+  if (ai === 'normal') ai = 'stretch';
+  if (ai !== 'center') return false;
+  var h = textStyle.height;
+  var lh = textStyle.lineHeight;
+  if (h == null || lh == null || !(h > 0) || !(lh > 0)) return false;
+  return h > lh * 1.02;
+}
+
+/** 计算样式中 background-image 是否有效（渐变/url 等）。纯渐变时 background-color 常为透明，不能单靠底色判断容器。 */
+function computedHasNonNoneBackgroundImage(comp) {
+  if (!comp) return false;
+  var raw = comp.backgroundImage;
+  if ((raw == null || raw === '') && comp.getPropertyValue) {
+    try { raw = comp.getPropertyValue('background-image'); } catch (e) { raw = ''; }
+  }
+  var s = String(raw || '').trim().toLowerCase();
+  return s.length > 0 && s !== 'none';
+}
+
 function inferNodeType(el, computed, tag) {
   if (tag === 'img') return 'image';
   if (tag === 'svg') return 'component';
@@ -84,9 +119,9 @@ function inferNodeType(el, computed, tag) {
   const hasOnlyText = !hasElementChildren; // 无子元素
   if (hasOnlyText) {
     // 架构级修复：不再依赖 textTags 白名单。
-    // 任何无子元素的叶子节点，只要带有非透明背景色、padding 或 border-radius，
-    // 在视觉上就是一个容器（如 badge、tag、button 或带样式的 div），
-    // 必须识别为 frame 以保留背景色、圆角和内边距等样式。
+    // 任何无子元素的叶子节点，只要带有非透明背景色、非 none 的 background-image（渐变/url）、
+    // padding 或 border-radius，在视觉上就是一个容器（如 badge、tag、button 或带样式的 div），
+    // 必须识别为 frame 以保留背景与圆角、内边距等样式。
     var elBg = computed.backgroundColor || '';
     var elRadius = computed.borderRadius || computed.borderTopLeftRadius || '';
     var elPaddingTop = computed.paddingTop || '';
@@ -94,12 +129,13 @@ function inferNodeType(el, computed, tag) {
     var elPaddingBottom = computed.paddingBottom || '';
     var elPaddingLeft = computed.paddingLeft || '';
     var hasVisualBg = elBg && elBg !== 'rgba(0, 0, 0, 0)' && elBg !== 'transparent';
+    var hasBgImage = computedHasNonNoneBackgroundImage(computed);
     var hasRadius = elRadius && elRadius !== '0px' && elRadius !== '0';
     var hasPadding = (elPaddingTop && elPaddingTop !== '0px') ||
                     (elPaddingRight && elPaddingRight !== '0px') ||
                     (elPaddingBottom && elPaddingBottom !== '0px') ||
                     (elPaddingLeft && elPaddingLeft !== '0px');
-    if (hasVisualBg || hasRadius || hasPadding) {
+    if (hasVisualBg || hasBgImage || hasRadius || hasPadding) {
       var tc = (el.textContent || '').trim().slice(0, 30);
       return 'frame';
     }
@@ -128,11 +164,15 @@ function inferNodeType(el, computed, tag) {
       if (_childBg && _childBg !== 'rgba(0, 0, 0, 0)' && _childBg !== 'transparent') {
         _anyChildHasBg = true;
       }
+      if (!_anyChildHasBg && computedHasNonNoneBackgroundImage(_childComp)) {
+        _anyChildHasBg = true;
+      }
     }
     if (_allChildInline && !_anyChildHasBg && /\S/.test(el.textContent || '')) {
       // 父元素本身无视觉容器背景/圆角/内边距，整体当 text 处理
       var _pBg = computed.backgroundColor || '';
       var _pHasBg = _pBg && _pBg !== 'rgba(0, 0, 0, 0)' && _pBg !== 'transparent';
+      var _pHasBgImage = computedHasNonNoneBackgroundImage(computed);
       var _pRadius = computed.borderRadius || computed.borderTopLeftRadius || '';
       var _pHasRadius = _pRadius && _pRadius !== '0px' && _pRadius !== '0';
       // 有 padding 时不合并为 text：padding 代表可视内边距，需保留为 frame 的 AutoLayout 内边距，
@@ -141,7 +181,7 @@ function inferNodeType(el, computed, tag) {
       var _pPb = computed.paddingBottom || ''; var _pPl = computed.paddingLeft || '';
       var _pHasPadding = (_pPt && _pPt !== '0px') || (_pPr && _pPr !== '0px') ||
                          (_pPb && _pPb !== '0px') || (_pPl && _pPl !== '0px');
-      if (!_pHasBg && !_pHasRadius && !_pHasPadding) {
+      if (!_pHasBg && !_pHasBgImage && !_pHasRadius && !_pHasPadding) {
         return 'text';
       }
     }
@@ -918,6 +958,7 @@ function getColorRunsFromInlineElement(el, finalContent, parentColorStr) {
 if (typeof module !== 'undefined') {
   module.exports = {
     shouldSetTextAlignVerticalCenterForAbsoluteTextLeaf: shouldSetTextAlignVerticalCenterForAbsoluteTextLeaf,
+    shouldSetTextAlignVerticalCenterForFlexParentAlignItemsCenter: shouldSetTextAlignVerticalCenterForFlexParentAlignItemsCenter,
     inferNodeType: inferNodeType,
     shouldMergeTextAndBrChildren: shouldMergeTextAndBrChildren,
     mergeTextAndBrChildNodesContent: mergeTextAndBrChildNodesContent,

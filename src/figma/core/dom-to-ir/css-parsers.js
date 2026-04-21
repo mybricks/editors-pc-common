@@ -157,7 +157,9 @@ function parseLinearGradientFromBgImage(bgImage) {
   if (parts.length < 2) return null;
 
   // 解析角度：第一段可能是 "135deg"、"to right"、"to bottom right" 等
-  var angle = 0;
+  // 注意：CSS 未显式给角度时，linear-gradient 的默认方向是 "to bottom"（180deg），不是 0deg。
+  // 若这里默认 0deg，会把未写角度的纵向渐变整体反向（top<->bottom 颠倒）。
+  var angle = 180;
   var stopsStartIndex = 0;
   var firstPart = parts[0].trim().toLowerCase();
   var degMatch = firstPart.match(/^(-?[\d.]+)deg$/);

@@ -448,13 +448,28 @@ function registerImageFromDataUrl(dataUrl, blobs, imageCtx, optionalHashHex) {
 
 // ─── Gradient transform helpers ───
 
+function modDeg360(angleDeg) {
+  var x = (angleDeg || 0) % 360;
+  return x < 0 ? x + 360 : x;
+}
+
+/**
+ * CSS linear-gradient 角度（0°=上、顺时针）→ Figma GRADIENT_LINEAR 的 transform。
+ * CSS 角度到 Figma 线性渐变矩阵映射。
+ * 这里采用与当前导出视觉一致的方向基：
+ * - 当业务侧反馈“方向整体反向”时，可在此处切换副轴符号实现全局校正。
+ */
 function cssAngleToGradientTransform(angleDeg) {
-  var rad = ((angleDeg || 0) % 360) * Math.PI / 180;
+  var rad = modDeg360(angleDeg) * Math.PI / 180;
   var s = Math.sin(rad);
   var c = Math.cos(rad);
   return {
-    m00: s, m01: c, m02: 0.5 * (1 - s - c),
-    m10: -c, m11: s, m12: 0.5 * (1 + c - s),
+    m00: s,
+    m01: -c,
+    m02: 0.5 * (1 - s + c),
+    m10: c,
+    m11: s,
+    m12: 0.5 * (1 - c - s),
   };
 }
 
@@ -1316,6 +1331,77 @@ function buildSvgVectorData(svgContent, blobs) {
   return { fillGeometry: fillGeometry, vectorNetworkBlobIdx: vectorNetworkBlobIdx };
 }
 
+function hasClipPathPolygon(style) {
+  return !!(style && Array.isArray(style.clipPathPolygon) && style.clipPathPolygon.length >= 3);
+}
+
+function buildClipPathPolygonSvgContent(points, width, height) {
+  if (!points || points.length < 3 || !width || !height) return null;
+  function _fmt(n) {
+    var v = Number(n);
+    if (!isFinite(v)) return '0';
+    return String(Math.round(v * 1000) / 1000);
+  }
+  var d = '';
+  for (var i = 0; i < points.length; i++) {
+    var p = points[i] || {};
+    var x = _fmt(p.x);
+    var y = _fmt(p.y);
+    d += (i === 0 ? 'M ' : ' L ') + x + ' ' + y;
+  }
+  d += ' Z';
+  return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + _fmt(width) + ' ' + _fmt(height) + '"><path d="' + d + '"/></svg>';
+}
+
+function convertClipPathPolygonBackground(style, guid, parentGuid, siblingIndex, parentLayoutMode, blobs, imageCtxGlobal) {
+  if (!hasClipPathPolygon(style)) return null;
+  var width = style.width || 0;
+  var height = style.height || 0;
+  if (!(width > 0 && height > 0)) return null;
+
+  var imageCtx = imageCtxGlobal || { byHash: {} };
+  var imageImports = [];
+  var imageImportSet = {};
+  var paints = irFillsToFigmaPaints(style.fills, blobs, imageCtx, imageImports, imageImportSet);
+  if (!paints || !paints.length) return null;
+
+  var svgContent = buildClipPathPolygonSvgContent(style.clipPathPolygon, width, height);
+  if (!svgContent) return null;
+  var vectorData = buildSvgVectorData(svgContent, blobs);
+  if (!vectorData || !vectorData.fillGeometry || !vectorData.fillGeometry.length) return null;
+
+  var nc = {
+    guid: guid,
+    phase: 'CREATED',
+    parentIndex: { guid: parentGuid, position: positionForIndex(siblingIndex) },
+    type: 'VECTOR',
+    name: 'clip-path-polygon-bg',
+    visible: true,
+    opacity: 1,
+    size: { x: width, y: height },
+    transform: makeTransform(0, 0),
+    fillPaints: paints,
+    fillGeometry: vectorData.fillGeometry,
+    vectorData: {
+      normalizedSize: { x: width, y: height },
+    },
+    stackPositioning: 'ABSOLUTE',
+  };
+  if (vectorData.vectorNetworkBlobIdx != null) {
+    nc.vectorData.vectorNetworkBlob = vectorData.vectorNetworkBlobIdx;
+  }
+  if (imageImports.length) nc.imageImports = { imports: imageImports };
+
+  var stroke = irStrokeToFigma(style);
+  var effects = irShadowsToEffects(style.shadows, style.innerShadows);
+  var sKeys = Object.keys(stroke);
+  for (var i = 0; i < sKeys.length; i++) nc[sKeys[i]] = stroke[sKeys[i]];
+  if (effects) nc.effects = effects;
+  if (style.alignSelf) nc.stackChildAlignSelf = style.alignSelf;
+  if (style.flexGrow >= 1 && parentLayoutMode) nc.stackChildPrimaryGrow = 1;
+  return nc;
+}
+
 // ─── Auto Layout mapping ───
 
 function irLayoutToFigma(style) {
@@ -1420,10 +1506,22 @@ function measureTextWithFont(text, fontSize, font, letterSpacing) {
   var otGlyphs = font.stringToGlyphs(text);
   var glyphData = [];
   var x = 0;
+  var hasVisualBBox = false;
+  var visualYMinUnits = Infinity;
+  var visualYMaxUnits = -Infinity;
 
   for (var i = 0; i < otGlyphs.length; i++) {
     var g = otGlyphs[i];
     var advance = (g.advanceWidth || font.unitsPerEm) * scale;
+    try {
+      // 统计文本字形真实包围盒（字体坐标系，y 轴向上），用于紧行高场景的视觉居中补偿。
+      var gb = g && g.getBoundingBox ? g.getBoundingBox() : null;
+      if (gb && isFinite(gb.y1) && isFinite(gb.y2) && (gb.y2 > gb.y1)) {
+        hasVisualBBox = true;
+        if (gb.y1 < visualYMinUnits) visualYMinUnits = gb.y1;
+        if (gb.y2 > visualYMaxUnits) visualYMaxUnits = gb.y2;
+      }
+    } catch (_bboxErr) {}
     glyphData.push({
       otGlyph: g,
       x: x,
@@ -1439,12 +1537,19 @@ function measureTextWithFont(text, fontSize, font, letterSpacing) {
 
   var ascender = font.ascender * scale;
   var descender = Math.abs(font.descender) * scale;
+  var visualCenterOffsetFromBaseline = null;
+  if (hasVisualBBox) {
+    // 将字体坐标系(y向上)换算到 Figma 文本基线坐标：baseline = centerY + offset
+    // offset = ((yMax + yMin) / 2) * scale
+    visualCenterOffsetFromBaseline = ((visualYMaxUnits + visualYMinUnits) / 2) * scale;
+  }
 
   return {
     totalWidth: x,
     lineHeight: ascender + descender,
     ascender: ascender,
     descender: descender,
+    visualCenterOffsetFromBaseline: visualCenterOffsetFromBaseline,
     glyphs: glyphData,
   };
 }
@@ -1478,10 +1583,18 @@ function convertNode(irNode, parentGuid, siblingIndex, fontCtxMap, blobs, parent
     changes.push(frameChange);
 
     var myLayoutMode = style.layoutMode || null;
+    var childIndexOffset = 0;
+    if (hasClipPathPolygon(style)) {
+      var clipPolygonBg = convertClipPathPolygonBackground(style, nextGuid(), guid, 0, myLayoutMode, blobs, imageCtxGlobal);
+      if (clipPolygonBg) {
+        changes.push(clipPolygonBg);
+        childIndexOffset = 1;
+      }
+    }
     if (irNode.children && irNode.children.length) {
       var orderedChildren = sortChildrenByZIndex(irNode.children, myLayoutMode);
       for (var i = 0; i < orderedChildren.length; i++) {
-        var childChanges = convertNode(orderedChildren[i], guid, i, fontCtxMap, blobs, myLayoutMode, imageCtxGlobal);
+        var childChanges = convertNode(orderedChildren[i], guid, i + childIndexOffset, fontCtxMap, blobs, myLayoutMode, imageCtxGlobal);
         for (var j = 0; j < childChanges.length; j++) {
           changes.push(childChanges[j]);
         }
@@ -1642,10 +1755,11 @@ function convertSvgNode(irNode, guid, parentGuid, siblingIndex, parentLayoutMode
 
 function convertFrameNode(irNode, guid, parentGuid, siblingIndex, parentLayoutMode, blobs, imageCtxGlobal) {
   var style = irNode.style || {};
-  var stroke = irStrokeToFigma(style);
-  var radius = irBorderRadius(style);
+  var hasClipPolygon = hasClipPathPolygon(style);
+  var stroke = hasClipPolygon ? {} : irStrokeToFigma(style);
+  var radius = hasClipPolygon ? {} : irBorderRadius(style);
   var layout = irLayoutToFigma(style);
-  var effects = irShadowsToEffects(style.shadows, style.innerShadows);
+  var effects = hasClipPolygon ? null : irShadowsToEffects(style.shadows, style.innerShadows);
   var imageCtx = imageCtxGlobal || { byHash: {} };
   var imageImports = [];
   var imageImportSet = {};
@@ -1660,7 +1774,7 @@ function convertFrameNode(irNode, guid, parentGuid, siblingIndex, parentLayoutMo
     opacity: style.opacity != null ? style.opacity : 1,
     size: { x: style.width || 100, y: style.height || 100 },
     transform: makeTransform(style.x || 0, style.y || 0, style.rotation),
-    fillPaints: irFillsToFigmaPaints(style.fills, blobs, imageCtx, imageImports, imageImportSet),
+    fillPaints: hasClipPolygon ? [] : irFillsToFigmaPaints(style.fills, blobs, imageCtx, imageImports, imageImportSet),
     frameMaskDisabled: style.clipsContent === false,
   };
 
@@ -1808,14 +1922,12 @@ function convertTextNode(irNode, guid, parentGuid, siblingIndex, fontCtxMap, blo
   } else {
     nodeWidth = 100;
   }
-  var nodeHeight = measured ? Math.ceil(measured.lineHeight) : (style.height || 20);
-  if (measured) {
-    lineHeightVal = Math.ceil(measured.lineHeight);
-  }
 
   // 多行文本检测（content 含 \n 换行符）
   var _contentLines = content.split('\n');
   var _isMultiLine = _contentLines.length > 1;
+
+  var nodeHeight;
   if (_isMultiLine) {
     // 多行行间距必须使用 CSS line-height（style.lineHeight），不能用 measured.lineHeight。
     // measured.lineHeight = opentype ascender+descender（字体包围盒），对 PingFang SC 等 CJK 字体
@@ -1826,6 +1938,23 @@ function convertTextNode(irNode, guid, parentGuid, siblingIndex, fontCtxMap, blo
     nodeHeight = _contentLines.length * lineHeightVal;
     // 多行文本需要固定宽度（如 style 无宽度则用兜底值）
     if (!hasExplicitWidth) nodeWidth = style.width || 200;
+  } else {
+    // 单行：不要用 Opentype ascender+descender 覆盖 IR 里的高度/行高，否则 Figma 框普遍比浏览器 getBoundingClientRect 高
+    // （如 17px vs 12px）；多行分支已在上方强制用 CSS line-height。
+    var _hasCssLh = style.lineHeight != null && style.lineHeight > 0;
+    if (style.height != null && style.height > 0) {
+      nodeHeight = Math.round(style.height);
+    } else if (measured) {
+      nodeHeight = Math.ceil(measured.lineHeight);
+    } else {
+      nodeHeight = 20;
+    }
+    if (measured && !_hasCssLh) {
+      lineHeightVal = Math.ceil(measured.lineHeight);
+    }
+    if (!_hasCssLh && (style.height != null && style.height > 0)) {
+      lineHeightVal = Math.round(style.height);
+    }
   }
 
   var textAutoResize = hasExplicitWidth ? 'NONE' : 'WIDTH_AND_HEIGHT';
@@ -1855,6 +1984,15 @@ function convertTextNode(irNode, guid, parentGuid, siblingIndex, fontCtxMap, blo
       });
     }
   }
+
+  var _textAlignVertical = style.textAlignVertical;
+  // 兜底：部分单行标签文本在 DOM 里通过父容器几何形成视觉居中，但未显式打标 textAlignVertical。
+  // 旧逻辑用比例阈值（1.12）会漏掉“仅高 1~2px”的常见场景，导致首帧贴顶、双击后回正。
+  // 改为像素差阈值：单行文本只要盒高明显大于行高（>0.5px），默认按 CENTER 处理。
+  if (!_textAlignVertical && !_isMultiLine && nodeHeight > 0 && lineHeightVal > 0 && (nodeHeight - lineHeightVal) > 0.5) {
+    _textAlignVertical = 'CENTER';
+  }
+  if (!_textAlignVertical) _textAlignVertical = 'TOP';
 
   var nc = {
     guid: guid,
@@ -1886,7 +2024,7 @@ function convertTextNode(irNode, guid, parentGuid, siblingIndex, fontCtxMap, blo
     })(),
     fontName: fontName,
     fontSize: fontSize,
-    textAlignVertical: style.textAlignVertical || 'TOP',
+    textAlignVertical: _textAlignVertical,
     autoRename: true,
     textAutoResize: textAutoResize,
     fontVariantCommonLigatures: true,
@@ -1914,6 +2052,42 @@ function convertTextNode(irNode, guid, parentGuid, siblingIndex, fontCtxMap, blo
     var figmaGlyphs = [];
     var figmaBaselines = [];
     var _truncationStartIdx = -1;
+    // 单行：CSS/DOM 行高与 OpenType measured.lineHeight 不一致时，缩放字形 y 与 lineAscent，并使 fontLineHeight 与 lineHeightVal 一致，
+    // 否则 derivedTextData 与 nc.lineHeight 矛盾，Figma 初渲需双击才按行高重排。
+    var _slAscY = measured.ascender;
+    var _slLineAsc = measured.ascender;
+    if (!_isMultiLine && lineHeightVal > 0 && measured.lineHeight > 0.001) {
+      var __lhRat = lineHeightVal / measured.lineHeight;
+      _slAscY = measured.ascender * __lhRat;
+      _slLineAsc = _slAscY;
+    }
+    // 盒高 > CSS 行高且垂直对齐为 CENTER/BOTTOM 时，须把行框起点 lineY 与字形 y 一并下移；否则 textUserLayoutVersion=4 会顶在 0，flex 标签内文案偏上。
+    var _slLineY = 0;
+    var _tavSl = _textAlignVertical;
+    if (!_isMultiLine && nodeHeight > lineHeightVal + 0.25) {
+      if (_tavSl === 'CENTER') {
+        _slLineY = (nodeHeight - lineHeightVal) / 2;
+      } else if (_tavSl === 'BOTTOM') {
+        _slLineY = nodeHeight - lineHeightVal;
+      }
+    }
+    var _slGlyphY = _slLineY + _slAscY;
+    // 紧行高 + CENTER 的短文案（如 pill/tag）中，字体 ascender 方案会出现视觉偏上；
+    // 改用字形 bbox 视觉中心对齐，贴近 Figma 双击后的重排结果。
+    if (!_isMultiLine &&
+        _tavSl === 'CENTER' &&
+        measured.visualCenterOffsetFromBaseline != null &&
+        lineHeightVal > 0 &&
+        fontSize > 0 &&
+        lineHeightVal <= fontSize * 1.12 &&
+        nodeHeight > lineHeightVal + 0.25) {
+      var _vcBaseline = (nodeHeight / 2) + measured.visualCenterOffsetFromBaseline;
+      var _vcLineY = _vcBaseline - _slLineAsc;
+      if (isFinite(_vcLineY)) {
+        _slLineY = Math.max(0, _vcLineY);
+        _slGlyphY = _slLineY + _slLineAsc;
+      }
+    }
 
     if (_isMultiLine) {
       // 逐行测量字形，生成多行 baseline
@@ -1989,9 +2163,9 @@ function convertTextNode(irNode, guid, parentGuid, siblingIndex, fontCtxMap, blo
             var _blob0 = encodeGlyphBlob(_gd0.otGlyph);
             var _blobIdx0 = blobs.length;
             blobs.push({ bytes: _blob0 });
-            figmaGlyphs.push({ commandsBlob: _blobIdx0, position: { x: _gd0.x + _slXOffset0, y: measured.ascender }, fontSize: fontSize, firstCharacter: _gi0, advance: _gd0.advanceNorm });
+            figmaGlyphs.push({ commandsBlob: _blobIdx0, position: { x: _gd0.x + _slXOffset0, y: _slGlyphY }, fontSize: fontSize, firstCharacter: _gi0, advance: _gd0.advanceNorm });
           }
-          figmaBaselines.push({ firstCharacter: 0, endCharacter: Math.max(content.length - 1, 0), position: { x: _slXOffset0, y: measured.ascender }, width: measured.totalWidth, lineY: 0, lineHeight: lineHeightVal, lineAscent: measured.ascender });
+          figmaBaselines.push({ firstCharacter: 0, endCharacter: Math.max(content.length - 1, 0), position: { x: _slXOffset0, y: _slGlyphY }, width: measured.totalWidth, lineY: _slLineY, lineHeight: lineHeightVal, lineAscent: _slLineAsc });
         } else {
         // 找最后一个右边界不超过 _availW 的字符
         var _truncIdx = 0;
@@ -2012,7 +2186,7 @@ function convertTextNode(irNode, guid, parentGuid, siblingIndex, fontCtxMap, blo
           blobs.push({ bytes: _tgBlob });
           figmaGlyphs.push({
             commandsBlob: _tgBlobIdx,
-            position: { x: _tgd2.x + _tXOff, y: measured.ascender },
+            position: { x: _tgd2.x + _tXOff, y: _slGlyphY },
             fontSize: fontSize,
             firstCharacter: _tgi,
             advance: _tgd2.advanceNorm,
@@ -2029,7 +2203,7 @@ function convertTextNode(irNode, guid, parentGuid, siblingIndex, fontCtxMap, blo
           var _eAdvPx = (_eGlyph.advanceWidth || resolvedFontCtx.font.unitsPerEm) * _eFontScale;
           figmaGlyphs.push({
             commandsBlob: _eBlobIdx,
-            position: { x: _eXStart, y: measured.ascender },
+            position: { x: _eXStart, y: _slGlyphY },
             fontSize: fontSize,
             firstCharacter: _truncIdx,
             advance: _eAdvNorm,
@@ -2039,11 +2213,11 @@ function convertTextNode(irNode, guid, parentGuid, siblingIndex, fontCtxMap, blo
         figmaBaselines.push({
           firstCharacter: 0,
           endCharacter: Math.max(_truncIdx - 1, 0),
-          position: { x: _tXOff, y: measured.ascender },
+          position: { x: _tXOff, y: _slGlyphY },
           width: _totalTruncW,
-          lineY: 0,
+          lineY: _slLineY,
           lineHeight: lineHeightVal,
-          lineAscent: measured.ascender,
+          lineAscent: _slLineAsc,
         });
         _truncationStartIdx = _truncIdx;
         } // end else (_eOtGlyphs.length > 0)
@@ -2057,7 +2231,7 @@ function convertTextNode(irNode, guid, parentGuid, siblingIndex, fontCtxMap, blo
           blobs.push({ bytes: blob });
           var _slGlyphObj = {
             commandsBlob: blobIndex,
-            position: { x: gd.x + _slXOffset, y: measured.ascender },
+            position: { x: gd.x + _slXOffset, y: _slGlyphY },
             fontSize: fontSize,
             firstCharacter: gi,
             advance: gd.advanceNorm,
@@ -2069,11 +2243,11 @@ function convertTextNode(irNode, guid, parentGuid, siblingIndex, fontCtxMap, blo
         figmaBaselines.push({
           firstCharacter: 0,
           endCharacter: Math.max(content.length - 1, 0),
-          position: { x: _slXOffset, y: measured.ascender },
+          position: { x: _slXOffset, y: _slGlyphY },
           width: measured.totalWidth,
-          lineY: 0,
+          lineY: _slLineY,
           lineHeight: lineHeightVal,
-          lineAscent: measured.ascender,
+          lineAscent: _slLineAsc,
         });
       }
     }
@@ -2083,15 +2257,15 @@ function convertTextNode(irNode, guid, parentGuid, siblingIndex, fontCtxMap, blo
       baselines: figmaBaselines,
       glyphs: figmaGlyphs,
       fontMetaData: [{
-        // key 必须与 fontDigest 对应：我们始终用 PingFangSC-Regular 做字形测量，
-        // key/digest/fontWeight 与实际加载的字体文件一一对应，
-        // 保证 Figma 能通过 digest 验证字形数据合法，从而立即渲染。
+        // key 必须与 fontDigest 对应，使用当前实际参与测量的字体信息。
+        // 若 key/fontDigest 与节点 fontName 不一致，Figma 首帧可能按一套字形渲染，
+        // 双击编辑后按 fontName 重排，表现为“初始上偏，编辑后回正”。
         key: {
-          family: 'PingFang SC',
-          style: resolvedFontCtx.style || 'Regular',
-          postscript: resolvedFontCtx.postscript || 'PingFangSC-Regular',
+          family: resolvedFontCtx.figmaFamily || fontName.family || 'PingFang SC',
+          style: (resolvedFontCtx.figmaStyle || resolvedFontCtx.style || fontName.style || 'Regular'),
+          postscript: resolvedFontCtx.postscript || fontName.postscript || 'PingFangSC-Regular',
         },
-        fontLineHeight: measured.lineHeight / fontSize,
+        fontLineHeight: lineHeightVal / fontSize,
         fontDigest: resolvedFontCtx.fontDigest,
         fontStyle: 'NORMAL',
         fontWeight: _clampedWeight,

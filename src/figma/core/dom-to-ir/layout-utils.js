@@ -5,6 +5,7 @@
  * 职责：
  *   - 读取 / 推断节点 margin：getM
  *   - gap 合并后清理子 margin：pruneChildMarginsAfterGapMerge
+ *   - 横向 Auto Layout 下子项交叉轴 margin → 外包 frame + padding：wrapHorizontalFlowChildrenVerticalMarginAsPadding
  *   - 子节点 margin 一致性检查：anyChildHasMargin / childrenHaveUniformMargin
  *   - 均匀 margin → 父级 itemSpacing：applyUniformMarginAsGap
  *   - 由坐标位置反推 itemSpacing：ensureItemSpacingFromPositions
@@ -146,6 +147,62 @@ function ensureItemSpacingFromPositions(parentNode, childNodes, layoutMode) {
   if (firstGap > current) sty.itemSpacing = firstGap;
 }
 
+/**
+ * 父级为横向 Auto Layout 时，Figma 子项无法表达 CSS 的 margin-top/bottom（会在 prune 中被删）。
+ * 对「有正 marginTop 或 marginBottom」的流内子节点外包一层纵向 HUG frame，把上下 margin 挪到 wrapper 的 padding，
+ * 并把左右 margin 挪到 wrapper（wrapper 才是参与主轴排布的 flex 子项），以还原如列表圆点微调等效果。
+ * @param {Array} childNodes walk 产出的子节点数组（原地替换元素）
+ */
+function wrapHorizontalFlowChildrenVerticalMarginAsPadding(childNodes) {
+  if (!childNodes || !childNodes.length) return;
+  for (var i = 0; i < childNodes.length; i++) {
+    var ch = childNodes[i];
+    if (!ch || ch.type === 'group') continue;
+    var s = ch.style;
+    if (!s) continue;
+    if (s.positionType === 'absolute') continue;
+    var mT = s.marginTop;
+    var mB = s.marginBottom;
+    var hasCross = (typeof mT === 'number' && mT > 0) || (typeof mB === 'number' && mB > 0);
+    if (!hasCross) continue;
+    var mL = s.marginLeft;
+    var mR = s.marginRight;
+    var wrapStyle = {
+      layoutMode: 'VERTICAL',
+      itemSpacing: 0,
+      primaryAxisAlignItems: 'MIN',
+      counterAxisAlignItems: 'MIN',
+      layoutSizingHorizontal: 'HUG',
+      layoutSizingVertical: 'HUG',
+      // 勿复制子文本的 width/height：getTextNodeRect 常为极窄框，Figma 会裁切字形（圆点变竖条）
+      clipsContent: false,
+    };
+    if (typeof mT === 'number' && mT > 0) wrapStyle.paddingTop = mT;
+    if (typeof mB === 'number' && mB > 0) wrapStyle.paddingBottom = mB;
+    if (typeof mL === 'number' && mL > 0) wrapStyle.marginLeft = mL;
+    if (typeof mR === 'number' && mR > 0) wrapStyle.marginRight = mR;
+    if (s.x != null) wrapStyle.x = s.x;
+    if (s.y != null) wrapStyle.y = s.y;
+    delete s.marginTop;
+    delete s.marginBottom;
+    if (typeof mL === 'number' && mL > 0) delete s.marginLeft;
+    if (typeof mR === 'number' && mR > 0) delete s.marginRight;
+    delete s.x;
+    delete s.y;
+    // 仅文本：去掉 getTextNodeRect 给的过窄宽高，避免 Figma 把 ●/· 裁成竖条（非 text 子项保留尺寸）
+    if (ch.type === 'text') {
+      if (s.width != null) delete s.width;
+      if (s.height != null) delete s.height;
+    }
+    childNodes[i] = {
+      type: 'frame',
+      name: 'wrap',
+      style: wrapStyle,
+      children: [ch],
+    };
+  }
+}
+
 
 if (typeof module !== 'undefined') {
   module.exports = {
@@ -155,5 +212,6 @@ if (typeof module !== 'undefined') {
     childrenHaveUniformMargin: childrenHaveUniformMargin,
     applyUniformMarginAsGap: applyUniformMarginAsGap,
     ensureItemSpacingFromPositions: ensureItemSpacingFromPositions,
+    wrapHorizontalFlowChildrenVerticalMarginAsPadding: wrapHorizontalFlowChildrenVerticalMarginAsPadding,
   };
 }

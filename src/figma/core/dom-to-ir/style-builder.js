@@ -143,6 +143,108 @@ function buildInlineTextStyle(parentEl, computed, textRect, parentRect, cssRuleM
   return style;
 }
 
+function _splitByCommaOutsideParens(str) {
+  var out = [];
+  var cur = '';
+  var depth = 0;
+  for (var i = 0; i < str.length; i++) {
+    var ch = str[i];
+    if (ch === '(') depth++;
+    if (ch === ')' && depth > 0) depth--;
+    if (ch === ',' && depth === 0) {
+      out.push(cur);
+      cur = '';
+      continue;
+    }
+    cur += ch;
+  }
+  if (cur) out.push(cur);
+  return out;
+}
+
+function _splitBySpaceOutsideParens(str) {
+  var out = [];
+  var cur = '';
+  var depth = 0;
+  for (var i = 0; i < str.length; i++) {
+    var ch = str[i];
+    if (ch === '(') depth++;
+    if (ch === ')' && depth > 0) depth--;
+    if (/\s/.test(ch) && depth === 0) {
+      if (cur) out.push(cur);
+      cur = '';
+      continue;
+    }
+    cur += ch;
+  }
+  if (cur) out.push(cur);
+  return out;
+}
+
+function _parseCalcCoord(expr, axisSize) {
+  var s = String(expr || '').trim();
+  var m = s.match(/^calc\((.*)\)$/i);
+  if (!m) return null;
+  var body = m[1];
+  var re = /([+-]?)\s*([0-9]*\.?[0-9]+)\s*(%|px)/g;
+  var sum = 0;
+  var matched = false;
+  var item;
+  while ((item = re.exec(body)) !== null) {
+    matched = true;
+    var sign = item[1] === '-' ? -1 : 1;
+    var num = parseFloat(item[2]);
+    var unit = item[3];
+    if (!isFinite(num)) continue;
+    if (unit === '%') sum += sign * axisSize * num / 100;
+    else if (unit === 'px') sum += sign * num;
+  }
+  return matched ? sum : null;
+}
+
+function _parseClipPathCoord(token, axisSize) {
+  var t = String(token || '').trim().toLowerCase();
+  if (!t) return null;
+  if (t.endsWith('%')) {
+    var nPct = parseFloat(t);
+    return isFinite(nPct) ? axisSize * nPct / 100 : null;
+  }
+  if (t.endsWith('px')) {
+    var nPx = parseFloat(t);
+    return isFinite(nPx) ? nPx : null;
+  }
+  if (t.indexOf('calc(') === 0) {
+    return _parseCalcCoord(t, axisSize);
+  }
+  var n = parseFloat(t);
+  return isFinite(n) ? n : null;
+}
+
+function parseClipPathPolygon(rawClipPath, width, height) {
+  if (!rawClipPath || width == null || height == null || width <= 0 || height <= 0) return null;
+  var raw = String(rawClipPath).trim();
+  var m = raw.match(/^polygon\s*\(([\s\S]*)\)$/i);
+  if (!m) return null;
+  var body = String(m[1] || '').trim();
+  if (!body) return null;
+  var parts = _splitByCommaOutsideParens(body).map(function (p) { return String(p || '').trim(); }).filter(Boolean);
+  if (!parts.length) return null;
+  if (/^(evenodd|nonzero)$/i.test(parts[0])) {
+    parts = parts.slice(1);
+  }
+  var points = [];
+  for (var i = 0; i < parts.length; i++) {
+    var seg = parts[i];
+    var coords = _splitBySpaceOutsideParens(seg).filter(Boolean);
+    if (coords.length < 2) continue;
+    var x = _parseClipPathCoord(coords[0], width);
+    var y = _parseClipPathCoord(coords[1], height);
+    if (!isFinite(x) || !isFinite(y)) continue;
+    points.push({ x: x, y: y });
+  }
+  return points.length >= 3 ? points : null;
+}
+
 function buildStyleJSON(el, computed, rect, parentRect, cssRuleMap, globalFont) {
   const style = {};
   const num = (v) => (v === '' || v == null ? undefined : parseFloat(String(v)));
@@ -246,6 +348,15 @@ function buildStyleJSON(el, computed, rect, parentRect, cssRuleMap, globalFont) 
   if (opacityVal != null) {
     var o = parseFloat(opacityVal);
     if (!Number.isNaN(o) && o < 1) style.opacity = o;
+  }
+
+  // clip-path: polygon(...)：记录为点集，供 IR→Figma 阶段生成 VECTOR 背景还原异形容器。
+  var _clipPathRaw = d(['clip-path', 'clipPath']) || (computed && (computed.clipPath || computed.webkitClipPath));
+  if (_clipPathRaw && _clipPathRaw !== 'none') {
+    var _polygonPoints = parseClipPathPolygon(_clipPathRaw, w, h);
+    if (_polygonPoints && _polygonPoints.length >= 3) {
+      style.clipPathPolygon = _polygonPoints;
+    }
   }
 
   // min-width / min-height / max-width / max-height → Figma minSize / maxSize
@@ -484,6 +595,13 @@ function buildStyleJSON(el, computed, rect, parentRect, cssRuleMap, globalFont) 
         if (alignItems && alignItems !== 'normal') break;
       }
     }
+    // Flex：align-items 初始值为 stretch。getComputedStyle 常返回关键字 normal（与 CSS 初始一致），
+    // 若仍按「未知」走下方几何反推，在表格等高行 + 矮文本场景下易把交叉轴误判为 center。
+    // 在几何反推之前将 normal/空 视为 stretch，与浏览器 flex 盒模型一致。
+    var _alignItemsRaw = alignItems == null ? '' : String(alignItems).trim().toLowerCase();
+    if (!_alignItemsRaw || _alignItemsRaw === 'normal') {
+      alignItems = 'stretch';
+    }
     // 终极 fallback：cssRuleMap 里没有规则（如 antd 全局 CSS 不在 style 标签内），
     // 且 computed 也是 "normal"（Shadow DOM cascade 丢失），改用子元素实际位置反推。
     // HORIZONTAL flex 时：
@@ -520,10 +638,22 @@ function buildStyleJSON(el, computed, rect, parentRect, cssRuleMap, globalFont) 
         if (_childRect.height > 0) {
           var _childCenterY = _childRect.top - _containerTop + _childRect.height / 2;
           var _containerCenterY = _containerH / 2;
-          alignItems = Math.abs(_childCenterY - _containerCenterY) < 3 ? 'center' : 'flex-start';
+          if (Math.abs(_childCenterY - _containerCenterY) < 3) {
+            alignItems = 'center';
+          } else if (_childCenterY > _containerCenterY) {
+            alignItems = 'flex-end';
+          } else {
+            alignItems = 'flex-start';
+          }
         } else {
           var _childOffsetY = _childRect.top - _containerTop;
-          alignItems = (_childOffsetY > _containerH * 0.2 && _childOffsetY < _containerH * 0.8) ? 'center' : 'flex-start';
+          if (_childOffsetY > _containerH * 0.2 && _childOffsetY < _containerH * 0.8) {
+            alignItems = 'center';
+          } else if (_childOffsetY >= _containerH * 0.8) {
+            alignItems = 'flex-end';
+          } else {
+            alignItems = 'flex-start';
+          }
         }
       } else if (_fullHeightChild) {
         // 流内子项都≈满高 → align-items: stretch（默认值），stretch 映射为 MIN（交叉轴顶对齐）
@@ -531,7 +661,13 @@ function buildStyleJSON(el, computed, rect, parentRect, cssRuleMap, globalFont) 
       } else if (_svgFallback && _containerH > 0) {
         // 只有 height=0 的 SVG 子项，用偏移法兜底
         var _childOffsetY = _svgFallback.getBoundingClientRect().top - _containerTop;
-        alignItems = (_childOffsetY > _containerH * 0.2 && _childOffsetY < _containerH * 0.8) ? 'center' : 'flex-start';
+        if (_childOffsetY > _containerH * 0.2 && _childOffsetY < _containerH * 0.8) {
+          alignItems = 'center';
+        } else if (_childOffsetY >= _containerH * 0.8) {
+          alignItems = 'flex-end';
+        } else {
+          alignItems = 'flex-start';
+        }
       }
     }
     if ((!justifyContent || justifyContent === 'normal') && cssRuleMap && typeof el.matches === 'function') {
@@ -622,7 +758,12 @@ function buildStyleJSON(el, computed, rect, parentRect, cssRuleMap, globalFont) 
           var _centerSpan = _maxCenter - _minCenter;
           var _tol = 3;
           var _inferredCrossAlign = null;
-          if (_topSpan <= _tol && _bottomSpan > _tol) _inferredCrossAlign = 'MIN';
+          // 表格行 / 多列等高 flex：各子项 top、bottom 几乎相同 → _centerSpan 也为 0，
+          // 若走「centerSpan≤tol → CENTER」会误把整行交叉轴标成居中，左侧短文案在 Figma 里垂直居中。
+          // 等高带应对齐 stretch 语义 → 交叉轴用 MIN（顶对齐），不要推断 CENTER。
+          if (_topSpan <= _tol && _bottomSpan <= _tol) {
+            _inferredCrossAlign = 'MIN';
+          } else if (_topSpan <= _tol && _bottomSpan > _tol) _inferredCrossAlign = 'MIN';
           else if (_bottomSpan <= _tol && _topSpan > _tol) _inferredCrossAlign = 'MAX';
           else if (_centerSpan <= _tol) _inferredCrossAlign = 'CENTER';
           else if (_topSpan <= _tol) _inferredCrossAlign = 'MIN';
@@ -656,6 +797,31 @@ function buildStyleJSON(el, computed, rect, parentRect, cssRuleMap, globalFont) 
     }
     if (_isRadioWrapper) {
     }
+    // 无元素子节点、仅文本的 flex/inline-flex（如 tag）：align-items 默认 stretch → MIN，
+    // 匿名 flex 行框在浏览器里常视觉垂直居中，用语义几何校准交叉轴。
+    if (style.layoutMode === 'HORIZONTAL' && (!el.children || el.children.length === 0) && /\S/.test(el.textContent || '')) {
+      try {
+        var _anonFlexRect = el.getBoundingClientRect();
+        var _anonFlexH = _anonFlexRect.height || 0;
+        if (_anonFlexH > 0) {
+          var _anonDoc = el.ownerDocument;
+          for (var _afi = 0; _afi < el.childNodes.length; _afi++) {
+            var _afn = el.childNodes[_afi];
+            if (_afn.nodeType !== 3 || !/\S/.test(_afn.textContent || '')) continue;
+            if (_anonDoc && _anonDoc.createRange) {
+              var _afr = _anonDoc.createRange();
+              _afr.selectNodeContents(_afn);
+              var _aftr = _afr.getBoundingClientRect();
+              if (_aftr && _aftr.height > 0) {
+                var _afcy = _aftr.top - _anonFlexRect.top + _aftr.height / 2;
+                if (Math.abs(_afcy - _anonFlexH / 2) < 5) style.counterAxisAlignItems = 'CENTER';
+              }
+            }
+            break;
+          }
+        }
+      } catch (_eAnonFlex) {}
+    }
   } else if (display === 'block' || display === 'inline-block' || display === 'inline') {
     // 架构级修复：不再依赖 blockTextTags 白名单。
     // 如果一个 block/inline 元素没有子元素（只有文本），但因为有背景/padding被升级为 frame，
@@ -667,6 +833,37 @@ function buildStyleJSON(el, computed, rect, parentRect, cssRuleMap, globalFont) 
       el.children.length === 1 &&
       INLINE_TEXT_TAGS.indexOf((el.children[0].tagName || '').toLowerCase()) !== -1;
     if (!hasElementChildren || hasSingleInlineTextChild) {
+      // 混合内容检测：block 容器同时有非空文本节点 + 单个 inline 子元素时，
+      // 需用子元素的几何位置判断是否实为纵向排列（文本在上、span 在下）。
+      // 例：<div>突破<span>100万元</span></div> — span 实际在第二行，应为 VERTICAL。
+      if (hasSingleInlineTextChild) {
+        var _hasMixedTextNode = false;
+        for (var _mtnI = 0; _mtnI < el.childNodes.length; _mtnI++) {
+          var _mtn = el.childNodes[_mtnI];
+          if (_mtn.nodeType === 3 && (_mtn.textContent || '').trim()) {
+            _hasMixedTextNode = true;
+            break;
+          }
+        }
+        if (_hasMixedTextNode) {
+          try {
+            var _mixSpanRect = el.children[0].getBoundingClientRect();
+            var _mixParentRect = el.getBoundingClientRect();
+            var _mixSpanOffsetTop = _mixSpanRect.top - _mixParentRect.top;
+            // span 的顶部超过容器高度 30% → 说明上方有文本内容，纵向排列
+            if (_mixParentRect.height > 0 && _mixSpanOffsetTop > _mixParentRect.height * 0.3) {
+              style.layoutMode = 'VERTICAL';
+              style.counterAxisAlignItems = 'MIN';
+              style.primaryAxisAlignItems = 'MIN';
+              style.paddingTop = px(d(['padding-top', 'paddingTop']) || computed.paddingTop);
+              style.paddingRight = px(d(['padding-right', 'paddingRight']) || computed.paddingRight);
+              style.paddingBottom = px(d(['padding-bottom', 'paddingBottom']) || computed.paddingBottom);
+              style.paddingLeft = px(d(['padding-left', 'paddingLeft']) || computed.paddingLeft);
+            }
+          } catch (_eMix) {}
+        }
+      }
+      if (!style.layoutMode) {
       style.layoutMode = 'HORIZONTAL';
       // 若单行 inline 子元素在浏览器中实际跨越多个行（getClientRects().length > 1），
       // 说明 block 内含文本 + inline 子元素的内容因容器宽度不足而换行。
@@ -708,8 +905,34 @@ function buildStyleJSON(el, computed, rect, parentRect, cssRuleMap, globalFont) 
           style.counterAxisAlignItems = (_blockChildOffsetY > _blockContainerH * 0.2 && _blockChildOffsetY < _blockContainerH * 0.8) ? 'CENTER' : 'MIN';
         }
       } else {
-        style.counterAxisAlignItems = 'CENTER';
+        // 纯文本节点、无元素子节点：默认顶对齐，避免表格等高行里单行文案被误判为垂直居中。
+        // 但若首段文本行框的垂直中心与容器中心接近（如 tag/badge 仅靠 line-height + padding 居中），
+        // 则输出 CENTER，与浏览器视觉一致（否则 Figma Auto Layout 贴顶）。
+        style.counterAxisAlignItems = 'MIN';
+        if (el && el.childNodes && _blockContainerH > 0) {
+          try {
+            var _docCross = el.ownerDocument;
+            var _txtRectCross = null;
+            for (var _tnCrossI = 0; _tnCrossI < el.childNodes.length; _tnCrossI++) {
+              var _tnCross = el.childNodes[_tnCrossI];
+              if (_tnCross.nodeType !== 3 || !/\S/.test(_tnCross.textContent || '')) continue;
+              if (_docCross && _docCross.createRange) {
+                var _rngCross = _docCross.createRange();
+                _rngCross.selectNodeContents(_tnCross);
+                _txtRectCross = _rngCross.getBoundingClientRect();
+              }
+              break;
+            }
+            if (_txtRectCross && _txtRectCross.height > 0) {
+              var _txtCenterY = _txtRectCross.top - _blockContainerRect.top + _txtRectCross.height / 2;
+              if (Math.abs(_txtCenterY - _blockContainerH / 2) < 5) {
+                style.counterAxisAlignItems = 'CENTER';
+              }
+            }
+          } catch (_eTxtCross) {}
+        }
       }
+      } // end if (!style.layoutMode)
     } else {
       // 有多个子元素（如 ant-radio-button-wrapper）：computed display 在 Shadow DOM 中可能降级为 block/inline-block，
       // 但实际上是 flex 容器（antd 外部 CSS 未 cascade 进 Shadow DOM）。
@@ -731,21 +954,25 @@ function buildStyleJSON(el, computed, rect, parentRect, cssRuleMap, globalFont) 
           }
         }
         if (_multiSampleChild) {
-          var _multiChildRect = _multiSampleChild.getBoundingClientRect();
-          var _multiChildCenterY = _multiChildRect.top - _multiContainerRect.top + _multiChildRect.height / 2;
-          var _isCentered = Math.abs(_multiChildCenterY - _multiContainerH / 2) < 3;
-          if (_isRadioWrapper) {
-          }
-          if (_isCentered) {
-            style.layoutMode = 'HORIZONTAL';
-            style.counterAxisAlignItems = 'CENTER';
-            var _textAlignMulti = (d(['text-align', 'textAlign']) || computed.textAlign || '').toString().toLowerCase();
-            var _alignMapMulti = { left: 'MIN', right: 'MAX', center: 'CENTER', justify: 'MIN', start: 'MIN', end: 'MAX' };
-            style.primaryAxisAlignItems = _alignMapMulti[_textAlignMulti] || 'MIN';
-            style.paddingTop = px(d(['padding-top', 'paddingTop']) || computed.paddingTop);
-            style.paddingRight = px(d(['padding-right', 'paddingRight']) || computed.paddingRight);
-            style.paddingBottom = px(d(['padding-bottom', 'paddingBottom']) || computed.paddingBottom);
-            style.paddingLeft = px(d(['padding-left', 'paddingLeft']) || computed.paddingLeft);
+          var _multiChildRect2 = _multiSampleChild.getBoundingClientRect();
+          // 子项被父级撑满高度时，几何中心必然接近容器中心，不能据此推断「垂直居中」。
+          var _multiChildH2 = _multiChildRect2.height;
+          if (_multiChildH2 > 0 && _multiChildH2 < _multiContainerH * 0.95) {
+            var _multiChildCenterY = _multiChildRect2.top - _multiContainerRect.top + _multiChildRect2.height / 2;
+            var _isCentered = Math.abs(_multiChildCenterY - _multiContainerH / 2) < 3;
+            if (_isRadioWrapper) {
+            }
+            if (_isCentered) {
+              style.layoutMode = 'HORIZONTAL';
+              style.counterAxisAlignItems = 'CENTER';
+              var _textAlignMulti = (d(['text-align', 'textAlign']) || computed.textAlign || '').toString().toLowerCase();
+              var _alignMapMulti = { left: 'MIN', right: 'MAX', center: 'CENTER', justify: 'MIN', start: 'MIN', end: 'MAX' };
+              style.primaryAxisAlignItems = _alignMapMulti[_textAlignMulti] || 'MIN';
+              style.paddingTop = px(d(['padding-top', 'paddingTop']) || computed.paddingTop);
+              style.paddingRight = px(d(['padding-right', 'paddingRight']) || computed.paddingRight);
+              style.paddingBottom = px(d(['padding-bottom', 'paddingBottom']) || computed.paddingBottom);
+              style.paddingLeft = px(d(['padding-left', 'paddingLeft']) || computed.paddingLeft);
+            }
           }
         }
       }
