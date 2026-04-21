@@ -226,10 +226,9 @@ function ColorSketch({
   const defaultGradient = "linear-gradient(90deg, rgba(255,255,255,1) 0%, rgba(255,255,255,1) 100%)"
   
   // 根据 value 判断初始 subTab（优先检查图片），同时考虑禁用配置
-  const isImage = value?.includes?.("url(")
-  const isGradient = value?.includes?.("gradient")
-  const getInitialSubTab = () => {
-    // 优先根据 value 选择
+  const getSubTabByValue = useCallback((currentValue?: string) => {
+    const isImage = currentValue?.includes?.("url(")
+    const isGradient = currentValue?.includes?.("gradient")
     if (isImage && !disableBackgroundImage) return "image"
     if (isGradient && !disableGradient) return "gradient"
     if (!disableBackgroundColor) return "background"
@@ -237,15 +236,15 @@ function ColorSketch({
     if (!disableGradient) return "gradient"
     if (!disableBackgroundImage) return "image"
     return "background"
-  }
-  const [subTab, setSubTab] = useState(getInitialSubTab())
+  }, [disableBackgroundColor, disableBackgroundImage, disableGradient])
+  const [subTab, setSubTab] = useState(() => getSubTabByValue(value))
   
   // 保存纯色和渐变值，切换 tab 时使用
   const [colorValue, setColorValue] = useState<string>(
-    (isGradient || isImage) ? defaultColor : (value || defaultColor)
+    value?.includes?.("gradient") || value?.includes?.("url(") ? defaultColor : (value || defaultColor)
   )
   const [gradientValue, setGradientValue] = useState<string>(
-    (isGradient && !isImage) ? value : defaultGradient
+    value?.includes?.("gradient") && !value?.includes?.("url(") ? value : defaultGradient
   )
   
   // 使用 colorValue 计算 Sketch 的颜色
@@ -262,16 +261,21 @@ function ColorSketch({
   }, [colorValue]);
   
   useEffect(() => {
-    if (value?.includes?.("url(")) {
-      setSubTab("image")
-    } else if (value?.includes?.("gradient")) {
+    // value 只同步数据，不驱动 tab；避免回写时把用户选中的 tab 抢走
+    if (value?.includes?.("gradient")) {
       setGradientValue(value)
-      setSubTab("gradient")
-    } else if (value) {
+    } else if (value && !value.includes("url(")) {
       setColorValue(value)
-      setSubTab("background")
     }
   }, [value])
+
+  useEffect(() => {
+    // 只在弹层“打开瞬间”初始化一次，打开后不再被 value 回写影响
+    if (open) {
+      setSubTab(getSubTabByValue(value))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open])
   
   const tabClick = (tab: string) => {
     setSelectTab(tab)
