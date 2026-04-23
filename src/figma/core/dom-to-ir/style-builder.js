@@ -72,11 +72,11 @@ function getGlobalFont(rootEl, computed, cssRuleMap) {
 function buildInlineTextStyle(parentEl, computed, textRect, parentRect, cssRuleMap, globalFont) {
   if (!textRect || !parentRect) return {};
   var style = {};
-  style.x = Math.round(textRect.left - parentRect.left);
-  style.y = Math.round(textRect.top - parentRect.top);
+  style.x = textRect.left - parentRect.left;
+  style.y = textRect.top - parentRect.top;
   // 写入文字的实测宽高，使其在 Figma 里精确对齐（尤其是 block button 靠 padding 居中时，y 已经是正确偏移）
-  if (textRect.width != null && textRect.width > 0) style.width = Math.round(textRect.width);
-  if (textRect.height != null && textRect.height > 0) style.height = Math.round(textRect.height);
+  if (textRect.width != null && textRect.width > 0) style.width = textRect.width;
+  if (textRect.height != null && textRect.height > 0) style.height = textRect.height;
   var decl = (cssRuleMap && parentEl && Object.keys(cssRuleMap).length > 0) ? getDeclaredStyleForElement(parentEl, cssRuleMap) : {};
   function d(keys) {
     var k = Array.isArray(keys) ? keys : [keys];
@@ -451,18 +451,18 @@ function buildStyleJSON(el, computed, rect, parentRect, cssRuleMap, globalFont) 
   }
 
   // 位置与宽高一律用 API 实测值（rect 来自 getDesignRect），避免 CSS 规则里 100% 等被误解析成 100
-  const x = parentRect ? Math.round(rect.left - parentRect.left) : Math.round(rect.left);
-  const y = parentRect ? Math.round(rect.top - parentRect.top) : Math.round(rect.top);
+  const x = parentRect ? rect.left - parentRect.left : rect.left;
+  const y = parentRect ? rect.top - parentRect.top : rect.top;
   style.x = x;
   style.y = y;
-  // 相对父节点的亚像素偏移（旋转 AABB 反推未旋转位置时用，避免先 round x/y 导致校验失败）
-  var xRelSub = parentRect ? rect.left - parentRect.left : rect.left;
-  var yRelSub = parentRect ? rect.top - parentRect.top : rect.top;
-  // 实测宽高（亚像素）：用于 clip-path % 等解析；写入 IR 的 width/height 与 x/y 一致四舍五入到整 px，避免 Figma 面板出现 130.7 这类小数
+  // 相对父节点的亚像素偏移（旋转 AABB 反推未旋转位置时用）
+  var xRelSub = x;
+  var yRelSub = y;
+  // 实测宽高（亚像素）：原样透传，保留浮点精度
   const wSub = rect.width != null && rect.width >= 0 ? rect.width : undefined;
   const hSub = rect.height != null && rect.height >= 0 ? rect.height : undefined;
-  const w = wSub != null ? Math.round(wSub) : undefined;
-  const h = hSub != null ? Math.round(hSub) : undefined;
+  const w = wSub;
+  const h = hSub;
   if (w != null) style.width = w;
   if (h != null) style.height = h;
 
