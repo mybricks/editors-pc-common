@@ -10,7 +10,9 @@
  *   - 文本布局辅助：getTextNodeRect / getElementContentsTextBlockRect /
  *     shouldMarkWidthConstrainedForEdgeWhitespace / applyWidthConstrainedForFigmaEdgeWhitespace /
  *     applyTextOverflowEllipsisExport / shouldSetTextAlignVerticalCenterForAbsoluteTextLeaf /
- *     shouldSetTextAlignVerticalCenterForFlexParentAlignItemsCenter
+ *     shouldSetTextAlignVerticalCenterForFlexParentAlignItemsCenter /
+ *     shouldSetTextAlignVerticalCenterForSelectPlaceholder /
+ *     applyAntSelectSelectionPlaceholderTextAlign
  *   - 表单辅助：isShowingPlaceholder
  *   - 伪元素：getPseudoTextNode / getPseudoShapeNode
  * 规则：依赖 css-parsers（颜色/阴影）和 style-builder（buildInlineTextStyle）。
@@ -28,6 +30,7 @@ var parseRadialGradientFromBgImage = _nbcp.parseRadialGradientFromBgImage || (ty
 var parseUrlFromBgImage = _nbcp.parseUrlFromBgImage || (typeof parseUrlFromBgImage !== 'undefined' ? parseUrlFromBgImage : null);
 var buildInlineTextStyle = _nbsb.buildInlineTextStyle || buildInlineTextStyle;
 var hasClassPrefix = _nbdh.hasClassPrefix || hasClassPrefix;
+var getDeclaredStyleForElement = _nbdh.getDeclaredStyleForElement || getDeclaredStyleForElement;
 
 // 内联字体栈解析函数：style-builder.js 里有同名定义，但打包后 node-builder 作用域内不一定可见。
 // 用局部变量形式引用，优先用外部已有的定义，否则 fallback 到内联实现，避免 ReferenceError。
@@ -89,6 +92,56 @@ function shouldSetTextAlignVerticalCenterForFlexParentAlignItemsCenter(el, textS
   var lh = textStyle.lineHeight;
   if (h == null || lh == null || !(h > 0) || !(lh > 0)) return false;
   return h > lh * 1.02;
+}
+
+/**
+ * ant-select .ant-select-selection-placeholder：浏览器里占位符在行框内垂直居中；
+ * IR 上可能 height 远小于 lineHeight（字形盒），也可能 height≈格高与 lineHeight 同量级，
+ * 原先用「h < lh*0.92」会漏掉后者。lineHeight 若未写入 style，用 computed 兜底。
+ */
+function shouldSetTextAlignVerticalCenterForSelectPlaceholder(el, textStyle, computed) {
+  if (!el || !textStyle) return false;
+  try {
+    if (typeof el.closest !== 'function') return false;
+    if (!el.closest('.ant-select-selection-placeholder')) return false;
+  } catch (e) {
+    return false;
+  }
+  if (textStyle.singleLine === false) return false;
+  var lh = textStyle.lineHeight;
+  if (lh == null || !(lh > 0)) {
+    if (!computed) return false;
+    var _lhRaw = computed.lineHeight;
+    lh = (_lhRaw && String(_lhRaw) !== 'normal') ? parseFloat(_lhRaw) : NaN;
+    if (!(lh > 0) || Number.isNaN(lh)) return false;
+  }
+  var h = textStyle.height;
+  if (h == null || !(h > 0)) return true;
+  if (h < lh * 0.92) return true;
+  // 测量高度与行高同量级（含略大于行高的整格），仍为单行占位，需 CENTER
+  if (h >= lh * 0.85 && h <= lh * 1.35) return true;
+  return false;
+}
+
+/**
+ * 对 IR 文本节点应用 ant-select 占位符垂直居中（含 line-height / height 与浏览器行框对齐）。
+ * @returns {boolean} 是否已写入 CENTER
+ */
+function applyAntSelectSelectionPlaceholderTextAlign(textNode, el, computed) {
+  if (!textNode || !textNode.style || !el || !computed) return false;
+  if (!shouldSetTextAlignVerticalCenterForSelectPlaceholder(el, textNode.style, computed)) return false;
+  var s = textNode.style;
+  s.textAlignVertical = 'CENTER';
+  if (s.lineHeight == null || !(s.lineHeight > 0)) {
+    var _raw = computed.lineHeight;
+    var _lh = (_raw && String(_raw) !== 'normal') ? parseFloat(_raw) : null;
+    if (_lh != null && !Number.isNaN(_lh) && _lh > 0) s.lineHeight = _lh;
+  }
+  var _lhNow = s.lineHeight;
+  if (_lhNow != null && _lhNow > 0 && s.height != null && s.height > 0 && s.height < _lhNow * 0.92) {
+    s.height = Math.round(_lhNow);
+  }
+  return true;
 }
 
 /** 计算样式中 background-image 是否有效（渐变/url 等）。纯渐变时 background-color 常为透明，不能单靠底色判断容器。 */
@@ -154,6 +207,14 @@ function inferNodeType(el, computed, tag) {
     var _anyChildHasBg = false;
     for (var _ici = 0; _ici < el.children.length; _ici++) {
       var _childEl = el.children[_ici];
+      var _childTagLower = (_childEl.tagName || '').toLowerCase();
+      // <svg> 在 HTML 中常为 display:inline，但绝不能走「合并为 text」：textContent 会串起所有 <text>，
+      // 且丢失 circle/渐变/textPath（如 plateImg 仅包 plateSvg 时被误判成一段「炭CHARCOALBBQ」）。
+      if (_childTagLower === 'svg' || _childTagLower === 'math' || _childTagLower === 'canvas' ||
+          _childTagLower === 'video' || _childTagLower === 'iframe' || _childTagLower === 'object') {
+        _allChildInline = false;
+        break;
+      }
       var _childComp = window.getComputedStyle(_childEl);
       var _childDisp = _childComp.display;
       if (_childDisp !== 'inline' && _childDisp !== 'inline-block' && _childDisp !== 'inline-flex') {
@@ -167,6 +228,33 @@ function inferNodeType(el, computed, tag) {
       if (!_anyChildHasBg && computedHasNonNoneBackgroundImage(_childComp)) {
         _anyChildHasBg = true;
       }
+    }
+    // 多个操作入口 / 表单块：① 直接子级为 a/button/input/select/textarea 或子级内包一层；② 子树 ≥2 个 a/button/input…；
+    // ③ 多子级且含表单控件（如 ant-pagination-options：条/页 + 前往页）。任一则不能整段判成 text。
+    if (_allChildInline && el.children.length >= 2) {
+      var _interactiveSlots = 0;
+      for (var _pii = 0; _pii < el.children.length; _pii++) {
+        var _slotEl = el.children[_pii];
+        var _slotTag = (_slotEl.tagName || '').toLowerCase();
+        if (_slotTag === 'a' || _slotTag === 'button' || _slotTag === 'input' || _slotTag === 'select' || _slotTag === 'textarea') {
+          _interactiveSlots++;
+        } else if (_slotEl.querySelector && (_slotEl.querySelector('a') || _slotEl.querySelector('button') ||
+            _slotEl.querySelector('input') || _slotEl.querySelector('select') || _slotEl.querySelector('textarea'))) {
+          _interactiveSlots++;
+        }
+      }
+      if (_interactiveSlots >= 2) _allChildInline = false;
+    }
+    if (_allChildInline && el.children.length >= 2 && el.querySelector) {
+      try {
+        if (el.querySelector('input, select, textarea')) _allChildInline = false;
+      } catch (_eFormMix) {}
+    }
+    if (_allChildInline && el.querySelectorAll) {
+      try {
+        var _subCtrls = el.querySelectorAll('a, button, input, select, textarea');
+        if (_subCtrls.length >= 2) _allChildInline = false;
+      } catch (_eSubL) {}
     }
     if (_allChildInline && !_anyChildHasBg && /\S/.test(el.textContent || '')) {
       // 父元素本身无视觉容器背景/圆角/内边距，整体当 text 处理
@@ -885,6 +973,42 @@ function getPseudoShapeNode(el, pseudo, ps, geo, parentRect, elRect) {
   }
 }
 
+/** 分页等 UI 省略占位：•（U+2022）、·（U+00B7）、. … …（U+2026）、⋯（U+22EF） */
+function _isLikelyEllipsisGlyphText(s) {
+  if (!s || typeof s !== 'string') return false;
+  var n = s.length;
+  if (n < 1 || n > 8) return false;
+  for (var i = 0; i < n; i++) {
+    var c = s.charCodeAt(i);
+    if (c !== 0x2022 && c !== 0xb7 && c !== 0x2e && c !== 0x2026 && c !== 0x22ef) return false;
+  }
+  return true;
+}
+
+/**
+ * 「图标 + 省略占位」结构：元素被合并为单 text 时，省略 span 的 computed color
+ * 往往源自同容器内 SVG 图标的 currentColor 上下文，而非设计意图。
+ *
+ * 判定条件（全部满足才丢弃）：
+ *   1. 唯一 colorRun 覆盖全文
+ *   2. 全文仅由省略号类字符（•··...）组成
+ *   3. 当前元素（或其任意后代）含有 SVG（即 icon 与省略号同根）
+ *
+ * 不做颜色字符串比较，避免 "rgb()" vs "rgba()" 格式不一致导致的漏判。
+ * 不限制层级深度，覆盖 anticon → container → link 等各层作为 el 的情形。
+ */
+function _shouldDropSvgSiblingBleedColorRun(container, parentColorStr, finalContent, run) {
+  if (!container || !run || !finalContent) return false;
+  if (run.start !== 0 || run.end !== finalContent.length) return false;
+  if (!run.color || run.color === 'rgba(0, 0, 0, 0)') return false;
+  if (parentColorStr && run.color === parentColorStr) return false;
+  var _fcFlat = finalContent.replace(/\n/g, '');
+  if (!_isLikelyEllipsisGlyphText(_fcFlat)) return false;
+  try {
+    if (container.querySelector && container.querySelector('svg')) return true;
+  } catch (e) {}
+  return false;
+}
 
 /**
  * 对含 inline span 子节点的文本元素，提取各 span 的颜色范围，用于 Figma 富文本 characterStyleIDs。
@@ -894,13 +1018,15 @@ function getPseudoShapeNode(el, pseudo, ps, geo, parentRect, elRect) {
  *   1. 遍历 el.childNodes，对文本节点按顺序推进搜索位置；对 span 元素在 finalContent（含视觉 \n）
  *      中搜索其文本，记录 [start, end) 索引与颜色。
  *   2. 用 mapRawIdx() 将「忽略 \n 的裸字符索引」转换为 finalContent 的实际字符索引。
+ *   3. 若声明层/样式表不可用，对「仅省略号类字符 + 与无文本 SVG 兄弟同色」的唯一全长 run 做兜底剔除（见 _shouldDropSvgSiblingBleedColorRun）。
  *
  * @param {Element} el - 父文本元素（inferNodeType 返回 'text' 且有 children 时使用）
  * @param {string}  finalContent - 已处理的最终文本（含视觉 \n，由 getTextContent/getTextWithActualLineBreaks 产出）
  * @param {string|null} parentColorStr - 父元素计算颜色字符串，用于过滤相同颜色的 span（不需要记录）
+ * @param {Record<string,string>|null} [cssRuleMap] - 与 buildInlineTextStyle 一致：优先用声明层 color，避免仅 computed 误判（如分页省略号与主色图标同容器）
  * @returns {Array<{start:number, end:number, color:string}>|null}
  */
-function getColorRunsFromInlineElement(el, finalContent, parentColorStr) {
+function getColorRunsFromInlineElement(el, finalContent, parentColorStr, cssRuleMap) {
   if (!el || !finalContent || !el.children || el.children.length === 0) return null;
 
   // 将「裸字符索引（忽略 \n）」映射到 finalContent 中的实际字符索引
@@ -928,7 +1054,13 @@ function getColorRunsFromInlineElement(el, finalContent, parentColorStr) {
       else searchFrom = Math.min(searchFrom + tRaw.length, contentNoNl.length);
     } else if (child.nodeType === 1) {
       var spanComp = window.getComputedStyle(child);
-      var spanColor = spanComp.color;
+      var declMap = (cssRuleMap && Object.keys(cssRuleMap).length > 0) ? getDeclaredStyleForElement(child, cssRuleMap) : {};
+      var dColor = declMap.color || declMap['color'];
+      var spanColor = dColor;
+      if (spanColor && String(spanColor).indexOf('var(') >= 0) {
+        spanColor = spanComp.color;
+      }
+      if (!spanColor) spanColor = spanComp.color;
       var spanRaw = (child.textContent || '').replace(/\n/g, '');
       if (!spanRaw) continue;
 
@@ -952,6 +1084,10 @@ function getColorRunsFromInlineElement(el, finalContent, parentColorStr) {
     }
   }
 
+  if (runs.length === 1 && _shouldDropSvgSiblingBleedColorRun(el, parentColorStr, finalContent, runs[0])) {
+    return null;
+  }
+
   return runs.length > 0 ? runs : null;
 }
 
@@ -959,6 +1095,8 @@ if (typeof module !== 'undefined') {
   module.exports = {
     shouldSetTextAlignVerticalCenterForAbsoluteTextLeaf: shouldSetTextAlignVerticalCenterForAbsoluteTextLeaf,
     shouldSetTextAlignVerticalCenterForFlexParentAlignItemsCenter: shouldSetTextAlignVerticalCenterForFlexParentAlignItemsCenter,
+    shouldSetTextAlignVerticalCenterForSelectPlaceholder: shouldSetTextAlignVerticalCenterForSelectPlaceholder,
+    applyAntSelectSelectionPlaceholderTextAlign: applyAntSelectSelectionPlaceholderTextAlign,
     inferNodeType: inferNodeType,
     shouldMergeTextAndBrChildren: shouldMergeTextAndBrChildren,
     mergeTextAndBrChildNodesContent: mergeTextAndBrChildNodesContent,

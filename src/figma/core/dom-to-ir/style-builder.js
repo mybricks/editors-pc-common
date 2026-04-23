@@ -75,8 +75,8 @@ function buildInlineTextStyle(parentEl, computed, textRect, parentRect, cssRuleM
   style.x = Math.round(textRect.left - parentRect.left);
   style.y = Math.round(textRect.top - parentRect.top);
   // 写入文字的实测宽高，使其在 Figma 里精确对齐（尤其是 block button 靠 padding 居中时，y 已经是正确偏移）
-  if (textRect.width != null && textRect.width > 0) style.width = textRect.width;
-  if (textRect.height != null && textRect.height > 0) style.height = textRect.height;
+  if (textRect.width != null && textRect.width > 0) style.width = Math.round(textRect.width);
+  if (textRect.height != null && textRect.height > 0) style.height = Math.round(textRect.height);
   var decl = (cssRuleMap && parentEl && Object.keys(cssRuleMap).length > 0) ? getDeclaredStyleForElement(parentEl, cssRuleMap) : {};
   function d(keys) {
     var k = Array.isArray(keys) ? keys : [keys];
@@ -181,6 +181,79 @@ function _splitBySpaceOutsideParens(str) {
   return out;
 }
 
+/**
+ * 将 border-radius 简写拆成 [tl, tr, br, bl]（px 整数）；忽略椭圆语法中 `/` 之后的第二组半径。
+ * 仅作声明层兜底：每角不应把整段简写交给 parseFloat，否则会只读到第一个数。
+ */
+function expandBorderRadiusShorthandToPxFour(raw, pxFn) {
+  if (raw == null) return null;
+  var s = String(raw).trim();
+  if (!s || s === 'none') return null;
+  var slash = s.indexOf('/');
+  if (slash >= 0) s = s.slice(0, slash).trim();
+  var parts = _splitBySpaceOutsideParens(s).map(function (p) { return String(p || '').trim(); }).filter(Boolean);
+  if (!parts.length) return null;
+  var nums = [];
+  for (var i = 0; i < parts.length; i++) {
+    var n = pxFn(parts[i]);
+    nums.push(n != null && !Number.isNaN(n) ? n : 0);
+  }
+  var a;
+  var b;
+  var c;
+  var d;
+  if (nums.length === 1) {
+    a = b = c = d = nums[0];
+  } else if (nums.length === 2) {
+    a = nums[0];
+    b = nums[1];
+    c = nums[0];
+    d = nums[1];
+  } else if (nums.length === 3) {
+    a = nums[0];
+    b = nums[1];
+    c = nums[2];
+    d = nums[1];
+  } else {
+    a = nums[0];
+    b = nums[1];
+    c = nums[2];
+    d = nums[3];
+  }
+  return [a, b, c, d];
+}
+
+/**
+ * 在 cssRuleMap 中查找与 el 匹配且值含 inset 的 box-shadow 声明。
+ * 用于 getComputedStyle 省略 inset、或合并声明时 inset 被覆盖的兜底；取最后一个匹配值。
+ */
+function findInsetBoxShadowFromCssRuleMap(el, cssRuleMap) {
+  if (!cssRuleMap || !el || typeof el.matches !== 'function') return null;
+  var best = null;
+  for (var sel in cssRuleMap) {
+    var matched = false;
+    try {
+      matched = el.matches(sel);
+    } catch (_) {
+      matched = false;
+    }
+    if (!matched) continue;
+    var text = cssRuleMap[sel] || '';
+    var parts = text.split(';');
+    for (var pi = 0; pi < parts.length; pi++) {
+      var part = String(parts[pi] || '').trim();
+      if (!part) continue;
+      var colon = part.indexOf(':');
+      if (colon <= 0) continue;
+      var key = part.slice(0, colon).trim().toLowerCase();
+      if (key !== 'box-shadow' && key !== '-webkit-box-shadow' && key !== '-moz-box-shadow') continue;
+      var val = part.slice(colon + 1).trim().replace(/\s*!important\s*$/i, '');
+      if (val && val !== 'none' && val.indexOf('inset') >= 0) best = val;
+    }
+  }
+  return best;
+}
+
 function _parseCalcCoord(expr, axisSize) {
   var s = String(expr || '').trim();
   var m = s.match(/^calc\((.*)\)$/i);
@@ -245,6 +318,122 @@ function parseClipPathPolygon(rawClipPath, width, height) {
   return points.length >= 3 ? points : null;
 }
 
+/** 2×2 子矩阵是否近似正交旋转（允许轻微数值误差） */
+function _isApproxPureRotation2D(a, b, c, d) {
+  var n = a * a + b * b;
+  if (Math.abs(n - 1) > 0.08) return false;
+  if (Math.abs(c * c + d * d - 1) > 0.08) return false;
+  if (Math.abs(a * c + b * d) > 0.02) return false;
+  return true;
+}
+
+/**
+ * 将 transform-origin 解析为相对 border-box 左上角的 px 偏移（用于与 matrix(a,b,c,d) 组合）。
+ * 优先匹配浏览器已算好的「Npx Mpx」；否则按关键字 / % / length 解析。
+ */
+function parseTransformOriginOffsetsPx(originRaw, bw, bh) {
+  var raw = String(originRaw || '').trim();
+  if (!raw) return { ox: bw * 0.5, oy: bh * 0.5 };
+  var mpx = raw.match(/^(-?[\d.]+)px\s+(-?[\d.]+)px$/i);
+  if (mpx) {
+    var ox0 = parseFloat(mpx[1]);
+    var oy0 = parseFloat(mpx[2]);
+    if (isFinite(ox0) && isFinite(oy0)) return { ox: ox0, oy: oy0 };
+  }
+  var parts = _splitBySpaceOutsideParens(raw);
+  if (parts.length >= 3 && /^-?[\d.]+px$/i.test(String(parts[2] || '').trim())) {
+    parts = parts.slice(0, 2);
+  }
+  function lenOrPctToken(tok, dim) {
+    if (tok == null || tok === '') return null;
+    var t = String(tok).trim();
+    var tl = t.toLowerCase();
+    if (tl === 'left' || tl === 'top') return 0;
+    if (tl === 'center') return dim * 0.5;
+    if (tl === 'right' || tl === 'bottom') return dim;
+    if (t.indexOf('%') >= 0) {
+      var pct = parseFloat(t);
+      return isFinite(pct) && isFinite(dim) ? (pct * dim) / 100 : null;
+    }
+    var n = parseFloat(t.replace(/px$/i, ''));
+    return isFinite(n) ? n : null;
+  }
+  var ox;
+  var oy;
+  if (!parts.length) return { ox: bw * 0.5, oy: bh * 0.5 };
+  if (parts.length === 1) {
+    var p0 = parts[0].trim();
+    var p0l = p0.toLowerCase();
+    if (p0l === 'top' || p0l === 'bottom') {
+      ox = bw * 0.5;
+      oy = lenOrPctToken(p0, bh);
+    } else if (p0l === 'left' || p0l === 'right' || p0l === 'center') {
+      ox = lenOrPctToken(p0, bw);
+      oy = bh * 0.5;
+    } else {
+      ox = lenOrPctToken(p0, bw);
+      oy = bh * 0.5;
+    }
+  } else {
+    var t0 = parts[0].trim();
+    var t1 = parts[1].trim();
+    var t0l = t0.toLowerCase();
+    var t1l = t1.toLowerCase();
+    if (t0l === 'top' || t0l === 'bottom') {
+      oy = lenOrPctToken(t0, bh);
+      ox = lenOrPctToken(t1, bw);
+      if (ox == null) ox = bw * 0.5;
+    } else if (t0l === 'left' || t0l === 'right' || t0l === 'center') {
+      ox = lenOrPctToken(t0, bw);
+      oy = lenOrPctToken(t1, bh);
+      if (oy == null) oy = bh * 0.5;
+    } else if (t1l === 'top' || t1l === 'bottom') {
+      ox = lenOrPctToken(t0, bw);
+      oy = lenOrPctToken(t1, bh);
+    } else if (t1l === 'left' || t1l === 'right' || t1l === 'center') {
+      ox = lenOrPctToken(t1, bw);
+      oy = lenOrPctToken(t0, bh);
+    } else {
+      ox = lenOrPctToken(t0, bw);
+      oy = lenOrPctToken(t1, bh);
+    }
+  }
+  if (ox == null || !isFinite(ox)) ox = bw * 0.5;
+  if (oy == null || !isFinite(oy)) oy = bh * 0.5;
+  return { ox: ox, oy: oy };
+}
+
+/**
+ * 已知旋转后 AABB（相对父）、CSS matrix 的 2×2 部分、border 尺寸与 transform-origin，
+ * 反推未旋转 border-box 左上角 (sx,sy)。与「绕 AABB 中心 = 旋转中心」等价于 origin 为 50% 50%。
+ */
+function _layoutUnrotatedFromRotatedAabb(ax, ay, aw, ah, a, b, c, d, bw, bh, ox, oy) {
+  var corners = [[0, 0], [bw, 0], [bw, bh], [0, bh]];
+  var minVx = Infinity;
+  var maxVx = -Infinity;
+  var minVy = Infinity;
+  var maxVy = -Infinity;
+  for (var i = 0; i < corners.length; i++) {
+    var lx = corners[i][0];
+    var ly = corners[i][1];
+    var vx = lx - ox;
+    var vy = ly - oy;
+    var rx = a * vx + c * vy;
+    var ry = b * vx + d * vy;
+    var ViX = ox + rx;
+    var ViY = oy + ry;
+    if (ViX < minVx) minVx = ViX;
+    if (ViX > maxVx) maxVx = ViX;
+    if (ViY < minVy) minVy = ViY;
+    if (ViY > maxVy) maxVy = ViY;
+  }
+  var sx = ax - minVx;
+  var sy = ay - minVy;
+  var errX = Math.abs(ax + aw - (sx + maxVx));
+  var errY = Math.abs(ay + ah - (sy + maxVy));
+  return { sx: sx, sy: sy, ok: errX < 1.5 && errY < 1.5 };
+}
+
 function buildStyleJSON(el, computed, rect, parentRect, cssRuleMap, globalFont) {
   const style = {};
   const num = (v) => (v === '' || v == null ? undefined : parseFloat(String(v)));
@@ -266,38 +455,99 @@ function buildStyleJSON(el, computed, rect, parentRect, cssRuleMap, globalFont) 
   const y = parentRect ? Math.round(rect.top - parentRect.top) : Math.round(rect.top);
   style.x = x;
   style.y = y;
-  // 宽高保留小数，不取整，避免 148.66 变成 149 导致布局挤出
-  const w = rect.width != null && rect.width >= 0 ? rect.width : undefined;
-  const h = rect.height != null && rect.height >= 0 ? rect.height : undefined;
+  // 相对父节点的亚像素偏移（旋转 AABB 反推未旋转位置时用，避免先 round x/y 导致校验失败）
+  var xRelSub = parentRect ? rect.left - parentRect.left : rect.left;
+  var yRelSub = parentRect ? rect.top - parentRect.top : rect.top;
+  // 实测宽高（亚像素）：用于 clip-path % 等解析；写入 IR 的 width/height 与 x/y 一致四舍五入到整 px，避免 Figma 面板出现 130.7 这类小数
+  const wSub = rect.width != null && rect.width >= 0 ? rect.width : undefined;
+  const hSub = rect.height != null && rect.height >= 0 ? rect.height : undefined;
+  const w = wSub != null ? Math.round(wSub) : undefined;
+  const h = hSub != null ? Math.round(hSub) : undefined;
   if (w != null) style.width = w;
   if (h != null) style.height = h;
+
+  // border-radius 含 % 时不能用 parseFloat：'50%' → 50 会被误当成 50px（圆盘等场景应为 min(w,h) 的一半）。
+  // CSS 椭圆角水平半径相对 width、垂直相对 height；导出为 Figma 单标量 cornerRadius 时取 min 近似内接圆角。
+  const pxLenRadius = (v) => {
+    if (v == null || v === '') return undefined;
+    var str = String(v).trim();
+    if (!str || str === 'none') return undefined;
+    if (str.indexOf('%') >= 0) {
+      var pct = parseFloat(str);
+      if (!isFinite(pct) || w == null || h == null || !(w > 0) || !(h > 0)) return undefined;
+      var rx = (w * pct) / 100;
+      var ry = (h * pct) / 100;
+      return Math.round(Math.min(rx, ry));
+    }
+    var n = parseFloat(str);
+    return isFinite(n) && !Number.isNaN(n) ? Math.round(n) : undefined;
+  };
 
   const rotation = num(computed.transform);
   if (computed.transform && computed.transform !== 'none') {
     const angle = parseTransformRotation(computed.transform);
     if (angle != null) {
       style.rotation = -angle; // CSS 顺时针为正，Figma 逆时针为正，需取反
-      // getBoundingClientRect 返回旋转后的 AABB，Figma 需要「未旋转」的尺寸与中心对齐的 x/y。
-      // AABB 中心 = 元素旋转中心（transform-origin: 50% 50%），以此反推未旋转尺寸与正确 x/y。
+      // getBoundingClientRect 为旋转后 AABB；按 matrix 2×2 + transform-origin 反推未旋转 x/y/w/h。
+      // 旧逻辑假定旋转中心 = AABB 中心（等价于 origin 50% 50%），绕非中心点旋转（如圆盘绕大圆心）会错位。
       if (angle !== 0 && rect.width != null && rect.height != null) {
-        const angleRad = (angle * Math.PI) / 180;
-        const cosA = Math.abs(Math.cos(angleRad));
-        const sinA = Math.abs(Math.sin(angleRad));
-        // det = cos²θ - sin²θ = cos(2θ)，趋近 0（θ≈45°）时无法区分 W/H，跳过修正
-        const det = cosA * cosA - sinA * sinA;
-        if (Math.abs(det) > 0.01) {
-          const aabbW = rect.width;
-          const aabbH = rect.height;
-          const origW = (aabbW * cosA - aabbH * sinA) / det;
-          const origH = (aabbH * cosA - aabbW * sinA) / det;
-          if (origW > 0 && origH > 0) {
-            // x/y 此时是 AABB 相对父节点的偏移（已由上方 lines 162-163 计算）
-            const cx = style.x + aabbW / 2;
-            const cy = style.y + aabbH / 2;
-            style.x = Math.round(cx - origW / 2);
-            style.y = Math.round(cy - origH / 2);
-            style.width = origW;
-            style.height = origH;
+        var _appliedOrigin = false;
+        var _matM = computed.transform.match(/matrix\(([^)]+)\)/);
+        if (_matM && el) {
+          var _mp = _matM[1].split(',').map(function (s) { return parseFloat(String(s).trim()); });
+          if (_mp.length >= 6 && _mp.every(function (n) { return isFinite(n); })) {
+            var _e = _mp[4];
+            var _f = _mp[5];
+            if (_isApproxPureRotation2D(_mp[0], _mp[1], _mp[2], _mp[3]) && Math.hypot(_e, _f) <= 1) {
+              var _oStr = d(['transform-origin', 'transformOrigin']) || (computed.transformOrigin || '');
+              var _bw = el.offsetWidth;
+              var _bh = el.offsetHeight;
+              if (_bw > 0 && _bh > 0) {
+                var _po = parseTransformOriginOffsetsPx(_oStr, _bw, _bh);
+                var _lay = _layoutUnrotatedFromRotatedAabb(
+                  xRelSub,
+                  yRelSub,
+                  rect.width,
+                  rect.height,
+                  _mp[0],
+                  _mp[1],
+                  _mp[2],
+                  _mp[3],
+                  _bw,
+                  _bh,
+                  _po.ox,
+                  _po.oy
+                );
+                if (_lay.ok) {
+                  style.x = Math.round(_lay.sx);
+                  style.y = Math.round(_lay.sy);
+                  style.width = Math.round(_bw);
+                  style.height = Math.round(_bh);
+                  _appliedOrigin = true;
+                }
+              }
+            }
+          }
+        }
+        if (!_appliedOrigin) {
+          const angleRad = (angle * Math.PI) / 180;
+          const cosA = Math.abs(Math.cos(angleRad));
+          const sinA = Math.abs(Math.sin(angleRad));
+          // det = cos²θ - sin²θ = cos(2θ)，趋近 0（θ≈45°）时无法区分 W/H，跳过修正
+          const det = cosA * cosA - sinA * sinA;
+          if (Math.abs(det) > 0.01) {
+            const aabbW = rect.width;
+            const aabbH = rect.height;
+            const origW = (aabbW * cosA - aabbH * sinA) / det;
+            const origH = (aabbH * cosA - aabbW * sinA) / det;
+            if (origW > 0 && origH > 0) {
+              const cx = style.x + aabbW / 2;
+              const cy = style.y + aabbH / 2;
+              style.x = Math.round(cx - origW / 2);
+              style.y = Math.round(cy - origH / 2);
+              style.width = Math.round(origW);
+              style.height = Math.round(origH);
+            }
           }
         }
       }
@@ -319,24 +569,59 @@ function buildStyleJSON(el, computed, rect, parentRect, cssRuleMap, globalFont) 
       }
       if (_rotateAngle != null && !isNaN(_rotateAngle) && _rotateAngle !== 0) {
         style.rotation = -_rotateAngle; // CSS 顺时针为正，Figma 逆时针为正
-        // 同样需要修正 AABB → 未旋转尺寸与 x/y
         if (rect.width != null && rect.height != null) {
-          const _rRad = (_rotateAngle * Math.PI) / 180;
-          const _rCosA = Math.abs(Math.cos(_rRad));
-          const _rSinA = Math.abs(Math.sin(_rRad));
-          const _rDet = _rCosA * _rCosA - _rSinA * _rSinA;
-          if (Math.abs(_rDet) > 0.01) {
-            const _rAabbW = rect.width;
-            const _rAabbH = rect.height;
-            const _rOrigW = (_rAabbW * _rCosA - _rAabbH * _rSinA) / _rDet;
-            const _rOrigH = (_rAabbH * _rCosA - _rAabbW * _rSinA) / _rDet;
-            if (_rOrigW > 0 && _rOrigH > 0) {
-              const _rCx = style.x + _rAabbW / 2;
-              const _rCy = style.y + _rAabbH / 2;
-              style.x = Math.round(_rCx - _rOrigW / 2);
-              style.y = Math.round(_rCy - _rOrigH / 2);
-              style.width = _rOrigW;
-              style.height = _rOrigH;
+          var _rAppliedOrigin = false;
+          var _rRad = (_rotateAngle * Math.PI) / 180;
+          var _ra = Math.cos(_rRad);
+          var _rb = Math.sin(_rRad);
+          var _rc = -Math.sin(_rRad);
+          var _rd = Math.cos(_rRad);
+          if (el && _isApproxPureRotation2D(_ra, _rb, _rc, _rd)) {
+            var _rOstr = d(['transform-origin', 'transformOrigin']) || (computed.transformOrigin || '');
+            var _rBw = el.offsetWidth;
+            var _rBh = el.offsetHeight;
+            if (_rBw > 0 && _rBh > 0) {
+              var _rPo = parseTransformOriginOffsetsPx(_rOstr, _rBw, _rBh);
+              var _rLay = _layoutUnrotatedFromRotatedAabb(
+                xRelSub,
+                yRelSub,
+                rect.width,
+                rect.height,
+                _ra,
+                _rb,
+                _rc,
+                _rd,
+                _rBw,
+                _rBh,
+                _rPo.ox,
+                _rPo.oy
+              );
+              if (_rLay.ok) {
+                style.x = Math.round(_rLay.sx);
+                style.y = Math.round(_rLay.sy);
+                style.width = Math.round(_rBw);
+                style.height = Math.round(_rBh);
+                _rAppliedOrigin = true;
+              }
+            }
+          }
+          if (!_rAppliedOrigin) {
+            const _rCosA = Math.abs(Math.cos(_rRad));
+            const _rSinA = Math.abs(Math.sin(_rRad));
+            const _rDet = _rCosA * _rCosA - _rSinA * _rSinA;
+            if (Math.abs(_rDet) > 0.01) {
+              const _rAabbW = rect.width;
+              const _rAabbH = rect.height;
+              const _rOrigW = (_rAabbW * _rCosA - _rAabbH * _rSinA) / _rDet;
+              const _rOrigH = (_rAabbH * _rCosA - _rAabbW * _rSinA) / _rDet;
+              if (_rOrigW > 0 && _rOrigH > 0) {
+                const _rCx = style.x + _rAabbW / 2;
+                const _rCy = style.y + _rAabbH / 2;
+                style.x = Math.round(_rCx - _rOrigW / 2);
+                style.y = Math.round(_rCy - _rOrigH / 2);
+                style.width = Math.round(_rOrigW);
+                style.height = Math.round(_rOrigH);
+              }
             }
           }
         }
@@ -353,7 +638,7 @@ function buildStyleJSON(el, computed, rect, parentRect, cssRuleMap, globalFont) 
   // clip-path: polygon(...)：记录为点集，供 IR→Figma 阶段生成 VECTOR 背景还原异形容器。
   var _clipPathRaw = d(['clip-path', 'clipPath']) || (computed && (computed.clipPath || computed.webkitClipPath));
   if (_clipPathRaw && _clipPathRaw !== 'none') {
-    var _polygonPoints = parseClipPathPolygon(_clipPathRaw, w, h);
+    var _polygonPoints = parseClipPathPolygon(_clipPathRaw, wSub, hSub);
     if (_polygonPoints && _polygonPoints.length >= 3) {
       style.clipPathPolygon = _polygonPoints;
     }
@@ -429,6 +714,34 @@ function buildStyleJSON(el, computed, rect, parentRect, cssRuleMap, globalFont) 
       }
     }
   })();
+  // 斜条纹等「渐变 + 固定平铺单元」常把尺寸写在 background 简写里（如 linear-gradient(...) / 200px 200px），
+  // 单独读 background-size 可能为空，导致 _bgTileW=0、退化为整幅 GRADIENT_LINEAR（无细密条纹）。
+  if ((!_bgTileW || !_bgTileH) && bgImage && bgImage.indexOf('linear-gradient') >= 0) {
+    var _bgShForTile = d(['background']) || '';
+    try {
+      if (!_bgShForTile && computed && computed.background) _bgShForTile = computed.background;
+    } catch (_eBgTile) {}
+    if (_bgShForTile && typeof _bgShForTile === 'string') {
+      var _slashPair = _bgShForTile.match(/\/\s*([\d.]+)px\s+([\d.]+)px/i);
+      if (_slashPair) {
+        var _twS = parseFloat(_slashPair[1]);
+        var _thS = parseFloat(_slashPair[2]);
+        if (!isNaN(_twS) && _twS > 0 && !isNaN(_thS) && _thS > 0) {
+          _bgTileW = _twS;
+          _bgTileH = _thS;
+        }
+      } else {
+        var _slashOne = _bgShForTile.match(/\/\s*([\d.]+)px(?:\s*[,;]|$)/i);
+        if (_slashOne) {
+          var _oneS = parseFloat(_slashOne[1]);
+          if (!isNaN(_oneS) && _oneS > 0) {
+            _bgTileW = _oneS;
+            _bgTileH = _oneS;
+          }
+        }
+      }
+    }
+  }
   var gradientFill = bgImage ? (parseLinearGradientFromBgImage(bgImage) || parseRadialGradientFromBgImage(bgImage)) : null;
   var imageUrl = bgImage ? parseUrlFromBgImage(bgImage) : null;
   if (gradientFill && _bgTileW > 0 && _bgTileH > 0) {
@@ -525,18 +838,71 @@ function buildStyleJSON(el, computed, rect, parentRect, cssRuleMap, globalFont) 
     }
   }
 
-  // Border radius
-  var tl = px(d(['border-top-left-radius', 'borderRadius']) || computed.borderTopLeftRadius);
-  var tr = px(d(['border-top-right-radius', 'borderRadius']) || computed.borderTopRightRadius);
-  var br = px(d(['border-bottom-right-radius', 'borderRadius']) || computed.borderBottomRightRadius);
-  var bl = px(d(['border-bottom-left-radius', 'borderRadius']) || computed.borderBottomLeftRadius);
-  if (tl != null || tr != null || br != null || bl != null) {
-    if (tl === tr && tr === br && br === bl) style.borderRadius = tl ?? 0;
-    else style.borderRadius = [tl ?? 0, tr ?? 0, br ?? 0, bl ?? 0];
+  // Border radius：每角不要回退到整段 border-radius（parseFloat 只吃到第一个数）
+  var tl = pxLenRadius(d(['border-top-left-radius', 'borderTopLeftRadius']));
+  if (tl == null) tl = pxLenRadius(computed.borderTopLeftRadius);
+  var tr = pxLenRadius(d(['border-top-right-radius', 'borderTopRightRadius']));
+  if (tr == null) tr = pxLenRadius(computed.borderTopRightRadius);
+  var brRad = pxLenRadius(d(['border-bottom-right-radius', 'borderBottomRightRadius']));
+  if (brRad == null) brRad = pxLenRadius(computed.borderBottomRightRadius);
+  var bl = pxLenRadius(d(['border-bottom-left-radius', 'borderBottomLeftRadius']));
+  if (bl == null) bl = pxLenRadius(computed.borderBottomLeftRadius);
+  if (tl == null && tr == null && brRad == null && bl == null) {
+    var _brShr = d(['border-radius', 'borderRadius']) || computed.borderRadius;
+    var _expBr = expandBorderRadiusShorthandToPxFour(_brShr, pxLenRadius);
+    if (_expBr) {
+      tl = _expBr[0];
+      tr = _expBr[1];
+      brRad = _expBr[2];
+      bl = _expBr[3];
+    }
+  }
+  if (tl != null || tr != null || brRad != null || bl != null) {
+    var _tlN = tl ?? 0;
+    var _trN = tr ?? 0;
+    var _brN = brRad ?? 0;
+    var _blN = bl ?? 0;
+    if (_tlN === _trN && _trN === _brN && _brN === _blN) style.borderRadius = _tlN;
+    else style.borderRadius = [_tlN, _trN, _brN, _blN];
   }
 
   // box-shadow -> shadows (DROP_SHADOW) + innerShadows (INNER_SHADOW)
-  var boxShadowStr = (computed && (computed.boxShadow || computed['box-shadow'])) || d(['box-shadow', 'boxShadow']);
+  // 顺序：内联 style → cssRuleMap 声明 → computed；避免 WebKit 等省略 inset 导致内阴影误判为 DROP_SHADOW。
+  var boxComputed = (computed && (computed.boxShadow || computed['box-shadow'])) || '';
+  var boxInline = '';
+  if (el && el.style) {
+    try {
+      var _bxIn = (el.style.boxShadow && String(el.style.boxShadow).trim()) || '';
+      if (!_bxIn && typeof el.style.getPropertyValue === 'function') {
+        _bxIn = String(el.style.getPropertyValue('box-shadow') || el.style.getPropertyValue('-webkit-box-shadow') || '').trim();
+      }
+      if (_bxIn && _bxIn !== 'none') boxInline = _bxIn;
+    } catch (_) {}
+  }
+  var boxDeclRaw = d(['box-shadow', 'boxShadow']);
+  var boxShadowStr = '';
+  if (boxInline) {
+    var _bsInl = String(boxInline).trim();
+    if (_bsInl.indexOf('var(') >= 0 || _bsInl.toLowerCase().indexOf('calc(') >= 0) {
+      boxShadowStr = boxComputed;
+    } else {
+      boxShadowStr = _bsInl;
+    }
+  } else if (boxDeclRaw != null && String(boxDeclRaw).trim() !== '' && String(boxDeclRaw).trim() !== 'none') {
+    var _bsDecl = String(boxDeclRaw).trim();
+    if (_bsDecl.indexOf('var(') >= 0 || _bsDecl.toLowerCase().indexOf('calc(') >= 0) {
+      boxShadowStr = boxComputed;
+    } else {
+      boxShadowStr = _bsDecl;
+    }
+  }
+  if (!boxShadowStr || String(boxShadowStr).trim() === '' || String(boxShadowStr).trim() === 'none') {
+    boxShadowStr = boxComputed;
+  }
+  if (boxShadowStr && String(boxShadowStr).trim() !== '' && String(boxShadowStr).trim() !== 'none' && String(boxShadowStr).indexOf('inset') < 0 && cssRuleMap) {
+    var _insetBsFallback = findInsetBoxShadowFromCssRuleMap(el, cssRuleMap);
+    if (_insetBsFallback) boxShadowStr = _insetBsFallback;
+  }
   if (boxShadowStr && String(boxShadowStr).trim() !== '' && String(boxShadowStr).trim() !== 'none') {
     var _allShadows = parseBoxShadow(String(boxShadowStr));
     _allShadows = _allShadows.filter(function (s) {
@@ -697,10 +1063,14 @@ function buildStyleJSON(el, computed, rect, parentRect, cssRuleMap, globalFont) 
     // CSS：space-between 在仅 1 个参与排布的 flex 子项时贴在主轴起点；Figma SPACE_BETWEEN+单子项会居中，降级为 MIN/MAX
     if (justifyContentNorm === 'space-between' && style.primaryAxisAlignItems === 'SPACE_BETWEEN' && el.children) {
       var _inFlowFlexChildren = 0;
+      var _inFlowHasFlexGrow = false;
       for (var _fi = 0; _fi < el.children.length; _fi++) {
         try {
           var _fpos = (window.getComputedStyle(el.children[_fi]).position || '').toLowerCase();
-          if (_fpos !== 'absolute' && _fpos !== 'fixed') _inFlowFlexChildren++;
+          if (_fpos === 'absolute' || _fpos === 'fixed') continue;
+          _inFlowFlexChildren++;
+          var _fgSb = parseFloat(window.getComputedStyle(el.children[_fi]).flexGrow || '0');
+          if (!isNaN(_fgSb) && _fgSb >= 1) _inFlowHasFlexGrow = true;
         } catch (_fe) {}
       }
       if (_inFlowFlexChildren <= 1) {
@@ -717,6 +1087,10 @@ function buildStyleJSON(el, computed, rect, parentRect, cssRuleMap, globalFont) 
             style.primaryAxisAlignItems = _rtl ? 'MAX' : 'MIN';
           }
         }
+      } else if (style.layoutMode === 'HORIZONTAL' && _inFlowFlexChildren >= 2 && _inFlowHasFlexGrow) {
+        // 浏览器里 space-between 的「主轴留白」常被 flex-grow≥1 的子项吃掉；Figma 下 SPACE_BETWEEN 与 itemSpacing 易冲突。
+        // 改 MIN + 可伸展子项 FILL，与常见「左/上贴齐 + 伸展项占满 + 固定宽尾项」一致。
+        style.primaryAxisAlignItems = 'MIN';
       }
     }
     style.counterAxisAlignItems = alignMap[alignItemsNorm] || 'MIN';
@@ -758,10 +1132,16 @@ function buildStyleJSON(el, computed, rect, parentRect, cssRuleMap, globalFont) 
           var _centerSpan = _maxCenter - _minCenter;
           var _tol = 3;
           var _inferredCrossAlign = null;
+          // 仅在「各流内子项交叉轴高度都接近容器」时，才把「top/bottom 差很小」判成表格式 stretch → MIN。
+          // 否则常见 align-items:center 下「满高块 + 较矮图标」top 差仅 1～2px，会误判成等高行而贴顶。
+          var _allCrossNearlyFull = true;
+          for (var _ac = 0; _ac < _flowMetrics.length; _ac++) {
+            if (_flowMetrics[_ac].h < _h * 0.97 - 0.5) { _allCrossNearlyFull = false; break; }
+          }
           // 表格行 / 多列等高 flex：各子项 top、bottom 几乎相同 → _centerSpan 也为 0，
           // 若走「centerSpan≤tol → CENTER」会误把整行交叉轴标成居中，左侧短文案在 Figma 里垂直居中。
           // 等高带应对齐 stretch 语义 → 交叉轴用 MIN（顶对齐），不要推断 CENTER。
-          if (_topSpan <= _tol && _bottomSpan <= _tol) {
+          if (_topSpan <= _tol && _bottomSpan <= _tol && _allCrossNearlyFull) {
             _inferredCrossAlign = 'MIN';
           } else if (_topSpan <= _tol && _bottomSpan > _tol) _inferredCrossAlign = 'MIN';
           else if (_bottomSpan <= _tol && _topSpan > _tol) _inferredCrossAlign = 'MAX';
@@ -772,6 +1152,21 @@ function buildStyleJSON(el, computed, rect, parentRect, cssRuleMap, globalFont) 
             style.counterAxisAlignItems = _inferredCrossAlign;
           }
         }
+      }
+    }
+    // align-items: baseline + 横向 flex + 仅一个流内子项：Figma 与浏览器对「单行仅一方参与基线」的交叉轴常不一致（表头只渲控件等）。
+    // 用布局语义修正为 CENTER，避免依赖 ant-* 等易变的 className。
+    if (style.layoutMode === 'HORIZONTAL' && alignItemsNorm === 'baseline' && el.children && el.children.length > 0) {
+      var _baselineFlowCount = 0;
+      for (var _bfc = 0; _bfc < el.children.length; _bfc++) {
+        try {
+          var _bfPos = (window.getComputedStyle(el.children[_bfc]).position || '').toLowerCase();
+          if (_bfPos === 'absolute' || _bfPos === 'fixed') continue;
+        } catch (_bfe) {}
+        _baselineFlowCount++;
+      }
+      if (_baselineFlowCount <= 1) {
+        style.counterAxisAlignItems = 'CENTER';
       }
     }
     // ant-radio-wrapper：CSS align-items 可能因自定义主题（如 verticalRadio 竖排变体）被覆盖为 flex-start，
@@ -794,6 +1189,11 @@ function buildStyleJSON(el, computed, rect, parentRect, cssRuleMap, globalFont) 
       } else if (alignItemsNorm === 'baseline' || alignItemsNorm === 'center') {
         style.counterAxisAlignItems = 'CENTER';
       }
+    }
+    // ant-select：selection-wrap 内为「绝对定位 search + 占位/选中项」，交叉轴应对齐居中，避免占位文案在 32px 框内贴顶/贴底。
+    if (el.className && typeof el.className === 'string' && el.className.indexOf('ant-select-selection-wrap') !== -1 &&
+        style.layoutMode === 'HORIZONTAL') {
+      style.counterAxisAlignItems = 'CENTER';
     }
     if (_isRadioWrapper) {
     }
@@ -1044,7 +1444,10 @@ function buildStyleJSON(el, computed, rect, parentRect, cssRuleMap, globalFont) 
     style.paddingRight = px(d(['padding-right', 'paddingRight']) || computed.paddingRight);
     style.paddingBottom = px(d(['padding-bottom', 'paddingBottom']) || computed.paddingBottom);
     style.paddingLeft = px(d(['padding-left', 'paddingLeft']) || computed.paddingLeft);
-    style.primaryAxisAlignItems = 'MIN';
+    // 与 block 容器一致：text-align 决定主轴上单子项/内容块位置（右对齐单元格需 MAX，否则 Hug 宽文本框贴左）
+    var textAlignTc = (d(['text-align', 'textAlign']) || computed.textAlign || '').toString().toLowerCase();
+    var alignMapTc = { left: 'MIN', right: 'MAX', center: 'CENTER', justify: 'MIN', start: 'MIN', end: 'MAX' };
+    style.primaryAxisAlignItems = alignMapTc[textAlignTc] || 'MIN';
     var vAlign = (d(['vertical-align', 'verticalAlign']) || computed.verticalAlign || '').toString().toLowerCase();
     style.counterAxisAlignItems = vAlign === 'middle' ? 'CENTER' : vAlign === 'bottom' ? 'MAX' : 'MIN';
   }

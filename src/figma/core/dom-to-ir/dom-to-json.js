@@ -28,6 +28,7 @@
   getShadowHost = _dh.getShadowHost;
   resolveFrameRoot = _dh.resolveFrameRoot;
   getCssRulesBySelector = _dh.getCssRulesBySelector;
+  getMergedCssRulesFromStyleElements = _dh.getMergedCssRulesFromStyleElements;
   getGeoviewScaleAndOrigin = _dh.getGeoviewScaleAndOrigin;
   getDesignRect = _dh.getDesignRect;
   hasClassPrefix = _dh.hasClassPrefix;
@@ -66,6 +67,7 @@
   // node-builder
   shouldSetTextAlignVerticalCenterForAbsoluteTextLeaf = _nb.shouldSetTextAlignVerticalCenterForAbsoluteTextLeaf;
   shouldSetTextAlignVerticalCenterForFlexParentAlignItemsCenter = _nb.shouldSetTextAlignVerticalCenterForFlexParentAlignItemsCenter;
+  applyAntSelectSelectionPlaceholderTextAlign = _nb.applyAntSelectSelectionPlaceholderTextAlign;
   inferNodeType = _nb.inferNodeType;
   shouldMergeTextAndBrChildren = _nb.shouldMergeTextAndBrChildren;
   mergeTextAndBrChildNodesContent = _nb.mergeTextAndBrChildNodesContent;
@@ -87,7 +89,7 @@
 })();
 
 /* ── Stub declarations for Node/webpack module resolution */
-var SHADOW_HOST_ID, GEOVIEW_WRAPPER_ID, getShadowHost, resolveFrameRoot, getCssRulesBySelector, getGeoviewScaleAndOrigin, getDesignRect, hasClassPrefix, simpleSelectorMatches, getMatchedSelectorsForElement, getDeclaredStyleForElement, getFrameTitleFromElement, findArtboardIdFromElement, emptyRoot, normalizeSvgPathForFigma, parseUrlFromBgImage, parseLinearGradientFromBgImage, parseRadialGradientFromBgImage, parseBoxShadow, parseBorderShorthand, parseGridTemplateColumnsCount, serializeSvgElement, parseTransformRotation, cssColorToHex, cssColorToRgba, parseFontFamilyStack, resolveFontFamilyFromStack, getGlobalFont, buildInlineTextStyle, buildStyleJSON, getM, pruneChildMarginsAfterGapMerge, anyChildHasMargin, childrenHaveUniformMargin, applyUniformMarginAsGap, ensureItemSpacingFromPositions, wrapHorizontalFlowChildrenVerticalMarginAsPadding, shouldSetTextAlignVerticalCenterForAbsoluteTextLeaf, shouldSetTextAlignVerticalCenterForFlexParentAlignItemsCenter, inferNodeType, shouldMergeTextAndBrChildren, mergeTextAndBrChildNodesContent, getElementContentsTextBlockRect, getTextNodeRect, shouldMarkWidthConstrainedForEdgeWhitespace, applyWidthConstrainedForFigmaEdgeWhitespace, applyTextOverflowEllipsisExport, normalizeTextExportPreserveTrailing, getTextContent, getTextWithActualLineBreaksForElement, isShowingPlaceholder, getPseudoTextNode, getPseudoShapeNode, getColorRunsFromInlineElement, fetchImageAsBase64DataUrl, inlineImageFillsInTree;
+var SHADOW_HOST_ID, GEOVIEW_WRAPPER_ID, getShadowHost, resolveFrameRoot, getCssRulesBySelector, getMergedCssRulesFromStyleElements, getGeoviewScaleAndOrigin, getDesignRect, hasClassPrefix, simpleSelectorMatches, getMatchedSelectorsForElement, getDeclaredStyleForElement, getFrameTitleFromElement, findArtboardIdFromElement, emptyRoot, normalizeSvgPathForFigma, parseUrlFromBgImage, parseLinearGradientFromBgImage, parseRadialGradientFromBgImage, parseBoxShadow, parseBorderShorthand, parseGridTemplateColumnsCount, serializeSvgElement, parseTransformRotation, cssColorToHex, cssColorToRgba, parseFontFamilyStack, resolveFontFamilyFromStack, getGlobalFont, buildInlineTextStyle, buildStyleJSON, getM, pruneChildMarginsAfterGapMerge, anyChildHasMargin, childrenHaveUniformMargin, applyUniformMarginAsGap, ensureItemSpacingFromPositions, wrapHorizontalFlowChildrenVerticalMarginAsPadding, shouldSetTextAlignVerticalCenterForAbsoluteTextLeaf, shouldSetTextAlignVerticalCenterForFlexParentAlignItemsCenter, applyAntSelectSelectionPlaceholderTextAlign, inferNodeType, shouldMergeTextAndBrChildren, mergeTextAndBrChildNodesContent, getElementContentsTextBlockRect, getTextNodeRect, shouldMarkWidthConstrainedForEdgeWhitespace, applyWidthConstrainedForFigmaEdgeWhitespace, applyTextOverflowEllipsisExport, normalizeTextExportPreserveTrailing, getTextContent, getTextWithActualLineBreaksForElement, isShowingPlaceholder, getPseudoTextNode, getPseudoShapeNode, getColorRunsFromInlineElement, fetchImageAsBase64DataUrl, inlineImageFillsInTree;
 
 /**
  * ★ Figma 组件库映射开关
@@ -160,7 +162,22 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
     return emptyRoot();
   }
 
-  const cssRuleMap = styleTagId ? getCssRulesBySelector(styleTagId, shadowRoot || document) : null;
+  // 声明层样式：Antd 等常在 Shadow 内注入多段 <style>，仅 style#id 会漏规则，colorRuns / flex 读 decl 会偏。
+  var _styleCollectRoot = shadowRoot;
+  if (!_styleCollectRoot && _rootElOverride && _rootElOverride.getRootNode) {
+    try {
+      var _rnStyle = _rootElOverride.getRootNode();
+      if (_rnStyle && _rnStyle.querySelectorAll) _styleCollectRoot = _rnStyle;
+    } catch (_eRn) {}
+  }
+  if (!_styleCollectRoot && typeof document !== 'undefined') _styleCollectRoot = document;
+  var cssRuleMap = _styleCollectRoot ? getMergedCssRulesFromStyleElements(_styleCollectRoot) : null;
+  if (styleTagId) {
+    var _cssFromId = getCssRulesBySelector(styleTagId, shadowRoot || document);
+    if (_cssFromId && Object.keys(_cssFromId).length) {
+      cssRuleMap = Object.assign({}, cssRuleMap || {}, _cssFromId);
+    }
+  }
   const dom = root;
   const COMPONENT_LIBRARY_ENABLED =
     options && typeof options.componentLibraryEnabled === 'boolean'
@@ -386,7 +403,7 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
       // 实现同一文本节点内不同字符分别着色（如段落内高亮关键词）。
       if (nodeType === 'text' && node.style && el.children && el.children.length > 0) {
         var _parentColorStr = computed ? computed.color : null;
-        var _colorRuns = getColorRunsFromInlineElement(el, node.content, _parentColorStr);
+        var _colorRuns = getColorRunsFromInlineElement(el, node.content, _parentColorStr, cssRuleMap);
         if (_colorRuns && _colorRuns.length > 0) {
           node.style.colorRuns = _colorRuns;
         }
@@ -406,6 +423,7 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
         }
       } else if (node.style && shouldSetTextAlignVerticalCenterForFlexParentAlignItemsCenter(el, node.style)) {
         node.style.textAlignVertical = 'CENTER';
+      } else if (applyAntSelectSelectionPlaceholderTextAlign(node, el, computed)) {
       } else if (node.style && shouldSetTextAlignVerticalCenterForAbsoluteTextLeaf(node.style, computed)) {
         node.style.textAlignVertical = 'CENTER';
       }
@@ -471,10 +489,27 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
       var _isQuickSortContainer =
         (el.getAttribute('data-zone-title') || '').indexOf('quickSort') !== -1 ||
         (' ' + _libCls + ' ').indexOf(' ant-pro-checkableTags ') !== -1;
+      // Ant Design Space：根节点带 data-library-source，子项（链接/按钮）通常无该属性，
+      // 若在此截停为 component-library，innerText 会把「查看/编辑/删除」拼成一段并丢失各链颜色与间距。
+      var _ztRaw = (el.getAttribute('data-zone-title') || '').trim();
+      var _isSpaceContainer = _ztRaw.toLowerCase() === 'space';
+      // 子树内 ≥2 个可交互控件（链/按钮/表单）：多入口或分页 options 等，不能整段 component-library
+      var _libMultiInteractive = false;
+      if (el.querySelectorAll) {
+        try {
+          var _libCtrls = el.querySelectorAll('a, button, input, select, textarea');
+          if (_libCtrls.length >= 2) _libMultiInteractive = true;
+        } catch (_eLibL) {}
+      }
+      if (!_libMultiInteractive && el.children && el.children.length >= 2 && el.querySelector) {
+        try {
+          if (el.querySelector('input, select, textarea')) _libMultiInteractive = true;
+        } catch (_eLibF) {}
+      }
       // ProTable 根节点需要整体映射为「表格」变体，允许在此强制截停（即使子树里有其他 data-library-source）
       var _zoneTitle = el.getAttribute('data-zone-title') || '';
       var _isProTableRoot = _zoneTitle === 'ProTable';
-      if ((_isProTableRoot) || (!_hasNestedLibSource && !_isTabsContainer && !_isQuickSortContainer)) {
+      if ((_isProTableRoot) || (!_hasNestedLibSource && !_isTabsContainer && !_isQuickSortContainer && !_isSpaceContainer && !_libMultiInteractive)) {
         node.type = 'component-library';
         node.rawClassName = _libCls.trim();
         var _libSrc = el.getAttribute('data-library-source') || '';
@@ -595,6 +630,13 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
             _canMergeInlineChildren = true;
             for (var _imi = 0; _imi < el.children.length; _imi++) {
               var _imChild = el.children[_imi];
+              var _imTagLower = (_imChild.tagName || '').toLowerCase();
+              // 与 inferNodeType 一致：<svg> 常为 inline，但绝不能走 getTextContent 合并（会吃掉整棵 SVG）。
+              if (_imTagLower === 'svg' || _imTagLower === 'math' || _imTagLower === 'canvas' ||
+                  _imTagLower === 'video' || _imTagLower === 'iframe' || _imTagLower === 'object') {
+                _canMergeInlineChildren = false;
+                break;
+              }
               var _imComp = window.getComputedStyle(_imChild);
               var _imDisp = _imComp.display;
               if (_imDisp !== 'inline' && _imDisp !== 'inline-block' && _imDisp !== 'inline-flex') {
@@ -612,6 +654,32 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
                 _canMergeInlineChildren = false;
                 break;
               }
+            }
+            // 多链/多表单块：合并为单 text 会丢间距、输入框与文案（如 ant-pagination-options）
+            if (_canMergeInlineChildren && el.children.length >= 2) {
+              var _mergeSlots = 0;
+              for (var _mpi = 0; _mpi < el.children.length; _mpi++) {
+                var _mch = el.children[_mpi];
+                var _mtn = (_mch.tagName || '').toLowerCase();
+                if (_mtn === 'a' || _mtn === 'button' || _mtn === 'input' || _mtn === 'select' || _mtn === 'textarea') {
+                  _mergeSlots++;
+                } else if (_mch.querySelector && (_mch.querySelector('a') || _mch.querySelector('button') ||
+                    _mch.querySelector('input') || _mch.querySelector('select') || _mch.querySelector('textarea'))) {
+                  _mergeSlots++;
+                }
+              }
+              if (_mergeSlots >= 2) _canMergeInlineChildren = false;
+            }
+            if (_canMergeInlineChildren && el.children.length >= 2 && el.querySelector) {
+              try {
+                if (el.querySelector('input, select, textarea')) _canMergeInlineChildren = false;
+              } catch (_eFormMix2) {}
+            }
+            if (_canMergeInlineChildren && el.querySelectorAll) {
+              try {
+                var _mergeSubCtrls = el.querySelectorAll('a, button, input, select, textarea');
+                if (_mergeSubCtrls.length >= 2) _canMergeInlineChildren = false;
+              } catch (_eMs) {}
             }
           }
         }
@@ -636,7 +704,7 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
             }
             if (_inlineTextJson.style) {
               var _inlineParentColor = computed ? computed.color : null;
-              var _inlineColorRuns = getColorRunsFromInlineElement(el, _inlineTextJson.content, _inlineParentColor);
+              var _inlineColorRuns = getColorRunsFromInlineElement(el, _inlineTextJson.content, _inlineParentColor, cssRuleMap);
               if (_inlineColorRuns && _inlineColorRuns.length > 0) {
                 _inlineTextJson.style.colorRuns = _inlineColorRuns;
               }
@@ -693,7 +761,8 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
           if (textContent) {
             var textRectViewport = getTextNodeRect(child);
             var textRect = textRectViewport ? getDesignRect(textRectViewport, geo) : null;
-            var inlineStyle = buildInlineTextStyle(el, window.getComputedStyle(el), textRect, rect, cssRuleMap, globalFont);
+            var _frameTextHostComp = window.getComputedStyle(el);
+            var inlineStyle = buildInlineTextStyle(el, _frameTextHostComp, textRect, rect, cssRuleMap, globalFont);
             var textNodeJson = {
               type: 'text',
               name: 'Text',
@@ -726,8 +795,9 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
                 if (_cwr.indexOf('\n') !== -1) textNodeJson.content = _cwr;
               } catch (_eCwr) {}
             }
-            applyTextOverflowEllipsisExport(textNodeJson, el, window.getComputedStyle(el), geo, child, rect);
+            applyTextOverflowEllipsisExport(textNodeJson, el, _frameTextHostComp, geo, child, rect);
             applyWidthConstrainedForFigmaEdgeWhitespace(textNodeJson);
+            applyAntSelectSelectionPlaceholderTextAlign(textNodeJson, el, _frameTextHostComp);
             childNodes.push(textNodeJson);
           }
         }
@@ -1000,6 +1070,11 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
               delete node.style.fontFamilyStack;
               delete node.style.fontWeight;
               delete node.style.textAlignHorizontal;
+              // 单行 input：子文本行高常小于框高，Figma 横向 Auto Layout 默认 counterAxis=MIN 会贴顶；
+              // 浏览器里 line-height + 盒高是垂直居中的，父级交叉轴需 CENTER。
+              if (!_isTextarea2 && node.style.layoutMode === 'HORIZONTAL') {
+                node.style.counterAxisAlignItems = 'CENTER';
+              }
             }
           } catch (e) {}
         }
@@ -1081,7 +1156,11 @@ function domToMybricksJsonAsync(frameId, styleTagId, options) {
   var syncPayload = domToMybricksJson(frameId, styleTagId, null, options);
   var content = syncPayload.page && syncPayload.page.content;
   if (!content || !content.length) return Promise.resolve(syncPayload);
-  return inlineImageFillsInTree(content[0], options).then(function () { return syncPayload; });
+  var _inlineOpts = Object.assign({}, options);
+  if (typeof parseLinearGradientFromBgImage === 'function') {
+    _inlineOpts.parseLinearGradientFromBgImage = parseLinearGradientFromBgImage;
+  }
+  return inlineImageFillsInTree(content[0], _inlineOpts).then(function () { return syncPayload; });
 }
 
 function domToMybricksJsonWithInlineImages(frameId, styleTagId, options) {
@@ -1092,7 +1171,11 @@ function elementToMybricksJsonWithInlineImages(el, styleTagId, options) {
   var syncPayload = elementToMybricksJson(el, styleTagId, options);
   var content = syncPayload.page && syncPayload.page.content;
   if (!content || !content.length) return Promise.resolve(syncPayload);
-  return inlineImageFillsInTree(content[0], options).then(function () { return syncPayload; });
+  var _inlineOpts2 = Object.assign({}, options);
+  if (typeof parseLinearGradientFromBgImage === 'function') {
+    _inlineOpts2.parseLinearGradientFromBgImage = parseLinearGradientFromBgImage;
+  }
+  return inlineImageFillsInTree(content[0], _inlineOpts2).then(function () { return syncPayload; });
 }
 
 
@@ -1106,11 +1189,12 @@ if (typeof window !== 'undefined') {
   window.elementToMybricksJson = elementToMybricksJson;
   window.elementToMybricksJsonWithInlineImages = elementToMybricksJsonWithInlineImages;
   window.getCssRulesBySelector = getCssRulesBySelector;
+  window.getMergedCssRulesFromStyleElements = getMergedCssRulesFromStyleElements;
   window.getShadowHost = getShadowHost;
   window.resolveFrameRoot = resolveFrameRoot;
 }
 
 // ES module export if supported
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { SHADOW_HOST_ID, domToMybricksJson, comToMybricksJson, elementToMybricksJson, elementToMybricksJsonWithInlineImages, domToMybricksJsonWithInlineImages, comToMybricksJsonWithInlineImages, getCssRulesBySelector, getShadowHost, resolveFrameRoot };
+  module.exports = { SHADOW_HOST_ID, domToMybricksJson, comToMybricksJson, elementToMybricksJson, elementToMybricksJsonWithInlineImages, domToMybricksJsonWithInlineImages, comToMybricksJsonWithInlineImages, getCssRulesBySelector, getMergedCssRulesFromStyleElements, getShadowHost, resolveFrameRoot };
 }

@@ -9,6 +9,17 @@
  * ============================================================
  */
 
+var parseLinearGradientFromBgImage = (function () {
+  try {
+    if (typeof require !== 'undefined') {
+      return require('./css-parsers').parseLinearGradientFromBgImage;
+    }
+  } catch (e) {}
+  return function () {
+    return null;
+  };
+})();
+
 function fetchImageBlob(url) {
   return fetch(url, { mode: 'cors' })
     .then(function (res) { return res.ok ? res.blob() : Promise.reject(new Error(res.statusText)); });
@@ -108,21 +119,90 @@ function fetchImageAsBase64DataUrl(url) {
 }
 
 /**
- * 将 CSS linear-gradient/radial-gradient 字符串渲染为指定平铺尺寸的 PNG base64 data URL。
- * 使用 SVG foreignObject 将 CSS 背景交给浏览器渲染引擎处理，避免手动解析渐变角度。
- * 纯 CSS 内容（无外部 URL 引用）不会污染 Canvas，可安全调用 toDataURL。
+ * 将可解析的 linear-gradient 用 Canvas 2D 绘成平铺单元 PNG（与 CSS 角度约定一致：0°=上、顺时针）。
+ * 优先于 SVG foreignObject：部分 WebView/Electron 中 foreignObject 栅格化失败会导致斜条纹等平铺渐变丢失。
  */
-function renderTiledGradientToDataUrl(bgImage, tileW, tileH) {
+function tryRenderTiledLinearGradientCanvas(bgImage, tileW, tileH, options) {
+  if (typeof document === 'undefined') return null;
+  var parseFn =
+    options && typeof options.parseLinearGradientFromBgImage === 'function'
+      ? options.parseLinearGradientFromBgImage
+      : parseLinearGradientFromBgImage;
+  var parsed;
+  try {
+    parsed = parseFn(bgImage);
+  } catch (e) {
+    return null;
+  }
+  if (!parsed || parsed.type !== 'GRADIENT_LINEAR' || !parsed.gradientStops || parsed.gradientStops.length < 2) {
+    return null;
+  }
+  var W = Math.max(1, Math.round(tileW || 1));
+  var H = Math.max(1, Math.round(tileH || 1));
+  var canvas = document.createElement('canvas');
+  canvas.width = W;
+  canvas.height = H;
+  var ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+  var angleDeg = parsed.angle != null ? parsed.angle : 180;
+  var rad = (angleDeg * Math.PI) / 180;
+  var dx = Math.sin(rad);
+  var dy = -Math.cos(rad);
+  var cx = W / 2;
+  var cy = H / 2;
+  var L = Math.sqrt(W * W + H * H) / 2;
+  var g;
+  try {
+    g = ctx.createLinearGradient(cx - dx * L, cy - dy * L, cx + dx * L, cy + dy * L);
+  } catch (e1) {
+    return null;
+  }
+  var stops = parsed.gradientStops;
+  for (var i = 0; i < stops.length; i++) {
+    var gs = stops[i];
+    var p = gs.position;
+    if (p == null || typeof p !== 'number' || isNaN(p)) {
+      p = i / Math.max(stops.length - 1, 1);
+    }
+    var col = gs.color;
+    if (col == null || col === '') continue;
+    try {
+      g.addColorStop(Math.max(0, Math.min(1, p)), typeof col === 'string' ? col : String(col));
+    } catch (e2) {
+      return null;
+    }
+  }
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+  try {
+    return canvas.toDataURL('image/png');
+  } catch (e3) {
+    return null;
+  }
+}
+
+/**
+ * 将 CSS linear-gradient/radial-gradient 字符串渲染为指定平铺尺寸的 PNG base64 data URL。
+ * 线性渐变优先走 Canvas（与 css-parsers 解析结果一致）；解析失败或非线性时再使用 SVG foreignObject。
+ */
+function renderTiledGradientToDataUrl(bgImage, tileW, tileH, options) {
   return new Promise(function (resolve, reject) {
+    var tw = Math.max(1, Math.round(tileW || 1));
+    var th = Math.max(1, Math.round(tileH || 1));
+    var canvasDataUrl = tryRenderTiledLinearGradientCanvas(bgImage, tw, th, options);
+    if (canvasDataUrl) {
+      resolve(canvasDataUrl);
+      return;
+    }
     // 转义 HTML 属性中的特殊字符（gradient 字符串里偶尔含双引号）
     var escapedBgImage = bgImage.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
     var svgStr = '<svg xmlns="http://www.w3.org/2000/svg"'
-      + ' width="' + tileW + '" height="' + tileH + '">'
-      + '<foreignObject width="' + tileW + '" height="' + tileH + '">'
+      + ' width="' + tw + '" height="' + th + '">'
+      + '<foreignObject width="' + tw + '" height="' + th + '">'
       + '<div xmlns="http://www.w3.org/1999/xhtml"'
-      + ' style="width:' + tileW + 'px;height:' + tileH + 'px;'
+      + ' style="width:' + tw + 'px;height:' + th + 'px;'
       + 'background-image:' + escapedBgImage + ';'
-      + 'background-size:' + tileW + 'px ' + tileH + 'px;'
+      + 'background-size:' + tw + 'px ' + th + 'px;'
       + 'background-repeat:no-repeat;">'
       + '</div>'
       + '</foreignObject>'
@@ -131,8 +211,8 @@ function renderTiledGradientToDataUrl(bgImage, tileW, tileH) {
     var img = new window.Image();
     img.onload = function () {
       var canvas = document.createElement('canvas');
-      canvas.width = tileW;
-      canvas.height = tileH;
+      canvas.width = tw;
+      canvas.height = th;
       var ctx = canvas.getContext('2d');
       ctx.drawImage(img, 0, 0);
       try {
@@ -145,6 +225,54 @@ function renderTiledGradientToDataUrl(bgImage, tileW, tileH) {
       reject(new Error('[tiled-gradient] SVG foreignObject render failed for: ' + bgImage.slice(0, 80)));
     };
     img.src = svgDataUrl;
+  });
+}
+
+/**
+ * 将小单元纹理重复铺满整张 Frame，导出为单张 PNG（FILL）。
+ * 剪贴板粘贴到 Figma 时，FRAME 上 imageScaleMode=TILE 可能不生效或显示异常；
+ * 预合成整幅可避免依赖 Figma 的平铺填充。
+ */
+function rasterizeTilePatternToFullDataUrl(tileDataUrl, outW, outH) {
+  return new Promise(function (resolve, reject) {
+    if (typeof document === 'undefined') {
+      reject(new Error('[tiled-gradient] no document'));
+      return;
+    }
+    var w = Math.max(1, Math.round(outW || 1));
+    var h = Math.max(1, Math.round(outH || 1));
+    var MAX = 8192;
+    if (w > MAX || h > MAX) {
+      reject(new Error('[tiled-gradient] frame exceeds ' + MAX + 'px'));
+      return;
+    }
+    var img = new window.Image();
+    img.onload = function () {
+      try {
+        var canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        var ctx = canvas.getContext('2d');
+        if (!ctx) {
+          reject(new Error('[tiled-gradient] no 2d context'));
+          return;
+        }
+        var pat = ctx.createPattern(img, 'repeat');
+        if (!pat) {
+          reject(new Error('[tiled-gradient] createPattern failed'));
+          return;
+        }
+        ctx.fillStyle = pat;
+        ctx.fillRect(0, 0, w, h);
+        resolve(canvas.toDataURL('image/png'));
+      } catch (e) {
+        reject(e);
+      }
+    };
+    img.onerror = function () {
+      reject(new Error('[tiled-gradient] tile bitmap load failed'));
+    };
+    img.src = tileDataUrl;
   });
 }
 
@@ -186,17 +314,56 @@ function inlineImageFillsInTree(obj, options) {
       } else if (fill && fill.type === 'IMAGE') {
         console.warn('[DBG image-inline] IMAGE fill 无 url 也无 content，将被忽略', { nodeName: obj.name, fill: fill });
       } else if (fill && fill.type === 'TILED_GRADIENT' && fill.bgImage) {
-        // 平铺渐变：用 Canvas+SVG foreignObject 渲染平铺单元格，以 IMAGE TILE 写入 Figma
+        // 平铺渐变：先栅格单元格，再尽量预合成与 Frame 同尺寸的整图 + FILL（Figma 剪贴板对 TILE 常不可靠）
         stats.attempts += 1;
         var _tileW = fill.bgSizeW || 100;
         var _tileH = fill.bgSizeH || 100;
+        var _frameW = style && style.width;
+        var _frameH = style && style.height;
         promises.push(
-          renderTiledGradientToDataUrl(fill.bgImage, _tileW, _tileH).then(function (dataUrl) {
-            style.fills[i] = { type: 'IMAGE', content: dataUrl, scaleMode: 'TILE' };
-            stats.success += 1;
-            console.log('[tiled-gradient] 渲染成功', { tileW: _tileW, tileH: _tileH });
+          renderTiledGradientToDataUrl(fill.bgImage, _tileW, _tileH, ctxOptions).then(function (tileDataUrl) {
+            var useFull =
+              _frameW != null &&
+              _frameH != null &&
+              _frameW > 0 &&
+              _frameH > 0 &&
+              typeof document !== 'undefined';
+            if (useFull) {
+              return rasterizeTilePatternToFullDataUrl(tileDataUrl, _frameW, _frameH).then(function (fullDataUrl) {
+                return computeDataUrlSha1Hex(fullDataUrl).then(function (sha1hex) {
+                  style.fills[i] = {
+                    type: 'IMAGE',
+                    content: fullDataUrl,
+                    scaleMode: 'FILL',
+                    imageHashHex: sha1hex || undefined,
+                  };
+                  stats.success += 1;
+                  console.log('[tiled-gradient] 预合成整幅 FILL', { frameW: _frameW, frameH: _frameH, tileW: _tileW, tileH: _tileH });
+                });
+              }).catch(function (e2) {
+                console.warn('[tiled-gradient] 预合成整幅失败，回退 TILE', e2 && e2.message);
+                return computeDataUrlSha1Hex(tileDataUrl).then(function (sha1hex) {
+                  style.fills[i] = {
+                    type: 'IMAGE',
+                    content: tileDataUrl,
+                    scaleMode: 'TILE',
+                    imageHashHex: sha1hex || undefined,
+                  };
+                  stats.success += 1;
+                });
+              });
+            }
+            return computeDataUrlSha1Hex(tileDataUrl).then(function (sha1hex) {
+              style.fills[i] = {
+                type: 'IMAGE',
+                content: tileDataUrl,
+                scaleMode: 'TILE',
+                imageHashHex: sha1hex || undefined,
+              };
+              stats.success += 1;
+              console.log('[tiled-gradient] 渲染成功 TILE（无 frame 尺寸）', { tileW: _tileW, tileH: _tileH });
+            });
           }).catch(function (err) {
-            // 降级：移除该 fill，避免 TILED_GRADIENT 泄漏到消费端
             style.fills[i] = null;
             stats.failed += 1;
             console.warn('[tiled-gradient] 渲染失败，已降级移除该 fill', err && err.message);

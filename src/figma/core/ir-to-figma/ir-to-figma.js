@@ -252,6 +252,59 @@ function makeTransform(x, y, rotationDeg) {
   return { m00: cos, m01: sin, m02: x || 0, m10: -sin, m11: cos, m12: y || 0 };
 }
 
+// ─── Sync tag helpers (DOM class selector ↔ Figma node name) ───
+
+function _isSimpleClassSelector(sel) {
+  return !!(sel && /^\.[A-Za-z0-9_-]+$/.test(sel));
+}
+
+function _normalizeSelectorCandidate(sel) {
+  if (!sel || typeof sel !== 'string') return null;
+  var s = sel.trim();
+  if (!s) return null;
+  if (_isSimpleClassSelector(s)) return s;
+  // 兼容 ",", ":hover", " .a .b " 等复杂选择器：只收敛到单 class 才用于同步 tag
+  var first = s.split(',')[0].trim();
+  if (_isSimpleClassSelector(first)) return first;
+  return null;
+}
+
+function _pickSyncSelectorFromIr(irNode) {
+  if (!irNode) return null;
+  var cands = [];
+  if (Array.isArray(irNode.selectors)) {
+    for (var i = 0; i < irNode.selectors.length; i++) cands.push(irNode.selectors[i]);
+  }
+  if (typeof irNode.className === 'string' && irNode.className.trim()) {
+    var parts = irNode.className.trim().split(/\s+/);
+    for (var j = 0; j < parts.length; j++) cands.push('.' + parts[j]);
+  }
+  var best = null;
+  var bestScore = -1;
+  for (var k = 0; k < cands.length; k++) {
+    var normalized = _normalizeSelectorCandidate(cands[k]);
+    if (!normalized) continue;
+    var score = 0;
+    if (normalized.indexOf('_less-') !== -1) score += 4; // 多文件选择器优先
+    if (normalized.indexOf('pages_') !== -1) score += 2; // css module 常见前缀
+    if (normalized.length <= 120) score += 1;
+    if (score > bestScore) {
+      best = normalized;
+      bestScore = score;
+    }
+  }
+  return best;
+}
+
+function withSyncTag(baseName, irNode, fallbackName) {
+  var rawBase = (baseName == null ? '' : String(baseName)).trim();
+  var name = rawBase || fallbackName || 'Node';
+  if (/\[mb:[^\]]+\]/.test(name)) return name;
+  var selector = _pickSyncSelectorFromIr(irNode);
+  if (!selector) return name;
+  return name + ' [mb:' + selector + ']';
+}
+
 // ─── IR fills → Figma fillPaints ───
 
 function normalizeImageScaleMode(mode) {
@@ -687,11 +740,19 @@ function irBorderRadius(style) {
     return br > 0 ? { cornerRadius: br } : {};
   }
   if (Array.isArray(br) && br.length === 4) {
+    var tl = br[0] || 0;
+    var tr = br[1] || 0;
+    var brR = br[2] || 0;
+    var bl = br[3] || 0;
+    if (tl === tr && tr === brR && brR === bl) {
+      return tl > 0 ? { cornerRadius: tl } : {};
+    }
     return {
-      rectangleTopLeftCornerRadius: br[0] || 0,
-      rectangleTopRightCornerRadius: br[1] || 0,
-      rectangleBottomRightCornerRadius: br[2] || 0,
-      rectangleBottomLeftCornerRadius: br[3] || 0,
+      rectangleCornerRadiiIndependent: true,
+      rectangleTopLeftCornerRadius: tl,
+      rectangleTopRightCornerRadius: tr,
+      rectangleBottomRightCornerRadius: brR,
+      rectangleBottomLeftCornerRadius: bl,
     };
   }
   return {};
@@ -751,6 +812,143 @@ function extractSvgFallbackPaint(svgContent) {
 
   var strokeMatch = svgContent.match(/\bstroke\s*=\s*["']([^"']+)["']/i);
   return toPaint(strokeMatch && strokeMatch[1]);
+}
+
+// 将 SVG 坐标或百分比归一化到 0–1（用于 radialGradient 的 cx/cy 与 objectBoundingBox）
+function _svgCoord01(attr, unitDivisor, defVal) {
+  if (attr == null || String(attr).trim() === '') return defVal;
+  var s = String(attr).trim();
+  if (s.indexOf('%') >= 0) {
+    var p = parseFloat(s) / 100;
+    return isFinite(p) ? Math.max(0, Math.min(1, p)) : defVal;
+  }
+  var n = parseFloat(s);
+  if (!isFinite(n)) return defVal;
+  if (unitDivisor > 0) return Math.max(0, Math.min(1, n / unitDivisor));
+  return defVal;
+}
+
+// <radialGradient> → IR 的 GRADIENT_RADIAL（与 css-parsers 径向结构一致，供 irFillsToFigmaPaints）
+function _parseSvgRadialGradientToIrFill(gradEl, svgEl) {
+  if (!gradEl || !svgEl) return null;
+  var vbParts = (svgEl.getAttribute('viewBox') || '').trim().split(/[\s,]+/);
+  var vbW = vbParts.length >= 4 ? Math.max(1, parseFloat(vbParts[2]) || 1) : 1;
+  var vbH = vbParts.length >= 4 ? Math.max(1, parseFloat(vbParts[3]) || 1) : 1;
+  var units = String(gradEl.getAttribute('gradientUnits') || '').toLowerCase();
+  var cx01 = 0.5;
+  var cy01 = 0.5;
+  if (units === 'userspaceonuse') {
+    cx01 = _svgCoord01(gradEl.getAttribute('cx'), vbW, 0.5);
+    cy01 = _svgCoord01(gradEl.getAttribute('cy'), vbH, 0.5);
+  } else {
+    cx01 = _svgCoord01(gradEl.getAttribute('cx'), 1, 0.5);
+    cy01 = _svgCoord01(gradEl.getAttribute('cy'), 1, 0.5);
+  }
+  var stops = [];
+  var stopEls = gradEl.querySelectorAll('stop');
+  for (var si = 0; si < stopEls.length; si++) {
+    var st = stopEls[si];
+    var off = st.getAttribute('offset');
+    var pos;
+    if (off != null && String(off).trim() !== '') {
+      var os = String(off).trim();
+      if (os.indexOf('%') >= 0) pos = parseFloat(os) / 100;
+      else pos = parseFloat(os);
+    } else {
+      pos = stopEls.length > 1 ? si / (stopEls.length - 1) : 0;
+    }
+    if (!isFinite(pos)) pos = si / Math.max(stopEls.length - 1, 1);
+    pos = Math.max(0, Math.min(1, pos));
+    var sc = st.getAttribute('stop-color');
+    if (!sc) {
+      var styleStr = st.getAttribute('style') || '';
+      var m = styleStr.match(/stop-color\s*:\s*([^;]+)/i);
+      if (m) sc = m[1].trim();
+    }
+    if (!sc) sc = '#000000';
+    stops.push({ position: pos, color: String(sc).trim() });
+  }
+  if (stops.length < 2) {
+    if (stops.length === 1) stops.push({ position: 1, color: stops[0].color });
+    else return null;
+  }
+  return { type: 'GRADIENT_RADIAL', gradientStops: stops, centerX: cx01, centerY: cy01, radius: 0.5 };
+}
+
+// <linearGradient> → IR 的 GRADIENT_LINEAR（简化：色标 + 由 x1,y1,x2,y2 推导近似角度）
+function _parseSvgLinearGradientToIrFill(gradEl) {
+  if (!gradEl) return null;
+  var stops = [];
+  var stopEls = gradEl.querySelectorAll('stop');
+  for (var li = 0; li < stopEls.length; li++) {
+    var st = stopEls[li];
+    var off = st.getAttribute('offset');
+    var pos;
+    if (off != null && String(off).trim() !== '') {
+      var os = String(off).trim();
+      if (os.indexOf('%') >= 0) pos = parseFloat(os) / 100;
+      else pos = parseFloat(os);
+    } else {
+      pos = stopEls.length > 1 ? li / (stopEls.length - 1) : 0;
+    }
+    if (!isFinite(pos)) pos = li / Math.max(stopEls.length - 1, 1);
+    pos = Math.max(0, Math.min(1, pos));
+    var sc = st.getAttribute('stop-color');
+    if (!sc) {
+      var styleStr = st.getAttribute('style') || '';
+      var m = styleStr.match(/stop-color\s*:\s*([^;]+)/i);
+      if (m) sc = m[1].trim();
+    }
+    if (!sc) sc = '#000000';
+    stops.push({ position: pos, color: String(sc).trim() });
+  }
+  if (stops.length < 2) {
+    if (stops.length === 1) stops.push({ position: 1, color: stops[0].color });
+    else return null;
+  }
+  var x1 = parseFloat(gradEl.getAttribute('x1')) || 0;
+  var y1 = parseFloat(gradEl.getAttribute('y1')) || 0;
+  var x2 = parseFloat(gradEl.getAttribute('x2')) || 1;
+  var y2 = parseFloat(gradEl.getAttribute('y2')) || 0;
+  var angleDeg = (Math.atan2(y2 - y1, x2 - x1) * 180) / Math.PI + 90;
+  if (!isFinite(angleDeg)) angleDeg = 180;
+  return { type: 'GRADIENT_LINEAR', gradientStops: stops, angle: angleDeg };
+}
+
+/**
+ * 解析序列化 SVG 中首个几何图形的 fill="url(#id)"，从 defs 取渐变 → IR fill。
+ * 解决 VECTOR 仅用 DOM/svg 首段纯色或灰底、无法还原 <radialGradient> 的问题（如转盘 plateGrad）。
+ */
+function extractSvgPrimaryPaintAsIrFill(svgContent) {
+  if (!svgContent || typeof DOMParser === 'undefined') return null;
+  try {
+    var doc = new DOMParser().parseFromString(svgContent, 'image/svg+xml');
+    if (doc.querySelector('parsererror')) return null;
+    var svgEl = doc.querySelector('svg');
+    if (!svgEl) return null;
+    var shapes = svgEl.querySelectorAll('path, circle, rect, ellipse, polygon, polyline');
+    var urlRe = /^url\(#([\w-]+)\)\s*$/i;
+    for (var i = 0; i < shapes.length; i++) {
+      var sh = shapes[i];
+      var fill = sh.getAttribute('fill');
+      if (!fill && sh.getAttribute('style')) {
+        var sm = String(sh.getAttribute('style')).match(/\bfill\s*:\s*url\(\s*#([\w-]+)\s*\)/i);
+        if (sm) fill = 'url(#' + sm[1] + ')';
+      }
+      if (!fill) continue;
+      var um = String(fill).trim().match(urlRe);
+      if (!um) continue;
+      var gid = um[1];
+      var gradEl = doc.getElementById(gid);
+      if (!gradEl) continue;
+      var gtag = (gradEl.tagName || '').toLowerCase().replace(/^.*:/, '');
+      if (gtag === 'radialgradient') return _parseSvgRadialGradientToIrFill(gradEl, svgEl);
+      if (gtag === 'lineargradient') return _parseSvgLinearGradientToIrFill(gradEl);
+    }
+    return null;
+  } catch (_e) {
+    return null;
+  }
 }
 
 // Detect stroke-based (线性) SVG icons: root svg has fill="none" and a stroke color.
@@ -1020,6 +1218,133 @@ function parseSvgContentToPaths(svgContent) {
 
     return paths.length > 0 ? paths : null;
   } catch (e) {
+    return null;
+  }
+}
+
+// 从序列化后的内联 SVG 中解析 <text>，生成与 convertTextNode 兼容的轻量 IR 节点。
+// parseSvgContentToPaths 只处理几何图形，不处理文字；剪贴板链路无 createNodeFromSVG，需单独补 TEXT。
+function parseSvgContentToTextIrNodes(svgContent, layoutWidth, layoutHeight) {
+  if (!svgContent || typeof DOMParser === 'undefined') return null;
+  try {
+    var doc = new DOMParser().parseFromString(svgContent, 'image/svg+xml');
+    if (doc.querySelector('parsererror')) return null;
+    var svgEl = doc.querySelector('svg');
+    if (!svgEl) return null;
+    var textEls = svgEl.querySelectorAll('text');
+    if (!textEls || !textEls.length) return null;
+
+    var vb = extractSvgViewBox(svgContent);
+    var vbMinX = vb ? vb.minX : 0;
+    var vbMinY = vb ? vb.minY : 0;
+    var vbW = vb && vb.width > 0 ? vb.width : (layoutWidth > 0 ? layoutWidth : 1);
+    var vbH = vb && vb.height > 0 ? vb.height : (layoutHeight > 0 ? layoutHeight : 1);
+    var sx = layoutWidth > 0 ? layoutWidth / vbW : 1;
+    var sy = layoutHeight > 0 ? layoutHeight / vbH : 1;
+
+    function pf(v, def) {
+      var n = parseFloat(v != null ? String(v) : (def != null ? String(def) : '0'));
+      return isFinite(n) ? n : 0;
+    }
+
+    function stripQuotes(s) {
+      if (!s) return '';
+      s = String(s).trim();
+      if ((s.charAt(0) === '"' && s.charAt(s.length - 1) === '"') ||
+          (s.charAt(0) === "'" && s.charAt(s.length - 1) === "'")) {
+        s = s.slice(1, -1);
+      }
+      return s.trim();
+    }
+
+    function textContentOneLine(el) {
+      var raw = el.textContent || '';
+      raw = raw.replace(/\s+/g, ' ').trim();
+      return raw;
+    }
+
+    function parseFontWeight(attr) {
+      if (!attr) return 400;
+      var a = String(attr).trim().toLowerCase();
+      if (a === 'normal') return 400;
+      if (a === 'bold') return 700;
+      var n = parseFloat(a);
+      return isFinite(n) ? n : 400;
+    }
+
+    var out = [];
+    for (var i = 0; i < textEls.length; i++) {
+      var tel = textEls[i];
+      var content = textContentOneLine(tel);
+      if (!content) continue;
+
+      var tx = pf(tel.getAttribute('x'), 0);
+      var ty = pf(tel.getAttribute('y'), 0);
+      var lx = (tx - vbMinX) * sx;
+      var ly = (ty - vbMinY) * sy;
+
+      var fsAttr = tel.getAttribute('font-size');
+      var fsSvg = fsAttr ? pf(fsAttr, 16) : 16;
+      var scaledFs = Math.max(1, fsSvg * sy);
+
+      var anchorRaw = (tel.getAttribute('text-anchor') || 'start').trim().toLowerCase();
+      var textAlignHorizontal = 'LEFT';
+      if (anchorRaw === 'middle') textAlignHorizontal = 'CENTER';
+      else if (anchorRaw === 'end' || anchorRaw === 'right') textAlignHorizontal = 'RIGHT';
+
+      var fill = tel.getAttribute('fill');
+      if (!fill || fill === 'none') fill = '#000000';
+
+      var fontFamily = stripQuotes(tel.getAttribute('font-family')) || 'sans-serif';
+      var fontWeight = parseFontWeight(tel.getAttribute('font-weight'));
+      var fontStyle = (tel.getAttribute('font-style') || '').toLowerCase() === 'italic';
+
+      var lsAttr = tel.getAttribute('letter-spacing');
+      // SVG 用户单位下的 letter-spacing 需随水平比例缩放到布局像素（与 font-size 一致用 sy 亦可，横排字距跟 sx）
+      var letterSpacing = lsAttr != null && lsAttr !== '' ? pf(lsAttr, 0) * sx : 0;
+
+      var lineHeightPx = scaledFs * 1.15;
+      var approxTop = ly - scaledFs * 0.82;
+
+      var style = {
+        x: 0,
+        y: Math.max(0, approxTop),
+        fontSize: scaledFs,
+        lineHeight: lineHeightPx,
+        fontFamily: fontFamily,
+        fontWeight: fontWeight,
+        fontStyle: fontStyle ? 'italic' : 'normal',
+        color: fill,
+        letterSpacing: letterSpacing,
+        textAlignHorizontal: textAlignHorizontal,
+        textAlignVertical: 'TOP',
+        singleLine: true,
+        positionType: 'absolute',
+      };
+
+      // text-anchor=middle：不要用整幅 SVG 宽度当 style.width，否则 Figma textAutoResize=NONE 会把长文案压扁。
+      // 由 convertTextNode 在测宽后按 textAnchorCenterX 设置 transform.x = 锚点x - nodeWidth/2。
+      if (textAlignHorizontal === 'CENTER') {
+        style.textAnchorCenterX = lx;
+        style.textAlignHorizontal = 'LEFT';
+      } else if (textAlignHorizontal === 'RIGHT') {
+        var estW = Math.max(scaledFs, Math.ceil(content.length * scaledFs * 0.62));
+        style.width = estW;
+        style.x = lx - estW;
+      } else {
+        style.x = lx;
+      }
+
+      out.push({
+        type: 'text',
+        name: content.length > 30 ? content.slice(0, 30) + '…' : content,
+        content: content,
+        style: style,
+      });
+    }
+
+    return out.length ? out : null;
+  } catch (_e) {
     return null;
   }
 }
@@ -1496,6 +1821,56 @@ function encodeGlyphBlob(otGlyph) {
   return u8;
 }
 
+// ─── CJK / 全角等：西文字体（Georgia 等）在浏览器里靠 fallback 显示，导出时若仍用该 OpenType 会得到 .notdef，Figma 初渲为方框 ───
+
+function charNeedsCjkFontCoverage(code) {
+  return (
+    (code >= 0x4e00 && code <= 0x9fff) ||
+    (code >= 0x3400 && code <= 0x4dbf) ||
+    (code >= 0xf900 && code <= 0xfaff) ||
+    (code >= 0xac00 && code <= 0xd7af) ||
+    (code >= 0x3000 && code <= 0x303f) ||
+    (code >= 0xff00 && code <= 0xffef)
+  );
+}
+
+function textNeedsCjkFontCoverage(text) {
+  if (!text) return false;
+  for (var _ti = 0; _ti < text.length; _ti++) {
+    if (charNeedsCjkFontCoverage(text.charCodeAt(_ti))) return true;
+  }
+  return false;
+}
+
+/** 对 text 中每个需 CJK 覆盖的码位，用 opentype 单字测量是否得到非 .notdef 字形。 */
+function opentypeFontCoversCjkChars(font, text) {
+  if (!font || !text) return true;
+  for (var _ci = 0; _ci < text.length; _ci++) {
+    var _c = text.charCodeAt(_ci);
+    if (!charNeedsCjkFontCoverage(_c)) continue;
+    var _g;
+    try {
+      var _arr = font.stringToGlyphs(text.charAt(_ci));
+      _g = _arr && _arr[0];
+    } catch (_e) {
+      return false;
+    }
+    if (!_g || _g.name === '.notdef') return false;
+  }
+  return true;
+}
+
+function pickFontCtxFromWeightMap(weightMap, clampedWeight) {
+  if (!weightMap || typeof weightMap !== 'object') return null;
+  var _ctx = weightMap[clampedWeight] || null;
+  if (_ctx) return _ctx;
+  var _keys = Object.keys(weightMap).map(Number).sort(function(a, b) { return b - a; });
+  for (var _ki = 0; _ki < _keys.length; _ki++) {
+    if (_keys[_ki] <= clampedWeight) return weightMap[_keys[_ki]];
+  }
+  return _keys.length ? weightMap[_keys[_keys.length - 1]] : null;
+}
+
 // ─── Text measurement with opentype.js ───
 
 // letterSpacing: CSS letter-spacing in pixels (already resolved by style-builder)
@@ -1567,7 +1942,41 @@ function convertNode(irNode, parentGuid, siblingIndex, fontCtxMap, blobs, parent
   if (type === 'text') {
     changes.push(convertTextNode(irNode, guid, parentGuid, siblingIndex, fontCtxMap, blobs, parentLayoutMode));
   } else if (type === 'svg') {
-    changes.push(convertSvgNode(irNode, guid, parentGuid, siblingIndex, parentLayoutMode, blobs, imageCtxGlobal));
+    var _svgStyle0 = irNode.style || {};
+    var _intr0 = extractSvgIntrinsicSize(_svgStyle0.svgContent);
+    var _svgW0 = _svgStyle0.width || (_intr0 && _intr0.width) || 24;
+    var _svgH0 = _svgStyle0.height || (_intr0 && _intr0.height) || 24;
+    var _svgTextIrs = parseSvgContentToTextIrNodes(_svgStyle0.svgContent, _svgW0, _svgH0);
+    if (_svgTextIrs && _svgTextIrs.length) {
+      var wrapGuid0 = nextGuid();
+      var wrapNc0 = {
+        guid: wrapGuid0,
+        phase: 'CREATED',
+        parentIndex: { guid: parentGuid, position: positionForIndex(siblingIndex) },
+        type: 'FRAME',
+        name: withSyncTag(irNode.name, irNode, 'svg'),
+        visible: true,
+        opacity: _svgStyle0.opacity != null ? _svgStyle0.opacity : 1,
+        size: { x: _svgW0, y: _svgH0 },
+        transform: makeTransform(_svgStyle0.x || 0, _svgStyle0.y || 0, _svgStyle0.rotation),
+        fillPaints: [],
+        frameMaskDisabled: false,
+      };
+      if (_svgStyle0.positionType === 'absolute') wrapNc0.stackPositioning = 'ABSOLUTE';
+      if (_svgStyle0.alignSelf) wrapNc0.stackChildAlignSelf = _svgStyle0.alignSelf;
+      if (_svgStyle0.flexGrow >= 1 && parentLayoutMode) wrapNc0.stackChildPrimaryGrow = 1;
+      changes.push(wrapNc0);
+      var vecGuid0 = nextGuid();
+      var irForVec0 = Object.assign({}, irNode, {
+        style: Object.assign({}, _svgStyle0, { x: 0, y: 0 }),
+      });
+      changes.push(convertSvgNode(irForVec0, vecGuid0, wrapGuid0, 0, null, blobs, imageCtxGlobal));
+      for (var _sti0 = 0; _sti0 < _svgTextIrs.length; _sti0++) {
+        changes.push(convertTextNode(_svgTextIrs[_sti0], nextGuid(), wrapGuid0, 1 + _sti0, fontCtxMap, blobs, null));
+      }
+    } else {
+      changes.push(convertSvgNode(irNode, guid, parentGuid, siblingIndex, parentLayoutMode, blobs, imageCtxGlobal));
+    }
   } else if (type === 'image') {
     changes.push(convertImageNode(irNode, guid, parentGuid, siblingIndex, parentLayoutMode, blobs, imageCtxGlobal));
   } else if (type === 'figma-instance') {
@@ -1617,6 +2026,7 @@ function convertInstanceNode(irNode, guid, parentGuid, siblingIndex) {
   var symbolGuid = { sessionID: entry.sessionID, localID: entry.localID };
   var style = irNode.style || {};
   var instanceText = irNode.name || 'Instance';
+  var instanceNodeName = withSyncTag(instanceText, irNode, 'Instance');
 
   var symData = { symbolID: symbolGuid, uniformScaleFactor: 1 };
 
@@ -1637,10 +2047,10 @@ function convertInstanceNode(irNode, guid, parentGuid, siblingIndex) {
     guid: guid,
     phase: 'CREATED',
     type: 'INSTANCE',
-    name: instanceText,
+    name: instanceNodeName,
     parentIndex: { guid: parentGuid, position: positionForIndex(siblingIndex) },
     transform: makeTransform(style.x || 0, style.y || 0),
-    size: { x: style.width || 100, y: style.height || 32 },
+    size: { x: style.width ?? 100, y: style.height ?? 32 },
     symbolData: symData,
     visible: true,
     opacity: 1,
@@ -1671,6 +2081,14 @@ function convertSvgNode(irNode, guid, parentGuid, siblingIndex, parentLayoutMode
   var paints = svgStrokeMode
     ? []
     : irFillsToFigmaPaints(style.fills, blobs, imageCtx, imageImports, imageImportSet);
+  // 矢量几何来自 path/circle，但 DOM 上 <svg> 的 fills 常为透明；fill="url(#…)" 须在 defs 里解析渐变。
+  if (!svgStrokeMode && svgContent) {
+    var _svgDefGradIr = extractSvgPrimaryPaintAsIrFill(svgContent);
+    if (_svgDefGradIr) {
+      var _svgDefPaints = irFillsToFigmaPaints([_svgDefGradIr], blobs, imageCtx, imageImports, imageImportSet);
+      if (_svgDefPaints && _svgDefPaints.length) paints = _svgDefPaints;
+    }
+  }
   if (!svgStrokeMode && (!paints || !paints.length)) {
     paints = fallbackPaint ? [fallbackPaint] : [{
       type: 'SOLID',
@@ -1691,7 +2109,7 @@ function convertSvgNode(irNode, guid, parentGuid, siblingIndex, parentLayoutMode
     phase: 'CREATED',
     parentIndex: { guid: parentGuid, position: positionForIndex(siblingIndex) },
     type: isRealVector ? 'VECTOR' : 'RECTANGLE',
-    name: irNode.name || 'SVG',
+    name: withSyncTag(irNode.name, irNode, 'SVG'),
     visible: true,
     opacity: style.opacity != null ? style.opacity : 1,
     size: { x: width, y: height },
@@ -1769,10 +2187,10 @@ function convertFrameNode(irNode, guid, parentGuid, siblingIndex, parentLayoutMo
     phase: 'CREATED',
     parentIndex: { guid: parentGuid, position: positionForIndex(siblingIndex) },
     type: 'FRAME',
-    name: irNode.name || 'Frame',
+    name: withSyncTag(irNode.name, irNode, 'Frame'),
     visible: true,
     opacity: style.opacity != null ? style.opacity : 1,
-    size: { x: style.width || 100, y: style.height || 100 },
+    size: { x: style.width ?? 100, y: style.height ?? 100 },
     transform: makeTransform(style.x || 0, style.y || 0, style.rotation),
     fillPaints: hasClipPolygon ? [] : irFillsToFigmaPaints(style.fills, blobs, imageCtx, imageImports, imageImportSet),
     frameMaskDisabled: style.clipsContent === false,
@@ -1896,11 +2314,32 @@ function convertTextNode(irNode, guid, parentGuid, siblingIndex, fontCtxMap, blo
   // font-loader 在 PostScript 兜底匹配时会把实际 Figma 字体族/样式存入 figmaFamily/figmaStyle。
   // 有这两个字段时，优先用它们覆盖 resolveFontName 计算出的 fontName，确保 Figma 显示正确字体。
   if (resolvedFontCtx && resolvedFontCtx.figmaFamily) {
+    // figmaFamily 来自实际加载的字体，但 ctx.postscript 可能仍是模板默认值（如 Noto + PingFangSC-Regular 混用），
+    // 会与节点 fontName 不一致，导致 derivedTextData 首帧与双击编辑后重排漂移。
+    var _figFam0 = resolvedFontCtx.figmaFamily;
+    var _synFromFigmaFam = resolveFontName(_figFam0, style.fontWeight || 400, style.fontStyle === 'italic');
     fontName = {
-      family: resolvedFontCtx.figmaFamily,
-      style:  resolvedFontCtx.figmaStyle || resolvedFontCtx.style || fontName.style,
-      postscript: resolvedFontCtx.postscript || fontName.postscript,
+      family: _figFam0,
+      style: resolvedFontCtx.figmaStyle || resolvedFontCtx.style || _synFromFigmaFam.style,
+      postscript: _synFromFigmaFam.postscript || resolvedFontCtx.postscript || fontName.postscript,
     };
+  }
+
+  // 内容与 CSS font-family 不一致：浏览器用系统 CJK fallback，OpenType 仍用 Georgia 等会得到 .notdef → Figma 豆腐块。
+  if (
+    resolvedFontCtx &&
+    resolvedFontCtx.font &&
+    content &&
+    textNeedsCjkFontCoverage(content) &&
+    !opentypeFontCoversCjkChars(resolvedFontCtx.font, content) &&
+    fontCtxMap &&
+    typeof fontCtxMap['PingFang SC'] === 'object'
+  ) {
+    var _pfCtx = pickFontCtxFromWeightMap(fontCtxMap['PingFang SC'], _clampedWeight);
+    if (_pfCtx && _pfCtx.font && _pfCtx.fontDigest && _pfCtx !== resolvedFontCtx) {
+      resolvedFontCtx = _pfCtx;
+      fontName = resolveFontName('PingFang SC', style.fontWeight || 400, style.fontStyle === 'italic');
+    }
   }
 
   var hasFontCtx = resolvedFontCtx && resolvedFontCtx.font && resolvedFontCtx.fontDigest && blobs && content;
@@ -1937,7 +2376,7 @@ function convertTextNode(irNode, guid, parentGuid, siblingIndex, fontCtxMap, blo
     // 多行高度 = 行数 × 单行行高
     nodeHeight = _contentLines.length * lineHeightVal;
     // 多行文本需要固定宽度（如 style 无宽度则用兜底值）
-    if (!hasExplicitWidth) nodeWidth = style.width || 200;
+    if (!hasExplicitWidth) nodeWidth = style.width ?? 200;
   } else {
     // 单行：不要用 Opentype ascender+descender 覆盖 IR 里的高度/行高，否则 Figma 框普遍比浏览器 getBoundingClientRect 高
     // （如 17px vs 12px）；多行分支已在上方强制用 CSS line-height。
@@ -1993,17 +2432,28 @@ function convertTextNode(irNode, guid, parentGuid, siblingIndex, fontCtxMap, blo
     _textAlignVertical = 'CENTER';
   }
   if (!_textAlignVertical) _textAlignVertical = 'TOP';
+  // 盒高 < 行高（表头/单元格 textRect 压扁、line-height 仍大）时，IR 常为 TOP，但浏览器单行在该盒内等价于行框垂直居中裁切；
+  // 保持 TOP 会导致 derived 顶对齐、字形挤向一侧。升成 CENTER，与下方 (nh-lh)/2 行框偏移一致。
+  if (!_isMultiLine && nodeHeight > 0 && lineHeightVal > 0 && nodeHeight < lineHeightVal - 0.25 && _textAlignVertical === 'TOP') {
+    _textAlignVertical = 'CENTER';
+  }
+
+  // SVG <text text-anchor="middle">：锚点在 lx，盒宽应为测量宽度，transform.x = lx - nodeWidth/2
+  var _textTransformX = style.x != null && isFinite(style.x) ? style.x : 0;
+  if (style.textAnchorCenterX != null && isFinite(style.textAnchorCenterX)) {
+    _textTransformX = style.textAnchorCenterX - nodeWidth / 2;
+  }
 
   var nc = {
     guid: guid,
     phase: 'CREATED',
     parentIndex: { guid: parentGuid, position: positionForIndex(siblingIndex) },
     type: 'TEXT',
-    name: content.slice(0, 30) || 'Text',
+    name: withSyncTag(content.slice(0, 30) || 'Text', irNode, 'Text'),
     visible: true,
     opacity: style.opacity != null ? style.opacity : 1,
     size: { x: nodeWidth, y: nodeHeight },
-    transform: makeTransform(style.x || 0, style.y || 0, style.rotation),
+    transform: makeTransform(_textTransformX, style.y || 0, style.rotation),
     strokeWeight: 1,
     strokeAlign: 'OUTSIDE',
     strokeJoin: 'MITER',
@@ -2025,7 +2475,8 @@ function convertTextNode(irNode, guid, parentGuid, siblingIndex, fontCtxMap, blo
     fontName: fontName,
     fontSize: fontSize,
     textAlignVertical: _textAlignVertical,
-    autoRename: true,
+    // 保留 name 里的 [mb:selector] 同步标签，避免 Figma 编辑后自动改名丢标签
+    autoRename: false,
     textAutoResize: textAutoResize,
     fontVariantCommonLigatures: true,
     fontVariantContextualLigatures: true,
@@ -2061,13 +2512,14 @@ function convertTextNode(irNode, guid, parentGuid, siblingIndex, fontCtxMap, blo
       _slAscY = measured.ascender * __lhRat;
       _slLineAsc = _slAscY;
     }
-    // 盒高 > CSS 行高且垂直对齐为 CENTER/BOTTOM 时，须把行框起点 lineY 与字形 y 一并下移；否则 textUserLayoutVersion=4 会顶在 0，flex 标签内文案偏上。
+    // 单行 CENTER/BOTTOM：行框在盒内的起点 = (nh-lh)/2 或 nh-lh。须覆盖「盒高 < 行高」（表格压扁单元格 + buildInlineTextStyle 写 textRect.height），
+    // 否则旧条件仅 nh > lh+0.25 才偏移，nh<lh 时 _slLineY 恒为 0 → 字形在矮盒内贴底；父级 Auto Layout 仍能把外框居中，框内却偏。
     var _slLineY = 0;
     var _tavSl = _textAlignVertical;
-    if (!_isMultiLine && nodeHeight > lineHeightVal + 0.25) {
+    if (!_isMultiLine && (_tavSl === 'CENTER' || _tavSl === 'BOTTOM')) {
       if (_tavSl === 'CENTER') {
         _slLineY = (nodeHeight - lineHeightVal) / 2;
-      } else if (_tavSl === 'BOTTOM') {
+      } else {
         _slLineY = nodeHeight - lineHeightVal;
       }
     }
@@ -2084,9 +2536,44 @@ function convertTextNode(irNode, guid, parentGuid, siblingIndex, fontCtxMap, blo
       var _vcBaseline = (nodeHeight / 2) + measured.visualCenterOffsetFromBaseline;
       var _vcLineY = _vcBaseline - _slLineAsc;
       if (isFinite(_vcLineY)) {
-        _slLineY = Math.max(0, _vcLineY);
-        _slGlyphY = _slLineY + _slLineAsc;
+        if (_vcLineY >= 0) {
+          _slLineY = _vcLineY;
+          _slGlyphY = _slLineY + _slLineAsc;
+        } else {
+          _slLineY = 0;
+          _slGlyphY = _slLineY + _slLineAsc + _vcLineY;
+        }
       }
+    } else if (!_isMultiLine &&
+        _tavSl === 'CENTER' &&
+        measured.visualCenterOffsetFromBaseline != null &&
+        lineHeightVal > 0 &&
+        fontSize > 0 &&
+        lineHeightVal > fontSize * 1.12 &&
+        ( (nodeHeight >= lineHeightVal - 0.5 && nodeHeight <= lineHeightVal + 1.5) ||
+          nodeHeight < lineHeightVal - 0.5 )) {
+      // 大行高单行（如 ant-select 占位 line-height≈30、fontSize=14）：盒高≈行高时不会走上面的「(nodeHeight-lineHeight)/2」，
+      // 仅用 ascender 缩放会导致 derivedTextData 首帧字形偏下，双击编辑后 Figma 重排才居中。用字形 bbox 视觉中心对齐。
+      // 另：盒高 < 行高（如分页 ant-pagination-item > a 内 #text 仅 tight bbox≈16px、CSS line-height=30）时，原先不进本分支，
+      // 仅靠 (nh-lh)/2 折入字形仍与 Figma 首帧行框裁切不一致，表现为字形靠下、双击后垂直居中。
+      var _vcBaselineTall = (nodeHeight / 2) + measured.visualCenterOffsetFromBaseline;
+      var _vcLineYTall = _vcBaselineTall - _slLineAsc;
+      if (isFinite(_vcLineYTall)) {
+        if (_vcLineYTall >= 0) {
+          _slLineY = _vcLineYTall;
+          _slGlyphY = _slLineY + _slLineAsc;
+        } else {
+          _slLineY = 0;
+          _slGlyphY = _slLineY + _slLineAsc + _vcLineYTall;
+        }
+      }
+    }
+
+    // 行框起点为负（nh<lh 居中）时，Figma 对 lineY<0 不友好；把偏移并入 glyph y，与紧行高视觉居中负 _vcLineY 处理一致。
+    if (!_isMultiLine && _slLineY < 0 && isFinite(_slLineY)) {
+      var _negLinePad = _slLineY;
+      _slLineY = 0;
+      _slGlyphY = _slLineAsc + _negLinePad;
     }
 
     if (_isMultiLine) {
@@ -2257,13 +2744,12 @@ function convertTextNode(irNode, guid, parentGuid, siblingIndex, fontCtxMap, blo
       baselines: figmaBaselines,
       glyphs: figmaGlyphs,
       fontMetaData: [{
-        // key 必须与 fontDigest 对应，使用当前实际参与测量的字体信息。
-        // 若 key/fontDigest 与节点 fontName 不一致，Figma 首帧可能按一套字形渲染，
-        // 双击编辑后按 fontName 重排，表现为“初始上偏，编辑后回正”。
+        // key 须与节点 nc.fontName 及参与 raster 的 fontDigest 一致；优先 fontName（已与 figmaFamily 对齐），
+        // 避免 ctx 残留 postscript（如 PingFangSC-Regular）与 Noto Sans 并存导致首帧/编辑态漂移。
         key: {
-          family: resolvedFontCtx.figmaFamily || fontName.family || 'PingFang SC',
-          style: (resolvedFontCtx.figmaStyle || resolvedFontCtx.style || fontName.style || 'Regular'),
-          postscript: resolvedFontCtx.postscript || fontName.postscript || 'PingFangSC-Regular',
+          family: fontName.family || resolvedFontCtx.figmaFamily || 'PingFang SC',
+          style: fontName.style || resolvedFontCtx.figmaStyle || resolvedFontCtx.style || 'Regular',
+          postscript: fontName.postscript || resolvedFontCtx.postscript || 'PingFangSC-Regular',
         },
         fontLineHeight: lineHeightVal / fontSize,
         fontDigest: resolvedFontCtx.fontDigest,
@@ -2338,10 +2824,10 @@ function convertImageNode(irNode, guid, parentGuid, siblingIndex, parentLayoutMo
     phase: 'CREATED',
     parentIndex: { guid: parentGuid, position: positionForIndex(siblingIndex) },
     type: 'RECTANGLE',
-    name: irNode.content ? '[IMG] ' + irNode.name : irNode.name || 'Image',
+    name: withSyncTag(irNode.content ? '[IMG] ' + irNode.name : irNode.name, irNode, 'Image'),
     visible: true,
     opacity: style.opacity != null ? style.opacity : 1,
-    size: { x: style.width || 100, y: style.height || 100 },
+    size: { x: style.width ?? 100, y: style.height ?? 100 },
     transform: makeTransform(style.x || 0, style.y || 0),
     fillPaints: imagePaints || [{
       type: 'SOLID',
@@ -2350,8 +2836,11 @@ function convertImageNode(irNode, guid, parentGuid, siblingIndex, parentLayoutMo
       visible: true,
       blendMode: 'NORMAL',
     }],
-    cornerRadius: style.borderRadius && typeof style.borderRadius === 'number' ? style.borderRadius : undefined,
   };
+
+  var imgRadius = irBorderRadius(style);
+  var imgRKeys = Object.keys(imgRadius);
+  for (var _imgRi = 0; _imgRi < imgRKeys.length; _imgRi++) nc[imgRKeys[_imgRi]] = imgRadius[imgRKeys[_imgRi]];
 
   // ─── P0: Image node positioning & alignment ───
   if (style.positionType === 'absolute') {

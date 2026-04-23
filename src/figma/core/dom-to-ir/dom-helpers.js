@@ -5,7 +5,7 @@
  * 职责：
  *   - 画布坐标系：getGeoviewScaleAndOrigin / getDesignRect
  *   - DOM 辅助：hasClassPrefix / simpleSelectorMatches / getMatchedSelectorsForElement / getDeclaredStyleForElement
- *   - Shadow DOM 解析：getShadowHost / resolveFrameRoot / getCssRulesBySelector
+ *   - Shadow DOM 解析：getShadowHost / resolveFrameRoot / getCssRulesBySelector / getMergedCssRulesFromStyleElements
  *   - 画布语义：getFrameTitleFromElement / findArtboardIdFromElement / emptyRoot
  * 规则：本层不依赖任何其他自定义模块，不做 CSS 解析，不构建 JSON 节点。
  * ============================================================
@@ -214,6 +214,21 @@ function resolveFrameRoot(frameId) {
   return frameRoot || null;
 }
 
+/** 递归收集 CSSRuleList 中的 STYLE 规则（含 @media / @supports / @layer 嵌套） */
+function _collectCssStyleRulesIntoMap(rules, map) {
+  if (!rules || !rules.length) return;
+  for (var ri = 0; ri < rules.length; ri++) {
+    try {
+      var rule = rules[ri];
+      if (rule.selectorText) {
+        map[String(rule.selectorText).trim()] = rule.style.cssText;
+      } else if (rule.cssRules && rule.cssRules.length) {
+        _collectCssStyleRulesIntoMap(rule.cssRules, map);
+      }
+    } catch (_) {}
+  }
+}
+
 /**
  * Build a map of selector -> declaration string from a <style id="..."> tag.
  * 用 style#id 查，避免与画布上同 id 的 div 等元素冲突；找不到时再在 document 内用 style#id 查。
@@ -239,11 +254,35 @@ function getCssRulesBySelector(styleTagId, root) {
   var sheet = styleEl.sheet;
   if (!sheet || !sheet.cssRules) return null;
   var map = {};
-  for (var i = 0; i < sheet.cssRules.length; i++) {
-    var rule = sheet.cssRules[i];
-    if (rule.selectorText) map[rule.selectorText.trim()] = rule.style.cssText;
+  _collectCssStyleRulesIntoMap(sheet.cssRules, map);
+  return Object.keys(map).length ? map : null;
+}
+
+/**
+ * 合并 root 下所有内联 <style> 的 CSSStyleRule（selectorText -> style.cssText）。
+ * Ant Design / 组件库常在 Shadow 内注入多段 style，仅扫 style#id 会漏掉 .ant-pagination-item-ellipsis 等声明，
+ * 导致 getDeclaredStyleForElement / colorRuns 只能依赖易误判的 computed color。
+ * 同选择器后出现的规则覆盖先前的；递归 @media 等分组内的规则。
+ *
+ * @param {Document|ShadowRoot|ParentNode} root
+ * @returns {Record<string, string> | null}
+ */
+function getMergedCssRulesFromStyleElements(root) {
+  if (!root || !root.querySelectorAll) return null;
+  var styles;
+  try {
+    styles = root.querySelectorAll('style');
+  } catch (_) {
+    return null;
   }
-  return map;
+  if (!styles || !styles.length) return null;
+  var map = {};
+  for (var si = 0; si < styles.length; si++) {
+    var sheet = styles[si].sheet;
+    if (!sheet || !sheet.cssRules) continue;
+    _collectCssStyleRulesIntoMap(sheet.cssRules, map);
+  }
+  return Object.keys(map).length ? map : null;
 }
 
 
@@ -254,6 +293,7 @@ if (typeof module !== 'undefined') {
     getShadowHost: getShadowHost,
     resolveFrameRoot: resolveFrameRoot,
     getCssRulesBySelector: getCssRulesBySelector,
+    getMergedCssRulesFromStyleElements: getMergedCssRulesFromStyleElements,
     getGeoviewScaleAndOrigin: getGeoviewScaleAndOrigin,
     getDesignRect: getDesignRect,
     hasClassPrefix: hasClassPrefix,
