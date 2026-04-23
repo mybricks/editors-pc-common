@@ -227,6 +227,7 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
     //      让它在 Auto Layout 父行（tr）中浮动到正确位置而非被排入流中塞到行末（行末超出可见区域）。
     var _stickyNeedsAbsolute = false;
     var _stickyShadow = null;
+    var _stickySiblingBg = null;
     try {
       var _posForStickyCheck = computed.getPropertyValue ? computed.getPropertyValue('position') : computed.position;
       if (_posForStickyCheck === 'sticky' || _posForStickyCheck === '-webkit-sticky') {
@@ -270,6 +271,19 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
         } else if (_stickyScrollX !== 0 || _stickyScrollY !== 0) {
           // 容器未溢出但存在滚动偏移（极少见）：还原自然流坐标
           rect = { left: rect.left + _stickyScrollX, top: rect.top + _stickyScrollY, width: rect.width, height: rect.height };
+        }
+        // 修正表头背景色：对所有 sticky th 生效（无论容器是否溢出）。
+        // getDeclaredStyleForElement 按 last-wins 取 CSS 声明（不考虑 CSS 优先级），
+        // 会错误地把 .ant-table-cell-fix-right{background:#fff} 当作背景。
+        // getComputedStyle 浏览器正确计算了优先级，其 backgroundColor 才是真实值。
+        // 修正：sticky th 直接用 computed.backgroundColor 覆盖 fills，跳过有问题的 declared 逻辑。
+        if (tag === 'th') {
+          try {
+            var _stickyComputedBg = computed.backgroundColor || '';
+            if (_stickyComputedBg && _stickyComputedBg !== 'rgba(0, 0, 0, 0)' && _stickyComputedBg !== 'transparent') {
+              _stickySiblingBg = _stickyComputedBg;
+            }
+          } catch (_eStickyBg) {}
         }
       }
     } catch (_eStickyAdj) {}
@@ -363,7 +377,15 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
       if (_stickyShadow && _stickyShadow.length) {
         _stickyStylePatch.shadows = _stickyShadow;
       }
+      // 修正 sticky 表头被 Ant Design 白色滚动遮罩覆盖的背景色
+      if (_stickySiblingBg) {
+        _stickyStylePatch.fills = [_stickySiblingBg];
+      }
       node.style = Object.assign({}, node.style || {}, _stickyStylePatch);
+    } else if (_stickySiblingBg) {
+      // 非溢出容器的 sticky th（容器宽度足够，列不需要 absolute）：
+      // 同样需要修正 getDeclaredStyleForElement last-wins 导致的错误白色背景
+      node.style = Object.assign({}, node.style || {}, { fills: [_stickySiblingBg] });
     }
 
     var matchedSelectors = cssRuleMap ? getMatchedSelectorsForElement(el, cssRuleMap) : [];
