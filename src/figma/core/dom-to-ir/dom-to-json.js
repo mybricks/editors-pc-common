@@ -218,6 +218,62 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
       } catch (_eInline) {}
     }
 
+    // position: sticky 处理：分两种情况。
+    // ① 容器未溢出（表格宽度 ≤ 容器宽度）：sticky 等同于 relative，getBoundingClientRect 就是自然位置，无需修正。
+    // ② 容器溢出（表格宽于容器，sticky 列处于吸附状态）：
+    //    - 不修正 rect：getBoundingClientRect 对 sticky:right 吸附列返回的是「贴在容器右边缘」的视口坐标，
+    //      转换为设计坐标后相对父节点（tr）的 x = 容器可见宽度 - right偏移 - 列宽，这正好是我们想要的浮动位置。
+    //    - 设 _stickyNeedsAbsolute = true：后续为该节点注入 positionType:'absolute'，
+    //      让它在 Auto Layout 父行（tr）中浮动到正确位置而非被排入流中塞到行末（行末超出可见区域）。
+    var _stickyNeedsAbsolute = false;
+    var _stickyShadow = null;
+    try {
+      var _posForStickyCheck = computed.getPropertyValue ? computed.getPropertyValue('position') : computed.position;
+      if (_posForStickyCheck === 'sticky' || _posForStickyCheck === '-webkit-sticky') {
+        var _stickyScrollX = 0, _stickyScrollY = 0;
+        var _stickyContainerOverflows = false;
+        var _stickyAncestor = el.parentElement;
+        while (_stickyAncestor && _stickyAncestor !== document.body && _stickyAncestor !== document.documentElement) {
+          var _saCs = window.getComputedStyle(_stickyAncestor);
+          var _saOvx = _saCs.overflowX; var _saOvy = _saCs.overflowY;
+          if (_saOvx === 'auto' || _saOvx === 'scroll' || _saOvy === 'auto' || _saOvy === 'scroll' ||
+              _saOvx === 'overlay' || _saOvy === 'overlay') {
+            _stickyScrollX = _stickyAncestor.scrollLeft || 0;
+            _stickyScrollY = _stickyAncestor.scrollTop  || 0;
+            _stickyContainerOverflows = (_stickyAncestor.scrollWidth > _stickyAncestor.clientWidth + 1);
+            break;
+          }
+          _stickyAncestor = _stickyAncestor.parentElement;
+        }
+        if (_stickyContainerOverflows) {
+          // 溢出容器中的 sticky 吸附列：rect 保持 getBoundingClientRect 的吸附坐标（已是正确的浮动 x），
+          // 仅需后续设为 absolute 让 ir-to-figma 生成 stackPositioning:ABSOLUTE
+          _stickyNeedsAbsolute = true;
+          // 读取 ::after 上的 box-shadow（如 Ant Design 固定列分隔阴影）。
+          // ::after 是位于 th 左侧的透明遮罩（right:100%; width:30px），其 inset box-shadow 产生左侧分隔线效果。
+          // 将其转为 th 本身的外阴影（去掉 inset）直接注入 node.style.shadows，在 Figma 中等价还原该视觉。
+          try {
+            var _stickyAfterCs = window.getComputedStyle(el, '::after');
+            var _stickyAfterBs = _stickyAfterCs && _stickyAfterCs.boxShadow;
+            if (_stickyAfterBs && _stickyAfterBs !== 'none' && typeof parseBoxShadow === 'function') {
+              var _parsedStickyBs = parseBoxShadow(String(_stickyAfterBs));
+              if (_parsedStickyBs && _parsedStickyBs.length) {
+                var _candidateShadows = _parsedStickyBs.map(function(s) {
+                  return { offsetX: s.offsetX, offsetY: s.offsetY, blur: s.blur, spread: s.spread, color: s.color, inset: false };
+                }).filter(function(s) {
+                  return s.blur > 0 || s.offsetX !== 0 || s.offsetY !== 0 || (s.spread && s.spread !== 0);
+                });
+                if (_candidateShadows.length) _stickyShadow = _candidateShadows;
+              }
+            }
+          } catch (_eStickyBs) {}
+        } else if (_stickyScrollX !== 0 || _stickyScrollY !== 0) {
+          // 容器未溢出但存在滚动偏移（极少见）：还原自然流坐标
+          rect = { left: rect.left + _stickyScrollX, top: rect.top + _stickyScrollY, width: rect.width, height: rect.height };
+        }
+      }
+    } catch (_eStickyAdj) {}
+
     // [debug] input 节点全流程追踪（最早入口）
     if (tag === 'input') {
     }
@@ -296,6 +352,18 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
     // 标记 radio-button-wrapper-checked（className 字段只存第一个 class，需从 DOM 全类名单独判断）
     if (el.className && typeof el.className === 'string' && el.className.indexOf('ant-radio-button-wrapper-checked') !== -1) {
       node._checkedWrapper = true;
+    }
+    // sticky 溢出列（如表格右侧固定列）：注入 positionType:'absolute'
+    // 让 ir-to-figma 生成 stackPositioning:ABSOLUTE，使该节点在 Auto Layout 父行中浮动到
+    // getBoundingClientRect 捕获的吸附位置（即容器可见宽度右边缘），而非被 Auto Layout 排到行末超出可见区域
+    if (_stickyNeedsAbsolute) {
+      var _stickyStylePatch = { positionType: 'absolute' };
+      // 将 ::after 上读到的固定列分隔阴影作为 th 本身的外阴影（shadows）一并写入，
+      // 使 Figma 能渲染出左侧分隔线效果（对应浏览器中 ::after inset box-shadow 产生的视觉）
+      if (_stickyShadow && _stickyShadow.length) {
+        _stickyStylePatch.shadows = _stickyShadow;
+      }
+      node.style = Object.assign({}, node.style || {}, _stickyStylePatch);
     }
 
     var matchedSelectors = cssRuleMap ? getMatchedSelectorsForElement(el, cssRuleMap) : [];
@@ -640,6 +708,12 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
               var _imComp = window.getComputedStyle(_imChild);
               var _imDisp = _imComp.display;
               if (_imDisp !== 'inline' && _imDisp !== 'inline-block' && _imDisp !== 'inline-flex') {
+                _canMergeInlineChildren = false;
+                break;
+              }
+              // inline-flex 子节点若还有元素子节点（如 claimStatusWrapper 包裹圆点+标签），
+              // 说明是结构容器而非单纯文本包裹，不能合并为单段文本（会丢失圆点和标签视觉）
+              if ((_imDisp === 'inline-flex' || _imDisp === 'flex') && _imChild.children && _imChild.children.length > 0) {
                 _canMergeInlineChildren = false;
                 break;
               }

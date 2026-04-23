@@ -221,6 +221,10 @@ function inferNodeType(el, computed, tag) {
         _allChildInline = false;
         break;
       }
+      // inline-flex 子节点含有元素子节点（如圆点+标签的状态组件）：视为含视觉背景，阻止父节点合并为文本
+      if ((_childDisp === 'inline-flex' || _childDisp === 'flex') && _childEl.children && _childEl.children.length > 0) {
+        _anyChildHasBg = true;
+      }
       var _childBg = _childComp.backgroundColor || '';
       if (_childBg && _childBg !== 'rgba(0, 0, 0, 0)' && _childBg !== 'transparent') {
         _anyChildHasBg = true;
