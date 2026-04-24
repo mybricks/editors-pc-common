@@ -1,6 +1,8 @@
 export interface FigmaImportItem {
   selectors: string[];
   value: Record<string, string>;
+  /** AL 容器节点的直接子节点 selectors（仅二进制剪贴板路径填充） */
+  childSelectors?: string[];
 }
 
 export type FontContext = {

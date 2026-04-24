@@ -34,6 +34,8 @@
   hasClassPrefix = _dh.hasClassPrefix;
   simpleSelectorMatches = _dh.simpleSelectorMatches;
   getMatchedSelectorsForElement = _dh.getMatchedSelectorsForElement;
+  getNearestEncodedLessFilePrefixFromAncestors = _dh.getNearestEncodedLessFilePrefixFromAncestors;
+  elementHasEncodedLessFileClass = _dh.elementHasEncodedLessFileClass;
   getDeclaredStyleForElement = _dh.getDeclaredStyleForElement;
   getFrameTitleFromElement = _dh.getFrameTitleFromElement;
   findArtboardIdFromElement = _dh.findArtboardIdFromElement;
@@ -89,7 +91,7 @@
 })();
 
 /* ── Stub declarations for Node/webpack module resolution */
-var SHADOW_HOST_ID, GEOVIEW_WRAPPER_ID, getShadowHost, resolveFrameRoot, getCssRulesBySelector, getMergedCssRulesFromStyleElements, getGeoviewScaleAndOrigin, getDesignRect, hasClassPrefix, simpleSelectorMatches, getMatchedSelectorsForElement, getDeclaredStyleForElement, getFrameTitleFromElement, findArtboardIdFromElement, emptyRoot, normalizeSvgPathForFigma, parseUrlFromBgImage, parseLinearGradientFromBgImage, parseRadialGradientFromBgImage, parseBoxShadow, parseBorderShorthand, parseGridTemplateColumnsCount, serializeSvgElement, parseTransformRotation, cssColorToHex, cssColorToRgba, parseFontFamilyStack, resolveFontFamilyFromStack, getGlobalFont, buildInlineTextStyle, buildStyleJSON, getM, pruneChildMarginsAfterGapMerge, anyChildHasMargin, childrenHaveUniformMargin, applyUniformMarginAsGap, ensureItemSpacingFromPositions, wrapHorizontalFlowChildrenVerticalMarginAsPadding, shouldSetTextAlignVerticalCenterForAbsoluteTextLeaf, shouldSetTextAlignVerticalCenterForFlexParentAlignItemsCenter, applyAntSelectSelectionPlaceholderTextAlign, inferNodeType, shouldMergeTextAndBrChildren, mergeTextAndBrChildNodesContent, getElementContentsTextBlockRect, getTextNodeRect, shouldMarkWidthConstrainedForEdgeWhitespace, applyWidthConstrainedForFigmaEdgeWhitespace, applyTextOverflowEllipsisExport, normalizeTextExportPreserveTrailing, getTextContent, getTextWithActualLineBreaksForElement, isShowingPlaceholder, getPseudoTextNode, getPseudoShapeNode, getColorRunsFromInlineElement, fetchImageAsBase64DataUrl, inlineImageFillsInTree;
+var SHADOW_HOST_ID, GEOVIEW_WRAPPER_ID, getShadowHost, resolveFrameRoot, getCssRulesBySelector, getMergedCssRulesFromStyleElements, getGeoviewScaleAndOrigin, getDesignRect, hasClassPrefix, simpleSelectorMatches, getMatchedSelectorsForElement, getNearestEncodedLessFilePrefixFromAncestors, elementHasEncodedLessFileClass, getDeclaredStyleForElement, getFrameTitleFromElement, findArtboardIdFromElement, emptyRoot, normalizeSvgPathForFigma, parseUrlFromBgImage, parseLinearGradientFromBgImage, parseRadialGradientFromBgImage, parseBoxShadow, parseBorderShorthand, parseGridTemplateColumnsCount, serializeSvgElement, parseTransformRotation, cssColorToHex, cssColorToRgba, parseFontFamilyStack, resolveFontFamilyFromStack, getGlobalFont, buildInlineTextStyle, buildStyleJSON, getM, pruneChildMarginsAfterGapMerge, anyChildHasMargin, childrenHaveUniformMargin, applyUniformMarginAsGap, ensureItemSpacingFromPositions, wrapHorizontalFlowChildrenVerticalMarginAsPadding, shouldSetTextAlignVerticalCenterForAbsoluteTextLeaf, shouldSetTextAlignVerticalCenterForFlexParentAlignItemsCenter, applyAntSelectSelectionPlaceholderTextAlign, inferNodeType, shouldMergeTextAndBrChildren, mergeTextAndBrChildNodesContent, getElementContentsTextBlockRect, getTextNodeRect, shouldMarkWidthConstrainedForEdgeWhitespace, applyWidthConstrainedForFigmaEdgeWhitespace, applyTextOverflowEllipsisExport, normalizeTextExportPreserveTrailing, getTextContent, getTextWithActualLineBreaksForElement, isShowingPlaceholder, getPseudoTextNode, getPseudoShapeNode, getColorRunsFromInlineElement, fetchImageAsBase64DataUrl, inlineImageFillsInTree;
 
 /**
  * ★ Figma 组件库映射开关
@@ -391,6 +393,25 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
     var matchedSelectors = cssRuleMap ? getMatchedSelectorsForElement(el, cssRuleMap) : [];
     if (matchedSelectors.length) node.selectors = matchedSelectors;
 
+    // Figma 反向同步：antd 等子节点仅有 .ant-* 时，把「最近祖先的 less 文件编码」拼进 [mb:]，便于写回对应 less 的 :global(...)
+    try {
+      var _ancEnc = getNearestEncodedLessFilePrefixFromAncestors(el);
+      if (_ancEnc && !elementHasEncodedLessFileClass(el) && el.className && typeof el.className === 'string') {
+        var _partsAnt = el.className.trim().split(/\s+/);
+        var _bestAntToken = null;
+        for (var _ai = 0; _ai < _partsAnt.length; _ai++) {
+          var _tok = _partsAnt[_ai];
+          if (_tok.indexOf('ant-') === 0) {
+            _bestAntToken = _tok;
+            break;
+          }
+        }
+        if (_bestAntToken) {
+          node.figmaSyncSelector = '.' + _ancEnc + '-' + _bestAntToken;
+        }
+      }
+    } catch (_eFigSync) {}
+
     if (nodeType === 'text') {
       node.content = getTextContent(el);
       if (node.content === '' && !el.querySelector('img, svg')) return null;
@@ -557,17 +578,6 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
     //   由消费侧根据 librarySource + zoneTitle + rawClassName 查规则表映射到 Figma 变体。
     //   没有 data-library-source 的节点一律走原有绘制逻辑（frame / text 等）。
     var _libCls = (el.className && typeof el.className === 'string') ? el.className : '';
-    if (isLibrarySource) {
-      // console.log('[dom-to-figma] library-source hit', {
-      //   enabled: COMPONENT_LIBRARY_ENABLED,
-      //   tag: tag,
-      //   nodeType: nodeType,
-      //   librarySource: el.getAttribute('data-library-source'),
-      //   zoneTitle: el.getAttribute('data-zone-title'),
-      //   cls: _libCls.slice(0, 80),
-      //   willTag: COMPONENT_LIBRARY_ENABLED && nodeType !== 'text' && nodeType !== 'image' && tag !== 'svg',
-      // });
-    }
     if (COMPONENT_LIBRARY_ENABLED && isLibrarySource && nodeType !== 'text' && nodeType !== 'image' && tag !== 'svg') {
       // 检查子树中是否还有嵌套的 data-library-source 节点（如 ProForm 内嵌 ProFormText）。
       // 有则说明当前节点是容器，不能在此停止，需继续递归让子节点各自打标。
@@ -703,6 +713,7 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
           };
           if (node.selectors && node.selectors.length) _mergeTextJson.selectors = node.selectors.slice();
           if (node.className) _mergeTextJson.className = node.className;
+          if (node.figmaSyncSelector) _mergeTextJson.figmaSyncSelector = node.figmaSyncSelector;
           applyTextOverflowEllipsisExport(_mergeTextJson, el, window.getComputedStyle(el), geo, null, rect);
           applyWidthConstrainedForFigmaEdgeWhitespace(_mergeTextJson);
           childNodes.push(_mergeTextJson);
@@ -794,6 +805,7 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
             };
             if (node.selectors && node.selectors.length) _inlineTextJson.selectors = node.selectors.slice();
             if (node.className) _inlineTextJson.className = node.className;
+            if (node.figmaSyncSelector) _inlineTextJson.figmaSyncSelector = node.figmaSyncSelector;
             if (_inlineTextJson.style && _inlineTextJson.style.singleLine === false) {
               var _inlineCwb = getTextWithActualLineBreaksForElement(el);
               if (_inlineCwb) _inlineTextJson.content = _inlineCwb;
@@ -867,6 +879,7 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
             };
             if (node.selectors && node.selectors.length) textNodeJson.selectors = node.selectors.slice();
             if (node.className) textNodeJson.className = node.className;
+            if (node.figmaSyncSelector) textNodeJson.figmaSyncSelector = node.figmaSyncSelector;
             // frame 内换行文本子节点：buildInlineTextStyle 若判为 singleLine:false（多行），
             // 用 Range 逐字符检测视觉断行点并写入 \n，使 ir-to-figma 按多行生成正确字形，
             // 避免 Figma 初始渲染为单行、需双击才换行的问题。

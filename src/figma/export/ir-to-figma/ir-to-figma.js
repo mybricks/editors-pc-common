@@ -8,8 +8,8 @@
  * 数据：figma-schema-data.js（预生成的 schema 常量）
  */
 
-var _pako = require('./vendors/pako');
-var _kiwiSchema = require('./vendors/kiwi-schema');
+var _pako = require('../../shared/vendors/pako');
+var _kiwiSchema = require('../../shared/vendors/kiwi-schema');
 var _schemaData = require('./schema-data');
 var _svgPathDataLib = require('./vendors/svg-pathdata');
 
@@ -271,6 +271,10 @@ function _normalizeSelectorCandidate(sel) {
 
 function _pickSyncSelectorFromIr(irNode) {
   if (!irNode) return null;
+  if (typeof irNode.figmaSyncSelector === 'string') {
+    var _fs = irNode.figmaSyncSelector.trim();
+    if (_isSimpleClassSelector(_fs)) return _fs;
+  }
   var cands = [];
   if (Array.isArray(irNode.selectors)) {
     for (var i = 0; i < irNode.selectors.length; i++) cands.push(irNode.selectors[i]);
@@ -317,15 +321,12 @@ function base64ToUint8Array(base64) {
   if (!base64) return null;
   try {
     if (typeof Buffer !== 'undefined') {
-      var result = new Uint8Array(Buffer.from(base64, 'base64'));
-      console.log('[DBG base64] Buffer 解码完成', { inputLen: base64.length, outputBytes: result.length });
-      return result;
+      return new Uint8Array(Buffer.from(base64, 'base64'));
     }
     if (typeof atob === 'function') {
       var bin = atob(base64);
       var out = new Uint8Array(bin.length);
       for (var i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
-      console.log('[DBG base64] atob 解码完成', { inputLen: base64.length, outputBytes: out.length });
       return out;
     }
   } catch (_e) {
@@ -354,20 +355,10 @@ function parseDataUrlToBytes(dataUrl) {
   var body = s.slice(comma + 1);
   var isBase64 = /;base64/i.test(header);
   var mime = (header.split(';')[0] || 'application/octet-stream').toLowerCase();
-  console.log('[DBG parseDataUrl] 解析 data URL', {
-    totalLen: dataUrl.length,
-    commaAt: comma,
-    header: header,
-    bodyLen: body.length,
-    isBase64: isBase64,
-    mime: mime,
-  });
   if (isBase64) {
     var bytes = base64ToUint8Array(body);
     if (!bytes) {
       console.warn('[DBG parseDataUrl] base64ToUint8Array 返回 null，解码失败');
-    } else {
-      console.log('[DBG parseDataUrl] 解码成功', { bodyLen: body.length, bytesLen: bytes.length, expectedBytes: Math.floor(body.length * 0.75) });
     }
     return bytes ? { bytes: bytes, mime: mime } : null;
   }
@@ -470,15 +461,6 @@ function registerImageFromDataUrl(dataUrl, blobs, imageCtx, optionalHashHex) {
   var dataBlobIndex = blobs.length;
   blobs.push({ bytes: parsed.bytes });
 
-  // 立即验证 push 是否成功写入
-  var _pushedBlob = blobs[dataBlobIndex];
-  console.log('[DBG register] blobs.push 完成', {
-    dataBlobIndex: dataBlobIndex,
-    pushedBytesLen: _pushedBlob && _pushedBlob.bytes ? _pushedBlob.bytes.length : 'null',
-    totalBlobsNow: blobs.length,
-    blobsRef: blobs === blobs ? '同一引用' : '不同引用',
-  });
-
   var entry = {
     key: key,
     hashHex: hashHex,
@@ -487,15 +469,6 @@ function registerImageFromDataUrl(dataUrl, blobs, imageCtx, optionalHashHex) {
     name: 'clipboard-image-' + key.slice(0, 12) + '.' + extFromMime(parsed.mime),
   };
   imageCtx.byHash[key] = entry;
-  if (typeof console !== 'undefined' && console.log) {
-    console.log('[figma image] 注册图片资源', {
-      hash: hashHex.slice(0, 16) + '...',
-      hashAlgo: (optionalHashHex && optionalHashHex.length === 40) ? 'SHA-1' : 'FNV',
-      dataBlob: dataBlobIndex,
-      bytes: parsed.bytes.length,
-      name: entry.name,
-    });
-  }
   return entry;
 }
 
@@ -554,14 +527,6 @@ function irFillsToFigmaPaints(fills, blobs, imageCtx, imageImportList, imageImpo
       if (p) paints.push(p);
     } else if (f && f.type === 'IMAGE') {
       var imageData = (typeof f.content === 'string' && f.content.indexOf('data:') === 0) ? f.content : null;
-      console.log('[DBG ir-to-figma] irFillsToFigmaPaints 处理 IMAGE fill', {
-        hasContent: !!f.content,
-        contentType: typeof f.content,
-        isDataUrl: !!imageData,
-        contentPrefix: f.content ? String(f.content).slice(0, 60) : 'null',
-        hasBlobs: !!(blobs),
-        hasImageCtx: !!(imageCtx),
-      });
       var imageEntry = (imageData && blobs && imageCtx) ? registerImageFromDataUrl(imageData, blobs, imageCtx, f.imageHashHex) : null;
       if (!imageEntry) {
         console.warn('[DBG ir-to-figma] IMAGE fill 注册失败（imageEntry 为 null），将降级为灰色占位块', { hasImageData: !!imageData });
@@ -2798,14 +2763,6 @@ function convertImageNode(irNode, guid, parentGuid, siblingIndex, parentLayoutMo
   var imageImports = [];
   var imageImportSet = {};
   var imgPaint = null;
-  console.log('[DBG ir-to-figma] convertImageNode', {
-    name: irNode.name,
-    hasContent: !!irNode.content,
-    contentType: typeof irNode.content,
-    isDataUrl: typeof irNode.content === 'string' && irNode.content.indexOf('data:') === 0,
-    contentPrefix: irNode.content ? String(irNode.content).slice(0, 60) : 'null',
-    hasBlobs: !!(blobs),
-  });
   if (typeof irNode.content === 'string' && irNode.content.indexOf('data:') === 0) {
     imgPaint = { type: 'IMAGE', content: irNode.content, imageHashHex: irNode.imageHashHex || undefined };
   } else {
@@ -2855,18 +2812,6 @@ function convertImageNode(irNode, guid, parentGuid, siblingIndex, parentLayoutMo
     nc.stackChildPrimaryGrow = 1;
   }
   if (imageImports.length) nc.imageImports = { imports: imageImports };
-
-  // 打印最终节点结构，确认 imageImports 和 fillPaints 是否正确
-  var _firstFill = nc.fillPaints && nc.fillPaints[0];
-  console.log('[DBG convertImageNode] 最终节点结构', {
-    name: nc.name,
-    fillType: _firstFill && _firstFill.type,
-    imageHashLen: _firstFill && _firstFill.image && _firstFill.image.hash ? _firstFill.image.hash.length : 'null',
-    imageDataBlob: _firstFill && _firstFill.image ? _firstFill.image.dataBlob : 'null',
-    imageName: _firstFill && _firstFill.image ? _firstFill.image.name : 'null',
-    imageImportsCount: nc.imageImports ? nc.imageImports.imports.length : 0,
-    imageScaleMode: _firstFill && _firstFill.imageScaleMode,
-  });
 
   return nc;
 }
@@ -2944,15 +2889,6 @@ function buildSceneMessage(contentNodes, opts, blobs) {
   if (blobs && blobs.length) {
     msg.blobs = blobs;
   }
-
-  var _totalBlobBytes = blobs ? blobs.reduce(function(sum, b) { return sum + (b && b.bytes ? b.bytes.length : 0); }, 0) : 0;
-  var _imageBlobSizes = blobs ? blobs.map(function(b, idx) { return b && b.bytes && b.bytes.length > 10000 ? { idx: idx, bytes: b.bytes.length, kb: Math.round(b.bytes.length / 1024) } : null; }).filter(Boolean) : [];
-  console.log('[DBG ir-to-figma] buildSceneMessage 完成', {
-    nodeChangesCount: msg.nodeChanges ? msg.nodeChanges.length : 0,
-    blobsCount: blobs ? blobs.length : 0,
-    totalBlobMB: (_totalBlobBytes / 1024 / 1024).toFixed(2) + ' MB',
-    largeBlobs: _imageBlobSizes,
-  });
 
   return msg;
 }
@@ -3045,23 +2981,6 @@ function convertIRToFigmaClipboardHtml(irPayload, fontCtxOrMap) {
   var rootIR = page.content[0];
   var canvasGuid = { sessionID: 0, localID: 1 };
   var allNodeChanges = convertNode(rootIR, canvasGuid, 0, fontCtxMap, blobs, null, imageCtx);
-  if (typeof console !== 'undefined' && console.log) {
-    var _imageCount = Object.keys(imageCtx.byHash || {}).length;
-    console.log('[figma image] 剪贴板打包完成', { imageCount: _imageCount, blobCount: blobs.length });
-  }
-
-  // convertNode 结束后立即检查 blobs 状态
-  var _blobsSnapshot = blobs.map(function(b, i) {
-    return b && b.bytes ? { i: i, len: b.bytes.length } : { i: i, len: 0 };
-  });
-  var _largeInSnapshot = _blobsSnapshot.filter(function(s) { return s.len > 10000; });
-  var _totalBytesSnapshot = _blobsSnapshot.reduce(function(sum, s) { return sum + s.len; }, 0);
-  console.log('[DBG snapshot] convertNode 完成后 blobs 状态', {
-    totalBlobs: blobs.length,
-    totalMB: (_totalBytesSnapshot / 1024 / 1024).toFixed(2) + ' MB',
-    largeBlobs: _largeInSnapshot,
-    imageCtxKeys: Object.keys(imageCtx.byHash || {}),
-  });
 
   // 若模板存在，注入 fileKey + IOC Canvas/SYMBOL 节点，让 Figma 能解析库组件引用
   var _msgOpts = {};
@@ -3078,16 +2997,6 @@ function convertIRToFigmaClipboardHtml(irPayload, fontCtxOrMap) {
     { fileKey: message.pasteFileKey, pasteID: message.pasteID, dataType: 'scene' },
     archive
   );
-  console.log('[DBG ir-to-figma] 剪贴板序列化大小', {
-    encodedBytes: encoded.length,
-    encodedMB: (encoded.length / 1024 / 1024).toFixed(2) + ' MB',
-    compressedBytes: msgChunk.length,
-    compressedMB: (msgChunk.length / 1024 / 1024).toFixed(2) + ' MB',
-    archiveBytes: archive.length,
-    archiveMB: (archive.length / 1024 / 1024).toFixed(2) + ' MB',
-    clipHtmlLen: clipHtml.length,
-    clipHtmlMB: (clipHtml.length / 1024 / 1024).toFixed(2) + ' MB',
-  });
   return clipHtml;
 }
 

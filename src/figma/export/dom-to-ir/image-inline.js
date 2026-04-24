@@ -25,14 +25,6 @@ function fetchImageBlob(url) {
     .then(function (res) { return res.ok ? res.blob() : Promise.reject(new Error(res.statusText)); });
 }
 
-function estimateBytesFromDataUrl(dataUrl) {
-  if (!dataUrl || typeof dataUrl !== 'string') return 0;
-  var comma = dataUrl.indexOf(',');
-  if (comma < 0) return 0;
-  var b64 = dataUrl.slice(comma + 1);
-  return Math.max(0, Math.floor((b64.length * 3) / 4));
-}
-
 function blobToDataUrl(blob, sourceUrl) {
   var mimeType = blob.type || '';
   if (mimeType.indexOf('svg') >= 0 || (sourceUrl && sourceUrl.toLowerCase().endsWith('.svg'))) {
@@ -94,19 +86,9 @@ function computeDataUrlSha1Hex(dataUrl) {
 /** 将 URL 转为 base64 data URL，供 Figma 插件直接解码使用。SVG 会先绘制到 Canvas 再转 PNG。失败时保留 url。 */
 function fetchImageAsBase64DataUrl(url) {
   var startAt = Date.now();
-  console.log('[image inline] 开始拉取', url);
   return fetchImageBlob(url)
     .then(function (blob) {
-      return blobToDataUrl(blob, url).then(function (dataUrl) {
-        console.log('[image inline] 拉取成功', {
-          url: url,
-          mime: blob && blob.type,
-          blobBytes: blob && blob.size,
-          base64Bytes: estimateBytesFromDataUrl(dataUrl),
-          ms: Date.now() - startAt,
-        });
-        return dataUrl;
-      });
+      return blobToDataUrl(blob, url);
     })
     .catch(function (err) {
       console.warn('[image inline] 拉取失败', {
@@ -284,7 +266,6 @@ function inlineImageFillsInTree(obj, options) {
     ctxOptions.__imageInlineStats = { attempts: 0, success: 0, failed: 0 };
   }
   if (ctxOptions.__imageInlineDepth == null) ctxOptions.__imageInlineDepth = 0;
-  var isRoot = ctxOptions.__imageInlineDepth === 0;
   ctxOptions.__imageInlineDepth += 1;
   var stats = ctxOptions.__imageInlineStats;
   var promises = [];
@@ -294,7 +275,6 @@ function inlineImageFillsInTree(obj, options) {
   if (style && style.fills && Array.isArray(style.fills)) {
     style.fills.forEach(function (fill, i) {
       if (fill && fill.type === 'IMAGE' && fill.url && !fill.content) {
-        console.log('[DBG image-inline] 发现 IMAGE fill，准备拉取', { nodeName: obj.name, nodeType: obj.type, url: fill.url });
         stats.attempts += 1;
         promises.push(
           fetchImageAsBase64DataUrl(fill.url).then(function (dataUrl) {
@@ -302,16 +282,13 @@ function inlineImageFillsInTree(obj, options) {
               // 保留原 fill 上的所有字段（如 scaleMode、scalingFactor），仅替换 content，清除 url
               style.fills[i] = Object.assign({}, fill, { content: dataUrl, imageHashHex: sha1hex || undefined, url: undefined });
               stats.success += 1;
-              console.log('[DBG image-inline] IMAGE fill 内联写入 content 成功', { nodeName: obj.name, contentPrefix: dataUrl ? dataUrl.slice(0, 40) : 'null', contentLen: dataUrl ? dataUrl.length : 0, sha1hex: sha1hex ? sha1hex.slice(0, 16) + '...' : 'N/A' });
             });
           }).catch(function (err) {
             stats.failed += 1;
             console.warn('[image fill] 内联失败（可能是跨域/CORS）', fill.url, err && err.message);
           })
         );
-      } else if (fill && fill.type === 'IMAGE' && fill.content) {
-        console.log('[DBG image-inline] IMAGE fill 已有 content，跳过拉取', { nodeName: obj.name, contentPrefix: fill.content.slice(0, 40) });
-      } else if (fill && fill.type === 'IMAGE') {
+      } else if (fill && fill.type === 'IMAGE' && !fill.url && !fill.content) {
         console.warn('[DBG image-inline] IMAGE fill 无 url 也无 content，将被忽略', { nodeName: obj.name, fill: fill });
       } else if (fill && fill.type === 'TILED_GRADIENT' && fill.bgImage) {
         // 平铺渐变：先栅格单元格，再尽量预合成与 Frame 同尺寸的整图 + FILL（Figma 剪贴板对 TILE 常不可靠）
@@ -338,7 +315,6 @@ function inlineImageFillsInTree(obj, options) {
                     imageHashHex: sha1hex || undefined,
                   };
                   stats.success += 1;
-                  console.log('[tiled-gradient] 预合成整幅 FILL', { frameW: _frameW, frameH: _frameH, tileW: _tileW, tileH: _tileH });
                 });
               }).catch(function (e2) {
                 console.warn('[tiled-gradient] 预合成整幅失败，回退 TILE', e2 && e2.message);
@@ -361,7 +337,6 @@ function inlineImageFillsInTree(obj, options) {
                 imageHashHex: sha1hex || undefined,
               };
               stats.success += 1;
-              console.log('[tiled-gradient] 渲染成功 TILE（无 frame 尺寸）', { tileW: _tileW, tileH: _tileH });
             });
           }).catch(function (err) {
             style.fills[i] = null;
@@ -377,7 +352,6 @@ function inlineImageFillsInTree(obj, options) {
 
   // 处理 type==='image' 节点的 content 字段（img 标签 src），将 URL 内联为 base64
   if (obj.type === 'image' && obj.content && typeof obj.content === 'string' && !obj.content.startsWith('data:')) {
-    console.log('[DBG image-inline] 发现 image 节点，准备拉取 src', { nodeName: obj.name, url: obj.content });
     stats.attempts += 1;
     promises.push(
       fetchImageAsBase64DataUrl(obj.content).then(function (dataUrl) {
@@ -385,15 +359,12 @@ function inlineImageFillsInTree(obj, options) {
           obj.content = dataUrl;
           if (sha1hex) obj.imageHashHex = sha1hex;
           stats.success += 1;
-          console.log('[DBG image-inline] image 节点 src 内联成功', { nodeName: obj.name, contentPrefix: dataUrl ? dataUrl.slice(0, 40) : 'null', contentLen: dataUrl ? dataUrl.length : 0, sha1hex: sha1hex ? sha1hex.slice(0, 16) + '...' : 'N/A' });
         });
       }).catch(function (err) {
         stats.failed += 1;
         console.warn('[image node] 内联失败（可能是跨域/CORS）', obj.content, err && err.message);
       })
     );
-  } else if (obj.type === 'image') {
-    console.log('[DBG image-inline] image 节点状态检查', { nodeName: obj.name, hasContent: !!obj.content, isDataUrl: obj.content && obj.content.startsWith('data:'), contentPrefix: obj.content ? String(obj.content).slice(0, 60) : 'null' });
   }
 
   return Promise.all(promises).then(function () {
@@ -407,13 +378,6 @@ function inlineImageFillsInTree(obj, options) {
     }
   }).then(function () {
     ctxOptions.__imageInlineDepth -= 1;
-    if (isRoot) {
-      console.log('[image inline] 导出内联完成', {
-        attempts: stats.attempts,
-        success: stats.success,
-        failed: stats.failed,
-      });
-    }
   });
 }
 

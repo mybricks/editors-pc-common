@@ -104,6 +104,45 @@ function simpleSelectorMatches(el, sel) {
   return true;
 }
 
+/**
+ * 从 class token（如 pages_HomePage_index_less-tableHeader）提取多文件同步用的「文件路径编码」前缀：
+ * 与 figma-to-dom parseMultiFileSelector 约定一致——第一个 `-` 之前为编码前缀，之后为短 class。
+ */
+function extractEncodedLessFilePrefixFromClassToken(cls) {
+  if (!cls || typeof cls !== 'string' || cls.indexOf('_less-') === -1) return null;
+  var dash = cls.indexOf('-');
+  if (dash <= 0 || dash >= cls.length - 1) return null;
+  return cls.slice(0, dash);
+}
+
+/** 从祖先链上找最近一个带「文件名_less-短名」形态的 class，返回编码前缀（不含短名） */
+function getNearestEncodedLessFilePrefixFromAncestors(el) {
+  if (!el || !el.parentElement) return null;
+  var p = el.parentElement;
+  while (p) {
+    var cn = p.className;
+    if (typeof cn === 'string' && cn.trim()) {
+      var parts = cn.trim().split(/\s+/);
+      for (var i = 0; i < parts.length; i++) {
+        var prefix = extractEncodedLessFilePrefixFromClassToken(parts[i]);
+        if (prefix) return prefix;
+      }
+    }
+    p = p.parentElement;
+  }
+  return null;
+}
+
+/** 当前元素自身是否已有「文件名_less-短名」类（有则 ir 会优先选它，无需再挂 ant 的 figmaSyncSelector） */
+function elementHasEncodedLessFileClass(el) {
+  if (!el || !el.className || typeof el.className !== 'string') return false;
+  var parts = el.className.trim().split(/\s+/);
+  for (var j = 0; j < parts.length; j++) {
+    if (extractEncodedLessFilePrefixFromClassToken(parts[j])) return true;
+  }
+  return false;
+}
+
 /** 从 style 标签里收集匹配当前元素的所有 selector 字符串（用于挂到节点额外信息） */
 function getMatchedSelectorsForElement(el, cssRuleMap) {
   if (!el || !cssRuleMap || typeof el.matches !== 'function') return [];
@@ -299,6 +338,9 @@ if (typeof module !== 'undefined') {
     hasClassPrefix: hasClassPrefix,
     simpleSelectorMatches: simpleSelectorMatches,
     getMatchedSelectorsForElement: getMatchedSelectorsForElement,
+    extractEncodedLessFilePrefixFromClassToken: extractEncodedLessFilePrefixFromClassToken,
+    getNearestEncodedLessFilePrefixFromAncestors: getNearestEncodedLessFilePrefixFromAncestors,
+    elementHasEncodedLessFileClass: elementHasEncodedLessFileClass,
     getDeclaredStyleForElement: getDeclaredStyleForElement,
     getFrameTitleFromElement: getFrameTitleFromElement,
     findArtboardIdFromElement: findArtboardIdFromElement,

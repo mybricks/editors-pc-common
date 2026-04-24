@@ -184,7 +184,6 @@ export async function loadFontContextMapForFamilies(
   }
 
   if (!('queryLocalFonts' in window)) {
-    console.warn('[字体加载] queryLocalFonts 不可用，字形将需要双击显示');
     _cachedFontCtxMap = _cachedFontCtxMap || {};
     return _cachedFontCtxMap;
   }
@@ -193,27 +192,13 @@ export async function loadFontContextMapForFamilies(
   try {
     const _raw = await (window as any).queryLocalFonts();
     // 用 for 循环收集，兼容浏览器返回稀疏/特殊 ArrayLike 的情况
-    const _familySet = new Set<string>();
     for (let _i = 0; _i < _raw.length; _i++) {
       const _f = _raw[_i];
       if (_f) {
         localFonts.push(_f);
-        if (_f.family) _familySet.add(_f.family);
       }
     }
-    console.log(`[字体加载 DEBUG] 本机字体条目数: ${localFonts.length}，第一条:`,
-      localFonts[0]
-        ? { family: localFonts[0].family, style: localFonts[0].style, postscriptName: localFonts[0].postscriptName }
-        : '无'
-    );
-    if (localFonts.length === 0) {
-      console.warn('[字体加载] queryLocalFonts 返回空数组，请检查浏览器字体权限（地址栏左侧 → 网站设置 → 字体 → 允许）');
-    } else {
-      const _allFamilies = Array.from(_familySet).sort();
-      console.log(`[字体加载 DEBUG] 本机全部 family（共 ${_allFamilies.length} 个）:`, _allFamilies);
-    }
   } catch (err) {
-    console.warn('[字体加载] queryLocalFonts 失败', err);
     _cachedFontCtxMap = _cachedFontCtxMap || {};
     return _cachedFontCtxMap;
   }
@@ -237,9 +222,6 @@ export async function loadFontContextMapForFamilies(
         }
         if (Object.keys(subMap).length > 0) {
           result[family] = subMap;
-          console.log(`[字体加载] PingFang SC 已加载字重: ${Object.keys(subMap).join(', ')}`);
-        } else {
-          console.warn('[字体加载] 未找到任何 PingFang SC 变体，字形将需要双击显示');
         }
       } else {
         // ── Path A：已知品牌字体 ──
@@ -255,14 +237,12 @@ export async function loadFontContextMapForFamilies(
           let match: any = localFonts.find(
             (f: any) => f.family === family || f.postscriptName === family,
           );
-          let matchedViaRealName = false;
 
           // 2) 英文 family 名 + style
           if (!match) {
             match = localFonts.find(
               (f: any) => f.family === realFamily && f.style === realStyle,
             );
-            if (match) matchedViaRealName = true;
           }
 
           // 3) 备用 family 名（中文名等）+ style
@@ -271,7 +251,7 @@ export async function loadFontContextMapForFamilies(
               match = localFonts.find(
                 (f: any) => f.family === alt && f.style === realStyle,
               );
-              if (match) { matchedViaRealName = true; break; }
+              if (match) break;
             }
           }
 
@@ -282,9 +262,6 @@ export async function loadFontContextMapForFamilies(
               const _specific = await (window as any).queryLocalFonts({ postscriptNames: [family] });
               if (_specific && _specific.length > 0) {
                 match = _specific[0];
-                matchedViaRealName = true;
-                console.log(`[字体加载 DEBUG] "${family}" 通过精确 PostScript 查询命中:`,
-                  { family: match.family, style: match.style, postscriptName: match.postscriptName });
               }
             } catch (_) {}
           }
@@ -301,12 +278,6 @@ export async function loadFontContextMapForFamilies(
             if (ctx) {
               const weight = styleNameToWeight(realStyle);
               result[family] = { [weight]: ctx };
-              const label = matchedViaRealName
-                ? `"${realFamily}/${realStyle}"`
-                : `"${match.family}/${match.style}"`;
-              console.log(`[字体加载] "${family}" → 本机 ${label} 加载成功`);
-            } else {
-              console.warn(`[字体加载] "${family}" 找到本机字体但读取失败`);
             }
           } else {
             // 本机未找到，按优先级尝试远程加载：① 外部配置 URL → ② 规则内置 CDN URL → ③ @font-face 声明 URL
@@ -326,12 +297,8 @@ export async function loadFontContextMapForFamilies(
                     figmaStyle: realStyle,
                   },
                 };
-                console.log(`[字体加载] "${family}" 通过远程 URL 加载成功`);
               } catch (err) {
-                console.warn(`[字体加载] "${family}" 远程加载失败，字形将需要双击显示`, err);
               }
-            } else {
-              console.warn(`[字体加载] "${family}" 本机与远程均未找到，字形将需要双击显示`);
             }
           }
           return;
@@ -362,12 +329,8 @@ export async function loadFontContextMapForFamilies(
               const _rawStyle = font.names?.fontSubfamily?.en || 'Regular';
               const _ps = font.names?.postScriptName?.en || family;
               result[family] = { 400: { font, fontDigest, style: _rawStyle, postscript: _ps } };
-              console.log(`[字体加载] "${family}" 通过 @font-face 加载成功`);
             } catch (err) {
-              console.warn(`[字体加载] "${family}" @font-face 加载失败，字形将需要双击显示`, err);
             }
-          } else {
-            console.warn(`[字体加载] 未找到字体 "${family}"，字形将需要双击显示`);
           }
           return;
         }
@@ -392,11 +355,6 @@ export async function loadFontContextMapForFamilies(
         }
         if (Object.keys(subMap).length > 0) {
           result[family] = subMap;
-          if (isPostscriptLookup) {
-            console.log(`[字体加载] "${family}" 是 PostScript 名，实际字体族: "${variants[0].family}"，已加载字重: ${Object.keys(subMap).join(', ')}`);
-          } else {
-            console.log(`[字体加载] "${family}" 已加载字重: ${Object.keys(subMap).join(', ')}`);
-          }
         }
       }
     }),
@@ -433,7 +391,6 @@ export async function loadFontContext(): Promise<NonNullFontContext | null> {
     const map = await loadFontContextMap();
     return map['PingFang SC']?.[400] || null;
   } catch (err) {
-    console.warn('[字体加载] 失败，文本将需要双击显示', err);
     return null;
   }
 }

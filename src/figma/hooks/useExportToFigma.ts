@@ -1,13 +1,13 @@
 import React from 'react';
-import { convertIRToFigmaClipboardHtml, elementToMybricksJsonWithInlineImages } from '../core';
-import { loadFontContextMapForFamilies, collectFontFamiliesFromIR } from '../core/font-loader';
-import { writeHtmlToClipboard, isNotFocusedClipboardError } from '../core/clipboard';
+import { convertIRToFigmaClipboardHtml, elementToMybricksJsonWithInlineImages } from '../export';
+import { loadFontContextMapForFamilies, collectFontFamiliesFromIR } from '../export/font-loader';
+import { writeHtmlToClipboard, isNotFocusedClipboardError } from '../export/clipboard';
 import {
   ExportProgress,
   waitForPaint,
   sleep,
   startProgressTrickle,
-} from '../core/progress-utils';
+} from '../export/progress-utils';
 
 export type { ExportProgress };
 
@@ -21,7 +21,7 @@ export interface FontfaceConfig {
 export function useExportToFigma(
   comEle: HTMLElement | null | undefined,
   comId: string,
-  options?: { fontfaces?: FontfaceConfig[] }
+  options?: { fontfaces?: FontfaceConfig[]; onExportSuccess?: (rootEl: HTMLElement | null) => void }
 ) {
   const [loading, setLoading] = React.useState(false);
   const [progress, setProgress] = React.useState<ExportProgress>({
@@ -127,7 +127,6 @@ export function useExportToFigma(
       ? comEle
       : comEle?.querySelector('[data-zone-type="page"]')) as HTMLElement | null;
     if (!ele) {
-      console.warn('[导出到 Figma] 未找到 [data-zone-type="page"] 元素');
       return;
     }
 
@@ -177,6 +176,9 @@ export function useExportToFigma(
             task: () => writeHtmlToClipboard(clipboardHtml),
           });
 
+          // baseline 快照：写入剪贴板成功后立即保存，此时 Less 文件与 Figma 内容一致
+          try { options?.onExportSuccess?.(ele); } catch {}
+
           await setStage(100, '完成', { smooth: true, durationMs: 280 });
           await sleep(220);
           setLoading(false);
@@ -191,7 +193,6 @@ export function useExportToFigma(
             : '导出失败: ' + (err?.message || '未知错误');
           if (msg) msg.error(failMsg);
           else alert(failMsg);
-          console.error('[导出到 Figma] 失败', err);
         }
       });
     });

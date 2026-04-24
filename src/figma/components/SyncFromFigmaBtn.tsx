@@ -151,12 +151,10 @@ export function SyncFromFigmaBtn({ onSync }: SyncFromFigmaBtnProps) {
           const figmaItems: FigmaImportItem[] = Array.isArray(parsed) ? parsed : [parsed];
           onSync(figmaItems);
         } catch (e) {
-          console.error('[从 Figma 同步] 剪切板内容不是合法 JSON', e);
           alert('剪切板内容不是合法 JSON，请确认已从 Figma 正确复制');
         }
       },
       (err) => {
-        console.error('[从 Figma 同步] 读取剪切板失败', err);
         alert('读取剪切板失败，请检查浏览器权限或剪切板是否有内容');
       }
     );
