@@ -6,11 +6,9 @@ export interface ExportToFigmaBtnProps {
   comEle: HTMLElement | null | undefined;
   comId: string;
   fontfaces?: FontfaceConfig[];
-  /** 导出成功写入剪贴板后触发，用于保存 baseline */
-  onExportSuccess?: (rootEl: HTMLElement | null) => void;
 }
 
-export function ExportToFigmaBtn({ comEle, comId, fontfaces, onExportSuccess }: ExportToFigmaBtnProps) {
-  const { loading, progress, handleExport } = useExportToFigma(comEle, comId, { fontfaces, onExportSuccess });
+export function ExportToFigmaBtn({ comEle, comId, fontfaces }: ExportToFigmaBtnProps) {
+  const { loading, progress, handleExport } = useExportToFigma(comEle, comId, { fontfaces });
   return <ProgressButton loading={loading} progress={progress} onClick={handleExport} />;
 }

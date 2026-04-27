@@ -3,6 +3,24 @@ export interface FigmaImportItem {
   value: Record<string, string>;
   /** AL 容器节点的直接子节点 selectors（仅二进制剪贴板路径填充） */
   childSelectors?: string[];
+  /** 附加元数据（用于同步阶段决策） */
+  meta?: {
+    dimension?: {
+      /** Figma 水平方向尺寸语义：FIXED / FILL / HUG / 其他 */
+      sizingHorizontal?: string;
+      /** Figma 垂直方向尺寸语义：FIXED / FILL / HUG / 其他 */
+      sizingVertical?: string;
+      /** Figma 上报的原始尺寸（快照值） */
+      sourceSize?: {
+        x?: number;
+        y?: number;
+      };
+      /** 是否来自 Auto Layout 容器 */
+      hasAutoLayout?: boolean;
+      /** Auto Layout 方向：HORIZONTAL / VERTICAL */
+      stackMode?: string;
+    };
+  };
 }
 
 export type FontContext = {

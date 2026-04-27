@@ -20,6 +20,19 @@ try { _componentTemplate = require('./figma-component-template'); } catch (e) {}
 var _compiledSchema = null;
 var _schemaChunkBytes = null;
 
+function _isFiniteNumber(n) {
+  return typeof n === 'number' && Number.isFinite(n);
+}
+
+function ceilNodeSizeValue(v) {
+  if (!_isFiniteNumber(v)) return v;
+  return Math.ceil(v);
+}
+
+function makeCeilSize(x, y) {
+  return { x: ceilNodeSizeValue(x), y: ceilNodeSizeValue(y) };
+}
+
 function _getCompiled() {
   if (_compiledSchema) return _compiledSchema;
   var sd = _schemaData || (typeof window !== 'undefined' && window.__FIGMA_SCHEMA_DATA__);
@@ -1668,12 +1681,12 @@ function convertClipPathPolygonBackground(style, guid, parentGuid, siblingIndex,
     name: 'clip-path-polygon-bg',
     visible: true,
     opacity: 1,
-    size: { x: width, y: height },
+    size: makeCeilSize(width, height),
     transform: makeTransform(0, 0),
     fillPaints: paints,
     fillGeometry: vectorData.fillGeometry,
     vectorData: {
-      normalizedSize: { x: width, y: height },
+      normalizedSize: makeCeilSize(width, height),
     },
     stackPositioning: 'ABSOLUTE',
   };
@@ -1922,7 +1935,7 @@ function convertNode(irNode, parentGuid, siblingIndex, fontCtxMap, blobs, parent
         name: withSyncTag(irNode.name, irNode, 'svg'),
         visible: true,
         opacity: _svgStyle0.opacity != null ? _svgStyle0.opacity : 1,
-        size: { x: _svgW0, y: _svgH0 },
+        size: makeCeilSize(_svgW0, _svgH0),
         transform: makeTransform(_svgStyle0.x || 0, _svgStyle0.y || 0, _svgStyle0.rotation),
         fillPaints: [],
         frameMaskDisabled: false,
@@ -2015,7 +2028,7 @@ function convertInstanceNode(irNode, guid, parentGuid, siblingIndex) {
     name: instanceNodeName,
     parentIndex: { guid: parentGuid, position: positionForIndex(siblingIndex) },
     transform: makeTransform(style.x || 0, style.y || 0),
-    size: { x: style.width ?? 100, y: style.height ?? 32 },
+    size: makeCeilSize(style.width ?? 100, style.height ?? 32),
     symbolData: symData,
     visible: true,
     opacity: 1,
@@ -2077,7 +2090,7 @@ function convertSvgNode(irNode, guid, parentGuid, siblingIndex, parentLayoutMode
     name: withSyncTag(irNode.name, irNode, 'SVG'),
     visible: true,
     opacity: style.opacity != null ? style.opacity : 1,
-    size: { x: width, y: height },
+    size: makeCeilSize(width, height),
     transform: makeTransform(style.x || 0, style.y || 0, style.rotation),
     fillPaints: paints,
   };
@@ -2155,7 +2168,7 @@ function convertFrameNode(irNode, guid, parentGuid, siblingIndex, parentLayoutMo
     name: withSyncTag(irNode.name, irNode, 'Frame'),
     visible: true,
     opacity: style.opacity != null ? style.opacity : 1,
-    size: { x: style.width ?? 100, y: style.height ?? 100 },
+    size: makeCeilSize(style.width ?? 100, style.height ?? 100),
     transform: makeTransform(style.x || 0, style.y || 0, style.rotation),
     fillPaints: hasClipPolygon ? [] : irFillsToFigmaPaints(style.fills, blobs, imageCtx, imageImports, imageImportSet),
     frameMaskDisabled: style.clipsContent === false,
@@ -2437,7 +2450,7 @@ function convertTextNode(irNode, guid, parentGuid, siblingIndex, fontCtxMap, blo
     name: withSyncTag(content.slice(0, 30) || 'Text', irNode, 'Text'),
     visible: true,
     opacity: style.opacity != null ? style.opacity : 1,
-    size: { x: nodeWidth, y: nodeHeight },
+    size: makeCeilSize(nodeWidth, nodeHeight),
     transform: makeTransform(_textTransformX, style.y || 0, style.rotation),
     strokeWeight: 1,
     strokeAlign: 'OUTSIDE',
@@ -2804,7 +2817,7 @@ function convertImageNode(irNode, guid, parentGuid, siblingIndex, parentLayoutMo
     name: withSyncTag(irNode.content ? '[IMG] ' + irNode.name : irNode.name, irNode, 'Image'),
     visible: true,
     opacity: style.opacity != null ? style.opacity : 1,
-    size: { x: style.width ?? 100, y: style.height ?? 100 },
+    size: makeCeilSize(style.width ?? 100, style.height ?? 100),
     transform: makeTransform(style.x || 0, style.y || 0),
     fillPaints: imagePaints || [{
       type: 'SOLID',

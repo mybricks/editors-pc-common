@@ -209,7 +209,11 @@ function buildNodeTreeLines(nodeChanges) {
     var stackWrap = n.stackWrap;
     var stackSpacing = n.stackSpacing;
     var layout;
-    if (stackMode) layout = String(stackMode) + (stackWrap ? "/" + stackWrap : "") + " gap=" + (stackSpacing != null ? stackSpacing : "-");
+    if (stackMode && stackMode !== "NONE") {
+      layout = String(stackMode) + (stackWrap ? "/" + stackWrap : "") + " gap=" + (stackSpacing != null ? stackSpacing : "-");
+    } else if (stackSpacing != null) {
+      layout = "FREEFORM gap=" + stackSpacing;
+    }
     return {
       index: i,
       type: String(n.type || ""),

@@ -21,7 +21,7 @@ export interface FontfaceConfig {
 export function useExportToFigma(
   comEle: HTMLElement | null | undefined,
   comId: string,
-  options?: { fontfaces?: FontfaceConfig[]; onExportSuccess?: (rootEl: HTMLElement | null) => void }
+  options?: { fontfaces?: FontfaceConfig[] }
 ) {
   const [loading, setLoading] = React.useState(false);
   const [progress, setProgress] = React.useState<ExportProgress>({
@@ -177,9 +177,6 @@ export function useExportToFigma(
             to: 98,
             task: () => writeHtmlToClipboard(clipboardHtml),
           });
-
-          // baseline 快照：写入剪贴板成功后立即保存，此时 Less 文件与 Figma 内容一致
-          try { options?.onExportSuccess?.(ele); } catch {}
 
           await setStage(100, '完成', { smooth: true, durationMs: 280 });
           await sleep(220);

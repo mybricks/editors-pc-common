@@ -87,7 +87,114 @@ function resolveLogicalSelectorForAntCheck(selector: string): string {
   return selector.startsWith('.') ? selector : `.${selector}`;
 }
 
-function extractSimpleStyles(n: Record<string, unknown>): Record<string, string> {
+type FreeformDirection = 'row' | 'column';
+
+function getNodeRect(n: Record<string, unknown>): { x: number; y: number; w: number; h: number; cx: number; cy: number } | null {
+  const tr = n.transform as unknown[] | undefined;
+  const sz = n.size as { x?: number; y?: number } | undefined;
+  const x = Array.isArray(tr) && Array.isArray(tr[0]) ? Number((tr[0] as unknown[])[2]) : NaN;
+  const y = Array.isArray(tr) && Array.isArray(tr[1]) ? Number((tr[1] as unknown[])[2]) : NaN;
+  const w = sz && typeof sz.x === 'number' ? Number(sz.x) : NaN;
+  const h = sz && typeof sz.y === 'number' ? Number(sz.y) : NaN;
+  if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(w) || !Number.isFinite(h)) return null;
+  if (w <= 0 || h <= 0) return null;
+  return { x, y, w, h, cx: x + w / 2, cy: y + h / 2 };
+}
+
+/**
+ * 从子节点位置推断 freeform 布局方向和平均间距。
+ *
+ * Figma 对 freeform 节点不传 stackSpacing，因此无法直接读取间距值；
+ * 改为从子节点的实际坐标/尺寸中推算：
+ *  - 方向：需要明显的主轴优势（spreadRatio > 1.2），否则返回 null（网格/散布场景不推断）
+ *  - gap：按主轴方向排序后，取相邻边界差的均值（负值 → 0，最后 Math.round）
+ */
+function inferFreeformLayoutFromChildren(
+  childNodes: Record<string, unknown>[]
+): { direction: FreeformDirection; gap: number } | null {
+  const rects = childNodes.map(getNodeRect).filter((r): r is NonNullable<ReturnType<typeof getNodeRect>> => r != null);
+  if (rects.length < 2) return null;
+  const cxs = rects.map(r => r.cx);
+  const cys = rects.map(r => r.cy);
+  const spreadX = Math.max(...cxs) - Math.min(...cxs);
+  const spreadY = Math.max(...cys) - Math.min(...cys);
+  if (spreadX < 1 && spreadY < 1) return null;
+  const ratio = 1.2;
+  let direction: FreeformDirection;
+  if (spreadX > spreadY * ratio) {
+    direction = 'row';
+  } else if (spreadY > spreadX * ratio) {
+    direction = 'column';
+  } else {
+    return null;
+  }
+  // 按主轴排序后取相邻节点边界差均值
+  let gap = 0;
+  if (direction === 'row') {
+    const sorted = [...rects].sort((a, b) => a.x - b.x);
+    const gaps: number[] = [];
+    for (let i = 1; i < sorted.length; i++) {
+      gaps.push(Math.max(0, sorted[i].x - (sorted[i - 1].x + sorted[i - 1].w)));
+    }
+    if (gaps.length > 0) gap = Math.round(gaps.reduce((s, g) => s + g, 0) / gaps.length);
+  } else {
+    const sorted = [...rects].sort((a, b) => a.y - b.y);
+    const gaps: number[] = [];
+    for (let i = 1; i < sorted.length; i++) {
+      gaps.push(Math.max(0, sorted[i].y - (sorted[i - 1].y + sorted[i - 1].h)));
+    }
+    if (gaps.length > 0) gap = Math.round(gaps.reduce((s, g) => s + g, 0) / gaps.length);
+  }
+  return { direction, gap };
+}
+
+/**
+ * 从 Figma wire 合成 `border-radius`：
+ * - 仅 `cornerRadius`：单值
+ * - `rectangleCornerRadiiIndependent` 或任一 `rectangle*CornerRadius`：四值简写（TL TR BR BL，与 CSS 顺时针一致）
+ * - 缺角的数值回退到 `cornerRadius`（若存在），否则 0
+ */
+function formatBorderRadiusFromNode(n: Record<string, unknown>): string | null {
+  const cr = n.cornerRadius;
+  const defUniform =
+    typeof cr === 'number' && Number.isFinite(cr) ? Math.max(0, cr) : 0;
+
+  const readCorner = (key: string): number | null => {
+    const v = n[key];
+    if (typeof v !== 'number' || !Number.isFinite(v)) return null;
+    return Math.max(0, v);
+  };
+
+  const tl = readCorner('rectangleTopLeftCornerRadius');
+  const tr = readCorner('rectangleTopRightCornerRadius');
+  const brR = readCorner('rectangleBottomRightCornerRadius');
+  const bl = readCorner('rectangleBottomLeftCornerRadius');
+  const independent = n.rectangleCornerRadiiIndependent === true;
+  const hasExplicitCorner = tl != null || tr != null || brR != null || bl != null;
+
+  if (independent || hasExplicitCorner) {
+    const tlv = tl ?? defUniform;
+    const trv = tr ?? defUniform;
+    const brv = brR ?? defUniform;
+    const blv = bl ?? defUniform;
+    const a = roundCssNum(tlv);
+    const b = roundCssNum(trv);
+    const c = roundCssNum(brv);
+    const d = roundCssNum(blv);
+    if (a <= 0 && b <= 0 && c <= 0 && d <= 0) return null;
+    if (a === b && b === c && c === d && a > 0) return `${a}px`;
+    return `${a}px ${b}px ${c}px ${d}px`;
+  }
+
+  if (typeof cr === 'number' && cr > 0) return `${roundCssNum(cr)}px`;
+  return null;
+}
+
+function extractSimpleStyles(
+  n: Record<string, unknown>,
+  inferredFreeformDirection?: FreeformDirection | null,
+  inferredFreeformGap?: number | null
+): Record<string, string> {
   const value: Record<string, string> = {};
   const type = String(n.type || '');
   const fills = n.fillPaints as unknown[] | undefined;
@@ -98,8 +205,32 @@ function extractSimpleStyles(n: Record<string, unknown>): Record<string, string>
       else value['background-color'] = rgba;
     }
   }
-  const cr = n.cornerRadius;
-  if (typeof cr === 'number' && cr > 0) value['border-radius'] = `${roundCssNum(cr)}px`;
+  const borderRadiusStr = formatBorderRadiusFromNode(n);
+  if (borderRadiusStr) value['border-radius'] = borderRadiusStr;
+
+  // Stroke → border / box-shadow / outline
+  const strokes = n.strokePaints as unknown[] | undefined;
+  const sw = n.strokeWeight;
+  if (Array.isArray(strokes) && strokes.length && typeof sw === 'number' && sw > 0) {
+    const strokeColor = solidPaintToRgba(strokes[0] as Record<string, unknown>);
+    if (strokeColor) {
+      const w = roundCssNum(sw);
+      const dashPattern = n.dashPattern as number[] | undefined;
+      const isDashed = Array.isArray(dashPattern) && dashPattern.length > 0;
+      const strokeAlign = (n.strokeAlign as string | undefined) || 'INSIDE';
+      if (strokeAlign === 'OUTSIDE') {
+        if (isDashed) {
+          // box-shadow 不支持虚线，OUTSIDE dashed → outline 近似
+          value['outline'] = `${w}px dashed ${strokeColor}`;
+        } else {
+          value['box-shadow'] = `0 0 0 ${w}px ${strokeColor}`;
+        }
+      } else {
+        // INSIDE / CENTER → border shorthand
+        value['border'] = `${w}px ${isDashed ? 'dashed' : 'solid'} ${strokeColor}`;
+      }
+    }
+  }
 
   const op = n.opacity;
   if (typeof op === 'number' && op < 1 - 1e-6 && op >= 0) value['opacity'] = String(roundCssNum(op));
@@ -131,15 +262,32 @@ function extractSimpleStyles(n: Record<string, unknown>): Record<string, string>
       else value['height'] = `${roundCssNum(sz.y)}px`;
     }
 
-    // Auto Layout → flex 布局属性（仅针对已是 flex 的容器，baseline diff 保证只写真正变化的值）
-    // stackMode 存在说明该节点有 Auto Layout
+    // 布局属性同步：
+    // - flex-direction / 对齐 仍以 stackMode(=Auto Layout) 为准
+    // - gap 允许弱依赖 stackMode：部分 Figma 场景会回传 stackSpacing 但不带 stackMode
+    //   （例如未显式切到 Auto Layout 仅调整 spacing），此时也应同步到 DOM。
     const stackMode = n.stackMode as string | undefined;
-    if (stackMode === 'HORIZONTAL' || stackMode === 'VERTICAL') {
+    const hasAutoLayout = stackMode === 'HORIZONTAL' || stackMode === 'VERTICAL';
+    const sp = n.stackSpacing;
+    const shouldSyncGap =
+      typeof sp === 'number' &&
+      (hasAutoLayout ? sp >= 0 : sp > 0);
+    if (shouldSyncGap) {
+      value['gap'] = `${roundCssNum(sp)}px`;
+    } else if (!hasAutoLayout && typeof inferredFreeformGap === 'number' && inferredFreeformGap > 0) {
+      // Figma freeform 节点不传 stackSpacing，用子节点位置推断的间距作为 fallback
+      value['gap'] = `${roundCssNum(inferredFreeformGap)}px`;
+    }
+    if (hasAutoLayout) {
       value['flex-direction'] = stackMode === 'VERTICAL' ? 'column' : 'row';
-      const sp = n.stackSpacing;
-      if (typeof sp === 'number' && sp >= 0) {
-        value['gap'] = `${roundCssNum(sp)}px`;
-      }
+    } else if (
+      inferredFreeformDirection &&
+      (shouldSyncGap || (typeof inferredFreeformGap === 'number' && inferredFreeformGap > 0))
+    ) {
+      // Freeform 可改 spacing：当能稳定推断子节点主轴且有非零间距时，补齐方向，便于后续升级为 flex。
+      value['flex-direction'] = inferredFreeformDirection;
+    }
+    if (hasAutoLayout) {
       // flex-wrap: wrap 场景 —— 同时同步行间距
       if (n.stackWrap === 'WRAP') {
         value['flex-wrap'] = 'wrap';
@@ -164,10 +312,55 @@ function extractSimpleStyles(n: Record<string, unknown>): Record<string, string>
       };
       const ca = n.stackCounterAlignItems as string | undefined;
       if (ca && COUNTER_ALIGN[ca]) value['align-items'] = COUNTER_ALIGN[ca];
+
+      // Auto Layout 内边距（与 ir-to-figma.js stack*Padding ↔ padding* 对称）
+      const emitStackPadding = (wireKey: string, cssKey: string) => {
+        const v = n[wireKey];
+        // 与 row-gap 一致：仅 >0 输出，避免无内边距的 AL 节点在剪贴板里带 0 时刷四条噪音
+        if (typeof v === 'number' && Number.isFinite(v) && v > 0) {
+          value[cssKey] = `${roundCssNum(v)}px`;
+        }
+      };
+      emitStackPadding('stackVerticalPadding', 'padding-top');
+      emitStackPadding('stackHorizontalPadding', 'padding-left');
+      emitStackPadding('stackPaddingRight', 'padding-right');
+      emitStackPadding('stackPaddingBottom', 'padding-bottom');
     }
   }
 
   return value;
+}
+
+function extractDimensionMeta(n: Record<string, unknown>): FigmaImportItem['meta'] | undefined {
+  const type = String(n.type || '');
+  if (type === 'TEXT') return undefined;
+
+  const size = n.size as { x?: number; y?: number } | undefined;
+  const sizingHorizontal = n.layoutSizingHorizontal as string | undefined;
+  const sizingVertical = n.layoutSizingVertical as string | undefined;
+  const stackMode = n.stackMode as string | undefined;
+  const hasAutoLayout = stackMode === 'HORIZONTAL' || stackMode === 'VERTICAL';
+
+  const hasUsefulDimensionInfo =
+    (typeof size?.x === 'number' && size.x > 0) ||
+    (typeof size?.y === 'number' && size.y > 0) ||
+    !!sizingHorizontal ||
+    !!sizingVertical ||
+    hasAutoLayout;
+  if (!hasUsefulDimensionInfo) return undefined;
+
+  return {
+    dimension: {
+      sizingHorizontal,
+      sizingVertical,
+      sourceSize: {
+        ...(typeof size?.x === 'number' && size.x > 0 ? { x: roundCssNum(size.x) } : {}),
+        ...(typeof size?.y === 'number' && size.y > 0 ? { y: roundCssNum(size.y) } : {}),
+      },
+      hasAutoLayout,
+      ...(stackMode ? { stackMode } : {}),
+    },
+  };
 }
 
 /**
@@ -182,12 +375,14 @@ export function nodeChangesToSimpleFigmaImportItems(nodeChanges: unknown[] | nul
   // Pass 1: 构建 guid→selector 和 parentGuid→childGuids Map
   const guidToSelector = new Map<string, string>();
   const parentToChildren = new Map<string, string[]>();
+  const guidToNode = new Map<string, Record<string, unknown>>();
 
   for (const raw of nodeChanges) {
     const n = raw as Record<string, unknown>;
     const guidRaw = n.guid as { sessionID: number; localID: number } | undefined;
     if (!guidRaw || typeof guidRaw.sessionID !== 'number' || typeof guidRaw.localID !== 'number') continue;
     const guidKey = `${guidRaw.sessionID}:${guidRaw.localID}`;
+    guidToNode.set(guidKey, n);
 
     const name = n.name != null ? String(n.name) : '';
     const sel = layerNameToClassSelector(name);
@@ -211,7 +406,26 @@ export function nodeChangesToSimpleFigmaImportItems(nodeChanges: unknown[] | nul
     const name = n.name != null ? String(n.name) : '';
     const selector = layerNameToClassSelector(name);
     if (!selector) continue;
-    const value = extractSimpleStyles(n);
+    let inferredFreeformDirection: FreeformDirection | null = null;
+    let inferredFreeformGap: number | null = null;
+    const stackMode = n.stackMode as string | undefined;
+    const hasAutoLayout = stackMode === 'HORIZONTAL' || stackMode === 'VERTICAL';
+    if (!hasAutoLayout) {
+      const guidRaw = n.guid as { sessionID: number; localID: number } | undefined;
+      if (guidRaw && typeof guidRaw.sessionID === 'number' && typeof guidRaw.localID === 'number') {
+        const guidKey = `${guidRaw.sessionID}:${guidRaw.localID}`;
+        const childGuids = parentToChildren.get(guidKey) || [];
+        const childNodes = childGuids
+          .map(cg => guidToNode.get(cg))
+          .filter((cn): cn is Record<string, unknown> => cn != null);
+        const inferred = inferFreeformLayoutFromChildren(childNodes);
+        if (inferred) {
+          inferredFreeformDirection = inferred.direction;
+          inferredFreeformGap = inferred.gap;
+        }
+      }
+    }
+    const value = extractSimpleStyles(n, inferredFreeformDirection, inferredFreeformGap);
     // antd 内部节点（含多文件编码选择器）尺寸是渲染快照像素值，不应写回 CSS
     const logicalSelector = resolveLogicalSelectorForAntCheck(selector);
     if (/^\.ant-/.test(logicalSelector)) {
@@ -220,7 +434,7 @@ export function nodeChangesToSimpleFigmaImportItems(nodeChanges: unknown[] | nul
     }
     if (!Object.keys(value).length) continue;
 
-    // AL 容器节点填充 childSelectors（供 sync.ts expandNonFlexUpgradeItems 使用）
+    // 容器节点填充 childSelectors（供 sync.ts expandNonFlexUpgradeItems 使用）
     let childSelectors: string[] | undefined;
     const guidRaw = n.guid as { sessionID: number; localID: number } | undefined;
     if (guidRaw && typeof guidRaw.sessionID === 'number' && typeof guidRaw.localID === 'number') {
@@ -234,7 +448,13 @@ export function nodeChangesToSimpleFigmaImportItems(nodeChanges: unknown[] | nul
       }
     }
 
-    out.push({ selectors: [selector], value, ...(childSelectors ? { childSelectors } : {}) });
+    const meta = extractDimensionMeta(n);
+    out.push({
+      selectors: [selector],
+      value,
+      ...(childSelectors ? { childSelectors } : {}),
+      ...(meta ? { meta } : {}),
+    });
   }
   return out;
 }

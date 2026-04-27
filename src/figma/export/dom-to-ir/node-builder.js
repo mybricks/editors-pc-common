@@ -505,10 +505,47 @@ function isShowingPlaceholder(el) {
  * @param {string} pseudo  '::before' 或 '::after'
  * @returns {Object|null}  如 { content: '"*"', color: '#ff4d4f', 'font-size': '14px' }
  */
+function _collectPseudoPropsFromRuleList(ruleList, el, pseudoDbl, pseudoSgl, result) {
+  if (!ruleList || !el || typeof el.matches !== 'function') return;
+  for (var _ri = 0; _ri < ruleList.length; _ri++) {
+    var _rule = ruleList[_ri];
+    if (!_rule) continue;
+    var _selText = _rule.selectorText;
+    if (_selText && (_selText.indexOf(pseudoDbl) !== -1 || _selText.indexOf(pseudoSgl) !== -1)) {
+      // 支持 "a::before, b::before" 多选择器规则
+      var _selParts = _selText.split(',');
+      var _matched = false;
+      for (var _pi = 0; _pi < _selParts.length; _pi++) {
+        var _part = _selParts[_pi].trim();
+        if (_part.indexOf(pseudoDbl) === -1 && _part.indexOf(pseudoSgl) === -1) continue;
+        var _base = _part.replace(pseudoDbl, '').replace(pseudoSgl, '').trim();
+        if (!_base) continue;
+        try { if (el.matches(_base)) { _matched = true; break; } } catch (_) {}
+      }
+      if (_matched) {
+        var _st = _rule.style;
+        if (_st) {
+          for (var _li = 0; _li < _st.length; _li++) {
+            var _prop = _st[_li];
+            result[_prop] = _st.getPropertyValue(_prop);
+          }
+        }
+      }
+    }
+    // 递归进入 @media / @supports / @layer 等分组规则，避免遗漏嵌套伪元素规则
+    if (_rule.cssRules && _rule.cssRules.length) {
+      _collectPseudoPropsFromRuleList(_rule.cssRules, el, pseudoDbl, pseudoSgl, result);
+    }
+  }
+}
+
 function _getPseudoPropsFromSheets(el, pseudo) {
   if (!el || typeof el.matches !== 'function') return null;
   var result = {};
   try {
+    var _pseudoName = (String(pseudo || '').indexOf('before') !== -1) ? 'before' : 'after';
+    var _pseudoDbl = '::' + _pseudoName;
+    var _pseudoSgl = ':' + _pseudoName;
     var sheets = [];
     if (typeof document !== 'undefined' && document.styleSheets) {
       for (var _i = 0; _i < document.styleSheets.length; _i++) sheets.push(document.styleSheets[_i]);
@@ -524,28 +561,7 @@ function _getPseudoPropsFromSheets(el, pseudo) {
       var _rules;
       try { _rules = sheets[_si].cssRules; } catch (_) { continue; } // CORS 跨域样式表跳过
       if (!_rules) continue;
-      for (var _ri = 0; _ri < _rules.length; _ri++) {
-        var _rule = _rules[_ri];
-        var _selText = _rule.selectorText;
-        if (!_selText || _selText.indexOf(pseudo) === -1) continue;
-        // 支持 "a::before, b::before" 多选择器规则
-        var _selParts = _selText.split(',');
-        var _matched = false;
-        for (var _pi = 0; _pi < _selParts.length; _pi++) {
-          var _part = _selParts[_pi].trim();
-          if (_part.indexOf(pseudo) === -1) continue;
-          var _base = _part.replace(pseudo, '').trim();
-          if (!_base) continue;
-          try { if (el.matches(_base)) { _matched = true; break; } } catch (_) {}
-        }
-        if (!_matched) continue;
-        var _st = _rule.style;
-        if (!_st) continue;
-        for (var _li = 0; _li < _st.length; _li++) {
-          var _prop = _st[_li];
-          result[_prop] = _st.getPropertyValue(_prop);
-        }
-      }
+      _collectPseudoPropsFromRuleList(_rules, el, _pseudoDbl, _pseudoSgl, result);
     }
   } catch (_) {}
   return Object.keys(result).length > 0 ? result : null;
@@ -568,9 +584,18 @@ function getPseudoTextNode(el, pseudo, geo, parentRect, elRect, cssRuleMap, glob
 
     if (!content || content === 'none' || content === 'normal') {
       var _fallbackProps = _getPseudoPropsFromSheets(el, pseudo);
-      if (!_fallbackProps || !_fallbackProps['content']) return null;
+      if (!_fallbackProps) {
+        // content 读不到时，尝试按图形伪元素导出
+        var _shapeFallback = getPseudoShapeNode(el, pseudo, ps, geo, parentRect, elRect);
+        if (_shapeFallback) return _shapeFallback;
+        return null;
+      }
       var _fc = _fallbackProps['content'];
-      if (!_fc || _fc === 'none' || _fc === 'normal') return null;
+      var _fbBorderW = 0;
+      if (_fallbackProps['border']) {
+        var _bwMatch = String(_fallbackProps['border']).match(/([0-9.]+)px/);
+        _fbBorderW = _bwMatch ? (parseFloat(_bwMatch[1]) || 0) : 0;
+      }
       ps = Object.assign(
         { display: 'inline', visibility: 'visible', opacity: '1', 'font-size': '14px' },
         _fallbackProps,
@@ -580,12 +605,38 @@ function getPseudoTextNode(el, pseudo, geo, parentRect, elRect, cssRuleMap, glob
           color: _fallbackProps['color'] || '',
           fontWeight: _fallbackProps['font-weight'] || '400',
           fontFamily: _fallbackProps['font-family'] || '',
+          top: _fallbackProps['top'],
+          right: _fallbackProps['right'],
+          bottom: _fallbackProps['bottom'],
+          left: _fallbackProps['left'],
+          width: _fallbackProps['width'],
+          height: _fallbackProps['height'],
+          transform: _fallbackProps['transform'],
+          transformOrigin: _fallbackProps['transform-origin'],
+          backgroundColor: _fallbackProps['background-color'],
+          backgroundImage: _fallbackProps['background-image'],
+          boxSizing: _fallbackProps['box-sizing'],
+          paddingTop: _fallbackProps['padding-top'] || '0',
+          paddingRight: _fallbackProps['padding-right'] || '0',
+          paddingBottom: _fallbackProps['padding-bottom'] || '0',
+          paddingLeft: _fallbackProps['padding-left'] || '0',
+          borderStyle: _fallbackProps['border-style'] || _fallbackProps['border'] || '',
+          borderTopWidth: _fallbackProps['border-top-width'] || (_fbBorderW > 0 ? (_fbBorderW + 'px') : '0'),
+          borderRightWidth: _fallbackProps['border-right-width'] || (_fbBorderW > 0 ? (_fbBorderW + 'px') : '0'),
+          borderBottomWidth: _fallbackProps['border-bottom-width'] || (_fbBorderW > 0 ? (_fbBorderW + 'px') : '0'),
+          borderLeftWidth: _fallbackProps['border-left-width'] || (_fbBorderW > 0 ? (_fbBorderW + 'px') : '0'),
           marginLeft: _fallbackProps['margin-left'] || '0',
           marginRight: _fallbackProps['margin-right'] || '0',
           marginInlineStart: _fallbackProps['margin-inline-start'] || _fallbackProps['margin-left'] || '0',
           marginInlineEnd: _fallbackProps['margin-inline-end'] || _fallbackProps['margin-right'] || '0',
         }
       );
+      // content 可能为空字符串（纯图形伪元素），此时走图形分支而不是直接丢弃
+      if (!_fc || _fc === 'none' || _fc === 'normal') {
+        var _shapeFallback2 = getPseudoShapeNode(el, pseudo, ps, geo, parentRect, elRect);
+        if (_shapeFallback2) return _shapeFallback2;
+        return null;
+      }
       content = _fc;
     }
     // 过滤 display:none 或 visibility:hidden 或 opacity:0 的伪元素（如 Ant Design 动画层）
@@ -612,7 +663,11 @@ function getPseudoTextNode(el, pseudo, geo, parentRect, elRect, cssRuleMap, glob
       if (_hasBg || _hasBorder) return getPseudoShapeNode(el, pseudo, ps, geo, parentRect, elRect);
       var _mEnd   = parseFloat(ps.marginInlineEnd   || ps.marginRight) || 0;
       var _mStart = parseFloat(ps.marginInlineStart || ps.marginLeft)  || 0;
-      if (_mEnd <= 0 && _mStart <= 0) return null;
+      if (_mEnd <= 0 && _mStart <= 0) {
+        var _shapeFallback3 = getPseudoShapeNode(el, pseudo, ps, geo, parentRect, elRect);
+        if (_shapeFallback3) return _shapeFallback3;
+        return null;
+      }
       // 有有效 margin，fall-through 到后续文本节点生成逻辑，保留间距载体
     }
 
