@@ -2249,15 +2249,22 @@ function convertTextNode(irNode, guid, parentGuid, siblingIndex, fontCtxMap, blo
   //       两者不同时，需用原始 CSS 名（style.fontFamily）作为备选 key。
   var _clampedWeight = Math.min(style.fontWeight || 400, 900);
   var resolvedFontCtx = null;
+  // _fontFellBackToPingFang：目标字体不在 fontCtxMap 中，实际使用了 PingFang SC 兜底。
+  // 置 true 时，稍后会将 fontName 同步切换到 PingFang SC，避免 Figma 报 Missing font。
+  var _fontFellBackToPingFang = false;
   if (fontCtxMap && typeof fontCtxMap === 'object') {
     var _targetFamily = fontName.family || 'PingFang SC';
-    var _familyMap = fontCtxMap[_targetFamily] ||
-                     (style.fontFamily && style.fontFamily !== _targetFamily && fontCtxMap[style.fontFamily]) ||
-                     fontCtxMap['PingFang SC'] ||
-                     fontCtxMap[Object.keys(fontCtxMap)[0]] ||
-                     null;
-    if (_familyMap && typeof _familyMap === 'object') {
-      resolvedFontCtx = _familyMap[_clampedWeight] || null;
+    var _familyMap = fontCtxMap[_targetFamily] || null;
+    if (!_familyMap && style.fontFamily && style.fontFamily !== _targetFamily) {
+      _familyMap = fontCtxMap[style.fontFamily] || null;
+    }
+    if (!_familyMap) {
+      _familyMap = fontCtxMap['PingFang SC'] || fontCtxMap[Object.keys(fontCtxMap)[0]] || null;
+      if (_familyMap && _targetFamily !== 'PingFang SC') {
+        _fontFellBackToPingFang = true;
+      }
+    }
+    if (_familyMap && typeof _familyMap === 'object') {      resolvedFontCtx = _familyMap[_clampedWeight] || null;
       if (!resolvedFontCtx) {
         // 向下取整找最近可用字重
         var _availableWeights = Object.keys(_familyMap).map(Number).sort(function(a, b) { return b - a; });
@@ -2273,6 +2280,19 @@ function convertTextNode(irNode, guid, parentGuid, siblingIndex, fontCtxMap, blo
         }
       }
     }
+  }
+
+  // 目标字体缺失时，统一将 fontName 切换到 PingFang SC，避免 Figma 弹出 "Missing font" 对话框。
+  // 两种情况均覆盖：
+  //   A) _fontFellBackToPingFang=true：fontCtxMap 有 PingFang SC 但没有目标字体（有字形数据）
+  //   B) fontCtxMap 完全没有目标字体（含 map 为空的情况，无字形数据，Figma 用自身渲染引擎）
+  //   注意：不依赖 resolvedFontCtx，即使 CDN 加载失败也能保证 fontName 正确
+  var _targetNotInMap = fontCtxMap &&
+    _targetFamily !== 'PingFang SC' &&
+    !fontCtxMap[_targetFamily] &&
+    !(style.fontFamily && style.fontFamily !== _targetFamily && fontCtxMap[style.fontFamily]);
+  if (_fontFellBackToPingFang || _targetNotInMap) {
+    fontName = resolveFontName('PingFang SC', style.fontWeight || 400, style.fontStyle === 'italic');
   }
 
   // CSS font-family 可能是 PostScript 名（如 "AlibabaPuHuiTi-115-Black"），

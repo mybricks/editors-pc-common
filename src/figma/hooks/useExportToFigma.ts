@@ -163,7 +163,9 @@ export function useExportToFigma(
             text: `加载字体（${_fontFamilies.filter(f => f !== 'PingFang SC').join('、') || 'PingFang SC'}）...`,
             from: 55,
             to: 70,
-            task: () => loadFontContextMapForFamilies(_fontFamilies, fontUrlMap),
+            task: () => loadFontContextMapForFamilies(_fontFamilies, fontUrlMap, (text) => {
+              setProgress(prev => ({ ...prev, text }));
+            }),
           });
 
           await setStage(75, '生成 Figma 数据...', { smooth: true, durationMs: 360 });

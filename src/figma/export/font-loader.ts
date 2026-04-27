@@ -5,6 +5,28 @@ import type { FontContext, FontContextMap, FontContextByWeight } from '../types'
 
 type NonNullFontContext = NonNullable<FontContext>;
 
+/** CDN 兜底：本机无 PingFang SC 或 queryLocalFonts 不可用时，按字重分别拉取 TTF */
+const PINGFANG_CDN_URLS: Record<number, { url: string; style: string; postscript: string }> = {
+  100: { url: 'https://p66-ec.becukwai.com/udata/pkg/eshop/mybricks/pingfang-fonts/PingFangSC-Ultralight.ttf', style: 'Ultralight', postscript: 'PingFangSC-Ultralight' },
+  200: { url: 'https://p66-ec.becukwai.com/udata/pkg/eshop/mybricks/pingfang-fonts/PingFangSC-Thin.ttf',       style: 'Thin',       postscript: 'PingFangSC-Thin'       },
+  300: { url: 'https://p66-ec.becukwai.com/udata/pkg/eshop/mybricks/pingfang-fonts/PingFangSC-Light.ttf',      style: 'Light',      postscript: 'PingFangSC-Light'      },
+  400: { url: 'https://p66-ec.becukwai.com/udata/pkg/eshop/mybricks/pingfang-fonts/PingFangSC-Regular.ttf',    style: 'Regular',    postscript: 'PingFangSC-Regular'    },
+  500: { url: 'https://p66-ec.becukwai.com/udata/pkg/eshop/mybricks/pingfang-fonts/PingFangSC-Medium.ttf',     style: 'Medium',     postscript: 'PingFangSC-Medium'     },
+  600: { url: 'https://p66-ec.becukwai.com/udata/pkg/eshop/mybricks/pingfang-fonts/PingFangSC-Semibold.ttf',   style: 'Semibold',   postscript: 'PingFangSC-Semibold'   },
+};
+
+/**
+ * 调试开关：设为 true 后，模拟"插件环境"——本机字体完全不可用。
+ * - PingFang SC：跳过 queryLocalFonts，直接从 CDN 拉取（验证 CDN 字形渲染路径）
+ * - 其他品牌字体：整体跳过，让 ir-to-figma 阶段退回 PingFang SC
+ * 这与真实插件环境行为一致：插件沙箱内 queryLocalFonts 不可用，
+ * 必须用 CDN 字体来预渲染字形，否则 Figma 粘贴后文字需双击才能显示。
+ *
+ * 在浏览器 DevTools 中执行：
+ *   import('/path/to/font-loader').then(m => m.DEBUG_SIMULATE_NO_LOCAL_FONTS = true)
+ */
+export let DEBUG_SIMULATE_NO_LOCAL_FONTS = false;
+
 // ─── 已知品牌/内部字体：CSS PostScript 名 → 本机字体族/样式 映射规则 ───
 // 与 ir-to-figma.js 中的 KNOWN_FONT_RULES 保持同步
 // altFamilies：同一套字体在不同 OS/安装包里可能注册为不同 family 名（如中文名），查本机字体时逐一尝试
@@ -115,6 +137,41 @@ async function loadSingleVariant(
   }
 }
 
+/**
+ * 从 CDN 并行拉取 6 个 PingFang SC 字重 TTF，按字重建立 FontContextByWeight。
+ * 适用于：queryLocalFonts 不可用（VSCode / 插件环境 / 权限受限）或本机无 PingFang SC 时。
+ * 任一字重加载失败不影响其他字重，最终只要有 ≥1 个字重即视为成功。
+ */
+async function loadPingFangFromCdn(onProgress?: (text: string) => void): Promise<FontContextByWeight | null> {
+  onProgress?.('下载远程字体中，请稍后...');
+  const entries = Object.entries(PINGFANG_CDN_URLS) as Array<[string, { url: string; style: string; postscript: string }]>;
+
+  const results = await Promise.allSettled(
+    entries.map(async ([weightStr, { url, style, postscript }]) => {
+      const weight = Number(weightStr);
+      const resp = await fetch(url);
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const buffer = await resp.arrayBuffer();
+      const font = opentype.parse(buffer);
+      const fontDigest = new Uint8Array(await crypto.subtle.digest('SHA-1', buffer));
+      return { weight, ctx: { font, fontDigest, style, postscript } as NonNullFontContext };
+    }),
+  );
+
+  const subMap: FontContextByWeight = {};
+  for (const r of results) {
+    if (r.status === 'fulfilled') {
+      subMap[r.value.weight] = r.value.ctx;
+    }
+  }
+
+  if (Object.keys(subMap).length === 0) {
+    console.warn('[font-loader] PingFang SC: 全部字重 CDN 加载失败');
+    return null;
+  }
+  return subMap;
+}
+
 // ─── 全局缓存（按 family 名分 key） ───
 
 let _cachedFontCtxMap: FontContextMap | null = null;
@@ -176,41 +233,67 @@ export async function loadFontContextMapForFamilies(
   families: string[],
   /** 外部传入的字体 URL 表，key 为 CSS font-family 名（如 "AlibabaPuHuiTi-65-Medium"），value 为字体文件 URL */
   externalFontUrlMap: Record<string, string> = {},
+  /** 进度回调，字体加载各阶段文案变化时触发（如 CDN 下载开始） */
+  onProgress?: (text: string) => void,
 ): Promise<FontContextMap> {
   // 已全部缓存则直接返回（需覆盖所有请求的字体）
-  if (_cachedFontCtxMap) {
+  // 调试模式下跳过缓存，确保每次都重新走完整加载流程
+  if (_cachedFontCtxMap && !DEBUG_SIMULATE_NO_LOCAL_FONTS) {
     const allCached = families.every(f => f in _cachedFontCtxMap!);
     if (allCached) return _cachedFontCtxMap;
   }
 
   if (!('queryLocalFonts' in window)) {
-    _cachedFontCtxMap = _cachedFontCtxMap || {};
-    return _cachedFontCtxMap;
+    const result: FontContextMap = { ...(_cachedFontCtxMap || {}) };
+    if (!result['PingFang SC']) {
+      const cdnSubMap = await loadPingFangFromCdn(onProgress);
+      if (cdnSubMap) result['PingFang SC'] = cdnSubMap;
+    }
+    if (!DEBUG_SIMULATE_NO_LOCAL_FONTS) _cachedFontCtxMap = result;
+    return result;
   }
 
   let localFonts: any[] = [];
   try {
     const _raw = await (window as any).queryLocalFonts();
-    // 用 for 循环收集，兼容浏览器返回稀疏/特殊 ArrayLike 的情况
     for (let _i = 0; _i < _raw.length; _i++) {
       const _f = _raw[_i];
-      if (_f) {
-        localFonts.push(_f);
-      }
+      if (_f) localFonts.push(_f);
     }
   } catch (err) {
-    _cachedFontCtxMap = _cachedFontCtxMap || {};
-    return _cachedFontCtxMap;
+    // queryLocalFonts 权限被拒（VSCode WebView / Permissions Policy）→ 走 CDN
+    console.warn('[font-loader] queryLocalFonts 不可用，走 CDN 兜底：', (err as Error)?.message);
+    const result: FontContextMap = { ...(_cachedFontCtxMap || {}) };
+    if (!result['PingFang SC']) {
+      const cdnSubMap = await loadPingFangFromCdn(onProgress);
+      if (cdnSubMap) result['PingFang SC'] = cdnSubMap;
+    }
+    if (!DEBUG_SIMULATE_NO_LOCAL_FONTS) _cachedFontCtxMap = result;
+    return result;
   }
 
+  // 调试模式语义：模拟插件环境（本机字体完全不可用）
+  // - PingFang SC 会在下方的 family === 'PingFang SC' 分支中直接走 CDN
+  // - 其他品牌字体在各自入口处 return，完全跳过
   const result: FontContextMap = { ...(_cachedFontCtxMap || {}) };
 
   await Promise.all(
     families.map(async (family) => {
-      if (result[family]) return; // 已缓存
+      if (result[family]) return;
 
       if (family === 'PingFang SC') {
-        // PingFang SC 精确 6 字重加载
+        // 调试模式：模拟插件环境（本机字体不可用），直接走 CDN
+        if (DEBUG_SIMULATE_NO_LOCAL_FONTS) {
+          const cdnSubMap = await loadPingFangFromCdn(onProgress);
+          if (cdnSubMap && Object.keys(cdnSubMap).length > 0) {
+            result[family] = cdnSubMap;
+          } else {
+            console.warn('[font-loader] PingFang SC: CDN 加载失败，将无初始字形');
+          }
+          return;
+        }
+
+        // 正常模式：先查本机，本机没有才走 CDN
         const settled = await Promise.all(
           PINGFANG_VARIANTS.map(({ weight, postscript, style }) =>
             loadSingleVariant(localFonts, postscript, style, 'PingFang SC').then(ctx => ({ weight, ctx })),
@@ -222,9 +305,18 @@ export async function loadFontContextMapForFamilies(
         }
         if (Object.keys(subMap).length > 0) {
           result[family] = subMap;
+        } else {
+          // 本机未找到 → CDN 兜底
+          const cdnSubMap = await loadPingFangFromCdn(onProgress);
+          if (cdnSubMap && Object.keys(cdnSubMap).length > 0) {
+            result[family] = cdnSubMap;
+          } else {
+            console.warn('[font-loader] PingFang SC: 本机和 CDN 均加载失败，将无初始字形');
+          }
         }
       } else {
         // ── Path A：已知品牌字体 ──
+        if (DEBUG_SIMULATE_NO_LOCAL_FONTS) return;
         // 按以下优先级查 localFonts：
         // 1) CSS 名直接当 family / postscriptName 查
         // 2) 规则映射的英文 family 名（如 "Alibaba PuHuiTi 3.0"）+ style
@@ -305,6 +397,7 @@ export async function loadFontContextMapForFamilies(
         }
 
         // ── Path B：通用字体 —— 先按 family 名枚举，找不到则尝试 PostScript 名兜底 ──
+        if (DEBUG_SIMULATE_NO_LOCAL_FONTS) return;
         let variants = localFonts.filter((f: any) => f.family === family);
         let isPostscriptLookup = false;
 
@@ -318,7 +411,6 @@ export async function loadFontContextMapForFamilies(
         }
 
         if (variants.length === 0) {
-          // @font-face 兜底
           const fontUrl = findFontUrlFromFontFace(family);
           if (fontUrl) {
             try {
@@ -360,7 +452,10 @@ export async function loadFontContextMapForFamilies(
     }),
   );
 
-  _cachedFontCtxMap = result;
+  // 调试模式下不写入缓存，避免污染正常模式的缓存
+  if (!DEBUG_SIMULATE_NO_LOCAL_FONTS) {
+    _cachedFontCtxMap = result;
+  }
   return result;
 }
 
