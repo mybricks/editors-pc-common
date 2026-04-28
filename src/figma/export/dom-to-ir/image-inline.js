@@ -313,6 +313,64 @@ function rasterizeTilePatternToFullDataUrl(tileDataUrl, outW, outH) {
   });
 }
 
+/**
+ * 将内联 SVG 字符串按给定尺寸栅格化为 PNG data URL。
+ * 默认使用 2x 渲染，提升粘贴到 Figma 后的观感清晰度。
+ */
+function rasterizeInlineSvgToPngDataUrl(svgContent, outW, outH, scaleFactor) {
+  return new Promise(function (resolve, reject) {
+    if (!svgContent || typeof svgContent !== 'string') {
+      reject(new Error('[svg-inline] invalid svg content'));
+      return;
+    }
+    var w = Math.max(1, Math.round(outW || 1));
+    var h = Math.max(1, Math.round(outH || 1));
+    var scale = Number(scaleFactor);
+    if (!(scale > 0)) scale = 2;
+    var cw = Math.max(1, Math.round(w * scale));
+    var ch = Math.max(1, Math.round(h * scale));
+    var canvas = document.createElement('canvas');
+    canvas.width = cw;
+    canvas.height = ch;
+    var ctx = canvas.getContext('2d');
+    if (!ctx) {
+      reject(new Error('[svg-inline] canvas context unavailable'));
+      return;
+    }
+    var img = new window.Image();
+    var objectUrl = null;
+    img.onload = function () {
+      try {
+        ctx.setTransform(scale, 0, 0, scale, 0, 0);
+        ctx.drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/png'));
+      } catch (e) {
+        reject(e);
+      } finally {
+        if (objectUrl && window.URL && typeof window.URL.revokeObjectURL === 'function') {
+          window.URL.revokeObjectURL(objectUrl);
+        }
+      }
+    };
+    img.onerror = function () {
+      if (objectUrl && window.URL && typeof window.URL.revokeObjectURL === 'function') {
+        window.URL.revokeObjectURL(objectUrl);
+      }
+      reject(new Error('[svg-inline] image decode failed'));
+    };
+    try {
+      if (window.URL && typeof window.URL.createObjectURL === 'function') {
+        objectUrl = window.URL.createObjectURL(new Blob([svgContent], { type: 'image/svg+xml;charset=utf-8' }));
+        img.src = objectUrl;
+      } else {
+        img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgContent);
+      }
+    } catch (e2) {
+      reject(e2);
+    }
+  });
+}
+
 /** 递归将树中 style.fills 里 type===IMAGE 且仅有 url 的项，请求图片并写入 content（base64 data URL）。 */
 function inlineImageFillsInTree(obj, options) {
   if (!obj) return Promise.resolve();
@@ -451,6 +509,35 @@ function inlineImageFillsInTree(obj, options) {
         console.warn('[image node] 内联失败（可能是跨域/CORS）', obj.content, err && err.message);
       })
     );
+  }
+
+  // 在保真优先模式下，将 SVG 节点直接栅格化为图片节点，避免复杂矢量解析造成还原偏差。
+  var _svgExportMode = String((ctxOptions && ctxOptions.svgExportMode) || 'vector').toLowerCase();
+  if (obj.type === 'svg' && _svgExportMode === 'image') {
+    var _svgStyle = obj.style || {};
+    var _svgMarkup = _svgStyle.svgContent;
+    if (typeof _svgMarkup === 'string' && _svgMarkup) {
+      stats.attempts += 1;
+      var _svgW = _svgStyle.width || 24;
+      var _svgH = _svgStyle.height || 24;
+      var _svgScale = Number(ctxOptions && ctxOptions.svgRasterScale);
+      if (!(_svgScale > 0)) _svgScale = 2;
+      promises.push(
+        rasterizeInlineSvgToPngDataUrl(_svgMarkup, _svgW, _svgH, _svgScale).then(function (dataUrl) {
+          return computeDataUrlSha1Hex(dataUrl).then(function (sha1hex) {
+            obj.type = 'image';
+            obj.content = dataUrl;
+            if (sha1hex) obj.imageHashHex = sha1hex;
+            var _nextStyle = Object.assign({}, _svgStyle, { svgContent: undefined, fills: undefined });
+            obj.style = _nextStyle;
+            stats.success += 1;
+          });
+        }).catch(function (err) {
+          stats.failed += 1;
+          console.warn('[svg-inline] 栅格化失败，回退矢量导出', { nodeName: obj.name, message: err && err.message });
+        })
+      );
+    }
   }
 
   return Promise.all(promises).then(function () {

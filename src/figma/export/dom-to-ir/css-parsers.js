@@ -466,26 +466,45 @@ function parseGridTemplateColumnsCount(str) {
  */
 function serializeSvgElement(svgEl, domWidth, domHeight) {
   if (!svgEl) return null;
-  var html = svgEl.outerHTML;
-  if (!html) return null;
+  var w = Math.ceil(domWidth) || 16;
+  var h = Math.ceil(domHeight) || 16;
+  var clone = null;
+  try {
+    clone = svgEl.cloneNode(true);
+  } catch (e) {
+    clone = null;
+  }
+  var html = '';
+  if (clone && clone.setAttribute) {
+    // 仅设置根 <svg> 的 width/height，避免误改 stroke-width 等子属性。
+    clone.setAttribute('width', String(w));
+    clone.setAttribute('height', String(h));
+    if (!clone.getAttribute('xmlns')) {
+      clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+    }
+    try {
+      var serializer = new XMLSerializer();
+      html = serializer.serializeToString(clone) || '';
+    } catch (e2) {
+      html = '';
+    }
+  }
+  if (!html) {
+    html = svgEl.outerHTML || '';
+    if (!html) return null;
+    // 回退路径也只改根 svg 标签属性，避免匹配到 stroke-width。
+    html = html.replace(/<svg\b([^>]*)>/i, function (_m, attrs) {
+      var _attrs = attrs || '';
+      _attrs = _attrs.replace(/\swidth="[^"]*"/i, '');
+      _attrs = _attrs.replace(/\sheight="[^"]*"/i, '');
+      return '<svg' + _attrs + ' width="' + w + '" height="' + h + '">';
+    });
+  }
   // 取实际渲染颜色，用于替换 currentColor
   var comp = window.getComputedStyle && window.getComputedStyle(svgEl);
   var color = (comp && comp.color) || '#000000';
   // currentColor → 实际颜色
   html = html.replace(/currentColor/gi, color);
-  // 替换/补充 width、height 为 DOM 实测像素值
-  var w = Math.ceil(domWidth) || 16;
-  var h = Math.ceil(domHeight) || 16;
-  if (/width="[^"]*"/.test(html)) {
-    html = html.replace(/width="[^"]*"/, 'width="' + w + '"');
-  } else {
-    html = html.replace(/^<svg/, '<svg width="' + w + '"');
-  }
-  if (/height="[^"]*"/.test(html)) {
-    html = html.replace(/height="[^"]*"/, 'height="' + h + '"');
-  } else {
-    html = html.replace(/^<svg/, '<svg height="' + h + '"');
-  }
   return html;
 }
 

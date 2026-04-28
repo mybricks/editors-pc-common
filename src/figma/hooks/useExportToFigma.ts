@@ -21,7 +21,7 @@ export interface FontfaceConfig {
 export function useExportToFigma(
   comEle: HTMLElement | null | undefined,
   comId: string,
-  options?: { fontfaces?: FontfaceConfig[] }
+  options?: { fontfaces?: FontfaceConfig[]; svgExportMode?: 'image' | 'vector' }
 ) {
   const [loading, setLoading] = React.useState(false);
   const [progress, setProgress] = React.useState<ExportProgress>({
@@ -120,6 +120,7 @@ export function useExportToFigma(
     }
     return map;
   }, [options?.fontfaces]);
+  const svgExportMode = options?.svgExportMode || 'image';
 
   const handleExport = React.useCallback(() => {
     if (loading) return;
@@ -154,6 +155,7 @@ export function useExportToFigma(
             task: () =>
               elementToMybricksJsonWithInlineImages(ele, comId, {
                 componentLibraryEnabled: false,
+                svgExportMode,
               }),
             taskStartDelayMs: 320,
           });
@@ -195,7 +197,7 @@ export function useExportToFigma(
         }
       });
     });
-  }, [loading, comEle, comId, fontUrlMap, setStage, waitStageWithTrickle]);
+  }, [loading, comEle, comId, fontUrlMap, svgExportMode, setStage, waitStageWithTrickle]);
 
   return { loading, progress, handleExport };
 }
