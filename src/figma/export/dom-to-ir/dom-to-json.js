@@ -246,6 +246,48 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
         }
       } catch (_eInline) {}
     }
+    // SVG 在“父节点有 transform、子节点无自身 transform”时，
+    // getBoundingClientRect() 会返回祖先变换后的 AABB（被放大），导致导出尺寸偏大并在 Figma 中看起来错位。
+    // 对该场景优先使用 SVG 本地布局尺寸（client/viewBox/width|height attribute），避免被祖先旋转污染。
+    if (tag === 'svg') {
+      try {
+        var _svgHasOwnTransform = !!(
+          (computed.transform && computed.transform !== 'none') ||
+          (computed.rotate && computed.rotate !== 'none')
+        );
+        if (!_svgHasOwnTransform) {
+          var _svgLocalW = 0;
+          var _svgLocalH = 0;
+          var _svgClientW = Number(el.clientWidth || 0);
+          var _svgClientH = Number(el.clientHeight || 0);
+          if (_svgClientW > 0 && _svgClientH > 0) {
+            _svgLocalW = _svgClientW;
+            _svgLocalH = _svgClientH;
+          }
+          if (!(_svgLocalW > 0) || !(_svgLocalH > 0)) {
+            var _svgAttrW = parseFloat((el.getAttribute && el.getAttribute('width')) || '');
+            var _svgAttrH = parseFloat((el.getAttribute && el.getAttribute('height')) || '');
+            if (_svgAttrW > 0 && _svgAttrH > 0) {
+              _svgLocalW = _svgAttrW;
+              _svgLocalH = _svgAttrH;
+            }
+          }
+          if (!(_svgLocalW > 0) || !(_svgLocalH > 0)) {
+            var _vb = el.viewBox && el.viewBox.baseVal;
+            if (_vb && _vb.width > 0 && _vb.height > 0) {
+              _svgLocalW = _vb.width;
+              _svgLocalH = _vb.height;
+            }
+          }
+          if (_svgLocalW > 0 && _svgLocalH > 0 && rect && rect.width > 0 && rect.height > 0) {
+            var _svgInflatedByAncestor = (rect.width / _svgLocalW > 1.05) || (rect.height / _svgLocalH > 1.05);
+            if (_svgInflatedByAncestor) {
+              rect = { left: rect.left, top: rect.top, width: _svgLocalW, height: _svgLocalH };
+            }
+          }
+        }
+      } catch (_eSvgRect) {}
+    }
 
     // position: sticky 处理：分两种情况。
     // ① 容器未溢出（表格宽度 ≤ 容器宽度）：sticky 等同于 relative，getBoundingClientRect 就是自然位置，无需修正。
@@ -1031,6 +1073,32 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
             }
             ensureItemSpacingFromPositions(node, childNodes, layoutMode);
             var finalSpacing = (node.style && node.style.itemSpacing != null) ? node.style.itemSpacing : null;
+            // 多个 flex-grow 子项且宽度不等：浏览器会按 basis/内容参与分配，
+            // Figma 的 grow 更接近“纯权重分配”，容易把双栏图表等场景拉歪。
+            // 这类场景直接降级为绝对定位（保留 DOM 实测 x/y/width），避免布局二次计算失真。
+            if (layoutMode === 'HORIZONTAL') {
+              var _flowGrowCount = 0;
+              var _flowMinW = Infinity;
+              var _flowMaxW = -Infinity;
+              for (var _gci = 0; _gci < childNodes.length; _gci++) {
+                var _gcs = childNodes[_gci] && childNodes[_gci].style ? childNodes[_gci].style : {};
+                if (_gcs.positionType === 'absolute') continue;
+                if (_gcs.flexGrow >= 1) _flowGrowCount++;
+                if (_gcs.width != null && _gcs.width > 0) {
+                  if (_gcs.width < _flowMinW) _flowMinW = _gcs.width;
+                  if (_gcs.width > _flowMaxW) _flowMaxW = _gcs.width;
+                }
+              }
+              if (_flowGrowCount >= 2 && _flowMinW !== Infinity && (_flowMaxW - _flowMinW) > 8) {
+                delete node.style.layoutMode;
+                delete node.style.itemSpacing;
+                delete node.style.layoutWrap;
+                delete node.style.counterAxisSpacing;
+              }
+            }
+            // 可能被上面的 grow 失真保护降级，重新读取一次
+            layoutMode = node.style && (node.style.layoutMode === 'VERTICAL' || node.style.layoutMode === 'HORIZONTAL') ? node.style.layoutMode : null;
+            finalSpacing = (node.style && node.style.itemSpacing != null) ? node.style.itemSpacing : null;
             var _isRadioWrapperNode2 = node.className && node.className.indexOf('radio-button-wrapper') !== -1;
             var _isMenuNode2 = node.className && node.className.indexOf('ant-menu') !== -1;
             if (_isRadioWrapperNode2) {

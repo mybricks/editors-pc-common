@@ -68,6 +68,22 @@ function getGlobalFont(rootEl, computed, cssRuleMap) {
   return { fontFamily: fontFamily || undefined, fontWeight: fontWeight, fontStyle };
 }
 
+/**
+ * 解析字体大小为 px 数值。
+ * 声明层出现相对单位（如 100%、1rem、0.875em）时，不能直接 parseFloat，
+ * 否则会把 "100%" 误判成 100px；此时应回退到 computed.fontSize（浏览器已解算为 px）。
+ */
+function resolveFontSizePxFromDeclAndComputed(declaredVal, computedVal, pxFn) {
+  var _decl = declaredVal == null ? '' : String(declaredVal).trim().toLowerCase();
+  var _declIsPxLike = /^-?\d*\.?\d+(px)?$/i.test(_decl);
+  if (_decl && _declIsPxLike) {
+    return pxFn(declaredVal);
+  }
+  var _computedPx = pxFn(computedVal);
+  if (_computedPx != null && !Number.isNaN(_computedPx)) return _computedPx;
+  return _decl ? pxFn(declaredVal) : undefined;
+}
+
 /** 仅用于 div 内内联文本节点：只含位置 + 文字相关样式，不含 layout/padding */
 function buildInlineTextStyle(parentEl, computed, textRect, parentRect, cssRuleMap, globalFont) {
   if (!textRect || !parentRect) return {};
@@ -85,10 +101,15 @@ function buildInlineTextStyle(parentEl, computed, textRect, parentRect, cssRuleM
   }
   var num = function (v) { return (v === '' || v == null ? undefined : parseFloat(String(v))); };
   var px = function (v) { var n = num(v); return n != null && !Number.isNaN(n) ? Math.round(n) : undefined; };
-  var fontSize = px(d(['font-size', 'fontSize']) || (computed && computed.fontSize));
+  var _fontSizeDecl = d(['font-size', 'fontSize']);
+  var fontSize = resolveFontSizePxFromDeclAndComputed(
+    _fontSizeDecl,
+    computed && computed.fontSize,
+    px
+  );
   if (fontSize != null) {
     if (fontSize < 1) {
-      var rawFsVal = d(['font-size', 'fontSize']) || (computed && computed.fontSize);
+      var rawFsVal = _fontSizeDecl || (computed && computed.fontSize);
       console.warn('[fontSize<1] buildStyleJSON', { className: parentEl && parentEl.className, rawValue: rawFsVal, rounded: fontSize, el: parentEl });
     } else {
       style.fontSize = fontSize;
@@ -550,8 +571,14 @@ function buildStyleJSON(el, computed, rect, parentRect, cssRuleMap, globalFont) 
                   _po.oy
                 );
                 if (_lay.ok) {
-                  style.x = Math.round(_lay.sx);
-                  style.y = Math.round(_lay.sy);
+                  // ir-to-figma 当前使用的是“绕局部原点(0,0)旋转”的矩阵编码；
+                  // CSS transform 是“绕 transform-origin 旋转”。
+                  // 需把平移项从 sx/sy（未旋转左上角）补偿为等价的原点旋转平移：
+                  // t' = s + O - R*O（O=transform-origin）
+                  var _txComp = _lay.sx + _po.ox - (_mp[0] * _po.ox + _mp[2] * _po.oy);
+                  var _tyComp = _lay.sy + _po.oy - (_mp[1] * _po.ox + _mp[3] * _po.oy);
+                  style.x = Math.round(_txComp);
+                  style.y = Math.round(_tyComp);
                   style.width = Math.round(_bw);
                   style.height = Math.round(_bh);
                   _appliedOrigin = true;
@@ -628,8 +655,11 @@ function buildStyleJSON(el, computed, rect, parentRect, cssRuleMap, globalFont) 
                 _rPo.oy
               );
               if (_rLay.ok) {
-                style.x = Math.round(_rLay.sx);
-                style.y = Math.round(_rLay.sy);
+                // 与 matrix(...) 分支一致：把“绕 origin 旋转”的平移补偿进 x/y。
+                var _rTxComp = _rLay.sx + _rPo.ox - (_ra * _rPo.ox + _rc * _rPo.oy);
+                var _rTyComp = _rLay.sy + _rPo.oy - (_rb * _rPo.ox + _rd * _rPo.oy);
+                style.x = Math.round(_rTxComp);
+                style.y = Math.round(_rTyComp);
                 style.width = Math.round(_rBw);
                 style.height = Math.round(_rBh);
                 _rAppliedOrigin = true;
@@ -1552,10 +1582,15 @@ function buildStyleJSON(el, computed, rect, parentRect, cssRuleMap, globalFont) 
   }
 
   // Text styles（优先 style 标签，再 computed）；字体仅在与全局不同时输出
-  var fontSize = px(d(['font-size', 'fontSize']) || computed.fontSize);
+  var _fontSizeDecl = d(['font-size', 'fontSize']);
+  var fontSize = resolveFontSizePxFromDeclAndComputed(
+    _fontSizeDecl,
+    computed.fontSize,
+    px
+  );
   if (fontSize != null) {
     if (fontSize < 1) {
-      var rawFsVal = d(['font-size', 'fontSize']) || computed.fontSize;
+      var rawFsVal = _fontSizeDecl || computed.fontSize;
       console.warn('[fontSize<1] buildInlineTextStyle', { className: el.className, rawValue: rawFsVal, rounded: fontSize, el: el });
     } else {
       style.fontSize = fontSize;
@@ -1642,7 +1677,11 @@ function buildStyleJSON(el, computed, rect, parentRect, cssRuleMap, globalFont) 
   }
 
   // flex-grow → Figma FILL（填充剩余空间）
-  var _fg = parseFloat(d(['flex-grow', 'flexGrow']) || computed.flexGrow || '0');
+  // 用 computed 优先：声明层聚合未处理 CSS specificity，像 :last-child/更高优先级覆盖时，
+  // decl 可能仍是旧值，导致误把固定列导出为 FILL（stackChildPrimaryGrow=1）。
+  var _fgComputed = parseFloat(computed.flexGrow || '');
+  var _fgDecl = parseFloat(d(['flex-grow', 'flexGrow']) || '');
+  var _fg = !Number.isNaN(_fgComputed) ? _fgComputed : (!Number.isNaN(_fgDecl) ? _fgDecl : 0);
   if (_fg >= 1) style.flexGrow = _fg;
 
   // align-self → 子节点自身的交叉轴对齐
