@@ -2251,15 +2251,24 @@ function convertTextNode(irNode, guid, parentGuid, siblingIndex, fontCtxMap, blo
     style.fontStyle === 'italic'
   );
 
-  var textColor = style.color ? irColorToFigma(style.color) : { r: 0, g: 0, b: 0, a: 1 };
-  var fillPaints = textColor ? [{
-    type: 'SOLID',
-    color: { r: textColor.r, g: textColor.g, b: textColor.b, a: 1 },
-    opacity: textColor.a,
-    visible: true,
-    blendMode: 'NORMAL',
-  }] : undefined;
-
+  // 渐变文字（background-clip:text）：直接用渐变作为文字 fillPaints
+  var fillPaints;
+  if (style.textGradientFill) {
+    // gradient fill 不需要 imageCtx/imageImports，传 null 占位即可
+    var _tgfPaints = irFillsToFigmaPaints(
+      [style.textGradientFill], blobs, null, [], {}
+    );
+    fillPaints = (_tgfPaints && _tgfPaints.length) ? _tgfPaints : undefined;
+  } else {
+    var textColor = style.color ? irColorToFigma(style.color) : { r: 0, g: 0, b: 0, a: 1 };
+    fillPaints = textColor ? [{
+      type: 'SOLID',
+      color: { r: textColor.r, g: textColor.g, b: textColor.b, a: 1 },
+      opacity: textColor.a,
+      visible: true,
+      blendMode: 'NORMAL',
+    }] : undefined;
+  }
   var fontSize = style.fontSize || 14;
   var lineHeightVal = style.lineHeight || (fontSize * 1.4);
 
@@ -2408,9 +2417,9 @@ function convertTextNode(irNode, guid, parentGuid, siblingIndex, fontCtxMap, blo
     textAutoResize = 'HEIGHT';
   }
 
-  // ── 富文本颜色范围（来自 inline span 子节点的 colorRuns）──
-  // characterStyleIDs: 长度 = content.length，0 = 默认颜色，非零 = styleOverrideTable 条目的 styleID
-  // styleOverrideTable: NodeChange 数组，每条有 styleID + fillPaints 覆写颜色
+  // ── 富文本样式范围（来自 inline span 子节点的 colorRuns）──
+  // characterStyleIDs: 长度 = content.length，0 = 默认样式，非零 = styleOverrideTable 条目的 styleID
+  // styleOverrideTable: NodeChange 数组，每条有 styleID + fillPaints 覆写（纯色或渐变）
   var _charStyleIDs = null;  // Array<uint>
   var _styleOverrides = null; // Array<{ styleID, fillPaints }>
   if (style.colorRuns && style.colorRuns.length > 0) {
@@ -2422,10 +2431,17 @@ function convertTextNode(irNode, guid, parentGuid, siblingIndex, fontCtxMap, blo
       for (var _crcIdx = Math.max(0, _cr.start); _crcIdx < _cr.end && _crcIdx < content.length; _crcIdx++) {
         _charStyleIDs[_crcIdx] = _crStyleID;
       }
-      var _crPaint = makeSolidPaint(_cr.color);
+      var _crPaints = null;
+      if (_cr.gradientFill) {
+        _crPaints = irFillsToFigmaPaints([_cr.gradientFill], blobs, null, [], {});
+      }
+      if (!_crPaints || !_crPaints.length) {
+        var _crPaint = makeSolidPaint(_cr.color);
+        _crPaints = _crPaint ? [_crPaint] : undefined;
+      }
       _styleOverrides.push({
         styleID: _crStyleID,
-        fillPaints: _crPaint ? [_crPaint] : undefined,
+        fillPaints: _crPaints,
       });
     }
   }

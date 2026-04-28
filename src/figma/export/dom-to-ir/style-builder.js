@@ -140,6 +140,37 @@ function buildInlineTextStyle(parentEl, computed, textRect, parentRect, cssRuleM
       style.singleLine = _itH < _itFs * 2;
     }
   }
+  // 渐变文字（真实 inline 路径）：background-clip:text + 透明文字 → textGradientFill
+  // 注意：<h1>Annual<br>Report</h1> 合并后走的是 buildInlineTextStyle，不是 buildStyleJSON。
+  var _itBgClip;
+  try {
+    _itBgClip = computed && computed.getPropertyValue && (computed.getPropertyValue('background-clip') || computed.getPropertyValue('-webkit-background-clip'));
+  } catch (_eInlineGt0) {}
+  if (!_itBgClip) _itBgClip = d(['background-clip', 'backgroundClip', '-webkit-background-clip']) || (computed && (computed.backgroundClip || computed.webkitBackgroundClip));
+  if (_itBgClip && String(_itBgClip).indexOf('text') >= 0) {
+    var _itTextFill;
+    try { _itTextFill = computed && computed.getPropertyValue && computed.getPropertyValue('-webkit-text-fill-color'); } catch (_eInlineGt1) {}
+    if (!_itTextFill) _itTextFill = d(['-webkit-text-fill-color', 'webkitTextFillColor']) || (computed && computed.webkitTextFillColor);
+    var _itColorVal = d(['color']) || (computed && computed.color);
+    var _itIsTransparent = function (c) {
+      if (!c) return true;
+      var s = String(c).trim();
+      if (s === 'transparent') return true;
+      var m = s.match(/^rgba?\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*,\s*([\d.]+)\s*\)$/);
+      return !!(m && parseFloat(m[1]) === 0);
+    };
+    if (_itIsTransparent(_itColorVal) || _itIsTransparent(_itTextFill)) {
+      var _itBgImg = (computed && computed.backgroundImage) || '';
+      if (!_itBgImg || _itBgImg === 'none') _itBgImg = d(['background']) || '';
+      if (_itBgImg && _itBgImg !== 'none') {
+        var _itGradFill = parseLinearGradientFromBgImage(_itBgImg) || parseRadialGradientFromBgImage(_itBgImg);
+        if (_itGradFill) {
+          style.textGradientFill = _itGradFill;
+          style.color = undefined;
+        }
+      }
+    }
+  }
   return style;
 }
 
@@ -784,6 +815,48 @@ function buildStyleJSON(el, computed, rect, parentRect, cssRuleMap, globalFont) 
       var rgba = cssColorToRgba(bg);
       if (rgba && rgba !== 'rgba(0, 0, 0, 0)') {
         style.fills = [rgba];
+      }
+    }
+  }
+
+  // 渐变文字：background-clip:text + color/webkit-text-fill-color 为 transparent
+  // CSS 用 background 渐变裁剪到文字轮廓，Figma text 节点的 fillPaints 原生支持渐变，在此转换。
+  var _gtBgClip2;
+  try { _gtBgClip2 = computed && computed.getPropertyValue && (computed.getPropertyValue('background-clip') || computed.getPropertyValue('-webkit-background-clip')); } catch (_e3) {}
+  if (!_gtBgClip2) _gtBgClip2 = d(['background-clip', 'backgroundClip', '-webkit-background-clip']) || (computed && (computed.backgroundClip || computed.webkitBackgroundClip));
+  if (_gtBgClip2 && String(_gtBgClip2).indexOf('text') >= 0) {
+    var _gtTextFill2;
+    try { _gtTextFill2 = computed && computed.getPropertyValue && computed.getPropertyValue('-webkit-text-fill-color'); } catch (_e4) {}
+    if (!_gtTextFill2) _gtTextFill2 = d(['-webkit-text-fill-color', 'webkitTextFillColor']) || (computed && computed.webkitTextFillColor);
+    var _gtColorVal2 = d(['color']) || (computed && computed.color);
+    var _gtIsTransp2 = function (c) {
+      if (!c) return true;
+      var cs = String(c).trim();
+      if (cs === 'transparent') return true;
+      var m = cs.match(/^rgba?\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*,\s*([\d.]+)\s*\)$/);
+      return !!(m && parseFloat(m[1]) === 0);
+    };
+    if (_gtIsTransp2(_gtColorVal2) || _gtIsTransp2(_gtTextFill2)) {
+      var _gtGradFill2 = null;
+      if (style.fills && style.fills.length) {
+        for (var _gtFi = 0; _gtFi < style.fills.length; _gtFi++) {
+          var _gtF = style.fills[_gtFi];
+          if (_gtF && typeof _gtF === 'object' && (_gtF.type === 'GRADIENT_LINEAR' || _gtF.type === 'GRADIENT_RADIAL')) {
+            _gtGradFill2 = _gtF;
+            break;
+          }
+        }
+      }
+      if (!_gtGradFill2) {
+        var _gtBgImgFallback = (computed && computed.backgroundImage) || '';
+        if (_gtBgImgFallback && _gtBgImgFallback !== 'none') {
+          _gtGradFill2 = parseLinearGradientFromBgImage(_gtBgImgFallback) || parseRadialGradientFromBgImage(_gtBgImgFallback);
+        }
+      }
+      if (_gtGradFill2) {
+        style.textGradientFill = _gtGradFill2;
+        style.fills = undefined;
+        style.color = undefined;
       }
     }
   }

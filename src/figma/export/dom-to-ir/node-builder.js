@@ -1072,8 +1072,9 @@ function _shouldDropSvgSiblingBleedColorRun(container, parentColorStr, finalCont
 }
 
 /**
- * 对含 inline span 子节点的文本元素，提取各 span 的颜色范围，用于 Figma 富文本 characterStyleIDs。
- * 仅返回颜色与父元素不同的 span 对应的范围，格式为 [{ start, end, color }]（索引基于 finalContent）。
+ * 对含 inline span 子节点的文本元素，提取各 span 的样式范围，用于 Figma 富文本 characterStyleIDs。
+ * 返回颜色或渐变与父元素不同的 span 对应的范围，格式为：
+ * [{ start, end, color? , gradientFill? }]（索引基于 finalContent）。
  *
  * 原理：
  *   1. 遍历 el.childNodes，对文本节点按顺序推进搜索位置；对 span 元素在 finalContent（含视觉 \n）
@@ -1085,7 +1086,7 @@ function _shouldDropSvgSiblingBleedColorRun(container, parentColorStr, finalCont
  * @param {string}  finalContent - 已处理的最终文本（含视觉 \n，由 getTextContent/getTextWithActualLineBreaks 产出）
  * @param {string|null} parentColorStr - 父元素计算颜色字符串，用于过滤相同颜色的 span（不需要记录）
  * @param {Record<string,string>|null} [cssRuleMap] - 与 buildInlineTextStyle 一致：优先用声明层 color，避免仅 computed 误判（如分页省略号与主色图标同容器）
- * @returns {Array<{start:number, end:number, color:string}>|null}
+ * @returns {Array<{start:number, end:number, color?:string, gradientFill?:object}>|null}
  */
 function getColorRunsFromInlineElement(el, finalContent, parentColorStr, cssRuleMap) {
   if (!el || !finalContent || !el.children || el.children.length === 0) return null;
@@ -1134,8 +1135,38 @@ function getColorRunsFromInlineElement(el, finalContent, parentColorStr, cssRule
       var spanRawEnd = spanIdx + spanRaw.length;
       searchFrom = spanRawEnd;
 
-      // 只记录颜色与父元素不同的 span（相同颜色无需覆写）
-      if (spanColor && spanColor !== parentColorStr && spanColor !== 'rgba(0, 0, 0, 0)') {
+      // span 局部渐变文字：background-clip:text + 透明文字
+      var spanBgClip = '';
+      try {
+        spanBgClip = (spanComp.getPropertyValue && (spanComp.getPropertyValue('background-clip') || spanComp.getPropertyValue('-webkit-background-clip'))) || '';
+      } catch (_eBgClip) {}
+      if (!spanBgClip) spanBgClip = String((spanComp.backgroundClip || spanComp.webkitBackgroundClip || '')).trim();
+      var spanTextFill = '';
+      try {
+        spanTextFill = (spanComp.getPropertyValue && spanComp.getPropertyValue('-webkit-text-fill-color')) || '';
+      } catch (_eTextFill) {}
+      if (!spanTextFill) spanTextFill = String(spanComp.webkitTextFillColor || '');
+      var spanBgImg = String(spanComp.backgroundImage || '');
+      var spanGradientFill = null;
+      var _isTransparentLike = function (v) {
+        if (!v) return true;
+        var s = String(v).trim();
+        if (s === 'transparent') return true;
+        var m = s.match(/^rgba?\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*,\s*([\d.]+)\s*\)$/);
+        return !!(m && parseFloat(m[1]) === 0);
+      };
+      if (spanBgClip && spanBgClip.indexOf('text') >= 0 && (_isTransparentLike(spanColor) || _isTransparentLike(spanTextFill))) {
+        spanGradientFill = parseLinearGradientFromBgImage(spanBgImg) || parseRadialGradientFromBgImage(spanBgImg);
+      }
+
+      // 记录与父元素不同的样式 run：优先渐变，其次纯色
+      if (spanGradientFill) {
+        runs.push({
+          start: mapRawIdx(spanRawStart),
+          end: mapRawIdx(spanRawEnd),
+          gradientFill: spanGradientFill,
+        });
+      } else if (spanColor && spanColor !== parentColorStr && spanColor !== 'rgba(0, 0, 0, 0)') {
         runs.push({
           start: mapRawIdx(spanRawStart),
           end: mapRawIdx(spanRawEnd),
