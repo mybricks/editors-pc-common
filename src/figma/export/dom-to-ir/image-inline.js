@@ -211,6 +211,61 @@ function renderTiledGradientToDataUrl(bgImage, tileW, tileH, options) {
 }
 
 /**
+ * 将完整 CSS 背景（多层 gradient + 可选背景色）按节点尺寸栅格化为 PNG data URL。
+ * 用于多重渐变降级导出：避免 Figma 原生渐变能力不足导致失真。
+ */
+function renderCssBackgroundToDataUrl(bgImage, bgColor, outW, outH, cssBackground) {
+  return new Promise(function (resolve, reject) {
+    if (typeof document === 'undefined') {
+      reject(new Error('[css-gradient] no document'));
+      return;
+    }
+    var w = Math.max(1, Math.round(outW || 1));
+    var h = Math.max(1, Math.round(outH || 1));
+    var escapedBgImage = String(bgImage || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+    var escapedBgColor = bgColor ? String(bgColor).replace(/&/g, '&amp;').replace(/"/g, '&quot;') : '';
+    var escapedCssBackground = cssBackground ? String(cssBackground).replace(/&/g, '&amp;').replace(/"/g, '&quot;') : '';
+    var bgStyle = '';
+    if (escapedCssBackground && escapedCssBackground.indexOf('gradient') >= 0) {
+      // 优先使用原始 background 整串，避免重组 background-image/background-size 造成颜色偏差
+      bgStyle = 'background:' + escapedCssBackground + ';';
+    } else {
+      bgStyle =
+        (escapedBgColor ? 'background-color:' + escapedBgColor + ';' : '')
+        + 'background-image:' + escapedBgImage + ';';
+    }
+    var svgStr = '<svg xmlns="http://www.w3.org/2000/svg"'
+      + ' width="' + w + '" height="' + h + '">'
+      + '<foreignObject width="' + w + '" height="' + h + '">'
+      + '<div xmlns="http://www.w3.org/1999/xhtml"'
+      + ' style="width:' + w + 'px;height:' + h + 'px;'
+      + bgStyle
+      + 'background-position:0 0;">'
+      + '</div>'
+      + '</foreignObject>'
+      + '</svg>';
+    var svgDataUrl = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgStr);
+    var img = new window.Image();
+    img.onload = function () {
+      var canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      var ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+      try {
+        resolve(canvas.toDataURL('image/png'));
+      } catch (e) {
+        reject(e);
+      }
+    };
+    img.onerror = function () {
+      reject(new Error('[css-gradient] SVG foreignObject render failed'));
+    };
+    img.src = svgDataUrl;
+  });
+}
+
+/**
  * 将小单元纹理重复铺满整张 Frame，导出为单张 PNG（FILL）。
  * 剪贴板粘贴到 Figma 时，FRAME 上 imageScaleMode=TILE 可能不生效或显示异常；
  * 预合成整幅可避免依赖 Figma 的平铺填充。
@@ -274,7 +329,38 @@ function inlineImageFillsInTree(obj, options) {
   var style = obj.style;
   if (style && style.fills && Array.isArray(style.fills)) {
     style.fills.forEach(function (fill, i) {
-      if (fill && fill.type === 'IMAGE' && fill.url && !fill.content) {
+      if (fill && fill.type === 'IMAGE' && fill.cssGradient && !fill.content) {
+        // 多重渐变降级：按节点尺寸栅格化为单张位图（FILL）。
+        stats.attempts += 1;
+        var _cssBgW = style && style.width;
+        var _cssBgH = style && style.height;
+        if (!(_cssBgW > 0 && _cssBgH > 0)) {
+          style.fills[i] = null;
+          stats.failed += 1;
+          console.warn('[css-gradient] 缺少有效尺寸，无法栅格化', { nodeName: obj.name, width: _cssBgW, height: _cssBgH });
+        } else {
+          promises.push(
+            renderCssBackgroundToDataUrl(fill.cssGradient, fill.cssBackgroundColor, _cssBgW, _cssBgH, fill.cssBackground).then(function (dataUrl) {
+              return computeDataUrlSha1Hex(dataUrl).then(function (sha1hex) {
+                style.fills[i] = Object.assign({}, fill, {
+                  content: dataUrl,
+                  imageHashHex: sha1hex || undefined,
+                  scaleMode: fill.scaleMode || 'FILL',
+                  cssGradient: undefined,
+                  cssBackgroundColor: undefined,
+                  cssBackground: undefined,
+                  url: undefined,
+                });
+                stats.success += 1;
+              });
+            }).catch(function (err) {
+              style.fills[i] = null;
+              stats.failed += 1;
+              console.warn('[css-gradient] 栅格化失败，已移除该 fill', err && err.message);
+            })
+          );
+        }
+      } else if (fill && fill.type === 'IMAGE' && fill.url && !fill.content) {
         stats.attempts += 1;
         promises.push(
           fetchImageAsBase64DataUrl(fill.url).then(function (dataUrl) {

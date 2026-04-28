@@ -184,12 +184,19 @@ function parseLinearGradientFromBgImage(bgImage) {
   var stops = [];
   for (var k = stopsStartIndex; k < parts.length; k++) {
     var seg = parts[k].trim();
-    // 末尾的百分比位置（可能是 "50%" 或 "0.5"）
+    // 末尾的百分比位置（如 "50%"）
     var pctMatch = seg.match(/\s+([\d.]+)%\s*$/);
+    // 末尾的绝对长度位置（如 "0px" "0.5px" "20px"，用于 repeating-gradient）：只 strip，不做归一化
+    var lenMatch = !pctMatch && seg.match(/\s+[\d.]+(?:px|em|rem|vw|vh|pt|cm|mm|in)\s*$/i);
     var pos;
     if (pctMatch) {
       pos = parseFloat(pctMatch[1]) / 100;
       seg = seg.slice(0, seg.length - pctMatch[0].length).trim();
+    } else if (lenMatch) {
+      seg = seg.slice(0, seg.length - lenMatch[0].length).trim();
+      var stopIdx = k - stopsStartIndex;
+      var total = parts.length - stopsStartIndex - 1;
+      pos = total > 0 ? stopIdx / total : 0;
     } else {
       var stopIdx = k - stopsStartIndex;
       var total = parts.length - stopsStartIndex - 1;
@@ -277,10 +284,16 @@ function parseRadialGradientFromBgImage(bgImage) {
   for (var k = stopsStartIndex; k < parts.length; k++) {
     var seg = parts[k].trim();
     var pctMatch = seg.match(/\s+([\d.]+)%\s*$/);
+    var lenMatch = !pctMatch && seg.match(/\s+[\d.]+(?:px|em|rem|vw|vh|pt|cm|mm|in)\s*$/i);
     var pos;
     if (pctMatch) {
       pos = parseFloat(pctMatch[1]) / 100;
       seg = seg.slice(0, seg.length - pctMatch[0].length).trim();
+    } else if (lenMatch) {
+      seg = seg.slice(0, seg.length - lenMatch[0].length).trim();
+      var stopIdx = k - stopsStartIndex;
+      var total = parts.length - stopsStartIndex - 1;
+      pos = total > 0 ? stopIdx / total : 0;
     } else {
       var stopIdx = k - stopsStartIndex;
       var total = parts.length - stopsStartIndex - 1;

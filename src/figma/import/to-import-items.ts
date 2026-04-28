@@ -13,9 +13,34 @@ const SYNCABLE_TYPES = new Set([
 
 const SKIP_NAMES = new Set(['', 'Frame', 'Text', 'Group', 'Rectangle', 'Ellipse']);
 const MB_TAG_RE = /\s*\[mb:([^\]]+)\]\s*$/i;
+const FIGMA_IMPORT_GAP_DEBUG_FLAG = '__MB_FIGMA_IMPORT_GAP_DEBUG__';
 
 function roundCssNum(n: number): number {
   return Math.round(n * 100) / 100;
+}
+
+function isFigmaImportGapDebugEnabled(): boolean {
+  try {
+    const g = globalThis as typeof globalThis & {
+      [FIGMA_IMPORT_GAP_DEBUG_FLAG]?: unknown;
+      localStorage?: Storage;
+    };
+    if (Boolean(g[FIGMA_IMPORT_GAP_DEBUG_FLAG])) return true;
+    const ls = g.localStorage;
+    if (!ls) return false;
+    const raw = ls.getItem(FIGMA_IMPORT_GAP_DEBUG_FLAG);
+    return raw === '1' || raw === 'true';
+  } catch {
+    return false;
+  }
+}
+
+function debugFigmaImportGap(payload: Record<string, unknown>): void {
+  if (!isFigmaImportGapDebugEnabled()) return;
+  try {
+    // 统一前缀，便于在控制台快速过滤：[figma-import][gap]
+    console.info('[figma-import][gap]', payload);
+  } catch {}
 }
 
 /** Figma SOLID：color 多为 0~1，opacity 在 paint 上 */
@@ -190,10 +215,52 @@ function formatBorderRadiusFromNode(n: Record<string, unknown>): string | null {
   return null;
 }
 
+/** Figma effects[] 单项 → 单层 CSS box-shadow（DROP_SHADOW / INNER_SHADOW） */
+function figmaEffectToBoxShadowLayer(effect: Record<string, unknown>): string | null {
+  if (effect.visible === false) return null;
+  const t = effect.type;
+  if (t !== 'DROP_SHADOW' && t !== 'INNER_SHADOW') return null;
+  const paintLike = {
+    type: 'SOLID',
+    color: effect.color,
+    opacity: effect.opacity != null ? Number(effect.opacity) : 1,
+    visible: true,
+  };
+  const rgba = solidPaintToRgba(paintLike as Record<string, unknown>);
+  if (!rgba) return null;
+  const off = effect.offset as { x?: number; y?: number } | undefined;
+  const ox = roundCssNum(Number(off?.x) || 0);
+  const oy = roundCssNum(Number(off?.y) || 0);
+  const blur = roundCssNum(Number(effect.radius) || 0);
+  const spread = roundCssNum(Number(effect.spread) || 0);
+  const inset = t === 'INNER_SHADOW';
+  const insetStr = inset ? 'inset ' : '';
+  const lenParts = [`${ox}px`, `${oy}px`, `${blur}px`];
+  if (spread !== 0) lenParts.push(`${spread}px`);
+  return `${insetStr}${lenParts.join(' ')} ${rgba}`.trim();
+}
+
+/** 将 Figma node.effects 转为单层或多层 box-shadow（逗号分隔），顺序与 effects 一致 */
+function figmaEffectsToBoxShadowCss(effects: unknown[] | undefined): string | null {
+  if (!Array.isArray(effects) || !effects.length) return null;
+  const layers: string[] = [];
+  for (const raw of effects) {
+    const eff = raw as Record<string, unknown>;
+    const layer = figmaEffectToBoxShadowLayer(eff);
+    if (layer) layers.push(layer);
+  }
+  if (!layers.length) return null;
+  return layers.join(', ');
+}
+
 function extractSimpleStyles(
   n: Record<string, unknown>,
   inferredFreeformDirection?: FreeformDirection | null,
-  inferredFreeformGap?: number | null
+  inferredFreeformGap?: number | null,
+  debugMeta?: {
+    selector?: string;
+    childRects?: Array<{ x: number; y: number; w: number; h: number }>;
+  }
 ): Record<string, string> {
   const value: Record<string, string> = {};
   const type = String(n.type || '');
@@ -209,6 +276,7 @@ function extractSimpleStyles(
   if (borderRadiusStr) value['border-radius'] = borderRadiusStr;
 
   // Stroke → border / box-shadow / outline
+  let strokeOutsideSolidBoxShadow: string | null = null;
   const strokes = n.strokePaints as unknown[] | undefined;
   const sw = n.strokeWeight;
   if (Array.isArray(strokes) && strokes.length && typeof sw === 'number' && sw > 0) {
@@ -223,13 +291,22 @@ function extractSimpleStyles(
           // box-shadow 不支持虚线，OUTSIDE dashed → outline 近似
           value['outline'] = `${w}px dashed ${strokeColor}`;
         } else {
-          value['box-shadow'] = `0 0 0 ${w}px ${strokeColor}`;
+          strokeOutsideSolidBoxShadow = `0 0 0 ${w}px ${strokeColor}`;
         }
       } else {
         // INSIDE / CENTER → border shorthand
         value['border'] = `${w}px ${isDashed ? 'dashed' : 'solid'} ${strokeColor}`;
       }
     }
+  }
+
+  // Figma Effects（投影 / 内阴影）→ box-shadow；与外描边模拟的 ring 合并为逗号分隔多层
+  const effectsShadow = figmaEffectsToBoxShadowCss(n.effects as unknown[] | undefined);
+  const shadowParts: string[] = [];
+  if (effectsShadow) shadowParts.push(effectsShadow);
+  if (strokeOutsideSolidBoxShadow) shadowParts.push(strokeOutsideSolidBoxShadow);
+  if (shadowParts.length) {
+    value['box-shadow'] = shadowParts.join(', ');
   }
 
   const op = n.opacity;
@@ -268,15 +345,55 @@ function extractSimpleStyles(
     //   （例如未显式切到 Auto Layout 仅调整 spacing），此时也应同步到 DOM。
     const stackMode = n.stackMode as string | undefined;
     const hasAutoLayout = stackMode === 'HORIZONTAL' || stackMode === 'VERTICAL';
+    const pa = n.stackPrimaryAlignItems as string | undefined;
+    const isSpaceBetweenPrimary = hasAutoLayout && pa === 'SPACE_BETWEEN';
     const sp = n.stackSpacing;
     const shouldSyncGap =
       typeof sp === 'number' &&
-      (hasAutoLayout ? sp >= 0 : sp > 0);
+      (hasAutoLayout ? sp >= 0 : sp > 0) &&
+      // SPACE_BETWEEN 场景下，Figma 的 stackSpacing 常是“剩余空间分配值”，不是 CSS gap 语义。
+      // 这里跳过 gap 回写，避免把 distribute 空白固化成超大 gap。
+      !isSpaceBetweenPrimary;
     if (shouldSyncGap) {
       value['gap'] = `${roundCssNum(sp)}px`;
+      debugFigmaImportGap({
+        source: 'stackSpacing',
+        selector: debugMeta?.selector,
+        name: n.name,
+        type,
+        stackMode,
+        stackSpacing: sp,
+        stackPrimaryAlignItems: n.stackPrimaryAlignItems,
+        stackCounterAlignItems: n.stackCounterAlignItems,
+        justifyContent: value['justify-content'],
+        inferredFreeformDirection,
+        inferredFreeformGap,
+        childRects: debugMeta?.childRects,
+      });
+    } else if (isSpaceBetweenPrimary && typeof sp === 'number') {
+      debugFigmaImportGap({
+        source: 'skipGapForSpaceBetween',
+        selector: debugMeta?.selector,
+        name: n.name,
+        type,
+        stackMode,
+        stackPrimaryAlignItems: pa,
+        stackSpacing: sp,
+      });
     } else if (!hasAutoLayout && typeof inferredFreeformGap === 'number' && inferredFreeformGap > 0) {
       // Figma freeform 节点不传 stackSpacing，用子节点位置推断的间距作为 fallback
       value['gap'] = `${roundCssNum(inferredFreeformGap)}px`;
+      debugFigmaImportGap({
+        source: 'inferredFreeformGap',
+        selector: debugMeta?.selector,
+        name: n.name,
+        type,
+        stackMode,
+        stackSpacing: sp,
+        inferredFreeformDirection,
+        inferredFreeformGap,
+        childRects: debugMeta?.childRects,
+      });
     }
     if (hasAutoLayout) {
       value['flex-direction'] = stackMode === 'VERTICAL' ? 'column' : 'row';
@@ -301,8 +418,26 @@ function extractSimpleStyles(
       const PRIMARY_ALIGN: Record<string, string> = {
         MIN: 'flex-start', CENTER: 'center', MAX: 'flex-end', SPACE_BETWEEN: 'space-between',
       };
-      const pa = n.stackPrimaryAlignItems as string | undefined;
       if (pa && PRIMARY_ALIGN[pa]) value['justify-content'] = PRIMARY_ALIGN[pa];
+      if (pa === 'SPACE_BETWEEN' && value['gap']) {
+        // SPACE_BETWEEN 下 gap 偏大的常见排查点：Figma 可能把分散剩余空间反映在 stackSpacing 中
+        debugFigmaImportGap({
+          source: 'spaceBetweenWithGap',
+          selector: debugMeta?.selector,
+          name: n.name,
+          type,
+          stackMode,
+          stackPrimaryAlignItems: pa,
+          stackSpacing: sp,
+          emittedGap: value['gap'],
+          childRects: debugMeta?.childRects,
+        });
+      }
+      if (pa === 'SPACE_BETWEEN') {
+        // 与 SPACE_BETWEEN 配套：避免历史 gap 残留（如 var(--margin-element)）导致视觉不对齐。
+        // Figma 在该模式下的 stackSpacing 语义不稳定（可能是剩余空间），统一回写 0 清空旧 gap。
+        value['gap'] = '0px';
+      }
 
       // 交叉轴对齐（align-items）
       // 注意：CSS align-items:stretch 在导出时被映射为 MIN（与 flex-start 相同），无法区分。
@@ -312,6 +447,10 @@ function extractSimpleStyles(
       };
       const ca = n.stackCounterAlignItems as string | undefined;
       if (ca && COUNTER_ALIGN[ca]) value['align-items'] = COUNTER_ALIGN[ca];
+      if (ca === 'MIN' && n.stackWrap === 'WRAP') {
+        // WRAP 场景下 MIN 更接近“顶对齐”意图，这里允许回写 flex-start 修正旧的 center 残留。
+        value['align-items'] = 'flex-start';
+      }
 
       // Auto Layout 内边距（与 ir-to-figma.js stack*Padding ↔ padding* 对称）
       const emitStackPadding = (wireKey: string, cssKey: string) => {
@@ -408,6 +547,7 @@ export function nodeChangesToSimpleFigmaImportItems(nodeChanges: unknown[] | nul
     if (!selector) continue;
     let inferredFreeformDirection: FreeformDirection | null = null;
     let inferredFreeformGap: number | null = null;
+    let inferredChildRects: Array<{ x: number; y: number; w: number; h: number }> | undefined;
     const stackMode = n.stackMode as string | undefined;
     const hasAutoLayout = stackMode === 'HORIZONTAL' || stackMode === 'VERTICAL';
     if (!hasAutoLayout) {
@@ -418,6 +558,10 @@ export function nodeChangesToSimpleFigmaImportItems(nodeChanges: unknown[] | nul
         const childNodes = childGuids
           .map(cg => guidToNode.get(cg))
           .filter((cn): cn is Record<string, unknown> => cn != null);
+        inferredChildRects = childNodes
+          .map(getNodeRect)
+          .filter((r): r is NonNullable<ReturnType<typeof getNodeRect>> => r != null)
+          .map(({ x, y, w, h }) => ({ x, y, w, h }));
         const inferred = inferFreeformLayoutFromChildren(childNodes);
         if (inferred) {
           inferredFreeformDirection = inferred.direction;
@@ -425,7 +569,12 @@ export function nodeChangesToSimpleFigmaImportItems(nodeChanges: unknown[] | nul
         }
       }
     }
-    const value = extractSimpleStyles(n, inferredFreeformDirection, inferredFreeformGap);
+    const value = extractSimpleStyles(
+      n,
+      inferredFreeformDirection,
+      inferredFreeformGap,
+      { selector, childRects: inferredChildRects }
+    );
     // antd 内部节点（含多文件编码选择器）尺寸是渲染快照像素值，不应写回 CSS
     const logicalSelector = resolveLogicalSelectorForAntCheck(selector);
     if (/^\.ant-/.test(logicalSelector)) {

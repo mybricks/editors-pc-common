@@ -610,7 +610,7 @@ function irFillsToFigmaPaints(fills, blobs, imageCtx, imageImportList, imageImpo
 
 // ─── IR shadows → Figma effects ───
 
-function irShadowsToEffects(shadows, innerShadows) {
+function irShadowsToEffects(shadows, innerShadows, layerBlur) {
   var effects = [];
   if (shadows && shadows.length) {
     for (var i = 0; i < shadows.length; i++) {
@@ -642,6 +642,14 @@ function irShadowsToEffects(shadows, innerShadows) {
         blendMode: 'NORMAL',
       });
     }
+  }
+  // CSS filter: blur(Xpx) → Figma FOREGROUND_BLUR effect
+  if (layerBlur && layerBlur > 0) {
+    effects.push({
+      type: 'FOREGROUND_BLUR',
+      radius: layerBlur,
+      visible: true,
+    });
   }
   return effects.length ? effects : undefined;
 }
@@ -1696,7 +1704,7 @@ function convertClipPathPolygonBackground(style, guid, parentGuid, siblingIndex,
   if (imageImports.length) nc.imageImports = { imports: imageImports };
 
   var stroke = irStrokeToFigma(style);
-  var effects = irShadowsToEffects(style.shadows, style.innerShadows);
+  var effects = irShadowsToEffects(style.shadows, style.innerShadows, style.layerBlur);
   var sKeys = Object.keys(stroke);
   for (var i = 0; i < sKeys.length; i++) nc[sKeys[i]] = stroke[sKeys[i]];
   if (effects) nc.effects = effects;
@@ -2128,7 +2136,7 @@ function convertSvgNode(irNode, guid, parentGuid, siblingIndex, parentLayoutMode
 
   var stroke = irStrokeToFigma(style);
   var radius = irBorderRadius(style);
-  var effects = irShadowsToEffects(style.shadows, style.innerShadows);
+  var effects = irShadowsToEffects(style.shadows, style.innerShadows, style.layerBlur);
   var sKeys = Object.keys(stroke);
   for (var i = 0; i < sKeys.length; i++) nc[sKeys[i]] = stroke[sKeys[i]];
   var rKeys = Object.keys(radius);
@@ -2155,7 +2163,7 @@ function convertFrameNode(irNode, guid, parentGuid, siblingIndex, parentLayoutMo
   var stroke = hasClipPolygon ? {} : irStrokeToFigma(style);
   var radius = hasClipPolygon ? {} : irBorderRadius(style);
   var layout = irLayoutToFigma(style);
-  var effects = hasClipPolygon ? null : irShadowsToEffects(style.shadows, style.innerShadows);
+  var effects = hasClipPolygon ? null : irShadowsToEffects(style.shadows, style.innerShadows, style.layerBlur);
   var imageCtx = imageCtxGlobal || { byHash: {} };
   var imageImports = [];
   var imageImportSet = {};

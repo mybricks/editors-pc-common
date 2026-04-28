@@ -157,6 +157,8 @@ function computedHasNonNoneBackgroundImage(comp) {
 
 function inferNodeType(el, computed, tag) {
   if (tag === 'img') return 'image';
+  // canvas 导出为静态图片：读取当前像素快照写入 image 节点
+  if (tag === 'canvas') return 'image';
   if (tag === 'svg') return 'component';
   // input/textarea 识别为 frame：在 Figma 中用带边框+圆角+背景的 Frame 还原输入框外观
   // （TextNode 不支持 strokes/borderRadius，若判为 text 会导致边框和圆角丢失）

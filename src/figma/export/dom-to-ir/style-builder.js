@@ -689,6 +689,7 @@ function buildStyleJSON(el, computed, rect, parentRect, cssRuleMap, globalFont) 
   var bgImageDecl = d(['background-image', 'backgroundImage']);
   var bgImageComputed = computed.backgroundImage || '';
   var bgImageFromBackground = d(['background']);
+  var bgBackgroundRaw = d(['background']) || (computed && computed.background) || '';
   var bgImage = '';
   if (bgImageDecl && bgImageDecl !== 'none') {
     bgImage = bgImageDecl;
@@ -742,19 +743,34 @@ function buildStyleJSON(el, computed, rect, parentRect, cssRuleMap, globalFont) 
       }
     }
   }
+  var _bgColorDecl = d(['background-color', 'backgroundColor']) || computed.backgroundColor;
+  // 若声明层取到的是 CSS 变量，回退到 computed 实际解析值
+  if (_bgColorDecl && _bgColorDecl.indexOf('var(') >= 0) {
+    _bgColorDecl = computed.backgroundColor || _bgColorDecl;
+  }
+  var _bgColorRgba = _bgColorDecl ? cssColorToRgba(_bgColorDecl) : null;
+  var _gradientFnMatches = bgImage ? bgImage.match(/(?:linear|radial)-gradient\s*\(/gi) : null;
+  var _isMultiGradient = !!(_gradientFnMatches && _gradientFnMatches.length > 1);
   var gradientFill = bgImage ? (parseLinearGradientFromBgImage(bgImage) || parseRadialGradientFromBgImage(bgImage)) : null;
   var imageUrl = bgImage ? parseUrlFromBgImage(bgImage) : null;
-  if (gradientFill && _bgTileW > 0 && _bgTileH > 0) {
+  if (_isMultiGradient && wSub > 0 && hSub > 0) {
+    // 多重渐变（常见于多层 radial 叠加）在 Figma 原生渐变里很难等价表达，降级为位图导出。
+    // 这里写入 IMAGE 占位，由 image-inline.js 异步栅格化为 data URL（scaleMode=FILL）。
+    var _gradientAsImage = { type: 'IMAGE', cssGradient: bgImage, scaleMode: 'FILL' };
+    if (bgBackgroundRaw && String(bgBackgroundRaw).indexOf('gradient') >= 0) {
+      _gradientAsImage.cssBackground = bgBackgroundRaw;
+    }
+    if (_bgColorRgba && _bgColorRgba !== 'rgba(0, 0, 0, 0)') {
+      _gradientAsImage.cssBackgroundColor = _bgColorRgba;
+      style.fills = [_bgColorRgba, _gradientAsImage];
+    } else {
+      style.fills = [_gradientAsImage];
+    }
+  } else if (gradientFill && _bgTileW > 0 && _bgTileH > 0) {
     // 平铺渐变：标记为 TILED_GRADIENT，由 image-inline.js 在异步阶段用 Canvas 渲染成位图后以 IMAGE TILE 写入
     style.fills = [{ type: 'TILED_GRADIENT', bgImage: bgImage, bgSizeW: _bgTileW, bgSizeH: _bgTileH }];
   } else if (gradientFill) {
     // 同时保留背景色作为底层 fill，避免渐变透明区域在 Figma 中透出阴影导致整体变深
-    var _bgColorDecl = d(['background-color', 'backgroundColor']) || computed.backgroundColor;
-    // 若声明层取到的是 CSS 变量，回退到 computed 实际解析值
-    if (_bgColorDecl && _bgColorDecl.indexOf('var(') >= 0) {
-      _bgColorDecl = computed.backgroundColor || _bgColorDecl;
-    }
-    var _bgColorRgba = _bgColorDecl ? cssColorToRgba(_bgColorDecl) : null;
     style.fills = _bgColorRgba ? [_bgColorRgba, gradientFill] : [gradientFill];
   } else if (imageUrl) {
     style.fills = [{ type: 'IMAGE', url: imageUrl }];
@@ -912,6 +928,16 @@ function buildStyleJSON(el, computed, rect, parentRect, cssRuleMap, globalFont) 
     var _innerShadows = _allShadows.filter(function (s) { return s.inset; });
     if (_outerShadows.length > 0) style.shadows = _outerShadows;
     if (_innerShadows.length > 0) style.innerShadows = _innerShadows;
+  }
+
+  // filter: blur(Xpx) → layerBlur（Figma LAYER_BLUR effect）
+  var _filterVal = d(['filter']) || (computed && (computed.filter || computed['filter'])) || '';
+  if (_filterVal && typeof _filterVal === 'string' && _filterVal !== 'none') {
+    var _blurMatch = _filterVal.match(/\bblur\s*\(\s*([\d.]+)\s*px\s*\)/i);
+    if (_blurMatch) {
+      var _blurRadius = parseFloat(_blurMatch[1]);
+      if (_blurRadius > 0) style.layerBlur = _blurRadius;
+    }
   }
 
   // Flex / Grid -> Auto layout（gap 等同 itemSpacing）；padding 仅来自声明或 computed，不再与 margin 混合

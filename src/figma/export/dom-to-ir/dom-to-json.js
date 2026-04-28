@@ -192,6 +192,33 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
   var rootComputed = window.getComputedStyle(root);
   var globalFont = getGlobalFont(root, rootComputed, cssRuleMap);
 
+  /**
+   * Figma 反向同步 [mb:]：对「自身无 pages_*_less-* 编码类」的节点，用祖先上的 less 文件编码前缀
+   * 拼出 `.{encoded}-{短 class}`，保证多文件场景下导入能 parseMultiFileSelector 命中目标 less。
+   * 短 class：优先 ant-*，否则取 className 第一个 token（与 node.name 主名来源一致）。
+   */
+  function computeMbPrefixedSyncSelector(el) {
+    if (!el || !el.className || typeof el.className !== 'string') return null;
+    try {
+      var _ancEnc = getNearestEncodedLessFilePrefixFromAncestors(el);
+      if (!_ancEnc || elementHasEncodedLessFileClass(el)) return null;
+      var parts = el.className.trim().split(/\s+/);
+      if (!parts.length) return null;
+      var short = null;
+      for (var _si = 0; _si < parts.length; _si++) {
+        if (parts[_si].indexOf('ant-') === 0) {
+          short = parts[_si];
+          break;
+        }
+      }
+      if (!short) short = parts[0];
+      if (!short) return null;
+      return '.' + _ancEnc + '-' + short;
+    } catch (_eMb) {
+      return null;
+    }
+  }
+
   function walk(el, parentRect, _inProForm, _inTabs, _inQuickSort) {
     var rect = getDesignRect(el, geo);
     const computed = window.getComputedStyle(el);
@@ -316,7 +343,8 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
     if (COMPONENT_LIBRARY_ENABLED && tag === 'button') {
       var _btnCls = (typeof el.className === 'string') ? el.className : '';
       var _isPrimary = _btnCls.indexOf('btnSearch') !== -1;
-      return {
+      var _btnMbSel = computeMbPrefixedSyncSelector(el);
+      var _btnIr = {
         type: 'figma-instance',
         figmaComponentKey: _isPrimary
           ? '25b631121259ef348009e6cdc75fe2db40fcf38e'
@@ -324,6 +352,8 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
         name: (el.textContent || '').replace(/\s+/g, ' ').trim() || 'Button',
         style: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
       };
+      if (_btnMbSel) _btnIr.figmaSyncSelector = _btnMbSel;
+      return _btnIr;
     }
 
     // display:contents 节点自身不作为独立 frame，直接将其子节点合并到父级
@@ -393,23 +423,10 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
     var matchedSelectors = cssRuleMap ? getMatchedSelectorsForElement(el, cssRuleMap) : [];
     if (matchedSelectors.length) node.selectors = matchedSelectors;
 
-    // Figma 反向同步：antd 等子节点仅有 .ant-* 时，把「最近祖先的 less 文件编码」拼进 [mb:]，便于写回对应 less 的 :global(...)
+    // Figma 反向同步：无自身编码类的节点统一挂 `.{encoded}-{短 class}`，[mb:] 可命中多文件 less（含 ant :global）
     try {
-      var _ancEnc = getNearestEncodedLessFilePrefixFromAncestors(el);
-      if (_ancEnc && !elementHasEncodedLessFileClass(el) && el.className && typeof el.className === 'string') {
-        var _partsAnt = el.className.trim().split(/\s+/);
-        var _bestAntToken = null;
-        for (var _ai = 0; _ai < _partsAnt.length; _ai++) {
-          var _tok = _partsAnt[_ai];
-          if (_tok.indexOf('ant-') === 0) {
-            _bestAntToken = _tok;
-            break;
-          }
-        }
-        if (_bestAntToken) {
-          node.figmaSyncSelector = '.' + _ancEnc + '-' + _bestAntToken;
-        }
-      }
+      var _mbSyncSel = computeMbPrefixedSyncSelector(el);
+      if (_mbSyncSel) node.figmaSyncSelector = _mbSyncSel;
     } catch (_eFigSync) {}
 
     if (nodeType === 'text') {
@@ -566,7 +583,18 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
     }
 
     if (nodeType === 'image') {
-      const src = (el.tagName || '').toLowerCase() === 'img' ? (el.currentSrc || el.src || el.getAttribute('src')) : null;
+      var _imgTag = (el.tagName || '').toLowerCase();
+      var src = null;
+      if (_imgTag === 'img') {
+        src = el.currentSrc || el.src || el.getAttribute('src');
+      } else if (_imgTag === 'canvas') {
+        try {
+          src = el.toDataURL('image/png');
+        } catch (_eCanvasToDataUrl) {
+          console.warn('[canvas node] 导出为图片失败（可能受跨域像素污染影响）', _eCanvasToDataUrl && _eCanvasToDataUrl.message);
+          src = null;
+        }
+      }
       if (!src) return null;
       node.content = src;
     }
