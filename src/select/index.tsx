@@ -134,7 +134,7 @@ export default function select({editConfig}: EditorProps) {
         optionFilterProp='label'
         {...model.relOptions.otherConfig}
         value={model.val}
-        dropdownClassName='fangzhou-theme'
+        dropdownClassName={`${css.editorSelectDropdown} fangzhou-theme`}
         onChange={onChange}
         options={model.relOptions.selectOptions}
       />
