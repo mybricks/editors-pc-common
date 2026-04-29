@@ -1300,6 +1300,39 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
         node.children = undefined;
       }
     }
+
+    // CSS mask 图标还原（如 NutUI nut-icon）：
+    // mask: url("data:image/svg+xml;base64,...") + background-color → SVG VECTOR + 指定填充色
+    // 原理：CSS mask 用 SVG 形状作镂空模板，background-color 是实际颜色；
+    // 还原为 Figma VECTOR 节点，将 background-color 作为填充色，忽略 SVG 内部颜色。
+    if (node.type !== 'svg') {
+      try {
+        var _maskStr = computed.mask || computed.webkitMask || '';
+        // computed.mask 在某些浏览器中不含 data URL，退而读 inline style
+        if (!_maskStr || _maskStr === 'none') {
+          _maskStr = (el.style && (el.style.mask || el.style.webkitMask)) || '';
+        }
+        if (_maskStr && _maskStr !== 'none') {
+          var _maskB64Match = _maskStr.match(/url\(['"]?data:image\/svg\+xml;base64,([A-Za-z0-9+/=]+)/);
+          if (_maskB64Match) {
+            var _maskSvgStr = null;
+            try { _maskSvgStr = atob(_maskB64Match[1]); } catch (_eAtob) {}
+            var _maskBgColor = computed.backgroundColor || '';
+            if (_maskSvgStr && _maskBgColor && _maskBgColor !== 'rgba(0, 0, 0, 0)' && _maskBgColor !== 'transparent') {
+              node.type = 'svg';
+              node.children = undefined;
+              if (!node.style) node.style = {};
+              node.style.svgContent = _maskSvgStr;
+              // maskFillColor 信号：ir-to-figma.js 用此颜色覆盖 SVG 内部填充色
+              node.style.maskFillColor = _maskBgColor;
+              // 清除 style-builder 已生成的 fills（其内容即 background-color 本身，将被 maskFillColor 替代）
+              node.style.fills = undefined;
+            }
+          }
+        }
+      } catch (_eMaskIcon) {}
+    }
+
     var _dbgReturnCls = (el.className && typeof el.className === 'string') ? el.className.split(' ').slice(0,3).join(' ') : '';
 
     return node;

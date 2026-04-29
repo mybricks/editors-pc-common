@@ -107,6 +107,33 @@ function cssColorToRgba(cssColor) {
 }
 
 /**
+ * 修复渐变 stops 中的透明黑问题。
+ * CSS `transparent` 关键字 → cssColorToRgba → 'rgba(0, 0, 0, 0)'（透明黑）。
+ * Figma 用线性 RGB 插值，白→透明黑的中间过渡色会穿过深灰，产生黑色串色。
+ * 修复：将 rgba(0,0,0,0) 的 stop 替换为最近非透明黑邻近 stop 的 RGB + alpha=0，
+ * 使 Figma 在透明端使用与不透明端相同的色相渐变。
+ */
+function _fixTransparentGradientStops(stops) {
+  for (var _fi = 0; _fi < stops.length; _fi++) {
+    if (stops[_fi].color !== 'rgba(0, 0, 0, 0)') continue;
+    var _neighbor = null;
+    for (var _fj = _fi - 1; _fj >= 0; _fj--) {
+      if (stops[_fj].color !== 'rgba(0, 0, 0, 0)') { _neighbor = stops[_fj].color; break; }
+    }
+    if (!_neighbor) {
+      for (var _fk = _fi + 1; _fk < stops.length; _fk++) {
+        if (stops[_fk].color !== 'rgba(0, 0, 0, 0)') { _neighbor = stops[_fk].color; break; }
+      }
+    }
+    if (_neighbor) {
+      var _nm = _neighbor.match(/^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+      if (_nm) stops[_fi].color = 'rgba(' + _nm[1] + ', ' + _nm[2] + ', ' + _nm[3] + ', 0)';
+    }
+  }
+  return stops;
+}
+
+/**
  * 解析 CSS background-image 中的 linear-gradient → { type: 'GRADIENT_LINEAR', gradientStops, angle }。
  *
  * 修复 1（正则不够宽松）：原正则 /linear-gradient\s*\(\s*([\d.]+)?deg\s*,\s*(.+)\)/ 只能匹配
@@ -207,6 +234,7 @@ function parseLinearGradientFromBgImage(bgImage) {
   }
 
   if (stops.length < 2) return null;
+  _fixTransparentGradientStops(stops);
   return { type: 'GRADIENT_LINEAR', gradientStops: stops, angle: angle };
 }
 
@@ -304,6 +332,7 @@ function parseRadialGradientFromBgImage(bgImage) {
   }
 
   if (stops.length < 2) return null;
+  _fixTransparentGradientStops(stops);
   // radius: 0.5 表示圆形与节点边缘相切（归一化空间），色标百分比控制视觉渐变范围
   var result = { type: 'GRADIENT_RADIAL', gradientStops: stops, centerX: centerX, centerY: centerY, radius: 0.5 };
   return result;

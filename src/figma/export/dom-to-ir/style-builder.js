@@ -737,7 +737,12 @@ function buildStyleJSON(el, computed, rect, parentRect, cssRuleMap, globalFont) 
     }
   }
 
-  var opacityVal = d(['opacity']) || computed.opacity;
+  // opacity 优先取 computed（反映动画当前真实状态），
+  // 避免 CSS 规则里的动画初始态（如 .timelineNodeLeft { opacity:0 }）被错误导出：
+  // 动画跑完后 computed.opacity 已是 1，静态规则仍是 0，应以 computed 为准。
+  var _declOpacity = d(['opacity']);
+  var _computedOpacity = computed.opacity;
+  var opacityVal = (_computedOpacity != null && _computedOpacity !== '') ? _computedOpacity : _declOpacity;
   if (opacityVal != null) {
     var o = parseFloat(opacityVal);
     if (!Number.isNaN(o) && o < 1) style.opacity = o;
@@ -879,7 +884,8 @@ function buildStyleJSON(el, computed, rect, parentRect, cssRuleMap, globalFont) 
     style.fills = [{ type: 'TILED_GRADIENT', bgImage: bgImage, bgSizeW: _bgTileW, bgSizeH: _bgTileH }];
   } else if (gradientFill) {
     // 同时保留背景色作为底层 fill，避免渐变透明区域在 Figma 中透出阴影导致整体变深
-    style.fills = _bgColorRgba ? [_bgColorRgba, gradientFill] : [gradientFill];
+    // 注意：透明黑 rgba(0,0,0,0) 在 Figma 中仍会作为 000000 0% 的额外 fill 出现，需过滤
+    style.fills = (_bgColorRgba && _bgColorRgba !== 'rgba(0, 0, 0, 0)') ? [_bgColorRgba, gradientFill] : [gradientFill];
   } else if (imageUrl) {
     style.fills = [{ type: 'IMAGE', url: imageUrl }];
   } else {

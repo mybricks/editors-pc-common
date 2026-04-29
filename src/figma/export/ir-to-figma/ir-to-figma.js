@@ -524,8 +524,28 @@ function irGradientStopsToFigma(stops) {
   var result = [];
   for (var i = 0; i < stops.length; i++) {
     var gs = stops[i];
-    var col = irColorToFigma(gs.color) || { r: 0, g: 0, b: 0, a: 1 };
+    // 解析失败时 fallback 透明（而非实心黑），避免 CSS variable / named color / 现代 CSS 语法
+    // 导致渐变 stop 出现意外的黑色条带
+    var col = irColorToFigma(gs.color) || { r: 0, g: 0, b: 0, a: 0 };
     result.push({ color: col, position: gs.position != null ? gs.position : (i / Math.max(stops.length - 1, 1)) });
+  }
+  // 修复透明黑 stop（r=g=b=0, a=0）：用最近邻 stop 的 RGB + alpha=0 替换，
+  // 防止 Figma 在渐变中穿过黑色（浏览器对 transparent 做预乘 alpha，Figma 不做）
+  for (var _j = 0; _j < result.length; _j++) {
+    var _sc = result[_j].color;
+    if (_sc.r !== 0 || _sc.g !== 0 || _sc.b !== 0 || _sc.a !== 0) continue;
+    var _nc = null;
+    for (var _k = _j - 1; _k >= 0; _k--) {
+      var _nk = result[_k].color;
+      if (_nk.r !== 0 || _nk.g !== 0 || _nk.b !== 0) { _nc = _nk; break; }
+    }
+    if (!_nc) {
+      for (var _k2 = _j + 1; _k2 < result.length; _k2++) {
+        var _nk2 = result[_k2].color;
+        if (_nk2.r !== 0 || _nk2.g !== 0 || _nk2.b !== 0) { _nc = _nk2; break; }
+      }
+    }
+    if (_nc) result[_j].color = { r: _nc.r, g: _nc.g, b: _nc.b, a: 0 };
   }
   return result;
 }
@@ -2103,13 +2123,27 @@ function convertSvgNode(irNode, guid, parentGuid, siblingIndex, parentLayoutMode
   var imageCtx = imageCtxGlobal || { byHash: {} };
   var imageImports = [];
   var imageImportSet = {};
+
+  // CSS mask 图标（maskFillColor）：background-color 是宿主指定的单色，SVG 仅提供形状轮廓，
+  // 不应从 SVG 内部读取颜色（SVG 路径的 fill 是 mask 原始颜色，与最终渲染色无关）。
+  var _hasMaskFillColor = !!(style.maskFillColor);
+
   // Stroke-based icons have no fill; skip irFillsToFigmaPaints so DOM background
   // colors (if any) don't accidentally produce a fill on top of the stroke paths.
-  var paints = svgStrokeMode
-    ? []
-    : irFillsToFigmaPaints(style.fills, blobs, imageCtx, imageImports, imageImportSet);
+  var paints;
+  if (svgStrokeMode) {
+    paints = [];
+  } else if (_hasMaskFillColor) {
+    // CSS mask 图标：直接用宿主 background-color，忽略 SVG 内部颜色
+    var _mfcPaint = makeSolidPaint(style.maskFillColor);
+    paints = _mfcPaint ? [_mfcPaint] : [];
+  } else {
+    paints = irFillsToFigmaPaints(style.fills, blobs, imageCtx, imageImports, imageImportSet);
+  }
+
   // 矢量几何来自 path/circle，但 DOM 上 <svg> 的 fills 常为透明；fill="url(#…)" 须在 defs 里解析渐变。
-  if (!svgStrokeMode && svgContent) {
+  // mask 图标跳过此步，避免 SVG 内部颜色覆盖 maskFillColor。
+  if (!_hasMaskFillColor && !svgStrokeMode && svgContent) {
     var _svgDefGradIr = extractSvgPrimaryPaintAsIrFill(svgContent);
     if (_svgDefGradIr) {
       var _svgDefPaints = irFillsToFigmaPaints([_svgDefGradIr], blobs, imageCtx, imageImports, imageImportSet);
