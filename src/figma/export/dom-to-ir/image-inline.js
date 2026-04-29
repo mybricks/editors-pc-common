@@ -314,6 +314,41 @@ function rasterizeTilePatternToFullDataUrl(tileDataUrl, outW, outH) {
 }
 
 /**
+ * CSS mask 图标着色：将已栅格化的 SVG data URL（原始颜色）用 Canvas destination-in 合成，
+ * 替换为 fillColor 指定的颜色。等价于 CSS `mask` 的渲染效果：
+ *   1. 用 fillColor 填充整张画布
+ *   2. 用 SVG 的 alpha 通道做 destination-in 遮罩（只保留 SVG 不透明区域内的 fillColor）
+ * 失败时回退返回原 dataUrl。
+ */
+function _applyColorToMaskImageDataUrl(svgDataUrl, fillColor) {
+  return new Promise(function (resolve) {
+    var img = new window.Image();
+    img.onload = function () {
+      try {
+        var cw = img.width || img.naturalWidth || 1;
+        var ch = img.height || img.naturalHeight || 1;
+        var canvas = document.createElement('canvas');
+        canvas.width = cw;
+        canvas.height = ch;
+        var ctx = canvas.getContext('2d');
+        if (!ctx) { resolve(svgDataUrl); return; }
+        // 步骤 1：用目标颜色填充整张画布
+        ctx.fillStyle = fillColor;
+        ctx.fillRect(0, 0, cw, ch);
+        // 步骤 2：destination-in —— 保留与 SVG 不透明像素重叠的区域（形状遮罩）
+        ctx.globalCompositeOperation = 'destination-in';
+        ctx.drawImage(img, 0, 0, cw, ch);
+        resolve(canvas.toDataURL('image/png'));
+      } catch (_eComposite) {
+        resolve(svgDataUrl);
+      }
+    };
+    img.onerror = function () { resolve(svgDataUrl); };
+    img.src = svgDataUrl;
+  });
+}
+
+/**
  * 将内联 SVG 字符串按给定尺寸栅格化为 PNG data URL。
  * 默认使用 2x 渲染，提升粘贴到 Figma 后的观感清晰度。
  */
@@ -516,14 +551,27 @@ function inlineImageFillsInTree(obj, options) {
   if (obj.type === 'svg' && _svgExportMode === 'image') {
     var _svgStyle = obj.style || {};
     var _svgMarkup = _svgStyle.svgContent;
+    // CSS mask 图标：提前捕获 maskFillColor（闭包变量，避免 promise 链内读取时 obj.style 已被替换）
+    var _svgMaskFill = _svgStyle.maskFillColor || null;
     if (typeof _svgMarkup === 'string' && _svgMarkup) {
       stats.attempts += 1;
       var _svgW = _svgStyle.width || 24;
       var _svgH = _svgStyle.height || 24;
       var _svgScale = Number(ctxOptions && ctxOptions.svgRasterScale);
       if (!(_svgScale > 0)) _svgScale = 2;
+      // CSS mask 图标：动态提高渲染分辨率，保证最短边 ≥ 64px，消除小图标锯齿
+      // 例：16px 图标 → ceil(64/16)=4x → 64px；24px → ceil(64/24)=3x → 72px；48px+ → 保持原倍率
+      var _maskScale = _svgMaskFill
+        ? Math.max(_svgScale, Math.ceil(64 / Math.max(1, Math.min(_svgW, _svgH))))
+        : _svgScale;
+      // CSS mask 图标：栅格化后用 Canvas destination-in 合成，将 SVG 形状着色为 background-color
+      var _rasterP = _svgMaskFill
+        ? rasterizeInlineSvgToPngDataUrl(_svgMarkup, _svgW, _svgH, _maskScale).then(function (rawDataUrl) {
+            return _applyColorToMaskImageDataUrl(rawDataUrl, _svgMaskFill);
+          })
+        : rasterizeInlineSvgToPngDataUrl(_svgMarkup, _svgW, _svgH, _svgScale);
       promises.push(
-        rasterizeInlineSvgToPngDataUrl(_svgMarkup, _svgW, _svgH, _svgScale).then(function (dataUrl) {
+        _rasterP.then(function (dataUrl) {
           return computeDataUrlSha1Hex(dataUrl).then(function (sha1hex) {
             obj.type = 'image';
             obj.content = dataUrl;
