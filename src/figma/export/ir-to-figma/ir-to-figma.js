@@ -1807,6 +1807,47 @@ function encodeGlyphBlob(otGlyph) {
   return u8;
 }
 
+// ── 装饰线注入：把删除线/下划线矩形路径嵌入字形贝塞尔，与字形同色渲染，避免 derivedTextData.decorations 矩形叠层白边问题 ──
+// encodeGlyphBlob 内部对 y 取反（-c.y），故此函数在 opentype.js 屏幕坐标下操作：基线以上 y 为负，基线以下 y 为正。
+function makeDecoratedGlyphForEncoding(otGlyph, decType, font) {
+  var unitsPerEm = font.unitsPerEm || 1000;
+  var basePath;
+  try { basePath = otGlyph.getPath(0, 0, 1); } catch(e) { basePath = { commands: [] }; }
+
+  var os2 = font.tables && font.tables.os2;
+  var advance_sc = (otGlyph.advanceWidth || unitsPerEm) / unitsPerEm;
+  var yPos_fu, ySize_fu;
+
+  if (decType === 'STRIKETHROUGH') {
+    // yStrikeoutPosition: 基线以上的字体单位数（正值）
+    yPos_fu = (os2 && os2.yStrikeoutPosition != null) ? os2.yStrikeoutPosition : (unitsPerEm * 0.30);
+    ySize_fu = (os2 && os2.yStrikeoutSize)           ? Math.max(20, os2.yStrikeoutSize) : (unitsPerEm * 0.05);
+  } else { // UNDERLINE
+    // yUnderlinePosition: OS/2 表通常为负值（基线以下）
+    yPos_fu = (os2 && os2.yUnderlinePosition != null) ? os2.yUnderlinePosition : -(unitsPerEm * 0.12);
+    ySize_fu = (os2 && os2.yUnderlineThickness)       ? Math.max(20, os2.yUnderlineThickness) : (unitsPerEm * 0.05);
+  }
+
+  // opentype.js 屏幕坐标：font-Y 向上为正 → screen-Y 取反
+  // yPos_fu > 0（基线以上）→ screen-y 为负（屏幕向上）
+  var yTop_sc = -(yPos_fu + ySize_fu / 2) / unitsPerEm;
+  var yBot_sc = -(yPos_fu - ySize_fu / 2) / unitsPerEm;
+
+  var decCmds = [
+    { type: 'M', x: 0,           y: yTop_sc },
+    { type: 'L', x: advance_sc,  y: yTop_sc },
+    { type: 'L', x: advance_sc,  y: yBot_sc },
+    { type: 'L', x: 0,           y: yBot_sc },
+    { type: 'Z' },
+  ];
+
+  var combinedCmds = basePath.commands.concat(decCmds);
+  return {
+    getPath: function() { return { commands: combinedCmds }; },
+    advanceWidth: otGlyph.advanceWidth,
+  };
+}
+
 // ─── CJK / 全角等：西文字体（Georgia 等）在浏览器里靠 fallback 显示，导出时若仍用该 OpenType 会得到 .notdef，Figma 初渲为方框 ───
 
 function charNeedsCjkFontCoverage(code) {
@@ -2245,6 +2286,18 @@ function convertFrameNode(irNode, guid, parentGuid, siblingIndex, parentLayoutMo
 function convertTextNode(irNode, guid, parentGuid, siblingIndex, fontCtxMap, blobs, parentLayoutMode) {
   var style = irNode.style || {};
   var content = irNode.content || '';
+  // 字形度量必须使用"视觉文本"（与 textCase 一致）：
+  // Figma 的 textData.characters 存原始文本，textCase 在渲染时转换大小写；
+  // 但 derivedTextData 里的字形路径和宽度必须与实际渲染的字符对应，
+  // 否则大写字母路径按小写度量，会导致宽度偏小、初始渲染字形形状错误。
+  var _tcTransformed = content;
+  if (style.textCase === 'UPPER') {
+    _tcTransformed = content.toUpperCase();
+  } else if (style.textCase === 'LOWER') {
+    _tcTransformed = content.toLowerCase();
+  } else if (style.textCase === 'TITLE') {
+    _tcTransformed = content.replace(/(?:^|\s)\S/g, function(c) { return c.toUpperCase(); });
+  }
   var fontName = resolveFontName(
     style.fontFamily,
     style.fontWeight,
@@ -2361,7 +2414,7 @@ function convertTextNode(irNode, guid, parentGuid, siblingIndex, fontCtxMap, blo
   var measured = null;
   if (hasFontCtx) {
     try {
-      measured = measureTextWithFont(content, fontSize, resolvedFontCtx.font, style.letterSpacing || 0);
+      measured = measureTextWithFont(_tcTransformed, fontSize, resolvedFontCtx.font, style.letterSpacing || 0);
     } catch (_e) {
       measured = null;
     }
@@ -2377,8 +2430,8 @@ function convertTextNode(irNode, guid, parentGuid, siblingIndex, fontCtxMap, blo
     nodeWidth = 100;
   }
 
-  // 多行文本检测（content 含 \n 换行符）
-  var _contentLines = content.split('\n');
+  // 多行文本检测（用视觉文本拆行，保证行宽度度量正确）
+  var _contentLines = _tcTransformed.split('\n');
   var _isMultiLine = _contentLines.length > 1;
 
   var nodeHeight;
@@ -2419,9 +2472,11 @@ function convertTextNode(irNode, guid, parentGuid, siblingIndex, fontCtxMap, blo
 
   // ── 富文本样式范围（来自 inline span 子节点的 colorRuns）──
   // characterStyleIDs: 长度 = content.length，0 = 默认样式，非零 = styleOverrideTable 条目的 styleID
-  // styleOverrideTable: NodeChange 数组，每条有 styleID + fillPaints 覆写（纯色或渐变）
+  // styleOverrideTable: NodeChange 数组，每条有 styleID + fillPaints / letterSpacing 覆写
   var _charStyleIDs = null;  // Array<uint>
-  var _styleOverrides = null; // Array<{ styleID, fillPaints }>
+  var _styleOverrides = null; // Array<{ styleID, fillPaints, letterSpacing? }>
+  // 按字符索引存储 letterSpacing 覆写值（px），null 表示使用全局值
+  var _charLsMap = null;     // Array<number|null>，有 per-span LS 时填充
   if (style.colorRuns && style.colorRuns.length > 0) {
     _charStyleIDs = new Array(content.length).fill(0);
     _styleOverrides = [];
@@ -2439,10 +2494,58 @@ function convertTextNode(irNode, guid, parentGuid, siblingIndex, fontCtxMap, blo
         var _crPaint = makeSolidPaint(_cr.color);
         _crPaints = _crPaint ? [_crPaint] : undefined;
       }
-      _styleOverrides.push({
-        styleID: _crStyleID,
-        fillPaints: _crPaints,
-      });
+      var _overrideEntry = { styleID: _crStyleID, fillPaints: _crPaints };
+      // 装饰线覆写（来自 inline span 的 textDecoration run）
+      if (_cr.textDecoration) _overrideEntry.textDecoration = _cr.textDecoration;
+      // 字间距覆写（来自 inline span 的 letter-spacing）
+      if (_cr.letterSpacing != null) {
+        _overrideEntry.letterSpacing = { value: _cr.letterSpacing, units: 'PIXELS' };
+        // 建立 per-char LS 映射，供后续修正字形 x 坐标
+        if (!_charLsMap) _charLsMap = new Array(content.length).fill(null);
+        for (var _lsIdx = Math.max(0, _cr.start); _lsIdx < _cr.end && _lsIdx < content.length; _lsIdx++) {
+          _charLsMap[_lsIdx] = _cr.letterSpacing;
+        }
+      }
+      _styleOverrides.push(_overrideEntry);
+    }
+  }
+
+  // 有 per-span letter-spacing 时，修正 measured.glyphs 的 x 坐标。
+  // 原始 measured 以全局 style.letterSpacing 均匀计算，per-span LS 不同的字符区段位置会偏移。
+  // 依据：advance = advanceNorm × fontSize（无 LS）+ effectiveLs（全局或 span 覆写），
+  //       x 通过逐字符累加得到，kerning 来自 font.getKerningValue()。
+  if (_charLsMap && measured && measured.glyphs.length > 0 && resolvedFontCtx && resolvedFontCtx.font) {
+    var _globalLsForPatch = style.letterSpacing || 0;
+    var _patchX = 0;
+    var _patchFont = resolvedFontCtx.font;
+    var _patchScale = fontSize / _patchFont.unitsPerEm;
+    for (var _pgi = 0; _pgi < measured.glyphs.length; _pgi++) {
+      var _pgd = measured.glyphs[_pgi];
+      _pgd.x = _patchX;
+      var _pgRawAdv = _pgd.advanceNorm * fontSize;
+      var _pgEffLs = _charLsMap[_pgi] != null ? _charLsMap[_pgi] : _globalLsForPatch;
+      _pgd.advance = _pgRawAdv + _pgEffLs;
+      _patchX += _pgRawAdv + _pgEffLs;
+      if (_pgi < measured.glyphs.length - 1) {
+        try {
+          _patchX += _patchFont.getKerningValue(_pgd.otGlyph, measured.glyphs[_pgi + 1].otGlyph) * _patchScale;
+        } catch (_eKern) {}
+      }
+    }
+    measured.totalWidth = _patchX;
+    // 非固定宽度节点需同步更新 nodeWidth，避免文本被截断
+    if (!hasExplicitWidth) {
+      nodeWidth = Math.ceil(measured.totalWidth);
+    }
+  }
+
+  // 预建 styleID → textDecoration 查找表，供字形编码时注入装饰线路径
+  var _decTypeByStyleID = {}; // { [styleID]: 'STRIKETHROUGH'|'UNDERLINE' }
+  if (_styleOverrides) {
+    for (var _dsiPre = 0; _dsiPre < _styleOverrides.length; _dsiPre++) {
+      if (_styleOverrides[_dsiPre].textDecoration) {
+        _decTypeByStyleID[_styleOverrides[_dsiPre].styleID] = _styleOverrides[_dsiPre].textDecoration;
+      }
     }
   }
 
@@ -2525,13 +2628,19 @@ function convertTextNode(irNode, guid, parentGuid, siblingIndex, fontCtxMap, blo
     var figmaGlyphs = [];
     var figmaBaselines = [];
     var _truncationStartIdx = -1;
-    // 单行：CSS/DOM 行高与 OpenType measured.lineHeight 不一致时，缩放字形 y 与 lineAscent，并使 fontLineHeight 与 lineHeightVal 一致，
-    // 否则 derivedTextData 与 nc.lineHeight 矛盾，Figma 初渲需双击才按行高重排。
+    // 单行：用 CSS half-leading 模型计算 ascender（baseline 距行框顶部的距离）。
+    // 超出字体自然行高（naturalLineHeight = ascender + descender）的 CSS line-height 空白
+    // 应上下均分铺在 em-box 两侧，即 baseline = halfLeading + naturalAscender。
+    // 旧做法（ascenderRatio × CSS_lineHeight）是比例缩放，与浏览器 / Figma 原生文本引擎不一致，
+    // 会在 CSS line-height >> naturalLineHeight（如 CJK 字体 14px + line-height 30px）时
+    // 使 baseline 偏下 3~5px，导致"粘贴后偏下、双击后才居中"。
     var _slAscY = measured.ascender;
     var _slLineAsc = measured.ascender;
     if (!_isMultiLine && lineHeightVal > 0 && measured.lineHeight > 0.001) {
-      var __lhRat = lineHeightVal / measured.lineHeight;
-      _slAscY = measured.ascender * __lhRat;
+      var _halfLead = (lineHeightVal - measured.lineHeight) / 2;
+      // halfLeading 可能为负（CSS lineHeight < naturalLineHeight），此时按 0 计算，
+      // 让 ascender 保持原始值（naturalAscender），不会比紧行高场景更差。
+      _slAscY = Math.max(_halfLead, 0) + measured.ascender;
       _slLineAsc = _slAscY;
     }
     // 单行 CENTER/BOTTOM：行框在盒内的起点 = (nh-lh)/2 或 nh-lh。须覆盖「盒高 < 行高」（表格压扁单元格 + buildInlineTextStyle 写 textRect.height），
@@ -2574,10 +2683,11 @@ function convertTextNode(irNode, guid, parentGuid, siblingIndex, fontCtxMap, blo
         lineHeightVal > fontSize * 1.12 &&
         ( (nodeHeight >= lineHeightVal - 0.5 && nodeHeight <= lineHeightVal + 1.5) ||
           nodeHeight < lineHeightVal - 0.5 )) {
-      // 大行高单行（如 ant-select 占位 line-height≈30、fontSize=14）：盒高≈行高时不会走上面的「(nodeHeight-lineHeight)/2」，
-      // 仅用 ascender 缩放会导致 derivedTextData 首帧字形偏下，双击编辑后 Figma 重排才居中。用字形 bbox 视觉中心对齐。
-      // 另：盒高 < 行高（如分页 ant-pagination-item > a 内 #text 仅 tight bbox≈16px、CSS line-height=30）时，原先不进本分支，
-      // 仅靠 (nh-lh)/2 折入字形仍与 Figma 首帧行框裁切不一致，表现为字形靠下、双击后垂直居中。
+      // 大行高单行 CENTER（如 ant-select 占位 line-height≈30、fontSize=14）：
+      // 盒高 ≈ 行高时 (nodeHeight-lineHeight)/2 ≈ 0，half-leading 基线已由上方公式正确计算；
+      // 此处进一步用字形 bbox 视觉中心对齐，让 CJK 等字形在 CENTER 场景下视觉更正。
+      // 另：盒高 < 行高（如分页 ant-pagination-item 矮 bbox）时，(nh-lh)/2 < 0，
+      // 会经下方 _slLineY<0 分支转为 glyph 负偏移，再叠加本分支视觉中心修正。
       var _vcBaselineTall = (nodeHeight / 2) + measured.visualCenterOffsetFromBaseline;
       var _vcLineYTall = _vcBaselineTall - _slLineAsc;
       if (isFinite(_vcLineYTall)) {
@@ -2613,7 +2723,11 @@ function convertTextNode(irNode, guid, parentGuid, siblingIndex, fontCtxMap, blo
         var _lineXOffset = computeTextAlignXOffset(style.textAlignHorizontal, nodeWidth, _lineWidth);
         for (var _gi = 0; _gi < _lineGlyphs.length; _gi++) {
           var _gd = _lineGlyphs[_gi];
-          var _gblob = encodeGlyphBlob(_gd.otGlyph);
+          var _gCharIdx_ml = _charOffset + _gi;
+          var _gDecSid_ml = _charStyleIDs ? _charStyleIDs[_gCharIdx_ml] : 0;
+          var _gDecType_ml = _gDecSid_ml ? _decTypeByStyleID[_gDecSid_ml] : null;
+          var _gOtGlyph_ml = _gDecType_ml ? makeDecoratedGlyphForEncoding(_gd.otGlyph, _gDecType_ml, resolvedFontCtx.font) : _gd.otGlyph;
+          var _gblob = encodeGlyphBlob(_gOtGlyph_ml);
           var _gblobIdx = blobs.length;
           blobs.push({ bytes: _gblob });
           var _glyphObj = {
@@ -2669,7 +2783,10 @@ function convertTextNode(irNode, guid, parentGuid, siblingIndex, fontCtxMap, blo
           var _slXOffset0 = computeTextAlignXOffset(style.textAlignHorizontal, nodeWidth, measured.totalWidth);
           for (var _gi0 = 0; _gi0 < measured.glyphs.length; _gi0++) {
             var _gd0 = measured.glyphs[_gi0];
-            var _blob0 = encodeGlyphBlob(_gd0.otGlyph);
+            var _gDecSid0 = _charStyleIDs ? _charStyleIDs[_gi0] : 0;
+            var _gDecType0 = _gDecSid0 ? _decTypeByStyleID[_gDecSid0] : null;
+            var _gOt0 = _gDecType0 ? makeDecoratedGlyphForEncoding(_gd0.otGlyph, _gDecType0, resolvedFontCtx.font) : _gd0.otGlyph;
+            var _blob0 = encodeGlyphBlob(_gOt0);
             var _blobIdx0 = blobs.length;
             blobs.push({ bytes: _blob0 });
             figmaGlyphs.push({ commandsBlob: _blobIdx0, position: { x: _gd0.x + _slXOffset0, y: _slGlyphY }, fontSize: fontSize, firstCharacter: _gi0, advance: _gd0.advanceNorm });
@@ -2690,7 +2807,10 @@ function convertTextNode(irNode, guid, parentGuid, siblingIndex, fontCtxMap, blo
         // 可见字符字形
         for (var _tgi = 0; _tgi < _truncIdx; _tgi++) {
           var _tgd2 = measured.glyphs[_tgi];
-          var _tgBlob = encodeGlyphBlob(_tgd2.otGlyph);
+          var _gDecSidT = _charStyleIDs ? _charStyleIDs[_tgi] : 0;
+          var _gDecTypeT = _gDecSidT ? _decTypeByStyleID[_gDecSidT] : null;
+          var _gOtT = _gDecTypeT ? makeDecoratedGlyphForEncoding(_tgd2.otGlyph, _gDecTypeT, resolvedFontCtx.font) : _tgd2.otGlyph;
+          var _tgBlob = encodeGlyphBlob(_gOtT);
           var _tgBlobIdx = blobs.length;
           blobs.push({ bytes: _tgBlob });
           figmaGlyphs.push({
@@ -2735,7 +2855,10 @@ function convertTextNode(irNode, guid, parentGuid, siblingIndex, fontCtxMap, blo
         var _slXOffset = computeTextAlignXOffset(style.textAlignHorizontal, nodeWidth, measured.totalWidth);
         for (var gi = 0; gi < measured.glyphs.length; gi++) {
           var gd = measured.glyphs[gi];
-          var blob = encodeGlyphBlob(gd.otGlyph);
+          var _gDecSidSl = _charStyleIDs ? _charStyleIDs[gi] : 0;
+          var _gDecTypeSl = _gDecSidSl ? _decTypeByStyleID[_gDecSidSl] : null;
+          var _gOtSl = _gDecTypeSl ? makeDecoratedGlyphForEncoding(gd.otGlyph, _gDecTypeSl, resolvedFontCtx.font) : gd.otGlyph;
+          var blob = encodeGlyphBlob(_gOtSl);
           var blobIndex = blobs.length;
           blobs.push({ bytes: blob });
           var _slGlyphObj = {
@@ -2773,7 +2896,10 @@ function convertTextNode(irNode, guid, parentGuid, siblingIndex, fontCtxMap, blo
           style: fontName.style || resolvedFontCtx.figmaStyle || resolvedFontCtx.style || 'Regular',
           postscript: fontName.postscript || resolvedFontCtx.postscript || 'PingFangSC-Regular',
         },
-        fontLineHeight: lineHeightVal / fontSize,
+        // 字体固有行高比（naturalLineHeight / fontSize），不是 CSS lineHeight / fontSize。
+        // Figma 用此字段理解 em-box 尺寸，若设成 CSS 比值会导致 Figma 误判 em-box、
+        // double-click 重排时用真实字体度量重算，造成首帧与编辑态漂移。
+        fontLineHeight: measured.lineHeight / fontSize,
         fontDigest: resolvedFontCtx.fontDigest,
         fontStyle: 'NORMAL',
         fontWeight: _clampedWeight,
@@ -2794,6 +2920,28 @@ function convertTextNode(irNode, guid, parentGuid, siblingIndex, fontCtxMap, blo
     nc.textDecoration = 'UNDERLINE';
   } else if (style.textDecoration === 'STRIKETHROUGH') {
     nc.textDecoration = 'STRIKETHROUGH';
+  }
+
+  // text-transform → textCase（UPPER/LOWER/TITLE/ORIGINAL）
+  if (style.textCase) {
+    nc.textCase = style.textCase;
+  }
+
+  // -webkit-text-stroke → nc.strokePaints（覆盖 nc 初始化中写死的 strokeWeight/strokeAlign 默认值）
+  // 注意：Figma 剪贴板协议字段名是 strokePaints；颜色通过 makeSolidPaint 归一化（cssColorToRgba 返回字符串，需 irColorToFigma 转 0-1）
+  if (style.textStrokeWidth && style.textStrokeColor) {
+    var _tsStrokePaint = makeSolidPaint(style.textStrokeColor);
+    if (_tsStrokePaint) {
+      nc.strokeWeight = style.textStrokeWidth;
+      nc.strokeAlign = 'CENTER';
+      nc.strokePaints = [_tsStrokePaint];
+    }
+  }
+
+  // text-shadow → nc.effects（复用 irShadowsToEffects，text-shadow 只有外阴影）
+  if (style.textShadows && style.textShadows.length) {
+    var _tsEffects = irShadowsToEffects(style.textShadows, null, null);
+    if (_tsEffects && _tsEffects.length) nc.effects = _tsEffects;
   }
 
   // ─── P0: Text node positioning & alignment ───

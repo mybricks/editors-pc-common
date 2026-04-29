@@ -1105,6 +1105,17 @@ function getColorRunsFromInlineElement(el, finalContent, parentColorStr, cssRule
   var searchFrom = 0; // 在 contentNoNl 中从此位置开始搜索，保持与 DOM 顺序一致
   var runs = [];
 
+  // 父元素的 textDecorationLine，用于判断子 span 是否有独立的装饰线覆写
+  var _parentTdl = '';
+  try { _parentTdl = (window.getComputedStyle(el).textDecorationLine || '').toLowerCase().trim(); } catch (_eTdl) {}
+
+  // 父元素的 letter-spacing（px），用于判断子 span 是否覆写了字间距
+  var _parentLsPx = 0;
+  try {
+    var _parentLsRaw = window.getComputedStyle(el).letterSpacing;
+    if (_parentLsRaw && _parentLsRaw !== 'normal') _parentLsPx = parseFloat(_parentLsRaw) || 0;
+  } catch (_eLsP) {}
+
   for (var i = 0; i < el.childNodes.length; i++) {
     var child = el.childNodes[i];
     if (child.nodeType === 3) {
@@ -1116,6 +1127,15 @@ function getColorRunsFromInlineElement(el, finalContent, parentColorStr, cssRule
       else searchFrom = Math.min(searchFrom + tRaw.length, contentNoNl.length);
     } else if (child.nodeType === 1) {
       var spanComp = window.getComputedStyle(child);
+
+      // 读取 span 的 textDecorationLine，与父元素对比，判断是否有装饰线覆写
+      var _spanTdlRaw = '';
+      try { _spanTdlRaw = (spanComp.textDecorationLine || spanComp.getPropertyValue('text-decoration-line') || '').toLowerCase().trim(); } catch (_eStdl) {}
+      var _spanTextDecoration = null;
+      if (_spanTdlRaw && _spanTdlRaw !== 'none' && _spanTdlRaw !== _parentTdl) {
+        if (_spanTdlRaw.indexOf('line-through') >= 0) _spanTextDecoration = 'STRIKETHROUGH';
+        else if (_spanTdlRaw.indexOf('underline') >= 0) _spanTextDecoration = 'UNDERLINE';
+      }
       var declMap = (cssRuleMap && Object.keys(cssRuleMap).length > 0) ? getDeclaredStyleForElement(child, cssRuleMap) : {};
       var dColor = declMap.color || declMap['color'];
       var spanColor = dColor;
@@ -1159,19 +1179,31 @@ function getColorRunsFromInlineElement(el, finalContent, parentColorStr, cssRule
         spanGradientFill = parseLinearGradientFromBgImage(spanBgImg) || parseRadialGradientFromBgImage(spanBgImg);
       }
 
-      // 记录与父元素不同的样式 run：优先渐变，其次纯色
+      // 读取 span 的 letter-spacing（px），与父元素对比，判断是否有字间距覆写
+      var _spanLsPx = _parentLsPx;
+      try {
+        var _spanLsRaw = spanComp.letterSpacing;
+        if (_spanLsRaw && _spanLsRaw !== 'normal') _spanLsPx = parseFloat(_spanLsRaw) || _parentLsPx;
+      } catch (_eSpanLs) {}
+      var _hasLsOverride = Math.abs(_spanLsPx - _parentLsPx) > 0.1;
+
+      // 记录与父元素不同的样式 run：优先渐变，其次纯色，最后仅装饰线/字间距
       if (spanGradientFill) {
-        runs.push({
-          start: mapRawIdx(spanRawStart),
-          end: mapRawIdx(spanRawEnd),
-          gradientFill: spanGradientFill,
-        });
+        var _gRun = { start: mapRawIdx(spanRawStart), end: mapRawIdx(spanRawEnd), gradientFill: spanGradientFill };
+        if (_spanTextDecoration) _gRun.textDecoration = _spanTextDecoration;
+        if (_hasLsOverride) _gRun.letterSpacing = _spanLsPx;
+        runs.push(_gRun);
       } else if (spanColor && spanColor !== parentColorStr && spanColor !== 'rgba(0, 0, 0, 0)') {
-        runs.push({
-          start: mapRawIdx(spanRawStart),
-          end: mapRawIdx(spanRawEnd),
-          color: spanColor,
-        });
+        var _cRun = { start: mapRawIdx(spanRawStart), end: mapRawIdx(spanRawEnd), color: spanColor };
+        if (_spanTextDecoration) _cRun.textDecoration = _spanTextDecoration;
+        if (_hasLsOverride) _cRun.letterSpacing = _spanLsPx;
+        runs.push(_cRun);
+      } else if (_spanTextDecoration || _hasLsOverride) {
+        // 颜色与父相同，但有装饰线或字间距覆写
+        var _dtRun = { start: mapRawIdx(spanRawStart), end: mapRawIdx(spanRawEnd) };
+        if (_spanTextDecoration) _dtRun.textDecoration = _spanTextDecoration;
+        if (_hasLsOverride) _dtRun.letterSpacing = _spanLsPx;
+        runs.push(_dtRun);
       }
     }
   }

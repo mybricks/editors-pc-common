@@ -148,6 +148,53 @@ function buildInlineTextStyle(parentEl, computed, textRect, parentRect, cssRuleM
     var mapped = alignMap[textAlign];
     if (mapped) style.textAlignHorizontal = mapped;
   }
+  // text-decoration（与 buildStyleJSON 对齐）
+  var _itTd = d(['text-decoration', 'textDecoration', 'text-decoration-line']) || (computed && computed.textDecorationLine);
+  if (_itTd && _itTd !== 'none') {
+    if (String(_itTd).indexOf('underline') >= 0) style.textDecoration = 'UNDERLINE';
+    else if (String(_itTd).indexOf('line-through') >= 0) style.textDecoration = 'STRIKETHROUGH';
+  }
+  // letter-spacing（与 buildStyleJSON 对齐）
+  var _itLsRaw = d(['letter-spacing', 'letterSpacing']) || (computed && computed.letterSpacing);
+  var _itLs = px(_itLsRaw);
+  if (_itLs != null && _itLs !== 0) style.letterSpacing = _itLs;
+  // text-transform → textCase（UPPER/LOWER/TITLE）
+  var _itTtRaw = (d(['text-transform', 'textTransform']) || (computed && computed.textTransform) || '').toLowerCase();
+  var _itTtMap = { uppercase: 'UPPER', lowercase: 'LOWER', capitalize: 'TITLE' };
+  if (_itTtMap[_itTtRaw]) style.textCase = _itTtMap[_itTtRaw];
+  // -webkit-text-stroke → textStrokeWidth / textStrokeColor
+  var _itTsWidth = null, _itTsColor = null;
+  try {
+    var _itTsRaw = computed && computed.getPropertyValue && computed.getPropertyValue('-webkit-text-stroke');
+    if (!_itTsRaw) _itTsRaw = d(['-webkit-text-stroke']) || '';
+    if (_itTsRaw && _itTsRaw !== 'none') {
+      // Chrome computed 格式："0.8px rgb(200, 184, 150)" — 用正则匹配宽度，避免 lastIndexOf 误切 rgb() 内的空格
+      var _itTsM = _itTsRaw.trim().match(/^([\d.]+[a-z%]*)\s+([\s\S]+)$/i);
+      if (_itTsM) {
+        _itTsWidth = parseFloat(_itTsM[1]) || null;
+        _itTsColor = cssColorToRgba(_itTsM[2].trim());
+      }
+    }
+  } catch (_eIts) {}
+  if (!_itTsWidth) {
+    var _itTswRaw = d(['-webkit-text-stroke-width']) || (computed && computed.getPropertyValue && computed.getPropertyValue('-webkit-text-stroke-width')) || '';
+    _itTsWidth = parseFloat(_itTswRaw) || null;
+  }
+  if (!_itTsColor) {
+    var _itTscRaw = d(['-webkit-text-stroke-color']) || (computed && computed.getPropertyValue && computed.getPropertyValue('-webkit-text-stroke-color')) || '';
+    _itTsColor = _itTscRaw ? cssColorToRgba(_itTscRaw) : null;
+  }
+  if (_itTsWidth && _itTsColor) {
+    style.textStrokeWidth = _itTsWidth;
+    style.textStrokeColor = _itTsColor;
+  }
+  // text-shadow → textShadows（复用 parseBoxShadow，text-shadow 格式与外阴影一致，无 inset）
+  var _itTsShadowRaw = d(['text-shadow', 'textShadow']) || (computed && computed.textShadow) || '';
+  if (_itTsShadowRaw && String(_itTsShadowRaw).trim() !== 'none' && String(_itTsShadowRaw).trim() !== '') {
+    var _itTsShadows = parseBoxShadow(String(_itTsShadowRaw));
+    _itTsShadows = _itTsShadows.filter(function (s) { return !s.inset; });
+    if (_itTsShadows.length) style.textShadows = _itTsShadows;
+  }
   // 内联文本节点的单行判断：用 lineHeight 判断，fallback 到 height < fontSize * 2
   var _itH = style.height;
   var _itFs = style.fontSize;
@@ -1489,6 +1536,29 @@ function buildStyleJSON(el, computed, rect, parentRect, cssRuleMap, globalFont) 
           if (_multiChildH2 > 0 && _multiChildH2 < _multiContainerH * 0.95) {
             var _multiChildCenterY = _multiChildRect2.top - _multiContainerRect.top + _multiChildRect2.height / 2;
             var _isCentered = Math.abs(_multiChildCenterY - _multiContainerH / 2) < 3;
+            // 校验：若所有子节点均为 block 级（非 inline/inline-block/inline-flex），
+            // 则它们在 block 父容器里必然是纵向堆叠排列，不可能是水平并排，
+            // 直接取消 HORIZONTAL 推断，避免对 block 布局的误判。
+            // （此检测比几何堆叠更可靠：不受 margin collapse / padding 偏移影响）
+            if (_isCentered && el.children && el.children.length >= 2) {
+              try {
+                var _allBlockLevel = true;
+                for (var _blkI = 0; _blkI < el.children.length; _blkI++) {
+                  var _blkCs = window.getComputedStyle(el.children[_blkI]);
+                  var _blkDisp = _blkCs.display;
+                  var _blkFloat = _blkCs.cssFloat || _blkCs['float'];
+                  // inline/inline-block/inline-flex 可以水平并排，不能排除
+                  if (_blkDisp === 'inline' || _blkDisp === 'inline-block' || _blkDisp === 'inline-flex') {
+                    _allBlockLevel = false; break;
+                  }
+                  // float 元素脱离文档流，也可以水平排列
+                  if (_blkFloat && _blkFloat !== 'none') {
+                    _allBlockLevel = false; break;
+                  }
+                }
+                if (_allBlockLevel) _isCentered = false;
+              } catch (_eBlock) {}
+            }
             if (_isRadioWrapper) {
             }
             if (_isCentered) {
@@ -1638,6 +1708,46 @@ function buildStyleJSON(el, computed, rect, parentRect, cssRuleMap, globalFont) 
   var _lsRaw = d(['letter-spacing', 'letterSpacing']) || computed.letterSpacing;
   var _ls = px(_lsRaw);
   if (_ls != null && _ls !== 0) style.letterSpacing = _ls;
+
+  // text-transform → textCase（UPPER/LOWER/TITLE）
+  var _ttRaw = (d(['text-transform', 'textTransform']) || (computed && computed.textTransform) || '').toLowerCase();
+  var _ttMap = { uppercase: 'UPPER', lowercase: 'LOWER', capitalize: 'TITLE' };
+  if (_ttMap[_ttRaw]) style.textCase = _ttMap[_ttRaw];
+
+  // -webkit-text-stroke → textStrokeWidth / textStrokeColor
+  var _tsWidth = null, _tsColor = null;
+  try {
+    var _tsRaw = computed && computed.getPropertyValue && computed.getPropertyValue('-webkit-text-stroke');
+    if (!_tsRaw) _tsRaw = d(['-webkit-text-stroke']) || '';
+    if (_tsRaw && _tsRaw !== 'none') {
+      // Chrome computed 格式："0.8px rgb(200, 184, 150)" — 用正则匹配宽度，避免 lastIndexOf 误切 rgb() 内的空格
+      var _tsM = _tsRaw.trim().match(/^([\d.]+[a-z%]*)\s+([\s\S]+)$/i);
+      if (_tsM) {
+        _tsWidth = parseFloat(_tsM[1]) || null;
+        _tsColor = cssColorToRgba(_tsM[2].trim());
+      }
+    }
+  } catch (_eTs) {}
+  if (!_tsWidth) {
+    var _tswRaw = d(['-webkit-text-stroke-width']) || (computed && computed.getPropertyValue && computed.getPropertyValue('-webkit-text-stroke-width')) || '';
+    _tsWidth = parseFloat(_tswRaw) || null;
+  }
+  if (!_tsColor) {
+    var _tscRaw = d(['-webkit-text-stroke-color']) || (computed && computed.getPropertyValue && computed.getPropertyValue('-webkit-text-stroke-color')) || '';
+    _tsColor = _tscRaw ? cssColorToRgba(_tscRaw) : null;
+  }
+  if (_tsWidth && _tsColor) {
+    style.textStrokeWidth = _tsWidth;
+    style.textStrokeColor = _tsColor;
+  }
+
+  // text-shadow → textShadows（复用 parseBoxShadow，text-shadow 格式与外阴影一致，无 inset）
+  var _tsShadowRaw = d(['text-shadow', 'textShadow']) || (computed && computed.textShadow) || '';
+  if (_tsShadowRaw && String(_tsShadowRaw).trim() !== 'none' && String(_tsShadowRaw).trim() !== '') {
+    var _tsShadows = parseBoxShadow(String(_tsShadowRaw));
+    _tsShadows = _tsShadows.filter(function (s) { return !s.inset; });
+    if (_tsShadows.length) style.textShadows = _tsShadows;
+  }
 
   // margin：用于后续在自动布局下转成 spacer 节点，不参与 padding/背景
   var _mTRaw = d(['margin-top', 'marginTop']);
