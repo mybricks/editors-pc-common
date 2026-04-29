@@ -1774,6 +1774,36 @@ function buildStyleJSON(el, computed, rect, parentRect, cssRuleMap, globalFont) 
       typeof _mRRaw === 'string' && _mRRaw.trim() === 'auto') {
     style._marginAutoH = true;
   }
+  // 补充检测 margin 简写（如 margin: 0 auto / margin: auto）：
+  // getDeclaredStyleForElement 不展开简写，'margin: 0 auto' 存为 key='margin' val='0 auto'，
+  // 独立属性 margin-left/margin-right 取不到 'auto'，需额外解析简写。
+  if (!style._marginAutoH) {
+    var _marginShorthand = d(['margin']);
+    if (_marginShorthand && typeof _marginShorthand === 'string') {
+      var _msParts = _marginShorthand.trim().split(/\s+/);
+      var _msRight, _msLeft;
+      if (_msParts.length === 1) {
+        _msRight = _msLeft = _msParts[0];         // margin: auto
+      } else if (_msParts.length === 2) {
+        _msRight = _msLeft = _msParts[1];         // margin: 0 auto
+      } else if (_msParts.length === 3) {
+        _msRight = _msLeft = _msParts[1];         // margin: 0 auto 0
+      } else if (_msParts.length >= 4) {
+        _msRight = _msParts[1];                   // margin: 0 auto 0 auto
+        _msLeft = _msParts[3];
+      }
+      if (_msRight === 'auto' && _msLeft === 'auto') {
+        style._marginAutoH = true;
+      }
+    }
+  }
+  // _marginAutoH 时清除 marginLeft/marginRight 的像素值——
+  // 它们是 getComputedStyle 对 auto 的解析结果（如 360px），是居中偏移量而非真实 margin。
+  // 保留这些像素值会在 VERTICAL Auto Layout 父容器中被误作有效 margin 处理。
+  if (style._marginAutoH) {
+    delete style.marginLeft;
+    delete style.marginRight;
+  }
 
   // position: absolute/fixed → 消费端需让该节点脱离 Auto Layout 流式排布，统一标记为 'absolute'
   // 用 getPropertyValue 而非 .position 直接访问，Shadow DOM 环境下后者可能返回空字符串

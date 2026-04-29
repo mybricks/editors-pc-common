@@ -1042,6 +1042,47 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
               }
             }
           }
+          // margin:auto 水平居中子节点：Auto Layout 父容器中，_marginAutoH 子节点需要不同处理：
+          // - VERTICAL 父容器：cross-axis = 水平方向 → 设 counterAxisAlignItems='CENTER'
+          // - HORIZONTAL 父容器：primary-axis = 水平方向 → 设 primaryAxisAlignItems='CENTER'
+          // stackChildAlignSelf:'CENTER' 在 Figma FIXED sizing 下静默失效，必须在父容器设置。
+          if (layoutMode === 'VERTICAL' && !node.style.counterAxisAlignItems) {
+            var _mahPW = node.style && node.style.width;
+            for (var _mahi2 = 0; _mahi2 < childNodes.length; _mahi2++) {
+              var _mahC2 = childNodes[_mahi2];
+              if (!_mahC2 || !_mahC2.style || _mahC2.style.positionType === 'absolute') continue;
+              if (!_mahC2.style._marginAutoH) continue;
+              // 安全检查：其余非绝对定位兄弟都是全宽（容差 10px），才安全地把父容器设为 CENTER
+              var _mahAllFull2 = true;
+              for (var _mahi3 = 0; _mahi3 < childNodes.length; _mahi3++) {
+                if (_mahi3 === _mahi2) continue;
+                var _mahSib2 = childNodes[_mahi3];
+                if (!_mahSib2 || !_mahSib2.style || _mahSib2.style.positionType === 'absolute') continue;
+                var _mahSibW2 = _mahSib2.style.width;
+                if (_mahPW != null && _mahSibW2 != null && _mahPW - _mahSibW2 > 10) {
+                  _mahAllFull2 = false;
+                  break;
+                }
+              }
+              if (_mahAllFull2) {
+                node.style.counterAxisAlignItems = 'CENTER';
+              }
+              break;
+            }
+          }
+          // HORIZONTAL 父容器：_marginAutoH 子节点需要 primaryAxisAlignItems='CENTER' 才能水平居中。
+          // 典型场景：block 容器因 padding 上下对称被推断为 HORIZONTAL Auto Layout，其内有
+          // margin:0 auto 居中的子容器（如 .inner / .wrap），此时需覆盖默认的 MIN 对齐。
+          if (layoutMode === 'HORIZONTAL') {
+            for (var _mahHi = 0; _mahHi < childNodes.length; _mahHi++) {
+              var _mahHC = childNodes[_mahHi];
+              if (!_mahHC || !_mahHC.style || _mahHC.style.positionType === 'absolute') continue;
+              if (_mahHC.style._marginAutoH) {
+                node.style.primaryAxisAlignItems = 'CENTER';
+                break;
+              }
+            }
+          }
           // 任意子节点有负值 margin 说明间距不均匀，无法用 Auto Layout 还原，直接降级为绝对定位
           if (anyChildHasMargin(childNodes)) {
             delete node.style.layoutMode;
