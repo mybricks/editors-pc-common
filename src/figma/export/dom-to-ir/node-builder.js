@@ -751,6 +751,17 @@ function getPseudoShapeNode(el, pseudo, ps, geo, parentRect, elRect) {
     // display:none 或 visibility:hidden 或 opacity:0 → 不可见，跳过（如 checkbox 勾选动画层）
     if (ps.display === 'none' || ps.visibility === 'hidden') return null;
     if (parseFloat(ps.opacity) === 0) return null;
+    // transform: scale(0) → 视觉上缩成不可见，跳过
+    // 典型场景：weui-switch:checked::before 在选中态通过 scale(0) 隐藏白色内层
+    if (ps.transform && ps.transform !== 'none') {
+      var _scaleZeroMatch = ps.transform.match(/matrix\(([^)]+)\)/);
+      if (_scaleZeroMatch) {
+        var _szParts = _scaleZeroMatch[1].split(',').map(function(s) { return parseFloat(s.trim()); });
+        if (_szParts.length >= 4 && Math.abs(_szParts[0]) < 0.01 && Math.abs(_szParts[3]) < 0.01) {
+          return null;
+        }
+      }
+    }
 
     var bBottom = parseFloat(ps.borderBottomWidth) || 0;
     var bTop    = parseFloat(ps.borderTopWidth)    || 0;

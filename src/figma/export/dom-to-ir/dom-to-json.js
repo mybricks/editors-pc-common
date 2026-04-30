@@ -219,6 +219,247 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
     }
   }
 
+  function _normalizeSymbolTextForMatch(text) {
+    if (!text) return '';
+    // 去掉 emoji/text variation selector、ZWJ、肤色修饰符、keycap combining mark
+    return String(text)
+      .replace(/[\uFE0E\uFE0F\u200D\u20E3]/g, '')
+      .replace(/\uD83C[\uDFFB-\uDFFF]/g, '')
+      .replace(/\s+/g, '');
+  }
+
+  function _isUnicodeBlockSymbolLike(cp) {
+    // 用“Unicode 块”而不是逐个字符枚举，避免维护成本过高：
+    // - U+2000..U+2BFF: 常见符号/箭头/几何/杂项符号/装饰符号
+    // - U+1F000..U+1FAFF: emoji / pictographs 相关主块
+    return (
+      (cp >= 0x2000 && cp <= 0x2bff) ||
+      (cp >= 0x1f000 && cp <= 0x1faff)
+    );
+  }
+
+  function _isLikelySymbolIconTextForImage(text) {
+    if (!text) return false;
+    var s = _normalizeSymbolTextForMatch(text);
+    if (!s) return false;
+
+    // 排除普通文字/数字，避免把正文短词误当图标
+    if (/[A-Za-z0-9]/.test(s)) return false;
+
+    var cps = [];
+    for (var i = 0; i < s.length; ) {
+      var cp = s.codePointAt(i);
+      cps.push(cp);
+      i += cp > 0xffff ? 2 : 1;
+    }
+    if (cps.length < 1 || cps.length > 4) return false;
+
+    var _hasSymbolLike = false;
+    for (var j = 0; j < cps.length; j++) {
+      var _cp = cps[j];
+      // 排除常见正文脚本，防止误伤
+      if (
+        (_cp >= 0x0041 && _cp <= 0x005a) || // A-Z
+        (_cp >= 0x0061 && _cp <= 0x007a) || // a-z
+        (_cp >= 0x0030 && _cp <= 0x0039) || // 0-9
+        (_cp >= 0x3400 && _cp <= 0x9fff) || // CJK
+        (_cp >= 0x3040 && _cp <= 0x30ff) || // 日文平假名/片假名
+        (_cp >= 0xac00 && _cp <= 0xd7af)    // 韩文
+      ) {
+        return false;
+      }
+      if (_isUnicodeBlockSymbolLike(_cp)) _hasSymbolLike = true;
+    }
+    return _hasSymbolLike;
+  }
+
+  function _looksLikeShortIconTextRaw(text) {
+    if (!text) return false;
+    var s = _normalizeSymbolTextForMatch(text);
+    if (!s) return false;
+    if (s.length > 6) return false;
+    // 短文本且不含空白，作为“可能是图标字符”的宽松候选
+    return !/\s/.test(s);
+  }
+
+  function _pickDrawableTextColor(preferredColor, computed) {
+    function _valid(c) {
+      return !!(c && c !== 'transparent' && c !== 'rgba(0, 0, 0, 0)');
+    }
+    if (_valid(preferredColor)) return preferredColor;
+    var _wtfc = computed && computed.webkitTextFillColor;
+    if (_valid(_wtfc)) return _wtfc;
+    var _cc = computed && computed.color;
+    if (_valid(_cc)) return _cc;
+    return '#000';
+  }
+
+  function _stripTextOnlyStyleFields(style) {
+    if (!style) return;
+    delete style.color;
+    delete style.lineHeight;
+    delete style.fontFamily;
+    delete style.fontWeight;
+    delete style.fontStyle;
+    delete style.fontSize;
+    delete style.letterSpacing;
+    delete style.textAlignHorizontal;
+    delete style.textAlignVertical;
+    delete style.singleLine;
+    delete style.widthConstrained;
+    delete style.textOverflow;
+    delete style.colorRuns;
+    delete style.textCase;
+    delete style.textDecoration;
+    delete style.textStrokeWidth;
+    delete style.textStrokeColor;
+    delete style.textShadows;
+    delete style.textGradientFill;
+  }
+
+  function _upgradeNodeToSymbolContainerFrame(node, pngDataUrl, iconSize) {
+    if (!node || !node.style || !pngDataUrl) return;
+    var _frameStyle = Object.assign({}, node.style);
+    _stripTextOnlyStyleFields(_frameStyle);
+
+    _frameStyle.layoutMode = 'HORIZONTAL';
+    _frameStyle.itemSpacing = 0;
+    _frameStyle.primaryAxisAlignItems = 'CENTER';
+    _frameStyle.counterAxisAlignItems = 'CENTER';
+    if (_frameStyle.width != null) _frameStyle.layoutSizingHorizontal = 'FIXED';
+    if (_frameStyle.height != null) _frameStyle.layoutSizingVertical = 'FIXED';
+
+    var _iconW = Math.max(1, Math.round(iconSize && iconSize.width ? iconSize.width : 16));
+    var _iconH = Math.max(1, Math.round(iconSize && iconSize.height ? iconSize.height : 16));
+    var _imgNode = {
+      type: 'image',
+      name: ((node.name || 'symbol') + '-icon'),
+      className: node.className,
+      content: pngDataUrl,
+      style: {
+        width: _iconW,
+        height: _iconH,
+        layoutSizingHorizontal: 'FIXED',
+        layoutSizingVertical: 'FIXED'
+      },
+      children: undefined
+    };
+
+    node.type = 'frame';
+    node.content = undefined;
+    node.style = _frameStyle;
+    node.children = [_imgNode];
+  }
+
+  function _computeSymbolIconSize(containerW, containerH, fontSize, lineHeight) {
+    var _w = Math.max(1, Number(containerW) || 1);
+    var _h = Math.max(1, Number(containerH) || 1);
+    var _minSide = Math.max(1, Math.min(_w, _h));
+    var _fs = Math.max(0, Number(fontSize) || 0);
+    var _lh = Math.max(0, Number(lineHeight) || 0);
+
+    // 以容器视觉占比为主，字体尺寸为辅：
+    // - 解决部分 emoji 导出后明显偏小的问题
+    // - 同时避免超过容器边界
+    var _targetByContainer = _minSide * 0.78;
+    var _targetByFont = Math.max(_fs * 2.0, (_lh > 0 ? _lh * 1.45 : 0));
+    var _target = Math.max(_targetByContainer, _targetByFont, 12);
+    var _cap = _minSide * 0.92;
+    var _side = Math.max(1, Math.round(Math.min(_target, _cap)));
+
+    return { width: _side, height: _side };
+  }
+
+  function _renderSymbolTextAsPngDataUrl(text, computed, styleRect, preferredTextColor, includeBackground) {
+    if (!text || !computed || !styleRect || typeof document === 'undefined') return null;
+    try {
+      var w = Math.max(1, Math.round(styleRect.width || 0));
+      var h = Math.max(1, Math.round(styleRect.height || 0));
+      if (!(w > 0 && h > 0)) return null;
+
+      var fontSize = Math.max(1, parseFloat(computed.fontSize) || Math.min(w, h) || 14);
+      var scale = Math.max(2, Math.ceil(64 / Math.max(1, Math.min(w, h))));
+      var canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.round(w * scale));
+      canvas.height = Math.max(1, Math.round(h * scale));
+      var ctx = canvas.getContext('2d');
+      if (!ctx) return null;
+
+      ctx.setTransform(scale, 0, 0, scale, 0, 0);
+      ctx.clearRect(0, 0, w, h);
+
+      // 仅在明确需要时烘焙容器背景；默认走“父级 frame 背景 + 子 image 图标”结构
+      var _bg = (computed && computed.backgroundColor) || '';
+      if (includeBackground && _bg && _bg !== 'transparent' && _bg !== 'rgba(0, 0, 0, 0)') {
+        var _brRaw = (computed && computed.borderRadius) || '';
+        var _br = parseFloat(_brRaw) || 0;
+        if (_br > 0) {
+          var _r = Math.min(_br, w / 2, h / 2);
+          ctx.beginPath();
+          ctx.moveTo(_r, 0);
+          ctx.lineTo(w - _r, 0);
+          ctx.quadraticCurveTo(w, 0, w, _r);
+          ctx.lineTo(w, h - _r);
+          ctx.quadraticCurveTo(w, h, w - _r, h);
+          ctx.lineTo(_r, h);
+          ctx.quadraticCurveTo(0, h, 0, h - _r);
+          ctx.lineTo(0, _r);
+          ctx.quadraticCurveTo(0, 0, _r, 0);
+          ctx.closePath();
+          ctx.fillStyle = _bg;
+          ctx.fill();
+        } else {
+          ctx.fillStyle = _bg;
+          ctx.fillRect(0, 0, w, h);
+        }
+      }
+
+      var _fw = computed.fontWeight || '400';
+      var _fst = computed.fontStyle || 'normal';
+      var _ff = computed.fontFamily || 'PingFang SC, sans-serif';
+      var _targetW = w * 0.86;
+      var _targetH = h * 0.86;
+      function _setFontBySize(_sizePx) {
+        var _sz = Math.max(1, _sizePx || fontSize);
+        ctx.font = _fst + ' ' + _fw + ' ' + _sz + 'px ' + _ff;
+      }
+      function _measureBySize(_sizePx) {
+        _setFontBySize(_sizePx);
+        var _m = ctx.measureText(text);
+        var _mw = _m && _m.width ? _m.width : _sizePx;
+        var _ma = (_m && typeof _m.actualBoundingBoxAscent === 'number') ? _m.actualBoundingBoxAscent : _sizePx * 0.8;
+        var _md = (_m && typeof _m.actualBoundingBoxDescent === 'number') ? _m.actualBoundingBoxDescent : _sizePx * 0.2;
+        return { metrics: _m, width: _mw, height: Math.max(1, _ma + _md), ascent: _ma, descent: _md };
+      }
+
+      var _m0 = _measureBySize(fontSize);
+      var _fitW = _m0.width > 0 ? (_targetW / _m0.width) : 1;
+      var _fitH = _m0.height > 0 ? (_targetH / _m0.height) : 1;
+      var _fit = Math.max(0.6, Math.min(_fitW, _fitH));
+      var _drawFontSize = Math.max(fontSize * 0.9, Math.min(Math.min(w, h) * 1.6, fontSize * _fit));
+      var _m1 = _measureBySize(_drawFontSize);
+
+      ctx.fillStyle = _pickDrawableTextColor(preferredTextColor, computed);
+      if (_m1.metrics && typeof _m1.metrics.actualBoundingBoxLeft === 'number' && typeof _m1.metrics.actualBoundingBoxAscent === 'number') {
+        var _bboxLeft = _m1.metrics.actualBoundingBoxLeft || 0;
+        var _x = (w - _m1.width) / 2 - _bboxLeft;
+        var _y = (h + _m1.ascent - _m1.descent) / 2;
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'alphabetic';
+        ctx.fillText(text, _x, _y);
+      } else {
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(text, w / 2, h / 2);
+      }
+
+      var dataUrl = canvas.toDataURL('image/png');
+      return (dataUrl && dataUrl.indexOf('data:image/png') === 0) ? dataUrl : null;
+    } catch (_eSymPng) {
+      return null;
+    }
+  }
+
   function walk(el, parentRect, _inProForm, _inTabs, _inQuickSort) {
     var rect = getDesignRect(el, geo);
     const computed = window.getComputedStyle(el);
@@ -622,7 +863,9 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
         node.style = { x: node.style && node.style.x, y: node.style && node.style.y, width: node.style && node.style.width, height: (_origFrameHeight != null) ? _origFrameHeight : undefined, layoutMode: 'HORIZONTAL', itemSpacing: 0, counterAxisAlignItems: 'CENTER', layoutSizingHorizontal: 'HUG', layoutSizingVertical: (_origFrameHeight != null) ? 'FIXED' : 'HUG' };
         var _dbgUpgradeCls = (el.className && typeof el.className === 'string') ? el.className.split(' ').slice(0,3).join(' ') : '';
       }
+
     }
+
 
     if (nodeType === 'image') {
       var _imgTag = (el.tagName || '').toLowerCase();
@@ -1268,7 +1511,9 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
       var frameTitle = getFrameTitleFromElement(el);
       if (frameTitle) node.name = frameTitle;
       // input/textarea 改为 frame 后需补入 placeholder 文字子节点
-      if (tag === 'input' || tag === 'textarea') {
+      // checkbox/radio 的视觉由 CSS + ::after 伪元素表达，el.value 默认值 "on" 不是可见文本，跳过
+      var _inputTypeForPlaceholder = (tag === 'input' && el.getAttribute) ? (el.getAttribute('type') || el.type || '').toLowerCase() : '';
+      if ((tag === 'input' || tag === 'textarea') && _inputTypeForPlaceholder !== 'checkbox' && _inputTypeForPlaceholder !== 'radio') {
         var _inputPlaceholder2 = el.placeholder || '';
         var _inputValue2 = (el.value || '').trim();
         var _inputText2 = _inputValue2 || _inputPlaceholder2;

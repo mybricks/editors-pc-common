@@ -314,6 +314,79 @@ function rasterizeTilePatternToFullDataUrl(tileDataUrl, outW, outH) {
 }
 
 /**
+ * 预处理并着色 CSS mask 图标 SVG（纯字符串 regex，不经 DOMParser→XMLSerializer）：
+ *
+ * 1. 移除所有 mix-blend-mode 声明（pass-through 或 normal）
+ *    - pass-through 是非标准值，Canvas 渲染时整组透明；
+ *    - 即使替换为 normal，显式声明仍会强制创建 isolated compositing group，
+ *      SVG 作为外部图片加载进 Canvas 时该离屏缓冲区可能为 0×0 → 透明。
+ *    → 直接移除，默认 normal 行为不触发隔离合成。
+ * 2. 修正 fill-rule 大写（NONZERO/EVENODD → nonzero/evenodd）
+ * 3. 将所有非 none/transparent/url 的 fill 值替换为 fillColor（直接烘焙颜色）
+ *    → 栅格化后无需 destination-in 合成，避免透明导致空白
+ *
+ * 不使用 DOMParser+XMLSerializer：序列化复杂 SVG 时可能引入多余 xmlns 声明，
+ * 导致 Canvas 渲染异常（已通过 getImageData 确认）。
+ */
+function preprocessAndRecolorMaskSvg(svgContent, fillColor) {
+  if (!svgContent || typeof svgContent !== 'string') return svgContent;
+
+  var result = svgContent;
+
+  // 0. 确保 svg 根有 width/height 属性。Chromium 中 <img> 加载只有 viewBox 没有
+  //    width/height 的 SVG 时，naturalWidth/naturalHeight 会是 0，导致 drawImage 输出空白。
+  result = result.replace(/<svg\b([^>]*)>/i, function (m, attrs) {
+    var hasW = /\bwidth\s*=/i.test(attrs);
+    var hasH = /\bheight\s*=/i.test(attrs);
+    if (hasW && hasH) return m;
+    var vb = attrs.match(/\bviewBox\s*=\s*["']\s*[-\d.eE]+\s+[-\d.eE]+\s+([-\d.eE]+)\s+([-\d.eE]+)\s*["']/i);
+    var vbW = vb ? vb[1] : '24';
+    var vbH = vb ? vb[2] : '24';
+    var inj = '';
+    if (!hasW) inj += ' width="' + vbW + '"';
+    if (!hasH) inj += ' height="' + vbH + '"';
+    return '<svg' + attrs + inj + '>';
+  });
+
+  // 1. 移除根 svg 元素上的 fill="none" / fill="transparent" 属性。
+  //    某些渲染器会把根 fill 强制传播到子元素，覆盖 g/path 上的 fill。
+  result = result.replace(/(<svg\b[^>]*?)\bfill\s*=\s*"(?:none|transparent)"/i, '$1');
+  result = result.replace(/(<svg\b[^>]*?)\bfill\s*=\s*'(?:none|transparent)'/i, '$1');
+
+  // 2. 移除所有 mix-blend-mode 声明（pass-through 或 normal）
+  //    原因：pass-through 是非标准值；显式 normal 也会强制创建隔离合成组。
+  //    Canvas 加载 SVG 时该离屏缓冲区可能被分配为 0×0，导致整个 <g> 渲染为透明。
+  result = result.replace(/;\s*mix-blend-mode\s*:\s*[^;}"']+/gi, '');
+  result = result.replace(/mix-blend-mode\s*:\s*[^;}"']+;\s*/gi, '');
+  result = result.replace(/mix-blend-mode\s*:\s*[^;}"']+/gi, '');
+
+  // 2. fill-rule 大写 → 小写
+  result = result.replace(/\bfill-rule\s*=\s*"NONZERO"/g, 'fill-rule="nonzero"');
+  result = result.replace(/\bfill-rule\s*=\s*"EVENODD"/g, 'fill-rule="evenodd"');
+  result = result.replace(/\bfill-rule\s*=\s*'NONZERO'/g, "fill-rule='nonzero'");
+  result = result.replace(/\bfill-rule\s*=\s*'EVENODD'/g, "fill-rule='evenodd'");
+
+  // 3. 烘焙颜色（仅在 fillColor 有效时）
+  if (fillColor) {
+    // 替换 fill="<色值>" 属性（保留 fill="none"、fill="transparent"、fill="url(...)"）
+    result = result.replace(/\bfill="([^"]*)"/g, function (m, val) {
+      var v = val.trim().toLowerCase();
+      if (!v || v === 'none' || v === 'transparent' || v.indexOf('url(') === 0) return m;
+      return 'fill="' + fillColor + '"';
+    });
+    result = result.replace(/\bfill='([^']*)'/g, function (m, val) {
+      var v = val.trim().toLowerCase();
+      if (!v || v === 'none' || v === 'transparent' || v.indexOf('url(') === 0) return m;
+      return "fill='" + fillColor + "'";
+    });
+    // 替换 style 属性内的 fill: <色值>
+    result = result.replace(/\bfill\s*:\s*(?!none\b|transparent\b|url\()([^;}"']+)/gi, 'fill:' + fillColor);
+  }
+
+  return result;
+}
+
+/**
  * CSS mask 图标着色：将已栅格化的 SVG data URL（原始颜色）用 Canvas destination-in 合成，
  * 替换为 fillColor 指定的颜色。等价于 CSS `mask` 的渲染效果：
  *   1. 用 fillColor 填充整张画布
@@ -322,6 +395,10 @@ function rasterizeTilePatternToFullDataUrl(tileDataUrl, outW, outH) {
  */
 function _applyColorToMaskImageDataUrl(svgDataUrl, fillColor) {
   return new Promise(function (resolve) {
+    if (!svgDataUrl || svgDataUrl.length < 100) {
+      resolve(svgDataUrl);
+      return;
+    }
     var img = new window.Image();
     img.onload = function () {
       try {
@@ -332,18 +409,23 @@ function _applyColorToMaskImageDataUrl(svgDataUrl, fillColor) {
         canvas.height = ch;
         var ctx = canvas.getContext('2d');
         if (!ctx) { resolve(svgDataUrl); return; }
+
         // 步骤 1：用目标颜色填充整张画布
         ctx.fillStyle = fillColor;
         ctx.fillRect(0, 0, cw, ch);
         // 步骤 2：destination-in —— 保留与 SVG 不透明像素重叠的区域（形状遮罩）
         ctx.globalCompositeOperation = 'destination-in';
         ctx.drawImage(img, 0, 0, cw, ch);
-        resolve(canvas.toDataURL('image/png'));
+
+        var _result = canvas.toDataURL('image/png');
+        resolve(_result);
       } catch (_eComposite) {
         resolve(svgDataUrl);
       }
     };
-    img.onerror = function () { resolve(svgDataUrl); };
+    img.onerror = function () {
+      resolve(svgDataUrl);
+    };
     img.src = svgDataUrl;
   });
 }
@@ -402,6 +484,68 @@ function rasterizeInlineSvgToPngDataUrl(svgContent, outW, outH, scaleFactor) {
       }
     } catch (e2) {
       reject(e2);
+    }
+  });
+}
+
+/**
+ * 采样统计 dataURL 图片 alpha 覆盖率（0~1）。
+ * 用于识别“看似成功但实际全透明”的 PNG，避免将空白位图写入剪贴板。
+ */
+function inspectDataUrlAlphaCoverage(dataUrl) {
+  return new Promise(function (resolve) {
+    if (!dataUrl || typeof dataUrl !== 'string' || dataUrl.indexOf('data:image/') !== 0) {
+      resolve({ alphaCoverage: 0, nonTransparentSamples: 0, totalSamples: 0, width: 0, height: 0 });
+      return;
+    }
+    try {
+      var img = new window.Image();
+      img.onload = function () {
+        try {
+          var w = img.naturalWidth || img.width || 0;
+          var h = img.naturalHeight || img.height || 0;
+          if (!(w > 0 && h > 0)) {
+            resolve({ alphaCoverage: 0, nonTransparentSamples: 0, totalSamples: 0, width: w, height: h });
+            return;
+          }
+          var c = document.createElement('canvas');
+          c.width = w;
+          c.height = h;
+          var ctx = c.getContext('2d', { willReadFrequently: true });
+          if (!ctx) {
+            resolve({ alphaCoverage: 0, nonTransparentSamples: 0, totalSamples: 0, width: w, height: h });
+            return;
+          }
+          ctx.clearRect(0, 0, w, h);
+          ctx.drawImage(img, 0, 0, w, h);
+          var data = ctx.getImageData(0, 0, w, h).data;
+          var stride = Math.max(1, Math.floor(Math.max(w, h) / 64));
+          var total = 0;
+          var opaque = 0;
+          for (var y = 0; y < h; y += stride) {
+            for (var x = 0; x < w; x += stride) {
+              total += 1;
+              var idx = ((y * w + x) << 2) + 3;
+              if (data[idx] > 8) opaque += 1;
+            }
+          }
+          resolve({
+            alphaCoverage: total ? (opaque / total) : 0,
+            nonTransparentSamples: opaque,
+            totalSamples: total,
+            width: w,
+            height: h,
+          });
+        } catch (_eInspect) {
+          resolve({ alphaCoverage: 0, nonTransparentSamples: 0, totalSamples: 0, width: 0, height: 0 });
+        }
+      };
+      img.onerror = function () {
+        resolve({ alphaCoverage: 0, nonTransparentSamples: 0, totalSamples: 0, width: 0, height: 0 });
+      };
+      img.src = dataUrl;
+    } catch (_eOuter) {
+      resolve({ alphaCoverage: 0, nonTransparentSamples: 0, totalSamples: 0, width: 0, height: 0 });
     }
   });
 }
@@ -553,6 +697,25 @@ function inlineImageFillsInTree(obj, options) {
     var _svgMarkup = _svgStyle.svgContent;
     // CSS mask 图标：提前捕获 maskFillColor（闭包变量，避免 promise 链内读取时 obj.style 已被替换）
     var _svgMaskFill = _svgStyle.maskFillColor || null;
+    // CSS mask 单色图标优先保留为矢量：
+    // 1) 避免小尺寸高透明 PNG 在 Figma Fill 预览面板中的不稳定回显
+    // 2) 保留可缩放性，避免锯齿
+    if (_svgMaskFill && _svgMarkup) {
+      // 注意：保持 obj.type === 'svg'，后续由 ir-to-figma 的 convertSvgNode 走矢量路径，
+      // 并使用 style.maskFillColor 作为最终填充色。
+      return Promise.all(promises).then(function () {
+        // 清理 TILED_GRADIENT 渲染失败后置 null 的 fill 项
+        if (style && style.fills && Array.isArray(style.fills)) {
+          style.fills = style.fills.filter(function (f) { return f != null; });
+        }
+        var children = obj.children;
+        if (children && children.length) {
+          return Promise.all(children.map(function (child) { return inlineImageFillsInTree(child, ctxOptions); }));
+        }
+      }).then(function () {
+        ctxOptions.__imageInlineDepth -= 1;
+      });
+    }
     if (typeof _svgMarkup === 'string' && _svgMarkup) {
       stats.attempts += 1;
       var _svgW = _svgStyle.width || 24;
@@ -564,10 +727,22 @@ function inlineImageFillsInTree(obj, options) {
       var _maskScale = _svgMaskFill
         ? Math.max(_svgScale, Math.ceil(64 / Math.max(1, Math.min(_svgW, _svgH))))
         : _svgScale;
-      // CSS mask 图标：栅格化后用 Canvas destination-in 合成，将 SVG 形状着色为 background-color
+      // CSS mask 图标：预处理修正非标准 CSS + 烘焙颜色（fill 直接替换为 maskFillColor），
+      // 然后直接栅格化，无需 destination-in 合成（避免 SVG 透明导致空白）
+      var _svgMarkupForRaster = _svgMaskFill
+        ? preprocessAndRecolorMaskSvg(_svgMarkup, _svgMaskFill)
+        : _svgMarkup;
       var _rasterP = _svgMaskFill
-        ? rasterizeInlineSvgToPngDataUrl(_svgMarkup, _svgW, _svgH, _maskScale).then(function (rawDataUrl) {
-            return _applyColorToMaskImageDataUrl(rawDataUrl, _svgMaskFill);
+        ? rasterizeInlineSvgToPngDataUrl(_svgMarkupForRaster, _svgW, _svgH, _maskScale).then(function (dataUrl) {
+            return inspectDataUrlAlphaCoverage(dataUrl).then(function (_alphaMeta) {
+              // 覆盖率过低视为“实质空白图”，回退矢量导出，避免把透明 PNG 写入剪贴板。
+              if ((_alphaMeta.alphaCoverage || 0) < 0.003) {
+                throw new Error('[mask-icon] alpha coverage too low: ' + (_alphaMeta.alphaCoverage || 0));
+              }
+              return dataUrl;
+            });
+          }).then(function (dataUrl) {
+            return dataUrl;
           })
         : rasterizeInlineSvgToPngDataUrl(_svgMarkup, _svgW, _svgH, _svgScale);
       promises.push(

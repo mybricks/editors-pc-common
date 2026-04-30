@@ -437,6 +437,84 @@ function computeImageHashHex(bytes) {
   return hex;
 }
 
+function _sha1Rol32(v, n) {
+  return ((v << n) | (v >>> (32 - n))) >>> 0;
+}
+
+/** 同步 SHA-1（Uint8Array -> 40 位小写 hex） */
+function computeImageSha1HexSync(bytes) {
+  if (!bytes || !bytes.length) return null;
+  var ml = bytes.length * 8;
+  var padLen = (((bytes.length + 9 + 63) >> 6) << 6) - bytes.length;
+  var msg = new Uint8Array(bytes.length + padLen);
+  msg.set(bytes, 0);
+  msg[bytes.length] = 0x80;
+  var mlHi = Math.floor(ml / 0x100000000);
+  var mlLo = ml >>> 0;
+  var end = msg.length - 8;
+  msg[end + 0] = (mlHi >>> 24) & 0xff;
+  msg[end + 1] = (mlHi >>> 16) & 0xff;
+  msg[end + 2] = (mlHi >>> 8) & 0xff;
+  msg[end + 3] = mlHi & 0xff;
+  msg[end + 4] = (mlLo >>> 24) & 0xff;
+  msg[end + 5] = (mlLo >>> 16) & 0xff;
+  msg[end + 6] = (mlLo >>> 8) & 0xff;
+  msg[end + 7] = mlLo & 0xff;
+
+  var h0 = 0x67452301;
+  var h1 = 0xEFCDAB89;
+  var h2 = 0x98BADCFE;
+  var h3 = 0x10325476;
+  var h4 = 0xC3D2E1F0;
+  var w = new Uint32Array(80);
+
+  for (var i = 0; i < msg.length; i += 64) {
+    for (var t = 0; t < 16; t++) {
+      var j = i + t * 4;
+      w[t] = ((msg[j] << 24) | (msg[j + 1] << 16) | (msg[j + 2] << 8) | msg[j + 3]) >>> 0;
+    }
+    for (var t2 = 16; t2 < 80; t2++) {
+      w[t2] = _sha1Rol32(w[t2 - 3] ^ w[t2 - 8] ^ w[t2 - 14] ^ w[t2 - 16], 1);
+    }
+
+    var a = h0, b = h1, c = h2, d = h3, e = h4;
+    for (var t3 = 0; t3 < 80; t3++) {
+      var f, k;
+      if (t3 < 20) {
+        f = (b & c) | ((~b) & d);
+        k = 0x5A827999;
+      } else if (t3 < 40) {
+        f = b ^ c ^ d;
+        k = 0x6ED9EBA1;
+      } else if (t3 < 60) {
+        f = (b & c) | (b & d) | (c & d);
+        k = 0x8F1BBCDC;
+      } else {
+        f = b ^ c ^ d;
+        k = 0xCA62C1D6;
+      }
+      var temp = (_sha1Rol32(a, 5) + f + e + k + w[t3]) >>> 0;
+      e = d;
+      d = c;
+      c = _sha1Rol32(b, 30);
+      b = a;
+      a = temp;
+    }
+    h0 = (h0 + a) >>> 0;
+    h1 = (h1 + b) >>> 0;
+    h2 = (h2 + c) >>> 0;
+    h3 = (h3 + d) >>> 0;
+    h4 = (h4 + e) >>> 0;
+  }
+
+  function _hex32(n) {
+    var s = (n >>> 0).toString(16);
+    while (s.length < 8) s = '0' + s;
+    return s;
+  }
+  return (_hex32(h0) + _hex32(h1) + _hex32(h2) + _hex32(h3) + _hex32(h4)).toLowerCase();
+}
+
 function extFromMime(mime) {
   if (!mime) return 'bin';
   if (mime.indexOf('png') >= 0) return 'png';
@@ -452,7 +530,7 @@ function extFromMime(mime) {
  * @param {string} dataUrl - base64 data URL
  * @param {Array} blobs - Message.blobs 数组（共享引用）
  * @param {object} imageCtx - 图片注册上下文，含 byHash 缓存
- * @param {string} [optionalHashHex] - 可选的预计算 SHA-1 hash（40位hex），若提供则优先使用，覆盖 FNV
+ * @param {string} [optionalHashHex] - 可选的预计算 SHA-1 hash（40位hex），仅用于对账日志
  */
 function registerImageFromDataUrl(dataUrl, blobs, imageCtx, optionalHashHex) {
   var parsed = parseDataUrlToBytes(dataUrl);
@@ -463,9 +541,16 @@ function registerImageFromDataUrl(dataUrl, blobs, imageCtx, optionalHashHex) {
     });
     return null;
   }
-  // 优先使用外部预计算的 SHA-1 hash（由 image-inline.js 在 async 阶段计算），
-  // 回退到 5×FNV（figma-api.ts computeImageHash 参考实现）。
-  var hashHex = (optionalHashHex && optionalHashHex.length === 40) ? optionalHashHex : computeImageHashHex(parsed.bytes);
+  // 统一策略：始终基于最终写入 blobs 的 bytes 同步计算 SHA-1，避免“外部 hash + 本地 fallback”混用。
+  var hashHex = computeImageSha1HexSync(parsed.bytes);
+  if (!hashHex) hashHex = computeImageHashHex(parsed.bytes); // 极端兜底，理论不应命中
+  if (optionalHashHex && optionalHashHex.length === 40 && optionalHashHex.toLowerCase() !== hashHex) {
+    console.warn('[figma-image] hash 对账不一致（将以 bytes 实算 SHA-1 为准）', {
+      provided: optionalHashHex.toLowerCase(),
+      computed: hashHex,
+      dataUrlLen: dataUrl ? dataUrl.length : 0,
+    });
+  }
   var hashBytes = imageHashHexToBytes(hashHex);
   if (!hashBytes) return null;
   var key = hashHex;
@@ -1827,6 +1912,24 @@ function encodeGlyphBlob(otGlyph) {
   return u8;
 }
 
+// emoji 占位矩形 blob（46 bytes）：逆向自 Figma 真实剪贴板数据。
+// Figma 用 glyph.emojiCodePoints 触发系统 emoji 渲染，blob 仅作为字形边界框占位，不参与实际路径绘制。
+// 矩形覆盖归一化坐标 [0,1] × [-0.07, 0.93]（em-square，Y 轴在 Figma blob 坐标中向下为正）。
+// 注意：与普通字形 blob 不同，此 blob 以 0x01 (MOVE_TO) 开头，而非 0x00 (start marker)。
+function makeEmojiPlaceholderBlob() {
+  var buf = new ArrayBuffer(46);
+  var u8 = new Uint8Array(buf);
+  var dv = new DataView(buf);
+  var pos = 0;
+  u8[pos++] = 0x01; dv.setFloat32(pos, 0.0, true); pos += 4; dv.setFloat32(pos, -0.07, true); pos += 4;
+  u8[pos++] = 0x02; dv.setFloat32(pos, 1.0, true); pos += 4; dv.setFloat32(pos, -0.07, true); pos += 4;
+  u8[pos++] = 0x02; dv.setFloat32(pos, 1.0, true); pos += 4; dv.setFloat32(pos, 0.93, true);  pos += 4;
+  u8[pos++] = 0x02; dv.setFloat32(pos, 0.0, true); pos += 4; dv.setFloat32(pos, 0.93, true);  pos += 4;
+  u8[pos++] = 0x02; dv.setFloat32(pos, 0.0, true); pos += 4; dv.setFloat32(pos, -0.07, true); pos += 4;
+  u8[pos++] = 0x00;
+  return u8;
+}
+
 // ── 装饰线注入：把删除线/下划线矩形路径嵌入字形贝塞尔，与字形同色渲染，避免 derivedTextData.decorations 矩形叠层白边问题 ──
 // encodeGlyphBlob 内部对 y 取反（-c.y），故此函数在 opentype.js 屏幕坐标下操作：基线以上 y 为负，基线以下 y 为正。
 function makeDecoratedGlyphForEncoding(otGlyph, decType, font) {
@@ -1907,6 +2010,206 @@ function opentypeFontCoversCjkChars(font, text) {
   return true;
 }
 
+function codePointNeedsSymbolCoverage(cp) {
+  return (
+    // Misc Technical Symbols（⏰ 等）
+    (cp >= 0x2300 && cp <= 0x23ff) ||
+    // Misc Symbols / Dingbats（⚠、✖、✔ 等）
+    (cp >= 0x2600 && cp <= 0x26ff) ||
+    (cp >= 0x2700 && cp <= 0x27bf) ||
+    // 其他常见符号区
+    (cp >= 0x2b00 && cp <= 0x2bff) ||
+    // Emoji blocks（含彩色 emoji）
+    (cp >= 0x1f300 && cp <= 0x1faff)
+  );
+}
+
+/**
+ * 判断一个码位是否具有 Unicode Emoji_Presentation=Yes 属性（默认以彩色 emoji 渲染）。
+ *
+ * 与 codePointNeedsSymbolCoverage 的区别：
+ *   - codePointNeedsSymbolCoverage：宽松，涵盖所有"符号/符文"区间（用于字体覆盖检测）
+ *   - hasEmojiPresentation：精确，只含真正以 emoji 形式渲染的码位（用于 emojiCodePoints 路径）
+ *
+ * ✓ U+2713 CHECK MARK ——— Dingbat，无 Emoji_Presentation → 不走此路径
+ * ⏰ U+23F0 ALARM CLOCK —— Emoji_Presentation=Yes   → 走此路径
+ *
+ * 数据来源：Unicode Emoji 15.1  emoji-data.txt（Emoji_Presentation 列）
+ */
+function hasEmojiPresentation(cp) {
+  return (
+    // Miscellaneous Technical — 仅 Emoji_Presentation=Yes 的子集
+    (cp >= 0x231A && cp <= 0x231B) ||  // ⌚⌛
+    (cp >= 0x23E9 && cp <= 0x23F3) ||  // ⏩..⏳（含 ⏰ U+23F0）
+    (cp >= 0x23F8 && cp <= 0x23FA) ||  // ⏸⏹⏺
+    // Miscellaneous Symbols — 仅 Emoji_Presentation=Yes 的子集
+    (cp >= 0x2614 && cp <= 0x2615) ||  // ☔☕
+    (cp >= 0x2648 && cp <= 0x2653) ||  // ♈..♓
+    cp === 0x267F ||                    // ♿
+    cp === 0x2693 ||                    // ⚓
+    cp === 0x26A1 ||                    // ⚡
+    (cp >= 0x26AA && cp <= 0x26AB) ||  // ⚪⚫
+    (cp >= 0x26BD && cp <= 0x26BE) ||  // ⚽⚾
+    (cp >= 0x26C4 && cp <= 0x26C5) ||  // ⛄⛅
+    cp === 0x26CE ||                    // ⛎
+    cp === 0x26D4 ||                    // ⛔
+    cp === 0x26EA ||                    // ⛪
+    (cp >= 0x26F2 && cp <= 0x26F3) ||  // ⛲⛳
+    cp === 0x26F5 ||                    // ⛵
+    cp === 0x26FA ||                    // ⛺
+    cp === 0x26FD ||                    // ⛽
+    // Dingbats — 仅 Emoji_Presentation=Yes 的子集（注意：✓ U+2713 不在此列）
+    cp === 0x2702 ||                    // ✂
+    cp === 0x2705 ||                    // ✅
+    (cp >= 0x2708 && cp <= 0x270D) ||  // ✈✉✊✋✌✍
+    cp === 0x270F ||                    // ✏
+    cp === 0x2712 ||                    // ✒
+    cp === 0x2714 ||                    // ✔（注意：0x2714 是 ✔，0x2713 是 ✓，前者有 EP）
+    cp === 0x2716 ||                    // ✖
+    cp === 0x271D ||                    // ✝
+    cp === 0x2721 ||                    // ✡
+    cp === 0x2728 ||                    // ✨
+    (cp >= 0x2733 && cp <= 0x2734) ||  // ✳✴
+    cp === 0x2744 ||                    // ❄
+    cp === 0x2747 ||                    // ❇
+    cp === 0x274C ||                    // ❌
+    cp === 0x274E ||                    // ❎
+    (cp >= 0x2753 && cp <= 0x2755) ||  // ❓❔❕
+    cp === 0x2757 ||                    // ❗
+    (cp >= 0x2763 && cp <= 0x2764) ||  // ❣❤
+    (cp >= 0x2795 && cp <= 0x2797) ||  // ➕➖➗
+    cp === 0x27A1 ||                    // ➡
+    cp === 0x27B0 ||                    // ➰
+    cp === 0x27BF ||                    // ➿
+    // 主 Emoji 块（U+1F000 以上基本全是 emoji）
+    (cp >= 0x1F004 && cp <= 0x1F0CF) ||
+    (cp >= 0x1F170 && cp <= 0x1F171) ||
+    (cp >= 0x1F17E && cp <= 0x1F17F) ||
+    cp === 0x1F18E ||
+    (cp >= 0x1F191 && cp <= 0x1F19A) ||
+    (cp >= 0x1F1E0 && cp <= 0x1F1FF) ||  // 旗帜字母
+    (cp >= 0x1F201 && cp <= 0x1F202) ||
+    cp === 0x1F21A ||
+    cp === 0x1F22F ||
+    (cp >= 0x1F232 && cp <= 0x1F23A) ||
+    (cp >= 0x1F250 && cp <= 0x1F251) ||
+    (cp >= 0x1F300 && cp <= 0x1FAFF)    // 主要 emoji 大块（😀🎉🌈等）
+  );
+}
+
+function textIsLikelySymbolIcon(text) {
+  if (!text) return false;
+  var s = String(text).replace(/\s+/g, '');
+  if (!s) return false;
+  // 仅把“极短的纯符号文本”视为图标，避免影响正常句子
+  var cps = [];
+  for (var i = 0; i < s.length; ) {
+    var cp = s.codePointAt(i);
+    cps.push(cp);
+    i += cp > 0xffff ? 2 : 1;
+  }
+  if (cps.length < 1 || cps.length > 3) return false;
+  for (var j = 0; j < cps.length; j++) {
+    if (!codePointNeedsSymbolCoverage(cps[j])) return false;
+  }
+  return true;
+}
+
+function forceTextPresentationForSymbols(text) {
+  if (!text) return text;
+  var out = '';
+  for (var i = 0; i < text.length; ) {
+    var cp = text.codePointAt(i);
+    var ch = String.fromCodePoint(cp);
+    var step = cp > 0xffff ? 2 : 1;
+    var nextCp = (i + step < text.length) ? text.codePointAt(i + step) : null;
+    out += ch;
+    // 对 emoji 倾向符号补 FE0E（文本呈现），避免 Figma 编辑态回退成彩色 emoji。
+    if (codePointNeedsSymbolCoverage(cp) && nextCp !== 0xfe0e && nextCp !== 0xfe0f) {
+      out += '\uFE0E';
+    }
+    i += step;
+    // 若原文本里紧跟 VS16/VS15，则一并跳过，避免重复。
+    if (nextCp === 0xfe0e || nextCp === 0xfe0f) i += 1;
+  }
+  return out;
+}
+
+function glyphHasDrawableOutline(g) {
+  if (!g || !g.getPath) return false;
+  // .notdef 字形固定在 index 0，其方框轮廓有 L/Z 命令但并非真实字符路径，必须排除
+  if (g.index === 0) return false;
+  try {
+    var p = g.getPath(0, 0, 1000);
+    var cmds = p && p.commands ? p.commands : null;
+    if (!cmds || !cmds.length) return false;
+    var hasDraw = false;
+    for (var i = 0; i < cmds.length; i++) {
+      var t = cmds[i] && cmds[i].type;
+      if (t === 'L' || t === 'C' || t === 'Q' || t === 'Z') { hasDraw = true; break; }
+    }
+    return hasDraw;
+  } catch (_e) {
+    return false;
+  }
+}
+
+function opentypeFontCoversSymbolChars(font, text) {
+  if (!font || !text) return true;
+  for (var i = 0; i < text.length; ) {
+    var cp = text.codePointAt(i);
+    var ch = String.fromCodePoint(cp);
+    i += cp > 0xffff ? 2 : 1;
+    if (!codePointNeedsSymbolCoverage(cp)) continue;
+    var g;
+    try {
+      var arr = font.stringToGlyphs(ch);
+      g = arr && arr[0];
+    } catch (_e) {
+      return false;
+    }
+    if (!g || g.name === '.notdef') return false;
+    if (!glyphHasDrawableOutline(g)) return false;
+  }
+  return true;
+}
+
+/**
+ * 在 fontCtxMap 中找第一个能为给定码位提供可绘制 OpenType 路径的字体，
+ * 返回该字体对象；找不到时返回 null。
+ * 用于"非 emoji 符号（如 ✓ U+2713）当前字体无路径"时的逐字形兜底。
+ */
+function findGlyphInFontCtxMap(fontCtxMap, cp) {
+  if (!fontCtxMap || !cp) return null;
+  var ch = String.fromCodePoint(cp);
+  // 优先查找专门的符号字体，降低找到错误字形的概率
+  var _preferred = ['Apple Symbols', 'Segoe UI Symbol', 'Noto Sans Symbols 2', 'Noto Sans Symbols'];
+  var _ordered = [];
+  var _seen = {};
+  for (var _pi = 0; _pi < _preferred.length; _pi++) {
+    var _pf = _preferred[_pi];
+    if (fontCtxMap[_pf] && !_seen[_pf]) { _ordered.push(_pf); _seen[_pf] = true; }
+  }
+  var _all = Object.keys(fontCtxMap);
+  for (var _ai = 0; _ai < _all.length; _ai++) {
+    if (!_seen[_all[_ai]]) { _ordered.push(_all[_ai]); _seen[_all[_ai]] = true; }
+  }
+  for (var _oi = 0; _oi < _ordered.length; _oi++) {
+    var _wm = fontCtxMap[_ordered[_oi]];
+    if (!_wm || typeof _wm !== 'object') continue;
+    var _wKeys = Object.keys(_wm);
+    if (!_wKeys.length) continue;
+    var _ctx = _wm[_wKeys[0]]; // 取任意字重
+    if (!_ctx || !_ctx.font) continue;
+    try {
+      var _gs = _ctx.font.stringToGlyphs(ch);
+      var _g = _gs && _gs[0];
+      if (_g && glyphHasDrawableOutline(_g)) return _g;
+    } catch (_e) {}
+  }
+  return null;
+}
+
 function pickFontCtxFromWeightMap(weightMap, clampedWeight) {
   if (!weightMap || typeof weightMap !== 'object') return null;
   var _ctx = weightMap[clampedWeight] || null;
@@ -1916,6 +2219,47 @@ function pickFontCtxFromWeightMap(weightMap, clampedWeight) {
     if (_keys[_ki] <= clampedWeight) return weightMap[_keys[_ki]];
   }
   return _keys.length ? weightMap[_keys[_keys.length - 1]] : null;
+}
+
+/**
+ * 在 fontCtxMap 中找一个“能覆盖给定文本”的字体上下文（优先 preferredFamilies）。
+ * 返回 { ctx, family } 或 null。
+ */
+function findFontCtxByCoverage(fontCtxMap, clampedWeight, text, coverFn, preferredFamilies, familyFilter) {
+  if (!fontCtxMap || typeof fontCtxMap !== 'object' || !text || typeof coverFn !== 'function') return null;
+  var seen = {};
+  var families = [];
+  var pref = Array.isArray(preferredFamilies) ? preferredFamilies : [];
+  for (var i = 0; i < pref.length; i++) {
+    var f = pref[i];
+    if (!f || seen[f]) continue;
+    if (fontCtxMap[f]) {
+      families.push(f);
+      seen[f] = true;
+    }
+  }
+  var all = Object.keys(fontCtxMap);
+  for (var j = 0; j < all.length; j++) {
+    var af = all[j];
+    if (seen[af]) continue;
+    families.push(af);
+    seen[af] = true;
+  }
+  for (var k = 0; k < families.length; k++) {
+    var fam = families[k];
+    if (typeof familyFilter === 'function' && !familyFilter(fam)) continue;
+    var wm = fontCtxMap[fam];
+    var ctx = pickFontCtxFromWeightMap(wm, clampedWeight);
+    if (!ctx || !ctx.font || !ctx.fontDigest) continue;
+    try {
+      if (coverFn(ctx.font, text)) return { ctx: ctx, family: fam };
+    } catch (_e) {}
+  }
+  return null;
+}
+
+function isEmojiFamilyName(name) {
+  return /emoji/i.test(String(name || ''));
 }
 
 // ─── Text measurement with opentype.js ───
@@ -2444,11 +2788,69 @@ function convertTextNode(irNode, guid, parentGuid, siblingIndex, fontCtxMap, blo
     }
   }
 
-  var hasFontCtx = resolvedFontCtx && resolvedFontCtx.font && resolvedFontCtx.fontDigest && blobs && content;
+
+  // ── 纯符号文本节点级字体切换 ───────────────────────────────────────
+  // 当节点文本全为非 emoji 符号（✓/⚠ 等），且当前字体（如 PingFang SC CDN 子集）无法提供路径时，
+  // 整体切换到 Noto Sans Symbols 2（简单轮廓，opentype.js 可正确解析）。
+  // 必须在测量前切换，确保 fontDigest、glyph blob、fontName 三者一致——
+  // 否则 blob 与 fontDigest 不匹配时 Figma 拒绝 derivedTextData，首帧不显示。
+  // 注意：Apple Symbols/Segoe UI Symbol 在 macOS 上为复合字形，
+  // opentype.js 的 getPath 退化为包围盒矩形，故不列入候选。
+  if (resolvedFontCtx && resolvedFontCtx.font && fontCtxMap && _tcTransformed.length > 0) {
+    var _allSymCps = [];
+    for (var _scI = 0; _scI < _tcTransformed.length; ) {
+      var _scCp = _tcTransformed.codePointAt(_scI);
+      _allSymCps.push(_scCp);
+      _scI += _scCp > 0xffff ? 2 : 1;
+    }
+    // 只对"全部字符都是非 emoji 符号"的节点做整体切换
+    var _isPureNonEmojiSymbol = _allSymCps.length > 0 && _allSymCps.every(function(cp) {
+      return codePointNeedsSymbolCoverage(cp) && !hasEmojiPresentation(cp);
+    });
+    if (_isPureNonEmojiSymbol) {
+      // 检查当前字体是否已覆盖（避免不必要切换）
+      var _primaryMisses = _allSymCps.some(function(cp) {
+        try {
+          var _g = resolvedFontCtx.font.stringToGlyphs(String.fromCodePoint(cp))[0];
+          return !_g || !glyphHasDrawableOutline(_g);
+        } catch (_e2) { return true; }
+      });
+      if (_primaryMisses) {
+        // 只用 Noto Sans Symbols 2：简单轮廓，opentype.js 可正确分解
+        var _symCandidates = ['Noto Sans Symbols 2'];
+        for (var _sci = 0; _sci < _symCandidates.length; _sci++) {
+          var _scFam = _symCandidates[_sci];
+          var _scWm = fontCtxMap[_scFam];
+          if (!_scWm) continue;
+          var _scCtx = _scWm[Object.keys(_scWm)[0]];
+          if (!_scCtx || !_scCtx.font || !_scCtx.fontDigest) continue;
+          var _scCoversAll = _allSymCps.every(function(cp) {
+            try {
+              var _g2 = _scCtx.font.stringToGlyphs(String.fromCodePoint(cp))[0];
+              return _g2 && glyphHasDrawableOutline(_g2);
+            } catch (_e3) { return false; }
+          });
+          if (_scCoversAll) {
+            resolvedFontCtx = _scCtx;
+            fontName = resolveFontName(_scFam, style.fontWeight || 400, style.fontStyle === 'italic');
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  var hasFontCtx =
+    resolvedFontCtx &&
+    resolvedFontCtx.font &&
+    resolvedFontCtx.fontDigest &&
+    blobs &&
+    content;
   var measured = null;
   if (hasFontCtx) {
     try {
-      measured = measureTextWithFont(_tcTransformed, fontSize, resolvedFontCtx.font, style.letterSpacing || 0);
+      var _glyphSourceText = _tcTransformed;
+      measured = measureTextWithFont(_glyphSourceText, fontSize, resolvedFontCtx.font, style.letterSpacing || 0);
     } catch (_e) {
       measured = null;
     }
@@ -2657,11 +3059,21 @@ function convertTextNode(irNode, guid, parentGuid, siblingIndex, fontCtxMap, blo
   }
 
   if (measured) {
-    nc.textUserLayoutVersion = 4;
+    // codepoints 数组：与 measured.glyphs 一一对应，用于 emoji 检测
+    var _contentCps = [];
+    (function () {
+      var _cpSrc = _tcTransformed;
+      for (var _cpI = 0; _cpI < _cpSrc.length; ) {
+        var _cp = _cpSrc.codePointAt(_cpI);
+        _contentCps.push(_cp);
+        _cpI += _cp > 0xffff ? 2 : 1;
+      }
+    })();
 
     var figmaGlyphs = [];
     var figmaBaselines = [];
     var _truncationStartIdx = -1;
+    var _hasEmojiGlyph = false;
     // 单行：用 CSS half-leading 模型计算 ascender（baseline 距行框顶部的距离）。
     // 超出字体自然行高（naturalLineHeight = ascender + descender）的 CSS line-height 空白
     // 应上下均分铺在 em-box 两侧，即 baseline = halfLeading + naturalAscender。
@@ -2758,21 +3170,43 @@ function convertTextNode(irNode, guid, parentGuid, siblingIndex, fontCtxMap, blo
         for (var _gi = 0; _gi < _lineGlyphs.length; _gi++) {
           var _gd = _lineGlyphs[_gi];
           var _gCharIdx_ml = _charOffset + _gi;
-          var _gDecSid_ml = _charStyleIDs ? _charStyleIDs[_gCharIdx_ml] : 0;
-          var _gDecType_ml = _gDecSid_ml ? _decTypeByStyleID[_gDecSid_ml] : null;
-          var _gOtGlyph_ml = _gDecType_ml ? makeDecoratedGlyphForEncoding(_gd.otGlyph, _gDecType_ml, resolvedFontCtx.font) : _gd.otGlyph;
-          var _gblob = encodeGlyphBlob(_gOtGlyph_ml);
+          var _gCp_ml = _contentCps[_gCharIdx_ml];
+          var _gNoPath_ml = !glyphHasDrawableOutline(_gd.otGlyph);
+          var _gIsSymbol_ml = _gCp_ml != null && codePointNeedsSymbolCoverage(_gCp_ml);
+          // emoji 路径：具有 Emoji_Presentation 属性的码位，或符号字符在所有已加载字体中均无可绘制路径
+          // 后者使用 emojiCodePoints 让 Figma 自身的系统字体 fallback 链处理（如系统完整版 PingFang SC），首帧可见
+          var _gIsEmoji_ml = _gNoPath_ml && _gIsSymbol_ml && (
+            hasEmojiPresentation(_gCp_ml) || !findGlyphInFontCtxMap(fontCtxMap, _gCp_ml)
+          );
           var _gblobIdx = blobs.length;
-          blobs.push({ bytes: _gblob });
+          if (_gIsEmoji_ml) {
+            blobs.push({ bytes: makeEmojiPlaceholderBlob() });
+            _hasEmojiGlyph = true;
+          } else {
+            var _gDecSid_ml = _charStyleIDs ? _charStyleIDs[_gCharIdx_ml] : 0;
+            var _gDecType_ml = _gDecSid_ml ? _decTypeByStyleID[_gDecSid_ml] : null;
+            var _gOtGlyph_ml = _gd.otGlyph;
+            // 非 emoji 符号但当前字体无路径 → 用 findGlyphInFontCtxMap 找到的字体路径
+            if (_gNoPath_ml && _gIsSymbol_ml) {
+              var _fbG_ml = findGlyphInFontCtxMap(fontCtxMap, _gCp_ml);
+              if (_fbG_ml) _gOtGlyph_ml = _fbG_ml;
+            }
+            if (_gDecType_ml) _gOtGlyph_ml = makeDecoratedGlyphForEncoding(_gOtGlyph_ml, _gDecType_ml, resolvedFontCtx.font);
+            blobs.push({ bytes: encodeGlyphBlob(_gOtGlyph_ml) });
+          }
           var _glyphObj = {
             commandsBlob: _gblobIdx,
             position: { x: _gd.x + _lineXOffset, y: _lineYBase + measured.ascender },
             fontSize: fontSize,
-            firstCharacter: _charOffset + _gi,
-            advance: _gd.advanceNorm,
+            firstCharacter: _gCharIdx_ml,
+            advance: _gIsEmoji_ml ? 1 : _gd.advanceNorm,
           };
-          var _gStyleID = _charStyleIDs ? _charStyleIDs[_charOffset + _gi] : 0;
-          if (_gStyleID) _glyphObj.styleID = _gStyleID;
+          if (_gIsEmoji_ml) {
+            _glyphObj.emojiCodePoints = [_gCp_ml];
+          } else {
+            var _gStyleID = _charStyleIDs ? _charStyleIDs[_gCharIdx_ml] : 0;
+            if (_gStyleID) _glyphObj.styleID = _gStyleID;
+          }
           figmaGlyphs.push(_glyphObj);
         }
         figmaBaselines.push({
@@ -2889,21 +3323,43 @@ function convertTextNode(irNode, guid, parentGuid, siblingIndex, fontCtxMap, blo
         var _slXOffset = computeTextAlignXOffset(style.textAlignHorizontal, nodeWidth, measured.totalWidth);
         for (var gi = 0; gi < measured.glyphs.length; gi++) {
           var gd = measured.glyphs[gi];
-          var _gDecSidSl = _charStyleIDs ? _charStyleIDs[gi] : 0;
-          var _gDecTypeSl = _gDecSidSl ? _decTypeByStyleID[_gDecSidSl] : null;
-          var _gOtSl = _gDecTypeSl ? makeDecoratedGlyphForEncoding(gd.otGlyph, _gDecTypeSl, resolvedFontCtx.font) : gd.otGlyph;
-          var blob = encodeGlyphBlob(_gOtSl);
+          var _gCpSl = _contentCps[gi];
+          var _gNoPathSl = !glyphHasDrawableOutline(gd.otGlyph);
+          var _gIsSymbolSl = _gCpSl != null && codePointNeedsSymbolCoverage(_gCpSl);
+          var _fbForLog = (_gNoPathSl && _gIsSymbolSl) ? findGlyphInFontCtxMap(fontCtxMap, _gCpSl) : null;
+          // emoji 路径：具有 Emoji_Presentation 属性的码位，或符号字符在所有已加载字体中均无可绘制路径
+          // 后者使用 emojiCodePoints 让 Figma 自身的系统字体 fallback 链处理（如系统完整版 PingFang SC），首帧可见
+          var _gIsEmojiSl = _gNoPathSl && _gIsSymbolSl && (
+            hasEmojiPresentation(_gCpSl) || !_fbForLog
+          );
           var blobIndex = blobs.length;
-          blobs.push({ bytes: blob });
+          if (_gIsEmojiSl) {
+            blobs.push({ bytes: makeEmojiPlaceholderBlob() });
+            _hasEmojiGlyph = true;
+          } else {
+            var _gDecSidSl = _charStyleIDs ? _charStyleIDs[gi] : 0;
+            var _gDecTypeSl = _gDecSidSl ? _decTypeByStyleID[_gDecSidSl] : null;
+            var _gOtSl = gd.otGlyph;
+            // 有 fontCtxMap 覆盖该符号时直接用其路径
+            if (_gNoPathSl && _gIsSymbolSl && _fbForLog) {
+              _gOtSl = _fbForLog;
+            }
+            if (_gDecTypeSl) _gOtSl = makeDecoratedGlyphForEncoding(_gOtSl, _gDecTypeSl, resolvedFontCtx.font);
+            blobs.push({ bytes: encodeGlyphBlob(_gOtSl) });
+          }
           var _slGlyphObj = {
             commandsBlob: blobIndex,
             position: { x: gd.x + _slXOffset, y: _slGlyphY },
             fontSize: fontSize,
             firstCharacter: gi,
-            advance: gd.advanceNorm,
+            advance: _gIsEmojiSl ? 1 : gd.advanceNorm,
           };
-          var _slGStyleID = _charStyleIDs ? _charStyleIDs[gi] : 0;
-          if (_slGStyleID) _slGlyphObj.styleID = _slGStyleID;
+          if (_gIsEmojiSl) {
+            _slGlyphObj.emojiCodePoints = [_gCpSl];
+          } else {
+            var _slGStyleID = _charStyleIDs ? _charStyleIDs[gi] : 0;
+            if (_slGStyleID) _slGlyphObj.styleID = _slGStyleID;
+          }
           figmaGlyphs.push(_slGlyphObj);
         }
         figmaBaselines.push({
@@ -2941,6 +3397,8 @@ function convertTextNode(irNode, guid, parentGuid, siblingIndex, fontCtxMap, blo
       truncationStartIndex: _truncationStartIdx,
       truncatedHeight: -1,
     };
+    // 含 emoji glyph 时使用 version 5（Figma 用此版本触发 emojiCodePoints 渲染路径），否则用 version 4
+    nc.textUserLayoutVersion = _hasEmojiGlyph ? 5 : 4;
   } else {
     nc.textUserLayoutVersion = 5;
     nc.textExplicitLayoutVersion = 1;

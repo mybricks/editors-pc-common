@@ -856,7 +856,11 @@ function buildStyleJSON(el, computed, rect, parentRect, cssRuleMap, globalFont) 
       }
     }
   }
-  var _bgColorDecl = d(['background-color', 'backgroundColor']) || computed.backgroundColor;
+  // 内联 style 属性优先级最高（CSS cascade: inline > class），直接取；
+  // 若无内联值，再用 Less 声明层；两者均无则 fallback 到 computed
+  var _bgInlineColor = el && el.style && el.style.backgroundColor;
+  var _bgInlineValid = _bgInlineColor && _bgInlineColor !== '' && _bgInlineColor !== 'inherit' && _bgInlineColor !== 'initial' && _bgInlineColor !== 'unset';
+  var _bgColorDecl = _bgInlineValid ? _bgInlineColor : (d(['background-color', 'backgroundColor']) || computed.backgroundColor);
   // 若声明层取到的是 CSS 变量，回退到 computed 实际解析值
   if (_bgColorDecl && _bgColorDecl.indexOf('var(') >= 0) {
     _bgColorDecl = computed.backgroundColor || _bgColorDecl;
@@ -889,7 +893,7 @@ function buildStyleJSON(el, computed, rect, parentRect, cssRuleMap, globalFont) 
   } else if (imageUrl) {
     style.fills = [{ type: 'IMAGE', url: imageUrl }];
   } else {
-    var bg = d(['background-color', 'backgroundColor', 'background']) || computed.backgroundColor;
+    var bg = _bgInlineValid ? _bgInlineColor : (d(['background-color', 'backgroundColor', 'background']) || computed.backgroundColor);
     // 若声明层取到的是 CSS 变量，回退到 computed 实际解析值
     if (bg && bg.indexOf('var(') >= 0) {
       bg = computed.backgroundColor || bg;

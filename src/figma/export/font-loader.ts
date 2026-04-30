@@ -16,6 +16,16 @@ const PINGFANG_CDN_URLS: Record<number, { url: string; style: string; postscript
 };
 
 /**
+ * Noto Sans Symbols 2 Regular TTF CDN 地址（开源字体，简单轮廓，opentype.js 可正确解析）。
+ * 用于当本地系统未安装该字体时的兜底加载，供 ir-to-figma 的符号字形覆盖匹配使用。
+ * Apple Symbols 在 macOS 上为复合字形，opentype.js getPath 退化为包围盒矩形，故不用作 CDN 兜底；
+ * Noto Sans Symbols 2 均为简单轮廓，能正确编码 ✓/⚠ 等符号的 Bezier blob。
+ */
+const NOTO_SYMBOLS2_CDN_URL =
+  'https://cdn.jsdelivr.net/gh/notofonts/notofonts.github.io@main' +
+  '/fonts/NotoSansSymbols2/unhinted/ttf/NotoSansSymbols2-Regular.ttf';
+
+/**
  * 调试开关：设为 true 后，模拟"插件环境"——本机字体完全不可用。
  * - PingFang SC：跳过 queryLocalFonts，直接从 CDN 拉取（验证 CDN 字形渲染路径）
  * - 其他品牌字体：整体跳过，让 ir-to-figma 阶段退回 PingFang SC
@@ -411,7 +421,9 @@ export async function loadFontContextMapForFamilies(
         }
 
         if (variants.length === 0) {
-          const fontUrl = findFontUrlFromFontFace(family);
+          // 优先从 @font-face 声明中查找 URL；Noto Sans Symbols 2 额外提供内置 CDN 兜底
+          const fontUrl = findFontUrlFromFontFace(family)
+            || (family === 'Noto Sans Symbols 2' ? NOTO_SYMBOLS2_CDN_URL : null);
           if (fontUrl) {
             try {
               const resp = await fetch(fontUrl);
@@ -496,15 +508,74 @@ export async function loadFontContext(): Promise<NonNullFontContext | null> {
  */
 export function collectFontFamiliesFromIR(irPayload: any): string[] {
   const families = new Set<string>();
+  let hasSymbolIconText = false;
+
+  function _normalizeSymbolTextForMatch(text: string): string {
+    return String(text || '')
+      .replace(/[\uFE0E\uFE0F\u200D\u20E3]/g, '')
+      .replace(/\uD83C[\uDFFB-\uDFFF]/g, '')
+      .replace(/\s+/g, '');
+  }
+
+  function _isUnicodeBlockSymbolLike(cp: number): boolean {
+    return (
+      (cp >= 0x2000 && cp <= 0x2bff) ||
+      (cp >= 0x1f000 && cp <= 0x1faff)
+    );
+  }
+
+  function _isLikelySymbolIconText(text: string): boolean {
+    if (!text) return false;
+    const s = _normalizeSymbolTextForMatch(text);
+    if (!s) return false;
+    if (/[A-Za-z0-9]/.test(s)) return false;
+
+    const cps: number[] = [];
+    for (let i = 0; i < s.length; ) {
+      const cp = s.codePointAt(i)!;
+      cps.push(cp);
+      i += cp > 0xffff ? 2 : 1;
+    }
+    if (cps.length < 1 || cps.length > 4) return false;
+
+    let hasSymbolLike = false;
+    for (const cp of cps) {
+      if (
+        (cp >= 0x0041 && cp <= 0x005a) ||
+        (cp >= 0x0061 && cp <= 0x007a) ||
+        (cp >= 0x0030 && cp <= 0x0039) ||
+        (cp >= 0x3400 && cp <= 0x9fff) ||
+        (cp >= 0x3040 && cp <= 0x30ff) ||
+        (cp >= 0xac00 && cp <= 0xd7af)
+      ) {
+        return false;
+      }
+      if (_isUnicodeBlockSymbolLike(cp)) hasSymbolLike = true;
+    }
+    return hasSymbolLike;
+  }
+
   function walk(node: any) {
     if (!node) return;
     const fontFamily = node?.style?.fontFamily;
     if (fontFamily && typeof fontFamily === 'string') families.add(fontFamily);
+    if (node?.type === 'text' && typeof node?.content === 'string' && _isLikelySymbolIconText(node.content)) {
+      hasSymbolIconText = true;
+    }
     if (Array.isArray(node.children)) node.children.forEach(walk);
   }
   const content = irPayload?.page?.content;
   if (Array.isArray(content)) content.forEach(walk);
   // 始终包含 PingFang SC（系统字体 fallback 及字形测量兜底）
   families.add('PingFang SC');
+  // 检测到符号图标文本（如 ⚠）时，附加常见符号字体候选，供 derived glyph 覆盖匹配使用。
+  if (hasSymbolIconText) {
+    families.add('Apple Symbols');
+    families.add('Apple Color Emoji');
+    families.add('Segoe UI Symbol');
+    families.add('Segoe UI Emoji');
+    families.add('Noto Sans Symbols 2');
+    families.add('Noto Emoji');
+  }
   return Array.from(families);
 }
