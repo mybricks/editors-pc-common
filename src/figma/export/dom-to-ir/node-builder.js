@@ -685,12 +685,50 @@ function getPseudoTextNode(el, pseudo, geo, parentRect, elRect, cssRuleMap, glob
     var pyOff = parentRect && typeof parentRect.top === 'number' && !isNaN(parentRect.top) ? parentRect.top : 0;
 
     var relX, relY;
-    if (pseudo === '::before') {
+    // 伪元素定位策略：
+    //   1. absolute/fixed：用 right/bottom/left/top 推算在宿主内的坐标
+    //   2. float:right（如 antd v4 字符计数 ::after）：贴宿主容器内部右下角
+    //   3. ::before 行内：宿主内容左侧
+    //   4. ::after 行内 fallback：宿主内容右侧（不应出现在宿主外部）
+    var _psPos   = (ps && (ps.position  || '')) || '';
+    var _psFloat = (ps && (ps.cssFloat  || ps.float || '')) || '';
+    if (_psPos === 'absolute' || _psPos === 'fixed') {
+      var _psRightRaw  = ps.right  ? parseFloat(ps.right)  : NaN;
+      var _psLeftRaw   = ps.left   ? parseFloat(ps.left)   : NaN;
+      var _psBottomRaw = ps.bottom ? parseFloat(ps.bottom) : NaN;
+      var _psTopRaw    = ps.top    ? parseFloat(ps.top)    : NaN;
+      var _elRelLeft = elRect.left - pxOff;
+      var _elRelTop  = elRect.top  - pyOff;
+      if (isFinite(_psRightRaw)) {
+        relX = _elRelLeft + elRect.width - estWidth - _psRightRaw;
+      } else if (isFinite(_psLeftRaw)) {
+        relX = _elRelLeft + _psLeftRaw;
+      } else {
+        relX = _elRelLeft;
+      }
+      if (isFinite(_psBottomRaw)) {
+        relY = _elRelTop + elRect.height - estHeight - _psBottomRaw;
+      } else if (isFinite(_psTopRaw)) {
+        relY = _elRelTop + _psTopRaw;
+      } else {
+        relY = _elRelTop;
+      }
+    } else if (_psFloat === 'right') {
+      // antd v4 textarea show-count::after 使用 float:right，
+      // 浏览器将其渲染在宿主容器内部右下角；
+      // 用宿主宽/高减去估算尺寸和边距来对齐。
+      var _psMarR  = parseFloat((ps && ps.marginRight)  || '0') || 0;
+      var _psMarB  = parseFloat((ps && ps.marginBottom) || '0') || 0;
+      relX = (elRect.left - pxOff) + elRect.width  - estWidth  - _psMarR;
+      relY = (elRect.top  - pyOff) + elRect.height - estHeight - _psMarB;
+    } else if (pseudo === '::before') {
       relX = (elRect.left - pxOff) - estWidth - marginRight + marginLeft;
+      relY = elRect.top - pyOff;
     } else {
+      // 行内 ::after：紧跟宿主内容右侧（保持原有 inline 行为）
       relX = (elRect.left - pxOff) + elRect.width + marginLeft;
+      relY = elRect.top - pyOff;
     }
-    relY = elRect.top - pyOff;
 
     // 最终保护：确保 x/y/width/height 均为有限数值
     var safeX = isFinite(relX) ? Math.round(relX) : 0;

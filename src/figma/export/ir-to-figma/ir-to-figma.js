@@ -2624,7 +2624,11 @@ function convertFrameNode(irNode, guid, parentGuid, siblingIndex, parentLayoutMo
   }
 
   // ─── P3: flex-grow → 主轴 FILL ───
-  if (style.flexGrow >= 1 && parentLayoutMode) {
+  // WRAP 容器例外：若该容器本身有 flex-wrap:wrap，其宽度决定了换行点（column wrap threshold）。
+  // 设 stackChildPrimaryGrow=1 会让 Figma 父级 Auto Layout 重新分配宽度，可能偏离浏览器
+  // getBoundingClientRect() 实测值（如多出 20-40px），导致每行多放一列、布局行数不匹配。
+  // 对 WRAP 容器始终使用固定宽度（FIXED），确保 Figma 换行点与浏览器一致。
+  if (style.flexGrow >= 1 && parentLayoutMode && style.layoutWrap !== 'WRAP') {
     nc.stackChildPrimaryGrow = 1;
   }
 

@@ -1338,19 +1338,33 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
               if (s.marginLeft != null) delete s.marginLeft;
             }
           } else {
-            // 横向 Auto Layout：子项正 marginTop/marginBottom 在 prune 中会被删；外包纵向 HUG frame，用 padding 与 wrapper 上的左右 margin 还原（如列表圆点）
-            if (layoutMode === 'HORIZONTAL') {
-              wrapHorizontalFlowChildrenVerticalMarginAsPadding(childNodes);
-            }
-            // WRAP 容器：在所有 margin 清理操作之前，先提取子节点 marginBottom 作为行间距
-            if (node.style && node.style.layoutWrap === 'WRAP' && !node.style.counterAxisSpacing) {
-              for (var _wEarly2 = 0; _wEarly2 < childNodes.length; _wEarly2++) {
-                var _wEarlyC2 = childNodes[_wEarly2];
-                if (_wEarlyC2 && _wEarlyC2.style && _wEarlyC2.style.marginBottom > 0) {
-                  node.style.counterAxisSpacing = _wEarlyC2.style.marginBottom;
-                  break;
+            // HORIZONTAL WRAP 容器：必须在 wrapHorizontalFlowChildrenVerticalMarginAsPadding 之前
+            // 预先捕获子项 marginBottom 作为行间距（counterAxisSpacing），并从子项中清除 marginBottom。
+            // 若在 wrap 之后再捕获，wrap 函数会把 marginBottom 挪入 wrapper frame 的 paddingBottom 并从子项删除，
+            // 导致后续捕获永远找不到 marginBottom → counterAxisSpacing=0 → 行间距丢失。
+            if (layoutMode === 'HORIZONTAL' && node.style && node.style.layoutWrap === 'WRAP') {
+              if (!node.style.counterAxisSpacing) {
+                for (var _wPreWrap = 0; _wPreWrap < childNodes.length; _wPreWrap++) {
+                  var _wPWC = childNodes[_wPreWrap];
+                  if (_wPWC && _wPWC.style && _wPWC.style.positionType !== 'absolute' && _wPWC.style.marginBottom > 0) {
+                    node.style.counterAxisSpacing = _wPWC.style.marginBottom;
+                    break;
+                  }
                 }
               }
+              // 清除子项 marginBottom：WRAP 的行间距已由 counterAxisSpacing 表达，
+              // 不应再让 wrap 函数把它变成 wrapper 的 paddingBottom（会导致行间距重复计入）
+              for (var _wClrWrap = 0; _wClrWrap < childNodes.length; _wClrWrap++) {
+                var _wCWC = childNodes[_wClrWrap];
+                if (_wCWC && _wCWC.style && _wCWC.style.positionType !== 'absolute') {
+                  delete _wCWC.style.marginBottom;
+                }
+              }
+            }
+            // 横向 Auto Layout：子项正 marginTop/marginBottom 在 prune 中会被删；外包纵向 HUG frame，用 padding 与 wrapper 上的左右 margin 还原（如列表圆点）
+            // WRAP 容器子项的 marginBottom 已在上方预先处理，此处不会再触发包裹。
+            if (layoutMode === 'HORIZONTAL') {
+              wrapHorizontalFlowChildrenVerticalMarginAsPadding(childNodes);
             }
             if (childrenHaveUniformMargin(childNodes, layoutMode)) {
               applyUniformMarginAsGap(node, childNodes, layoutMode);
@@ -1473,6 +1487,15 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
           }
         }
         node.children = childNodes;
+        // HORIZONTAL WRAP 容器：CSS 中高度由行数自动撑开（内容自适应），不应在 Figma 中固定为浏览器测量的高度。
+        // 若固定高度而 Figma 实际排列行数与浏览器不同（如宽度略差导致每行多/少一项），会出现底部空白或内容溢出。
+        // → 对 HORIZONTAL WRAP 容器统一设为 HUG，让 Figma 按实际行数自动计算高度。
+        // 例外：容器本身有显式 CSS height 声明（如 height: 300px），此时保留 FIXED。
+        if (node.style && node.style.layoutWrap === 'WRAP' && node.style.layoutMode === 'HORIZONTAL') {
+          if (!node.style.layoutSizingVertical) {
+            node.style.layoutSizingVertical = 'HUG';
+          }
+        }
         // flex-wrap 容器：若 counterAxisSpacing 未设置（无 row-gap），从子节点 marginBottom 推断行间距
         if (node.style && node.style.layoutWrap === 'WRAP' && !node.style.counterAxisSpacing) {
           var _wrapSpacing2 = 0;
@@ -1549,6 +1572,19 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
             if (node.style && node.style.fontFamily) _inputChildStyle2.fontFamily = node.style.fontFamily;
             if (node.style && node.style.fontFamilyStack) _inputChildStyle2.fontFamilyStack = node.style.fontFamilyStack;
             if (node.style && node.style.fontWeight) _inputChildStyle2.fontWeight = node.style.fontWeight;
+            // textarea placeholder 必须写入真实 lineHeight：框高（_inputH2）是内容区全高，而非文字行高。
+            // textarea 作为 frame 节点不经过文本节点路径，node.style.lineHeight 不会被设置；
+            // 若不从 computed 读取并写入，ir-to-figma 单行 fallback 会把 style.height 当行高（如 87px），
+            // 导致 half-leading 把基线压到框垂直中心，视觉上 placeholder 居中而非置顶。
+            if (_isTextarea2) {
+              try {
+                var _taLhRaw = computed && computed.lineHeight;
+                var _taLh = (_taLhRaw && _taLhRaw !== 'normal') ? parseFloat(_taLhRaw) : null;
+                if (_taLh != null && !Number.isNaN(_taLh) && _taLh > 0 && _taLh < _inputH2) {
+                  _inputChildStyle2.lineHeight = _taLh;
+                }
+              } catch (_eTaLh) {}
+            }
             // textarea 自身 frame 对齐改为 flex-start，防止被父容器 counterAxisAlignItems:CENTER 影响
             if (_isTextarea2 && node.style) {
               node.style.alignSelf = 'MIN';

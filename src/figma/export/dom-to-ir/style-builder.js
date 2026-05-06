@@ -576,6 +576,57 @@ function buildStyleJSON(el, computed, rect, parentRect, cssRuleMap, globalFont) 
   if (w != null) style.width = w;
   if (h != null) style.height = h;
 
+  // 绝对定位修正：position:absolute 元素若定位祖先不是直接父节点，bounding rect 差值会相对外层较宽容器，
+  // 导致 x 溢出父节点右边（典型：ant-input-data-count 字符计数 right:0 相对更外层容器定位）。
+  // 同理，bottom:0 元素 y 可能错误地停在父节点顶部（top:auto 时 getBoundingClientRect().top 算的是外层）。
+  // 修复：当 computed.right/bottom 有效值时，用 parentRect.width/height 重算 x/y，使元素正确贴在父节点内部边缘。
+  // 注意：position:fixed 元素的包含块是视口，getBoundingClientRect 已给出视口坐标，
+  //       DOM 父节点（parentRect）与其布局无关（父节点常为 0 高空 div），不能用其重算，否则会错位。
+  if (parentRect && computed) {
+    var _absPos = computed.position || '';
+    if (_absPos === 'absolute') {
+      var _absParW = parentRect.width != null ? parentRect.width : 0;
+      var _absParH = parentRect.height != null ? parentRect.height : 0;
+      // right 有效时：溢出父节点右边则用 right 重算 x
+      var _absRight = parseFloat(computed.right);
+      if (!isFinite(_absRight)) {
+        // CSS 逻辑属性 inset-inline-end（LTR 下等同 right）在部分浏览器不反映到物理属性
+        try {
+          var _iieRaw = computed.insetInlineEnd || (computed.getPropertyValue && computed.getPropertyValue('inset-inline-end')) || '';
+          var _iieVal = parseFloat(_iieRaw);
+          if (isFinite(_iieVal)) _absRight = _iieVal;
+        } catch (_eIIE) {}
+      }
+      if (isFinite(_absRight) && w != null && w > 0) {
+        var _xByRight = _absParW - w - _absRight;
+        if (style.x + w > _absParW + 0.5 || Math.abs(style.x - _xByRight) > 1) {
+          style.x = Math.round(_xByRight);
+          xRelSub = style.x;
+        }
+      } else if (w != null && w > 0 && style.x + w > _absParW + 0.5) {
+        // 拿不到 right 值但 x 明显溢出：按 right=0 兜底（贴右边缘）
+        style.x = Math.round(_absParW - w);
+        xRelSub = style.x;
+      }
+      // bottom 有效时：y 与 bottom 推算值偏差 >1px 则重算（避免 getBoundingClientRect top 相对外层容器偏移）
+      var _absBottom = parseFloat(computed.bottom);
+      if (!isFinite(_absBottom)) {
+        try {
+          var _ibeRaw = computed.insetBlockEnd || (computed.getPropertyValue && computed.getPropertyValue('inset-block-end')) || '';
+          var _ibeVal = parseFloat(_ibeRaw);
+          if (isFinite(_ibeVal)) _absBottom = _ibeVal;
+        } catch (_eIBE) {}
+      }
+      if (isFinite(_absBottom) && h != null && h > 0) {
+        var _yByBottom = _absParH - h - _absBottom;
+        if (Math.abs(style.y - _yByBottom) > 1) {
+          style.y = Math.round(_yByBottom);
+          yRelSub = style.y;
+        }
+      }
+    }
+  }
+
   // border-radius 含 % 时不能用 parseFloat：'50%' → 50 会被误当成 50px（圆盘等场景应为 min(w,h) 的一半）。
   // CSS 椭圆角水平半径相对 width、垂直相对 height；导出为 Figma 单标量 cornerRadius 时取 min 近似内接圆角。
   const pxLenRadius = (v) => {
@@ -1120,15 +1171,29 @@ function buildStyleJSON(el, computed, rect, parentRect, cssRuleMap, globalFont) 
   if (display === 'flex' || display === 'inline-flex') {
     var dir = d(['flex-direction', 'flexDirection']) || computed.flexDirection;
     style.layoutMode = dir === 'column' || dir === 'column-reverse' ? 'VERTICAL' : 'HORIZONTAL';
-    var gap = px(resolveDecl(d(['gap']), computed.gap));
-    if (gap != null && gap > 0) style.itemSpacing = gap;
+    // 优先读 column-gap / row-gap 独立声明；gap 简写兜底（格式 "row-gap column-gap"）
+    // 与 Grid 逻辑对齐，避免仅有 column-gap 时 itemSpacing=0
+    var _flexColGap = px(resolveDecl(d(['column-gap', 'columnGap']), computed.columnGap));
+    var _flexRowGap = px(resolveDecl(d(['row-gap', 'rowGap']), computed.rowGap));
+    if (_flexColGap == null || _flexRowGap == null) {
+      var _flexGapDecl = d(['gap']) || computed.gap;
+      if (_flexGapDecl) {
+        var _flexGapStr = String(_flexGapDecl).trim();
+        var _flexGapParts = _flexGapStr.split(/\s+/);
+        if (_flexRowGap == null) _flexRowGap = px(_flexGapParts[0]);
+        if (_flexColGap == null) _flexColGap = px(_flexGapParts.length > 1 ? _flexGapParts[1] : _flexGapParts[0]);
+      }
+    }
+    // HORIZONTAL flex: itemSpacing = 列间距(column-gap)；VERTICAL flex: itemSpacing = 行间距(row-gap)
+    var _flexPrimaryGap = style.layoutMode === 'HORIZONTAL' ? _flexColGap : _flexRowGap;
+    if (_flexPrimaryGap != null && _flexPrimaryGap > 0) style.itemSpacing = _flexPrimaryGap;
     // flex-wrap: wrap → Figma layoutWrap=WRAP；同时读 row-gap 作为换行后的行间距(counterAxisSpacing)
     var flexWrapVal = (d(['flex-wrap', 'flexWrap']) || computed.flexWrap || '').toString().toLowerCase();
     if (flexWrapVal === 'wrap' || flexWrapVal === 'wrap-reverse') {
       if (style.layoutMode === 'HORIZONTAL') {
         style.layoutWrap = 'WRAP';
-        var rowGap = px(resolveDecl(d(['row-gap', 'rowGap']), computed.rowGap));
-        if (rowGap != null && rowGap > 0) style.counterAxisSpacing = rowGap;
+        // counterAxisSpacing = row-gap（已在上方读取，直接复用）
+        if (_flexRowGap != null && _flexRowGap > 0) style.counterAxisSpacing = _flexRowGap;
       }
     }
     style.paddingTop = px(resolveDecl(d(['padding-top', 'paddingTop']), computed.paddingTop));
@@ -1855,9 +1920,20 @@ function buildStyleJSON(el, computed, rect, parentRect, cssRuleMap, globalFont) 
   var _fg = !Number.isNaN(_fgComputed) ? _fgComputed : (!Number.isNaN(_fgDecl) ? _fgDecl : 0);
   if (_fg >= 1) style.flexGrow = _fg;
 
-  // align-self → 子节点自身的交叉轴对齐
+  // align-self → 子节点自身的交叉轴对齐，映射到 Figma stackChildAlignSelf 值域
   var _as = (d(['align-self', 'alignSelf']) || computed.alignSelf || '').toString().toLowerCase();
-  if (_as === 'stretch') style.alignSelfStretch = true;
+  var _alignSelfFigmaMap = {
+    'stretch': 'STRETCH',
+    'center': 'CENTER',
+    'flex-start': 'MIN', 'start': 'MIN', 'self-start': 'MIN',
+    'flex-end': 'MAX',   'end': 'MAX',   'self-end': 'MAX',
+    'baseline': 'MIN',   'first baseline': 'MIN', 'last baseline': 'MAX',
+  };
+  var _asMapped = _alignSelfFigmaMap[_as];
+  if (_asMapped) {
+    style.alignSelf = _asMapped;
+    if (_asMapped === 'STRETCH') style.alignSelfStretch = true; // 向后兼容旧消费端
+  }
 
   return style;
 }
