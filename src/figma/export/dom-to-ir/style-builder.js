@@ -115,8 +115,12 @@ function buildInlineTextStyle(parentEl, computed, textRect, parentRect, cssRuleM
       style.fontSize = fontSize;
     }
   }
-  var color = d(['color']) || (computed && computed.color);
-  // 若声明层取到的是 CSS 变量，回退到 computed 实际解析值
+  // 优先用 computed.color（浏览器已按 CSS 特异性/层叠正确计算），
+  // getDeclaredStyleForElement 按 last-wins 取声明层，不考虑 CSS 优先级，
+  // 多选择器命中同一属性时（如 .cls{color:dark} 与 .parent .cls{color:white}）
+  // 后出现的低特异性规则会错误覆盖高特异性规则——与 sticky th 背景色修复同一根因。
+  var color = (computed && computed.color) || d(['color']);
+  // CSS 变量在 computed 中已被浏览器解析为具体色值，无需再单独处理
   if (color && color.indexOf('var(') >= 0) {
     color = (computed && computed.color) || color;
   }
@@ -193,7 +197,11 @@ function buildInlineTextStyle(parentEl, computed, textRect, parentRect, cssRuleM
     style.textStrokeColor = _itTsColor;
   }
   // text-shadow → textShadows（复用 parseBoxShadow，text-shadow 格式与外阴影一致，无 inset）
-  var _itTsShadowRaw = d(['text-shadow', 'textShadow']) || (computed && computed.textShadow) || '';
+  // 与 box-shadow 保持一致：声明含 var() 时回退到 computed（已解析）
+  var _itTsShadowDecl = d(['text-shadow', 'textShadow']) || '';
+  var _itTsShadowRaw = (_itTsShadowDecl && _itTsShadowDecl.indexOf('var(') >= 0)
+    ? ((computed && computed.textShadow) || '')
+    : (_itTsShadowDecl || (computed && computed.textShadow) || '');
   if (_itTsShadowRaw && String(_itTsShadowRaw).trim() !== 'none' && String(_itTsShadowRaw).trim() !== '') {
     var _itTsShadows = parseBoxShadow(String(_itTsShadowRaw));
     _itTsShadows = _itTsShadows.filter(function (s) { return !s.inset; });
@@ -862,6 +870,11 @@ function buildStyleJSON(el, computed, rect, parentRect, cssRuleMap, globalFont) 
   // 修复：bgImageDecl 存在但不含渐变时（如纯色 background 简写），不应屏蔽 computed.backgroundImage 里的渐变。
   // 正确策略：先用 declared background-image，没有则用 computed.backgroundImage，两者都没有再试 declared background 简写。
   var bgImageDecl = d(['background-image', 'backgroundImage']);
+  // 声明中含 CSS 变量（如 linear-gradient(var(--start), var(--end))）→ 渐变色标无法解析，
+  // 必须回退到 computed.backgroundImage（浏览器已解析所有变量）。
+  if (bgImageDecl && bgImageDecl.indexOf('var(') >= 0) {
+    bgImageDecl = null;
+  }
   var bgImageComputed = computed.backgroundImage || '';
   var bgImageFromBackground = d(['background']);
   var bgBackgroundRaw = d(['background']) || (computed && computed.background) || '';
@@ -1037,6 +1050,11 @@ function buildStyleJSON(el, computed, rect, parentRect, cssRuleMap, globalFont) 
       _btW = _brW = _bbW = _blW = _parsedB.width;
       _btStyle = _brStyle = _bbStyle = _blStyle = _parsedB.style || 'solid';
       _btColor = _brColor = _bbColor = _blColor = _parsedB.color;
+      // border 简写提取的颜色也可能含 var()，赋值后再做一次兜底
+      if (_parsedB.color && _parsedB.color.indexOf('var(') >= 0) {
+        var _cbc = computed.borderTopColor || computed.borderColor || '';
+        _btColor = _brColor = _bbColor = _blColor = _cbc || _parsedB.color;
+      }
     }
   }
   // 过滤掉 style=none 的边（视为无边框）
@@ -1758,8 +1776,9 @@ function buildStyleJSON(el, computed, rect, parentRect, cssRuleMap, globalFont) 
       style.fontSize = fontSize;
     }
   }
-  var color = d(['color']) || computed.color;
-  // 若声明层取到的是 CSS 变量，回退到 computed 实际解析值
+  // 优先用 computed.color（浏览器已按 CSS 特异性/层叠正确计算），
+  // getDeclaredStyleForElement 按 last-wins 取声明层，不考虑 CSS 优先级——同 sticky th 修复。
+  var color = computed.color || d(['color']);
   if (color && color.indexOf('var(') >= 0) {
     color = computed.color || color;
   }
@@ -1838,7 +1857,11 @@ function buildStyleJSON(el, computed, rect, parentRect, cssRuleMap, globalFont) 
   }
 
   // text-shadow → textShadows（复用 parseBoxShadow，text-shadow 格式与外阴影一致，无 inset）
-  var _tsShadowRaw = d(['text-shadow', 'textShadow']) || (computed && computed.textShadow) || '';
+  // 声明含 var() 时回退到 computed（已解析）
+  var _tsShadowDecl = d(['text-shadow', 'textShadow']) || '';
+  var _tsShadowRaw = (_tsShadowDecl && _tsShadowDecl.indexOf('var(') >= 0)
+    ? ((computed && computed.textShadow) || '')
+    : (_tsShadowDecl || (computed && computed.textShadow) || '');
   if (_tsShadowRaw && String(_tsShadowRaw).trim() !== 'none' && String(_tsShadowRaw).trim() !== '') {
     var _tsShadows = parseBoxShadow(String(_tsShadowRaw));
     _tsShadows = _tsShadows.filter(function (s) { return !s.inset; });

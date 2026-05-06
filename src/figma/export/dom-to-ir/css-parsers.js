@@ -485,9 +485,72 @@ function parseGridTemplateColumnsCount(str) {
 }
 
 /**
+ * 将 origEl/cloneEl 树中所有带 var() 的 SVG 展示属性替换为 getComputedStyle 解析后的真实值。
+ * SVG 以独立 <img> 加载时脱离文档上下文，CSS 变量无法解析（fill 默认为 black），
+ * 必须在序列化前将变量替换为具体颜色值。
+ * @param {Element} origEl  - 原始 SVG DOM 元素（带完整 CSS 变量上下文）
+ * @param {Element} cloneEl - 深拷贝的克隆元素（序列化目标，在此修改属性）
+ */
+function _resolveSvgCssVarsInPlace(origEl, cloneEl) {
+  try {
+    var _cs = window.getComputedStyle ? window.getComputedStyle(origEl) : null;
+    if (_cs && origEl.attributes) {
+      for (var _ai = 0; _ai < origEl.attributes.length; _ai++) {
+        var _attr = origEl.attributes[_ai];
+        if (_attr.name === 'style') continue;
+        if (_attr.value && _attr.value.indexOf('var(') !== -1) {
+          // SVG 展示属性同时也是 CSS 属性（如 fill/stroke），getComputedStyle 会解析 var()
+          var _resolved = _cs.getPropertyValue(_attr.name);
+          if (_resolved && _resolved.trim() && _resolved.indexOf('var(') === -1) {
+            cloneEl.setAttribute(_attr.name, _resolved.trim());
+          }
+        }
+      }
+      // inline style 中的 var()：如 <path style="fill:var(--color)">
+      // ⚠ inline style 优先级高于 presentation attribute，不能用 setAttribute('fill',x) 覆盖；
+      // 必须直接改写 clone 的 style 属性字符串，把其中的 var() 替换为计算后的具体值。
+      var _styleAttr = origEl.getAttribute && origEl.getAttribute('style');
+      if (_styleAttr && _styleAttr.indexOf('var(') !== -1) {
+        var _newStyleParts = [];
+        var _declarations = _styleAttr.split(';');
+        for (var _di = 0; _di < _declarations.length; _di++) {
+          var _decl = _declarations[_di].trim();
+          if (!_decl) continue;
+          var _colonIdx = _decl.indexOf(':');
+          if (_colonIdx < 0) { _newStyleParts.push(_decl); continue; }
+          var _propName = _decl.slice(0, _colonIdx).trim();
+          var _propVal  = _decl.slice(_colonIdx + 1).trim();
+          if (_propVal.indexOf('var(') !== -1) {
+            var _resolvedInline = _cs.getPropertyValue(_propName);
+            if (_resolvedInline && _resolvedInline.trim() && _resolvedInline.indexOf('var(') === -1) {
+              _newStyleParts.push(_propName + ': ' + _resolvedInline.trim());
+            } else {
+              _newStyleParts.push(_decl);
+            }
+          } else {
+            _newStyleParts.push(_decl);
+          }
+        }
+        cloneEl.setAttribute('style', _newStyleParts.join('; '));
+      }
+    }
+  } catch (_e) {}
+  // 递归处理子元素
+  var _origKids = origEl.children;
+  var _cloneKids = cloneEl.children;
+  if (_origKids && _cloneKids) {
+    for (var _ci = 0; _ci < _origKids.length && _ci < _cloneKids.length; _ci++) {
+      _resolveSvgCssVarsInPlace(_origKids[_ci], _cloneKids[_ci]);
+    }
+  }
+}
+
+/**
  * 序列化 SVG 元素为字符串，供 Figma createNodeFromSVG() 使用。
  * - 把 currentColor 替换为实际 computed color
  * - 把 width/height 替换为 DOM 实测像素值（避免 1em 等相对单位）
+ * - 把 fill/stroke 等展示属性中的 CSS 变量（var(--x)）解析为实际颜色值，
+ *   避免 SVG 以独立 <img> 加载时变量丢失导致 fill 默认为黑色
  * @param {SVGElement} svgEl
  * @param {number} domWidth  - DOM 实测宽度（设计稿坐标）
  * @param {number} domHeight - DOM 实测高度（设计稿坐标）
@@ -502,6 +565,11 @@ function serializeSvgElement(svgEl, domWidth, domHeight) {
     clone = svgEl.cloneNode(true);
   } catch (e) {
     clone = null;
+  }
+  // 序列化前将 var() CSS 变量替换为计算后的真实值，
+  // 否则 SVG 以独立 <img> 加载时失去文档上下文，var() 无法解析，fill 默认回落为黑色。
+  if (clone) {
+    try { _resolveSvgCssVarsInPlace(svgEl, clone); } catch (_eVar) {}
   }
   var html = '';
   if (clone && clone.setAttribute) {
