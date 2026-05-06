@@ -1475,6 +1475,42 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
             }
           }
         }
+        // HORIZONTAL WRAP 容器宽度保护：防止 Math.ceil 舍入后子项宽度之和超出容器宽度，
+        // 导致 Figma Auto Layout WRAP 在 DOM 本不换行的行误换行（最后一项掉到第二行）。
+        // 修复逻辑：在删除子项 x/y 之前，取第一行（y ≈ min_y）所有流式子项的 ceil 宽度之和，
+        // 若之和 > 容器原始宽度，则将容器宽度补齐到该 ceil 之和。
+        if (node.style && node.style.layoutWrap === 'WRAP' && node.style.layoutMode === 'HORIZONTAL' && node.style.width != null) {
+          var _wrapFlowCh = [];
+          for (var _wfci = 0; _wfci < childNodes.length; _wfci++) {
+            var _wfcn = childNodes[_wfci];
+            if (_wfcn && _wfcn.style && _wfcn.style.positionType !== 'absolute') {
+              _wrapFlowCh.push(_wfcn.style);
+            }
+          }
+          if (_wrapFlowCh.length > 0) {
+            var _minRowY = Infinity;
+            for (var _wfmyi = 0; _wfmyi < _wrapFlowCh.length; _wfmyi++) {
+              var _fry = _wrapFlowCh[_wfmyi].y != null ? _wrapFlowCh[_wfmyi].y : 0;
+              if (_fry < _minRowY) _minRowY = _fry;
+            }
+            var _firstRowCeilTotal = 0;
+            var _firstRowItemCount = 0;
+            for (var _wfrc = 0; _wfrc < _wrapFlowCh.length; _wfrc++) {
+              var _wfrcs = _wrapFlowCh[_wfrc];
+              var _wfrcy = _wfrcs.y != null ? _wfrcs.y : 0;
+              if (_wfrcy - _minRowY < 4) {
+                _firstRowCeilTotal += Math.ceil(_wfrcs.width || 0);
+                _firstRowItemCount++;
+              }
+            }
+            var _wrapHGap = node.style.itemSpacing || 0;
+            _firstRowCeilTotal += _wrapHGap * Math.max(0, _firstRowItemCount - 1);
+            _firstRowCeilTotal += (node.style.paddingLeft || 0) + (node.style.paddingRight || 0);
+            if (_firstRowCeilTotal > node.style.width) {
+              node.style.width = _firstRowCeilTotal;
+            }
+          }
+        }
         // 父节点启用 Auto Layout 时，流式子节点不应再携带绝对 x/y。
         // 否则导出到 Figma 后会把 x/y 当成附加偏移，导致纵向间距异常变大。
         if (node.style && node.style.layoutMode) {
