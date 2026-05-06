@@ -155,9 +155,13 @@ function buildInlineTextStyle(parentEl, computed, textRect, parentRect, cssRuleM
     else if (String(_itTd).indexOf('line-through') >= 0) style.textDecoration = 'STRIKETHROUGH';
   }
   // letter-spacing（与 buildStyleJSON 对齐）
-  var _itLsRaw = d(['letter-spacing', 'letterSpacing']) || (computed && computed.letterSpacing);
-  var _itLs = px(_itLsRaw);
-  if (_itLs != null && _itLs !== 0) style.letterSpacing = _itLs;
+  // em 单位需 fallback 到 computed（浏览器已换算为 px），避免 Math.round(0.35) = 0 的截断问题
+  var _itLsDeclRaw = d(['letter-spacing', 'letterSpacing']);
+  var _itLsRaw = (_itLsDeclRaw && /em$/i.test(String(_itLsDeclRaw).trim()))
+    ? (computed && computed.letterSpacing)
+    : (_itLsDeclRaw || (computed && computed.letterSpacing));
+  var _itLs = _itLsRaw != null ? parseFloat(String(_itLsRaw)) : undefined;
+  if (_itLs != null && !Number.isNaN(_itLs) && Math.abs(_itLs) > 0.001) style.letterSpacing = _itLs;
   // text-transform → textCase（UPPER/LOWER/TITLE）
   var _itTtRaw = (d(['text-transform', 'textTransform']) || (computed && computed.textTransform) || '').toLowerCase();
   var _itTtMap = { uppercase: 'UPPER', lowercase: 'LOWER', capitalize: 'TITLE' };
@@ -539,6 +543,13 @@ function buildStyleJSON(el, computed, rect, parentRect, cssRuleMap, globalFont) 
   const px = (v) => {
     const n = num(v);
     return n != null && !Number.isNaN(n) ? Math.round(n) : undefined;
+  };
+  // em/rem/var/calc 声明无法直接当 px 用，需 fallback 到 computed（浏览器已换算为 px）
+  const resolveDecl = (rawDecl, computedFallback) => {
+    if (rawDecl == null || rawDecl === '') return computedFallback;
+    const s = String(rawDecl).trim();
+    if (/[a-z]em$/i.test(s) || s.indexOf('var(') >= 0 || s.indexOf('calc(') >= 0) return computedFallback;
+    return rawDecl;
   };
 
   // 优先从 style 标签匹配到的规则取声明，没有再用 computed
@@ -1109,21 +1120,21 @@ function buildStyleJSON(el, computed, rect, parentRect, cssRuleMap, globalFont) 
   if (display === 'flex' || display === 'inline-flex') {
     var dir = d(['flex-direction', 'flexDirection']) || computed.flexDirection;
     style.layoutMode = dir === 'column' || dir === 'column-reverse' ? 'VERTICAL' : 'HORIZONTAL';
-    var gap = px(d(['gap']) || computed.gap);
+    var gap = px(resolveDecl(d(['gap']), computed.gap));
     if (gap != null && gap > 0) style.itemSpacing = gap;
     // flex-wrap: wrap → Figma layoutWrap=WRAP；同时读 row-gap 作为换行后的行间距(counterAxisSpacing)
     var flexWrapVal = (d(['flex-wrap', 'flexWrap']) || computed.flexWrap || '').toString().toLowerCase();
     if (flexWrapVal === 'wrap' || flexWrapVal === 'wrap-reverse') {
       if (style.layoutMode === 'HORIZONTAL') {
         style.layoutWrap = 'WRAP';
-        var rowGap = px(d(['row-gap', 'rowGap']) || computed.rowGap);
+        var rowGap = px(resolveDecl(d(['row-gap', 'rowGap']), computed.rowGap));
         if (rowGap != null && rowGap > 0) style.counterAxisSpacing = rowGap;
       }
     }
-    style.paddingTop = px(d(['padding-top', 'paddingTop']) || computed.paddingTop);
-    style.paddingRight = px(d(['padding-right', 'paddingRight']) || computed.paddingRight);
-    style.paddingBottom = px(d(['padding-bottom', 'paddingBottom']) || computed.paddingBottom);
-    style.paddingLeft = px(d(['padding-left', 'paddingLeft']) || computed.paddingLeft);
+    style.paddingTop = px(resolveDecl(d(['padding-top', 'paddingTop']), computed.paddingTop));
+    style.paddingRight = px(resolveDecl(d(['padding-right', 'paddingRight']), computed.paddingRight));
+    style.paddingBottom = px(resolveDecl(d(['padding-bottom', 'paddingBottom']), computed.paddingBottom));
+    style.paddingLeft = px(resolveDecl(d(['padding-left', 'paddingLeft']), computed.paddingLeft));
     var justifyContent = d(['justify-content', 'justifyContent']) || computed.justifyContent;
     var alignItems = d(['align-items', 'alignItems']) || computed.alignItems;
     // 当 computed 返回浏览器默认值 "normal" 时，主动扫描 cssRuleMap 用 el.matches() 寻找声明值
@@ -1334,7 +1345,13 @@ function buildStyleJSON(el, computed, rect, parentRect, cssRuleMap, globalFont) 
           else if (_centerSpan <= _tol) _inferredCrossAlign = 'CENTER';
           else if (_topSpan <= _tol) _inferredCrossAlign = 'MIN';
           else if (_bottomSpan <= _tol) _inferredCrossAlign = 'MAX';
-          if (_inferredCrossAlign) {
+          // 几何法只能把「不确定」升级，不能把「CSS 明确声明的对齐意图」降级。
+          // 场景：nav bar 等容器声明 align-items:center，但直接子项是满高 wrapper，
+          // 几何法会把所有子项判成 stretch → MIN，错误覆盖掉正确的 CENTER。
+          // 规则：若 CSS 声明已经是明确的非默认值（center / flex-end），
+          //       几何法推断出 MIN 时，信任 CSS 声明，跳过覆盖。
+          var _cssIsExplicitNonMin = alignItemsNorm === 'center' || alignItemsNorm === 'flex-end';
+          if (_inferredCrossAlign && !(_inferredCrossAlign === 'MIN' && _cssIsExplicitNonMin)) {
             style.counterAxisAlignItems = _inferredCrossAlign;
           }
         }
@@ -1441,10 +1458,10 @@ function buildStyleJSON(el, computed, rect, parentRect, cssRuleMap, globalFont) 
               style.layoutMode = 'VERTICAL';
               style.counterAxisAlignItems = 'MIN';
               style.primaryAxisAlignItems = 'MIN';
-              style.paddingTop = px(d(['padding-top', 'paddingTop']) || computed.paddingTop);
-              style.paddingRight = px(d(['padding-right', 'paddingRight']) || computed.paddingRight);
-              style.paddingBottom = px(d(['padding-bottom', 'paddingBottom']) || computed.paddingBottom);
-              style.paddingLeft = px(d(['padding-left', 'paddingLeft']) || computed.paddingLeft);
+              style.paddingTop = px(resolveDecl(d(['padding-top', 'paddingTop']), computed.paddingTop));
+              style.paddingRight = px(resolveDecl(d(['padding-right', 'paddingRight']), computed.paddingRight));
+              style.paddingBottom = px(resolveDecl(d(['padding-bottom', 'paddingBottom']), computed.paddingBottom));
+              style.paddingLeft = px(resolveDecl(d(['padding-left', 'paddingLeft']), computed.paddingLeft));
             }
           } catch (_eMix) {}
         }
@@ -1470,10 +1487,10 @@ function buildStyleJSON(el, computed, rect, parentRect, cssRuleMap, globalFont) 
       style.primaryAxisAlignItems = alignMap[textAlign] || 'MIN';
       // 垂直对齐：优先用几何位置反推（子元素中心 vs 容器中心，误差 <3px → CENTER）。
       // 原先用"容器高 > 子高 * 1.5"判断的方案会把图标按钮（容器22px/图标8px）误判为顶对齐。
-      style.paddingTop = px(d(['padding-top', 'paddingTop']) || computed.paddingTop);
-      style.paddingRight = px(d(['padding-right', 'paddingRight']) || computed.paddingRight);
-      style.paddingBottom = px(d(['padding-bottom', 'paddingBottom']) || computed.paddingBottom);
-      style.paddingLeft = px(d(['padding-left', 'paddingLeft']) || computed.paddingLeft);
+      style.paddingTop = px(resolveDecl(d(['padding-top', 'paddingTop']), computed.paddingTop));
+      style.paddingRight = px(resolveDecl(d(['padding-right', 'paddingRight']), computed.paddingRight));
+      style.paddingBottom = px(resolveDecl(d(['padding-bottom', 'paddingBottom']), computed.paddingBottom));
+      style.paddingLeft = px(resolveDecl(d(['padding-left', 'paddingLeft']), computed.paddingLeft));
       // 垂直对齐：优先用几何位置反推（子元素中心 vs 容器中心，误差 <3px → CENTER）。
       // 原先用"容器高 > 子高 * 1.5"判断的方案会把图标按钮（容器22px/图标8px）误判为顶对齐。
       var _blockChildEl = hasSingleInlineTextChild ? el.children[0] : null;
@@ -1577,10 +1594,10 @@ function buildStyleJSON(el, computed, rect, parentRect, cssRuleMap, globalFont) 
               var _textAlignMulti = (d(['text-align', 'textAlign']) || computed.textAlign || '').toString().toLowerCase();
               var _alignMapMulti = { left: 'MIN', right: 'MAX', center: 'CENTER', justify: 'MIN', start: 'MIN', end: 'MAX' };
               style.primaryAxisAlignItems = _alignMapMulti[_textAlignMulti] || 'MIN';
-              style.paddingTop = px(d(['padding-top', 'paddingTop']) || computed.paddingTop);
-              style.paddingRight = px(d(['padding-right', 'paddingRight']) || computed.paddingRight);
-              style.paddingBottom = px(d(['padding-bottom', 'paddingBottom']) || computed.paddingBottom);
-              style.paddingLeft = px(d(['padding-left', 'paddingLeft']) || computed.paddingLeft);
+              style.paddingTop = px(resolveDecl(d(['padding-top', 'paddingTop']), computed.paddingTop));
+              style.paddingRight = px(resolveDecl(d(['padding-right', 'paddingRight']), computed.paddingRight));
+              style.paddingBottom = px(resolveDecl(d(['padding-bottom', 'paddingBottom']), computed.paddingBottom));
+              style.paddingLeft = px(resolveDecl(d(['padding-left', 'paddingLeft']), computed.paddingLeft));
             }
           }
         }
@@ -1592,8 +1609,8 @@ function buildStyleJSON(el, computed, rect, parentRect, cssRuleMap, globalFont) 
     // 分别读取 column-gap 和 row-gap，避免把 row-gap 误用为列间距（HORIZONTAL WRAP 的 itemSpacing 是列间距）。
     // gap 简写格式 "row-gap column-gap"（如 "40px 32px"），parseFloat 只取第一个值 = row-gap，
     // 若直接用 gap 值做 itemSpacing 会错误地用 row-gap 代替 column-gap，导致 Figma 中行内溢出换行。
-    var _gridColGap = px(d(['column-gap', 'columnGap']) || computed.columnGap);
-    var _gridRowGap = px(d(['row-gap', 'rowGap']) || computed.rowGap);
+    var _gridColGap = px(resolveDecl(d(['column-gap', 'columnGap']), computed.columnGap));
+    var _gridRowGap = px(resolveDecl(d(['row-gap', 'rowGap']), computed.rowGap));
     // gap 简写兜底：当 column-gap / row-gap 均未单独声明时，解析 gap 两段式或单值
     if (_gridColGap == null || _gridRowGap == null) {
       var _gapDecl = d(['gap']) || computed.gap;
@@ -1620,10 +1637,10 @@ function buildStyleJSON(el, computed, rect, parentRect, cssRuleMap, globalFont) 
     // counterAxisSpacing: HORIZONTAL grid = row-gap；VERTICAL grid = column-gap
     var _gridCounterGap = style.layoutMode === 'HORIZONTAL' ? _gridRowGap : _gridColGap;
     if (_gridCounterGap != null && _gridCounterGap > 0) style.counterAxisSpacing = _gridCounterGap;
-    style.paddingTop = px(d(['padding-top', 'paddingTop']) || computed.paddingTop);
-    style.paddingRight = px(d(['padding-right', 'paddingRight']) || computed.paddingRight);
-    style.paddingBottom = px(d(['padding-bottom', 'paddingBottom']) || computed.paddingBottom);
-    style.paddingLeft = px(d(['padding-left', 'paddingLeft']) || computed.paddingLeft);
+    style.paddingTop = px(resolveDecl(d(['padding-top', 'paddingTop']), computed.paddingTop));
+    style.paddingRight = px(resolveDecl(d(['padding-right', 'paddingRight']), computed.paddingRight));
+    style.paddingBottom = px(resolveDecl(d(['padding-bottom', 'paddingBottom']), computed.paddingBottom));
+    style.paddingLeft = px(resolveDecl(d(['padding-left', 'paddingLeft']), computed.paddingLeft));
     style.primaryAxisAlignItems = 'MIN';
     style.counterAxisAlignItems = 'MIN';
   } else if (display === 'table' || display === 'inline-table' ||
@@ -1631,28 +1648,28 @@ function buildStyleJSON(el, computed, rect, parentRect, cssRuleMap, globalFont) 
              display === 'table-footer-group') {
     // table / thead / tbody / tfoot → 行纵向排列
     style.layoutMode = 'VERTICAL';
-    style.paddingTop = px(d(['padding-top', 'paddingTop']) || computed.paddingTop);
-    style.paddingRight = px(d(['padding-right', 'paddingRight']) || computed.paddingRight);
-    style.paddingBottom = px(d(['padding-bottom', 'paddingBottom']) || computed.paddingBottom);
-    style.paddingLeft = px(d(['padding-left', 'paddingLeft']) || computed.paddingLeft);
+    style.paddingTop = px(resolveDecl(d(['padding-top', 'paddingTop']), computed.paddingTop));
+    style.paddingRight = px(resolveDecl(d(['padding-right', 'paddingRight']), computed.paddingRight));
+    style.paddingBottom = px(resolveDecl(d(['padding-bottom', 'paddingBottom']), computed.paddingBottom));
+    style.paddingLeft = px(resolveDecl(d(['padding-left', 'paddingLeft']), computed.paddingLeft));
     style.primaryAxisAlignItems = 'MIN';
     style.counterAxisAlignItems = 'MIN';
   } else if (display === 'table-row') {
     // tr → 单元格横向排列
     style.layoutMode = 'HORIZONTAL';
-    style.paddingTop = px(d(['padding-top', 'paddingTop']) || computed.paddingTop);
-    style.paddingRight = px(d(['padding-right', 'paddingRight']) || computed.paddingRight);
-    style.paddingBottom = px(d(['padding-bottom', 'paddingBottom']) || computed.paddingBottom);
-    style.paddingLeft = px(d(['padding-left', 'paddingLeft']) || computed.paddingLeft);
+    style.paddingTop = px(resolveDecl(d(['padding-top', 'paddingTop']), computed.paddingTop));
+    style.paddingRight = px(resolveDecl(d(['padding-right', 'paddingRight']), computed.paddingRight));
+    style.paddingBottom = px(resolveDecl(d(['padding-bottom', 'paddingBottom']), computed.paddingBottom));
+    style.paddingLeft = px(resolveDecl(d(['padding-left', 'paddingLeft']), computed.paddingLeft));
     style.primaryAxisAlignItems = 'MIN';
     style.counterAxisAlignItems = 'MIN';
   } else if (display === 'table-cell') {
     // td / th → 内容横向排列，支持 vertical-align 映射
     style.layoutMode = 'HORIZONTAL';
-    style.paddingTop = px(d(['padding-top', 'paddingTop']) || computed.paddingTop);
-    style.paddingRight = px(d(['padding-right', 'paddingRight']) || computed.paddingRight);
-    style.paddingBottom = px(d(['padding-bottom', 'paddingBottom']) || computed.paddingBottom);
-    style.paddingLeft = px(d(['padding-left', 'paddingLeft']) || computed.paddingLeft);
+    style.paddingTop = px(resolveDecl(d(['padding-top', 'paddingTop']), computed.paddingTop));
+    style.paddingRight = px(resolveDecl(d(['padding-right', 'paddingRight']), computed.paddingRight));
+    style.paddingBottom = px(resolveDecl(d(['padding-bottom', 'paddingBottom']), computed.paddingBottom));
+    style.paddingLeft = px(resolveDecl(d(['padding-left', 'paddingLeft']), computed.paddingLeft));
     // 与 block 容器一致：text-align 决定主轴上单子项/内容块位置（右对齐单元格需 MAX，否则 Hug 宽文本框贴左）
     var textAlignTc = (d(['text-align', 'textAlign']) || computed.textAlign || '').toString().toLowerCase();
     var alignMapTc = { left: 'MIN', right: 'MAX', center: 'CENTER', justify: 'MIN', start: 'MIN', end: 'MAX' };
@@ -1715,9 +1732,13 @@ function buildStyleJSON(el, computed, rect, parentRect, cssRuleMap, globalFont) 
     else if (String(textDecoration).indexOf('line-through') >= 0) style.textDecoration = 'STRIKETHROUGH';
   }
 
-  var _lsRaw = d(['letter-spacing', 'letterSpacing']) || computed.letterSpacing;
-  var _ls = px(_lsRaw);
-  if (_ls != null && _ls !== 0) style.letterSpacing = _ls;
+  // em 单位需 fallback 到 computed（浏览器已换算为 px），避免 Math.round(0.35) = 0 的截断问题
+  var _lsDeclRaw = d(['letter-spacing', 'letterSpacing']);
+  var _lsRaw = (_lsDeclRaw && /em$/i.test(String(_lsDeclRaw).trim()))
+    ? computed.letterSpacing
+    : (_lsDeclRaw || computed.letterSpacing);
+  var _ls = _lsRaw != null ? parseFloat(String(_lsRaw)) : undefined;
+  if (_ls != null && !Number.isNaN(_ls) && Math.abs(_ls) > 0.001) style.letterSpacing = _ls;
 
   // text-transform → textCase（UPPER/LOWER/TITLE）
   var _ttRaw = (d(['text-transform', 'textTransform']) || (computed && computed.textTransform) || '').toLowerCase();
@@ -1764,11 +1785,11 @@ function buildStyleJSON(el, computed, rect, parentRect, cssRuleMap, globalFont) 
   var _mRRaw = d(['margin-right', 'marginRight']);
   var _mBRaw = d(['margin-bottom', 'marginBottom']);
   var _mLRaw = d(['margin-left', 'marginLeft']);
-  // 若声明层取到 CSS 变量或 calc，降级到 computed
-  var mT = px((_mTRaw && String(_mTRaw).indexOf('var(') < 0 && String(_mTRaw).indexOf('calc(') < 0 ? _mTRaw : null) || computed.marginTop);
-  var mR = px((_mRRaw && String(_mRRaw).indexOf('var(') < 0 && String(_mRRaw).indexOf('calc(') < 0 ? _mRRaw : null) || computed.marginRight);
-  var mB = px((_mBRaw && String(_mBRaw).indexOf('var(') < 0 && String(_mBRaw).indexOf('calc(') < 0 ? _mBRaw : null) || computed.marginBottom);
-  var mL = px((_mLRaw && String(_mLRaw).indexOf('var(') < 0 && String(_mLRaw).indexOf('calc(') < 0 ? _mLRaw : null) || computed.marginLeft);
+  // 若声明层取到 CSS 变量、calc 或 em/rem，降级到 computed（浏览器已换算为 px）
+  var mT = px(resolveDecl(_mTRaw, computed.marginTop));
+  var mR = px(resolveDecl(_mRRaw, computed.marginRight));
+  var mB = px(resolveDecl(_mBRaw, computed.marginBottom));
+  var mL = px(resolveDecl(_mLRaw, computed.marginLeft));
   if (mT != null) style.marginTop = mT;
   if (mR != null) style.marginRight = mR;
   if (mB != null) style.marginBottom = mB;
