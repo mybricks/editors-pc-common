@@ -766,7 +766,23 @@ function irStrokeToFigma(style) {
   var result = {};
   var color = style.strokeColor;
   if (!color) return result;
-  var c = irColorToFigma(color);
+
+  // 当四边颜色不同时（style.strokeTopColor 等由 style-builder 写入），
+  // 用"非 top 侧"的基础色（通常是灰色）作为主 strokePaints，
+  // top 侧隐藏（borderTopHidden: true），其蓝色 accent 由 convertNode 在帧内追加 RECTANGLE 覆盖。
+  // style-builder 已确保 strokeTopColor 仅在 top 边与其他可见边颜色真正不同时才写入。
+  var _hasPerSideColor = !!style.strokeTopColor;
+  var effectiveColor = color;
+  if (_hasPerSideColor) {
+    // 取第一个有宽度且非透明的非 top 侧颜色作为主 strokePaints 色
+    var _isTransparentColor = function(c) { return !c || c === 'rgba(0, 0, 0, 0)' || c === 'transparent'; };
+    var _nonTopColor = (!_isTransparentColor(style.strokeRightColor) ? style.strokeRightColor :
+                        (!_isTransparentColor(style.strokeBottomColor) ? style.strokeBottomColor :
+                         (!_isTransparentColor(style.strokeLeftColor) ? style.strokeLeftColor : null)));
+    if (_nonTopColor) effectiveColor = _nonTopColor;
+  }
+
+  var c = irColorToFigma(effectiveColor);
   if (!c) return result;
 
   var paint = {
@@ -796,7 +812,8 @@ function irStrokeToFigma(style) {
     result.borderRightWeight = rw;
     result.borderBottomWeight = bw;
     result.borderLeftWeight = lw;
-    if (tw <= 0) result.borderTopHidden = true;
+    // 颜色不同时 top 侧由 accent overlay RECTANGLE 负责，主 stroke 隐藏 top
+    if (tw <= 0 || _hasPerSideColor) result.borderTopHidden = true;
     if (rw <= 0) result.borderRightHidden = true;
     if (bw <= 0) result.borderBottomHidden = true;
     if (lw <= 0) result.borderLeftHidden = true;
@@ -2398,6 +2415,46 @@ function convertNode(irNode, parentGuid, siblingIndex, fontCtxMap, blobs, parent
         for (var j = 0; j < childChanges.length; j++) {
           changes.push(childChanges[j]);
         }
+      }
+    }
+
+    // ─── Top accent border overlay ───────────────────────────────────────────
+    // 当四边边框颜色不同（style.strokeTopColor 已存储），irStrokeToFigma 将主 strokePaints
+    // 设为灰色基础色并隐藏 top stroke；此处补充一个 RECTANGLE 覆盖在帧顶部，渲染蓝色上边框。
+    if (style.strokeTopColor && style.strokeTopWeight > 0) {
+      var _topC = irColorToFigma(style.strokeTopColor);
+      if (_topC) {
+        var _childCount = (irNode.children ? irNode.children.length : 0) + childIndexOffset;
+        var _br = style.borderRadius;
+        var _topTL = Array.isArray(_br) ? (_br[0] || 0) : (_br || 0);
+        var _topTR = Array.isArray(_br) ? (_br[1] || 0) : (_br || 0);
+        var _accentNc = {
+          guid: nextGuid(),
+          phase: 'CREATED',
+          parentIndex: { guid: guid, position: positionForIndex(_childCount) },
+          type: 'RECTANGLE',
+          name: '_top-accent-border',
+          visible: true,
+          opacity: 1,
+          size: { x: Math.ceil(style.width || 0), y: Math.ceil(style.strokeTopWeight) },
+          transform: makeTransform(0, 0),
+          fillPaints: [{
+            type: 'SOLID',
+            color: { r: _topC.r, g: _topC.g, b: _topC.b, a: 1 },
+            opacity: _topC.a,
+            visible: true,
+            blendMode: 'NORMAL',
+          }],
+          strokePaints: [],
+        };
+        if (_topTL > 0 || _topTR > 0) {
+          _accentNc.rectangleCornerRadiiIndependent = true;
+          _accentNc.rectangleTopLeftCornerRadius = _topTL;
+          _accentNc.rectangleTopRightCornerRadius = _topTR;
+          _accentNc.rectangleBottomLeftCornerRadius = 0;
+          _accentNc.rectangleBottomRightCornerRadius = 0;
+        }
+        changes.push(_accentNc);
       }
     }
   }

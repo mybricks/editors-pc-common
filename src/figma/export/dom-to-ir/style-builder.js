@@ -1077,12 +1077,29 @@ function buildStyleJSON(el, computed, rect, parentRect, cssRuleMap, globalFont) 
     } else {
       // 四边不同，分别输出各自宽度和颜色
       // strokeColor/strokeWeight 用有效边中第一个的颜色（Figma strokes 颜色统一），宽度用 individualStrokeWeights
+      // 同时存储各边独立颜色，供 ir-to-figma 在颜色不同时生成 accent overlay
       var _firstColor = _btW > 0 ? _btColorN : (_brW > 0 ? _brColorN : (_bbW > 0 ? _bbColorN : _blColorN));
       style.strokeColor = _firstColor;
       style.strokeTopWeight = _btW;
       style.strokeRightWeight = _brW;
       style.strokeBottomWeight = _bbW;
       style.strokeLeftWeight = _blW;
+      // 各边独立颜色：仅在 top 边有宽度，且与其他至少一条可见边颜色不同时才存储。
+      // 避免"底边框 / 仅 top 边框"等常见场景误触发 accent overlay 逻辑。
+      var _topColorDiffersFromOthers = false;
+      if (_btW > 0) {
+        if ((_brW > 0 && _btColorN !== _brColorN) ||
+            (_bbW > 0 && _btColorN !== _bbColorN) ||
+            (_blW > 0 && _btColorN !== _blColorN)) {
+          _topColorDiffersFromOthers = true;
+        }
+      }
+      if (_topColorDiffersFromOthers) {
+        style.strokeTopColor    = _btColorN;
+        style.strokeRightColor  = _brColorN;
+        style.strokeBottomColor = _bbColorN;
+        style.strokeLeftColor   = _blColorN;
+      }
     }
     // border-style → dashPattern: pick first non-none, non-solid style
     var _bStyles = [_btStyle, _brStyle, _bbStyle, _blStyle];
