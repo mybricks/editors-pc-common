@@ -88,10 +88,14 @@
   // image-inline
   fetchImageAsBase64DataUrl = _ii.fetchImageAsBase64DataUrl;
   inlineImageFillsInTree = _ii.inlineImageFillsInTree;
+  // shape-detector
+  var _sd = require('./shape-detector');
+  detectCssShape = _sd.detectCssShape;
 })();
 
 /* ── Stub declarations for Node/webpack module resolution */
-var SHADOW_HOST_ID, GEOVIEW_WRAPPER_ID, getShadowHost, resolveFrameRoot, getCssRulesBySelector, getMergedCssRulesFromStyleElements, getGeoviewScaleAndOrigin, getDesignRect, hasClassPrefix, simpleSelectorMatches, getMatchedSelectorsForElement, getNearestEncodedLessFilePrefixFromAncestors, elementHasEncodedLessFileClass, getDeclaredStyleForElement, getFrameTitleFromElement, findArtboardIdFromElement, emptyRoot, normalizeSvgPathForFigma, parseUrlFromBgImage, parseLinearGradientFromBgImage, parseRadialGradientFromBgImage, parseBoxShadow, parseBorderShorthand, parseGridTemplateColumnsCount, serializeSvgElement, parseTransformRotation, cssColorToHex, cssColorToRgba, parseFontFamilyStack, resolveFontFamilyFromStack, getGlobalFont, buildInlineTextStyle, buildStyleJSON, getM, pruneChildMarginsAfterGapMerge, anyChildHasMargin, childrenHaveUniformMargin, applyUniformMarginAsGap, ensureItemSpacingFromPositions, wrapHorizontalFlowChildrenVerticalMarginAsPadding, shouldSetTextAlignVerticalCenterForAbsoluteTextLeaf, shouldSetTextAlignVerticalCenterForFlexParentAlignItemsCenter, applyAntSelectSelectionPlaceholderTextAlign, inferNodeType, shouldMergeTextAndBrChildren, mergeTextAndBrChildNodesContent, getElementContentsTextBlockRect, getTextNodeRect, shouldMarkWidthConstrainedForEdgeWhitespace, applyWidthConstrainedForFigmaEdgeWhitespace, applyTextOverflowEllipsisExport, normalizeTextExportPreserveTrailing, getTextContent, getTextWithActualLineBreaksForElement, isShowingPlaceholder, getPseudoTextNode, getPseudoShapeNode, getColorRunsFromInlineElement, fetchImageAsBase64DataUrl, inlineImageFillsInTree;
+var SHADOW_HOST_ID, GEOVIEW_WRAPPER_ID, getShadowHost, resolveFrameRoot, getCssRulesBySelector, getMergedCssRulesFromStyleElements, getGeoviewScaleAndOrigin, getDesignRect, hasClassPrefix, simpleSelectorMatches, getMatchedSelectorsForElement, getNearestEncodedLessFilePrefixFromAncestors, elementHasEncodedLessFileClass, getDeclaredStyleForElement, getFrameTitleFromElement, findArtboardIdFromElement, emptyRoot, normalizeSvgPathForFigma, parseUrlFromBgImage, parseLinearGradientFromBgImage, parseRadialGradientFromBgImage, parseBoxShadow, parseBorderShorthand, parseGridTemplateColumnsCount, serializeSvgElement, parseTransformRotation, cssColorToHex, cssColorToRgba, parseFontFamilyStack, resolveFontFamilyFromStack, getGlobalFont, buildInlineTextStyle, buildStyleJSON, getM, pruneChildMarginsAfterGapMerge, anyChildHasMargin, childrenHaveUniformMargin, applyUniformMarginAsGap, ensureItemSpacingFromPositions, wrapHorizontalFlowChildrenVerticalMarginAsPadding, shouldSetTextAlignVerticalCenterForAbsoluteTextLeaf, shouldSetTextAlignVerticalCenterForFlexParentAlignItemsCenter, applyAntSelectSelectionPlaceholderTextAlign, inferNodeType, shouldMergeTextAndBrChildren, mergeTextAndBrChildNodesContent, getElementContentsTextBlockRect, getTextNodeRect, shouldMarkWidthConstrainedForEdgeWhitespace, applyWidthConstrainedForFigmaEdgeWhitespace, applyTextOverflowEllipsisExport, normalizeTextExportPreserveTrailing, getTextContent, getTextWithActualLineBreaksForElement, isShowingPlaceholder, getPseudoTextNode, getPseudoShapeNode, getColorRunsFromInlineElement, fetchImageAsBase64DataUrl, inlineImageFillsInTree,
+    detectCssShape;
 
 /**
  * ★ Figma 组件库映射开关
@@ -662,6 +666,45 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
     }
 
     const nodeType = inferNodeType(el, computed, tag);
+
+    // ── CSS 形状前置检测 ──────────────────────────────────────────
+    // 在 buildStyleJSON 之前运行：避免 style-builder 生成错误的 stroke/
+    // layout 字段再去覆盖。检测命中时直接返回 vector-shape IR 节点，
+    // ir-to-figma 侧将其映射为一等公民 VECTOR，无需 FRAME 壳。
+    // 扩展新形状类型：只需在 shape-detector.js 的 SHAPE_DETECTORS 注册新函数。
+    if (typeof detectCssShape === 'function') {
+      var _sd_result = detectCssShape(el, computed, rect);
+      if (_sd_result) {
+        var _sd_rgba = cssColorToRgba(_sd_result.fillColor);
+        if (_sd_rgba && _sd_rgba !== 'rgba(0, 0, 0, 0)') {
+          // 用 buildStyleJSON 取位置/旋转/opacity（避免重复位置计算逻辑）
+          var _sd_baseStyle = buildStyleJSON(el, computed, rect, parentRect, cssRuleMap, globalFont) || {};
+          var _sd_node = {
+            type: 'vector-shape',
+            name: el.getAttribute('aria-label') ||
+                  (el.className && typeof el.className === 'string'
+                    ? el.className.trim().split(/\s+/)[0] : null) || tag,
+            shapeData: { kind: _sd_result.kind, points: _sd_result.points },
+            style: {
+              x:           _sd_baseStyle.x,
+              y:           _sd_baseStyle.y,
+              width:       rect.width,
+              height:      rect.height,
+              fills:       [_sd_rgba],
+              opacity:     _sd_baseStyle.opacity,
+              rotation:    _sd_baseStyle.rotation,
+              positionType: _sd_baseStyle.positionType,
+            },
+          };
+          try {
+            var _sd_sel = computeMbPrefixedSyncSelector(el);
+            if (_sd_sel) _sd_node.figmaSyncSelector = _sd_sel;
+          } catch (_e) {}
+          return _sd_node;
+        }
+      }
+    }
+
     const style = buildStyleJSON(el, computed, rect, parentRect, cssRuleMap, globalFont);
 
     const node = {
@@ -702,6 +745,7 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
       // 同样需要修正 getDeclaredStyleForElement last-wins 导致的错误白色背景
       node.style = Object.assign({}, node.style || {}, { fills: [_stickySiblingBg] });
     }
+
 
     var matchedSelectors = cssRuleMap ? getMatchedSelectorsForElement(el, cssRuleMap) : [];
     if (matchedSelectors.length) node.selectors = matchedSelectors;

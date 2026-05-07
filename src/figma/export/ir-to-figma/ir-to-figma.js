@@ -1835,7 +1835,77 @@ function convertClipPathPolygonBackground(style, guid, parentGuid, siblingIndex,
   return nc;
 }
 
-// ─── Auto Layout mapping ───
+// ─── vector-shape IR → Figma VECTOR（一等公民，无 FRAME 壳）─────────────────
+//
+// 处理 dom-to-json.js 通过 shape-detector.js 识别并输出的 { type: 'vector-shape' }
+// IR 节点，将 shapeData（kind + points）直接转换为 Figma VECTOR，
+// 坐标/旋转来自 style.x / style.y / style.rotation，颜色来自 style.fills。
+//
+// 扩展新形状：在下方 buildVectorShapeSvgContent 中追加 kind 分支即可，
+// 无需改动 convertNode 分发逻辑。
+//
+function buildVectorShapeSvgContent(shapeData, width, height) {
+  if (!shapeData || !width || !height) return null;
+  var kind = shapeData.kind;
+  if (kind === 'polygon') {
+    // 复用 buildClipPathPolygonSvgContent 的 SVG 格式，保证输出一致
+    return buildClipPathPolygonSvgContent(shapeData.points, width, height);
+  }
+  // 未来：'ellipse' → <ellipse>，'path' → 原始 SVG path，等
+  return null;
+}
+
+function convertVectorShapeNode(irNode, guid, parentGuid, siblingIndex, fontCtxMap, blobs, parentLayoutMode, imageCtxGlobal) {
+  var style     = irNode.style     || {};
+  var shapeData = irNode.shapeData || {};
+  var width  = style.width  || 0;
+  var height = style.height || 0;
+  if (!(width > 0 && height > 0)) return null;
+
+  var svgContent = buildVectorShapeSvgContent(shapeData, width, height);
+  if (!svgContent) return null;
+
+  var vectorData = buildSvgVectorData(svgContent, blobs);
+  if (!vectorData || !vectorData.fillGeometry || !vectorData.fillGeometry.length) return null;
+
+  var imageCtx      = imageCtxGlobal || { byHash: {} };
+  var imageImports  = [];
+  var imageImportSet = {};
+  var paints = irFillsToFigmaPaints(style.fills, blobs, imageCtx, imageImports, imageImportSet);
+  if (!paints || !paints.length) return null;
+
+  var nc = {
+    guid:  guid,
+    phase: 'CREATED',
+    parentIndex: { guid: parentGuid, position: positionForIndex(siblingIndex) },
+    type:    'VECTOR',
+    name:    withSyncTag(irNode.name || 'shape', irNode, 'VectorShape'),
+    visible: true,
+    opacity: (style.opacity != null) ? style.opacity : 1,
+    size:    makeCeilSize(width, height),
+    transform: makeTransform(style.x || 0, style.y || 0, style.rotation),
+    fillPaints:   paints,
+    fillGeometry: vectorData.fillGeometry,
+    vectorData: { normalizedSize: makeCeilSize(width, height) },
+  };
+
+  if (vectorData.vectorNetworkBlobIdx != null) {
+    nc.vectorData.vectorNetworkBlob = vectorData.vectorNetworkBlobIdx;
+  }
+  if (imageImports.length) nc.imageImports = { imports: imageImports };
+
+  // 定位：absolute 子节点 or auto-layout 流
+  if (style.positionType === 'absolute') {
+    nc.stackPositioning = 'ABSOLUTE';
+  } else if (parentLayoutMode) {
+    if (style.alignSelf)     nc.stackChildAlignSelf  = style.alignSelf;
+    if (style.flexGrow >= 1) nc.stackChildPrimaryGrow = 1;
+  }
+
+  return nc;
+}
+
+
 
 function irLayoutToFigma(style) {
   if (!style || !style.layoutMode) return {};
@@ -2395,6 +2465,10 @@ function convertNode(irNode, parentGuid, siblingIndex, fontCtxMap, blobs, parent
       // 模板中找不到对应 componentKey，降级为普通 frame 绘制
       changes.push(convertFrameNode(irNode, guid, parentGuid, siblingIndex, parentLayoutMode, blobs, imageCtxGlobal));
     }
+  } else if (type === 'vector-shape') {
+    // CSS 形状（border 三角形等）→ 一等公民 VECTOR，无 FRAME 壳
+    var vsNode = convertVectorShapeNode(irNode, guid, parentGuid, siblingIndex, fontCtxMap, blobs, parentLayoutMode, imageCtxGlobal);
+    if (vsNode) changes.push(vsNode);
   } else {
     var frameChange = convertFrameNode(irNode, guid, parentGuid, siblingIndex, parentLayoutMode, blobs, imageCtxGlobal);
     changes.push(frameChange);
