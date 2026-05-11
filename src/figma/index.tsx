@@ -18,7 +18,8 @@ function FigmaEditor(props: any) {
   const onSyncFromFigma: ((items: FigmaImportItem[]) => void) | undefined = onSyncFromFigmaRaw
     ? (items: FigmaImportItem[]) => onSyncFromFigmaRaw(items, comEle ?? null)
     : undefined;
-  const canvasList: ArrayLike<Element> = result?.getCanvasList?.() ?? [];
+  // 传函数引用而非立即调用，推迟到点击导出时才查 DOM，避免页面未聚焦时拿到空列表
+  const getCanvasList: (() => ArrayLike<Element>) | undefined = result?.getCanvasList;
 
   // 原有路径（comEle 下的 [data-zone-type="page"]）是否可用
   const hasPrimaryEle = !!(comEle?.dataset?.zoneType === 'page'
@@ -27,7 +28,7 @@ function FigmaEditor(props: any) {
 
   return (
     <div>
-      <ExportToFigmaBtn comEle={comEle} comId={comId} fontfaces={fontfaces} canvasList={canvasList} />
+      <ExportToFigmaBtn comEle={comEle} comId={comId} fontfaces={fontfaces} getCanvasList={getCanvasList} />
       {hasPrimaryEle && <PasteFigmaClipboardDebugBtn onSyncFromFigma={onSyncFromFigma} />}
     </div>
   );

@@ -21,7 +21,7 @@ export interface FontfaceConfig {
 export function useExportToFigma(
   comEle: HTMLElement | null | undefined,
   comId: string,
-  options?: { fontfaces?: FontfaceConfig[]; svgExportMode?: 'image' | 'vector'; canvasList?: ArrayLike<Element> }
+  options?: { fontfaces?: FontfaceConfig[]; svgExportMode?: 'image' | 'vector'; getCanvasList?: () => ArrayLike<Element> }
 ) {
   const [loading, setLoading] = React.useState(false);
   const [progress, setProgress] = React.useState<ExportProgress>({
@@ -121,7 +121,7 @@ export function useExportToFigma(
     return map;
   }, [options?.fontfaces]);
   const svgExportMode = options?.svgExportMode || 'image';
-  const canvasList = options?.canvasList;
+  const getCanvasList = options?.getCanvasList;
 
   const handleExport = React.useCallback(() => {
     if (loading) return;
@@ -131,9 +131,17 @@ export function useExportToFigma(
       ? comEle
       : comEle?.querySelector('[data-zone-type="page"]')) as HTMLElement | null;
 
-    if (!primaryEle && (!canvasList || canvasList.length === 0)) return;
+    // 点击时才懒调用 getCanvasList，确保此时 DOM 已挂载
+    const canvasList =  getCanvasList?.() ?? null
 
     const msg = (window as any).antd?.message;
+
+    if (!primaryEle && (!canvasList || canvasList.length === 0)) {
+      const tip = '未找到可复制的页面，请聚焦到一个页面后重试';
+      if (msg) msg.warning(tip);
+      else alert(tip);
+      return;
+    }
     setProgress({ percent: 0, text: '准备中...' });
     setLoading(true);
 
@@ -164,6 +172,7 @@ export function useExportToFigma(
               }
               // 无 primaryEle：遍历 canvasList 全部帧，合并为一个 IR
               const canvasArr = Array.from(canvasList!) as HTMLElement[];
+
               const allIRs = await Promise.all(
                 canvasArr.map((canvas, i) =>
                   elementToMybricksJsonWithInlineImages(canvas, `${comId}-canvas${i}`, {
@@ -183,7 +192,7 @@ export function useExportToFigma(
                 page: {
                   'component-def': allIRs.flatMap((ir: any) => ir?.page?.['component-def'] || []),
                   content: [{
-                    name: `复制的页面 ×${rootFrames.length}`,
+                    name: `复制的 ${rootFrames.length} 个页面`,
                     style: {
                       x: 0, y: 0,
                       width: totalWidth,
@@ -237,7 +246,7 @@ export function useExportToFigma(
         }
       });
     });
-  }, [loading, comEle, comId, fontUrlMap, svgExportMode, canvasList, setStage, waitStageWithTrickle]);
+  }, [loading, comEle, comId, fontUrlMap, svgExportMode, getCanvasList, setStage, waitStageWithTrickle]);
 
   return { loading, progress, handleExport };
 }
