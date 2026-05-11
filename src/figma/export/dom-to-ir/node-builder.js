@@ -1072,6 +1072,22 @@ function getPseudoShapeNode(el, pseudo, ps, geo, parentRect, elRect) {
       }
     }
 
+    // display:inline-block / inline 的伪元素（如 ::before { display:inline-block; margin-right:5px; background:... }）
+    // 参与父容器 Auto Layout 流式排列，不应被绝对定位；positionType:'absolute' 会让 Figma 忽略间距导致文字贴左。
+    // 判断依据：ps.position 为 'static'（默认）或未设置时视为流式；只有明确 absolute/fixed 才走绝对定位路径。
+    var _psPos = (ps && ps.position) || 'static';
+    var _isFlowItem = _psPos !== 'absolute' && _psPos !== 'fixed';
+    if (_isFlowItem) {
+      delete shapeStyle.x;
+      delete shapeStyle.y;
+      delete shapeStyle.positionType;
+      // 保留 margin-right / margin-left 供 Auto Layout 子节点间距使用
+      var _psFlowMarR = parseFloat((ps.marginInlineEnd   || ps.marginRight) || '0') || 0;
+      var _psFlowMarL = parseFloat((ps.marginInlineStart || ps.marginLeft)  || '0') || 0;
+      if (_psFlowMarR > 0) shapeStyle.marginRight = Math.round(_psFlowMarR);
+      if (_psFlowMarL > 0) shapeStyle.marginLeft  = Math.round(_psFlowMarL);
+    }
+
     return {
       type: 'rectangle',
       name: pseudo === '::before' ? 'pseudo-before' : 'pseudo-after',
