@@ -17,6 +17,98 @@ var _svgPathDataLib = require('./vendors/svg-pathdata');
 var _componentTemplate = null;
 try { _componentTemplate = require('./figma-component-template'); } catch (e) {}
 
+// iocNodes 子树父→子映射（懒加载，仅构建一次），供 convertInstanceNode 运行时动态找 TEXT 节点
+var _iocChildrenOfCache = null;
+var _iocByGuidCache = null;
+function _ensureIocCache() {
+  if (_iocChildrenOfCache) return;
+  _iocChildrenOfCache = Object.create(null);
+  _iocByGuidCache = Object.create(null);
+  var nodes = (_componentTemplate && _componentTemplate.iocNodes) || [];
+  for (var _i = 0; _i < nodes.length; _i++) {
+    var _n = nodes[_i];
+    if (!_n.guid) continue;
+    var _gk = _n.guid.sessionID + ':' + _n.guid.localID;
+    _iocByGuidCache[_gk] = _n;
+    if (_n.parentIndex && _n.parentIndex.guid) {
+      var _pgk = _n.parentIndex.guid.sessionID + ':' + _n.parentIndex.guid.localID;
+      if (!_iocChildrenOfCache[_pgk]) _iocChildrenOfCache[_pgk] = [];
+      _iocChildrenOfCache[_pgk].push(_gk);
+    }
+  }
+}
+// 在 SYMBOL 的 iocNodes 子树中找第一个 TEXT 节点，返回其 guid（={sessionID,localID}），找不到返回 null
+function _findTextGuidInSymbolSubtree(symSessionID, symLocalID) {
+  _ensureIocCache();
+  var startKey = symSessionID + ':' + symLocalID;
+  var queue = (_iocChildrenOfCache[startKey] || []).slice();
+  for (var qi = 0; qi < queue.length; qi++) {
+    var gk = queue[qi];
+    var nd = _iocByGuidCache[gk];
+    if (!nd) continue;
+    if (nd.type === 'TEXT') return nd.guid;
+    var deeper = _iocChildrenOfCache[gk];
+    if (deeper) for (var di = 0; di < deeper.length; di++) queue.push(deeper[di]);
+  }
+  return null;
+}
+
+// 从 SYMBOL 的直接子节点构建 derivedSymbolData 数组。
+// derivedSymbolData 是 INSTANCE 的顶层字段，告诉 Figma "各子节点的当前尺寸/文字布局"，
+// 使得粘贴后无需访问库缓存就能立即渲染。
+// 结构：[{guidPath:{guids:[overrideKey]}, size:{x,y}} | {guidPath:..., derivedTextData:{layoutSize:{x,y}}}]
+function _buildDerivedSymbolData(symSessionID, symLocalID) {
+  _ensureIocCache();
+  var startKey = symSessionID + ':' + symLocalID;
+  var directChildKeys = _iocChildrenOfCache[startKey] || [];
+  if (!directChildKeys.length) return null;
+  var entries = [];
+  for (var i = 0; i < directChildKeys.length; i++) {
+    var nd = _iocByGuidCache[directChildKeys[i]];
+    if (!nd) continue;
+    // 用 overrideKey（库中稳定标识），与 symbolOverrides.guidPath 保持一致
+    var ovKey = nd.overrideKey || nd.guid;
+    if (!ovKey) continue;
+    if (nd.type === 'TEXT') {
+      // 文字节点：提供 derivedTextData.layoutSize，Figma 用它直接布局文字
+      entries.push({
+        guidPath: { guids: [ovKey] },
+        derivedTextData: {
+          layoutSize: nd.size || { x: 60, y: 22 }
+        }
+      });
+    } else {
+      // 非文字节点（icon、frame 等）：提供 size
+      if (nd.size) {
+        entries.push({
+          guidPath: { guids: [ovKey] },
+          size: nd.size
+        });
+      }
+      // 递归处理子节点（INSTANCE 内部的 icon 子树）
+      var childKeys = _iocChildrenOfCache[directChildKeys[i]] || [];
+      for (var ci = 0; ci < childKeys.length; ci++) {
+        var cnd = _iocByGuidCache[childKeys[ci]];
+        if (!cnd || !cnd.size) continue;
+        var cOvKey = cnd.overrideKey || cnd.guid;
+        if (!cOvKey) continue;
+        entries.push({
+          guidPath: { guids: [cOvKey] },
+          size: cnd.size
+        });
+      }
+    }
+  }
+  return entries.length > 0 ? entries : null;
+}
+
+// 组件库变体解析器：将 component-library IR 节点解析为 figma-instance IR
+var _componentLibraryResolver = null;
+try { _componentLibraryResolver = require('./component-library-resolver'); } catch (e) {}
+
+// 每次导出时的组件映射日志，供调试用，每次 convertIRToFigmaClipboardHtml 调用前重置
+var _componentMappingLog = [];
+
 var _compiledSchema = null;
 var _schemaChunkBytes = null;
 
@@ -2457,6 +2549,40 @@ function convertNode(irNode, parentGuid, siblingIndex, fontCtxMap, blobs, parent
     }
   } else if (type === 'image') {
     changes.push(convertImageNode(irNode, guid, parentGuid, siblingIndex, parentLayoutMode, blobs, imageCtxGlobal));
+  } else if (type === 'component-library') {
+    // 通过 description 索引将 component-library IR 解析为 figma-instance，再转为 INSTANCE
+    var _resolved = _componentLibraryResolver
+      ? _componentLibraryResolver.resolveComponentLibraryNode(irNode, _componentTemplate)
+      : null;
+    var _resolvedInst = null;
+    var _mappingFallback = 'frame';
+    if (_resolved) {
+      _resolvedInst = convertInstanceNode(_resolved, guid, parentGuid, siblingIndex);
+      if (_resolvedInst) {
+        _mappingFallback = 'instance';
+        changes.push(_resolvedInst);
+      } else {
+        _mappingFallback = 'frame(keyMissing)';
+        changes.push(convertFrameNode(irNode, guid, parentGuid, siblingIndex, parentLayoutMode, blobs, imageCtxGlobal));
+      }
+    } else {
+      // 未命中变体库，降级为普通 frame 绘制
+      changes.push(convertFrameNode(irNode, guid, parentGuid, siblingIndex, parentLayoutMode, blobs, imageCtxGlobal));
+    }
+    // 收集映射日志（每次导出汇总打印）
+    _componentMappingLog.push({
+      component:   irNode.figmaComponent  || null,
+      props:       irNode.figmaProps      || null,
+      label:       irNode.label           || null,
+      zoneTitle:   irNode.zoneTitle       || null,
+      rawClassName: irNode.rawClassName   || null,
+      mapped: _resolved ? {
+        variantName:  _resolved.name,
+        componentKey: _resolved.figmaComponentKey,
+        result:       _mappingFallback,
+      } : null,
+      fallback: _mappingFallback,
+    });
   } else if (type === 'figma-instance') {
     var inst = convertInstanceNode(irNode, guid, parentGuid, siblingIndex);
     if (inst) {
@@ -2512,6 +2638,9 @@ function convertNode(irNode, parentGuid, siblingIndex, fontCtxMap, blobs, parent
           opacity: 1,
           size: { x: Math.ceil(style.width || 0), y: Math.ceil(style.strokeTopWeight) },
           transform: makeTransform(0, 0),
+          // 必须绝对定位，否则在 Auto Layout 父帧中会参与流式排列，
+          // 导致 1px 矩形被垂直居中后在帧内出现一条多余的横线。
+          stackPositioning: 'ABSOLUTE',
           fillPaints: [{
             type: 'SOLID',
             color: { r: _topC.r, g: _topC.g, b: _topC.b, a: 1 },
@@ -2547,25 +2676,53 @@ function convertInstanceNode(irNode, guid, parentGuid, siblingIndex) {
 
   var symbolGuid = { sessionID: entry.sessionID, localID: entry.localID };
   var style = irNode.style || {};
-  var instanceText = irNode.name || 'Instance';
-  var instanceNodeName = withSyncTag(instanceText, irNode, 'Instance');
+  // name 用于 Figma 层面板显示名；label 是组件内文字层 override 的内容。
+  // 当 label 字段存在（resolver 路径）时以 label 为准；旧格式/直接 figma-instance 则用 name。
+  var instanceDisplayName = irNode.name || 'Instance';
+  var instanceText = ('label' in irNode) ? irNode.label : instanceDisplayName;
+  var instanceNodeName = withSyncTag(instanceDisplayName, irNode, 'Instance');
 
   var symData = { symbolID: symbolGuid, uniformScaleFactor: 1 };
 
-  if (entry.textOverrideKey && instanceText) {
-    symData.symbolOverrides = [{
-      guidPath: { guids: [entry.textOverrideKey] },
-      textData: {
-        characters: instanceText,
-        lines: [{ lineType: 'PLAIN', styleId: 0, indentationLevel: 0,
-                  sourceDirectionality: 'AUTO', listStartOffset: 0, isFirstLineOfList: false }],
-      },
-      textUserLayoutVersion: 5,
-      textExplicitLayoutVersion: 1,
-    }];
+  if (instanceText) {
+    // 优先用模板中预计算的 textOverrideKey；
+    // 若它不存在，或经 inspector 校验后被清除，则在运行时从 iocNodes 子树中动态找第一个 TEXT 节点。
+    var _textOverrideGuid = entry.textOverrideKey || null;
+    if (!_textOverrideGuid) {
+      _textOverrideGuid = _findTextGuidInSymbolSubtree(entry.sessionID, entry.localID);
+      if (_textOverrideGuid) {
+        console.log('[ir-to-figma] 运行时找到 TEXT 节点 guid:', JSON.stringify(_textOverrideGuid),
+          '(componentKey:', ck.slice(0, 8) + '...)');
+      } else {
+        console.warn('[ir-to-figma] 未找到 TEXT 子节点，文字覆盖跳过。建议重新从组件集复制并追加导出模板。',
+          'componentKey:', ck.slice(0, 8) + '...',
+          'SYMBOL:', entry.sessionID + ':' + entry.localID);
+      }
+    }
+    if (_textOverrideGuid) {
+      symData.symbolOverrides = [{
+        guidPath: { guids: [_textOverrideGuid] },
+        textData: {
+          characters: instanceText,
+          lines: [{ lineType: 'PLAIN', styleId: 0, indentationLevel: 0,
+                    sourceDirectionality: 'AUTO', listStartOffset: 0, isFirstLineOfList: false }],
+        },
+        textUserLayoutVersion: 5,
+        textExplicitLayoutVersion: 1,
+      }];
+    }
   }
 
-  return {
+  // ── derivedSymbolData：从 SYMBOL 子节点合成渲染快照 ──
+  // 此字段让 Figma 粘贴后立即渲染，无需依赖库缓存（缺失时初次粘贴显示空白，需手动 Update）。
+  var _derivedSymbolData = _buildDerivedSymbolData(entry.sessionID, entry.localID);
+
+  // ── overrideKey：从 SYMBOL 节点复制，供 Figma 做 override 路径匹配 ──
+  _ensureIocCache();
+  var _symNode = _iocByGuidCache[entry.sessionID + ':' + entry.localID];
+  var _instOverrideKey = (_symNode && _symNode.overrideKey) ? _symNode.overrideKey : null;
+
+  var instNode = {
     guid: guid,
     phase: 'CREATED',
     type: 'INSTANCE',
@@ -2579,6 +2736,14 @@ function convertInstanceNode(irNode, guid, parentGuid, siblingIndex) {
     blendMode: 'NORMAL',
     stackPositioning: 'AUTO',
   };
+  if (_derivedSymbolData) {
+    instNode.derivedSymbolData = _derivedSymbolData;
+    instNode.derivedSymbolDataLayoutVersion = 1;
+  }
+  if (_instOverrideKey) {
+    instNode.overrideKey = _instOverrideKey;
+  }
+  return instNode;
 }
 
 function convertSvgNode(irNode, guid, parentGuid, siblingIndex, parentLayoutMode, blobs, imageCtxGlobal) {
@@ -3650,6 +3815,48 @@ function convertImageNode(irNode, guid, parentGuid, siblingIndex, parentLayoutMo
 
 // ─── Scene message builder ───
 
+/**
+ * 修正 iocNodes 中节点的 parentIndex：
+ * 若某个节点的 parentIndex.guid 不在 iocNodes 自身的 guid 集合里，
+ * 说明它本来挂在原始剪贴板的主画布下（例如 {0,1}），
+ * 必须重新指向 iocNodes[0]（IOC Canvas）才能被 Figma 正确隐藏。
+ */
+function fixupIocNodes(iocNodes) {
+  if (!iocNodes || iocNodes.length === 0) return iocNodes;
+
+  // 建立 iocNodes 内的 guid 集合
+  var iocGuidSet = Object.create(null);
+  for (var i = 0; i < iocNodes.length; i++) {
+    var n = iocNodes[i];
+    if (n.guid) iocGuidSet[n.guid.sessionID + ':' + n.guid.localID] = true;
+  }
+
+  // IOC Canvas 本身（第一个节点）的 guid，作为孤儿节点的新父节点
+  var iocCanvasGuid = iocNodes[0].guid;
+
+  var fixed = [];
+  for (var j = 0; j < iocNodes.length; j++) {
+    var nd = iocNodes[j];
+    var pi = nd.parentIndex;
+    if (!pi || !pi.guid) { fixed.push(nd); continue; }
+
+    var pgk = pi.guid.sessionID + ':' + pi.guid.localID;
+    var parentIsDoc = (pi.guid.sessionID === 0 && pi.guid.localID === 0);
+
+    // 父节点不在 iocNodes 内 且 不是 DOCUMENT（IOC Canvas 本身挂在 DOCUMENT 下是正常的）
+    if (!parentIsDoc && !iocGuidSet[pgk]) {
+      // 克隆节点，重写 parentIndex 指向 IOC Canvas
+      var clone = Object.assign({}, nd);
+      clone.parentIndex = { guid: iocCanvasGuid, position: pi.position || '!' };
+      fixed.push(clone);
+      // console.log('[ir-to-figma] fixupIocNodes: re-parented', nd.type, nd.name || '', 'from', pgk, '→ iocCanvas');
+    } else {
+      fixed.push(nd);
+    }
+  }
+  return fixed;
+}
+
 function buildSceneMessage(contentNodes, opts, blobs) {
   opts = opts || {};
   var pasteID = opts.pasteID || (Date.now() & 0x7fffffff);
@@ -3701,7 +3908,7 @@ function buildSceneMessage(contentNodes, opts, blobs) {
         backgroundOpacity: 1,
         backgroundEnabled: true,
       },
-    ].concat(contentNodes).concat(opts.iocNodes || [
+    ].concat(contentNodes).concat(fixupIocNodes(opts.iocNodes) || [
       {
         guid: { sessionID: 20000069, localID: 2 },
         phase: 'CREATED',
@@ -3778,6 +3985,11 @@ function buildClipboardHtml(metaObj, archiveBuf) {
  * @returns {string} 可直接写入 clipboard 的 HTML
  */
 function convertIRToFigmaClipboardHtml(irPayload, fontCtxOrMap) {
+  // 每次导出前重置组件映射日志和 IOC Cache（防止多次导出间 template 变更导致 cache 陈旧）
+  _componentMappingLog = [];
+  _iocChildrenOfCache = null;
+  _iocByGuidCache = null;
+
   // 统一转换为新格式 { [family]: { [weight]: ctx } }
   var fontCtxMap = null;
   if (fontCtxOrMap) {
@@ -3817,10 +4029,238 @@ function convertIRToFigmaClipboardHtml(irPayload, fontCtxOrMap) {
   // 若模板存在，注入 fileKey + IOC Canvas/SYMBOL 节点，让 Figma 能解析库组件引用
   var _msgOpts = {};
   var tpl = _componentTemplate;
-  if (tpl && tpl.iocCanvasNode) {
+  if (tpl && tpl.fileKey) {
+    // fileKey（pasteFileKey）必须始终注入：Figma 用它定位 INSTANCE 所属的组件库
+    // 即使是 API 直出模板（iocCanvasNode 为 null），也需要正确的 fileKey
     _msgOpts.fileKey = tpl.fileKey;
-    _msgOpts.iocNodes = [tpl.iocCanvasNode].concat(tpl.componentNodes || []);
   }
+  if (tpl) {
+    // 新格式（iocNodes 扁平数组）优先；向下兼容旧格式（iocCanvasNode + componentNodes 两字段）
+    var _allIocNodes = tpl.iocNodes
+      || (tpl.iocCanvasNode ? [tpl.iocCanvasNode].concat(tpl.componentNodes || []) : null);
+
+    if (_allIocNodes && _allIocNodes.length) {
+      // ── 按需筛选：只保留当前页面实际引用的 SYMBOL 节点及其子树 ──
+      // 扫描 allNodeChanges 中所有 INSTANCE，收集 symbolData.symbolID GUIDs
+      var _usedSymbolGuids = Object.create(null);
+      for (var _ni = 0; _ni < allNodeChanges.length; _ni++) {
+        var _nc = allNodeChanges[_ni];
+        if (_nc.type === 'INSTANCE' && _nc.symbolData && _nc.symbolData.symbolID) {
+          var _sg = _nc.symbolData.symbolID;
+          _usedSymbolGuids[_sg.sessionID + ':' + _sg.localID] = true;
+        }
+      }
+
+      var _usedCount = Object.keys(_usedSymbolGuids).length;
+      if (_usedCount === 0) {
+        // 页面无 INSTANCE 引用，无需注入 iocNodes
+      } else {
+        // 构建 GUID → 节点 & 父 → 子 映射
+        var _iocByGuid      = Object.create(null);
+        var _iocChildrenOf  = Object.create(null);
+        for (var _ii = 0; _ii < _allIocNodes.length; _ii++) {
+          var _in  = _allIocNodes[_ii];
+          var _igk = _in.guid.sessionID + ':' + _in.guid.localID;
+          _iocByGuid[_igk] = _in;
+          if (_in.parentIndex && _in.parentIndex.guid) {
+            var _ipgk = _in.parentIndex.guid.sessionID + ':' + _in.parentIndex.guid.localID;
+            if (!_iocChildrenOf[_ipgk]) _iocChildrenOf[_ipgk] = [];
+            _iocChildrenOf[_ipgk].push(_igk);
+          }
+        }
+
+        // DFS 收集节点及其全部后代
+        var _neededGuids = Object.create(null);
+        function _collectIocSubtree(gk) {
+          if (_neededGuids[gk]) return;
+          _neededGuids[gk] = true;
+          var ch = _iocChildrenOf[gk];
+          if (ch) for (var _ci = 0; _ci < ch.length; _ci++) _collectIocSubtree(ch[_ci]);
+        }
+
+        // 始终保留 IOC Canvas（_allIocNodes[0]）
+        _collectIocSubtree(_allIocNodes[0].guid.sessionID + ':' + _allIocNodes[0].guid.localID);
+
+        // 收集所有被引用 SYMBOL 及其子树
+        Object.keys(_usedSymbolGuids).forEach(function(sgk) { _collectIocSubtree(sgk); });
+
+        // ── 追踪 INSTANCE → SYMBOL 引用：把图标子组件的 SYMBOL 定义也纳入 ──
+        // 按钮 SYMBOL 内部有图标 INSTANCE（如 SystemLoadingLine），其 symbolData.symbolID
+        // 指向图标 SYMBOL 定义。若该 SYMBOL 不在 clipboard，Figma 渲染时无法解析 → 空白。
+        // 此处反复扫描直到无新 SYMBOL 被发现（支持多层嵌套）。
+        var _prevSize = -1;
+        while (true) {
+          var _curSize = Object.keys(_neededGuids).length;
+          if (_curSize === _prevSize) break; // 没有新发现，停止
+          _prevSize = _curSize;
+          for (var _xi = 0; _xi < _allIocNodes.length; _xi++) {
+            var _xn = _allIocNodes[_xi];
+            if (_xn.type !== 'INSTANCE') continue;
+            var _xgk = _xn.guid.sessionID + ':' + _xn.guid.localID;
+            if (!_neededGuids[_xgk]) continue; // 不在已选集合中，跳过
+            if (!_xn.symbolData || !_xn.symbolData.symbolID) continue;
+            var _xsid = _xn.symbolData.symbolID;
+            var _xsgk = _xsid.sessionID + ':' + _xsid.localID;
+            if (_iocByGuid[_xsgk]) {
+              _collectIocSubtree(_xsgk); // 收集图标 SYMBOL 及其全部子节点
+            }
+          }
+        }
+
+        // 过滤出所需节点（保持原始顺序）
+        var _filteredIocNodes = _allIocNodes.filter(function(n) {
+          return _neededGuids[n.guid.sessionID + ':' + n.guid.localID];
+        });
+
+        var _iconSymCount = _filteredIocNodes.filter(function(n) {
+          return n.type === 'SYMBOL' && !_usedSymbolGuids[n.guid.sessionID + ':' + n.guid.localID];
+        }).length;
+        console.log('[ir-to-figma] iocNodes 按需筛选: 全量', _allIocNodes.length,
+          '→ 使用', _filteredIocNodes.length,
+          '（变体 SYMBOL', _usedCount, '个 + 图标子组件 SYMBOL', _iconSymCount, '个）');
+
+        // ── 兜底：给"空壳 SYMBOL"合成 TEXT 子节点 ──
+        // 旧版 inspector 生成的模板可能存在「SYMBOL 无任何子节点」的情况：
+        //   复制 ComponentSet FRAME 时 Figma 只对被引用过的变体保留子树，未被引用的变体只剩 SYMBOL 骨架。
+        // 这种 SYMBOL 在 Figma 渲染时找不到 TEXT 节点 → 显示库默认文字（如"文字按钮"）。
+        // 此处运行时对它们注入合成 TEXT 节点，使 textOverride 能正确命中。
+        // 新版 inspector 已在导出阶段做相同处理，此处仅作为旧模板的兜底。
+        (function _synthesizeMissingTextChildren() {
+          var _localChildrenOf = Object.create(null);
+          _filteredIocNodes.forEach(function(n) {
+            if (!n.parentIndex || !n.parentIndex.guid) return;
+            var pgk = n.parentIndex.guid.sessionID + ':' + n.parentIndex.guid.localID;
+            if (!_localChildrenOf[pgk]) _localChildrenOf[pgk] = [];
+            _localChildrenOf[pgk].push(n);
+          });
+          var _refText = null;
+          for (var rti = 0; rti < _filteredIocNodes.length; rti++) {
+            if (_filteredIocNodes[rti].type === 'TEXT') { _refText = _filteredIocNodes[rti]; break; }
+          }
+          if (!_refText) return; // 无参考 TEXT，跳过
+
+          // 构建 SYMBOL guid→node 映射，用于按风格匹配参考 TEXT
+          var _localSymByGk = Object.create(null);
+          _filteredIocNodes.forEach(function(n) {
+            if (n.type === 'SYMBOL' && n.guid) {
+              _localSymByGk[n.guid.sessionID + ':' + n.guid.localID] = n;
+            }
+          });
+
+          // 按 SYMBOL 的"风格="维度建立最佳参考 TEXT 映射
+          // 优先级：① 正常态（加载中=off + 禁用中=off）+ 非白色 > ② 任意非白色 > ③ 白色兜底
+          var _refTextByStyle = Object.create(null); // 风格值 → { node, score }
+          _filteredIocNodes.forEach(function(n) {
+            if (n.type !== 'TEXT' || !n.parentIndex || !n.parentIndex.guid) return;
+            var pgk = n.parentIndex.guid.sessionID + ':' + n.parentIndex.guid.localID;
+            var sym = _localSymByGk[pgk];
+            if (!sym || !sym.name) return;
+            var sm = sym.name.match(/风格=([^,\s\uff0c]+)/);
+            if (!sm) return;
+            var style = sm[1];
+            var fp = n.fillPaints;
+            var col = fp && fp[0] && fp[0].color;
+            var isWhite = !col || (col.r > 0.9 && col.g > 0.9 && col.b > 0.9);
+            // score: 正常态+非白色=3, 非正常态+非白色=2, 白色=1
+            var isNormal = sym.name.indexOf('加载中=off') !== -1 && sym.name.indexOf('禁用中=off') !== -1;
+            var score = isWhite ? 1 : (isNormal ? 3 : 2);
+            var cur = _refTextByStyle[style];
+            if (!cur || score > cur.score) {
+              _refTextByStyle[style] = { node: n, score: score };
+            }
+          });
+          // 解包为 style → node
+          var _refNodeByStyle = Object.create(null);
+          Object.keys(_refTextByStyle).forEach(function(k) {
+            _refNodeByStyle[k] = _refTextByStyle[k].node;
+          });
+
+          var _maxLid = 0;
+          _filteredIocNodes.forEach(function(n) {
+            if (n.guid && n.guid.sessionID === _refText.guid.sessionID && n.guid.localID > _maxLid) {
+              _maxLid = n.guid.localID;
+            }
+          });
+          var _nextLid = _maxLid + 1000;
+          var _added = 0;
+          var _idx = (_componentTemplate && _componentTemplate.componentKeyIndex) || {};
+
+          _filteredIocNodes.slice().forEach(function(node) {
+            if (node.type !== 'SYMBOL') return;
+            var sgk = node.guid.sessionID + ':' + node.guid.localID;
+            var ch = _localChildrenOf[sgk] || [];
+            if (ch.some(function(c) { return c.type === 'TEXT'; })) return;
+
+            // 优先用 componentKeyIndex 中已记录的 textOverrideKey
+            var entryWithSym = null;
+            for (var ek in _idx) {
+              var ev = _idx[ek];
+              if (ev.sessionID === node.guid.sessionID && ev.localID === node.guid.localID && ev.textOverrideKey) {
+                entryWithSym = ev;
+                break;
+              }
+            }
+            var _ovKey = entryWithSym && entryWithSym.textOverrideKey;
+            if (!_ovKey) {
+              // 推算约定值：SYMBOL.publishID（或 guid）的 localID + 1
+              var _basis = (node.publishID && node.publishID.sessionID) ? node.publishID : node.guid;
+              _ovKey = { sessionID: _basis.sessionID, localID: _basis.localID + 1 };
+            }
+
+            // 按当前 SYMBOL 的"风格="维度选择颜色最匹配的参考 TEXT，避免白色串色
+            var _chosenRef = _refText;
+            if (node.name) {
+              var _sm = node.name.match(/风格=([^,\s\uff0c]+)/);
+              if (_sm && _refNodeByStyle[_sm[1]]) {
+                _chosenRef = _refNodeByStyle[_sm[1]];
+              }
+            }
+
+            var synth = JSON.parse(JSON.stringify(_chosenRef));
+            synth.guid = { sessionID: _refText.guid.sessionID, localID: _nextLid++ };
+            synth.parentIndex = { guid: { sessionID: node.guid.sessionID, localID: node.guid.localID }, position: '"' };
+            synth.overrideKey = _ovKey;
+            if (synth.textData) synth.textData.characters = 'Text';
+            synth.name = 'Text';
+
+            _filteredIocNodes.push(synth);
+            _added++;
+          });
+          if (_added > 0) {
+            console.warn('[ir-to-figma] 旧模板兜底：为', _added, '个空壳 SYMBOL 合成了 TEXT 子节点（建议用新版 inspector 重新导出模板）');
+            // 合成节点追加后，重建 IOC cache，确保 _buildDerivedSymbolData 后续能读到新节点
+            _iocChildrenOfCache = null;
+            _iocByGuidCache = null;
+          }
+        })();
+
+        _msgOpts.iocNodes = _filteredIocNodes;
+      }
+    }
+  }
+
+  if (tpl && !tpl.iocNodes && !tpl.iocCanvasNode) {
+    console.warn('[ir-to-figma] WARNING: template has no iocNodes!',
+      'INSTANCE nodes will have symbolID GUIDs that are NOT embedded in the clipboard',
+      '→ Figma shows "Component removed from this file".',
+      'Fix: regenerate figma-component-template.js using the inspector export button.'
+    );
+  }
+  // ─── 组件变体映射汇总（调试用）─────────────────────────────────────────
+  if (_componentMappingLog.length > 0) {
+    console.log(
+      '%c[ir-to-figma] 组件变体映射汇总 (' + _componentMappingLog.length + ' 个)',
+      'color:#7c3aed;font-weight:bold'
+    );
+    console.log(JSON.parse(JSON.stringify(_componentMappingLog)));
+  }
+  // ────────────────────────────────────────────────────────────────────────
+
+  console.log('[ir-to-figma] buildSceneMessage opts:', {
+    fileKey: _msgOpts.fileKey || '(none)',
+    iocNodesCount: _msgOpts.iocNodes ? _msgOpts.iocNodes.length : 0,
+    templateFileKey: tpl && tpl.fileKey,
+  });
   var message = buildSceneMessage(allNodeChanges, _msgOpts, blobs);
   var encoded = compiled.encodeMessage(message);
   var msgChunk = pako.deflateRaw(encoded);

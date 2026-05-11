@@ -615,7 +615,14 @@ function getPseudoTextNode(el, pseudo, geo, parentRect, elRect, cssRuleMap, glob
           height: _fallbackProps['height'],
           transform: _fallbackProps['transform'],
           transformOrigin: _fallbackProps['transform-origin'],
-          backgroundColor: _fallbackProps['background-color'],
+          // background-color 优先；若 CSS 使用 background 简写（如 background:#1677ff），
+          // 则从简写中提取颜色值作为兜底，确保 Shadow DOM 场景下色块伪元素不丢色。
+          backgroundColor: _fallbackProps['background-color'] || (function() {
+            var _bgs = (_fallbackProps['background'] || '').trim();
+            if (!_bgs || _bgs === 'none') return undefined;
+            var _bm = _bgs.match(/(?:rgba?\s*\([^)]+\)|#[0-9a-fA-F]{3,8})/);
+            return _bm ? _bm[0] : undefined;
+          })(),
           backgroundImage: _fallbackProps['background-image'],
           boxSizing: _fallbackProps['box-sizing'],
           paddingTop: _fallbackProps['padding-top'] || '0',
@@ -661,6 +668,16 @@ function getPseudoTextNode(el, pseudo, geo, parentRect, elRect, cssRuleMap, glob
     if (!/\S/.test(text)) {
       var _bg = ps.backgroundColor || '';
       var _hasBg = _bg && _bg !== 'transparent' && _bg !== 'rgba(0, 0, 0, 0)';
+      // background 简写兜底（Shadow DOM fallback 路径）
+      if (!_hasBg && ps.background && ps.background !== 'none') {
+        var _bgSh2 = String(ps.background).trim();
+        var _bgShM2 = _bgSh2.match(/(?:rgba?\s*\([^)]+\)|#[0-9a-fA-F]{3,8})/);
+        if (_bgShM2) {
+          _bg = _bgShM2[0];
+          _hasBg = _bg !== 'rgba(0, 0, 0, 0)' && _bg !== 'transparent';
+          if (_hasBg) ps.backgroundColor = _bg; // 同步，供后续 getPseudoShapeNode 使用
+        }
+      }
       var _hasBorder = ps.borderStyle && ps.borderStyle !== 'none' && parseFloat(ps.borderWidth || 0) > 0;
       if (_hasBg || _hasBorder) return getPseudoShapeNode(el, pseudo, ps, geo, parentRect, elRect);
       var _mEnd   = parseFloat(ps.marginInlineEnd   || ps.marginRight) || 0;
@@ -810,6 +827,16 @@ function getPseudoShapeNode(el, pseudo, ps, geo, parentRect, elRect) {
     // 读取 background-color（getComputedStyle 已解析 CSS 变量为真实 RGB 值）
     var bgColor = ps.backgroundColor;
     var bgNotEmpty = bgColor && bgColor !== 'transparent' && bgColor !== 'rgba(0, 0, 0, 0)';
+    // Shadow DOM fallback 路径：CSS 可能使用 background 简写而非 background-color，
+    // 导致 ps.backgroundColor 为 undefined；从 ps.background 中提取颜色作为兜底。
+    if (!bgNotEmpty && ps.background && ps.background !== 'none') {
+      var _bgSh = String(ps.background).trim();
+      var _bgShM = _bgSh.match(/(?:rgba?\s*\([^)]+\)|#[0-9a-fA-F]{3,8})/);
+      if (_bgShM) {
+        bgColor = _bgShM[0];
+        bgNotEmpty = bgColor !== 'rgba(0, 0, 0, 0)' && bgColor !== 'transparent';
+      }
+    }
 
     // 读取 background-image（URL 或渐变，如 ant-steps 连接线用 url() 绘制）
     var bgImage = ps.backgroundImage;

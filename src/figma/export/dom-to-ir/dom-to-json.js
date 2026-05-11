@@ -464,7 +464,10 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
     }
   }
 
-  function walk(el, parentRect, _inProForm, _inTabs, _inQuickSort) {
+  function walk(el, parentRect, ctx) {
+    var _inProForm   = (ctx && ctx.inProForm)   || false;
+    var _inTabs      = (ctx && ctx.inTabs)      || false;
+    var _inQuickSort = (ctx && ctx.inQuickSort) || false;
     var rect = getDesignRect(el, geo);
     const computed = window.getComputedStyle(el);
     const tag = (el.tagName || '').toLowerCase();
@@ -625,23 +628,9 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
     // ant-checkbox-inner 是 checkbox 的纯视觉方框，当启用组件库映射时由 Figma 变体组件负责渲染，跳过
     if (COMPONENT_LIBRARY_ENABLED && el.classList && el.classList.contains('ant-checkbox-inner')) return null;
 
-    // ── Figma 组件库实例映射：<button> → 按钮变体 ──
-    // ant-btn-primary → 一级按钮，其他 → 二级按钮
-    if (COMPONENT_LIBRARY_ENABLED && tag === 'button') {
-      var _btnCls = (typeof el.className === 'string') ? el.className : '';
-      var _isPrimary = _btnCls.indexOf('btnSearch') !== -1;
-      var _btnMbSel = computeMbPrefixedSyncSelector(el);
-      var _btnIr = {
-        type: 'figma-instance',
-        figmaComponentKey: _isPrimary
-          ? '25b631121259ef348009e6cdc75fe2db40fcf38e'
-          : '0d72cf9591f663c61227e0086043266b9a523fcc',
-        name: (el.textContent || '').replace(/\s+/g, ' ').trim() || 'Button',
-        style: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
-      };
-      if (_btnMbSel) _btnIr.figmaSyncSelector = _btnMbSel;
-      return _btnIr;
-    }
+    // 红线原则：没有 data-library-source 的元素绝对不做组件库映射。
+    // 原有的"无标记 ant-btn 全局拦截"逻辑已删除——它会把所有 ant-btn 按钮错误映射，
+    // 包括完全未经 Babel 打标的页面。ProForm 内置按钮由下方 _inProForm 上下文兜底处理。
 
     // display:contents 节点自身不作为独立 frame，直接将其子节点合并到父级
     if (isDisplayContents) {
@@ -655,7 +644,7 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
           if (hasClassPrefix(elChild, 'selection-')) continue;
           if (hasClassPrefix(elChild, 'append-')) continue;
           if (hasClassPrefix(elChild, 'boardTitle-')) continue;
-          const childNode = walk(elChild, parentRect, _inProForm, _inTabs, _inQuickSort);
+          const childNode = walk(elChild, parentRect, ctx);
           if (childNode) childNodes.push(childNode);
         }
       }
@@ -707,6 +696,53 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
 
     const style = buildStyleJSON(el, computed, rect, parentRect, cssRuleMap, globalFont);
 
+    // <input type="checkbox"> / <input type="radio">：浏览器 native 渲染，
+    // getComputedStyle 读不到真实视觉（背景/边框由系统 UA 绘制），buildStyleJSON 返回空样式。
+    // 此处注入兜底外观：白色背景 + 1px 灰色边框，确保 Figma 中有可见的控件框。
+    // 若页面 CSS 已自定义了 background-color / border，则尊重已捕获到的值，不覆盖。
+    if (tag === 'input') {
+      var _ckType = (el.getAttribute('type') || '').toLowerCase();
+      if (_ckType === 'checkbox' || _ckType === 'radio') {
+        if (!style || !Object.keys(style).length) {
+          // buildStyleJSON 完全无输出时，补入最小定位信息
+          if (style && rect) {
+            style.x = style.x || 0;
+            style.y = style.y || 0;
+          }
+        }
+        var _sty = style || (style = {});
+        // 勾选态：native el.checked 决定选中与否
+        var _ckIsChecked = el.checked === true;
+        // 背景：ir-to-figma.js 通过 style.fills 数组读取填充（不读 fillColor），必须使用 fills 格式
+        var _ckHasFill = (_sty.fills && _sty.fills.length > 0);
+        if (!_ckHasFill) {
+          if (_ckIsChecked && _ckType === 'checkbox') {
+            _sty.fills = ['rgba(22, 119, 255, 1)'];  // 已选：蓝色背景
+          } else {
+            _sty.fills = ['rgba(255, 255, 255, 1)'];  // 未选或 radio：白色背景
+          }
+          delete _sty.fillColor; // 清除旧字段，避免被误读
+        }
+        // 边框
+        var _ckHasStroke = (_sty.strokeWeight > 0) || (_sty.strokeTopWeight > 0)
+                        || (_sty.strokeRightWeight > 0) || (_sty.strokeBottomWeight > 0)
+                        || (_sty.strokeLeftWeight > 0);
+        if (!_ckHasStroke) {
+          _sty.strokeWeight = 1;
+          // 已选态：蓝色边框；未选态：灰色边框
+          _sty.strokeColor = _ckIsChecked ? 'rgba(22, 119, 255, 1)' : 'rgba(118, 118, 118, 1)';
+        }
+        // 圆角：checkbox 1px；radio 全圆
+        // 用 !_sty.borderRadius 而非 == null：buildStyleJSON 对 border-radius:0 会写入 0，
+        // 需用 falsy 判断统一覆盖，让 checkbox/radio 始终有默认圆角。
+        if (!_sty.borderRadius) {
+          _sty.borderRadius = _ckType === 'radio'
+            ? Math.round(Math.min(rect.width, rect.height) / 2)
+            : 1;
+        }
+      }
+    }
+
     const node = {
       type: nodeType,
       name: el.getAttribute('aria-label') || (el.className && typeof el.className === 'string' ? el.className.trim().split(/\s+/)[0] : null) || tag,
@@ -720,6 +756,48 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
     // 导致 type='group' + layoutMode 同时出现。Figma Group 不支持 Auto Layout，需升级为 frame。
     if (node.type === 'group' && node.style && node.style.layoutMode) {
       node.type = 'frame';
+    }
+    // 原生 checked 态：checkbox 注入白色 ✓ 文字，radio 注入居中蓝色内圆点
+    if (tag === 'input' && typeof _ckType !== 'undefined' && el.checked === true) {
+      var _ckNativeSize = Math.min(rect.width || 16, rect.height || 16);
+      node.type = 'frame';
+      if (!node.style) node.style = {};
+      node.style.layoutMode = 'HORIZONTAL';
+      node.style.primaryAxisAlignItems = 'CENTER';
+      node.style.counterAxisAlignItems = 'CENTER';
+      node.style.itemSpacing = 0;
+      node.style.layoutSizingHorizontal = 'FIXED';
+      node.style.layoutSizingVertical = 'FIXED';
+      if (_ckType === 'checkbox') {
+        // 白色 ✓ 居中，字号约为控件宽度的 70%，粗体
+        // 必须显式设 width/height：ir-to-figma 无法度量时回退 100px，会溢出 16px 的 checkbox 框
+        var _ckFontSize = Math.max(8, Math.round(_ckNativeSize * 0.7));
+        node.children = [{
+          type: 'text',
+          name: 'checkbox-checkmark',
+          content: '✓',
+          style: {
+            fontSize: _ckFontSize,
+            color: 'rgba(255, 255, 255, 1)',
+            fontWeight: '700',
+            width: Math.ceil(_ckFontSize * 0.8),
+            height: Math.ceil(_ckFontSize * 1.3),
+          },
+        }];
+      } else if (_ckType === 'radio') {
+        // 蓝色实心圆点居中，直径约为控件的 38%
+        var _radioDotSize = Math.max(4, Math.round(_ckNativeSize * 0.38));
+        node.children = [{
+          type: 'rectangle',
+          name: 'radio-inner-dot',
+          style: {
+            width: _radioDotSize,
+            height: _radioDotSize,
+            borderRadius: Math.round(_radioDotSize / 2),
+            fills: ['rgba(22, 119, 255, 1)'],
+          },
+        }];
+      }
     }
     // 标记 radio-button-wrapper-checked（className 字段只存第一个 class，需从 DOM 全类名单独判断）
     if (el.className && typeof el.className === 'string' && el.className.indexOf('ant-radio-button-wrapper-checked') !== -1) {
@@ -931,10 +1009,106 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
     var childNodes = [];
     var isLibrarySource = !!(el.getAttribute && el.getAttribute('data-library-source') != null);
 
-    // ★ Figma 组件库映射：开关开启时，凡带 data-library-source 的节点直接打标并停止递归，
-    //   由消费侧根据 librarySource + zoneTitle + rawClassName 查规则表映射到 Figma 变体。
-    //   没有 data-library-source 的节点一律走原有绘制逻辑（frame / text 等）。
+    // ★ Figma 组件库映射策略（新）：
+    //   1. 凡带 data-figma-props.component 的节点，视为 Babel 明确打标，优先截停映射（见下方早期检查）。
+    //      不依赖 data-library-source，figmaProps 是充分条件。
+    //   2. 带 data-library-source 但没有明确 figmaProps.component 的容器型节点，
+    //      走启发式规则（ProTable / tabs / quickSort 等），见 isLibrarySource 块。
     var _libCls = (el.className && typeof el.className === 'string') ? el.className : '';
+
+    // ── 输入框组件根节点修正（DatePicker / TimePicker / RangePicker 等）──
+    // 问题来源：Babel 打标把 data-library-source / data-figma-props 注入到 JSX <DatePicker> 上，
+    // 但 DatePicker 运行时把未知 HTML props 转发给内部 <input>，导致属性落到 input 而非外层 .ant-picker。
+    // 修正：遇到 .ant-picker 包装 div 时，从子树 <input> 继承 figmaProps，在外层拦截截停。
+    // 同时兼容 data-figma-props 查找（不再强依赖 data-library-source）。
+    if (COMPONENT_LIBRARY_ENABLED && !isLibrarySource && nodeType !== 'text' && nodeType !== 'image' && tag !== 'svg'
+        && /\bant-picker\b/.test(_libCls)) {
+      var _pickerInputEl = el.querySelector && el.querySelector(
+        'input[data-library-source], textarea[data-library-source],' +
+        'input[data-figma-props], textarea[data-figma-props]'
+      );
+      // console.log('[dom-to-json][ant-picker-fix] 检测到 .ant-picker, class=' + _libCls
+      //   + ', 内部 input[data-library-source]=' + (_pickerInputEl ? '找到' : '未找到'));
+      if (_pickerInputEl) {
+        var _pSrc    = _pickerInputEl.getAttribute('data-library-source') || '';
+        var _pProps  = _pickerInputEl.getAttribute('data-figma-props') || '';
+        var _pZTitle = _pickerInputEl.getAttribute('data-zone-title') || '';
+        // console.log('[dom-to-json][ant-picker-fix] input attrs: data-library-source=' + _pSrc
+        //   + ', data-figma-props=' + _pProps + ', data-zone-title=' + _pZTitle);
+        node.type = 'component-library';
+        node.rawClassName = _libCls.trim();
+        if (_pSrc)    node.librarySource = _pSrc;
+        if (_pZTitle) node.zoneTitle = _pZTitle;
+        if (_pProps) {
+          try {
+            var _pParsed = JSON.parse(_pProps);
+            // 新格式：{ component, props }；旧格式：扁平对象
+            if (_pParsed && _pParsed.component) {
+              node.figmaComponent = _pParsed.component;
+              node.figmaProps = _pParsed.props || {};
+            } else {
+              node.figmaProps = _pParsed;
+            }
+          } catch (_ePP) {}
+        }
+        node.disabled = !!(el.disabled || (el.getAttribute && el.getAttribute('disabled') !== null));
+        var _pPh = _pickerInputEl.getAttribute('placeholder') || '';
+        if (_pPh) node.placeholder = _pPh;
+        // label 作为 Figma 文本 override 的内容（placeholder 或空字符串）；
+        // 避免 resolver 回退到 rawClassName 导致 class 名写入组件内部文字层。
+        node.label = _pPh;
+        // console.log('[dom-to-json][ant-picker-fix] 生成 component-library 节点, figmaComponent=', node.figmaComponent, 'figmaProps=', node.figmaProps);
+        return node;
+      }
+    }
+
+    // ── 早期检查：data-figma-props.component 是充分且独立的 Figma 映射标记 ──
+    // 只要 Babel 在 data-figma-props 里注入了 component 字段，不论 data-library-source 是否存在，
+    // 都直接截停并映射为 component-library 节点。缺失的 label / placeholder 等从 DOM 上下文补充。
+    var _earlyFpRaw = el.getAttribute && el.getAttribute('data-figma-props');
+    if (COMPONENT_LIBRARY_ENABLED && _earlyFpRaw && nodeType !== 'text' && nodeType !== 'image' && tag !== 'svg') {
+      try {
+        var _earlyFpParsed = JSON.parse(_earlyFpRaw);
+        if (_earlyFpParsed && _earlyFpParsed.component) {
+          node.type = 'component-library';
+          node.rawClassName = _libCls.trim();
+          node.figmaComponent = _earlyFpParsed.component;
+          node.figmaProps = _earlyFpParsed.props || {};
+          // 补充 librarySource / zoneTitle（Babel 同时注入时顺带写入）
+          var _earlyLibSrc = el.getAttribute('data-library-source') || '';
+          if (_earlyLibSrc) node.librarySource = _earlyLibSrc;
+          var _earlyZt = el.getAttribute('data-zone-title') || '';
+          if (_earlyZt) node.zoneTitle = _earlyZt;
+          node.disabled = !!(el.disabled || (el.getAttribute && el.getAttribute('disabled') !== null));
+          // 补充 label：优先表单标签元素，次选 innerText
+          var _earlyLabelEl = el.querySelector && (
+            el.querySelector('.ant-form-item-label label') ||
+            el.querySelector('label.ant-form-item-no-colon') ||
+            el.querySelector('label')
+          );
+          var _earlyLabel = _earlyLabelEl
+            ? (_earlyLabelEl.getAttribute('title') || _earlyLabelEl.textContent || '').trim()
+            : (el.innerText || el.textContent || '').replace(/\s+/g, ' ').trim();
+          if (_earlyLabel) node.label = _earlyLabel;
+          // 补充 placeholder：自身 / 子 input / Select 占位 span
+          var _earlySelfPh = (tag === 'input' || tag === 'textarea') ? (el.getAttribute('placeholder') || '') : '';
+          var _earlyInputEl = el.querySelector && el.querySelector(
+            'input[placeholder]:not([style*="opacity: 0"]):not([style*="opacity:0"]), textarea[placeholder]'
+          );
+          var _earlySelectPhEl = el.querySelector && el.querySelector('.ant-select-selection-placeholder');
+          var _earlyPh = _earlySelfPh
+            || (_earlyInputEl && _earlyInputEl.getAttribute('placeholder'))
+            || (_earlySelectPhEl && (_earlySelectPhEl.textContent || '').trim())
+            || '';
+          if (_earlyPh) node.placeholder = _earlyPh;
+          if (!node.label && _earlyPh && (tag === 'input' || tag === 'textarea')) node.label = _earlyPh;
+          var _earlyMbSel = computeMbPrefixedSyncSelector(el);
+          if (_earlyMbSel) node.figmaSyncSelector = _earlyMbSel;
+          return node;
+        }
+      } catch (_eFpEarly) {}
+    }
+
     if (COMPONENT_LIBRARY_ENABLED && isLibrarySource && nodeType !== 'text' && nodeType !== 'image' && tag !== 'svg') {
       // 检查子树中是否还有嵌套的 data-library-source 节点（如 ProForm 内嵌 ProFormText）。
       // 有则说明当前节点是容器，不能在此停止，需继续递归让子节点各自打标。
@@ -950,6 +1124,8 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
       // 若在此截停为 component-library，innerText 会把「查看/编辑/删除」拼成一段并丢失各链颜色与间距。
       var _ztRaw = (el.getAttribute('data-zone-title') || '').trim();
       var _isSpaceContainer = _ztRaw.toLowerCase() === 'space';
+      // 注意：到达此处的元素已确认没有 data-figma-props.component（有该字段的元素被上方早期检查截停）。
+      // 此块仅处理"有 data-library-source 但无明确 component 指定"的容器型启发式映射。
       // 子树内 ≥2 个可交互控件（链/按钮/表单）：多入口或分页 options 等，不能整段 component-library
       var _libMultiInteractive = false;
       if (el.querySelectorAll) {
@@ -966,13 +1142,28 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
       // ProTable 根节点需要整体映射为「表格」变体，允许在此强制截停（即使子树里有其他 data-library-source）
       var _zoneTitle = el.getAttribute('data-zone-title') || '';
       var _isProTableRoot = _zoneTitle === 'ProTable';
-      if ((_isProTableRoot) || (!_hasNestedLibSource && !_isTabsContainer && !_isQuickSortContainer && !_isSpaceContainer && !_libMultiInteractive)) {
+      // 截停条件：ProTable 强制截停，或无嵌套子标记且非容器展开模式且非多交互控件
+      var _shouldStopAsLibNode =
+        _isProTableRoot ||
+        (!_hasNestedLibSource && !_isTabsContainer && !_isQuickSortContainer && !_isSpaceContainer && !_libMultiInteractive);
+      if (_shouldStopAsLibNode) {
         node.type = 'component-library';
         node.rawClassName = _libCls.trim();
         var _libSrc = el.getAttribute('data-library-source') || '';
         if (_libSrc) node.librarySource = _libSrc;
         var _zoneTitleRaw = _zoneTitle;
         if (_zoneTitleRaw) node.zoneTitle = _zoneTitleRaw;
+        // 此处的 data-figma-props 不含 component（否则早期检查已截停），仅读扁平格式
+        var _libFigmaPropsRaw = el.getAttribute('data-figma-props');
+        if (_libFigmaPropsRaw) {
+          try {
+            var _libFParsed = JSON.parse(_libFigmaPropsRaw);
+            if (_libFParsed && !_libFParsed.component) {
+              node.figmaProps = _libFParsed;
+            }
+          } catch (_eFP) {}
+        }
+        node.disabled = !!(el.disabled || el.getAttribute('disabled') !== null);
         // 优先从表单标签元素提取标题（避免把 placeholder 文本也混入 label）
         var _labelDomEl = el.querySelector && (
           el.querySelector('.ant-form-item-label label') ||
@@ -984,14 +1175,19 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
           : (el.innerText || el.textContent || '').replace(/\s+/g, ' ').trim();
         if (_libLabel) node.label = _libLabel;
         // 提取 placeholder：
-        //   1. input / textarea[placeholder] —— ProFormText 等输入框
-        //   2. .ant-select-selection-placeholder —— ProFormSelect 等下拉框（placeholder 是 span 文本）
+        //   1. el 本身是 input/textarea（ant-input 等原生元素直接携带 placeholder）
+        //   2. input / textarea[placeholder]（子孙）—— ProFormText 等输入框
+        //   3. .ant-select-selection-placeholder —— ProFormSelect 等下拉框（placeholder 是 span 文本）
+        var _selfPh = (tag === 'input' || tag === 'textarea') ? (el.getAttribute('placeholder') || '') : '';
         var _inputDomEl = el.querySelector && el.querySelector('input[placeholder]:not([style*="opacity: 0"]):not([style*="opacity:0"]), textarea[placeholder]');
         var _selectPhEl = el.querySelector && el.querySelector('.ant-select-selection-placeholder');
-        var _phVal = (_inputDomEl && _inputDomEl.getAttribute('placeholder'))
+        var _phVal = _selfPh
+          || (_inputDomEl && _inputDomEl.getAttribute('placeholder'))
           || (_selectPhEl && (_selectPhEl.textContent || '').trim())
           || '';
         if (_phVal) node.placeholder = _phVal;
+        // 对于表单输入元素（input/textarea），若 label 为空则用 placeholder 作为 Figma 文字 override 内容
+        if (!node.label && _phVal && (tag === 'input' || tag === 'textarea')) node.label = _phVal;
         return node;
       }
       // 有嵌套 library-source，fall through → 继续普通 frame 递归逻辑
@@ -1109,12 +1305,21 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
               }
               var _imBg = _imComp.backgroundColor || '';
               var _imHasBg = _imBg && _imBg !== 'rgba(0, 0, 0, 0)' && _imBg !== 'transparent';
+              // 渐变背景（linear-gradient / radial-gradient 等）存在 backgroundImage 而非 backgroundColor；
+              // 有渐变的子节点是视觉容器（如圆形头像/徽标），不能合并为纯文本，需保留为独立 frame 节点。
+              if (!_imHasBg) {
+                var _imBgImg = String(_imComp.backgroundImage || '').trim().toLowerCase();
+                if (_imBgImg && _imBgImg !== 'none') _imHasBg = true;
+              }
               var _imHasBorder = (_imComp.borderStyle && _imComp.borderStyle !== 'none' && parseFloat(_imComp.borderWidth || 0) > 0);
               var _imHasPadding = (parseFloat(_imComp.paddingTop || 0) > 0) ||
                                   (parseFloat(_imComp.paddingRight || 0) > 0) ||
                                   (parseFloat(_imComp.paddingBottom || 0) > 0) ||
                                   (parseFloat(_imComp.paddingLeft || 0) > 0);
-              if (_imHasBg || _imHasBorder || _imHasPadding) {
+              // 圆角子节点（如圆形头像）是视觉容器，不能合并为纯文本
+              var _imRadiusRaw = _imComp.borderRadius || _imComp.borderTopLeftRadius || '';
+              var _imHasRadius = _imRadiusRaw && _imRadiusRaw !== '0px' && _imRadiusRaw !== '0';
+              if (_imHasBg || _imHasBorder || _imHasPadding || _imHasRadius) {
                 _canMergeInlineChildren = false;
                 break;
               }
@@ -1219,7 +1424,7 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
           if (hasClassPrefix(elChild, 'selection-')) continue;
           if (hasClassPrefix(elChild, 'append-')) continue;
           if (hasClassPrefix(elChild, 'boardTitle-')) continue;
-          const childNode = walk(elChild, rect, _nextInProForm, _nextInTabs, _nextInQuickSort);
+          const childNode = walk(elChild, rect, { inProForm: _nextInProForm, inTabs: _nextInTabs, inQuickSort: _nextInQuickSort });
           if (childNode) childNodes.push(childNode);
         } else if (child.nodeType === 3) {
           var textContent = normalizeTextExportPreserveTrailing(child.textContent || '', false);
@@ -1748,7 +1953,7 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
     if (hasClassPrefix(child, 'boardTitle-')) continue;
     const tag = (child.tagName || '').toLowerCase();
     if (tag === 'script' || tag === 'style' || tag === 'link') continue;
-    const childNode = walk(child, rootDesignRect);
+    const childNode = walk(child, rootDesignRect, {});
     if (childNode) contentChildren.push(childNode);
   }
 

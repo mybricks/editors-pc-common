@@ -1,5 +1,9 @@
 import React from 'react';
-import { convertIRToFigmaClipboardHtml, elementToMybricksJsonWithInlineImages } from '../export';
+import {
+  convertIRToFigmaClipboardHtml,
+  elementToMybricksJson,
+  inlineImageFillsInTree,
+} from '../export';
 import { loadFontContextMapForFamilies, collectFontFamiliesFromIR } from '../export/font-loader';
 import { writeHtmlToClipboard, isNotFocusedClipboardError } from '../export/clipboard';
 import {
@@ -29,6 +33,7 @@ export function useExportToFigma(
     text: '准备中...',
   });
   const progressRef = React.useRef<ExportProgress>(progress);
+  const [pendingClipboardHtml, setPendingClipboardHtml] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     progressRef.current = progress;
@@ -142,11 +147,13 @@ export function useExportToFigma(
       else alert(tip);
       return;
     }
+    setPendingClipboardHtml(null);
     setProgress({ percent: 0, text: '准备中...' });
     setLoading(true);
 
     requestAnimationFrame(() => {
       requestAnimationFrame(async () => {
+        let generatedHtml = '';
         try {
           await setStage(8, '准备中...');
 
@@ -157,38 +164,36 @@ export function useExportToFigma(
             task: () => sleep(650),
           });
 
-          // 先跑 DOM→IR，收集实际用到的字体族，再按需加载
-          const irPayload = await waitStageWithTrickle({
-            text: '拉取图片资源...',
-            from: 25,
-            to: 55,
-            task: async () => {
-              // 有 primaryEle：单页导出
-              if (primaryEle) {
-                return elementToMybricksJsonWithInlineImages(primaryEle, comId, {
-                  componentLibraryEnabled: false,
-                  svgExportMode,
-                });
-              }
-              // 无 primaryEle：遍历 canvasList 全部帧，合并为一个 IR
-              const canvasArr = Array.from(canvasList!) as HTMLElement[];
+          // ===== 阶段 1: 同步构建 DOM 模型（25 → 32）=====
+          // 注意：elementToMybricksJson 是纯同步的 DOM walking，会阻塞主线程
+          //       不能用 trickle 包裹（setInterval 会被冻结），改为前后插 waitForPaint 让 UI 刷新一帧
+          await setStage(25, '构建 DOM 模型...', { smooth: true, durationMs: 200 });
+          await waitForPaint();
+          await waitForPaint(); // 双帧确保浏览器已绘制
 
-              const allIRs = await Promise.all(
-                canvasArr.map((canvas, i) =>
-                  elementToMybricksJsonWithInlineImages(canvas, `${comId}-canvas${i}`, {
-                    componentLibraryEnabled: false,
-                    svgExportMode,
-                  })
-                )
-              );
-              const rootFrames = allIRs.map((ir: any) => ir?.page?.content?.[0]).filter(Boolean) as any[];
-              if (rootFrames.length === 0) throw new Error('canvasList 中未找到任何有效帧');
-              if (rootFrames.length === 1) return allIRs[0];
-              // 多帧：合并为 HORIZONTAL Auto Layout wrapper 帧，各帧并排放置
+          let irPayload: any;
+          if (primaryEle) {
+            irPayload = elementToMybricksJson(primaryEle, comId, {
+              componentLibraryEnabled: false,
+              svgExportMode,
+            });
+          } else {
+            const canvasArr = Array.from(canvasList!) as HTMLElement[];
+            const allIRs = canvasArr.map((canvas, i) =>
+              elementToMybricksJson(canvas, `${comId}-canvas${i}`, {
+                componentLibraryEnabled: false,
+                svgExportMode,
+              })
+            );
+            const rootFrames = allIRs.map((ir: any) => ir?.page?.content?.[0]).filter(Boolean) as any[];
+            if (rootFrames.length === 0) throw new Error('canvasList 中未找到任何有效帧');
+            if (rootFrames.length === 1) {
+              irPayload = allIRs[0];
+            } else {
               const totalWidth = rootFrames.reduce((sum: number, f: any) => sum + (f?.style?.width || 0), 0)
                 + (rootFrames.length - 1) * 40;
               const maxHeight = Math.max(...rootFrames.map((f: any) => f?.style?.height || 0), 100);
-              return {
+              irPayload = {
                 page: {
                   'component-def': allIRs.flatMap((ir: any) => ir?.page?.['component-def'] || []),
                   content: [{
@@ -205,9 +210,38 @@ export function useExportToFigma(
                   }],
                 },
               };
-            },
-            taskStartDelayMs: 320,
-          });
+            }
+          }
+
+          await setStage(32, '构建 DOM 模型...', { smooth: true, durationMs: 200 });
+
+          // ===== 阶段 2: 异步拉取图片资源（32 → 55）=====
+          // 图片进度回调：
+          // - 用闭包 hwm（高水位线）保证百分比只升不降
+          // - 直接赋值（非函数式 prev=>）避免 React 18 批调度时读到陈旧 prev
+          // - sqrt 缩放：前几张就有肉眼可见的推进，图片数量多时也不会长期停滞
+          const PROGRESS_FROM = 32;
+          const PROGRESS_TO = 54;
+          let imgHwm = PROGRESS_FROM;
+          const onImageProgress = (done: number, total: number) => {
+            if (total <= 0) return;
+            const raw = PROGRESS_FROM + Math.sqrt(done / total) * (PROGRESS_TO - PROGRESS_FROM);
+            const next = Math.max(imgHwm, Math.round(raw));
+            imgHwm = next;
+            setProgress({ percent: next, text: `拉取图片资源 (${done}/${total})...` });
+          };
+
+          const rootContent = irPayload?.page?.content?.[0];
+          if (rootContent) {
+            // 多画布 wrapper 时，需要对每个子 frame 分别 inline；这里统一在 wrapper 上调一次即可，
+            // 因为 inlineImageFillsInTree 会递归处理所有 children
+            await inlineImageFillsInTree(rootContent, {
+              svgExportMode,
+              onImageProgress,
+            });
+          }
+
+          await setStage(55, '拉取图片资源完成', { smooth: true, durationMs: 200 });
 
           const _fontFamilies = collectFontFamiliesFromIR(irPayload);
           const fontCtx = await waitStageWithTrickle({
@@ -220,13 +254,14 @@ export function useExportToFigma(
           });
 
           await setStage(75, '生成 Figma 数据...', { smooth: true, durationMs: 360 });
-          const clipboardHtml = convertIRToFigmaClipboardHtml(irPayload, fontCtx);
+          // 提前生成并缓存，便于剪贴板失败时复用
+          generatedHtml = convertIRToFigmaClipboardHtml(irPayload, fontCtx);
 
           await waitStageWithTrickle({
             text: '写入剪贴板...',
             from: 90,
             to: 98,
-            task: () => writeHtmlToClipboard(clipboardHtml),
+            task: () => writeHtmlToClipboard(generatedHtml),
           });
 
           await setStage(100, '完成', { smooth: true, durationMs: 280 });
@@ -237,16 +272,41 @@ export function useExportToFigma(
           else alert('已复制，请前往 Figma 直接 Cmd+V / Ctrl+V 粘贴');
         } catch (err: any) {
           setLoading(false);
-          setProgress({ percent: 0, text: '准备中...' });
-          const failMsg = isNotFocusedClipboardError(err)
-            ? '导出失败：当前页面未聚焦，请先切回页面再重试'
-            : '导出失败: ' + (err?.message || '未知错误');
-          if (msg) msg.error(failMsg);
-          else alert(failMsg);
+          // 若剪贴板写入因失焦失败，但数据已生成 → 缓存数据，提示用户点击按钮手动复制
+          if (isNotFocusedClipboardError(err) && generatedHtml) {
+            setPendingClipboardHtml(generatedHtml);
+            setProgress({ percent: 100, text: '数据已就绪，点击按钮复制' });
+            const tip = '请点击「复制已生成的 Figma 数据」按钮，在 Figma 中 Ctrl+V 进行粘贴';
+            if (msg) msg.warning(tip);
+            else alert(tip);
+          } else {
+            setProgress({ percent: 0, text: '准备中...' });
+            const failMsg = '导出失败: ' + (err?.message || '未知错误');
+            if (msg) msg.error(failMsg);
+            else alert(failMsg);
+          }
         }
       });
     });
   }, [loading, comEle, comId, fontUrlMap, svgExportMode, getCanvasList, setStage, waitStageWithTrickle]);
 
-  return { loading, progress, handleExport };
+  const handleRetryClipboard = React.useCallback(async () => {
+    if (!pendingClipboardHtml) return;
+    const msg = (window as any).antd?.message;
+    try {
+      await writeHtmlToClipboard(pendingClipboardHtml);
+      setPendingClipboardHtml(null);
+      setProgress({ percent: 0, text: '准备中...' });
+      if (msg) msg.success('已复制，请前往 Figma 直接 Cmd+V / Ctrl+V 粘贴');
+      else alert('已复制，请前往 Figma 直接 Cmd+V / Ctrl+V 粘贴');
+    } catch (err: any) {
+      const failMsg = isNotFocusedClipboardError(err)
+        ? '复制失败：请先点击页面聚焦后再重试'
+        : '复制失败: ' + (err?.message || '未知错误');
+      if (msg) msg.error(failMsg);
+      else alert(failMsg);
+    }
+  }, [pendingClipboardHtml]);
+
+  return { loading, progress, handleExport, pendingClipboardHtml, handleRetryClipboard };
 }

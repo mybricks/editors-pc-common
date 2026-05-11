@@ -1023,40 +1023,29 @@ function buildStyleJSON(el, computed, rect, parentRect, cssRuleMap, globalFont) 
     }
   }
 
-  // Border：先尝试四边独立检测（border-top/right/bottom/left），不一致时输出各自的 strokeXxxWeight；
+  // Border：优先使用 computed（getComputedStyle）——它经过浏览器 CSS 级联和变量解析，
+  // 能正确反映页面 Less 的覆盖（如 border:none），避免 getMergedCssRulesFromStyleElements
+  // 把 Ant Design 等第三方库 CSS 纳入 cssRuleMap 后，库的默认边框覆盖页面 none 声明的问题。
+  // d() 仅在 computed 不可用时降级使用。
   // 四边完全相同时退化为统一的 strokeWeight，以保持对旧版消费端的兼容。
-  var _btW = px(d(['border-top-width']) || computed.borderTopWidth) || 0;
-  var _brW = px(d(['border-right-width']) || computed.borderRightWidth) || 0;
-  var _bbW = px(d(['border-bottom-width']) || computed.borderBottomWidth) || 0;
-  var _blW = px(d(['border-left-width']) || computed.borderLeftWidth) || 0;
-  var _btStyle = (d(['border-top-style']) || computed.borderTopStyle || 'none').toString().toLowerCase();
-  var _brStyle = (d(['border-right-style']) || computed.borderRightStyle || 'none').toString().toLowerCase();
-  var _bbStyle = (d(['border-bottom-style']) || computed.borderBottomStyle || 'none').toString().toLowerCase();
-  var _blStyle = (d(['border-left-style']) || computed.borderLeftStyle || 'none').toString().toLowerCase();
-  var _btColor = d(['border-top-color']) || computed.borderTopColor;
-  var _brColor = d(['border-right-color']) || computed.borderRightColor;
-  var _bbColor = d(['border-bottom-color']) || computed.borderBottomColor;
-  var _blColor = d(['border-left-color']) || computed.borderLeftColor;
-  // 若声明层取到的是 CSS 变量，回退到 computed 实际解析值
+  var _btW = px(computed.borderTopWidth || d(['border-top-width'])) || 0;
+  var _brW = px(computed.borderRightWidth || d(['border-right-width'])) || 0;
+  var _bbW = px(computed.borderBottomWidth || d(['border-bottom-width'])) || 0;
+  var _blW = px(computed.borderLeftWidth || d(['border-left-width'])) || 0;
+  var _btStyle = (computed.borderTopStyle || d(['border-top-style']) || 'none').toString().toLowerCase();
+  var _brStyle = (computed.borderRightStyle || d(['border-right-style']) || 'none').toString().toLowerCase();
+  var _bbStyle = (computed.borderBottomStyle || d(['border-bottom-style']) || 'none').toString().toLowerCase();
+  var _blStyle = (computed.borderLeftStyle || d(['border-left-style']) || 'none').toString().toLowerCase();
+  // computed 已完成 CSS 变量解析，直接使用；d() 仅在 computed 为空时兜底
+  var _btColor = computed.borderTopColor || d(['border-top-color']) || '';
+  var _brColor = computed.borderRightColor || d(['border-right-color']) || '';
+  var _bbColor = computed.borderBottomColor || d(['border-bottom-color']) || '';
+  var _blColor = computed.borderLeftColor || d(['border-left-color']) || '';
+  // 防御：若 computed 返回了未解析的 var()（极少数浏览器边缘情形），再回退一次
   if (_btColor && _btColor.indexOf('var(') >= 0) _btColor = computed.borderTopColor || _btColor;
   if (_brColor && _brColor.indexOf('var(') >= 0) _brColor = computed.borderRightColor || _brColor;
   if (_bbColor && _bbColor.indexOf('var(') >= 0) _bbColor = computed.borderBottomColor || _bbColor;
   if (_blColor && _blColor.indexOf('var(') >= 0) _blColor = computed.borderLeftColor || _blColor;
-  // border 简写兜底：若四边均未读到有效值，尝试 border 简写
-  var _borderShorthand = d(['border']);
-  if (_borderShorthand && (_btW === 0 && _brW === 0 && _bbW === 0 && _blW === 0)) {
-    var _parsedB = parseBorderShorthand(_borderShorthand);
-    if (_parsedB && _parsedB.width > 0) {
-      _btW = _brW = _bbW = _blW = _parsedB.width;
-      _btStyle = _brStyle = _bbStyle = _blStyle = _parsedB.style || 'solid';
-      _btColor = _brColor = _bbColor = _blColor = _parsedB.color;
-      // border 简写提取的颜色也可能含 var()，赋值后再做一次兜底
-      if (_parsedB.color && _parsedB.color.indexOf('var(') >= 0) {
-        var _cbc = computed.borderTopColor || computed.borderColor || '';
-        _btColor = _brColor = _bbColor = _blColor = _cbc || _parsedB.color;
-      }
-    }
-  }
   // 过滤掉 style=none 的边（视为无边框）
   if (_btStyle === 'none') _btW = 0;
   if (_brStyle === 'none') _brW = 0;

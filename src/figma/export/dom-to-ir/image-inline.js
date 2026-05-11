@@ -550,6 +550,39 @@ function inspectDataUrlAlphaCoverage(dataUrl) {
   });
 }
 
+/** 同步预统计树中需要内联的图片/SVG 数量，用于进度展示。 */
+function _countImagesToInline(obj, options) {
+  if (!obj) return 0;
+  var count = 0;
+  var svgMode = String((options && options.svgExportMode) || 'vector').toLowerCase();
+  var style = obj.style;
+  if (style && style.fills && Array.isArray(style.fills)) {
+    for (var _fi = 0; _fi < style.fills.length; _fi++) {
+      var _fill = style.fills[_fi];
+      if (!_fill) continue;
+      if (_fill.type === 'IMAGE' && _fill.cssGradient && !_fill.content) { count++; continue; }
+      if (_fill.type === 'IMAGE' && _fill.url && !_fill.content) { count++; continue; }
+      if (_fill.type === 'TILED_GRADIENT' && _fill.bgImage) { count++; continue; }
+    }
+  }
+  if (obj.type === 'image' && obj.content && typeof obj.content === 'string' && !obj.content.startsWith('data:')) {
+    count++;
+  }
+  if (obj.type === 'svg' && svgMode === 'image') {
+    var _svgStyle = obj.style || {};
+    if (!_svgStyle.maskFillColor && typeof _svgStyle.svgContent === 'string' && _svgStyle.svgContent) {
+      count++;
+    }
+  }
+  var children = obj.children;
+  if (children && children.length) {
+    for (var _ci = 0; _ci < children.length; _ci++) {
+      count += _countImagesToInline(children[_ci], options);
+    }
+  }
+  return count;
+}
+
 /** 递归将树中 style.fills 里 type===IMAGE 且仅有 url 的项，请求图片并写入 content（base64 data URL）。 */
 function inlineImageFillsInTree(obj, options) {
   if (!obj) return Promise.resolve();
@@ -557,10 +590,23 @@ function inlineImageFillsInTree(obj, options) {
   if (!ctxOptions.__imageInlineStats) {
     ctxOptions.__imageInlineStats = { attempts: 0, success: 0, failed: 0 };
   }
+  var _isTopLevel = ctxOptions.__imageInlineDepth == null;
+  if (_isTopLevel && ctxOptions.onImageProgress) {
+    ctxOptions._imageTotalForProgress = _countImagesToInline(obj, ctxOptions);
+    ctxOptions._imageDoneForProgress = 0;
+  }
   if (ctxOptions.__imageInlineDepth == null) ctxOptions.__imageInlineDepth = 0;
   ctxOptions.__imageInlineDepth += 1;
   var stats = ctxOptions.__imageInlineStats;
   var promises = [];
+  // 每张图完成后推进进度计数；无回调时退化为原始 push
+  var _push = ctxOptions.onImageProgress ? function(p) {
+    promises.push(p.then(function(r) {
+      ctxOptions._imageDoneForProgress = (ctxOptions._imageDoneForProgress || 0) + 1;
+      ctxOptions.onImageProgress(ctxOptions._imageDoneForProgress, ctxOptions._imageTotalForProgress || 0);
+      return r;
+    }));
+  } : function(p) { promises.push(p); };
 
   // 处理 style.fills 里的 IMAGE fill 和 TILED_GRADIENT fill
   var style = obj.style;
@@ -576,7 +622,7 @@ function inlineImageFillsInTree(obj, options) {
           stats.failed += 1;
           console.warn('[css-gradient] 缺少有效尺寸，无法栅格化', { nodeName: obj.name, width: _cssBgW, height: _cssBgH });
         } else {
-          promises.push(
+          _push(
             renderCssBackgroundToDataUrl(fill.cssGradient, fill.cssBackgroundColor, _cssBgW, _cssBgH, fill.cssBackground).then(function (dataUrl) {
               return computeDataUrlSha1Hex(dataUrl).then(function (sha1hex) {
                 style.fills[i] = Object.assign({}, fill, {
@@ -599,7 +645,7 @@ function inlineImageFillsInTree(obj, options) {
         }
       } else if (fill && fill.type === 'IMAGE' && fill.url && !fill.content) {
         stats.attempts += 1;
-        promises.push(
+        _push(
           fetchImageAsBase64DataUrl(fill.url).then(function (dataUrl) {
             return computeDataUrlSha1Hex(dataUrl).then(function (sha1hex) {
               // 保留原 fill 上的所有字段（如 scaleMode、scalingFactor），仅替换 content，清除 url
@@ -620,7 +666,7 @@ function inlineImageFillsInTree(obj, options) {
         var _tileH = fill.bgSizeH || 100;
         var _frameW = style && style.width;
         var _frameH = style && style.height;
-        promises.push(
+        _push(
           renderTiledGradientToDataUrl(fill.bgImage, _tileW, _tileH, ctxOptions).then(function (tileDataUrl) {
             var useFull =
               _frameW != null &&
@@ -676,7 +722,7 @@ function inlineImageFillsInTree(obj, options) {
   // 处理 type==='image' 节点的 content 字段（img 标签 src），将 URL 内联为 base64
   if (obj.type === 'image' && obj.content && typeof obj.content === 'string' && !obj.content.startsWith('data:')) {
     stats.attempts += 1;
-    promises.push(
+    _push(
       fetchImageAsBase64DataUrl(obj.content).then(function (dataUrl) {
         return computeDataUrlSha1Hex(dataUrl).then(function (sha1hex) {
           obj.content = dataUrl;
@@ -745,7 +791,7 @@ function inlineImageFillsInTree(obj, options) {
             return dataUrl;
           })
         : rasterizeInlineSvgToPngDataUrl(_svgMarkup, _svgW, _svgH, _svgScale);
-      promises.push(
+      _push(
         _rasterP.then(function (dataUrl) {
           return computeDataUrlSha1Hex(dataUrl).then(function (sha1hex) {
             obj.type = 'image';

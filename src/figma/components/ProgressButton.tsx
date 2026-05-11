@@ -7,7 +7,7 @@ interface ProgressButtonProps {
   loading: boolean;
   progress: ExportProgress;
   onClick: () => void;
-  label?: string;
+  label?: React.ReactNode;
 }
 
 export function ProgressButton({
@@ -115,6 +115,8 @@ export function ProgressButton({
           ) : (
             <span
               style={{
+                display: 'inline-flex',
+                alignItems: 'center',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
                 whiteSpace: 'nowrap',
