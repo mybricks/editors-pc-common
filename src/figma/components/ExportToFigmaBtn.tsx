@@ -6,9 +6,10 @@ export interface ExportToFigmaBtnProps {
   comEle: HTMLElement | null | undefined;
   comId: string;
   fontfaces?: FontfaceConfig[];
+  canvasList?: ArrayLike<Element>;
 }
 
-export function ExportToFigmaBtn({ comEle, comId, fontfaces }: ExportToFigmaBtnProps) {
-  const { loading, progress, handleExport } = useExportToFigma(comEle, comId, { fontfaces });
+export function ExportToFigmaBtn({ comEle, comId, fontfaces, canvasList }: ExportToFigmaBtnProps) {
+  const { loading, progress, handleExport } = useExportToFigma(comEle, comId, { fontfaces, canvasList });
   return <ProgressButton loading={loading} progress={progress} onClick={handleExport} />;
 }

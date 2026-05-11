@@ -21,7 +21,7 @@ export interface FontfaceConfig {
 export function useExportToFigma(
   comEle: HTMLElement | null | undefined,
   comId: string,
-  options?: { fontfaces?: FontfaceConfig[]; svgExportMode?: 'image' | 'vector' }
+  options?: { fontfaces?: FontfaceConfig[]; svgExportMode?: 'image' | 'vector'; canvasList?: ArrayLike<Element> }
 ) {
   const [loading, setLoading] = React.useState(false);
   const [progress, setProgress] = React.useState<ExportProgress>({
@@ -121,15 +121,17 @@ export function useExportToFigma(
     return map;
   }, [options?.fontfaces]);
   const svgExportMode = options?.svgExportMode || 'image';
+  const canvasList = options?.canvasList;
 
   const handleExport = React.useCallback(() => {
     if (loading) return;
-    const ele = (comEle?.dataset?.zoneType === 'page'
+
+    // 有 primaryEle：导出单张页面；没有 primaryEle：遍历 canvasList 全部帧合并导出
+    const primaryEle = (comEle?.dataset?.zoneType === 'page'
       ? comEle
       : comEle?.querySelector('[data-zone-type="page"]')) as HTMLElement | null;
-    if (!ele) {
-      return;
-    }
+
+    if (!primaryEle && (!canvasList || canvasList.length === 0)) return;
 
     const msg = (window as any).antd?.message;
     setProgress({ percent: 0, text: '准备中...' });
@@ -152,11 +154,49 @@ export function useExportToFigma(
             text: '拉取图片资源...',
             from: 25,
             to: 55,
-            task: () =>
-              elementToMybricksJsonWithInlineImages(ele, comId, {
-                componentLibraryEnabled: false,
-                svgExportMode,
-              }),
+            task: async () => {
+              // 有 primaryEle：单页导出
+              if (primaryEle) {
+                return elementToMybricksJsonWithInlineImages(primaryEle, comId, {
+                  componentLibraryEnabled: true,
+                  svgExportMode,
+                });
+              }
+              // 无 primaryEle：遍历 canvasList 全部帧，合并为一个 IR
+              const canvasArr = Array.from(canvasList!) as HTMLElement[];
+              const allIRs = await Promise.all(
+                canvasArr.map((canvas, i) =>
+                  elementToMybricksJsonWithInlineImages(canvas, `${comId}-canvas${i}`, {
+                    componentLibraryEnabled: true,
+                    svgExportMode,
+                  })
+                )
+              );
+              const rootFrames = allIRs.map((ir: any) => ir?.page?.content?.[0]).filter(Boolean) as any[];
+              if (rootFrames.length === 0) throw new Error('canvasList 中未找到任何有效帧');
+              if (rootFrames.length === 1) return allIRs[0];
+              // 多帧：合并为 HORIZONTAL Auto Layout wrapper 帧，各帧并排放置
+              const totalWidth = rootFrames.reduce((sum: number, f: any) => sum + (f?.style?.width || 0), 0)
+                + (rootFrames.length - 1) * 40;
+              const maxHeight = Math.max(...rootFrames.map((f: any) => f?.style?.height || 0), 100);
+              return {
+                page: {
+                  'component-def': allIRs.flatMap((ir: any) => ir?.page?.['component-def'] || []),
+                  content: [{
+                    name: `复制的页面 ×${rootFrames.length}`,
+                    style: {
+                      x: 0, y: 0,
+                      width: totalWidth,
+                      height: maxHeight,
+                      layoutMode: 'HORIZONTAL',
+                      itemSpacing: 40,
+                      paddingTop: 0, paddingBottom: 0, paddingLeft: 0, paddingRight: 0,
+                    },
+                    children: rootFrames,
+                  }],
+                },
+              };
+            },
             taskStartDelayMs: 320,
           });
 
@@ -197,7 +237,7 @@ export function useExportToFigma(
         }
       });
     });
-  }, [loading, comEle, comId, fontUrlMap, svgExportMode, setStage, waitStageWithTrickle]);
+  }, [loading, comEle, comId, fontUrlMap, svgExportMode, canvasList, setStage, waitStageWithTrickle]);
 
   return { loading, progress, handleExport };
 }
