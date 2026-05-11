@@ -166,7 +166,7 @@ export function useExportToFigma(
               // 有 primaryEle：单页导出
               if (primaryEle) {
                 return elementToMybricksJsonWithInlineImages(primaryEle, comId, {
-                  componentLibraryEnabled: true,
+                  componentLibraryEnabled: false,
                   svgExportMode,
                 });
               }
@@ -176,7 +176,7 @@ export function useExportToFigma(
               const allIRs = await Promise.all(
                 canvasArr.map((canvas, i) =>
                   elementToMybricksJsonWithInlineImages(canvas, `${comId}-canvas${i}`, {
-                    componentLibraryEnabled: true,
+                    componentLibraryEnabled: false,
                     svgExportMode,
                   })
                 )

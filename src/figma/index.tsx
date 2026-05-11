@@ -29,7 +29,7 @@ function FigmaEditor(props: any) {
   return (
     <div>
       <ExportToFigmaBtn comEle={comEle} comId={comId} fontfaces={fontfaces} getCanvasList={getCanvasList} />
-      {hasPrimaryEle && <PasteFigmaClipboardDebugBtn onSyncFromFigma={onSyncFromFigma} />}
+      <PasteFigmaClipboardDebugBtn onSyncFromFigma={onSyncFromFigma} />
     </div>
   );
 }
