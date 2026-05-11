@@ -13,6 +13,7 @@ import {
   Opacity,
   Radius,
   Layout,
+  ZIndex,
 } from "./plugins";
 
 import type { StyleEditorProps, Option } from "./type";
@@ -33,6 +34,7 @@ const PLUGINS_MAP: Record<string, (value: any) => React.ReactNode> = {
   OPACITY: Opacity,
   BOXSHADOW: BoxShadow,
   CURSOR: Cursor,
+  ZINDEX: ZIndex,
 };
 
 export default function ({

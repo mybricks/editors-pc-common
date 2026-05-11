@@ -1229,6 +1229,11 @@ const getDefaultValueFunctionMap = {
       opacity: values.opacity
     }
   },
+  zindex(values: CSSProperties, config: any) {
+    return {
+      zIndex: values.zIndex
+    }
+  },
   layout(values: CSSProperties, config: any) {
     return {
       display: values.display,
@@ -1335,6 +1340,11 @@ const getDefaultValueFunctionMap2 = {
   opacity() {
     return {
       opacity: 1
+    }
+  },
+  zindex() {
+    return {
+      zIndex: ''
     }
   },
   layout() {
@@ -1633,6 +1643,10 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration, 
   let opacity // 非继承属性
   /** opacity */
 
+  /** zindex */
+  let zIndex // 非继承属性
+  /** zindex */
+
   /** layout */
   let display // 非继承属性
   let flexDirection // 非继承属性
@@ -1921,6 +1935,13 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration, 
     }
     /** opacity */
 
+    /** zindex */
+    const { zIndex: styleZIndex } = style
+    if (styleZIndex) {
+      zIndex = styleZIndex
+    }
+    /** zindex */
+
     /** layout */
     const {
       display: styleDisplay,
@@ -2126,6 +2147,10 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration, 
   }
   /** opacity */
 
+  /** zindex */
+  // zIndex 不兜底 computedValues（auto 无意义），未设置时保持 undefined
+  /** zindex */
+
   /** layout */
   // 若 CSS 规则里没有显式设置这些属性，则从 computedValues 读取当前计算值作为回显基准。
   // position 默认为 'static'（浏览器计算值），回显时直接使用即可。
@@ -2208,6 +2233,8 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration, 
     overflowY,
 
     opacity,
+
+    zIndex,
 
     display,
     flexDirection,

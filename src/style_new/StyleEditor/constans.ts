@@ -9,5 +9,6 @@ export const DEFAULT_OPTIONS = [
   'cursor',
   'boxshadow',
   'overflow',
-  'opacity'
+  'opacity',
+  'zindex'
 ] as const
