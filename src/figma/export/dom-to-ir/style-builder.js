@@ -1764,18 +1764,18 @@ function buildStyleJSON(el, computed, rect, parentRect, cssRuleMap, globalFont) 
     style.primaryAxisAlignItems = 'MIN';
     style.counterAxisAlignItems = 'MIN';
   } else if (display === 'table-cell') {
-    // td / th → 内容横向排列，支持 vertical-align 映射
-    style.layoutMode = 'HORIZONTAL';
+    // td / th → 内容纵向排列（block 子元素垂直堆叠），与 CSS 常规块流方向一致
+    style.layoutMode = 'VERTICAL';
     style.paddingTop = px(resolveDecl(d(['padding-top', 'paddingTop']), computed.paddingTop));
     style.paddingRight = px(resolveDecl(d(['padding-right', 'paddingRight']), computed.paddingRight));
     style.paddingBottom = px(resolveDecl(d(['padding-bottom', 'paddingBottom']), computed.paddingBottom));
     style.paddingLeft = px(resolveDecl(d(['padding-left', 'paddingLeft']), computed.paddingLeft));
-    // 与 block 容器一致：text-align 决定主轴上单子项/内容块位置（右对齐单元格需 MAX，否则 Hug 宽文本框贴左）
+    // VERTICAL 布局：vertical-align → 主轴对齐（纵轴），text-align → 交叉轴对齐（横轴）
+    var vAlign = (d(['vertical-align', 'verticalAlign']) || computed.verticalAlign || '').toString().toLowerCase();
+    style.primaryAxisAlignItems = vAlign === 'middle' ? 'CENTER' : vAlign === 'bottom' ? 'MAX' : 'MIN';
     var textAlignTc = (d(['text-align', 'textAlign']) || computed.textAlign || '').toString().toLowerCase();
     var alignMapTc = { left: 'MIN', right: 'MAX', center: 'CENTER', justify: 'MIN', start: 'MIN', end: 'MAX' };
-    style.primaryAxisAlignItems = alignMapTc[textAlignTc] || 'MIN';
-    var vAlign = (d(['vertical-align', 'verticalAlign']) || computed.verticalAlign || '').toString().toLowerCase();
-    style.counterAxisAlignItems = vAlign === 'middle' ? 'CENTER' : vAlign === 'bottom' ? 'MAX' : 'MIN';
+    style.counterAxisAlignItems = alignMapTc[textAlignTc] || 'MIN';
   }
 
   // Text styles（优先 style 标签，再 computed）；字体仅在与全局不同时输出
