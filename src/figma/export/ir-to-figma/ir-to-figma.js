@@ -2564,10 +2564,26 @@ function convertNode(irNode, parentGuid, siblingIndex, fontCtxMap, blobs, parent
       } else {
         _mappingFallback = 'frame(keyMissing)';
         changes.push(convertFrameNode(irNode, guid, parentGuid, siblingIndex, parentLayoutMode, blobs, imageCtxGlobal));
+        // 降级为 frame 时同样递归子节点（兜底：若 dom-to-json 未来为 component-library 节点保留了 children）
+        if (irNode.children && irNode.children.length) {
+          var _fbLayoutMode = (irNode.style || {}).layoutMode || null;
+          for (var _fbi = 0; _fbi < irNode.children.length; _fbi++) {
+            var _fbChanges = convertNode(irNode.children[_fbi], guid, _fbi, fontCtxMap, blobs, _fbLayoutMode, imageCtxGlobal);
+            for (var _fbj = 0; _fbj < _fbChanges.length; _fbj++) changes.push(_fbChanges[_fbj]);
+          }
+        }
       }
     } else {
       // 未命中变体库，降级为普通 frame 绘制
       changes.push(convertFrameNode(irNode, guid, parentGuid, siblingIndex, parentLayoutMode, blobs, imageCtxGlobal));
+      // 降级为 frame 时同样递归子节点（兜底：若 dom-to-json 未来为 component-library 节点保留了 children）
+      if (irNode.children && irNode.children.length) {
+        var _missLayoutMode = (irNode.style || {}).layoutMode || null;
+        for (var _mi = 0; _mi < irNode.children.length; _mi++) {
+          var _mChanges = convertNode(irNode.children[_mi], guid, _mi, fontCtxMap, blobs, _missLayoutMode, imageCtxGlobal);
+          for (var _mj = 0; _mj < _mChanges.length; _mj++) changes.push(_mChanges[_mj]);
+        }
+      }
     }
     // 收集映射日志（每次导出汇总打印）
     _componentMappingLog.push({

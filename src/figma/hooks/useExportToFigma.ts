@@ -25,7 +25,7 @@ export interface FontfaceConfig {
 export function useExportToFigma(
   comEle: HTMLElement | null | undefined,
   comId: string,
-  options?: { fontfaces?: FontfaceConfig[]; svgExportMode?: 'image' | 'vector'; getCanvasList?: () => ArrayLike<Element> }
+  options?: { fontfaces?: FontfaceConfig[]; svgExportMode?: 'image' | 'vector'; getCanvasList?: () => ArrayLike<Element>; componentLibraryEnabled?: boolean }
 ) {
   const [loading, setLoading] = React.useState(false);
   const [progress, setProgress] = React.useState<ExportProgress>({
@@ -127,6 +127,7 @@ export function useExportToFigma(
   }, [options?.fontfaces]);
   const svgExportMode = options?.svgExportMode || 'image';
   const getCanvasList = options?.getCanvasList;
+  const componentLibraryEnabled = !!options?.componentLibraryEnabled;
 
   const handleExport = React.useCallback(() => {
     if (loading) return;
@@ -174,14 +175,14 @@ export function useExportToFigma(
           let irPayload: any;
           if (primaryEle) {
             irPayload = elementToMybricksJson(primaryEle, comId, {
-              componentLibraryEnabled: false,
+              componentLibraryEnabled,
               svgExportMode,
             });
           } else {
             const canvasArr = Array.from(canvasList!) as HTMLElement[];
             const allIRs = canvasArr.map((canvas, i) =>
               elementToMybricksJson(canvas, `${comId}-canvas${i}`, {
-                componentLibraryEnabled: false,
+                componentLibraryEnabled,
                 svgExportMode,
               })
             );
@@ -288,7 +289,7 @@ export function useExportToFigma(
         }
       });
     });
-  }, [loading, comEle, comId, fontUrlMap, svgExportMode, getCanvasList, setStage, waitStageWithTrickle]);
+  }, [loading, comEle, comId, fontUrlMap, svgExportMode, getCanvasList, componentLibraryEnabled, setStage, waitStageWithTrickle]);
 
   const handleRetryClipboard = React.useCallback(async () => {
     if (!pendingClipboardHtml) return;

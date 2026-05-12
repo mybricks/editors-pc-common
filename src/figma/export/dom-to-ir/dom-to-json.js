@@ -97,16 +97,40 @@
 var SHADOW_HOST_ID, GEOVIEW_WRAPPER_ID, getShadowHost, resolveFrameRoot, getCssRulesBySelector, getMergedCssRulesFromStyleElements, getGeoviewScaleAndOrigin, getDesignRect, hasClassPrefix, simpleSelectorMatches, getMatchedSelectorsForElement, getNearestEncodedLessFilePrefixFromAncestors, elementHasEncodedLessFileClass, getDeclaredStyleForElement, getFrameTitleFromElement, findArtboardIdFromElement, emptyRoot, normalizeSvgPathForFigma, parseUrlFromBgImage, parseLinearGradientFromBgImage, parseRadialGradientFromBgImage, parseBoxShadow, parseBorderShorthand, parseGridTemplateColumnsCount, serializeSvgElement, parseTransformRotation, cssColorToHex, cssColorToRgba, parseFontFamilyStack, resolveFontFamilyFromStack, getGlobalFont, buildInlineTextStyle, buildStyleJSON, getM, pruneChildMarginsAfterGapMerge, anyChildHasMargin, childrenHaveUniformMargin, applyUniformMarginAsGap, ensureItemSpacingFromPositions, wrapHorizontalFlowChildrenVerticalMarginAsPadding, shouldSetTextAlignVerticalCenterForAbsoluteTextLeaf, shouldSetTextAlignVerticalCenterForFlexParentAlignItemsCenter, applyAntSelectSelectionPlaceholderTextAlign, inferNodeType, shouldMergeTextAndBrChildren, mergeTextAndBrChildNodesContent, getElementContentsTextBlockRect, getTextNodeRect, shouldMarkWidthConstrainedForEdgeWhitespace, applyWidthConstrainedForFigmaEdgeWhitespace, applyTextOverflowEllipsisExport, normalizeTextExportPreserveTrailing, getTextContent, getTextWithActualLineBreaksForElement, isShowingPlaceholder, getPseudoTextNode, getPseudoShapeNode, getColorRunsFromInlineElement, fetchImageAsBase64DataUrl, inlineImageFillsInTree,
     detectCssShape;
 
+
 /**
- * ★ Figma 组件库映射开关
+ * ★ 组件库变体映射 — 支持组件列表
  *
- * 设为 true 时：walk 遇到带 data-library-source 属性的第三方 UI 组件（antd/m-ui 等），
- * 会输出 type:'component-library' + rawClassName，并停止递归子节点，
- * 由 VibeUI 消费侧根据 rawClassName 查映射表替换为 Figma 规范组件实例。
- *
- * 设为 false（默认）时：保持原有行为，照常展开为 Frame/Text 节点树。
+ * 只有列表内的组件才会被映射为 Figma 变体实例；其余组件照常展开为 Frame/Text 节点树。
+ * 后续新增组件时在此追加即可（名称与 Code Connect description 中的 JSX 组件名一致）。
+ * 对应的匹配/消歧配置（默认 props、prop 别名、风格 filter 等）在
+ * ir-to-figma/component-library-resolver.js 中维护。
  */
-var FIGMA_COMPONENT_LIBRARY_ENABLED = false;
+var COMPONENT_LIBRARY_SUPPORTED_COMPONENTS = [
+  'Button',
+  // 'Input',
+  // 'Select',
+  // 'DatePicker',    // 含 TimePicker / RangePicker（class 均为 ant-picker）
+  // 'Checkbox',
+  // 'Radio',
+  // 'Switch',
+  // 'Slider',
+  // 'Rate',
+  // 'Tag',
+  // 'Badge',
+  // 'Tabs',          // ant-tabs-tab 子项
+  // 'QuickSortTag',  // ant-pro-checkableTag 快捷筛选项
+];
+
+/** 判断组件名是否已在支持列表中 */
+function isLibraryComponentSupported(componentName) {
+  if (!componentName) return false;
+  for (var _sci = 0; _sci < COMPONENT_LIBRARY_SUPPORTED_COMPONENTS.length; _sci++) {
+    if (COMPONENT_LIBRARY_SUPPORTED_COMPONENTS[_sci] === componentName) return true;
+  }
+  return false;
+}
+
 
 /**
  * 从指定 DOM 元素直接导出，不需要通过 comId 查找 Shadow DOM。
@@ -185,10 +209,7 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
     }
   }
   const dom = root;
-  const COMPONENT_LIBRARY_ENABLED =
-    options && typeof options.componentLibraryEnabled === 'boolean'
-      ? options.componentLibraryEnabled
-      : FIGMA_COMPONENT_LIBRARY_ENABLED;
+  const COMPONENT_LIBRARY_ENABLED = !!(options && options.componentLibraryEnabled);
 
   var geo = getGeoviewScaleAndOrigin(shadowRoot || document);
 
@@ -464,10 +485,7 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
     }
   }
 
-  function walk(el, parentRect, ctx) {
-    var _inProForm   = (ctx && ctx.inProForm)   || false;
-    var _inTabs      = (ctx && ctx.inTabs)      || false;
-    var _inQuickSort = (ctx && ctx.inQuickSort) || false;
+  function walk(el, parentRect) {
     var rect = getDesignRect(el, geo);
     const computed = window.getComputedStyle(el);
     const tag = (el.tagName || '').toLowerCase();
@@ -628,9 +646,7 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
     // ant-checkbox-inner 是 checkbox 的纯视觉方框，当启用组件库映射时由 Figma 变体组件负责渲染，跳过
     if (COMPONENT_LIBRARY_ENABLED && el.classList && el.classList.contains('ant-checkbox-inner')) return null;
 
-    // 红线原则：没有 data-library-source 的元素绝对不做组件库映射。
-    // 原有的"无标记 ant-btn 全局拦截"逻辑已删除——它会把所有 ant-btn 按钮错误映射，
-    // 包括完全未经 Babel 打标的页面。ProForm 内置按钮由下方 _inProForm 上下文兜底处理。
+    // 红线原则：无 data-figma-props 的元素绝对不做组件库映射，一律按 Frame/Text 展开。
 
     // display:contents 节点自身不作为独立 frame，直接将其子节点合并到父级
     if (isDisplayContents) {
@@ -644,7 +660,7 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
           if (hasClassPrefix(elChild, 'selection-')) continue;
           if (hasClassPrefix(elChild, 'append-')) continue;
           if (hasClassPrefix(elChild, 'boardTitle-')) continue;
-          const childNode = walk(elChild, parentRect, ctx);
+          const childNode = walk(elChild, parentRect);
           if (childNode) childNodes.push(childNode);
         }
       }
@@ -1007,24 +1023,19 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
     }
 
     var childNodes = [];
-    var isLibrarySource = !!(el.getAttribute && el.getAttribute('data-library-source') != null);
 
-    // ★ Figma 组件库映射策略（新）：
-    //   1. 凡带 data-figma-props.component 的节点，视为 Babel 明确打标，优先截停映射（见下方早期检查）。
-    //      不依赖 data-library-source，figmaProps 是充分条件。
-    //   2. 带 data-library-source 但没有明确 figmaProps.component 的容器型节点，
-    //      走启发式规则（ProTable / tabs / quickSort 等），见 isLibrarySource 块。
+    // ★ Figma 组件库映射策略：
+    //   凡带 data-figma-props.component 的节点，视为 babelPlugin 明确打标，截停并映射为变体实例；
+    //   无 data-figma-props 的节点一律按普通 Frame/Text 展开，不做任何启发式猜测。
     var _libCls = (el.className && typeof el.className === 'string') ? el.className : '';
 
     // ── 输入框组件根节点修正（DatePicker / TimePicker / RangePicker 等）──
-    // 问题来源：Babel 打标把 data-library-source / data-figma-props 注入到 JSX <DatePicker> 上，
-    // 但 DatePicker 运行时把未知 HTML props 转发给内部 <input>，导致属性落到 input 而非外层 .ant-picker。
-    // 修正：遇到 .ant-picker 包装 div 时，从子树 <input> 继承 figmaProps，在外层拦截截停。
-    // 同时兼容 data-figma-props 查找（不再强依赖 data-library-source）。
-    if (COMPONENT_LIBRARY_ENABLED && !isLibrarySource && nodeType !== 'text' && nodeType !== 'image' && tag !== 'svg'
-        && /\bant-picker\b/.test(_libCls)) {
+    // DatePicker 运行时把未知 HTML props 转发给内部 <input>，导致 data-figma-props 落到 input 而非外层 .ant-picker。
+    // 修正：遇到 .ant-picker 包装 div 时，从子树 <input> 继承 figmaProps，在外层截停。
+    if (COMPONENT_LIBRARY_ENABLED && nodeType !== 'text' && nodeType !== 'image' && tag !== 'svg'
+        && /\bant-picker\b/.test(_libCls) && isLibraryComponentSupported('DatePicker')) {
+      // data-figma-props 是映射的前提条件：只查找携带 data-figma-props 的内部 input（不再用 data-library-source）
       var _pickerInputEl = el.querySelector && el.querySelector(
-        'input[data-library-source], textarea[data-library-source],' +
         'input[data-figma-props], textarea[data-figma-props]'
       );
       // console.log('[dom-to-json][ant-picker-fix] 检测到 .ant-picker, class=' + _libCls
@@ -1069,7 +1080,7 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
     if (COMPONENT_LIBRARY_ENABLED && _earlyFpRaw && nodeType !== 'text' && nodeType !== 'image' && tag !== 'svg') {
       try {
         var _earlyFpParsed = JSON.parse(_earlyFpRaw);
-        if (_earlyFpParsed && _earlyFpParsed.component) {
+        if (_earlyFpParsed && _earlyFpParsed.component && isLibraryComponentSupported(_earlyFpParsed.component)) {
           node.type = 'component-library';
           node.rawClassName = _libCls.trim();
           node.figmaComponent = _earlyFpParsed.component;
@@ -1104,148 +1115,28 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
           if (!node.label && _earlyPh && (tag === 'input' || tag === 'textarea')) node.label = _earlyPh;
           var _earlyMbSel = computeMbPrefixedSyncSelector(el);
           if (_earlyMbSel) node.figmaSyncSelector = _earlyMbSel;
+          // 预处理子节点：resolver 成功时由 INSTANCE 接管（children 忽略）；
+          // resolver 失败时降级为 frame，用这些 children 保全内容，避免产生空壳。
+          var _earlyChildren = [];
+          for (var _eci = 0; _eci < el.childNodes.length; _eci++) {
+            var _ecChild = el.childNodes[_eci];
+            if (_ecChild.nodeType === 1) {
+              var _ecTag = (_ecChild.tagName || '').toLowerCase();
+              if (_ecTag === 'script' || _ecTag === 'style' || _ecTag === 'link') continue;
+              if (hasClassPrefix(_ecChild, 'selection-') || hasClassPrefix(_ecChild, 'append-') || hasClassPrefix(_ecChild, 'boardTitle-')) continue;
+              var _ecNode = walk(_ecChild, rect);
+              if (_ecNode) _earlyChildren.push(_ecNode);
+            } else if (_ecChild.nodeType === 3) {
+              var _ecTxt = normalizeTextExportPreserveTrailing(_ecChild.textContent || '', false);
+              if (_ecTxt) _earlyChildren.push({ type: 'text', name: 'Text', content: _ecTxt });
+            }
+          }
+          if (_earlyChildren.length > 0) node.children = _earlyChildren;
           return node;
         }
       } catch (_eFpEarly) {}
     }
 
-    if (COMPONENT_LIBRARY_ENABLED && isLibrarySource && nodeType !== 'text' && nodeType !== 'image' && tag !== 'svg') {
-      // 检查子树中是否还有嵌套的 data-library-source 节点（如 ProForm 内嵌 ProFormText）。
-      // 有则说明当前节点是容器，不能在此停止，需继续递归让子节点各自打标。
-      var _hasNestedLibSource = !!(el.querySelector && el.querySelector('[data-library-source]'));
-      // data-zone-title=".tabs" 是 tabs 容器，子节点 ant-tabs-tab 需要各自打标，不能在此截停
-      var _isTabsContainer = (el.getAttribute('data-zone-title') || '') === '.tabs';
-      // data-zone-title 含 "quickSort" 的容器，或 className 含精确 class "ant-pro-checkableTags"（有s）的容器：
-      // 子节点 ant-pro-checkableTag（无s）需要各自打标为单个二三级tab，不能在此截停
-      var _isQuickSortContainer =
-        (el.getAttribute('data-zone-title') || '').indexOf('quickSort') !== -1 ||
-        (' ' + _libCls + ' ').indexOf(' ant-pro-checkableTags ') !== -1;
-      // Ant Design Space：根节点带 data-library-source，子项（链接/按钮）通常无该属性，
-      // 若在此截停为 component-library，innerText 会把「查看/编辑/删除」拼成一段并丢失各链颜色与间距。
-      var _ztRaw = (el.getAttribute('data-zone-title') || '').trim();
-      var _isSpaceContainer = _ztRaw.toLowerCase() === 'space';
-      // 注意：到达此处的元素已确认没有 data-figma-props.component（有该字段的元素被上方早期检查截停）。
-      // 此块仅处理"有 data-library-source 但无明确 component 指定"的容器型启发式映射。
-      // 子树内 ≥2 个可交互控件（链/按钮/表单）：多入口或分页 options 等，不能整段 component-library
-      var _libMultiInteractive = false;
-      if (el.querySelectorAll) {
-        try {
-          var _libCtrls = el.querySelectorAll('a, button, input, select, textarea');
-          if (_libCtrls.length >= 2) _libMultiInteractive = true;
-        } catch (_eLibL) {}
-      }
-      if (!_libMultiInteractive && el.children && el.children.length >= 2 && el.querySelector) {
-        try {
-          if (el.querySelector('input, select, textarea')) _libMultiInteractive = true;
-        } catch (_eLibF) {}
-      }
-      // ProTable 根节点需要整体映射为「表格」变体，允许在此强制截停（即使子树里有其他 data-library-source）
-      var _zoneTitle = el.getAttribute('data-zone-title') || '';
-      var _isProTableRoot = _zoneTitle === 'ProTable';
-      // 截停条件：ProTable 强制截停，或无嵌套子标记且非容器展开模式且非多交互控件
-      var _shouldStopAsLibNode =
-        _isProTableRoot ||
-        (!_hasNestedLibSource && !_isTabsContainer && !_isQuickSortContainer && !_isSpaceContainer && !_libMultiInteractive);
-      if (_shouldStopAsLibNode) {
-        node.type = 'component-library';
-        node.rawClassName = _libCls.trim();
-        var _libSrc = el.getAttribute('data-library-source') || '';
-        if (_libSrc) node.librarySource = _libSrc;
-        var _zoneTitleRaw = _zoneTitle;
-        if (_zoneTitleRaw) node.zoneTitle = _zoneTitleRaw;
-        // 此处的 data-figma-props 不含 component（否则早期检查已截停），仅读扁平格式
-        var _libFigmaPropsRaw = el.getAttribute('data-figma-props');
-        if (_libFigmaPropsRaw) {
-          try {
-            var _libFParsed = JSON.parse(_libFigmaPropsRaw);
-            if (_libFParsed && !_libFParsed.component) {
-              node.figmaProps = _libFParsed;
-            }
-          } catch (_eFP) {}
-        }
-        node.disabled = !!(el.disabled || el.getAttribute('disabled') !== null);
-        // 优先从表单标签元素提取标题（避免把 placeholder 文本也混入 label）
-        var _labelDomEl = el.querySelector && (
-          el.querySelector('.ant-form-item-label label') ||
-          el.querySelector('label.ant-form-item-no-colon') ||
-          el.querySelector('label')
-        );
-        var _libLabel = _labelDomEl
-          ? (_labelDomEl.getAttribute('title') || _labelDomEl.textContent || '').trim()
-          : (el.innerText || el.textContent || '').replace(/\s+/g, ' ').trim();
-        if (_libLabel) node.label = _libLabel;
-        // 提取 placeholder：
-        //   1. el 本身是 input/textarea（ant-input 等原生元素直接携带 placeholder）
-        //   2. input / textarea[placeholder]（子孙）—— ProFormText 等输入框
-        //   3. .ant-select-selection-placeholder —— ProFormSelect 等下拉框（placeholder 是 span 文本）
-        var _selfPh = (tag === 'input' || tag === 'textarea') ? (el.getAttribute('placeholder') || '') : '';
-        var _inputDomEl = el.querySelector && el.querySelector('input[placeholder]:not([style*="opacity: 0"]):not([style*="opacity:0"]), textarea[placeholder]');
-        var _selectPhEl = el.querySelector && el.querySelector('.ant-select-selection-placeholder');
-        var _phVal = _selfPh
-          || (_inputDomEl && _inputDomEl.getAttribute('placeholder'))
-          || (_selectPhEl && (_selectPhEl.textContent || '').trim())
-          || '';
-        if (_phVal) node.placeholder = _phVal;
-        // 对于表单输入元素（input/textarea），若 label 为空则用 placeholder 作为 Figma 文字 override 内容
-        if (!node.label && _phVal && (tag === 'input' || tag === 'textarea')) node.label = _phVal;
-        return node;
-      }
-      // 有嵌套 library-source，fall through → 继续普通 frame 递归逻辑
-    }
-    // ProForm 内置按钮（无 data-library-source 但在 ProForm 子树内）：
-    // ProForm 的提交/重置按钮由框架自动渲染，不会携带 data-library-source，
-    // 但因已明确处于 ProForm 内部，可补上 librarySource 让消费侧映射到变体组件库。
-    // 只对带 ant-btn 的元素截停；其他中间容器（ant-row / ant-col / ant-pro-form-group 等）
-    // 不截停，继续递归让按钮在更深层被识别。
-    var _isProFormBtn = _libCls.indexOf('ant-btn') !== -1 || tag === 'button';
-    if (COMPONENT_LIBRARY_ENABLED && _inProForm && !isLibrarySource && _isProFormBtn) {
-      node.type = 'component-library';
-      node.rawClassName = _libCls.trim();
-      node.librarySource = '@es/pro-components';
-      var _pfBtnLabel = (el.innerText || el.textContent || '').replace(/\s+/g, ' ').trim();
-      if (_pfBtnLabel) node.label = _pfBtnLabel;
-      return node;
-    }
-    // tabs 容器内的 ant-tabs-tab 子节点（无 data-library-source，由父容器 _inTabs 标记识别）：
-    // 每个 tab 项映射为独立的 component-library 节点，label 取 tab 文案，librarySource 补充为父容器来源。
-    if (COMPONENT_LIBRARY_ENABLED && _inTabs && !isLibrarySource
-        && _libCls.indexOf('ant-tabs-tab') !== -1) {
-      node.type = 'component-library';
-      node.rawClassName = _libCls.trim();
-      node.librarySource = '@m-ui/react';
-      var _tabLabel = (el.innerText || el.textContent || '').replace(/\s+/g, ' ').trim();
-      if (_tabLabel) node.label = _tabLabel;
-      return node;
-    }
-    // quickSort 容器内的 ant-pro-checkableTag 子节点（无 data-library-source，由父容器 _inQuickSort 标记识别）：
-    // 每个快捷筛选项映射为独立的 component-library 节点。
-    // label 取纯文本（排除徽标数字 span），若存在纯数字 span 则以 placeholder 字段存储数字
-    // 并在 rawClassName 追加 __has-badge-number，供消费侧判断「是否带数字」变体。
-    // 注意：用精确 class 匹配（加空格包围）区分 ant-pro-checkableTag（无s）与 ant-pro-checkableTags（有s容器）。
-    if (COMPONENT_LIBRARY_ENABLED && _inQuickSort && !isLibrarySource
-        && (' ' + _libCls + ' ').indexOf(' ant-pro-checkableTag ') !== -1) {
-      node.type = 'component-library';
-      node.rawClassName = _libCls.trim();
-      node.librarySource = '@es/pro-components';
-      var _qsText = '', _qsBadge = '';
-      for (var _qsi = 0; _qsi < el.childNodes.length; _qsi++) {
-        var _qsChild = el.childNodes[_qsi];
-        if (_qsChild.nodeType === 3) {
-          var _qst = (_qsChild.textContent || '').trim();
-          if (_qst) _qsText += _qst;
-        } else if (_qsChild.nodeType === 1 && (_qsChild.tagName || '').toLowerCase() === 'span') {
-          var _qsSpanText = (_qsChild.textContent || '').trim();
-          if (/^\d+$/.test(_qsSpanText)) _qsBadge = _qsSpanText;
-        }
-      }
-      if (!_qsText) _qsText = (el.innerText || el.textContent || '').replace(/\s+/g, ' ').trim();
-      if (_qsText) node.label = _qsText.trim();
-      if (_qsBadge) {
-        node.placeholder = _qsBadge;
-        node.rawClassName += ' __has-badge-number';
-      }
-      return node;
-    }
 
     if (nodeType !== 'text' && nodeType !== 'image' && !(tag === 'svg')) {
       // 支持 div 内同时有文本和 DOM：按 childNodes 顺序，元素走 walk，文本节点单独成 text 节点；SVG 用占位组件不遍历子节点
@@ -1387,32 +1278,6 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
         }
       }
       if (!_didMergeTextBr && !_didMergeInlineChildrenText) {
-      // ProForm 容器检测：当前节点是 @es/pro-components 的 ProForm 时，
-      // 向所有子节点传递 _inProForm=true，让内部无标记按钮得以被识别。
-      // 已有 _inProForm 的保持不变（嵌套 ProForm 兜底）。
-      var _nextInProForm = _inProForm;
-      if (COMPONENT_LIBRARY_ENABLED && !_nextInProForm && isLibrarySource) {
-        var _pfLibSrc = el.getAttribute('data-library-source') || '';
-        var _pfZone = el.getAttribute('data-zone-title') || '';
-        if (_pfLibSrc === '@es/pro-components' && _pfZone === 'ProForm') {
-          _nextInProForm = true;
-        }
-      }
-      // tabs 容器：向子节点传递 _inTabs=true，让 ant-tabs-tab 子项得以被识别并打标
-      var _nextInTabs = _inTabs;
-      if (COMPONENT_LIBRARY_ENABLED && !_nextInTabs && isLibrarySource) {
-        if ((el.getAttribute('data-zone-title') || '') === '.tabs') {
-          _nextInTabs = true;
-        }
-      }
-      // quickSort 容器：向子节点传递 _inQuickSort=true，让 ant-pro-checkableTag 子项得以被识别并打标
-      var _nextInQuickSort = _inQuickSort;
-      if (COMPONENT_LIBRARY_ENABLED && !_nextInQuickSort && isLibrarySource) {
-        if ((el.getAttribute('data-zone-title') || '').indexOf('quickSort') !== -1 ||
-            (' ' + _libCls + ' ').indexOf(' ant-pro-checkableTags ') !== -1) {
-          _nextInQuickSort = true;
-        }
-      }
       for (let i = 0; i < el.childNodes.length; i++) {
         const child = el.childNodes[i];
         if (child.nodeType === 1) {
@@ -1424,7 +1289,7 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
           if (hasClassPrefix(elChild, 'selection-')) continue;
           if (hasClassPrefix(elChild, 'append-')) continue;
           if (hasClassPrefix(elChild, 'boardTitle-')) continue;
-          const childNode = walk(elChild, rect, { inProForm: _nextInProForm, inTabs: _nextInTabs, inQuickSort: _nextInQuickSort });
+          const childNode = walk(elChild, rect);
           if (childNode) childNodes.push(childNode);
         } else if (child.nodeType === 3) {
           var textContent = normalizeTextExportPreserveTrailing(child.textContent || '', false);
@@ -1953,7 +1818,7 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
     if (hasClassPrefix(child, 'boardTitle-')) continue;
     const tag = (child.tagName || '').toLowerCase();
     if (tag === 'script' || tag === 'style' || tag === 'link') continue;
-    const childNode = walk(child, rootDesignRect, {});
+    const childNode = walk(child, rootDesignRect);
     if (childNode) contentChildren.push(childNode);
   }
 

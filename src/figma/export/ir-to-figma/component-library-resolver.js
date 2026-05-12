@@ -41,34 +41,6 @@ function parseComponentName(description) {
   return m ? m[1] : '';
 }
 
-/**
- * 从 DOM 元素的 rawClassName 推断 JSX 组件名（Ant Design className 约定）。
- * 仅用于 descKey 命中后的候选过滤，推断失败时返回空字符串（不影响匹配）。
- */
-var _ANT_CLASS_TO_COMPONENT = {
-  'ant-input':    'Input',
-  'ant-btn':      'Button',
-  'ant-picker':   'DatePicker',   // DatePicker / TimePicker / RangePicker
-  'ant-select':   'Select',
-  'ant-checkbox': 'Checkbox',
-  'ant-radio':    'Radio',
-  'ant-switch':   'Switch',
-  'ant-slider':   'Slider',
-  'ant-rate':     'Rate',
-  'ant-tag':      'Tag',
-  'ant-badge':    'Badge',
-};
-
-function guessComponentFromClassName(rawClassName) {
-  if (!rawClassName) return '';
-  // 匹配第一个 "ant-{word}" class，取基础组件 class（不含 size/state 修饰符）
-  var parts = rawClassName.split(/\s+/);
-  for (var i = 0; i < parts.length; i++) {
-    var m = parts[i].match(/^(ant-[a-z]+)(?:-|$)/);
-    if (m && _ANT_CLASS_TO_COMPONENT[m[1]]) return _ANT_CLASS_TO_COMPONENT[m[1]];
-  }
-  return '';
-}
 
 /**
  * 组件默认 props 映射表
@@ -81,7 +53,11 @@ function guessComponentFromClassName(rawClassName) {
  */
 var COMPONENT_DEFAULT_PROPS = {
   Button: {
-    type: 'secondary',   // <Button> 不写 type 时默认映射到 secondary 变体
+    // m-ui Button 不写 type 时渲染为二级按钮（type="secondary"）。
+    type: 'secondary',
+    // Code Connect description 总是显式写出 size，不补 middle 会导致
+    // key 与所有模板 entry 对不上（size 位为空 → 永远 miss）。
+    size: 'middle',
   },
   // Select 不传 size 时 Ant Design 默认 middle；
   // 若不补默认值，descKey 里 size 为空，无法命中任何变体描述（所有描述都写了 size="…"）。
@@ -292,7 +268,9 @@ function resolveComponentLibraryNode(irNode, template) {
   console.log(_tag, 'irNode figmaProps', figmaProps, '| disabled:', irNode.disabled, '| label:', irNode.label);
 
   if (!figmaProps) {
-    console.log(_tag, 'SKIP: no figmaProps on irNode (babelPlugin not tagged or tag not injected to DOM)');
+    // data-figma-props 是映射的前提条件：没有 babelPlugin 打标就不走变体库映射，
+    // 直接降级为普通 frame 渲染（由调用方 ir-to-figma.js 处理）。
+    console.log(_tag, 'SKIP: no figmaProps on irNode — data-figma-props is required for component library mapping');
     return null;
   }
 
@@ -303,8 +281,8 @@ function resolveComponentLibraryNode(irNode, template) {
     return null;
   }
 
-  // 组件类型：优先用编译时精确注入的 figmaComponent，降级从 rawClassName 推断（兼容旧版）。
-  var domComponent = irNode.figmaComponent || guessComponentFromClassName(irNode.rawClassName || '');
+  // 组件类型：由 babelPlugin 在编译时注入到 figmaComponent（来源于 data-figma-props.component）。
+  var domComponent = irNode.figmaComponent;
 
   // 构造查询 props（5 维进入 key，+ loading/disabled 仅供 filter 读取）
   // loading / disabled 不进 key（Figma description 从不编码它们），但保留在 queryProps 供 filter 4/5 双向选择。
