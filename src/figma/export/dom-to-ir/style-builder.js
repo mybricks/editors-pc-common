@@ -109,8 +109,24 @@ function buildInlineTextStyle(parentEl, computed, textRect, parentRect, cssRuleM
   );
   if (fontSize != null) {
     if (fontSize < 1) {
-      var rawFsVal = _fontSizeDecl || (computed && computed.fontSize);
-      console.warn('[fontSize<1] buildStyleJSON', { className: parentEl && parentEl.className, rawValue: rawFsVal, rounded: fontSize, el: parentEl });
+      // font-size:0 常用于消除 inline-block 间距（父容器设 0，子 span 设真实字号）。
+      // 此时应向子元素回退，取第一个 computed fontSize >= 1 的子元素字号作为实际字号，
+      // 避免 ir-to-figma 因缺少 fontSize 而回退到默认 14px 导致文字偏小。
+      var _childFsResolved = null;
+      try {
+        if (parentEl && parentEl.children) {
+          for (var _cfsI = 0; _cfsI < parentEl.children.length; _cfsI++) {
+            var _cfsVal = parseFloat(window.getComputedStyle(parentEl.children[_cfsI]).fontSize);
+            if (_cfsVal >= 1) { _childFsResolved = Math.round(_cfsVal); break; }
+          }
+        }
+      } catch (_eCf) {}
+      if (_childFsResolved != null) {
+        style.fontSize = _childFsResolved;
+      } else {
+        var rawFsVal = _fontSizeDecl || (computed && computed.fontSize);
+        console.warn('[fontSize<1] buildStyleJSON', { className: parentEl && parentEl.className, rawValue: rawFsVal, rounded: fontSize, el: parentEl });
+      }
     } else {
       style.fontSize = fontSize;
     }
@@ -1776,8 +1792,23 @@ function buildStyleJSON(el, computed, rect, parentRect, cssRuleMap, globalFont) 
   );
   if (fontSize != null) {
     if (fontSize < 1) {
-      var rawFsVal = _fontSizeDecl || computed.fontSize;
-      console.warn('[fontSize<1] buildInlineTextStyle', { className: el.className, rawValue: rawFsVal, rounded: fontSize, el: el });
+      // font-size:0 常用于消除 inline-block 间距（父容器设 0，子 span 设真实字号）。
+      // 此时应向子元素回退，取第一个 computed fontSize >= 1 的子元素字号作为实际字号。
+      var _childFsResolved = null;
+      try {
+        if (el && el.children) {
+          for (var _cfsI = 0; _cfsI < el.children.length; _cfsI++) {
+            var _cfsVal = parseFloat(window.getComputedStyle(el.children[_cfsI]).fontSize);
+            if (_cfsVal >= 1) { _childFsResolved = Math.round(_cfsVal); break; }
+          }
+        }
+      } catch (_eCf) {}
+      if (_childFsResolved != null) {
+        style.fontSize = _childFsResolved;
+      } else {
+        var rawFsVal = _fontSizeDecl || computed.fontSize;
+        console.warn('[fontSize<1] buildInlineTextStyle', { className: el.className, rawValue: rawFsVal, rounded: fontSize, el: el });
+      }
     } else {
       style.fontSize = fontSize;
     }
