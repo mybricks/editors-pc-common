@@ -712,6 +712,78 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
 
     const style = buildStyleJSON(el, computed, rect, parentRect, cssRuleMap, globalFont);
 
+    // translate(-50%,-50%) 居中模式修正：
+    // 如 Taro aspectFill 图片：position:absolute + top:50% + left:50% + transform:translate(-50%,-50%)。
+    // 当浏览器布局时该元素尺寸为 0（或 getBoundingClientRect 未将 CSS translate 纳入视口偏移），
+    // translate(-0,-0) 等价 no-op，导致 style.x/y 停在 CSS left/top 百分比值（如 207, 90），
+    // 而非居中后的正确位置（如 0, 0）。
+    // 检测：style.x ≈ el.offsetLeft/scale（pre-transform 位置）且 matrix.e ≈ -offsetWidth/2 或声明 CSS 含 -50%。
+    // 修正：将 matrix.e/f（或按 offsetWidth/Height 推算的 -50%）加到 style.x/y 上。
+    if (style && style.positionType === 'absolute' && el && geo) {
+      try {
+        // offsetLeft/offsetTop 是 CSS 布局像素，与 style.x/y（设计坐标）等价，不需要除以 geo.scale
+        var _ctfmOl = el.offsetLeft, _ctfmOt = el.offsetTop;
+        var _ctfmOw = el.offsetWidth, _ctfmOh = el.offsetHeight;
+        if (isFinite(_ctfmOl) && isFinite(_ctfmOt) && (_ctfmOw > 0 || _ctfmOh > 0)) {
+          // style.x/y 是否与 pre-transform 的 offsetLeft/Top（CSS 像素）接近（≤2px）
+          var _ctfmXNear = style.x != null && Math.abs(style.x - _ctfmOl) < 2;
+          var _ctfmYNear = style.y != null && Math.abs(style.y - _ctfmOt) < 2;
+          if (_ctfmXNear || _ctfmYNear) {
+            // 解析 computed transform matrix（值为 CSS 像素，不需要 scale 转换）
+            var _ctfmE = 0, _ctfmF = 0, _ctfmIsPureTranslate = false;
+            try {
+              var _ctfmStr = (computed.getPropertyValue ? computed.getPropertyValue('transform') : computed.transform) || '';
+              var _ctfmMM = _ctfmStr && _ctfmStr !== 'none' && _ctfmStr.match(/matrix\(([^)]+)\)/);
+              if (_ctfmMM) {
+                var _ctfmMp = _ctfmMM[1].split(',').map(function(s) { return parseFloat(s.trim()); });
+                if (_ctfmMp.length >= 6 && _ctfmMp.every(function(n) { return isFinite(n); })) {
+                  if (Math.abs(_ctfmMp[0] - 1) < 0.01 && Math.abs(_ctfmMp[1]) < 0.01 &&
+                      Math.abs(_ctfmMp[2]) < 0.01 && Math.abs(_ctfmMp[3] - 1) < 0.01) {
+                    _ctfmE = _ctfmMp[4]; _ctfmF = _ctfmMp[5];
+                    _ctfmIsPureTranslate = true;
+                  }
+                }
+              }
+            } catch (_ec1) {}
+            if (_ctfmIsPureTranslate) {
+              // Case 1：matrix.e/f 约等于 -offsetWidth/2（translate 已由浏览器计算为像素值）
+              // getBCR 未将 translate 纳入相对父元素偏移，故需手动补加
+              if (_ctfmXNear && _ctfmOw > 0 && Math.abs(_ctfmE) > 2 && Math.abs(_ctfmE + _ctfmOw / 2) < 3) {
+                style.x = Math.round(style.x + _ctfmE);
+              }
+              if (_ctfmYNear && _ctfmOh > 0 && Math.abs(_ctfmF) > 2 && Math.abs(_ctfmF + _ctfmOh / 2) < 3) {
+                style.y = Math.round(style.y + _ctfmF);
+              }
+              // Case 2：matrix.e/f 接近 0（元素布局时尺寸为 0，像素化 translate 未生效），
+              // 但声明 CSS 含 translate(-50%,...) → 按 offsetWidth/Height 推算
+              var _ctfmNeedDeclCheck = (_ctfmXNear && _ctfmOw > 0 && Math.abs(_ctfmE) < 1) ||
+                                       (_ctfmYNear && _ctfmOh > 0 && Math.abs(_ctfmF) < 1);
+              if (_ctfmNeedDeclCheck) {
+                var _ctfmDeclStr = '';
+                try {
+                  var _ctfmDeclObj = getDeclaredStyleForElement(el, cssRuleMap);
+                  _ctfmDeclStr = (_ctfmDeclObj && (_ctfmDeclObj.transform || '')).toLowerCase();
+                } catch (_ec2) {}
+                if (!_ctfmDeclStr) {
+                  try { _ctfmDeclStr = (el.style && el.style.transform || '').toLowerCase(); } catch (_ec3) {}
+                }
+                if (_ctfmDeclStr) {
+                  if (_ctfmXNear && _ctfmOw > 0 && Math.abs(_ctfmE) < 1 &&
+                      (/translate\s*\(\s*-50%/.test(_ctfmDeclStr) || /translatex\s*\(\s*-50%/.test(_ctfmDeclStr))) {
+                    style.x = Math.round(style.x - _ctfmOw / 2);
+                  }
+                  if (_ctfmYNear && _ctfmOh > 0 && Math.abs(_ctfmF) < 1 &&
+                      (/translate\s*\([^)]*,\s*-50%/.test(_ctfmDeclStr) || /translatey\s*\(\s*-50%/.test(_ctfmDeclStr))) {
+                    style.y = Math.round(style.y - _ctfmOh / 2);
+                  }
+                }
+              }
+            }
+          }
+        }
+      } catch (_eTfmCtr) {}
+    }
+
     // <input type="checkbox"> / <input type="radio">：浏览器 native 渲染，
     // getComputedStyle 读不到真实视觉（背景/边框由系统 UA 绘制），buildStyleJSON 返回空样式。
     // 此处注入兜底外观：白色背景 + 1px 灰色边框，确保 Figma 中有可见的控件框。
