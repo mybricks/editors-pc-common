@@ -768,10 +768,14 @@ function inlineImageFillsInTree(obj, options) {
       var _svgH = _svgStyle.height || 24;
       var _svgScale = Number(ctxOptions && ctxOptions.svgRasterScale);
       if (!(_svgScale > 0)) _svgScale = 2;
-      // CSS mask 图标：动态提高渲染分辨率，保证最短边 ≥ 64px，消除小图标锯齿
-      // 例：16px 图标 → ceil(64/16)=4x → 64px；24px → ceil(64/24)=3x → 72px；48px+ → 保持原倍率
+      // 所有 SVG 图标：动态提高渲染分辨率，保证最短边 ≥ 128px，消除小图标锯齿。
+      // 例：12px 图标 → ceil(128/12)=11x → 132px；16px → 8x → 128px；24px → 6x → 144px；
+      //     64px → max(2,2)=2x → 128px；128px+ → 保持原倍率（2x）。
+      var _svgMinSide = Math.max(1, Math.min(_svgW, _svgH));
+      _svgScale = Math.max(_svgScale, Math.ceil(128 / _svgMinSide));
+      // CSS mask 图标：在此基础上额外保证最短边 ≥ 64px（已被 128px 覆盖，保留以兜底）
       var _maskScale = _svgMaskFill
-        ? Math.max(_svgScale, Math.ceil(64 / Math.max(1, Math.min(_svgW, _svgH))))
+        ? Math.max(_svgScale, Math.ceil(64 / _svgMinSide))
         : _svgScale;
       // CSS mask 图标：预处理修正非标准 CSS + 烘焙颜色（fill 直接替换为 maskFillColor），
       // 然后直接栅格化，无需 destination-in 合成（避免 SVG 透明导致空白）

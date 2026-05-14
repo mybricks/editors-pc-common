@@ -108,7 +108,7 @@ var SHADOW_HOST_ID, GEOVIEW_WRAPPER_ID, getShadowHost, resolveFrameRoot, getCssR
  */
 var COMPONENT_LIBRARY_SUPPORTED_COMPONENTS = [
   'Button',
-  // 'Input',
+  'Input',
   // 'Select',
   // 'DatePicker',    // 含 TimePicker / RangePicker（class 均为 ant-picker）
   // 'Checkbox',
@@ -1694,6 +1694,24 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
             _firstRowCeilTotal += (node.style.paddingLeft || 0) + (node.style.paddingRight || 0);
             if (_firstRowCeilTotal > node.style.width) {
               node.style.width = _firstRowCeilTotal;
+            }
+          }
+        }
+        // margin-left: auto 单侧（flex 推末尾）：在首个 _marginAutoLeft 子节点前插入 flexGrow:1 的透明
+        // spacer frame，使其吸收剩余主轴空间，将目标子节点推到右端。
+        // 必须在所有间距 / 位置计算完成后插入，避免影响 ensureItemSpacingFromPositions 等函数。
+        if (node.style && node.style.layoutMode === 'HORIZONTAL') {
+          for (var _malI = 0; _malI < childNodes.length; _malI++) {
+            var _malCNode = childNodes[_malI];
+            if (!_malCNode || !_malCNode.style || _malCNode.style.positionType === 'absolute') continue;
+            if (_malCNode.style._marginAutoLeft) {
+              childNodes.splice(_malI, 0, {
+                type: 'frame',
+                name: 'spacer',
+                style: { flexGrow: 1, width: 0, height: 0 },
+                children: []
+              });
+              break;
             }
           }
         }

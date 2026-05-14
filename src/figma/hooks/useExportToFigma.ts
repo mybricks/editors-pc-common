@@ -125,6 +125,9 @@ export function useExportToFigma(
     }
     return map;
   }, [options?.fontfaces]);
+  // 默认 'image'：image-inline.js 将 SVG 栅格化为 PNG，保真优先（保留 fill/颜色/阴影等所有视觉细节）。
+  // 小图标（≤64px）已自动提倍率至最短边 ≥ 128px，消除锯齿。
+  // 若需矢量（任意缩放清晰，但复杂 SVG 可能解析失败）可传入 options.svgExportMode = 'vector'。
   const svgExportMode = options?.svgExportMode || 'image';
   const getCanvasList = options?.getCanvasList;
   const componentLibraryEnabled = !!options?.componentLibraryEnabled;
