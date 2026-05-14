@@ -267,6 +267,24 @@ function buildInlineTextStyle(parentEl, computed, textRect, parentRect, cssRuleM
       }
     }
   }
+  // 父容器 justify-content:center + 水平 flex（如 inline-flex 圆形图标）：
+  // 不依赖 Figma Auto Layout 的主轴对齐（实测 TEXT 子节点在某些场景下不受主轴居中影响），
+  // 改为把文本框宽设为父容器宽度 + textAlignHorizontal=CENTER，让 derivedTextData 的
+  // glyph.position.x = (containerW - glyphW) / 2，首帧即水平居中。
+  var _jcDisp = ((computed && computed.display) || '').toLowerCase();
+  var _jcFd = ((computed && computed.flexDirection) || 'row').toLowerCase();
+  var _jcVal = (computed && computed.justifyContent) || '';
+  if ((_jcDisp === 'flex' || _jcDisp === 'inline-flex') &&
+      (_jcFd === 'row' || _jcFd === 'row-reverse') &&
+      _jcVal === 'center' &&
+      parentRect && parentRect.width > 0) {
+    var _jtextW = style.width || 0;
+    if (_jtextW < parentRect.width - 0.5) {
+      style.textAlignHorizontal = 'CENTER';
+      style.width = parentRect.width;
+      style.x = 0;
+    }
+  }
   return style;
 }
 
@@ -569,10 +587,13 @@ function buildStyleJSON(el, computed, rect, parentRect, cssRuleMap, globalFont) 
     return n != null && !Number.isNaN(n) ? Math.round(n) : undefined;
   };
   // em/rem/var/calc 声明无法直接当 px 用，需 fallback 到 computed（浏览器已换算为 px）
+  // 注意：/[a-z]em$/i 只能匹配 rem（r 是字母），但无法匹配纯 em（如 -0.3em，em 前是数字 3）；
+  // 改为 /r?em$/i：同时覆盖 1em / -0.3em（r? 可选）和 1rem / 1.5rem（r? = r），
+  // 避免 parseFloat('-0.3em') = -0.3 → Math.round(-0.3) = 0 导致负 margin 被清零。
   const resolveDecl = (rawDecl, computedFallback) => {
     if (rawDecl == null || rawDecl === '') return computedFallback;
     const s = String(rawDecl).trim();
-    if (/[a-z]em$/i.test(s) || s.indexOf('var(') >= 0 || s.indexOf('calc(') >= 0) return computedFallback;
+    if (/r?em$/i.test(s) || s.indexOf('var(') >= 0 || s.indexOf('calc(') >= 0) return computedFallback;
     return rawDecl;
   };
 
@@ -1953,6 +1974,24 @@ function buildStyleJSON(el, computed, rect, parentRect, cssRuleMap, globalFont) 
   if (style._marginAutoH) {
     delete style.marginLeft;
     delete style.marginRight;
+  }
+  // margin-left: auto 单侧（flex 推末尾）：标记供父容器在 HORIZONTAL Auto Layout 中插入弹性 spacer，
+  // 将该子节点推到右端（CSS `margin-left: auto` 在 flex 中的标准语义）。
+  // 与 _marginAutoH（左右均 auto = 居中）不同，此处仅左侧为 auto，右侧不是。
+  if (!style._marginAutoH) {
+    var _isLeftAutoOnly = typeof _mLRaw === 'string' && _mLRaw.trim() === 'auto';
+    // 从 margin 简写补充检测：如 margin: 0 0 0 auto（4值，第4项为 left）
+    if (!_isLeftAutoOnly) {
+      var _marginSh2 = d(['margin']);
+      if (_marginSh2 && typeof _marginSh2 === 'string') {
+        var _msh2Parts = _marginSh2.trim().split(/\s+/);
+        // margin: T R B L（4值）：L=parts[3]；右侧若也是 auto 则已由 _marginAutoH 处理
+        if (_msh2Parts.length === 4 && _msh2Parts[3] === 'auto' && _msh2Parts[1] !== 'auto') {
+          _isLeftAutoOnly = true;
+        }
+      }
+    }
+    if (_isLeftAutoOnly) style._marginAutoLeft = true;
   }
 
   // position: absolute/fixed → 消费端需让该节点脱离 Auto Layout 流式排布，统一标记为 'absolute'
