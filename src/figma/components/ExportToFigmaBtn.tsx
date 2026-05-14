@@ -90,7 +90,7 @@ export function ExportToFigmaBtn({ comEle, comId, fontfaces, getCanvasList }: Ex
                 <span style={{ flexShrink: 0, marginLeft: 4 }}>{Math.round(progress.percent)}%</span>
               </>
             ) : (
-              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>复制到 Figma</span>
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{comEle ? '复制到 Figma' : '复制全部页面到 Figma'}</span>
             )}
           </span>
         </button>
