@@ -136,6 +136,54 @@ function parseDesc(description) {
 }
 
 /**
+ * 从 description 中提取 Input prefix/suffix 语义锚点。
+ * 目的：当 figmaProps 传入了 prefix/suffix（尤其是特定文案如 ¥ / RMB）时，
+ * 先把候选收窄到"同描述语义组"，再做默认态偏好，避免落入无关维度组。
+ */
+function parseInlineAffixMeta(description) {
+  var text = String(description || '');
+  var hasPrefix = /prefix=/.test(text);
+  var hasSuffix = /suffix=/.test(text);
+  var _prefixLiteralMatch = text.match(/prefix="([^"]*)"/);
+  var _suffixLiteralMatch = text.match(/suffix="([^"]*)"/);
+  var prefixLiteral = _prefixLiteralMatch ? _prefixLiteralMatch[1] : undefined;
+  var suffixLiteral = _suffixLiteralMatch ? _suffixLiteralMatch[1] : undefined;
+  var hasYuanPrefix = /prefix="¥"/.test(text);
+  var hasRmbSuffix = /suffix="RMB"/.test(text);
+  return {
+    hasPrefix: hasPrefix,
+    hasSuffix: hasSuffix,
+    prefixLiteral: prefixLiteral,
+    suffixLiteral: suffixLiteral,
+    hasYuanPrefix: hasYuanPrefix,
+    hasRmbSuffix: hasRmbSuffix,
+  };
+}
+
+function filterInputAffixEntries(entries, figmaProps) {
+  var list = Array.isArray(entries) ? entries : [];
+  var hasPrefix = !!(figmaProps && figmaProps.prefix);
+  var hasSuffix = !!(figmaProps && figmaProps.suffix);
+  var prefixLiteral = (figmaProps && typeof figmaProps.prefix === 'string') ? figmaProps.prefix : undefined;
+  var suffixLiteral = (figmaProps && typeof figmaProps.suffix === 'string') ? figmaProps.suffix : undefined;
+  var wantYuan = figmaProps && figmaProps.prefix === '¥';
+  var wantRmb = figmaProps && figmaProps.suffix === 'RMB';
+
+  if (!hasPrefix && !hasSuffix) return list;
+
+  return list.filter(function(c) {
+    var m = c && c.affixMeta ? c.affixMeta : parseInlineAffixMeta(c && c.description || '');
+    if (hasPrefix && !m.hasPrefix) return false;
+    if (hasSuffix && !m.hasSuffix) return false;
+    if (prefixLiteral !== undefined && m.prefixLiteral !== prefixLiteral) return false;
+    if (suffixLiteral !== undefined && m.suffixLiteral !== suffixLiteral) return false;
+    if (wantYuan && !m.hasYuanPrefix) return false;
+    if (wantRmb && !m.hasRmbSuffix) return false;
+    return true;
+  });
+}
+
+/**
  * 将 props 对象序列化为索引 key（5 维，顺序固定，与来源无关）。
  * hasIcon 不参与 key，只在多候选消歧时使用。
  * loading / disabled 不参与 key：Figma Code Connect description 从不编码这两个状态，
@@ -203,6 +251,8 @@ function buildDescriptionIndex(template) {
       componentKey: componentKey,
       name: name || '',
       component: parseComponentName(description),  // 'Button' / 'Input' / 'DatePicker' …
+      description: description || '',
+      affixMeta: parseInlineAffixMeta(description),
     });
   }
 
@@ -357,6 +407,31 @@ function resolveComponentLibraryNode(irNode, template) {
     candidates = applyComponentFilter(index.get(relaxedKey));
   }
 
+  // Input affix 全局锚定回退：
+  // 不依赖 candidates 数量。即使当前只有 1 个候选，只要它不匹配 prefix/suffix 字面值，
+  // 也会在同组件全量候选中重选"描述匹配组"（如 prefix="¥" + suffix="RMB"）。
+  if (domComponent === 'Input' && figmaProps && (figmaProps.prefix || figmaProps.suffix)) {
+    var _curAffixMatched = filterInputAffixEntries(candidates || [], figmaProps);
+    if (_curAffixMatched.length > 0) {
+      candidates = _curAffixMatched;
+      console.log(_tag, 'Input affix anchor (current bucket) →', candidates.length);
+    } else {
+      var _allInputEntries = [];
+      index.forEach(function(arr) {
+        if (!arr || !arr.length) return;
+        for (var _ai = 0; _ai < arr.length; _ai++) {
+          var _it = arr[_ai];
+          if (_it && _it.component === 'Input') _allInputEntries.push(_it);
+        }
+      });
+      var _globalAffixMatched = filterInputAffixEntries(_allInputEntries, figmaProps);
+      if (_globalAffixMatched.length > 0) {
+        candidates = _globalAffixMatched;
+        console.log(_tag, 'Input affix anchor (global fallback) →', candidates.length);
+      }
+    }
+  }
+
   if (!candidates || candidates.length === 0) {
     console.log(_tag, 'MISS: no matching variant found');
     var sampleKeys = [];
@@ -404,34 +479,127 @@ function resolveComponentLibraryNode(irNode, template) {
       }
     }
 
-    // 2. Icon filter
+    // 保存状态过滤前的全量候选，供步骤 4 图标组合跨状态回退使用
+    var _candidatesBeforeStateFilter = candidates.slice();
+
+    // 2. 加载中 filter（提前到图标 filter 之前）：
+    //    description 不编码 loading 状态，所有变体落同一 bucket。
+    //    双向：loading=true 时偏好"加载中=on"，否则偏好"加载中=off"。
+    //    必须先于 icon filter：否则 icon filter 可能把"加载中=off/禁用中=off"的图标变体
+    //    误排除，导致只剩"禁用中=on"候选。
+    var hasLoadingDim = candidates.some(function(c) { return (c.name || '').indexOf('加载中=') !== -1; });
+    if (hasLoadingDim) {
+      if (queryProps.loading === true) {
+        var loadingOn = candidates.filter(function(c) { return (c.name || '').indexOf('加载中=on') !== -1; });
+        if (loadingOn.length > 0) candidates = loadingOn;
+      } else {
+        var loadingOff = candidates.filter(function(c) {
+          var n = c.name || '';
+          return n.indexOf('加载中=') === -1 || n.indexOf('加载中=off') !== -1;
+        });
+        if (loadingOff.length > 0) candidates = loadingOff;
+      }
+    }
+
+    // 3. 禁用中 filter（提前到图标 filter 之前）：
+    //    description 不编码 disabled 状态，所有变体落同一 bucket。
+    //    双向：disabled=true 时偏好"禁用中=on"，否则偏好"禁用中=off"。
+    //    必须先于 icon filter：原因同加载中 filter。
+    var hasDisabledDim = candidates.some(function(c) { return (c.name || '').indexOf('禁用中=') !== -1; });
+    if (hasDisabledDim) {
+      if (queryProps.disabled === true) {
+        var disabledOn = candidates.filter(function(c) { return (c.name || '').indexOf('禁用中=on') !== -1; });
+        if (disabledOn.length > 0) candidates = disabledOn;
+      } else {
+        var disabledOff = candidates.filter(function(c) {
+          var n = c.name || '';
+          return n.indexOf('禁用中=') === -1 || n.indexOf('禁用中=off') !== -1;
+        });
+        if (disabledOff.length > 0) candidates = disabledOff;
+      }
+    }
+
+    // 4. Icon filter（在加载中/禁用中之后运行，避免误伤正常态候选）：
+    //    · queryHasIcon=true  → 偏好名称含"图标"的变体（如"组合=图标+文字"）
+    //    · queryHasIcon=false → 偏好名称不含"图标"的变体（如"组合=仅文字"）
+    //    · 若过滤后为空（如所有剩余候选都含图标），尝试跨状态回退：从状态过滤前的全量候选中
+    //      找"仅文字"变体，优先 off/off 正常态——宁可状态略有偏差也保持正确的图标组合。
     var iconFiltered = candidates.filter(function(c) {
       var nameHasIcon = (c.name || '').indexOf('图标') !== -1;
       return queryHasIcon ? nameHasIcon : !nameHasIcon;
     });
-    if (iconFiltered.length > 0) candidates = iconFiltered;
+    if (iconFiltered.length > 0) {
+      candidates = iconFiltered;
+    } else if (!queryHasIcon) {
+      // 跨状态组合回退：当前状态约束下所有候选均含图标，
+      // 在全量候选中寻找同时满足「无图标 + 正确 loading/disabled 状态」的变体。
+      // 只有找到状态完全匹配的仅文字候选才回退，否则保留当前状态正确的图标变体。
+      var _textOnlyFallback = _candidatesBeforeStateFilter.filter(function(c) {
+        return (c.name || '').indexOf('图标') === -1;
+      });
+      if (_textOnlyFallback.length > 0) {
+        var _bestTextOnly = _textOnlyFallback.filter(function(c) {
+          var n = c.name || '';
+          var _loadingMatch = queryProps.loading
+            ? n.indexOf('加载中=on') !== -1
+            : (n.indexOf('加载中=') === -1 || n.indexOf('加载中=off') !== -1);
+          var _disabledMatch = queryProps.disabled
+            ? n.indexOf('禁用中=on') !== -1
+            : (n.indexOf('禁用中=') === -1 || n.indexOf('禁用中=off') !== -1);
+          return _loadingMatch && _disabledMatch;
+        });
+        // 只有找到状态匹配的仅文字变体时才回退，避免用 loading=on 变体表示正常按钮
+        if (_bestTextOnly.length > 0) {
+          candidates = _bestTextOnly;
+          console.log(_tag, 'icon composition fallback (cross-state): 扩搜到仅文字+正确状态 →', candidates.length, '个候选');
+        }
+      }
+    }
 
-    // 2.5. 无图标 filter（Input 尺寸组命名约定：无图标=on = 没有图标，无图标=off = 有图标）：
+    // 4.5. 无图标 filter（Input 尺寸组命名约定：无图标=on = 没有图标，无图标=off = 有图标）：
     //      与 icon filter 语义互补——icon filter 用于 Button 等"图标=on/off"命名，
     //      无图标 filter 用于 Input"无图标=on/off"命名（on/off 语义相反）。
     //      必须在 icon filter 之后：icon filter 对 Input 尺寸组无效（结果为空不更新），
     //      无图标 filter 接着处理。
+    //
+    //      扩展：figmaProps.prefix/suffix 有值（字符串或 true）表示内嵌前/后缀内容（文字 or 图标），
+    //      与 JSX icon 一样应偏好 无图标=off 变体。
     var hasWuIconDim = candidates.some(function(c) { return (c.name || '').indexOf('无图标=') !== -1; });
     if (hasWuIconDim) {
+      var _hasInlineContent = queryHasIcon || !!(figmaProps && (figmaProps.prefix || figmaProps.suffix));
       var wuIconFiltered = candidates.filter(function(c) {
         var n = c.name || '';
-        // 无图标=on → 没有图标；无图标=off → 有图标（语义与 icon filter 相反）
-        return queryHasIcon
+        // 无图标=on → 没有图标；无图标=off → 有图标/内嵌内容（语义与 icon filter 相反）
+        return _hasInlineContent
           ? (n.indexOf('无图标=') === -1 || n.indexOf('无图标=off') !== -1)
           : (n.indexOf('无图标=') === -1 || n.indexOf('无图标=on') !== -1);
       });
       if (wuIconFiltered.length > 0) {
-        console.log(_tag, '无图标 filter:', queryHasIcon ? '→有图标(off)' : '→无图标(on)', '→', wuIconFiltered.length);
+        console.log(_tag, '无图标 filter:', _hasInlineContent ? '→有内嵌内容(off)' : '→无图标(on)', '→', wuIconFiltered.length);
         candidates = wuIconFiltered;
       }
     }
 
-    // 3. 进度 filter（DatePicker / TimePicker 中间态偏向"未选择"）
+    // 4.6. Input prefix/suffix 描述锚定 filter：
+    //      目标：当 figmaProps 指定了 prefix/suffix（如 prefix="¥", suffix="RMB"）时，
+    //      先命中"描述中同语义组"（有前缀/有后缀/特定文案），再让后续状态过滤挑默认态。
+    //      说明：这是"锚定到 description 组"而非直接锁死单个 componentKey。
+    if (domComponent === 'Input' && figmaProps) {
+      var _affixAnchored = filterInputAffixEntries(candidates, figmaProps);
+      if (_affixAnchored.length > 0) {
+        console.log(_tag, 'Input affix description anchor:', {
+          hasPrefix: !!figmaProps.prefix,
+          hasSuffix: !!figmaProps.suffix,
+          prefixLiteral: (typeof figmaProps.prefix === 'string') ? figmaProps.prefix : undefined,
+          suffixLiteral: (typeof figmaProps.suffix === 'string') ? figmaProps.suffix : undefined,
+          yuan: figmaProps.prefix === '¥',
+          rmb: figmaProps.suffix === 'RMB'
+        }, '→', _affixAnchored.length);
+        candidates = _affixAnchored;
+      }
+    }
+
+    // 5. 进度 filter（DatePicker / TimePicker 中间态偏向"未选择"）
     var hasProgressDim = candidates.some(function(c) { return (c.name || '').indexOf('进度=') !== -1; });
     if (hasProgressDim) {
       var unselected = candidates.filter(function(c) {
@@ -441,7 +609,7 @@ function resolveComponentLibraryNode(irNode, template) {
       if (unselected.length > 0) candidates = unselected;
     }
 
-    // 4. 风格 filter：
+    // 6. 风格 filter：
     //    · 若 Button 的原始 type（别名前）在 BUTTON_TYPE_TO_STYLE 中有映射，则偏好对应风格。
     //      例如 type="link" → 风格=品牌色（蓝色文字按钮）。
     //    · 否则默认偏好"风格=标准"（通用场景）。
@@ -458,48 +626,19 @@ function resolveComponentLibraryNode(irNode, template) {
       if (preferredStyleCands.length > 0) candidates = preferredStyleCands;
     }
 
-    // 5. 加载中 filter：description 不编码 loading 状态，所有变体落同一 bucket。
-    //    双向：loading=true 时偏好"加载中=on"，否则偏好"加载中=off"。
-    var hasLoadingDim = candidates.some(function(c) { return (c.name || '').indexOf('加载中=') !== -1; });
-    if (hasLoadingDim) {
-      if (queryProps.loading === true) {
-        var loadingOn = candidates.filter(function(c) { return (c.name || '').indexOf('加载中=on') !== -1; });
-        if (loadingOn.length > 0) candidates = loadingOn;
-      } else {
-        var loadingOff = candidates.filter(function(c) {
-          var n = c.name || '';
-          return n.indexOf('加载中=') === -1 || n.indexOf('加载中=off') !== -1;
-        });
-        if (loadingOff.length > 0) candidates = loadingOff;
-      }
-    }
-
-    // 6. 禁用中 filter：description 不编码 disabled 状态，所有变体落同一 bucket。
-    //    双向：disabled=true 时偏好"禁用中=on"，否则偏好"禁用中=off"。
-    var hasDisabledDim = candidates.some(function(c) { return (c.name || '').indexOf('禁用中=') !== -1; });
-    if (hasDisabledDim) {
-      if (queryProps.disabled === true) {
-        var disabledOn = candidates.filter(function(c) { return (c.name || '').indexOf('禁用中=on') !== -1; });
-        if (disabledOn.length > 0) candidates = disabledOn;
-      } else {
-        var disabledOff = candidates.filter(function(c) {
-          var n = c.name || '';
-          return n.indexOf('禁用中=') === -1 || n.indexOf('禁用中=off') !== -1;
-        });
-        if (disabledOff.length > 0) candidates = disabledOff;
-      }
-    }
-
     // 7. 前缀-左/前缀-右 filter：
-    //    figmaProps 未传 prefix/suffix 时，偏好 前缀-左=off 且 前缀-右=off 的变体。
-    //    figmaProps 有 prefix 时偏好 前缀-左=on，有 suffix 时偏好 前缀-右=on。
+    //    Figma Input 组件中：
+    //      · 前缀-左=on  → 对应 antd 的 addonBefore（输入框外部左侧前置区域，如"Http://"）
+    //      · 前缀-右=on  → 对应 antd 的 addonAfter（输入框外部右侧后置区域，如".com"）
+    //    注意：antd 的 prefix/suffix（输入框内嵌内容）由 filter 2.5（无图标）处理，不走此维度。
+    //    figmaProps 未传 addonBefore/addonAfter 时，偏好 前缀-左=off 且 前缀-右=off 的变体。
     var hasPrefixLRDim = candidates.some(function(c) {
       var n = c.name || '';
       return n.indexOf('前缀-左=') !== -1 || n.indexOf('前缀-右=') !== -1;
     });
     if (hasPrefixLRDim) {
-      var _hasPrefix = !!(figmaProps && figmaProps.prefix);
-      var _hasSuffix = !!(figmaProps && figmaProps.suffix);
+      var _hasPrefix = !!(figmaProps && figmaProps.addonBefore);
+      var _hasSuffix = !!(figmaProps && figmaProps.addonAfter);
       var prefixFiltered = candidates.filter(function(c) {
         var n = c.name || '';
         var leftOk = _hasPrefix
@@ -560,6 +699,57 @@ function resolveComponentLibraryNode(irNode, template) {
       }
     }
 
+    // 10. 语音 filter（Input.Search 特有维度）：
+    //     JSX 传入了 suffix → 有麦克风图标 → 偏好 语音=on；
+    //     未传 suffix → 偏好 语音=off。
+    //     figmaProps.suffix 在 babelPlugin 中提取：JSX 表达式设为 true，字符串设为字符串值。
+    var hasYuyinDim = candidates.some(function(c) { return (c.name || '').indexOf('语音=') !== -1; });
+    if (hasYuyinDim) {
+      var _hasMicSuffix = !!(figmaProps && figmaProps.suffix);
+      var yuyinFiltered = candidates.filter(function(c) {
+        var n = c.name || '';
+        return _hasMicSuffix
+          ? (n.indexOf('语音=') === -1 || n.indexOf('语音=on') !== -1)
+          : (n.indexOf('语音=') === -1 || n.indexOf('语音=off') !== -1);
+      });
+      if (yuyinFiltered.length > 0) {
+        console.log(_tag, '语音 filter:', _hasMicSuffix ? 'on' : 'off', '→', yuyinFiltered.length);
+        candidates = yuyinFiltered;
+      }
+    }
+
+    // 11. 文字按钮 filter（Input.Search 特有维度）：
+    //     JSX 传入了 enterButton → 偏好 文字按钮=on；否则 → 偏好 文字按钮=off。
+    //     figmaProps.enterButton 由 babelPlugin SCALAR_PROPS 提取（字符串或 true）。
+    var hasWenziAnNiuDim = candidates.some(function(c) { return (c.name || '').indexOf('文字按钮=') !== -1; });
+    if (hasWenziAnNiuDim) {
+      var _hasEnterButton = !!(figmaProps && figmaProps.enterButton);
+      var wenziFiltered = candidates.filter(function(c) {
+        var n = c.name || '';
+        return _hasEnterButton
+          ? (n.indexOf('文字按钮=') === -1 || n.indexOf('文字按钮=on') !== -1)
+          : (n.indexOf('文字按钮=') === -1 || n.indexOf('文字按钮=off') !== -1);
+      });
+      if (wenziFiltered.length > 0) {
+        console.log(_tag, '文字按钮 filter:', _hasEnterButton ? 'on' : 'off', '→', wenziFiltered.length);
+        candidates = wenziFiltered;
+      }
+    }
+
+    // 12. 蓝色图标 filter（Input.Search 特有视觉态）：
+    //     JSX 没有对应 prop 控制此维度（on/off 描述完全相同），默认偏好 蓝色图标=off（标准静止态）。
+    var hasLanseIconDim = candidates.some(function(c) { return (c.name || '').indexOf('蓝色图标=') !== -1; });
+    if (hasLanseIconDim) {
+      var lansOffFiltered = candidates.filter(function(c) {
+        var n = c.name || '';
+        return n.indexOf('蓝色图标=') === -1 || n.indexOf('蓝色图标=off') !== -1;
+      });
+      if (lansOffFiltered.length > 0) {
+        console.log(_tag, '蓝色图标 filter: → off (default) →', lansOffFiltered.length);
+        candidates = lansOffFiltered;
+      }
+    }
+
     best = candidates[0];
     console.log(_tag, 'disambiguation after filters, candidates left:', candidates.length, ', chosen:', best.name);
   }
@@ -580,14 +770,26 @@ function resolveComponentLibraryNode(irNode, template) {
   }
 
   var style = irNode.style || {};
+  // Input（尤其 prefix/suffix/addonBefore/addonAfter 场景）通常是多文本槽位组件，
+  // 若沿用通用 label→textOverride 逻辑，容易把整段文本误写到 suffix/prefix 槽位，
+  // 导致“示例文字”混入或 RMB 前多出符号。此处仅对相关 Input 场景禁用通用文本覆写。
+  var _isInputWithInlineAffix = domComponent === 'Input' && !!(
+    figmaProps && (
+      figmaProps.prefix ||
+      figmaProps.suffix ||
+      figmaProps.addonBefore ||
+      figmaProps.addonAfter
+    )
+  );
+  var _resolvedLabel = _isInputWithInlineAffix ? undefined : irNode.label;
   var resolved = {
     type: 'figma-instance',
     figmaComponentKey: best.componentKey,
     // name 用于 Figma 层面板的节点名称（人类可读），优先用 label（按钮文字/占位符），否则用变体名
-    name: irNode.label || best.name || 'Instance',
+    name: _resolvedLabel || best.name || 'Instance',
     // label 单独保存，供 convertInstanceNode 作为 textOverride 内容使用。
     // irNode.label 明确设为 undefined 时表示无文本 override（如无 placeholder 的 DatePicker）。
-    label: irNode.label,
+    label: _resolvedLabel,
     style: style,
   };
   if (irNode.figmaSyncSelector) resolved.figmaSyncSelector = irNode.figmaSyncSelector;
