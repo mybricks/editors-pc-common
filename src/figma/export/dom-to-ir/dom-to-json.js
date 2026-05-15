@@ -109,6 +109,7 @@ var SHADOW_HOST_ID, GEOVIEW_WRAPPER_ID, getShadowHost, resolveFrameRoot, getCssR
 var COMPONENT_LIBRARY_SUPPORTED_COMPONENTS = [
   'Button',
   'Input',
+  'Input.Search',
   // 'Select',
   // 'DatePicker',    // 含 TimePicker / RangePicker（class 均为 ant-picker）
   // 'Checkbox',
@@ -1184,7 +1185,10 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
             || (_earlySelectPhEl && (_earlySelectPhEl.textContent || '').trim())
             || '';
           if (_earlyPh) node.placeholder = _earlyPh;
-          if (!node.label && _earlyPh && (tag === 'input' || tag === 'textarea')) node.label = _earlyPh;
+          // _earlyPh 来源已限于 input[placeholder] 属性或 Select 占位 span，
+          // 无需额外限制 tag 类型——m-ui Input 外层是 div，若不去掉 tag 限制，
+          // label 将始终为 undefined，导致 symbolOverrides 跳过，Placeholder 无法写入变体。
+          if (!node.label && _earlyPh) node.label = _earlyPh;
           var _earlyMbSel = computeMbPrefixedSyncSelector(el);
           if (_earlyMbSel) node.figmaSyncSelector = _earlyMbSel;
           // 预处理子节点：resolver 成功时由 INSTANCE 接管（children 忽略）；
@@ -1899,6 +1903,33 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
 
     return node;
   }
+  // ── 预处理：把落在内层 input/textarea 上的 data-figma-props 提升到外层 antd wrapper ──
+  // 背景：antd 组件（如 Input with prefix/suffix）会把未知 props 转发给内层 <input>，
+  // 导致 data-figma-props 落到 input 而非外层 span.ant-input-affix-wrapper，
+  // walk 处理外层时无法识别，展开为多余的 Frame + 内层 INSTANCE。
+  // 修正：提前扫一遍，将 data-figma-props 写到外层 wrapper，walk 的 _earlyFpRaw 检查即可正确截停。
+  // 只写不删：内层 input 上的属性保留无害，walk 提前 return 永远不会到达它；幂等。
+  if (COMPONENT_LIBRARY_ENABLED) {
+    var _innerFpEls = dom.querySelectorAll && dom.querySelectorAll('input[data-figma-props], textarea[data-figma-props]');
+    if (_innerFpEls && _innerFpEls.length) {
+      for (var _hfi = 0; _hfi < _innerFpEls.length; _hfi++) {
+        var _hfInner = _innerFpEls[_hfi];
+        var _hfFp = _hfInner.getAttribute('data-figma-props');
+        if (!_hfFp) continue;
+        try { var _hfObj = JSON.parse(_hfFp); if (!_hfObj || !_hfObj.component) continue; } catch (_eHf) { continue; }
+        var _hfAncestor = _hfInner.parentElement;
+        while (_hfAncestor && _hfAncestor !== dom) {
+          var _hfCls = typeof _hfAncestor.className === 'string' ? _hfAncestor.className : '';
+          if (/\bant-input-affix-wrapper\b|\bant-input-group-wrapper\b/.test(_hfCls)) {
+            if (!_hfAncestor.getAttribute('data-figma-props')) _hfAncestor.setAttribute('data-figma-props', _hfFp);
+            break;
+          }
+          _hfAncestor = _hfAncestor.parentElement;
+        }
+      }
+    }
+  }
+
   var rootDesignRect = getDesignRect(dom, geo);
   const contentChildren = [];
   for (let i = 0; i < dom.children.length; i++) {
