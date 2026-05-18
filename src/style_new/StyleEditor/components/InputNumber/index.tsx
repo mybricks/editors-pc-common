@@ -29,6 +29,7 @@ interface InputNumberProps extends InputProps {
   onFocus?: () => void;
   onAction?: (value: any) => void;
   unitIconClassName?: string;
+  unitSelectStyle?: React.CSSProperties;
 }
 
 export function InputNumber ({
@@ -52,6 +53,7 @@ export function InputNumber ({
   type = void 0,
   onAction,
   unitIconClassName,
+  unitSelectStyle,
 }: InputNumberProps) {
   const [unit, setUnit] = useState<string>(getUnit(value || defaultValue, defaultUnitValue, unitOptions))
   const [number, handleNumberChange] = useInputNumber<string | number | undefined>(value || defaultValue)
@@ -130,7 +132,7 @@ export function InputNumber ({
       return (
         <Select
           tip='单位'
-          style={{ padding: 0, fontSize: 10 }}
+          style={{ padding: 0, fontSize: 10, ...unitSelectStyle }}
           defaultValue={unit}
           options={unitOptions}
           showIcon={showIcon}

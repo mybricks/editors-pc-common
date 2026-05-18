@@ -32,6 +32,9 @@ const UNIT_DISPLAY_LABEL_MAP: Record<string, string> = {
   "default": "默认",
 };
 const SIZE_DISABLED_TIP = "当前值由布局控制，不支持直接编辑";
+const SIZE_UNIT_SELECT_STYLE: React.CSSProperties = {
+  background: "transparent",
+};
 
 /** 归一化尺寸值：auto / inherit / fit-content / 未配置 → undefined，让输入框显示为空（默认状态） */
 function normalizeSizeValue(val: any): string | undefined {
@@ -356,6 +359,7 @@ export function Size({value, onChange, config, showTitle, collapse}: SizeProps) 
                   onChange={handleWidthChange}
                   showIcon={true}
                   unitIconClassName={css.sizeUnitIcon}
+                  unitSelectStyle={SIZE_UNIT_SELECT_STYLE}
                   disabled={cfg.disableWidth}
                   tip={cfg.disableWidth ? SIZE_DISABLED_TIP : undefined}
                 />
@@ -378,6 +382,7 @@ export function Size({value, onChange, config, showTitle, collapse}: SizeProps) 
                   onChange={handleHeightChange}
                   showIcon={true}
                   unitIconClassName={css.sizeUnitIcon}
+                  unitSelectStyle={SIZE_UNIT_SELECT_STYLE}
                   disabled={cfg.disableHeight}
                   tip={cfg.disableHeight ? SIZE_DISABLED_TIP : undefined}
                 />
@@ -403,6 +408,7 @@ export function Size({value, onChange, config, showTitle, collapse}: SizeProps) 
                     onChange={(val) => onChange({key: 'minWidth', value: val})}
                     showIcon={true}
                     unitIconClassName={css.sizeUnitIcon}
+                    unitSelectStyle={SIZE_UNIT_SELECT_STYLE}
                     disabled={cfg.disableWidth}
                     tip={cfg.disableWidth ? SIZE_DISABLED_TIP : undefined}
                   />
@@ -425,6 +431,7 @@ export function Size({value, onChange, config, showTitle, collapse}: SizeProps) 
                     onChange={(val) => onChange({key: 'minHeight', value: val})}
                     showIcon={true}
                     unitIconClassName={css.sizeUnitIcon}
+                    unitSelectStyle={SIZE_UNIT_SELECT_STYLE}
                     disabled={cfg.disableHeight}
                     tip={cfg.disableHeight ? SIZE_DISABLED_TIP : undefined}
                   />
@@ -451,6 +458,7 @@ export function Size({value, onChange, config, showTitle, collapse}: SizeProps) 
                     onChange={(val) => onChange({key: 'maxWidth', value: val})}
                     showIcon={true}
                     unitIconClassName={css.sizeUnitIcon}
+                    unitSelectStyle={SIZE_UNIT_SELECT_STYLE}
                     disabled={cfg.disableWidth}
                     tip={cfg.disableWidth ? SIZE_DISABLED_TIP : undefined}
                   />
@@ -473,6 +481,7 @@ export function Size({value, onChange, config, showTitle, collapse}: SizeProps) 
                     onChange={(val) => onChange({key: 'maxHeight', value: val})}
                     showIcon={true}
                     unitIconClassName={css.sizeUnitIcon}
+                    unitSelectStyle={SIZE_UNIT_SELECT_STYLE}
                     disabled={cfg.disableHeight}
                     tip={cfg.disableHeight ? SIZE_DISABLED_TIP : undefined}
                   />
