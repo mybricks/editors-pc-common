@@ -26,6 +26,7 @@ interface SelectProps {
   /** 隐藏当前选中 label，只保留下拉箭头 */
   hideLabel?: boolean;
   labelClassName?: string;
+  iconClassName?: string;
   tip?: string;
   disabled?: boolean;
 }
@@ -42,6 +43,7 @@ export function Select({
   showIcon = true,
   hideLabel = false,
   labelClassName,
+  iconClassName,
   multiple = false,
   tip,
   disabled = false,
@@ -131,7 +133,7 @@ export function Select({
             </div>
           )}
           {showIcon && (
-            <span className={css.icon}>
+            <span className={`${css.icon}${iconClassName ? ` ${iconClassName}` : ''}`}>
               <DownOutlined />
             </span>
           )}

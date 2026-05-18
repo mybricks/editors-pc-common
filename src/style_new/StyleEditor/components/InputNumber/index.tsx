@@ -28,6 +28,7 @@ interface InputNumberProps extends InputProps {
   align?: 'left' | 'right'
   onFocus?: () => void;
   onAction?: (value: any) => void;
+  unitIconClassName?: string;
 }
 
 export function InputNumber ({
@@ -50,6 +51,7 @@ export function InputNumber ({
   showIcon = false,
   type = void 0,
   onAction,
+  unitIconClassName,
 }: InputNumberProps) {
   const [unit, setUnit] = useState<string>(getUnit(value || defaultValue, defaultUnitValue, unitOptions))
   const [number, handleNumberChange] = useInputNumber<string | number | undefined>(value || defaultValue)
@@ -133,6 +135,7 @@ export function InputNumber ({
           options={unitOptions}
           showIcon={showIcon}
           hideLabel={isDefaultUnit}
+          iconClassName={unitIconClassName}
           onChange={setUnit}
           onAction={onAction}
           disabled={isDisabledUnit()}
