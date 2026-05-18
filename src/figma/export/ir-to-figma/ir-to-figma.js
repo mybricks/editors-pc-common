@@ -3005,6 +3005,39 @@ function convertFrameNode(irNode, guid, parentGuid, siblingIndex, parentLayoutMo
   var imageImports = [];
   var imageImportSet = {};
 
+  var _rawFrameW = style.width;
+  var _rawFrameH = style.height;
+  var _childBoundsW = null;
+  var _childBoundsH = null;
+  if ((!_isFiniteNumber(_rawFrameW) || !_isFiniteNumber(_rawFrameH)) && irNode && irNode.children && irNode.children.length) {
+    var _maxRight = 0;
+    var _maxBottom = 0;
+    for (var _cbi = 0; _cbi < irNode.children.length; _cbi++) {
+      var _ch = irNode.children[_cbi];
+      var _cs = _ch && _ch.style ? _ch.style : null;
+      if (!_cs) continue;
+      var _cx = _isFiniteNumber(_cs.x) ? _cs.x : 0;
+      var _cy = _isFiniteNumber(_cs.y) ? _cs.y : 0;
+      var _cw = _isFiniteNumber(_cs.width) ? _cs.width : null;
+      var _chh = _isFiniteNumber(_cs.height) ? _cs.height : null;
+      if (_cw != null) _maxRight = Math.max(_maxRight, _cx + _cw);
+      if (_chh != null) _maxBottom = Math.max(_maxBottom, _cy + _chh);
+    }
+    if (_maxRight > 0) _childBoundsW = _maxRight;
+    if (_maxBottom > 0) _childBoundsH = _maxBottom;
+  }
+  var _frameW = _isFiniteNumber(_rawFrameW)
+    ? _rawFrameW
+    : (_isFiniteNumber(style.minWidth) && style.minWidth > 0
+      ? style.minWidth
+      : (_childBoundsW != null ? _childBoundsW : 100));
+  // 高度优先使用显式 height；缺失/非法时优先 minHeight，再尝试子节点包围盒，最后按布局类型兜底。
+  var _frameH = _isFiniteNumber(_rawFrameH)
+    ? _rawFrameH
+    : (_isFiniteNumber(style.minHeight) && style.minHeight > 0
+      ? style.minHeight
+      : (_childBoundsH != null ? _childBoundsH : (style.layoutMode ? 32 : 100)));
+
   var nc = {
     guid: guid,
     phase: 'CREATED',
@@ -3013,7 +3046,7 @@ function convertFrameNode(irNode, guid, parentGuid, siblingIndex, parentLayoutMo
     name: withSyncTag(irNode.name, irNode, 'Frame'),
     visible: true,
     opacity: style.opacity != null ? style.opacity : 1,
-    size: makeCeilSize(style.width ?? 100, style.height ?? 100),
+    size: makeCeilSize(_frameW, _frameH),
     transform: makeTransform(style.x || 0, style.y || 0, style.rotation),
     fillPaints: hasClipPolygon ? [] : irFillsToFigmaPaints(style.fills, blobs, imageCtx, imageImports, imageImportSet),
     frameMaskDisabled: style.clipsContent === false,
@@ -4534,6 +4567,7 @@ function convertIRToFigmaClipboardHtml(irPayload, fontCtxOrMap) {
       'Fix: regenerate figma-component-template.js using the inspector export button.'
     );
   }
+  try {} catch (_eMapLog) {}
   var message = buildSceneMessage(allNodeChanges, _msgOpts, blobs);
   var encoded = compiled.encodeMessage(message);
   var msgChunk = pako.deflateRaw(encoded);

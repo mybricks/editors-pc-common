@@ -132,6 +132,15 @@ export function useExportToFigma(
   const getCanvasList = options?.getCanvasList;
   const componentLibraryEnabled = !!options?.componentLibraryEnabled;
 
+  function countComponentLibraryNodes(node: any): number {
+    if (!node || typeof node !== 'object') return 0;
+    let count = node.type === 'component-library' ? 1 : 0;
+    if (Array.isArray(node.children)) {
+      for (const child of node.children) count += countComponentLibraryNodes(child);
+    }
+    return count;
+  }
+
   const handleExport = React.useCallback(() => {
     if (loading) return;
 

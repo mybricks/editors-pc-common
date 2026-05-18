@@ -155,6 +155,21 @@ function computedHasNonNoneBackgroundImage(comp) {
   return s.length > 0 && s !== 'none';
 }
 
+/**
+ * 含表单控件/Select 结构的容器不能走“内联文本合并”。
+ * 否则会把控件外框与图标吃掉，仅保留文本（典型：ant-select 仅剩 selection-item 文本）。
+ */
+function hasFormControlLikeDescendant(el) {
+  if (!el || !el.querySelector) return false;
+  try {
+    return !!el.querySelector(
+      'input, select, textarea, .ant-select-selector, .ant-select-arrow, .ant-picker, .ant-input, .ant-input-affix-wrapper'
+    );
+  } catch (e) {
+    return false;
+  }
+}
+
 function inferNodeType(el, computed, tag) {
   if (tag === 'img') return 'image';
   // canvas 导出为静态图片：读取当前像素快照写入 image 节点
@@ -205,11 +220,25 @@ function inferNodeType(el, computed, tag) {
   // 合并为单个 text 节点后再用 Range 检测视觉断行，位置和换行均正确。
   // 例外：若任一子元素有背景色（如 badge/tag）则跳过合并，保持 frame 处理。
   if (hasElementChildren && !isFlex && computed.display !== 'grid') {
+    // 表单标签容器（如 ant-form-item-label / ant-col > label）不能合并为 text：
+    // 否则会把整列高度（常为 100）直接写进 text.style.height，导致 Figma 文本框固定为 100。
+    try {
+      var _elCls = String(el.className || '');
+      if (/ant-form-item-label|ant-col/i.test(_elCls) && el.querySelector && el.querySelector('label')) {
+        return 'frame';
+      }
+    } catch (_eFormLabelGuard) {}
+
     var _allChildInline = true;
     var _anyChildHasBg = false;
     for (var _ici = 0; _ici < el.children.length; _ici++) {
       var _childEl = el.children[_ici];
       var _childTagLower = (_childEl.tagName || '').toLowerCase();
+      // 含 <label> 的结构多为表单语义容器，需保留容器层级与尺寸，不可扁平合并为 text。
+      if (_childTagLower === 'label') {
+        _allChildInline = false;
+        break;
+      }
       // <svg> 在 HTML 中常为 display:inline，但绝不能走「合并为 text」：textContent 会串起所有 <text>，
       // 且丢失 circle/渐变/textPath（如 plateImg 仅包 plateSvg 时被误判成一段「炭CHARCOALBBQ」）。
       if (_childTagLower === 'svg' || _childTagLower === 'math' || _childTagLower === 'canvas' ||
@@ -234,6 +263,10 @@ function inferNodeType(el, computed, tag) {
       if (!_anyChildHasBg && computedHasNonNoneBackgroundImage(_childComp)) {
         _anyChildHasBg = true;
       }
+    }
+    // 交互控件容器（即便只有一个 inline 子元素）也不能整体判为 text。
+    if (_allChildInline && hasFormControlLikeDescendant(el)) {
+      _allChildInline = false;
     }
     // 多个操作入口 / 表单块：① 直接子级为 a/button/input/select/textarea 或子级内包一层；② 子树 ≥2 个 a/button/input…；
     // ③ 多子级且含表单控件（如 ant-pagination-options：条/页 + 前往页）。任一则不能整段判成 text。
@@ -846,11 +879,25 @@ function getPseudoShapeNode(el, pseudo, ps, geo, parentRect, elRect) {
     if (!hasBorder && !bgNotEmpty && !hasBgImage) return null;
 
     // --- 坐标估算 ---
-    // 伪元素是 position:absolute，解析 top/right/bottom/left 值（px 值才可用，auto 则忽略）
-    var psTop    = ps.top    !== 'auto' ? parseFloat(ps.top)    : null;
-    var psBottom = ps.bottom !== 'auto' ? parseFloat(ps.bottom) : null;
-    var psLeft   = ps.left   !== 'auto' ? parseFloat(ps.left)   : null;
-    var psRight  = ps.right  !== 'auto' ? parseFloat(ps.right)  : null;
+    // 伪元素是 position:absolute，解析 top/right/bottom/left：
+    // - 支持 px 数值
+    // - 支持百分比（规则兜底路径可能拿到原始 "50%"，不能当 50px）
+    function _parsePosLike(v, refSize) {
+      if (v == null) return null;
+      var s = String(v).trim().toLowerCase();
+      if (!s || s === 'auto') return null;
+      if (s.indexOf('%') >= 0) {
+        var p = parseFloat(s);
+        if (!isFinite(p)) return null;
+        return (refSize || 0) * p / 100;
+      }
+      var n = parseFloat(s);
+      return isFinite(n) ? n : null;
+    }
+    var psTop    = _parsePosLike(ps.top, elRect.height);
+    var psBottom = _parsePosLike(ps.bottom, elRect.height);
+    var psLeft   = _parsePosLike(ps.left, elRect.width);
+    var psRight  = _parsePosLike(ps.right, elRect.width);
 
     // 直接读取 getComputedStyle 计算后的 width/height（已将 100%/auto 转为实际像素值）
     var psWidth  = parseFloat(ps.width);
@@ -909,8 +956,28 @@ function getPseudoShapeNode(el, pseudo, ps, geo, parentRect, elRect) {
 
     // x 坐标：CSS absolute 的 left 是相对宿主 padding-edge，Figma 坐标相对宿主 border 外边缘
     // 需加上 hostBorderLeft 来对齐
+    // 特殊：left/right 同时存在 + 固定 width + margin-left/right:auto 时，CSS 会水平居中绝对定位盒子。
+    // 典型：Tabs 激活态下划线（::before）常用该写法；若忽略，会被错误贴左。
     var x;
-    if (psLeft !== null) {
+    var _marginLeftRaw = String((ps.marginLeft != null ? ps.marginLeft : ps.marginInlineStart) || '').trim().toLowerCase();
+    var _marginRightRaw = String((ps.marginRight != null ? ps.marginRight : ps.marginInlineEnd) || '').trim().toLowerCase();
+    var _marginLeftNum = parseFloat(_marginLeftRaw);
+    var _marginRightNum = parseFloat(_marginRightRaw);
+    var _isAutoCenterAbs = (psLeft !== null && psRight !== null && hasPsWidth &&
+      (_marginLeftRaw === 'auto' || _marginLeftRaw.indexOf('auto') >= 0) &&
+      (_marginRightRaw === 'auto' || _marginRightRaw.indexOf('auto') >= 0));
+    // 浏览器 getComputedStyle 可能把 auto 解析成具体像素（如 30px）。
+    // 当 left/right 固定 + width 固定 + marginLeft+marginRight 恰好等于剩余空间时，同样视为居中。
+    var _centerRemainW = (elRect.width - hostBorderLeft - hostBorderRight - (psLeft || 0) - (psRight || 0) - w);
+    var _isResolvedCenterAbs = (psLeft !== null && psRight !== null && hasPsWidth &&
+      isFinite(_marginLeftNum) && isFinite(_marginRightNum) &&
+      _marginLeftNum >= 0 && _marginRightNum >= 0 &&
+      Math.abs((_marginLeftNum + _marginRightNum) - _centerRemainW) < 1);
+    if (_isAutoCenterAbs) {
+      x = hostBorderLeft + (elRect.width - hostBorderLeft - hostBorderRight - w) / 2;
+    } else if (_isResolvedCenterAbs) {
+      x = hostBorderLeft + psLeft + _marginLeftNum;
+    } else if (psLeft !== null) {
       x = psLeft + hostBorderLeft;
     } else if (psRight !== null) {
       x = elRect.width - hostBorderRight - psRight - w;
@@ -948,6 +1015,7 @@ function getPseudoShapeNode(el, pseudo, ps, geo, parentRect, elRect) {
     if (ps.transform && ps.transform !== 'none') {
       var psRotation = parseTransformRotation(ps.transform);
       var _matMatch = ps.transform.match(/matrix\(([^)]+)\)/);
+      var _directTx = 0, _directTy = 0;
       // 纯平移（如 left:50%; transform:translateX(-50%) 水平居中）同样需要修正坐标，
       // 不能只判断 rotation !== 0，还需检测矩阵中 tx/ty 是否非零
       var _hasMeaningfulTranslate = false;
@@ -956,6 +1024,31 @@ function getPseudoShapeNode(el, pseudo, ps, geo, parentRect, elRect) {
         if (_txCheckParts.length >= 6) {
           _hasMeaningfulTranslate = Math.abs(_txCheckParts[4]) > 0.5 || Math.abs(_txCheckParts[5]) > 0.5;
         }
+      } else {
+        // 规则兜底路径可能拿到 transform 原始声明（如 translateX(-50%)），不是 matrix。
+        var _tfStr = String(ps.transform || '').trim();
+        var _txm = _tfStr.match(/translateX\(([^)]+)\)/i);
+        var _tym = _tfStr.match(/translateY\(([^)]+)\)/i);
+        var _tm = _tfStr.match(/translate\(([^)]+)\)/i);
+        function _parseTranslateLike(raw, refSize) {
+          if (raw == null) return 0;
+          var s = String(raw).trim().toLowerCase();
+          if (!s) return 0;
+          if (s.indexOf('%') >= 0) {
+            var p = parseFloat(s);
+            return isFinite(p) ? (refSize || 0) * p / 100 : 0;
+          }
+          var n = parseFloat(s);
+          return isFinite(n) ? n : 0;
+        }
+        if (_tm) {
+          var _parts = _tm[1].split(',');
+          if (_parts.length >= 1) _directTx = _parseTranslateLike(_parts[0], safeW);
+          if (_parts.length >= 2) _directTy = _parseTranslateLike(_parts[1], safeH);
+        }
+        if (_txm) _directTx = _parseTranslateLike(_txm[1], safeW);
+        if (_tym) _directTy = _parseTranslateLike(_tym[1], safeH);
+        _hasMeaningfulTranslate = Math.abs(_directTx) > 0.5 || Math.abs(_directTy) > 0.5;
       }
       if ((psRotation != null && psRotation !== 0) || _hasMeaningfulTranslate) {
         // CSS rotation 顺时针为正，Figma rotation 逆时针为正，需取反
@@ -1002,6 +1095,12 @@ function getPseudoShapeNode(el, pseudo, ps, geo, parentRect, elRect) {
             shapeStyle.x = _visualCx - shapeStyle.width / 2;
             shapeStyle.y = _visualCy - shapeStyle.height / 2;
           }
+        } else if (_hasMeaningfulTranslate) {
+          // 非 matrix 但有 translate（如 translateX(-50%)）时，按局部中心平移修正
+          var _visualCx2 = safeX + (w / 2) + _directTx;
+          var _visualCy2 = safeY + (h / 2) + _directTy;
+          shapeStyle.x = _visualCx2 - shapeStyle.width / 2;
+          shapeStyle.y = _visualCy2 - shapeStyle.height / 2;
         }
       }
     }
@@ -1114,7 +1213,6 @@ function getPseudoShapeNode(el, pseudo, ps, geo, parentRect, elRect) {
       if (_psFlowMarR > 0) shapeStyle.marginRight = Math.round(_psFlowMarR);
       if (_psFlowMarL > 0) shapeStyle.marginLeft  = Math.round(_psFlowMarL);
     }
-
     return {
       type: 'rectangle',
       name: pseudo === '::before' ? 'pseudo-before' : 'pseudo-after',

@@ -846,6 +846,16 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
     if (node.type === 'group' && node.style && node.style.layoutMode) {
       node.type = 'frame';
     }
+    // ant-select 右侧下拉箭头在 DOM 中常用 absolute + top:50% + translateY(-50%)/margin-top 居中，
+    // 经过 getBoundingClientRect/样式归一后会出现约 1~3px 的 y 偏移（导出后视觉偏下）。
+    // 这里对 ant-select-arrow 做几何兜底：按父容器高度与自身高度强制垂直居中。
+    if (node.style && node.style.positionType === 'absolute' && node.className === 'ant-select-arrow' && parentRect) {
+      var _asH = node.style.height;
+      var _asPH = parentRect.height;
+      if (isFinite(_asH) && isFinite(_asPH) && _asH > 0 && _asPH > 0) {
+        node.style.y = Math.round((_asPH - _asH) / 2);
+      }
+    }
     // 原生 checked 态：checkbox 注入白色 ✓ 文字，radio 注入居中蓝色内圆点
     if (tag === 'input' && typeof _ckType !== 'undefined' && el.checked === true) {
       var _ckNativeSize = Math.min(rect.width || 16, rect.height || 16);
@@ -1141,6 +1151,7 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
         // label 作为 Figma 文本 override 的内容（placeholder 或空字符串）；
         // 避免 resolver 回退到 rawClassName 导致 class 名写入组件内部文字层。
         node.label = _pPh;
+        try {} catch (_eDbgPicker) {}
         // console.log('[dom-to-json][ant-picker-fix] 生成 component-library 节点, figmaComponent=', node.figmaComponent, 'figmaProps=', node.figmaProps);
         return node;
       }
@@ -1208,6 +1219,7 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
             }
           }
           if (_earlyChildren.length > 0) node.children = _earlyChildren;
+          try {} catch (_eDbgEarly) {}
           return node;
         }
       } catch (_eFpEarly) {}
@@ -1248,10 +1260,25 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
         if (el && el.children && el.children.length > 0 && /\S/.test(el.textContent || '')) {
           var _isInlineMergeParent = computed.display !== 'flex' && computed.display !== 'inline-flex' && computed.display !== 'grid';
           if (_isInlineMergeParent) {
+            // 表单标签容器（ant-col/ant-form-item-label + label）不能走 inline 合并，
+            // 否则会把 label 节点（及其 ::before 必填星号）吞并为一段纯文本。
+            try {
+              var _mergeParentCls = String(el.className || '');
+              if (/ant-form-item-label|ant-col/i.test(_mergeParentCls) && el.querySelector && el.querySelector('label')) {
+                _isInlineMergeParent = false;
+              }
+            } catch (_eMergeLabelParent) {}
+          }
+          if (_isInlineMergeParent) {
             _canMergeInlineChildren = true;
             for (var _imi = 0; _imi < el.children.length; _imi++) {
               var _imChild = el.children[_imi];
               var _imTagLower = (_imChild.tagName || '').toLowerCase();
+              // label 需要单独保留节点（用于承载 ::before / ::after 等语义伪元素）
+              if (_imTagLower === 'label') {
+                _canMergeInlineChildren = false;
+                break;
+              }
               // 与 inferNodeType 一致：<svg> 常为 inline，但绝不能走 getTextContent 合并（会吃掉整棵 SVG）。
               if (_imTagLower === 'svg' || _imTagLower === 'math' || _imTagLower === 'canvas' ||
                   _imTagLower === 'video' || _imTagLower === 'iframe' || _imTagLower === 'object') {
@@ -1316,6 +1343,15 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
                 var _mergeSubCtrls = el.querySelectorAll('a, button, input, select, textarea');
                 if (_mergeSubCtrls.length >= 2) _canMergeInlineChildren = false;
               } catch (_eMs) {}
+            }
+            // 单子节点场景（如 ant-form-item-control-input-content > .ant-select）不会进入上面的 >=2 防线，
+            // 这里补一条“表单控件/Select 结构直接禁合并”兜底，避免外框与箭头被吃掉。
+            if (_canMergeInlineChildren && el.querySelector) {
+              try {
+                if (el.querySelector('input, select, textarea, .ant-select-selector, .ant-select-arrow, .ant-picker, .ant-input, .ant-input-affix-wrapper')) {
+                  _canMergeInlineChildren = false;
+                }
+              } catch (_eFormCtrlMerge) {}
             }
           }
         }
@@ -1922,6 +1958,7 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
           var _hfCls = typeof _hfAncestor.className === 'string' ? _hfAncestor.className : '';
           if (/\bant-input-affix-wrapper\b|\bant-input-group-wrapper\b/.test(_hfCls)) {
             if (!_hfAncestor.getAttribute('data-figma-props')) _hfAncestor.setAttribute('data-figma-props', _hfFp);
+            try {} catch (_eDbgHoist) {}
             break;
           }
           _hfAncestor = _hfAncestor.parentElement;
