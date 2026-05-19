@@ -110,7 +110,7 @@ var COMPONENT_LIBRARY_SUPPORTED_COMPONENTS = [
   'Button',
   'Input',
   'Input.Search',
-  // 'Select',
+  'Select',
   // 'DatePicker',    // 含 TimePicker / RangePicker（class 均为 ant-picker）
   // 'Checkbox',
   // 'Radio',
@@ -1184,7 +1184,12 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
           var _earlyLabel = _earlyLabelEl
             ? (_earlyLabelEl.getAttribute('title') || _earlyLabelEl.textContent || '').trim()
             : (el.innerText || el.textContent || '').replace(/\s+/g, ' ').trim();
-          if (_earlyLabel) node.label = _earlyLabel;
+          var _earlyComponent = _earlyFpParsed.component || '';
+          var _preferPlaceholderLabel = (
+            _earlyComponent === 'Input' ||
+            _earlyComponent === 'Input.Search' ||
+            _earlyComponent === 'Input.TextArea'
+          );
           // 补充 placeholder：自身 / 子 input / Select 占位 span
           var _earlySelfPh = (tag === 'input' || tag === 'textarea') ? (el.getAttribute('placeholder') || '') : '';
           var _earlyInputEl = el.querySelector && el.querySelector(
@@ -1196,6 +1201,12 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
             || (_earlySelectPhEl && (_earlySelectPhEl.textContent || '').trim())
             || '';
           if (_earlyPh) node.placeholder = _earlyPh;
+          if (_preferPlaceholderLabel && _earlyPh) {
+            // Input 组件优先用 placeholder 做文本 override，避免 innerText 混入隐藏测量文本（如“0571”）。
+            node.label = _earlyPh;
+          } else if (_earlyLabel) {
+            node.label = _earlyLabel;
+          }
           // _earlyPh 来源已限于 input[placeholder] 属性或 Select 占位 span，
           // 无需额外限制 tag 类型——m-ui Input 外层是 div，若不去掉 tag 限制，
           // label 将始终为 undefined，导致 symbolOverrides 跳过，Placeholder 无法写入变体。

@@ -1,5 +1,7 @@
 'use strict';
 
+var resolverConfig = require('./component-library-resolver.config');
+
 /**
  * component-library-resolver.js
  *
@@ -51,20 +53,7 @@ function parseComponentName(description) {
  * 规则：只补 undefined 字段，不覆盖已有值（哪怕是 false）。
  * 维护方式：直接在此处增减组件及其默认 prop，无需修改其他代码。
  */
-var COMPONENT_DEFAULT_PROPS = {
-  Button: {
-    // m-ui Button 不写 type 时渲染为二级按钮（type="secondary"）。
-    type: 'secondary',
-    // Code Connect description 总是显式写出 size，不补 middle 会导致
-    // key 与所有模板 entry 对不上（size 位为空 → 永远 miss）。
-    size: 'middle',
-  },
-  // Select 不传 size 时 Ant Design 默认 middle；
-  // 若不补默认值，descKey 里 size 为空，无法命中任何变体描述（所有描述都写了 size="…"）。
-  Select: {
-    size: 'middle',
-  },
-};
+var COMPONENT_DEFAULT_PROPS = resolverConfig.defaultProps || {};
 
 /**
  * 组件 prop 值别名映射表
@@ -78,22 +67,7 @@ var COMPONENT_DEFAULT_PROPS = {
  *
  * 维护方式：增减组件或 prop 别名，无需修改其他代码。
  */
-var COMPONENT_PROP_ALIASES = {
-  // Input: size="middle" 是默认尺寸，description 中省略，需归一为 undefined（空 key）。
-  // Button/Select 的 size="middle" 在 description 中有显式记录，不需要归一。
-  Input: {
-    size: { 'middle': undefined },
-  },
-  Button: {
-    // type="link" 在 m-ui Code Connect 中用 type="text" 编码，
-    // 但风格不同（link=品牌色/蓝色, text=标准/灰色）。
-    // 别名后由 BUTTON_TYPE_TO_STYLE 在风格 filter 中选择正确风格。
-    type: { 'link': 'text' },
-  },
-  // 其他组件按需添加，例如：
-  // TimePicker: { size: { 'middle': undefined } },
-  // RangePicker: { size: { 'middle': undefined } },
-};
+var COMPONENT_PROP_ALIASES = resolverConfig.propAliases || {};
 
 /**
  * Button type → 期望的 Figma 风格维度值
@@ -103,9 +77,9 @@ var COMPONENT_PROP_ALIASES = {
  *
  * 未在此表中的 type 仍走默认行为（偏好"风格=标准"）。
  */
-var BUTTON_TYPE_TO_STYLE = {
-  'link': '品牌色',   // type="link" → 蓝色文字按钮 → 风格=品牌色
-};
+var BUTTON_TYPE_TO_STYLE = resolverConfig.buttonTypeToStyle || {};
+
+var COMPONENT_MISS_FALLBACKS = resolverConfig.missFallbackByComponent || {};
 
 /**
  * 从 JSX 代码片段（description 字段）提取组件 props 用于索引键。
@@ -200,6 +174,24 @@ function makeDescKey(props) {
     String(props.danger  !== undefined ? props.danger  : ''),
     String(props.ghost   !== undefined ? props.ghost   : ''),
   ].join('|');
+}
+
+function applyConfiguredMissFallbacks(candidates, index, applyComponentFilter, domComponent, queryProps, logTag) {
+  if (candidates && candidates.length > 0) return candidates;
+  if (!domComponent) return candidates;
+  var rules = COMPONENT_MISS_FALLBACKS[domComponent];
+  if (!Array.isArray(rules) || rules.length === 0) return candidates;
+
+  for (var i = 0; i < rules.length; i++) {
+    var rule = rules[i] || {};
+    if (!rule.overrideProps || typeof rule.overrideProps !== 'object') continue;
+    var ruleProps = Object.assign({}, queryProps, rule.overrideProps);
+    var ruleKey = makeDescKey(ruleProps);
+    console.log(logTag, 'miss fallback[' + (rule.name || i) + '] key:', ruleKey);
+    var hit = applyComponentFilter(index.get(ruleKey));
+    if (hit && hit.length > 0) return hit;
+  }
+  return candidates;
 }
 
 // ─── 索引构建 ──────────────────────────────────────────────────────────────
@@ -406,6 +398,15 @@ function resolveComponentLibraryNode(irNode, template) {
     console.log(_tag, 'exact miss, trying relaxed key (size-dropped):', relaxedKey);
     candidates = applyComponentFilter(index.get(relaxedKey));
   }
+
+  candidates = applyConfiguredMissFallbacks(
+    candidates,
+    index,
+    applyComponentFilter,
+    domComponent,
+    queryProps,
+    _tag
+  );
 
   // Input affix 全局锚定回退：
   // 不依赖 candidates 数量。即使当前只有 1 个候选，只要它不匹配 prefix/suffix 字面值，
@@ -781,7 +782,21 @@ function resolveComponentLibraryNode(irNode, template) {
       figmaProps.addonAfter
     )
   );
-  var _resolvedLabel = _isInputWithInlineAffix ? undefined : irNode.label;
+  var _isInputFamily = (
+    domComponent === 'Input' ||
+    domComponent === 'Input.Search' ||
+    domComponent === 'Input.TextArea'
+  );
+  var _resolvedLabel;
+  if (_isInputWithInlineAffix) {
+    _resolvedLabel = undefined;
+  } else if (_isInputFamily) {
+    // Input 系列优先使用 placeholder 作为文本 override，
+    // 避免把 DOM 测量/隐藏文本（如 "0571"）误写入组件文字槽位。
+    _resolvedLabel = irNode.placeholder || irNode.label;
+  } else {
+    _resolvedLabel = irNode.label;
+  }
   var resolved = {
     type: 'figma-instance',
     figmaComponentKey: best.componentKey,
