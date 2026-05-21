@@ -10,4 +10,5 @@ module.exports = [
   { fileName: 'Switch',     htmlContent: require('./Switch.js') },
   { fileName: 'TimePicker', htmlContent: require('./TimePicker.js') },
   { fileName: 'Icon',       htmlContent: require('./Icon.js') },
+  { fileName: 'Tag',        htmlContent: require('./Tag.js') },
 ];

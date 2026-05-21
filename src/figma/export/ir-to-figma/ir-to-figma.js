@@ -373,6 +373,93 @@ function _scaleDerivedSymbolDataByFactor(entries, factor) {
   return entries;
 }
 
+// 为 derivedSymbolData 补充 FRAME 节点的 size override，确保 Figma 粘贴时 INSTANCE 宽高生效。
+// 逆向发现：Figma resize INSTANCE 时，会在 derivedSymbolData 中为每个 FRAME 子节点写入新 size；
+//   只设置 INSTANCE.size 不够，还需 derivedSymbolData 里的 FRAME size 同步更新，
+//   否则 Figma 回退到 SYMBOL 的默认宽度（如 277px）。
+// 策略：
+//   - 直接遍历 IOC 子树，找到所有 FRAME 类节点（跳过 TEXT/VECTOR 等）
+//   - 用 nd.overrideKey || nd.guid 作为 guidPath key（与 _buildDerivedSymbolData 保持一致）
+//   - newW = origW + dW（dW = newInstW - symRootW），保持 padding 不变
+//   - 如果该节点已有 derivedSymbolData 条目则更新，否则新建条目前置（FRAMEs 排在 TEXT 前）
+//   - 根节点（SYMBOL 直接子节点）额外补 transform={identity}
+function _patchDerivedSymbolDataFrameSizes(entries, symNode, newInstW, newInstH) {
+  if (!symNode || !symNode.size) return entries;
+  var symW = symNode.size.x, symH = symNode.size.y;
+  var dW = newInstW - symW, dH = newInstH - symH;
+  if (Math.abs(dW) < 0.5 && Math.abs(dH) < 0.5) return entries;
+
+  _ensureIocCache();
+
+  // 构建 guidPath-key → 条目下标 映射（用于更新已有条目）
+  if (!entries) entries = [];
+  var guidKeyToIdx = {};
+  for (var ei = 0; ei < entries.length; ei++) {
+    var eg = entries[ei].guidPath && entries[ei].guidPath.guids && entries[ei].guidPath.guids[0];
+    if (eg) guidKeyToIdx[eg.sessionID + ':' + eg.localID] = ei;
+  }
+
+  var symGuidKey = symNode.guid && (symNode.guid.sessionID + ':' + symNode.guid.localID);
+
+  // 找 SYMBOL 的直接子节点 GUID key 集合（用于识别根节点）
+  var directChildKeySet = {};
+  var directChildKeys = (symGuidKey && _iocChildrenOfCache[symGuidKey]) || [];
+  for (var di = 0; di < directChildKeys.length; di++) {
+    directChildKeySet[directChildKeys[di]] = true;
+  }
+
+  // 新建的 FRAME 条目（前置，确保 FRAMEs 排在 TEXT 前）
+  var newFrameEntries = [];
+  var seenOvKeys = {};
+
+  var SKIP_TYPES = { TEXT: 1, VECTOR: 1, BOOLEAN_OPERATION: 1, LINE: 1,
+                     ELLIPSE: 1, STAR: 1, POLYGON: 1, RECTANGLE: 1 };
+
+  // 递归遍历 IOC 子树
+  function traverse(parentGuidKey) {
+    var childKeys = _iocChildrenOfCache[parentGuidKey] || [];
+    for (var ci = 0; ci < childKeys.length; ci++) {
+      var nd = _iocByGuidCache[childKeys[ci]];
+      if (!nd) continue;
+
+      if (SKIP_TYPES[nd.type]) continue;
+
+      var ovKey = nd.overrideKey || nd.guid;
+      var ovKeyStr = ovKey && (ovKey.sessionID + ':' + ovKey.localID);
+      if (!ovKeyStr || seenOvKeys[ovKeyStr]) continue;
+      seenOvKeys[ovKeyStr] = true;
+
+      var ndGuidKey = nd.guid && (nd.guid.sessionID + ':' + nd.guid.localID);
+
+      if (nd.size && nd.size.x >= 1 && nd.size.y >= 1) {
+        var newW = Math.max(1, Math.ceil(nd.size.x + dW));
+        var newH = Math.max(1, Math.ceil(nd.size.y + dH));
+
+        if (guidKeyToIdx[ovKeyStr] !== undefined) {
+          // 已有条目 → 直接更新 size
+          entries[guidKeyToIdx[ovKeyStr]].size = { x: newW, y: newH };
+        } else {
+          // 新建条目
+          var newEntry = { guidPath: { guids: [ovKey] }, size: { x: newW, y: newH } };
+          // 根节点（SYMBOL 直接子节点）加 identity transform
+          if (ndGuidKey && directChildKeySet[ndGuidKey]) {
+            newEntry.transform = { m00: 1, m01: 0, m02: 0, m10: 0, m11: 1, m12: 0 };
+          }
+          newFrameEntries.push(newEntry);
+          guidKeyToIdx[ovKeyStr] = entries.length + newFrameEntries.length - 1;
+        }
+      }
+
+      if (ndGuidKey) traverse(ndGuidKey);
+    }
+  }
+
+  if (symGuidKey) traverse(symGuidKey);
+
+  // FRAME 条目前置，TEXT 等条目在后（与 Figma 官方顺序一致）
+  return newFrameEntries.length > 0 ? newFrameEntries.concat(entries) : entries;
+}
+
 function _getCompiled() {
   if (_compiledSchema) return _compiledSchema;
   var sd = _schemaData || (typeof window !== 'undefined' && window.__FIGMA_SCHEMA_DATA__);
@@ -2967,8 +3054,14 @@ function convertInstanceNode(irNode, guid, parentGuid, siblingIndex) {
     var _symSize = (_symNode && _symNode.size && _isFiniteNumber(_symNode.size.x) && _isFiniteNumber(_symNode.size.y))
       ? makeCeilSize(_symNode.size.x, _symNode.size.y)
       : makeCeilSize(style.width ?? 100, style.height ?? 32);
+    // DOM 有明确尺寸时优先用 DOM 宽高，使 Input 等组件的实际宽度（如 182px）能映射到 Figma
+    var _hasDomSizeMinimal = _isFiniteNumber(style.width) && style.width > 0
+                          && _isFiniteNumber(style.height) && style.height > 0;
+    var _instSizeMinimal = _hasDomSizeMinimal
+      ? makeCeilSize(style.width, style.height)
+      : _symSize;
     var _minimalSymData = { symbolID: symbolGuid, uniformScaleFactor: 1 };
-    // 最小映射模式保留“轻量文本覆写”，避免 Input 等组件出现文本丢失。
+    // 最小映射模式保留"轻量文本覆写"，避免 Input 等组件出现文本丢失。
     // 仅写 symbolOverrides，不恢复 derivedSymbolData / 尺寸干预等其它复杂逻辑。
     if (instanceText) {
       var _minimalTextOverrideGuid = entry.textOverrideKey || null;
@@ -2988,21 +3081,76 @@ function convertInstanceNode(irNode, guid, parentGuid, siblingIndex) {
         }];
       }
     }
-    return {
+    var _minimalNode = {
       guid: guid,
       phase: 'CREATED',
       type: 'INSTANCE',
       name: instanceNodeName,
       parentIndex: { guid: parentGuid, position: positionForIndex(siblingIndex) },
       transform: makeTransform(style.x || 0, style.y || 0),
-      // 使用模板 SYMBOL 原始尺寸，先保证渲染“变体本体”
-      size: _symSize,
+      size: _instSizeMinimal,
+      resizeToFit: false,
       symbolData: _minimalSymData,
       visible: true,
       opacity: 1,
       blendMode: 'NORMAL',
       stackPositioning: 'AUTO',
     };
+    // 有 Auto Layout 的变体（Input / Button / Select 等）：当 DOM 尺寸与 SYMBOL 模板尺寸存在
+    // 差异时，补充 stackMode / stackPrimarySizing / stackCounterSizing，防止 hug 行为覆盖固定宽度。
+    // 阈值与非最小路径保持一致：宽 >2px、高 >=1px。
+    if (_hasDomSizeMinimal && _symNode && _symNode.stackMode) {
+      var _minSymW = (_symNode.size && _isFiniteNumber(_symNode.size.x)) ? _symNode.size.x : null;
+      var _minSymH = (_symNode.size && _isFiniteNumber(_symNode.size.y)) ? _symNode.size.y : null;
+      var _minWDiff = _isFiniteNumber(_minSymW) && Math.abs(_instSizeMinimal.x - _minSymW) > 2;
+      var _minHDiff = _isFiniteNumber(_minSymH) && Math.abs(_instSizeMinimal.y - _minSymH) >= 1;
+      _minimalNode.stackMode = _symNode.stackMode;
+      if (_symNode.stackMode === 'HORIZONTAL') {
+        _minimalNode.stackPrimarySizing = _minWDiff ? 'FIXED' : 'RESIZE_TO_FIT';
+        _minimalNode.stackCounterSizing = _minHDiff ? 'FIXED' : 'RESIZE_TO_FIT';
+      } else {
+        _minimalNode.stackPrimarySizing = _minHDiff ? 'FIXED' : 'RESIZE_TO_FIT';
+        _minimalNode.stackCounterSizing = _minWDiff ? 'FIXED' : 'RESIZE_TO_FIT';
+      }
+    }
+    // derivedSymbolData：构建组件子树渲染快照，并为 FRAME 节点补充 size override。
+    // Figma 在 INSTANCE resize 时，依赖 derivedSymbolData 中 FRAME 的 size 来确定实际渲染宽度；
+    // 缺少这些 size override 时，Figma 会回退到 SYMBOL 的默认宽度（如 277px），忽略 INSTANCE.size。
+    var _minDerivedSymbolData = _buildDerivedSymbolData(entry.sessionID, entry.localID);
+    if (_hasDomSizeMinimal && _symNode) {
+      // _buildDerivedSymbolData 只对 TEXT 写 size，FRAME 节点需通过 patch 补充
+      _minDerivedSymbolData = _patchDerivedSymbolDataFrameSizes(
+        _minDerivedSymbolData || [],
+        _symNode,
+        _instSizeMinimal.x,
+        _instSizeMinimal.y
+      );
+    }
+    if (_minDerivedSymbolData && _minDerivedSymbolData.length > 0) {
+      _minimalNode.derivedSymbolData = _minDerivedSymbolData;
+      _minimalNode.derivedSymbolDataLayoutVersion =
+        (_symNode && _symNode.derivedSymbolDataLayoutVersion) || 1;
+    }
+    var _minOverrideKey = (_symNode && _symNode.overrideKey) ? _symNode.overrideKey : null;
+    if (_minOverrideKey) _minimalNode.overrideKey = _minOverrideKey;
+    // 当 DOM 尺寸与 SYMBOL 模板尺寸存在差异时，通过 symbolOverrides 写入 size 覆盖。
+    // 这是 Figma 原生 INSTANCE 调整尺寸的机制：guidPath 使用 SYMBOL 的规范 GUID（即 symbolGuid），
+    // 等同于 Figma 内 symbolOverrides 中 size 条目的 guidPath 惯例。
+    // ⚠️ 不能用 _symNode.overrideKey：_iocByGuidCache 查到的是规范 SYMBOL 节点，
+    //    其 overrideKey=none（规范节点的 overrideKey 未设置），
+    //    而 symbolGuid = entry.canonicalGuid = {699:78118} 才是正确的 guidPath 值。
+    if (_hasDomSizeMinimal) {
+      var _sizeOverrideEntry = {
+        guidPath: { guids: [symbolGuid] },
+        size: _instSizeMinimal,
+      };
+      if (_minimalSymData.symbolOverrides) {
+        _minimalSymData.symbolOverrides.push(_sizeOverrideEntry);
+      } else {
+        _minimalSymData.symbolOverrides = [_sizeOverrideEntry];
+      }
+    }
+    return _minimalNode;
   }
 
   var targetW = style.width;
@@ -3132,6 +3280,20 @@ function convertInstanceNode(irNode, guid, parentGuid, siblingIndex) {
       stackMode: instNode.stackMode,
       symNodeExists: !!_symNode,
     });
+  }
+
+  // 当 DOM 尺寸与 SYMBOL 模板尺寸存在差异时，通过 symbolOverrides 写入 size 覆盖。
+  // guidPath 使用 symbolGuid（SYMBOL 规范 GUID），与 Figma 原生 symbolOverrides size 条目一致。
+  if (_hasDomSize) {
+    var _instSizeOverrideEntry = {
+      guidPath: { guids: [symbolGuid] },
+      size: _instSize,
+    };
+    if (symData.symbolOverrides) {
+      symData.symbolOverrides.push(_instSizeOverrideEntry);
+    } else {
+      symData.symbolOverrides = [_instSizeOverrideEntry];
+    }
   }
 
   return instNode;
