@@ -3096,10 +3096,21 @@ function convertInstanceNode(irNode, guid, parentGuid, siblingIndex) {
       blendMode: 'NORMAL',
       stackPositioning: 'AUTO',
     };
-    // 有 Auto Layout 的变体（Input / Button / Select 等）：当 DOM 尺寸与 SYMBOL 模板尺寸存在
-    // 差异时，补充 stackMode / stackPrimarySizing / stackCounterSizing，防止 hug 行为覆盖固定宽度。
-    // 阈值与非最小路径保持一致：宽 >2px、高 >=1px。
-    if (_hasDomSizeMinimal && _symNode && _symNode.stackMode) {
+    // 判断 SYMBOL 的宽度轴是否为 hug（适应内容）。
+    // HORIZONTAL 布局：主轴=宽。只有 stackPrimarySizing === 'FIXED' 时宽度才是固定的；
+    //   未设置（Button）或 RESIZE_TO_FIT 表示宽度 hug，不能强制覆盖。
+    // VERTICAL 布局：反轴=宽。stackCounterSizing === 'FIXED' 才是固定宽度。
+    // 无 stackMode（非 Auto Layout）：直接由 size 控制，可覆盖。
+    var _symWidthIsHug = false;
+    if (_symNode && _symNode.stackMode === 'HORIZONTAL') {
+      _symWidthIsHug = (_symNode.stackPrimarySizing !== 'FIXED');
+    } else if (_symNode && _symNode.stackMode === 'VERTICAL') {
+      _symWidthIsHug = (_symNode.stackCounterSizing !== 'FIXED');
+    }
+    // 有 Auto Layout 的变体（Input / Select 等）且宽度为 FIXED：
+    // 当 DOM 尺寸与 SYMBOL 模板尺寸存在差异时，补充 stackPrimarySizing / stackCounterSizing。
+    // Button / Checkbox / Radio 等宽度为 hug 的组件：跳过，保持模板的自适应行为。
+    if (_hasDomSizeMinimal && !_symWidthIsHug && _symNode && _symNode.stackMode) {
       var _minSymW = (_symNode.size && _isFiniteNumber(_symNode.size.x)) ? _symNode.size.x : null;
       var _minSymH = (_symNode.size && _isFiniteNumber(_symNode.size.y)) ? _symNode.size.y : null;
       var _minWDiff = _isFiniteNumber(_minSymW) && Math.abs(_instSizeMinimal.x - _minSymW) > 2;
@@ -3134,12 +3145,9 @@ function convertInstanceNode(irNode, guid, parentGuid, siblingIndex) {
     var _minOverrideKey = (_symNode && _symNode.overrideKey) ? _symNode.overrideKey : null;
     if (_minOverrideKey) _minimalNode.overrideKey = _minOverrideKey;
     // 当 DOM 尺寸与 SYMBOL 模板尺寸存在差异时，通过 symbolOverrides 写入 size 覆盖。
-    // 这是 Figma 原生 INSTANCE 调整尺寸的机制：guidPath 使用 SYMBOL 的规范 GUID（即 symbolGuid），
-    // 等同于 Figma 内 symbolOverrides 中 size 条目的 guidPath 惯例。
-    // ⚠️ 不能用 _symNode.overrideKey：_iocByGuidCache 查到的是规范 SYMBOL 节点，
-    //    其 overrideKey=none（规范节点的 overrideKey 未设置），
-    //    而 symbolGuid = entry.canonicalGuid = {699:78118} 才是正确的 guidPath 值。
-    if (_hasDomSizeMinimal) {
+    // 仅在宽度不为 hug 时才写入（hug 组件如 Button 应保持自适应宽度）。
+    // guidPath 使用 SYMBOL 的规范 GUID（即 symbolGuid = entry.canonicalGuid）。
+    if (_hasDomSizeMinimal && !_symWidthIsHug) {
       var _sizeOverrideEntry = {
         guidPath: { guids: [symbolGuid] },
         size: _instSizeMinimal,
@@ -3228,17 +3236,17 @@ function convertInstanceNode(irNode, guid, parentGuid, siblingIndex) {
   // DOM 有明确宽高时禁用 resizeToFit，避免沿用 SYMBOL 的 hug 行为导致尺寸被模板默认值覆盖
   if (_hasDomSize) instNode.resizeToFit = false;
 
-  // ── INSTANCE 尺寸锁定：将主轴 / 交叉轴均强制为 FIXED，确保 INSTANCE.size 生效 ──
-  // 背景：_copyInstanceRenderFieldsFromSymbol 把 SYMBOL 模板的 stackPrimarySizing /
-  //       stackCounterSizing 原样拷贝到 INSTANCE（如 Button 的 counter 轴 RESIZE_TO_FIT_WITH_IMPLICIT_SIZE），
-  //       导致宽高仍被模板 HUG 行为覆盖，DOM 指定的 INSTANCE.size 实际不生效。
-  // 策略：仅当 DOM 有明确宽高且变体有 Auto Layout（stackMode 存在）时才覆写，
-  //       纯图形变体（stackMode 为空，如 Checkbox 16×16）靠 INSTANCE.size 直接控制，不需额外字段。
-  //
-  // 差值判断：
-  // - 宽度仍用 >2px 阈值，避免误锁宽度弹性组件（如 Input 全宽场景）；
-  // - 高度改为 >=1px 即锁定，确保 Input 这类 32/33px 微差也能与 DOM 对齐。
-  if (_hasDomSize && (instNode.stackMode === 'HORIZONTAL' || instNode.stackMode === 'VERTICAL')) {
+  // 判断 SYMBOL 的宽度轴是否为 hug（适应内容）——与最小模式保持同一逻辑。
+  var _instWidthIsHug = false;
+  if (_symNode && _symNode.stackMode === 'HORIZONTAL') {
+    _instWidthIsHug = (_symNode.stackPrimarySizing !== 'FIXED');
+  } else if (_symNode && _symNode.stackMode === 'VERTICAL') {
+    _instWidthIsHug = (_symNode.stackCounterSizing !== 'FIXED');
+  }
+
+  // ── INSTANCE 尺寸锁定：仅对宽度为 FIXED 的 Auto Layout 变体设置 FIXED sizing ──
+  // Button / Checkbox / Radio 等宽度 hug 的组件跳过，保持自适应行为。
+  if (_hasDomSize && !_instWidthIsHug && (instNode.stackMode === 'HORIZONTAL' || instNode.stackMode === 'VERTICAL')) {
     var _isHorizInst = (instNode.stackMode === 'HORIZONTAL');
     var _domInstW = _instSize.x;
     var _domInstH = _instSize.y;
@@ -3248,43 +3256,18 @@ function convertInstanceNode(irNode, guid, parentGuid, siblingIndex) {
     var _wDiffers = _isFiniteNumber(_symOrigW) && _symOrigW > 0 && Math.abs(_domInstW - _symOrigW) > 2;
     var _hDiffers = _isFiniteNumber(_symOrigH) && _symOrigH > 0 && Math.abs(_domInstH - _symOrigH) >= 1;
 
-    console.log('[instance-size-debug]', instanceNodeName, {
-      stackMode: instNode.stackMode,
-      domW: _domInstW, domH: _domInstH,
-      symW: _symOrigW, symH: _symOrigH,
-      wDiffers: _wDiffers, hDiffers: _hDiffers,
-      uniformScale: _uniformScale,
-      hasDomSize: _hasDomSize,
-      symNodeExists: !!_symNode,
-      symNodeSize: _symNode ? _symNode.size : null,
-    });
-
     if (_isHorizInst) {
-      // 主轴 = 宽，交叉轴 = 高
       instNode.stackPrimarySizing = _wDiffers ? 'FIXED' : 'RESIZE_TO_FIT';
       instNode.stackCounterSizing = _hDiffers ? 'FIXED' : 'RESIZE_TO_FIT';
     } else {
-      // 主轴 = 高，交叉轴 = 宽
       instNode.stackPrimarySizing = _hDiffers ? 'FIXED' : 'RESIZE_TO_FIT';
       instNode.stackCounterSizing = _wDiffers ? 'FIXED' : 'RESIZE_TO_FIT';
     }
-
-    console.log('[instance-size-debug] →', instanceNodeName, {
-      stackPrimarySizing: instNode.stackPrimarySizing,
-      stackCounterSizing: instNode.stackCounterSizing,
-      instNodeSize: instNode.size,
-    });
-  } else {
-    console.log('[instance-size-debug] SKIP', instanceNodeName, {
-      hasDomSize: _hasDomSize,
-      stackMode: instNode.stackMode,
-      symNodeExists: !!_symNode,
-    });
   }
 
   // 当 DOM 尺寸与 SYMBOL 模板尺寸存在差异时，通过 symbolOverrides 写入 size 覆盖。
-  // guidPath 使用 symbolGuid（SYMBOL 规范 GUID），与 Figma 原生 symbolOverrides size 条目一致。
-  if (_hasDomSize) {
+  // 仅对宽度为 FIXED 的变体写入（hug 组件如 Button 应保持自适应宽度）。
+  if (_hasDomSize && !_instWidthIsHug) {
     var _instSizeOverrideEntry = {
       guidPath: { guids: [symbolGuid] },
       size: _instSize,
