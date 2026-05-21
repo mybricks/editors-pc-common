@@ -13,9 +13,22 @@ var _kiwiSchema = require('../../shared/vendors/kiwi-schema');
 var _schemaData = require('./schema-data');
 var _svgPathDataLib = require('./vendors/svg-pathdata');
 
-// 组件库映射模板（可选），缺失时降级为普通 frame 绘制
-var _componentTemplate = null;
-try { _componentTemplate = require('./figma-component-template'); } catch (e) {}
+// 组件库映射模板，从 template/*.js 加载（webpack 可直接 bundle，无 Node.js 内置模块依赖）
+var _pakoInflate       = require('../../shared/vendors/pako-inflate.min');
+var _fzstd             = require('../../shared/vendors/fzstd');
+var _buildTemplate     = require('./html-templates-loader');
+var _templateSources   = require('./template/index.js');
+
+var _componentTemplate = _buildTemplate(_templateSources, {
+  kiwiSchema: _kiwiSchema,
+  inflateDeps: {
+    inflateRaw:     _pakoInflate.inflateRaw,
+    inflate:        _pakoInflate.inflate,
+    ungzip:         _pakoInflate.ungzip,
+    zstdDecompress: _fzstd.decompress,
+  },
+});
+if (!_componentTemplate) throw new Error('[ir-to-figma] 变体模板加载失败，请检查 template/ 目录');
 
 function _jsonClone(obj) {
   if (obj === undefined || obj === null) return obj;
@@ -24,7 +37,7 @@ function _jsonClone(obj) {
 
 function _decodeBase64ToUint8Array(b64) {
   if (!b64 || typeof b64 !== 'string') return null;
-  if (typeof Buffer !== 'undef ined') {
+  if (typeof Buffer !== 'undefined') {
     return new Uint8Array(Buffer.from(b64, 'base64'));
   }
   var binary = atob(b64);
@@ -41,16 +54,84 @@ function _appendTemplateBlobs(blobs) {
     var b = tplBlobs[i];
     if (typeof b === 'string') {
       var decoded = _decodeBase64ToUint8Array(b);
-      if (decoded) {
-        blobs.push(decoded);
-        added++;
-      }
-    } else if (b && typeof b.length === 'number') {
-      blobs.push(new Uint8Array(b));
+      if (!decoded) throw new Error('[template blobs] decode failed at index ' + i + ' (base64)');
+      blobs.push({ bytes: decoded });
       added++;
+    } else if (b instanceof Uint8Array) {
+      blobs.push({ bytes: b });
+      added++;
+    } else if (Array.isArray(b)) {
+      blobs.push({ bytes: new Uint8Array(b) });
+      added++;
+    } else if (b && b.bytes instanceof Uint8Array) {
+      blobs.push({ bytes: b.bytes });
+      added++;
+    } else if (b && Array.isArray(b.bytes)) {
+      blobs.push({ bytes: new Uint8Array(b.bytes) });
+      added++;
+    } else if (b && typeof b === 'object') {
+      var ks = Object.keys(b);
+      if (ks.length && ks.every(function (k) { return /^\d+$/.test(k); })) {
+        var u8 = new Uint8Array(ks.sort(function (a, c) { return Number(a) - Number(c); }).map(function (k) { return b[k] || 0; }));
+        blobs.push({ bytes: u8 });
+        added++;
+      } else {
+        throw new Error('[template blobs] unsupported blob object at index ' + i);
+      }
+    } else {
+      throw new Error('[template blobs] unsupported blob item at index ' + i + ', type=' + (typeof b));
     }
   }
   return added;
+}
+
+function _validateTemplateBlobReferences() {
+  var tpl = _componentTemplate || {};
+  var tplBlobs = tpl.blobs;
+  var iocNodes = tpl.iocNodes;
+  if (!Array.isArray(tplBlobs) || tplBlobs.length === 0) return;
+  if (!Array.isArray(iocNodes) || iocNodes.length === 0) return;
+
+  var badRefs = [];
+  function walk(v, path, node) {
+    if (v == null || typeof v !== 'object') return;
+    if (Array.isArray(v)) {
+      for (var ai = 0; ai < v.length; ai++) walk(v[ai], path + '[' + ai + ']', node);
+      return;
+    }
+    var keys = Object.keys(v);
+    for (var ki = 0; ki < keys.length; ki++) {
+      var k = keys[ki];
+      var nv = v[k];
+      var np = path ? (path + '.' + k) : k;
+      if ((k === 'commandsBlob' || k === 'vectorNetworkBlob' || k === 'dataBlob' || k === 'blobRef') && typeof nv === 'number') {
+        if (nv < 0 || nv >= tplBlobs.length) {
+          badRefs.push({
+            index: nv,
+            path: np,
+            nodeType: node && node.type,
+            nodeName: node && node.name,
+            nodeGuid: node && node.guid ? (node.guid.sessionID + ':' + node.guid.localID) : null,
+          });
+        }
+      }
+      walk(nv, np, node);
+    }
+  }
+
+  for (var i = 0; i < iocNodes.length; i++) {
+    walk(iocNodes[i], '', iocNodes[i]);
+  }
+
+  if (badRefs.length > 0) {
+    var first = badRefs[0];
+    throw new Error(
+      '[template blobs] reference out of range: index=' + first.index +
+      ', blobsLen=' + tplBlobs.length +
+      ', path=' + first.path +
+      ', node=' + (first.nodeType || '?') + '/' + (first.nodeName || '?')
+    );
+  }
 }
 
 // iocNodes 子树父→子映射（懒加载，仅构建一次），供 convertInstanceNode 运行时动态找 TEXT 节点
@@ -107,6 +188,35 @@ function _findTextGuidInSymbolSubtree(symSessionID, symLocalID) {
     if (deeper) for (var di = 0; di < deeper.length; di++) queue.push(deeper[di]);
   }
   return fallback;
+}
+
+function _isTextOverrideGuidValidInSymbolSubtree(symSessionID, symLocalID, targetGuid) {
+  if (!targetGuid || targetGuid.sessionID == null || targetGuid.localID == null) return false;
+  _ensureIocCache();
+  var targetKey = targetGuid.sessionID + ':' + targetGuid.localID;
+  // 允许跨文件稳定引用：目标 key 不在当前 iocNodes 时，视为可用。
+  // 否则会把本来正确但“本次模板未落地”的 overrideKey 误判为无效并替换/清空。
+  if (!_iocByGuidCache[targetKey]) return true;
+  var queue = (( _iocChildrenOfCache[symSessionID + ':' + symLocalID] ) || []).slice();
+  var visited = Object.create(null);
+  for (var qi = 0; qi < queue.length; qi++) {
+    var gk = queue[qi];
+    if (visited[gk]) continue;
+    visited[gk] = true;
+    var nd = _iocByGuidCache[gk];
+    if (!nd) continue;
+    if (nd.type === 'TEXT') {
+      if (nd.overrideKey) {
+        var ok = nd.overrideKey.sessionID + ':' + nd.overrideKey.localID;
+        if (ok === targetKey) return true;
+      }
+      var dk = nd.guid ? (nd.guid.sessionID + ':' + nd.guid.localID) : '';
+      if (dk === targetKey) return true;
+    }
+    var deeper = _iocChildrenOfCache[gk];
+    if (deeper) for (var di = 0; di < deeper.length; di++) queue.push(deeper[di]);
+  }
+  return false;
 }
 
 // 从 SYMBOL 子树构建 derivedSymbolData 数组。
@@ -218,6 +328,49 @@ function ceilNodeSizeValue(v) {
 
 function makeCeilSize(x, y) {
   return { x: ceilNodeSizeValue(x), y: ceilNodeSizeValue(y) };
+}
+
+// 根据 DOM 目标尺寸与 SYMBOL 原始尺寸计算 INSTANCE 的 uniformScaleFactor。
+// Figma 粘贴时：视觉尺寸 ≈ SYMBOL.size × uniformScaleFactor；INSTANCE.size 为外层框尺寸。
+function _computeInstanceUniformScale(symNode, targetW, targetH) {
+  if (!symNode || !symNode.size) return 1;
+  var symW = symNode.size.x;
+  var symH = symNode.size.y;
+  if (!_isFiniteNumber(symW) || symW <= 0 || !_isFiniteNumber(symH) || symH <= 0) return 1;
+  if (!_isFiniteNumber(targetW) || targetW <= 0 || !_isFiniteNumber(targetH) || targetH <= 0) return 1;
+
+  var scaleW = targetW / symW;
+  var scaleH = targetH / symH;
+  var relDiff = Math.abs(scaleW - scaleH) / Math.max(scaleW, scaleH, 1);
+
+  // 非等比差异较大时不做统一缩放，避免与 INSTANCE.size 的定宽/定高策略冲突
+  // （典型如 Input：模板宽 277，DOM 宽 180，高度仅差 1px）。
+  if (relDiff >= 0.08) return 1;
+
+  // 宽高接近等比：用高度比（对齐按钮 padding / 字号档位）
+  if (relDiff < 0.08) return scaleH;
+  return 1;
+}
+
+function _scaleDerivedSymbolDataByFactor(entries, factor) {
+  if (!entries || !entries.length || !_isFiniteNumber(factor) || factor === 1) return entries;
+  for (var i = 0; i < entries.length; i++) {
+    var item = entries[i];
+    if (item.size) {
+      item.size = { x: item.size.x * factor, y: item.size.y * factor };
+    }
+    if (item.derivedTextData && item.derivedTextData.layoutSize) {
+      item.derivedTextData.layoutSize = {
+        x: item.derivedTextData.layoutSize.x * factor,
+        y: item.derivedTextData.layoutSize.y * factor,
+      };
+    }
+    if (item.transform) {
+      if (typeof item.transform.m02 === 'number') item.transform.m02 *= factor;
+      if (typeof item.transform.m12 === 'number') item.transform.m12 *= factor;
+    }
+  }
+  return entries;
 }
 
 function _getCompiled() {
@@ -2806,13 +2959,69 @@ function convertInstanceNode(irNode, guid, parentGuid, siblingIndex) {
   }
   var instanceNodeName = withSyncTag(instanceDisplayName, irNode, 'Instance');
 
-  var symData = { symbolID: symbolGuid, uniformScaleFactor: 1 };
+  // 迭代阶段：最小映射模式（仅替换为目标变体，不做额外渲染干预）
+  // 目的：先验证「componentKey -> symbolID」映射链路本身，避免 symbolOverrides / derivedSymbolData /
+  //      resizeToFit / stackSizing / uniformScale 等附加策略影响结果。
+  var _minimalVariantMappingMode = true;
+  if (_minimalVariantMappingMode) {
+    var _symSize = (_symNode && _symNode.size && _isFiniteNumber(_symNode.size.x) && _isFiniteNumber(_symNode.size.y))
+      ? makeCeilSize(_symNode.size.x, _symNode.size.y)
+      : makeCeilSize(style.width ?? 100, style.height ?? 32);
+    var _minimalSymData = { symbolID: symbolGuid, uniformScaleFactor: 1 };
+    // 最小映射模式保留“轻量文本覆写”，避免 Input 等组件出现文本丢失。
+    // 仅写 symbolOverrides，不恢复 derivedSymbolData / 尺寸干预等其它复杂逻辑。
+    if (instanceText) {
+      var _minimalTextOverrideGuid = entry.textOverrideKey || null;
+      if (!_isTextOverrideGuidValidInSymbolSubtree(entry.sessionID, entry.localID, _minimalTextOverrideGuid)) {
+        _minimalTextOverrideGuid = _findTextGuidInSymbolSubtree(entry.sessionID, entry.localID);
+      }
+      if (_minimalTextOverrideGuid) {
+        _minimalSymData.symbolOverrides = [{
+          guidPath: { guids: [_minimalTextOverrideGuid] },
+          textData: {
+            characters: instanceText,
+            lines: [{ lineType: 'PLAIN', styleId: 0, indentationLevel: 0,
+                      sourceDirectionality: 'AUTO', listStartOffset: 0, isFirstLineOfList: false }],
+          },
+          textUserLayoutVersion: 5,
+          textExplicitLayoutVersion: 1,
+        }];
+      }
+    }
+    return {
+      guid: guid,
+      phase: 'CREATED',
+      type: 'INSTANCE',
+      name: instanceNodeName,
+      parentIndex: { guid: parentGuid, position: positionForIndex(siblingIndex) },
+      transform: makeTransform(style.x || 0, style.y || 0),
+      // 使用模板 SYMBOL 原始尺寸，先保证渲染“变体本体”
+      size: _symSize,
+      symbolData: _minimalSymData,
+      visible: true,
+      opacity: 1,
+      blendMode: 'NORMAL',
+      stackPositioning: 'AUTO',
+    };
+  }
+
+  var targetW = style.width;
+  var targetH = style.height;
+  var _hasDomSize = _isFiniteNumber(targetW) && targetW > 0 && _isFiniteNumber(targetH) && targetH > 0;
+  var _instSize = _hasDomSize
+    ? makeCeilSize(targetW, targetH)
+    : makeCeilSize(style.width ?? 100, style.height ?? 32);
+  var _uniformScale = (_symNode && _hasDomSize)
+    ? _computeInstanceUniformScale(_symNode, _instSize.x, _instSize.y)
+    : 1;
+
+  var symData = { symbolID: symbolGuid, uniformScaleFactor: _uniformScale };
 
   if (instanceText) {
     // 优先用模板中预计算的 textOverrideKey；
     // 若它不存在，或经 inspector 校验后被清除，则在运行时从 iocNodes 子树中动态找第一个 TEXT 节点。
     var _textOverrideGuid = entry.textOverrideKey || null;
-    if (!_textOverrideGuid) {
+    if (!_isTextOverrideGuidValidInSymbolSubtree(entry.sessionID, entry.localID, _textOverrideGuid)) {
       _textOverrideGuid = _findTextGuidInSymbolSubtree(entry.sessionID, entry.localID);
       if (!_textOverrideGuid) {
         console.warn('[ir-to-figma] 未找到 TEXT 子节点，文字覆盖跳过。建议重新从组件集复制并追加导出模板。',
@@ -2837,6 +3046,9 @@ function convertInstanceNode(irNode, guid, parentGuid, siblingIndex) {
   // ── derivedSymbolData：从 SYMBOL 子节点合成渲染快照 ──
   // 此字段让 Figma 粘贴后立即渲染，无需依赖库缓存（缺失时初次粘贴显示空白，需手动 Update）。
   var _derivedSymbolData = _buildDerivedSymbolData(entry.sessionID, entry.localID);
+  if (_derivedSymbolData && _uniformScale !== 1) {
+    _derivedSymbolData = _scaleDerivedSymbolDataByFactor(_derivedSymbolData, _uniformScale);
+  }
 
   // ── overrideKey：从 SYMBOL 节点复制，供 Figma 做 override 路径匹配 ──
   // _symNode 已在上方 ComponentSet 命名段中获取
@@ -2849,7 +3061,7 @@ function convertInstanceNode(irNode, guid, parentGuid, siblingIndex) {
     name: instanceNodeName,
     parentIndex: { guid: parentGuid, position: positionForIndex(siblingIndex) },
     transform: makeTransform(style.x || 0, style.y || 0),
-    size: makeCeilSize(style.width ?? 100, style.height ?? 32),
+    size: _instSize,
     symbolData: symData,
     visible: true,
     opacity: 1,
@@ -2865,6 +3077,63 @@ function convertInstanceNode(irNode, guid, parentGuid, siblingIndex) {
     instNode.overrideKey = _instOverrideKey;
   }
   _copyInstanceRenderFieldsFromSymbol(instNode, _symNode);
+  // DOM 有明确宽高时禁用 resizeToFit，避免沿用 SYMBOL 的 hug 行为导致尺寸被模板默认值覆盖
+  if (_hasDomSize) instNode.resizeToFit = false;
+
+  // ── INSTANCE 尺寸锁定：将主轴 / 交叉轴均强制为 FIXED，确保 INSTANCE.size 生效 ──
+  // 背景：_copyInstanceRenderFieldsFromSymbol 把 SYMBOL 模板的 stackPrimarySizing /
+  //       stackCounterSizing 原样拷贝到 INSTANCE（如 Button 的 counter 轴 RESIZE_TO_FIT_WITH_IMPLICIT_SIZE），
+  //       导致宽高仍被模板 HUG 行为覆盖，DOM 指定的 INSTANCE.size 实际不生效。
+  // 策略：仅当 DOM 有明确宽高且变体有 Auto Layout（stackMode 存在）时才覆写，
+  //       纯图形变体（stackMode 为空，如 Checkbox 16×16）靠 INSTANCE.size 直接控制，不需额外字段。
+  //
+  // 差值判断：
+  // - 宽度仍用 >2px 阈值，避免误锁宽度弹性组件（如 Input 全宽场景）；
+  // - 高度改为 >=1px 即锁定，确保 Input 这类 32/33px 微差也能与 DOM 对齐。
+  if (_hasDomSize && (instNode.stackMode === 'HORIZONTAL' || instNode.stackMode === 'VERTICAL')) {
+    var _isHorizInst = (instNode.stackMode === 'HORIZONTAL');
+    var _domInstW = _instSize.x;
+    var _domInstH = _instSize.y;
+    var _symOrigW = (_symNode && _symNode.size) ? _symNode.size.x : null;
+    var _symOrigH = (_symNode && _symNode.size) ? _symNode.size.y : null;
+
+    var _wDiffers = _isFiniteNumber(_symOrigW) && _symOrigW > 0 && Math.abs(_domInstW - _symOrigW) > 2;
+    var _hDiffers = _isFiniteNumber(_symOrigH) && _symOrigH > 0 && Math.abs(_domInstH - _symOrigH) >= 1;
+
+    console.log('[instance-size-debug]', instanceNodeName, {
+      stackMode: instNode.stackMode,
+      domW: _domInstW, domH: _domInstH,
+      symW: _symOrigW, symH: _symOrigH,
+      wDiffers: _wDiffers, hDiffers: _hDiffers,
+      uniformScale: _uniformScale,
+      hasDomSize: _hasDomSize,
+      symNodeExists: !!_symNode,
+      symNodeSize: _symNode ? _symNode.size : null,
+    });
+
+    if (_isHorizInst) {
+      // 主轴 = 宽，交叉轴 = 高
+      instNode.stackPrimarySizing = _wDiffers ? 'FIXED' : 'RESIZE_TO_FIT';
+      instNode.stackCounterSizing = _hDiffers ? 'FIXED' : 'RESIZE_TO_FIT';
+    } else {
+      // 主轴 = 高，交叉轴 = 宽
+      instNode.stackPrimarySizing = _hDiffers ? 'FIXED' : 'RESIZE_TO_FIT';
+      instNode.stackCounterSizing = _wDiffers ? 'FIXED' : 'RESIZE_TO_FIT';
+    }
+
+    console.log('[instance-size-debug] →', instanceNodeName, {
+      stackPrimarySizing: instNode.stackPrimarySizing,
+      stackCounterSizing: instNode.stackCounterSizing,
+      instNodeSize: instNode.size,
+    });
+  } else {
+    console.log('[instance-size-debug] SKIP', instanceNodeName, {
+      hasDomSize: _hasDomSize,
+      stackMode: instNode.stackMode,
+      symNodeExists: !!_symNode,
+    });
+  }
+
   return instNode;
 }
 
@@ -3324,6 +3593,8 @@ function convertTextNode(irNode, guid, parentGuid, siblingIndex, fontCtxMap, blo
   // 多行文本检测（用视觉文本拆行，保证行宽度度量正确）
   var _contentLines = _tcTransformed.split('\n');
   var _isMultiLine = _contentLines.length > 1;
+  var _lineClamp = parseInt(style.lineClamp, 10);
+  var _hasLineClamp = !Number.isNaN(_lineClamp) && _lineClamp > 0;
 
   var nodeHeight;
   if (_isMultiLine) {
@@ -3332,8 +3603,12 @@ function convertTextNode(irNode, guid, parentGuid, siblingIndex, fontCtxMap, blo
     // 远小于 CSS 行高（如 fontSize=14 时约 10px vs CSS 20px），会导致多行字形严重重叠，
     // Figma 初始渲染看不出换行，双击重渲后才正常。
     if (style.lineHeight) lineHeightVal = style.lineHeight;
-    // 多行高度 = 行数 × 单行行高
-    nodeHeight = _contentLines.length * lineHeightVal;
+    // 多行高度：默认按内容行数计算；line-clamp 场景优先尊重 DOM 实际高度（通常已是 clamp 后高度）
+    if (_hasLineClamp && style.height != null && style.height > 0) {
+      nodeHeight = Math.round(style.height);
+    } else {
+      nodeHeight = _contentLines.length * lineHeightVal;
+    }
     // 多行文本需要固定宽度（如 style 无宽度则用兜底值）
     if (!hasExplicitWidth) nodeWidth = style.width ?? 200;
   } else {
@@ -3501,10 +3776,12 @@ function convertTextNode(irNode, guid, parentGuid, siblingIndex, fontCtxMap, blo
     textBidiVersion: 1,
   };
 
-  if (style.singleLine) {
+  if (_hasLineClamp) {
+    nc.maxLines = _lineClamp;
+  } else if (style.singleLine) {
     nc.maxLines = 1;
   }
-  if (style.textOverflow === 'ellipsis') {
+  if (style.textOverflow === 'ellipsis' || _hasLineClamp) {
     nc.textTruncation = 'ENDING';
     // Figma truncation requires fixed width — auto-resize WIDTH_AND_HEIGHT
     // would expand to fit all text, never truncating. Force to HEIGHT-only.
@@ -3617,7 +3894,11 @@ function convertTextNode(irNode, guid, parentGuid, siblingIndex, fontCtxMap, blo
     if (_isMultiLine) {
       // 逐行测量字形，生成多行 baseline
       var _charOffset = 0;
+      var _multiLineLineClamp = _hasLineClamp ? _lineClamp : 0;
+      var _maxLineCount = _multiLineLineClamp > 0 ? Math.min(_multiLineLineClamp, _contentLines.length) : _contentLines.length;
+      var _didClampMultiLine = _multiLineLineClamp > 0 && _contentLines.length > _multiLineLineClamp;
       for (var _li = 0; _li < _contentLines.length; _li++) {
+        if (_li >= _maxLineCount) break;
         var _lineText = _contentLines[_li];
         var _lineYBase = _li * lineHeightVal;
         var _lineMeasured = null;
@@ -3626,6 +3907,35 @@ function convertTextNode(irNode, guid, parentGuid, siblingIndex, fontCtxMap, blo
         }
         var _lineWidth = _lineMeasured ? _lineMeasured.totalWidth : 0;
         var _lineGlyphs = _lineMeasured ? _lineMeasured.glyphs : [];
+        var _lineIsClampedLast = _didClampMultiLine && (_li === _maxLineCount - 1);
+        if (_lineIsClampedLast) {
+          var _mFontScale = fontSize / resolvedFontCtx.font.unitsPerEm;
+          var _mRawGlyphs = resolvedFontCtx.font.stringToGlyphs('\u2026');
+          var _mHasPath = _mRawGlyphs && _mRawGlyphs.length > 0 &&
+            _mRawGlyphs[0].index !== 0 &&
+            _mRawGlyphs[0].path && _mRawGlyphs[0].path.commands && _mRawGlyphs[0].path.commands.length > 0;
+          var _mEllipsisGlyphs = _mHasPath ? _mRawGlyphs : [];
+          if (_mEllipsisGlyphs.length === 0) {
+            var _mDotGlyph = resolvedFontCtx.font.stringToGlyphs('.')[0];
+            if (_mDotGlyph && _mDotGlyph.index !== 0) _mEllipsisGlyphs = [_mDotGlyph, _mDotGlyph, _mDotGlyph];
+          }
+          var _mEllipsisW = 0;
+          for (var _mEi = 0; _mEi < _mEllipsisGlyphs.length; _mEi++) {
+            _mEllipsisW += (_mEllipsisGlyphs[_mEi].advanceWidth || resolvedFontCtx.font.unitsPerEm) * _mFontScale;
+          }
+          var _mAvailW = Math.max(0, nodeWidth - _mEllipsisW);
+          var _mKeepCount = 0;
+          for (var _mGi = 0; _mGi < _lineGlyphs.length; _mGi++) {
+            var _mGd = _lineGlyphs[_mGi];
+            if (_mGd.x + _mGd.advance > _mAvailW) break;
+            _mKeepCount = _mGi + 1;
+          }
+          if (_mEllipsisGlyphs.length > 0) {
+            _lineGlyphs = _lineGlyphs.slice(0, _mKeepCount);
+            _lineWidth = (_mKeepCount > 0 ? (_lineGlyphs[_mKeepCount - 1].x + _lineGlyphs[_mKeepCount - 1].advance) : 0) + _mEllipsisW;
+            _truncationStartIdx = _charOffset + _mKeepCount;
+          }
+        }
         var _lineXOffset = computeTextAlignXOffset(style.textAlignHorizontal, nodeWidth, _lineWidth);
         for (var _gi = 0; _gi < _lineGlyphs.length; _gi++) {
           var _gd = _lineGlyphs[_gi];
@@ -3669,9 +3979,40 @@ function convertTextNode(irNode, guid, parentGuid, siblingIndex, fontCtxMap, blo
           }
           figmaGlyphs.push(_glyphObj);
         }
+        if (_lineIsClampedLast && _truncationStartIdx >= 0) {
+          var _mEFontScale = fontSize / resolvedFontCtx.font.unitsPerEm;
+          var _mERawGlyphs = resolvedFontCtx.font.stringToGlyphs('\u2026');
+          var _mEHasPath = _mERawGlyphs && _mERawGlyphs.length > 0 &&
+            _mERawGlyphs[0].index !== 0 &&
+            _mERawGlyphs[0].path && _mERawGlyphs[0].path.commands && _mERawGlyphs[0].path.commands.length > 0;
+          var _mEOtGlyphs = _mEHasPath ? _mERawGlyphs : [];
+          if (_mEOtGlyphs.length === 0) {
+            var _mEDotG = resolvedFontCtx.font.stringToGlyphs('.')[0];
+            if (_mEDotG && _mEDotG.index !== 0) _mEOtGlyphs = [_mEDotG, _mEDotG, _mEDotG];
+          }
+          var _mEVisW = (_lineGlyphs.length > 0) ? (_lineGlyphs[_lineGlyphs.length - 1].x + _lineGlyphs[_lineGlyphs.length - 1].advance) : 0;
+          var _mEX = _mEVisW + _lineXOffset;
+          for (var _mEGi = 0; _mEGi < _mEOtGlyphs.length; _mEGi++) {
+            var _mEGlyph = _mEOtGlyphs[_mEGi];
+            var _mEBlob = encodeGlyphBlob(_mEGlyph);
+            var _mEBlobIdx = blobs.length;
+            blobs.push({ bytes: _mEBlob });
+            var _mEAdvNorm = (_mEGlyph.advanceWidth || resolvedFontCtx.font.unitsPerEm) / resolvedFontCtx.font.unitsPerEm;
+            var _mEAdvPx = (_mEGlyph.advanceWidth || resolvedFontCtx.font.unitsPerEm) * _mEFontScale;
+            figmaGlyphs.push({
+              commandsBlob: _mEBlobIdx,
+              position: { x: _mEX, y: _lineYBase + measured.ascender },
+              fontSize: fontSize,
+              firstCharacter: _truncationStartIdx,
+              advance: _mEAdvNorm,
+            });
+            _mEX += _mEAdvPx;
+          }
+        }
+        var _lineEndChar = _charOffset + Math.max(_lineGlyphs.length - 1, 0);
         figmaBaselines.push({
           firstCharacter: _charOffset,
-          endCharacter: _charOffset + Math.max(_lineText.length - 1, 0),
+          endCharacter: _lineEndChar,
           position: { x: _lineXOffset, y: _lineYBase + measured.ascender },
           width: _lineWidth,
           lineY: _lineYBase,
@@ -4120,11 +4461,18 @@ function uint8ArrayToBase64(u8) {
 }
 
 function buildClipboardHtml(metaObj, archiveBuf) {
-  var metaB64 = uint8ArrayToBase64(new Uint8Array(
-    typeof TextEncoder !== 'undefined'
-      ? new TextEncoder().encode(JSON.stringify(metaObj))
-      : Buffer.from(JSON.stringify(metaObj))
-  ));
+  var _metaBytes;
+  if (typeof TextEncoder !== 'undefined') {
+    _metaBytes = new TextEncoder().encode(JSON.stringify(metaObj));
+  } else if (typeof Buffer !== 'undefined') {
+    _metaBytes = Buffer.from(JSON.stringify(metaObj));
+  } else {
+    var _s = unescape(encodeURIComponent(JSON.stringify(metaObj)));
+    var _arr = new Uint8Array(_s.length);
+    for (var _i = 0; _i < _s.length; _i++) _arr[_i] = _s.charCodeAt(_i);
+    _metaBytes = _arr;
+  }
+  var metaB64 = uint8ArrayToBase64(new Uint8Array(_metaBytes));
   var figmaB64 = uint8ArrayToBase64(archiveBuf);
   return '<meta charset="utf-8" /><meta charset="utf-8" />' +
     '<span data-metadata="<!--(figmeta)' + metaB64 + '(/figmeta)-->"></span>' +
@@ -4149,6 +4497,7 @@ function convertIRToFigmaClipboardHtml(irPayload, fontCtxOrMap) {
   _componentMappingLog = [];
   _iocChildrenOfCache = null;
   _iocByGuidCache = null;
+  _validateTemplateBlobReferences();
 
   // 统一转换为新格式 { [family]: { [weight]: ctx } }
   var fontCtxMap = null;
@@ -4354,7 +4703,11 @@ function convertIRToFigmaClipboardHtml(irPayload, fontCtxOrMap) {
         // 这种 SYMBOL 在 Figma 渲染时找不到 TEXT 节点 → 显示库默认文字（如"文字按钮"）。
         // 此处运行时对它们注入合成 TEXT 节点，使 textOverride 能正确命中。
         // 新版 inspector 已在导出阶段做相同处理，此处仅作为旧模板的兜底。
+        //
+        // ⚠️ 重要：最小映射模式下不应注入该兜底，否则会在输入框等组件右侧出现蓝色占位 "Text"。
+        var _enableRuntimeSynthesizeMissingTextChildren = false;
         (function _synthesizeMissingTextChildren() {
+          if (!_enableRuntimeSynthesizeMissingTextChildren) return;
           var _localChildrenOf = Object.create(null);
           _filteredIocNodes.forEach(function(n) {
             if (!n.parentIndex || !n.parentIndex.guid) return;
@@ -4531,13 +4884,24 @@ function convertIRToFigmaClipboardHtml(irPayload, fontCtxOrMap) {
         // 建立 publishID_gk → SYMBOL.guid 反查表，统一修正所有 INSTANCE.symbolData.symbolID。
         (function _fixInstanceSymbolIDs() {
           var _pubToGuid = Object.create(null);
+          // IOC Canvas sessionID，用于在同一 publishID 有多个 SYMBOL 副本时优先选 IOC copy。
+          // 典型场景：relinkHollowSymbols 产生的替代节点（如 {966,43174}）与 _convertToIocCopies
+          // 生成的正式 IOC copy（如 {20004329,400}）具有相同 publishID，后者才有正确的子节点。
+          var _iocCanvasSID = _allIocNodes[0] && _allIocNodes[0].guid && _allIocNodes[0].guid.sessionID;
           for (var _si = 0; _si < _filteredIocNodes.length; _si++) {
             var _sn = _filteredIocNodes[_si];
             if (_sn.type !== 'SYMBOL' || !_sn.publishID) continue;
             var _pubGk = _sn.publishID.sessionID + ':' + _sn.publishID.localID;
             // publishID 不等于 guid 时才是真正的副本（guid == publishID 的是原始节点，不应出现在此处）
             if (_pubGk !== _sn.guid.sessionID + ':' + _sn.guid.localID) {
-              _pubToGuid[_pubGk] = _sn.guid;
+              // 同一 publishID 可能对应多个副本（IOC copy + relinkHollowSymbols 替代节点）。
+              // 优先采用 IOC Canvas session 的正式副本（sessionID == iocCanvasSID），
+              // 因为它经过 _convertToIocCopies 处理，拥有完整的子节点；
+              // relinkHollowSymbols 替代节点的子节点 parentIndex 可能仍指向原始 GUID，
+              // 被选中后会导致 INSTANCE 指向无子节点的空壳 SYMBOL（如多选框图标空框 bug）。
+              if (!_pubToGuid[_pubGk] || _sn.guid.sessionID === _iocCanvasSID) {
+                _pubToGuid[_pubGk] = _sn.guid;
+              }
             }
           }
           var _fixCount = 0;
@@ -4553,6 +4917,21 @@ function convertIRToFigmaClipboardHtml(irPayload, fontCtxOrMap) {
               _fixCount++;
             }
           }
+          // 同样修正 IOC Canvas 内部 INSTANCE 节点（如变体 SYMBOL 子树内的图标引用）。
+          // _convertToIocCopies 已将图标 SYMBOL 的 guid 改为 IOC copy GUID，
+          // 但 _filteredIocNodes 里的嵌套 INSTANCE 仍指向旧 publishID → 在此一并更新。
+          for (var _ioi = 0; _ioi < _filteredIocNodes.length; _ioi++) {
+            var _ion = _filteredIocNodes[_ioi];
+            if (_ion.type !== 'INSTANCE' || !_ion.symbolData || !_ion.symbolData.symbolID) continue;
+            var _ioSidGk = _ion.symbolData.symbolID.sessionID + ':' + _ion.symbolData.symbolID.localID;
+            var _ioNewSid = _pubToGuid[_ioSidGk];
+            if (_ioNewSid) {
+              _filteredIocNodes[_ioi] = Object.assign({}, _ion, {
+                symbolData: Object.assign({}, _ion.symbolData, { symbolID: _ioNewSid })
+              });
+              _fixCount++;
+            }
+          }
         })();
 
         _msgOpts.iocNodes = _filteredIocNodes;
@@ -4564,7 +4943,7 @@ function convertIRToFigmaClipboardHtml(irPayload, fontCtxOrMap) {
     console.warn('[ir-to-figma] WARNING: template has no iocNodes!',
       'INSTANCE nodes will have symbolID GUIDs that are NOT embedded in the clipboard',
       '→ Figma shows "Component removed from this file".',
-      'Fix: regenerate figma-component-template.js using the inspector export button.'
+      'Fix: re-export the HTML templates using the inspector export button.'
     );
   }
   try {} catch (_eMapLog) {}

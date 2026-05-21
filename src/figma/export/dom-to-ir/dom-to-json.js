@@ -111,15 +111,18 @@ var COMPONENT_LIBRARY_SUPPORTED_COMPONENTS = [
   'Input',
   'Input.Search',
   'Select',
-  // 'DatePicker',    // 含 TimePicker / RangePicker（class 均为 ant-picker）
-  // 'Checkbox',
-  // 'Radio',
-  // 'Switch',
+  'DatePicker',
+  'DatePicker.RangePicker',
+  'TimePicker',
+  'Checkbox',
+  'Radio',
+  'Switch',
   // 'Slider',
   // 'Rate',
-  // 'Tag',
+  'Tag',
+  'Alert',
   // 'Badge',
-  // 'Tabs',          // ant-tabs-tab 子项
+  'Tabs',          // ant-tabs-tab 子项
   // 'QuickSortTag',  // ant-pro-checkableTag 快捷筛选项
 ];
 
@@ -130,6 +133,42 @@ function isLibraryComponentSupported(componentName) {
     if (COMPONENT_LIBRARY_SUPPORTED_COMPONENTS[_sci] === componentName) return true;
   }
   return false;
+}
+
+/** antd 外层 wrapper：内层 input 上的 data-figma-props 应提升到此处再映射 INSTANCE */
+function isComponentLibraryHoistWrapper(el) {
+  if (!el || !el.classList) return false;
+  return el.classList.contains('ant-input-affix-wrapper')
+    || el.classList.contains('ant-input-group-wrapper')
+    || el.classList.contains('ant-checkbox-wrapper')
+    || el.classList.contains('ant-radio-wrapper');
+}
+
+function findComponentLibraryHoistWrapper(fromEl, stopAt) {
+  var p = fromEl && fromEl.parentElement;
+  while (p && p !== stopAt) {
+    if (isComponentLibraryHoistWrapper(p)) return p;
+    p = p.parentElement;
+  }
+  return null;
+}
+
+var _LIBRARY_HOIST_ATTRS = [
+  'data-figma-props',
+  'data-library-source',
+  'data-zone-title',
+  'data-zone-classnames',
+  'data-zone-selector',
+  'data-loc',
+];
+
+function hoistLibraryAttrsFromInnerToWrapper(innerEl, wrapperEl) {
+  if (!innerEl || !wrapperEl) return;
+  for (var _hai = 0; _hai < _LIBRARY_HOIST_ATTRS.length; _hai++) {
+    var _attr = _LIBRARY_HOIST_ATTRS[_hai];
+    var _val = innerEl.getAttribute(_attr);
+    if (_val && !wrapperEl.getAttribute(_attr)) wrapperEl.setAttribute(_attr, _val);
+  }
 }
 
 
@@ -644,8 +683,16 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
     if (hasClassPrefix(el, 'append-')) return null;
     if (hasClassPrefix(el, 'boardTitle-')) return null;
 
-    // ant-checkbox-inner 是 checkbox 的纯视觉方框，当启用组件库映射时由 Figma 变体组件负责渲染，跳过
-    if (COMPONENT_LIBRARY_ENABLED && el.classList && el.classList.contains('ant-checkbox-inner')) return null;
+    // ant-checkbox-inner / ant-radio-inner 由变体 INSTANCE 负责渲染，跳过避免重复
+    if (COMPONENT_LIBRARY_ENABLED && el.classList && (
+      el.classList.contains('ant-checkbox-inner') || el.classList.contains('ant-radio-inner')
+    )) return null;
+
+    // 内层 input 的标已提升到 ant-checkbox-wrapper / ant-radio-wrapper，避免在 input 上重复生成 INSTANCE
+    if (COMPONENT_LIBRARY_ENABLED && tag === 'input' && el.getAttribute && el.getAttribute('data-figma-props')) {
+      var _hoistWrapForSkip = findComponentLibraryHoistWrapper(el, null);
+      if (_hoistWrapForSkip && _hoistWrapForSkip.getAttribute('data-figma-props')) return null;
+    }
 
     // 红线原则：无 data-figma-props 的元素绝对不做组件库映射，一律按 Frame/Text 展开。
 
@@ -1000,9 +1047,21 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
         // 判断是否容器约束宽度：用 Range 测量文字内容的自然渲染宽度，若内容宽度 < 元素宽度 × 0.9
         // 则说明容器 CSS 约束了宽度（文字未撑满），固定宽度不会导致 Figma 换行
         // 也检测 text-overflow: ellipsis，文字超出被截断同样需要固定容器宽度
+        var _textOverflowVal = (computed && computed.textOverflow) || '';
+        var _overflowXVal = (computed && (computed.overflowX || computed.overflow)) || '';
+        var _webkitLineClampRaw = computed ? (computed.webkitLineClamp || computed.lineClamp || '') : '';
+        var _webkitLineClamp = parseInt(_webkitLineClampRaw, 10);
+        // 多行省略（-webkit-line-clamp）在 DOM 里常配合 display:-webkit-box + overflow:hidden。
+        // 这里写入 lineClamp 元数据，供 ir-to-figma 按 maxLines + truncation 导出。
+        if (!Number.isNaN(_webkitLineClamp) && _webkitLineClamp > 0 && _overflowXVal !== 'visible') {
+          node.style.lineClamp = _webkitLineClamp;
+          node.style.widthConstrained = true;
+          node.style.textOverflow = 'ellipsis';
+          if (_webkitLineClamp === 1) {
+            node.style.singleLine = true;
+          }
+        }
         if (node.style.singleLine && node.style.width != null) {
-          var _textOverflowVal = (computed && computed.textOverflow) || '';
-          var _overflowXVal = (computed && (computed.overflowX || computed.overflow)) || '';
           if (_textOverflowVal === 'ellipsis' && _overflowXVal !== 'visible') {
             node.style.widthConstrained = true;
             node.style.textOverflow = 'ellipsis';
@@ -1174,17 +1233,29 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
           if (_earlyLibSrc) node.librarySource = _earlyLibSrc;
           var _earlyZt = el.getAttribute('data-zone-title') || '';
           if (_earlyZt) node.zoneTitle = _earlyZt;
-          node.disabled = !!(el.disabled || (el.getAttribute && el.getAttribute('disabled') !== null));
-          // 补充 label：优先表单标签元素，次选 innerText
+          var _earlyComponent = _earlyFpParsed.component || '';
+          var _stateInputEl = (tag === 'input' || tag === 'textarea')
+            ? el
+            : (el.querySelector && el.querySelector('input[type="checkbox"], input[type="radio"], textarea, input'));
+          node.disabled = !!(
+            el.disabled ||
+            (el.getAttribute && el.getAttribute('disabled') !== null) ||
+            (_stateInputEl && (_stateInputEl.disabled || _stateInputEl.getAttribute('disabled') !== null))
+          );
+          // 补充 label：优先表单标签元素，Checkbox 等从 ant 结构取文案 span，次选 innerText
           var _earlyLabelEl = el.querySelector && (
             el.querySelector('.ant-form-item-label label') ||
             el.querySelector('label.ant-form-item-no-colon') ||
             el.querySelector('label')
           );
-          var _earlyLabel = _earlyLabelEl
-            ? (_earlyLabelEl.getAttribute('title') || _earlyLabelEl.textContent || '').trim()
-            : (el.innerText || el.textContent || '').replace(/\s+/g, ' ').trim();
-          var _earlyComponent = _earlyFpParsed.component || '';
+          var _checkboxLabelSpan = (_earlyComponent === 'Checkbox' && el.querySelector)
+            ? el.querySelector('.ant-checkbox + span')
+            : null;
+          var _earlyLabel = _checkboxLabelSpan
+            ? (_checkboxLabelSpan.textContent || '').replace(/\s+/g, ' ').trim()
+            : _earlyLabelEl
+              ? (_earlyLabelEl.getAttribute('title') || _earlyLabelEl.textContent || '').trim()
+              : (el.innerText || el.textContent || '').replace(/\s+/g, ' ').trim();
           var _preferPlaceholderLabel = (
             _earlyComponent === 'Input' ||
             _earlyComponent === 'Input.Search' ||
@@ -1201,7 +1272,12 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
             || (_earlySelectPhEl && (_earlySelectPhEl.textContent || '').trim())
             || '';
           if (_earlyPh) node.placeholder = _earlyPh;
-          if (_preferPlaceholderLabel && _earlyPh) {
+          var _alertMessage = (_earlyComponent === 'Alert' && _earlyFpParsed.props && _earlyFpParsed.props.message)
+            ? String(_earlyFpParsed.props.message).trim()
+            : '';
+          if (_alertMessage) {
+            node.label = _alertMessage;
+          } else if (_preferPlaceholderLabel && _earlyPh) {
             // Input 组件优先用 placeholder 做文本 override，避免 innerText 混入隐藏测量文本（如“0571”）。
             node.label = _earlyPh;
           } else if (_earlyLabel) {
@@ -1951,11 +2027,9 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
     return node;
   }
   // ── 预处理：把落在内层 input/textarea 上的 data-figma-props 提升到外层 antd wrapper ──
-  // 背景：antd 组件（如 Input with prefix/suffix）会把未知 props 转发给内层 <input>，
-  // 导致 data-figma-props 落到 input 而非外层 span.ant-input-affix-wrapper，
-  // walk 处理外层时无法识别，展开为多余的 Frame + 内层 INSTANCE。
-  // 修正：提前扫一遍，将 data-figma-props 写到外层 wrapper，walk 的 _earlyFpRaw 检查即可正确截停。
-  // 只写不删：内层 input 上的属性保留无害，walk 提前 return 永远不会到达它；幂等。
+  // 背景：antd 会把未知 props 转发给内层 <input>（Input affix、Checkbox、Radio 等），
+  // 导致标落在 input 上；walk 在外层无法截停，会在内层生成 INSTANCE + 外层文案 Text 重叠。
+  // 修正：提前把 data-figma-props 等写到外层 wrapper，walk 在 wrapper 上截停为单个 component-library 节点。
   if (COMPONENT_LIBRARY_ENABLED) {
     var _innerFpEls = dom.querySelectorAll && dom.querySelectorAll('input[data-figma-props], textarea[data-figma-props]');
     if (_innerFpEls && _innerFpEls.length) {
@@ -1964,16 +2038,8 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
         var _hfFp = _hfInner.getAttribute('data-figma-props');
         if (!_hfFp) continue;
         try { var _hfObj = JSON.parse(_hfFp); if (!_hfObj || !_hfObj.component) continue; } catch (_eHf) { continue; }
-        var _hfAncestor = _hfInner.parentElement;
-        while (_hfAncestor && _hfAncestor !== dom) {
-          var _hfCls = typeof _hfAncestor.className === 'string' ? _hfAncestor.className : '';
-          if (/\bant-input-affix-wrapper\b|\bant-input-group-wrapper\b/.test(_hfCls)) {
-            if (!_hfAncestor.getAttribute('data-figma-props')) _hfAncestor.setAttribute('data-figma-props', _hfFp);
-            try {} catch (_eDbgHoist) {}
-            break;
-          }
-          _hfAncestor = _hfAncestor.parentElement;
-        }
+        var _hfWrapper = findComponentLibraryHoistWrapper(_hfInner, dom);
+        if (_hfWrapper) hoistLibraryAttrsFromInnerToWrapper(_hfInner, _hfWrapper);
       }
     }
   }

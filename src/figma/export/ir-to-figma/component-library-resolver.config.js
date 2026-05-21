@@ -16,6 +16,15 @@ module.exports = {
     Select: {
       size: 'middle',
     },
+    DatePicker: {
+      size: 'middle',
+    },
+    RangePicker: {
+      size: 'middle',
+    },
+    TimePicker: {
+      size: 'middle',
+    },
   },
 
   // JSX prop 值与模板 description 值不一致时做归一映射。
@@ -25,6 +34,9 @@ module.exports = {
     },
     Button: {
       type: { link: 'text' },
+    },
+    Tag: {
+      color: { default: undefined },
     },
   },
 
@@ -42,5 +54,15 @@ module.exports = {
         overrideProps: { size: 'middle' },
       },
     ],
+  },
+
+  // JSX children 文案区分变体族时，用变体名中的维度做二级消歧（如 Checkbox 的 带图标=on/off）
+  inlineChildrenVariantDim: {
+    Checkbox: '带图标',
+  },
+
+  // 组件在 symbolDescription 中靠 JSX prop 有无区分变体族（不进 descKey，仅消歧）
+  jsxPropPresenceFilters: {
+    Alert: ['description'],
   },
 };
