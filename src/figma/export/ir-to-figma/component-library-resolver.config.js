@@ -25,6 +25,9 @@ module.exports = {
     TimePicker: {
       size: 'middle',
     },
+    Tag: {
+      size: 'middle',
+    },
   },
 
   // JSX prop 值与模板 description 值不一致时做归一映射。

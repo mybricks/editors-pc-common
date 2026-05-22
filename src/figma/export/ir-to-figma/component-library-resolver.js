@@ -623,6 +623,42 @@ function resolveComponentLibraryNode(irNode, template) {
    *
    * 扩展方式：在此函数末尾按同一模式追加新的 filter 块，无需修改其他逻辑。
    */
+  // ── Tag closable 前置校验 ──────────────────────────────────────────────────
+  // 问题根因：无 Code Connect description 的变体不进索引，导致只有 closable={true} 变体命中，
+  // candidates.length === 1 时整个多候选消歧块（if length > 1）被跳过，冲突候选被直接使用。
+  // 解决：在消歧块外单独处理 Tag closable 冲突。
+  //   1. 所有候选均与 figmaProps.closable 期望冲突 → 全量搜索合适的 Tag 变体
+  //   2. 全量也找不到合适变体 → return null，降级为 frame 渲染（正确外观优于错误组件变体）
+  if (domComponent === 'Tag' && figmaProps) {
+    var _tagWantClosable = figmaProps.closable === true;
+    var _tagConflictCnt = 0;
+    for (var _tci = 0; _tci < candidates.length; _tci++) {
+      var _tcv = parseDescBooleanProp(candidates[_tci].description, 'closable');
+      if (_tagWantClosable ? _tcv === false : _tcv === true) _tagConflictCnt++;
+    }
+    if (_tagConflictCnt === candidates.length && candidates.length > 0) {
+      // 所有候选均冲突，做全量搜索
+      var _tagFbList = [];
+      index.forEach(function(arr) {
+        if (!arr || !arr.length) return;
+        for (var _tfi = 0; _tfi < arr.length; _tfi++) {
+          var _tfe = arr[_tfi];
+          if (_tfe && _tfe.component === 'Tag') {
+            var _tv = parseDescBooleanProp(_tfe.description, 'closable');
+            if (_tagWantClosable ? _tv !== false : _tv !== true) _tagFbList.push(_tfe);
+          }
+        }
+      });
+      if (_tagFbList.length > 0) {
+        candidates = _tagFbList;
+        console.log(_tag, 'Tag closable 全量回退:', _tagWantClosable ? 'true' : 'false', '→', candidates.length);
+      } else {
+        console.log(_tag, 'Tag closable: 无合适变体，降级为 frame 渲染');
+        return null;
+      }
+    }
+  }
+
   var best = candidates[0];
   if (candidates.length > 1) {
     // 1. 尺寸 filter（最先执行，用于跨变体组收窄）：
@@ -1011,6 +1047,20 @@ function resolveComponentLibraryNode(irNode, template) {
           console.log(_tag, 'Tag color filter:', _colorLiteral, '→', _colorMatched.length);
           candidates = _colorMatched;
         }
+      }
+    }
+
+    // 18.5. Tag closable filter：
+    //   closable={true}  → 偏好 description 含 closable={true} 的变体（有关闭按钮）
+    //   closable={false} 或未传 → 偏好 description 不含 closable 的变体（无关闭按钮）
+    if (domComponent === 'Tag' && figmaProps && figmaProps.closable !== undefined) {
+      var _tagClosable = !!figmaProps.closable;
+      var _tagClosableFiltered = filterByDescBooleanProp(candidates, 'closable', _tagClosable);
+      if (_tagClosableFiltered.length > 0 && _tagClosableFiltered.length !== candidates.length) {
+        console.log(_tag, 'Tag closable filter:', _tagClosable, '→', candidates.length, '→', _tagClosableFiltered.length);
+        candidates = _tagClosableFiltered;
+      } else if (_tagClosableFiltered.length > 0) {
+        candidates = _tagClosableFiltered;
       }
     }
 

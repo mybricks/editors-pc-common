@@ -376,6 +376,16 @@ function mergeFileResults(fileResults) {
       canonicalGuid.sessionID + ':' + canonicalGuid.localID, childrenOf, globalGuidToNode
     );
     if (textKey) entry.textOverrideKey = textKey;
+    // 用局部节点表记录 IOC 副本的父节点（ComponentSet FRAME），避免跨模板 GUID 碰撞污染。
+    // globalGuidToNode 是「先到先得」的全局表，多模板加载时 IOC 副本 GUID 可能被其他模板覆盖，
+    // 导致 canonicalToIocCopy 失效；此处用 localGm（per-template）直接记录 csFrameGuid。
+    if (node.parentIndex && node.parentIndex.guid) {
+      var _pGk = node.parentIndex.guid.sessionID + ':' + node.parentIndex.guid.localID;
+      var _pNode = localGm[_pGk];
+      if (_pNode && _pNode.isStateGroup) {
+        entry.csFrameGuid = { sessionID: node.parentIndex.guid.sessionID, localID: node.parentIndex.guid.localID };
+      }
+    }
     componentKeyIndex[node.componentKey] = entry;
   }
 
@@ -464,7 +474,36 @@ function mergeFileResults(fileResults) {
   var syntheticIocGuidKey = SYNTHETIC_IOC_GUID.sessionID + ':' + SYNTHETIC_IOC_GUID.localID;
   collectedGuids[syntheticIocGuidKey] = true;
 
+  // 从 componentKeyIndex 的 csFrameGuid 字段构建「规范 GUID → CS FRAME GUID」映射。
+  // csFrameGuid 由 recordNormalVariant 用局部节点表（per-template）记录，
+  // 不受 globalGuidToNode 跨模板 GUID 碰撞的影响，是最可靠的 CS FRAME 来源。
+  var canonicalGuidToCSFrame = Object.create(null);
+  for (var ck4 in componentKeyIndex) {
+    var e4 = componentKeyIndex[ck4];
+    if (e4.csFrameGuid) {
+      canonicalGuidToCSFrame[e4.sessionID + ':' + e4.localID] = e4.csFrameGuid;
+    }
+  }
+
+  // usedParentGuids：记录所有需要作为 SYMBOL 父节点写入 componentNodes 的 CS FRAME GUID。
+  //
+  // 填充策略与父节点解析（下方 SYMBOL loop）保持对齐，同样采用双路：
+  //   路径1（首选）：从 componentKeyIndex.csFrameGuid 填充。
+  //     csFrameGuid 由 recordNormalVariant 用 per-template 局部节点表写入，
+  //     不受多模板 globalGuidToNode 跨文件 GUID 碰撞影响，是最可靠的来源。
+  //   路径2（安全兜底）：从 globalGuidToNode / canonicalToIocCopy 补充。
+  //     可能因碰撞返回不准确的结果，但在路径1 覆盖所有场景的前提下，
+  //     路径2 实际上不会贡献新的 GUID；保留它仅为应对未来未知的边界场景。
+  //     【注意】若未来要移除路径2，同样需确认 csFrameGuid 对所有新模板均已正确写入。
   var usedParentGuids = Object.create(null);
+  // 路径1：csFrameGuid（首选，最可靠）
+  for (var ck5 in componentKeyIndex) {
+    var e5 = componentKeyIndex[ck5];
+    if (e5.csFrameGuid) {
+      usedParentGuids[e5.csFrameGuid.sessionID + ':' + e5.csFrameGuid.localID] = true;
+    }
+  }
+  // 路径2：globalGuidToNode / canonicalToIocCopy（安全兜底，当前不应贡献新 GUID）
   for (var sgk in usedSymbolGuids) {
     var sNode = globalGuidToNode[sgk];
     if (sNode && sNode.parentIndex && sNode.parentIndex.guid) {
@@ -510,8 +549,40 @@ function mergeFileResults(fileResults) {
       var symParentGk = cleanedSym.parentIndex && cleanedSym.parentIndex.guid &&
         (cleanedSym.parentIndex.guid.sessionID + ':' + cleanedSym.parentIndex.guid.localID);
       if (!usedParentGuids[symParentGk]) {
+        // 规范 SYMBOL 的 parentIndex 在原始模板中可能指向主画布页面（如 0:1）而非 ComponentSet FRAME，
+        // 需要找到正确的 CS FRAME 重新挂载。按优先级依次尝试：
+        //
+        // 路径1（首选）：canonicalGuidToCSFrame
+        //   来源：recordNormalVariant 在 per-template 局部节点表（localGuidToNode）中记录的 csFrameGuid。
+        //   可靠性：最高——局部表仅包含当前模板的节点，完全不受多模板加载时
+        //   globalGuidToNode「先到先得」规则导致的跨模板 GUID 碰撞影响。
+        //   覆盖范围：所有在 IOC Canvas 下有副本且副本直接父节点为 CS FRAME 的 SYMBOL，
+        //   即所有正常变体 SYMBOL，已验证覆盖 Button/DatePicker/Checkbox/Input/Select 等全部模板。
+        //
+        // 路径2（安全兜底）：copyNode2.parentIndex
+        //   来源：canonicalToIocCopy，由 globalGuidToNode 构建（可能因碰撞被污染）。
+        //   可靠性：较低——多模板加载时若 IOC 副本 GUID 与其他模板的节点碰撞，
+        //   canonicalToIocCopy 可能失效（返回 undefined）或指向错误节点。
+        //   当前实践中，路径1 已覆盖路径2 的全部场景，路径2 永远不会被触发；
+        //   保留它仅作为额外的安全保障，以应对未来新增模板中可能出现的未知场景。
+        //   【注意】若未来要移除路径2，需先确认 csFrameGuid 对所有新增模板均已正确写入。
+        //
+        // 兜底：挂到 IOC Canvas 根节点（SYMBOL 无 CS FRAME，如 Icon 类直接变体）
+        var _resolvedParentGuid = null;
+        var _csFromCK = canonicalGuidToCSFrame[sgk2];
+        if (_csFromCK && usedParentGuids[_csFromCK.sessionID + ':' + _csFromCK.localID]) {
+          _resolvedParentGuid = _csFromCK;
+        } else {
+          // 路径2：当前不应被触发（路径1 已全覆盖），保留为安全兜底
+          var _copyParentGk = copyNode2 && copyNode2.parentIndex && copyNode2.parentIndex.guid
+            ? (copyNode2.parentIndex.guid.sessionID + ':' + copyNode2.parentIndex.guid.localID)
+            : null;
+          if (_copyParentGk && usedParentGuids[_copyParentGk]) {
+            _resolvedParentGuid = copyNode2.parentIndex.guid;
+          }
+        }
         cleanedSym.parentIndex = {
-          guid: { sessionID: SYNTHETIC_IOC_GUID.sessionID, localID: SYNTHETIC_IOC_GUID.localID },
+          guid: _resolvedParentGuid || { sessionID: SYNTHETIC_IOC_GUID.sessionID, localID: SYNTHETIC_IOC_GUID.localID },
           position: (cleanedSym.parentIndex && cleanedSym.parentIndex.position) || '"',
         };
       }
@@ -614,6 +685,47 @@ function mergeFileResults(fileResults) {
       }
     }
   }
+
+  // ── 2-8b. collectColorStyleNodes：收录 IOC Canvas 下的颜色样式节点 ──────────
+  // Template 中 IOC Canvas 直接子节点里带有 styleType（FILL/STROKE/TEXT）的 ROUNDED_RECTANGLE
+  // 是 Figma 颜色样式的"样式锚点"——INSTANCE.symbolData.symbolOverrides 通过
+  // styleIdForFill.assetRef.key 引用它们来覆写图标/文字颜色。
+  // 若不将它们纳入 componentNodes → iocNodes，生成的剪贴板里就没有样式节点，
+  // Figma 无法解析 styleIdForFill → 颜色退化为 SYMBOL 默认（通常是灰色）。
+  (function collectColorStyleNodes() {
+    for (var _csfi = 0; _csfi < fileResults.length; _csfi++) {
+      var _csfr = fileResults[_csfi];
+      var _csNodes = _csfr.nodeChanges;
+      // 找本文件的 IOC Canvas GUID
+      var _csIocGk = null;
+      for (var _csni = 0; _csni < _csNodes.length; _csni++) {
+        var _csn = _csNodes[_csni];
+        if (_csn.internalOnly === true ||
+            (_csn.type === 'CANVAS' && _csn.name && _csn.name.indexOf('Internal Only') !== -1)) {
+          _csIocGk = _csn.guid.sessionID + ':' + _csn.guid.localID;
+          break;
+        }
+      }
+      if (!_csIocGk) continue;
+      for (var _csni2 = 0; _csni2 < _csNodes.length; _csni2++) {
+        var _csn2 = _csNodes[_csni2];
+        if (!_csn2.styleType) continue;                          // 只收 color style 节点
+        if (!_csn2.parentIndex || !_csn2.parentIndex.guid) continue;
+        var _csPGk = _csn2.parentIndex.guid.sessionID + ':' + _csn2.parentIndex.guid.localID;
+        if (_csPGk !== _csIocGk) continue;                       // 只收 IOC Canvas 直接子节点
+        var _csGk = _csn2.guid.sessionID + ':' + _csn2.guid.localID;
+        if (collectedGuids[_csGk]) continue;                     // 去重
+        collectedGuids[_csGk] = true;
+        var _cleanedStyle = cleanNode(_csn2);
+        // 重挂到合成 IOC Canvas（统一父节点）
+        _cleanedStyle.parentIndex = {
+          guid: { sessionID: SYNTHETIC_IOC_GUID.sessionID, localID: SYNTHETIC_IOC_GUID.localID },
+          position: (_cleanedStyle.parentIndex && _cleanedStyle.parentIndex.position) || '"',
+        };
+        componentNodes.push(_cleanedStyle);
+      }
+    }
+  })();
 
   // ── 2-9. relinkHollowSymbolReferences（关键修复：Checkbox 图标空框 bug）──
   (function relinkHollowSymbols() {

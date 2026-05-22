@@ -1,4 +1,5 @@
 // 汇总所有变体模板，供 html-templates-loader.js 的 buildTemplate 消费
+
 // 新增组件时在此追加一行 require 即可
 module.exports = [
   { fileName: 'Button',     htmlContent: require('./Button.js') },
@@ -11,4 +12,5 @@ module.exports = [
   { fileName: 'TimePicker', htmlContent: require('./TimePicker.js') },
   { fileName: 'Icon',       htmlContent: require('./Icon.js') },
   { fileName: 'Tag',        htmlContent: require('./Tag.js') },
+  { fileName: 'Alert',      htmlContent: require('./Alert.js') }
 ];
