@@ -6,12 +6,14 @@ import {
 } from '../import/decode-clipboard';
 import { readFigmaClipboardHtml } from '../import/read-clipboard';
 import { nodeChangesToSimpleFigmaImportItems } from '../import/to-import-items';
-import type { FigmaImportItem } from '../types';
+import { extractComponentPatchesFromNodeChanges } from '../import/to-component-items';
+import type { FigmaComponentPatch, FigmaImportItem } from '../types';
 
 export interface PasteFigmaClipboardDebugBtnProps {
   /** 与「从 Figma 同步样式」相同：写入组件 Less（由组件库 value.get 提供） */
   onSyncFromFigma?: (
-    items: FigmaImportItem[]
+    items: FigmaImportItem[],
+    componentPatches?: FigmaComponentPatch[]
   ) => void | number | { actualChangedCount?: number } | Promise<void | number | { actualChangedCount?: number }>;
 }
 
@@ -26,10 +28,11 @@ export function PasteFigmaClipboardDebugBtn({ onSyncFromFigma }: PasteFigmaClipb
       const decoded = decodeFigmaClipboardHtml(html);
       const nodeChanges = getNodeChangesFromMessage(decoded.message);
       const items = nodeChangesToSimpleFigmaImportItems(nodeChanges);
+      const componentPatches = extractComponentPatchesFromNodeChanges(nodeChanges);
 
       const antdMsg = (window as any).antd?.message;
-      if (onSyncFromFigma && items.length) {
-        const syncResult = await Promise.resolve(onSyncFromFigma(items));
+      if (onSyncFromFigma && (items.length || componentPatches.length)) {
+        const syncResult = await Promise.resolve(onSyncFromFigma(items, componentPatches));
         const actualChangedCount =
           typeof syncResult === 'number'
             ? syncResult
@@ -40,10 +43,10 @@ export function PasteFigmaClipboardDebugBtn({ onSyncFromFigma }: PasteFigmaClipb
           if (antdMsg) antdMsg.success(`成功从Figma同步${actualChangedCount}条样式改动`);
           else alert(`成功从Figma同步${actualChangedCount}条样式改动`);
         } else {
-          if (antdMsg) antdMsg.success(`已解析${items.length}条候选样式`);
-          else alert(`已解析${items.length}条候选样式`);
+          if (antdMsg) antdMsg.success(`已解析${items.length}条候选样式，${componentPatches.length}条组件变体`);
+          else alert(`已解析${items.length}条候选样式，${componentPatches.length}条组件变体`);
         }
-      } else if (onSyncFromFigma && !items.length) {
+      } else if (onSyncFromFigma && !items.length && !componentPatches.length) {
         if (antdMsg) antdMsg.warning('未解析到可同步节点（图层名需为单个 class，如 myCard）');
         else alert('未解析到可同步节点');
       } else {

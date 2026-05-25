@@ -1150,6 +1150,7 @@ function resolveComponentLibraryNode(irNode, template) {
     style: style,
   };
   if (irNode.figmaSyncSelector) resolved.figmaSyncSelector = irNode.figmaSyncSelector;
+  if (irNode.figmaSyncId) resolved.figmaSyncId = irNode.figmaSyncId;
 
   return resolved;
 }

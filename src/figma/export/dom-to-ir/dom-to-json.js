@@ -1186,12 +1186,14 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
         var _pSrc    = _pickerInputEl.getAttribute('data-library-source') || '';
         var _pProps  = _pickerInputEl.getAttribute('data-figma-props') || '';
         var _pZTitle = _pickerInputEl.getAttribute('data-zone-title') || '';
+        var _pLoc    = _pickerInputEl.getAttribute('data-loc') || '';
         // console.log('[dom-to-json][ant-picker-fix] input attrs: data-library-source=' + _pSrc
         //   + ', data-figma-props=' + _pProps + ', data-zone-title=' + _pZTitle);
         node.type = 'component-library';
         node.rawClassName = _libCls.trim();
         if (_pSrc)    node.librarySource = _pSrc;
         if (_pZTitle) node.zoneTitle = _pZTitle;
+        if (_pLoc) node.figmaSyncId = _pLoc;
         if (_pProps) {
           try {
             var _pParsed = JSON.parse(_pProps);
@@ -1233,6 +1235,8 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
           if (_earlyLibSrc) node.librarySource = _earlyLibSrc;
           var _earlyZt = el.getAttribute('data-zone-title') || '';
           if (_earlyZt) node.zoneTitle = _earlyZt;
+          var _earlyLoc = el.getAttribute('data-loc') || '';
+          if (_earlyLoc) node.figmaSyncId = _earlyLoc;
           var _earlyComponent = _earlyFpParsed.component || '';
           var _stateInputEl = (tag === 'input' || tag === 'textarea')
             ? el

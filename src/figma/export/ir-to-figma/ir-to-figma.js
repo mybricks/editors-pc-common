@@ -749,6 +749,35 @@ function withSyncTag(baseName, irNode, fallbackName) {
   return name + ' [mb:' + selector + ']';
 }
 
+function buildVariantAnchorName(baseName, irNode) {
+  var raw = (baseName == null ? '' : String(baseName)).trim();
+  var name = raw || 'Variant';
+  var syncId = (irNode && typeof irNode.figmaSyncId === 'string') ? irNode.figmaSyncId.trim() : '';
+  var selector = _pickSyncSelectorFromIr(irNode);
+  var tags = ['[mbv:variant]'];
+  if (syncId) tags.push('[mbid:' + syncId + ']');
+  if (selector) tags.push('[mb:' + selector + ']');
+  return tags.join(' ') + ' ' + name;
+}
+
+function buildVariantAnchorStyle(style) {
+  var s = style || {};
+  var out = {};
+  if (_isFiniteNumber(s.x)) out.x = s.x;
+  if (_isFiniteNumber(s.y)) out.y = s.y;
+  if (_isFiniteNumber(s.rotation)) out.rotation = s.rotation;
+  // 让外框完全包裹内部 INSTANCE，不设固定宽高
+  out.layoutMode = 'HORIZONTAL';
+  out.layoutSizingHorizontal = 'HUG';
+  out.layoutSizingVertical = 'HUG';
+  out.paddingTop = 0;
+  out.paddingBottom = 0;
+  out.paddingLeft = 0;
+  out.paddingRight = 0;
+  out.itemSpacing = 0;
+  return out;
+}
+
 // ─── IR fills → Figma fillPaints ───
 
 function normalizeImageScaleMode(mode) {
@@ -2892,9 +2921,20 @@ function convertNode(irNode, parentGuid, siblingIndex, fontCtxMap, blobs, parent
     var _resolvedInst = null;
     var _mappingFallback = 'frame';
     if (_resolved) {
-      _resolvedInst = convertInstanceNode(_resolved, guid, parentGuid, siblingIndex);
+      var _anchorIr = {
+        type: 'frame',
+        name: buildVariantAnchorName(_resolved.name || irNode.name || 'Variant', _resolved),
+        style: buildVariantAnchorStyle(irNode.style || _resolved.style || {}),
+        figmaSyncSelector: _resolved.figmaSyncSelector || irNode.figmaSyncSelector,
+        figmaSyncId: _resolved.figmaSyncId || irNode.figmaSyncId,
+      };
+      changes.push(convertFrameNode(_anchorIr, guid, parentGuid, siblingIndex, parentLayoutMode, blobs, imageCtxGlobal));
+      var _innerResolved = Object.assign({}, _resolved, {
+        style: Object.assign({}, _resolved.style || irNode.style || {}, { x: 0, y: 0 }),
+      });
+      _resolvedInst = convertInstanceNode(_innerResolved, nextGuid(), guid, 0);
       if (_resolvedInst) {
-        _mappingFallback = 'instance';
+        _mappingFallback = 'instance(wrapped)';
         changes.push(_resolvedInst);
       } else {
         _mappingFallback = 'frame(keyMissing)';
@@ -2935,7 +2975,18 @@ function convertNode(irNode, parentGuid, siblingIndex, fontCtxMap, blobs, parent
       fallback: _mappingFallback,
     });
   } else if (type === 'figma-instance') {
-    var inst = convertInstanceNode(irNode, guid, parentGuid, siblingIndex);
+    var _figAnchorIr = {
+      type: 'frame',
+      name: buildVariantAnchorName(irNode.name || 'Variant', irNode),
+      style: buildVariantAnchorStyle(irNode.style || {}),
+      figmaSyncSelector: irNode.figmaSyncSelector,
+      figmaSyncId: irNode.figmaSyncId,
+    };
+    changes.push(convertFrameNode(_figAnchorIr, guid, parentGuid, siblingIndex, parentLayoutMode, blobs, imageCtxGlobal));
+    var _innerInstIr = Object.assign({}, irNode, {
+      style: Object.assign({}, irNode.style || {}, { x: 0, y: 0 }),
+    });
+    var inst = convertInstanceNode(_innerInstIr, nextGuid(), guid, 0);
     if (inst) {
       changes.push(inst);
     } else {
