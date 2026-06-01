@@ -641,7 +641,7 @@ function createGetMatchedCssRulesWithCache(cacheTimeout = 5000, styleSheetCacheT
         return acc.concat(filteredRules);
       } catch (e) {
         // 处理跨域样式表的错误
-        console.warn('Cannot access rules from stylesheet:', e);
+        // console.warn('Cannot access rules from stylesheet:', e);
         return acc;
       }
     }, []);
