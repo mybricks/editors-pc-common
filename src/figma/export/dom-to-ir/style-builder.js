@@ -888,6 +888,10 @@ function buildStyleJSON(el, computed, rect, parentRect, cssRuleMap, globalFont) 
   // 二次兜底：maxWidth 远小于实际宽度时可能是百分比误转（如 100% → 100px）
   if (_maxW != null && w != null && _maxW < w * 0.5) _maxW = undefined;
   if (_maxH != null && h != null && _maxH < h * 0.5) _maxH = undefined;
+  // 三次兜底：若实际渲染高度超过 max-height（如 table td 忽略 max-height 的场景），
+  // 说明浏览器已忽略该约束，Figma 不应设 maxSize.y 导致内容被裁切错位
+  if (_maxW != null && w != null && w > _maxW + 1) _maxW = undefined;
+  if (_maxH != null && h != null && h > _maxH + 1) _maxH = undefined;
   if ((_minW != null && _minW > 0) || (_minH != null && _minH > 0)) {
     style.minWidth = _minW || undefined;
     style.minHeight = _minH || undefined;
