@@ -4002,6 +4002,9 @@ function convertTextNode(irNode, guid, parentGuid, siblingIndex, fontCtxMap, blo
     var figmaBaselines = [];
     var _truncationStartIdx = -1;
     var _hasEmojiGlyph = false;
+    // 当省略号字形无法从字体取到时，跳过 derivedTextData，
+    // 让 Figma 的文本引擎根据 textTruncation:'ENDING' 自行渲染省略号（首帧即可见）。
+    var _skipDerivedData = false;
     // 单行：用 CSS half-leading 模型计算 ascender（baseline 距行框顶部的距离）。
     // 超出字体自然行高（naturalLineHeight = ascender + descender）的 CSS line-height 空白
     // 应上下均分铺在 em-box 两侧，即 baseline = halfLeading + naturalAscender。
@@ -4224,39 +4227,22 @@ function convertTextNode(irNode, guid, parentGuid, siblingIndex, fontCtxMap, blo
       if (_isEllipsisOverflow) {
         // ── 省略号截断：计算截断点，生成可见字符字形 + 省略号字形 ──
         var _eFontScale = fontSize / resolvedFontCtx.font.unitsPerEm;
-        // 优先使用 Unicode 省略号 '…'；若该字形路径为空（如字体子集不含该字符或为 composite），
-        // 降级为 3 个英文句号 '.'，保证初始渲染可见
+        // 取 Unicode 省略号 '…' 字形；PingFang SC 等 CJK 字体中该字形为 composite，
+        // encodeGlyphBlob 内部用 getPath() 展开路径，无需额外校验 .path.commands。
+        // 若字体不含该字形（index === 0，即 .notdef），则跳过 derivedTextData，
+        // 让 Figma 文本引擎根据 textTruncation:'ENDING' 自行渲染省略号。
         var _eRawGlyphs = resolvedFontCtx.font.stringToGlyphs('\u2026');
-        var _eHasPath = _eRawGlyphs && _eRawGlyphs.length > 0 &&
-          _eRawGlyphs[0].index !== 0 &&
-          _eRawGlyphs[0].path && _eRawGlyphs[0].path.commands && _eRawGlyphs[0].path.commands.length > 0;
-        var _eOtGlyphs;
-        if (_eHasPath) {
-          _eOtGlyphs = _eRawGlyphs;
-        } else {
-          // 降级：用 3 个句号，确保有可见路径
-          var _dotG = resolvedFontCtx.font.stringToGlyphs('.')[0];
-          _eOtGlyphs = (_dotG && _dotG.index !== 0) ? [_dotG, _dotG, _dotG] : [];
-        }
+        var _eOtGlyphs = (_eRawGlyphs && _eRawGlyphs.length && _eRawGlyphs[0].index !== 0)
+          ? _eRawGlyphs : [];
         var _eWidth = 0;
         for (var _emi = 0; _emi < _eOtGlyphs.length; _emi++) {
           _eWidth += (_eOtGlyphs[_emi].advanceWidth || resolvedFontCtx.font.unitsPerEm) * _eFontScale;
         }
         var _availW = Math.max(0, nodeWidth - _eWidth);
-        // 若兜底路径也没有（字体极端情况），退出省略号模式走普通单行
+        // 若兜底路径也没有（字体子集不含 "…"/"." 字形），跳过 derivedTextData，
+        // 让 Figma 文本引擎根据 textTruncation:'ENDING' 自行渲染省略号（首帧即可见）。
         if (_eOtGlyphs.length === 0) {
-          var _slXOffset0 = computeTextAlignXOffset(style.textAlignHorizontal, nodeWidth, measured.totalWidth);
-          for (var _gi0 = 0; _gi0 < measured.glyphs.length; _gi0++) {
-            var _gd0 = measured.glyphs[_gi0];
-            var _gDecSid0 = _charStyleIDs ? _charStyleIDs[_gi0] : 0;
-            var _gDecType0 = _gDecSid0 ? _decTypeByStyleID[_gDecSid0] : null;
-            var _gOt0 = _gDecType0 ? makeDecoratedGlyphForEncoding(_gd0.otGlyph, _gDecType0, resolvedFontCtx.font) : _gd0.otGlyph;
-            var _blob0 = encodeGlyphBlob(_gOt0);
-            var _blobIdx0 = blobs.length;
-            blobs.push({ bytes: _blob0 });
-            figmaGlyphs.push({ commandsBlob: _blobIdx0, position: { x: _gd0.x + _slXOffset0, y: _slGlyphY }, fontSize: fontSize, firstCharacter: _gi0, advance: _gd0.advanceNorm });
-          }
-          figmaBaselines.push({ firstCharacter: 0, endCharacter: Math.max(content.length - 1, 0), position: { x: _slXOffset0, y: _slGlyphY }, width: measured.totalWidth, lineY: _slLineY, lineHeight: lineHeightVal, lineAscent: _slLineAsc });
+          _skipDerivedData = true;
         } else {
         // 找最后一个右边界不超过 _availW 的字符
         var _truncIdx = 0;
@@ -4286,8 +4272,14 @@ function convertTextNode(irNode, guid, parentGuid, siblingIndex, fontCtxMap, blo
             advance: _tgd2.advanceNorm,
           });
         }
-        // 省略号字形（'…'，firstCharacter 指向截断起始位）
+        // 省略号字形：
+        // - firstCharacter 用最后一个可见字符索引（_truncIdx - 1），而非 _truncIdx。
+        //   Figma 会过滤掉 firstCharacter >= truncationStartIndex 的字形（视为已截断内容），
+        //   "…" 字形必须落在可见字符范围内才能被渲染。
+        // - truncationStartIndex 保持 -1（不设置），避免 Figma 误把 "…" 字形当作截断内容跳过。
+        //   textTruncation:'ENDING' 仍然保留，双击编辑时 Figma 会正确处理截断逻辑。
         var _eXStart = _visW + _tXOff;
+        var _eFirstChar = Math.max(_truncIdx - 1, 0);
         for (var _eGi = 0; _eGi < _eOtGlyphs.length; _eGi++) {
           var _eGlyph = _eOtGlyphs[_eGi];
           var _eBlob = encodeGlyphBlob(_eGlyph);
@@ -4299,21 +4291,23 @@ function convertTextNode(irNode, guid, parentGuid, siblingIndex, fontCtxMap, blo
             commandsBlob: _eBlobIdx,
             position: { x: _eXStart, y: _slGlyphY },
             fontSize: fontSize,
-            firstCharacter: _truncIdx,
+            firstCharacter: _eFirstChar,
             advance: _eAdvNorm,
           });
           _eXStart += _eAdvPx;
         }
         figmaBaselines.push({
           firstCharacter: 0,
-          endCharacter: Math.max(_truncIdx - 1, 0),
+          endCharacter: Math.max(content.length - 1, 0),
           position: { x: _tXOff, y: _slGlyphY },
           width: _totalTruncW,
           lineY: _slLineY,
           lineHeight: lineHeightVal,
           lineAscent: _slLineAsc,
         });
-        _truncationStartIdx = _truncIdx;
+        // _truncationStartIdx 保持 -1：若设成 _truncIdx，Figma 会过滤掉 firstCharacter >= truncIdx 的字形，
+        // 导致 "…" 字形（即使 firstCharacter 已改为 _truncIdx - 1，也可能受影响）不被渲染。
+        // textTruncation:'ENDING' 已在上方单独设置，双击编辑时 Figma 会正确处理截断逻辑。
         } // end else (_eOtGlyphs.length > 0)
       } else {
         // 普通单行（无截断）
@@ -4371,31 +4365,37 @@ function convertTextNode(irNode, guid, parentGuid, siblingIndex, fontCtxMap, blo
       }
     }
 
-    nc.derivedTextData = {
-      layoutSize: { x: nodeWidth, y: nodeHeight },
-      baselines: figmaBaselines,
-      glyphs: figmaGlyphs,
-      fontMetaData: [{
-        // key 须与节点 nc.fontName 及参与 raster 的 fontDigest 一致；优先 fontName（已与 figmaFamily 对齐），
-        // 避免 ctx 残留 postscript（如 PingFangSC-Regular）与 Noto Sans 并存导致首帧/编辑态漂移。
-        key: {
-          family: fontName.family || resolvedFontCtx.figmaFamily || 'PingFang SC',
-          style: fontName.style || resolvedFontCtx.figmaStyle || resolvedFontCtx.style || 'Regular',
-          postscript: fontName.postscript || resolvedFontCtx.postscript || 'PingFangSC-Regular',
-        },
-        // 字体固有行高比（naturalLineHeight / fontSize），不是 CSS lineHeight / fontSize。
-        // Figma 用此字段理解 em-box 尺寸，若设成 CSS 比值会导致 Figma 误判 em-box、
-        // double-click 重排时用真实字体度量重算，造成首帧与编辑态漂移。
-        fontLineHeight: measured.lineHeight / fontSize,
-        fontDigest: resolvedFontCtx.fontDigest,
-        fontStyle: 'NORMAL',
-        fontWeight: _clampedWeight,
-      }],
-      truncationStartIndex: _truncationStartIdx,
-      truncatedHeight: -1,
-    };
-    // 含 emoji glyph 时使用 version 5（Figma 用此版本触发 emojiCodePoints 渲染路径），否则用 version 4
-    nc.textUserLayoutVersion = _hasEmojiGlyph ? 5 : 4;
+    if (!_skipDerivedData) {
+      nc.derivedTextData = {
+        layoutSize: { x: nodeWidth, y: nodeHeight },
+        baselines: figmaBaselines,
+        glyphs: figmaGlyphs,
+        fontMetaData: [{
+          // key 须与节点 nc.fontName 及参与 raster 的 fontDigest 一致；优先 fontName（已与 figmaFamily 对齐），
+          // 避免 ctx 残留 postscript（如 PingFangSC-Regular）与 Noto Sans 并存导致首帧/编辑态漂移。
+          key: {
+            family: fontName.family || resolvedFontCtx.figmaFamily || 'PingFang SC',
+            style: fontName.style || resolvedFontCtx.figmaStyle || resolvedFontCtx.style || 'Regular',
+            postscript: fontName.postscript || resolvedFontCtx.postscript || 'PingFangSC-Regular',
+          },
+          // 字体固有行高比（naturalLineHeight / fontSize），不是 CSS lineHeight / fontSize。
+          // Figma 用此字段理解 em-box 尺寸，若设成 CSS 比值会导致 Figma 误判 em-box、
+          // double-click 重排时用真实字体度量重算，造成首帧与编辑态漂移。
+          fontLineHeight: measured.lineHeight / fontSize,
+          fontDigest: resolvedFontCtx.fontDigest,
+          fontStyle: 'NORMAL',
+          fontWeight: _clampedWeight,
+        }],
+        truncationStartIndex: _truncationStartIdx,
+        truncatedHeight: -1,
+      };
+      // 含 emoji glyph 时使用 version 5（Figma 用此版本触发 emojiCodePoints 渲染路径），否则用 version 4
+      nc.textUserLayoutVersion = _hasEmojiGlyph ? 5 : 4;
+    } else {
+      // 省略号字形缺失时不设 derivedTextData，让 Figma 文本引擎根据 textTruncation:'ENDING' 自行渲染省略号。
+      nc.textUserLayoutVersion = 5;
+      nc.textExplicitLayoutVersion = 1;
+    }
   } else {
     nc.textUserLayoutVersion = 5;
     nc.textExplicitLayoutVersion = 1;
