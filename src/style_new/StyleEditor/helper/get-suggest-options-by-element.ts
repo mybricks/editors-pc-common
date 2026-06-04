@@ -33,6 +33,11 @@ export function getSuggestOptionsByElement(selectDom: HTMLElement): { type: stri
     }
     /** 深层遍历，当前Dom下方所有的带直接文本节点的元素 */
     const textElemnts = findElementsWithDirectTextChildren(selectDom);
+    // flex/inline-flex/grid/inline-grid 容器：text-align 无效，需映射到 justify-content
+    const selectDomDisplay = window.getComputedStyle(selectDom).display;
+    const isFlexLike = ['flex', 'inline-flex', 'grid', 'inline-grid'].includes(selectDomDisplay);
+    // flex 容器也要判断容器是否比内容更宽，不够宽时 justify-content 同样没有视觉效果
+    const flexAlignDisabled = isFlexLike && !isContainerWiderThanContent(selectDom);
     if (Array.isArray(textElemnts) && textElemnts.length) { // 有多个文本元素
       // 有文本子元素，判断这些元素中，是否存在所有含文本元素及其父元素都没配置的属性，这些是可以配置的
       const isMoreThanOne = textElemnts.length > 1;
@@ -48,7 +53,8 @@ export function getSuggestOptionsByElement(selectDom: HTMLElement): { type: stri
         disableLetterSpacing: isMoreThanOne ? true : shouldHeritPropertyDisabled(selectDom, 'letterSpaceing', { getMatchedCssRules, textElemnts }),
         disableLineHeight: isMoreThanOne ? true : shouldHeritPropertyDisabled(selectDom, 'lineHeight', { getMatchedCssRules, textElemnts }),
         disableWhiteSpace: isMoreThanOne ? true : shouldHeritPropertyDisabled(selectDom, 'whiteSpace', { getMatchedCssRules, textElemnts }),
-        disableTextAlign: isMoreThanOne ? true : shouldTextAlignDisabled(selectDom),
+        disableTextAlign: isMoreThanOne ? true : (isFlexLike ? flexAlignDisabled : shouldTextAlignDisabled(selectDom)),
+        ...(isFlexLike && !isMoreThanOne && !flexAlignDisabled ? { textAlignMode: 'flex' } : {}),
       }
     } else if (Array.isArray(textElemnts) && textElemnts.length === 0) { // 未找到文本元素，隐藏字体配置
       const hasIconChild = !!selectDom.querySelector('svg, .anticon, [role="img"]');
@@ -75,7 +81,8 @@ export function getSuggestOptionsByElement(selectDom: HTMLElement): { type: stri
         disableLetterSpacing: false,
         disableLineHeight: false,
         disableWhiteSpace: false,
-        disableTextAlign: shouldTextAlignDisabled(selectDom),
+        disableTextAlign: isFlexLike ? flexAlignDisabled : shouldTextAlignDisabled(selectDom),
+        ...(isFlexLike && !flexAlignDisabled ? { textAlignMode: 'flex' } : {}),
       }
     }
     // 全部都disabled的话，直接隐藏
@@ -279,7 +286,34 @@ function shouldTextAlignDisabled(selectDom: HTMLElement) {
     return true
   }
 
+  // 多行文本（lineHeight * 1.5 以上）时，text-align 对每一行都有意义，直接放行
+  const lineHeightPx = parseFloat(selectDomStyle.lineHeight);
+  if (!isNaN(lineHeightPx) && selectDom.clientHeight > lineHeightPx * 1.5) {
+    return false
+  }
+
+  // 单行文本：比较容器宽度与内容自然宽度
+  if (!isContainerWiderThanContent(selectDom)) {
+    return true
+  }
+
   return false
+}
+
+/**
+ * 检测元素宽度是否大于其内容的自然宽度（内容不换行时所需的最小宽度）。
+ * 适用于：文本元素（text-align 是否有意义）和 flex 容器（justify-content 是否有意义）。
+ *
+ * 原理：临时将元素宽度设为 max-content，读取 offsetWidth（内容自然宽度），立即还原。
+ * scrollWidth 永远 >= clientWidth，无法用于此目的。
+ */
+function isContainerWiderThanContent(element: HTMLElement): boolean {
+  const containerWidth = element.clientWidth;
+  const savedInlineWidth = element.style.width;
+  element.style.width = 'max-content';
+  const naturalWidth = element.offsetWidth;
+  element.style.width = savedInlineWidth;
+  return containerWidth > naturalWidth + 1;
 }
 
 function shouldBorderDisabled(selectDom: HTMLElement) {

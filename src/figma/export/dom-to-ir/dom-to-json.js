@@ -1404,7 +1404,13 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
               // 圆角子节点（如圆形头像）是视觉容器，不能合并为纯文本
               var _imRadiusRaw = _imComp.borderRadius || _imComp.borderTopLeftRadius || '';
               var _imHasRadius = _imRadiusRaw && _imRadiusRaw !== '0px' && _imRadiusRaw !== '0';
-              if (_imHasBg || _imHasBorder || _imHasPadding || _imHasRadius) {
+              // text-overflow:ellipsis 子节点（如 max-width 截断的 phoneCell span）必须走独立 walk()，
+              // 合并后父 td 没有 ellipsis，applyTextOverflowEllipsisExport 用父级 computed 检查会直接 return，
+              // 导致宽度变成自然文本宽（313px）且省略号丢失。
+              var _imTextOverflow = _imComp.textOverflow || '';
+              var _imOverflowX = _imComp.overflowX || _imComp.overflow || '';
+              var _imHasEllipsis = _imTextOverflow === 'ellipsis' && _imOverflowX !== 'visible';
+              if (_imHasBg || _imHasBorder || _imHasPadding || _imHasRadius || _imHasEllipsis) {
                 _canMergeInlineChildren = false;
                 break;
               }

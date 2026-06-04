@@ -101,9 +101,25 @@ const DEFAULT_CONFIG = {
   disableLineHeight: false,
   disableLetterSpacing: false,
   disableWhiteSpace: false,
+  /** flex/inline-flex 容器时为 'flex'，此时对齐按钮映射到 justify-content */
+  textAlignMode: '' as '' | 'flex',
 
   fontfaces: [],
 };
+
+/** justify-content 值 → 对齐按钮显示值 */
+function justifyContentToAlign(jc?: string): string {
+  if (jc === 'center') return 'center';
+  if (jc === 'flex-end' || jc === 'end' || jc === 'right') return 'right';
+  return 'left';
+}
+
+/** 对齐按钮值 → justify-content 值 */
+function alignToJustifyContent(align: string): string {
+  if (align === 'center') return 'center';
+  if (align === 'right' || align === 'end') return 'flex-end';
+  return 'flex-start';
+}
 
 type FontFamilyOption = { label: string; value: string };
 type ExternalFontface = {
@@ -143,7 +159,6 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
   const context = useStyleEditorContext();
   const editConfig = context?.editConfig;
   const outterFontFamilyOptions = normalizeFontfaceOptions(editConfig?.fontfaces || []);
-  console.log("outterFontFamilyOptions",outterFontFamilyOptions)
 
   // 重置脏数据
   if (isObject(value.fontFamily)) {
@@ -195,8 +210,15 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
   }, [cfg.fontfaces, innerFontFamily, outterFontFamilyOptions]);
 
   const getTextAlignOptions = useCallback(() => {
+    // flex 模式下固定用 left/right，与 justifyContentToAlign 的返回值保持一致
+    if (cfg.textAlignMode === 'flex') {
+      return [
+        { label: <TextAlignLeftOutlined />, value: "left", tip: "居左对齐" },
+        { label: <TextAlignCenterOutlined />, value: "center", tip: "居中对齐" },
+        { label: <TextAlignRightOutlined />, value: "right", tip: "居右对齐" },
+      ];
+    }
     const useStart = ["start", "end"].includes(value.textAlign as any);
-
     return [
       {
         label: <TextAlignLeftOutlined />,
@@ -313,8 +335,9 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
       { key: 'letterSpacing', value: null },
       { key: 'textAlign', value: null },
       { key: 'whiteSpace', value: null },
+      ...(cfg.textAlignMode === 'flex' ? [{ key: 'justifyContent', value: null }] : []),
     ]);
-  }, [onChange]);
+  }, [onChange, cfg.textAlignMode]);
 
   return (
     <Panel title="字体" showTitle={showTitle} showReset={true} resetFunction={refresh} collapse={collapse}>
@@ -500,9 +523,25 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
       {cfg.disableTextAlign ? null : (
         <Panel.Content>
           <Toggle
-            defaultValue={value.textAlign}
+            key={cfg.textAlignMode === 'flex'
+              ? `flex-${value.justifyContent || ''}`
+              : `text-${value.textAlign || ''}`}
+            defaultValue={
+              cfg.textAlignMode === 'flex'
+                ? justifyContentToAlign(value.justifyContent as string)
+                : value.textAlign
+            }
             options={getTextAlignOptions()}
-            onChange={(value) => onChange({ key: "textAlign", value })}
+            onChange={(v) => {
+              if (cfg.textAlignMode === 'flex') {
+                onChange([
+                  { key: 'justifyContent', value: alignToJustifyContent(v) },
+                  { key: 'textAlign', value: null },
+                ]);
+              } else {
+                onChange({ key: 'textAlign', value: v });
+              }
+            }}
           />
         </Panel.Content>
       )}
