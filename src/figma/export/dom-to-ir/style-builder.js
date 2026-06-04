@@ -125,7 +125,6 @@ function buildInlineTextStyle(parentEl, computed, textRect, parentRect, cssRuleM
         style.fontSize = _childFsResolved;
       } else {
         var rawFsVal = _fontSizeDecl || (computed && computed.fontSize);
-        console.warn('[fontSize<1] buildStyleJSON', { className: parentEl && parentEl.className, rawValue: rawFsVal, rounded: fontSize, el: parentEl });
       }
     } else {
       style.fontSize = fontSize;
@@ -1832,7 +1831,6 @@ function buildStyleJSON(el, computed, rect, parentRect, cssRuleMap, globalFont) 
         style.fontSize = _childFsResolved;
       } else {
         var rawFsVal = _fontSizeDecl || computed.fontSize;
-        console.warn('[fontSize<1] buildInlineTextStyle', { className: el.className, rawValue: rawFsVal, rounded: fontSize, el: el });
       }
     } else {
       style.fontSize = fontSize;
