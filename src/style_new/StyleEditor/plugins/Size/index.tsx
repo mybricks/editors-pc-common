@@ -12,6 +12,7 @@ import {
   MinusOutlined,
 } from "../../components";
 import { useDragNumber } from "../../hooks";
+import { useStyleEditorContext } from "../../context";
 
 import type {ChangeEvent, PanelBaseProps} from "../../type";
 import css from './index.less'
@@ -78,6 +79,27 @@ export function Size({value, onChange, config, showTitle, collapse}: SizeProps) 
   const [showMinWidth, setShowMinWidth] = useState(() => hasInitMin);
   const [showMaxHeight, setShowMaxHeight] = useState(() => hasInitMax);
   const [showMinHeight, setShowMinHeight] = useState(() => hasInitMin);
+
+  const editorContext = useStyleEditorContext();
+  const targetDom = editorContext?.targetDom ?? null;
+
+  const [actualWidth, setActualWidth] = useState<number>(0);
+  const [actualHeight, setActualHeight] = useState<number>(0);
+
+  useEffect(() => {
+    if (!targetDom) {
+      setActualWidth(0);
+      setActualHeight(0);
+      return;
+    }
+    const w = targetDom.offsetWidth;
+    const h = targetDom.offsetHeight;
+    setActualWidth(w);
+    setActualHeight(h);
+    if (w > 0 || h > 0) {
+      setShowWidthHeight(true);
+    }
+  }, [targetDom]);
 
   const refresh = useCallback(() => {
     onChange([
@@ -314,7 +336,7 @@ export function Size({value, onChange, config, showTitle, collapse}: SizeProps) 
       showTitle={showTitle}
       showReset={true}
       resetFunction={refresh}
-      collapse={allHidden ? true : (collapse || false)}
+      collapse={allHidden ? true : false}
       showDelete={false}
       addOptions={addOptions.length > 0 ? addOptions : undefined}
       onAddOption={handleAddOption}
@@ -343,15 +365,15 @@ export function Size({value, onChange, config, showTitle, collapse}: SizeProps) 
             <Panel.Content>
               <Panel.Item style={{ display: "flex", alignItems: "center", paddingLeft: 4 }}>
                 <div
-                  {...(cfg.disableWidth ? {} : getDragPropsWidth(widthEffective, '拖拽调整宽度'))}
+                  {...(cfg.disableWidth ? {} : getDragPropsWidth(widthEffective ?? (actualWidth > 0 ? `${Math.round(actualWidth)}px` : undefined), '拖拽调整宽度'))}
                   style={{ height: "100%", display: "flex", alignItems: "center", cursor: cfg.disableWidth ? "not-allowed" : "ew-resize" }}
                 >
                   <span className={`${css.tip} ${cfg.disableWidth ? css.tipDisabled : ''}`} style={{ flexShrink: 0}}>宽度</span>
                 </div>
                 <InputNumber
-                  key={getUnitKey(widthEffective)}
+                  key={widthEffective ? getUnitKey(widthEffective) : (actualWidth > 0 ? `dom-w-${Math.round(actualWidth)}` : 'empty')}
                   style={{ flex: 1, minWidth: 0, marginLeft: 4 }}
-                  defaultValue={widthEffective}
+                  defaultValue={widthEffective ?? (actualWidth > 0 ? `${Math.round(actualWidth)}px` : undefined)}
                   defaultUnitValue="px"
                   unitOptions={widthUnitOptions}
                   unitDisabledList={UNIT_DISABLED_LIST}
@@ -366,15 +388,15 @@ export function Size({value, onChange, config, showTitle, collapse}: SizeProps) 
               </Panel.Item>
               <Panel.Item style={{ display: "flex", alignItems: "center", paddingLeft: 4 }}>
                 <div
-                  {...(cfg.disableHeight ? {} : getDragPropsHeight(heightEffective, '拖拽调整高度'))}
+                  {...(cfg.disableHeight ? {} : getDragPropsHeight(heightEffective ?? (actualHeight > 0 ? `${Math.round(actualHeight)}px` : undefined), '拖拽调整高度'))}
                   style={{ height: "100%", display: "flex", alignItems: "center", cursor: cfg.disableHeight ? "not-allowed" : "ew-resize" }}
                 >
                   <span className={`${css.tip} ${cfg.disableHeight ? css.tipDisabled : ''}`} style={{ flexShrink: 0 }}>高度</span>
                 </div>
                 <InputNumber
-                  key={getUnitKey(heightEffective)}
+                  key={heightEffective ? getUnitKey(heightEffective) : (actualHeight > 0 ? `dom-h-${Math.round(actualHeight)}` : 'empty')}
                   style={{ flex: 1, minWidth: 0, marginLeft: 4 }}
-                  defaultValue={heightEffective}
+                  defaultValue={heightEffective ?? (actualHeight > 0 ? `${Math.round(actualHeight)}px` : undefined)}
                   defaultUnitValue="px"
                   unitOptions={heightUnitOptions}
                   unitDisabledList={UNIT_DISABLED_LIST}

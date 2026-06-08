@@ -764,9 +764,18 @@ function Style ({editConfig, options, setValue, collapsedOptions, readonlyExpand
   }, [editConfig, options])
 
   const editorContext = useMemo(() => {
+    const dom = (!editConfig.options || Array.isArray(editConfig.options))
+      ? null
+      : (editConfig.options as any).targetDom ?? null
+    const realDom = (
+      Object.prototype.toString.call(dom) === '[object NodeList]' && dom?.length
+        ? dom[0]
+        : dom
+    ) as HTMLElement | null
     return {
       editConfig,
       autoCollapseWhenUnusedProperty,
+      targetDom: realDom,
     }
   }, [editConfig, autoCollapseWhenUnusedProperty])
 

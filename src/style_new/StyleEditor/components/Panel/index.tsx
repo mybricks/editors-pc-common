@@ -63,6 +63,10 @@ export function Panel ({title, children, showReset = false, showTitle = true, sh
   useEffect(() => {
     if (deleteRef) deleteRef.current = handleDelete
   }, [deleteRef, handleDelete])
+
+  useEffect(() => {
+    setCollapsed(collapse === true)
+  }, [collapse])
   return (
     <div className={`${css.panel} ${collapsed ? css.collapsed : ''}`}>
       <div className={css.header}>
