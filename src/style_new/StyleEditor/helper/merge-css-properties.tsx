@@ -6,6 +6,19 @@ const hasCSSVariable = (value: string | any) => {
   return /var\(--[a-zA-Z0-9-_]+\)|--[a-zA-Z0-9-_]+/.test(value);
 }
 
+const hasLayeredBorderBackground = (cssProperties: React.CSSProperties) => {
+  return (
+    typeof cssProperties.backgroundImage === 'string' &&
+    typeof cssProperties.backgroundClip === 'string' &&
+    typeof cssProperties.backgroundOrigin === 'string' &&
+    cssProperties.backgroundImage.includes('gradient(') &&
+    cssProperties.backgroundClip.includes('padding-box') &&
+    cssProperties.backgroundClip.includes('border-box') &&
+    cssProperties.backgroundOrigin.includes('padding-box') &&
+    cssProperties.backgroundOrigin.includes('border-box')
+  )
+}
+
 // 创建一个缓存容器
 let containerCache: HTMLDivElement | null = null
 let componentCache: HTMLDivElement | null = null
@@ -56,6 +69,7 @@ export const mergeCSSProperties = (
   const mergedStyles: React.CSSProperties = {
     ...(cssProperties ?? {}),
   }
+  const shouldKeepLayeredBackground = hasLayeredBorderBackground(cssProperties)
 
   // margin
   if (
@@ -187,6 +201,12 @@ export const mergeCSSProperties = (
   delete mergedStyles.borderStyle
   delete mergedStyles.borderColor
 
+  if (shouldKeepLayeredBackground) {
+    mergedStyles.backgroundImage = cssProperties.backgroundImage
+    mergedStyles.backgroundClip = cssProperties.backgroundClip
+    mergedStyles.backgroundOrigin = cssProperties.backgroundOrigin
+  }
+
   return mergedStyles
 }
 
@@ -203,7 +223,7 @@ export const splitCSSProperties = (
   Object.assign(component.style, cssProperties)
   
   const computedStyle = window.getComputedStyle(component)
-  const splitStyles: React.CSSProperties = {
+  const splitStyles: Record<string, any> = {
     ...(cssProperties ?? {})
   }
 
@@ -317,7 +337,7 @@ export const splitCSSProperties = (
 
   return {
     ...splitStyles
-  }
+  } as React.CSSProperties
 }
 
 // 清理函数 - 在应用卸载时调用

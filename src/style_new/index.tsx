@@ -18,6 +18,10 @@ import {copyText, deepCopy} from '../utils'
 import StyleEditor, {DEFAULT_OPTIONS, StyleEditorProvider} from './StyleEditor'
 
 import {getSuggestOptionsByElement, mergeCSSProperties, splitCSSProperties} from './StyleEditor/helper'
+import {
+  initLiveStyle,
+  preserveGradientBorderLayer,
+} from './StyleEditor/helper/gradient-border'
 
 import type {EditorProps, GetDefaultConfigurationProps} from './type'
 import type {ChangeEvent, Options, Style} from './StyleEditor/type'
@@ -701,29 +705,39 @@ export default function ({editConfig}: EditorProps) {
 interface StyleProps extends EditorProps {
   [key: string]: any;
 }
+
 function Style ({editConfig, options, setValue, collapsedOptions, readonlyExpandedOptions, autoCollapseWhenUnusedProperty, finnalExcludeOptions, defaultValue }: StyleProps) {
+  // 追踪每次 handleChange 实际写入后的完整样式快照，
+  // 替代 stale 的 setValue prop，作为渐变边框保护逻辑的数据源。
+  const liveStyleRef = useRef<Record<string, any>>(
+    initLiveStyle(deepCopy(setValue || {}), (defaultValue as any) || {})
+  )
+
+  // 当 setValue 被外部改写时，同步更新 liveStyleRef。
+  useEffect(() => {
+    liveStyleRef.current = initLiveStyle(deepCopy(setValue || {}), (defaultValue as any) || {})
+  }, [setValue])
+
+
   const handleChange: ChangeEvent = useCallback((value) => {
     // 每次操作开始前清空上次可能残留的删除信号，防止普通组件的删除操作污染 AI 组件
     ;(window as any).__mybricks_style_deletions = null
     const deletedKeys: string[] = []
+    const nextSetValue: Record<string, any> = deepCopy(liveStyleRef.current || {})
+    const rawItems = Array.isArray(value) ? value : [value]
+    const changeItems = preserveGradientBorderLayer(
+      rawItems,
+      nextSetValue
+    );
 
-    if (Array.isArray(value)) {
-      value.forEach(({key, value}) => {
-        if (value === null) {
-          deletedKeys.push(key)
-          delete setValue[key]
-        } else {
-          setValue[key] = value
-        }
-      })
-    } else {
-      if (value.value === null) {
-        deletedKeys.push(value.key)
-        delete setValue[value.key]
+    changeItems.forEach(({ key, value }) => {
+      if (value === null) {
+        deletedKeys.push(key)
+        delete nextSetValue[key]
       } else {
-        setValue[value.key] = value.value;
+        nextSetValue[key] = value
       }
-    }
+    })
 
     // 删除信号通过 window 侧通道传递给 valueProxy.set，
     // 不污染 editConfig.value（代码编辑器不会看到 null 值）
@@ -731,7 +745,10 @@ function Style ({editConfig, options, setValue, collapsedOptions, readonlyExpand
       (window as any).__mybricks_style_deletions = deletedKeys
     }
 
-    const mergedCssProperties = mergeCSSProperties(deepCopy(setValue))
+    const mergedCssProperties = mergeCSSProperties(deepCopy(nextSetValue))
+
+    // 写入成功后更新 liveStyleRef，供下次 handleChange 的保护逻辑使用
+    liveStyleRef.current = nextSetValue
 
     // options?.selector 优先；兜底从 editConfig.options.selector 读取当前激活的 selector
     const selector = options?.selector
@@ -744,7 +761,7 @@ function Style ({editConfig, options, setValue, collapsedOptions, readonlyExpand
     //bug: 有时候这个selector是："[data-zone-selector='[".searchArea .hotWords span"]']"
     // console.log("editConfig.value.set",selector)
     editConfig.value.set(mergedCssProperties, selector ? { selector } : undefined)
-  }, [editConfig])
+  }, [editConfig, options])
 
   const editorContext = useMemo(() => {
     return {
@@ -1170,7 +1187,11 @@ const getDefaultValueFunctionMap = {
       borderTopWidth: values.borderTopWidth,
       borderBottomWidth: values.borderBottomWidth,
       borderLeftWidth: values.borderLeftWidth,
-      borderRightWidth: values.borderRightWidth
+      borderRightWidth: values.borderRightWidth,
+      backgroundColor: values.backgroundColor,
+      backgroundImage: values.backgroundImage,
+      backgroundOrigin: values.backgroundOrigin,
+      backgroundClip: values.backgroundClip
     }
   },
   background(values: CSSProperties, config: any) {
@@ -1283,7 +1304,10 @@ const getDefaultValueFunctionMap2 = {
       borderTopWidth: '0px',
       borderBottomWidth: '0px',
       borderLeftWidth: '0px',
-      borderRightWidth: '0px'
+      borderRightWidth: '0px',
+      backgroundImage: 'none',
+      backgroundOrigin: '',
+      backgroundClip: ''
     }
   },
   background() {
@@ -1596,13 +1620,15 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration, 
   let backgroundRepeat // 非继承属性
   let backgroundPosition // 非继承属性
   let backgroundSize // 非继承属性
+  let backgroundOrigin // 非继承属性
+  let backgroundClip // 非继承属性
   /** background */
 
   /** border */
-  let borderTopColor // 非继承属性
-  let borderRightColor // 非继承属性
-  let borderBottomColor // 非继承属性
-  let borderLeftColor // 非继承属性
+  let borderTopColor: string | undefined // 非继承属性
+  let borderRightColor: string | undefined // 非继承属性
+  let borderBottomColor: string | undefined // 非继承属性
+  let borderLeftColor: string | undefined // 非继承属性
   let borderTopLeftRadius // 非继承属性
   let borderTopRightRadius // 非继承属性
   let borderBottomRightRadius // 非继承属性
@@ -1753,6 +1779,8 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration, 
       backgroundRepeat: styleBackgroundRepeat,
       backgroundPosition: styleBackgroundPosition,
       backgroundSize: styleBackgroundSize,
+      backgroundOrigin: styleBackgroundOrigin,
+      backgroundClip: styleBackgroundClip,
       background: styleBackground
     } = style
     if (styleBackgroundColor) {
@@ -1774,6 +1802,12 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration, 
     }
     if (styleBackgroundSize) {
       backgroundSize = styleBackgroundSize
+    }
+    if (styleBackgroundOrigin) {
+      backgroundOrigin = styleBackgroundOrigin
+    }
+    if (styleBackgroundClip) {
+      backgroundClip = styleBackgroundClip
     }
     /** background */
 
@@ -1970,7 +2004,7 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration, 
   const isVarRef = (v: any) => typeof v === 'string' && v.startsWith('var(');
 
   /** font */
-  if (!isVarRef(color) && (isNotSet(color) || !colorUtil.get(color))) {
+  if (!isVarRef(color) && (isNotSet(color) || !colorUtil.get(color || ''))) {
     color = computedValues.color
   }
   if (isNotSet(fontSize)) {
@@ -2200,6 +2234,8 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration, 
     backgroundRepeat,
     backgroundPosition,
     backgroundSize,
+    backgroundOrigin,
+    backgroundClip,
 
     borderTopColor,
     borderBottomColor,

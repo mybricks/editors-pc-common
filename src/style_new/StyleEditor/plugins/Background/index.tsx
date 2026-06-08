@@ -5,6 +5,12 @@ import { PanelBaseProps } from "./../../type";
 import { Panel, Image, ColorEditor, Gradient } from "../../components";
 import { DeleteOutlined, ReloadOutlined } from "@ant-design/icons";
 import css from "./index.less";
+import {
+  GRADIENT_BORDER_BOX_VALUE,
+  splitBackgroundLayers,
+  isTransparentSolidLayer,
+  isSolidColorGradient,
+} from "../../helper/gradient-border";
 
 interface BackgroundProps extends PanelBaseProps {
   value: CSSProperties;
@@ -25,6 +31,17 @@ const DEFAULT_CONFIG = {
 const IMAGE_KEYS = ['backgroundImage', 'backgroundRepeat', 'backgroundPosition', 'backgroundSize'] as const;
 // 所有背景相关的 CSS 属性
 const ALL_BACKGROUND_KEYS = ['backgroundColor', ...IMAGE_KEYS] as const;
+const getBackgroundEditorImage = (value: CSSProperties & Record<string, any>) => {
+  const bgImage = value.backgroundImage;
+  if (
+    typeof bgImage === 'string' &&
+    value.backgroundOrigin === GRADIENT_BORDER_BOX_VALUE &&
+    value.backgroundClip === GRADIENT_BORDER_BOX_VALUE
+  ) {
+    return splitBackgroundLayers(bgImage)[0];
+  }
+  return bgImage;
+};
 
 export function Background({
   value,
@@ -85,11 +102,18 @@ export function Background({
 
   // 计算 ColorEditor 的 defaultValue，优先使用 backgroundImage（图片或渐变）
   const colorEditorDefaultValue = useMemo(() => {
-    const bgImage = defaultBackgroundValue[getRealKey(keyMap, "backgroundImage")] 
-      || defaultBackgroundValue.backgroundImage;
+    const bgImage = getBackgroundEditorImage({
+      ...defaultBackgroundValue,
+      backgroundImage: defaultBackgroundValue[getRealKey(keyMap, "backgroundImage")] 
+        || defaultBackgroundValue.backgroundImage,
+    });
     const bgColor = defaultBackgroundValue[getRealKey(keyMap, "backgroundColor")] 
       || defaultBackgroundValue.backgroundColor;
     if (bgImage && typeof bgImage === 'string' && /url\(|gradient/.test(bgImage)) {
+      // 过滤渐变边框产生的透明/纯色内容层占位符，直接回退到 backgroundColor
+      if (isTransparentSolidLayer(bgImage) || isSolidColorGradient(bgImage)) {
+        return bgColor;
+      }
       return bgImage;
     }
     return bgColor;

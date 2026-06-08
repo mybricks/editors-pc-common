@@ -49,7 +49,7 @@ export default function ({
     (value) => {
       onChange(value);
     },
-    []
+    [onChange]
   );
 
   const fixedOrderKeys = Object.keys(PLUGINS_MAP); // 获取 PLUGINS_MAP 的键并用作固定顺序
@@ -167,7 +167,7 @@ export default function ({
     //     )
     //   );
     // });
-  }, []);
+  }, [options, finnalExcludeOptions, defaultValue, handleValueChange, collapsedOptions, readonlyExpandedOptions]);
 
   return <div className={css.style}>{editors}</div>;
 }

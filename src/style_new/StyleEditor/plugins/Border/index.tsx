@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback, CSSProperties } from "react";
+import React, { useMemo, useState, useCallback, useRef, CSSProperties } from "react";
 
 import {
   Panel,
@@ -19,6 +19,15 @@ import {
 } from "../../components";
 import { allEqual } from "../../utils";
 import { useUpdateEffect, useDragNumber } from "../../hooks";
+import {
+  GRADIENT_BORDER_BOX_VALUE,
+  isGradientValue,
+  splitBackgroundLayers,
+  toSolidBackgroundLayer,
+  isTransparentSolidLayer,
+  isDefaultWhiteGradientLayer,
+  getEffectiveGradientBorderLayer,
+} from "../../helper/gradient-border";
 
 import type { ChangeEvent, PanelBaseProps } from "../../type";
 
@@ -80,6 +89,101 @@ const DEFAULT_CONFIG = {
   useImportant: false,
 };
 
+const GRADIENT_BORDER_KEYS = ["backgroundImage", "backgroundOrigin", "backgroundClip"];
+
+const hasGradientBorderBackground = (value: CSSProperties & Record<string, any>) => {
+  const layers = splitBackgroundLayers(value.backgroundImage);
+  return (
+    layers.length > 1 &&
+    !!getEffectiveGradientBorderLayer(layers) &&
+    value.backgroundOrigin === GRADIENT_BORDER_BOX_VALUE &&
+    value.backgroundClip === GRADIENT_BORDER_BOX_VALUE
+  );
+};
+
+const getGradientBorderValue = (value: CSSProperties & Record<string, any>) => {
+  if (!hasGradientBorderBackground(value)) {
+    return;
+  }
+  const layers = splitBackgroundLayers(value.backgroundImage);
+  return getEffectiveGradientBorderLayer(layers);
+};
+
+const getContentBackgroundLayers = (
+  value: CSSProperties & Record<string, any>,
+  fallbackLayers?: string[] | null
+) => {
+  if (fallbackLayers?.length) {
+    return fallbackLayers;
+  }
+  const layers = splitBackgroundLayers(value.backgroundImage);
+  if (hasGradientBorderBackground(value)) {
+    const contentLayers = layers.slice(0, -1);
+    if (contentLayers.length === 1 && isTransparentSolidLayer(contentLayers[0]) && value.backgroundColor) {
+      return [toSolidBackgroundLayer(value.backgroundColor)];
+    }
+    return contentLayers.length ? [contentLayers[0]] : [toSolidBackgroundLayer(value.backgroundColor || "transparent")];
+  }
+  if (layers.length > 1) {
+    return isTransparentSolidLayer(layers[0]) && value.backgroundColor
+      ? [toSolidBackgroundLayer(value.backgroundColor)]
+      : [layers[0]];
+  }
+  if (layers.length === 1) {
+    return isTransparentSolidLayer(layers[0]) && value.backgroundColor
+      ? [toSolidBackgroundLayer(value.backgroundColor)]
+      : layers;
+  }
+  const backgroundColor = value.backgroundColor || "transparent";
+  return [toSolidBackgroundLayer(backgroundColor)];
+};
+
+const buildGradientBorderValue = (
+  gradient: string,
+  currentValue: CSSProperties & Record<string, any>,
+  contentLayers?: string[] | null
+) => {
+  const normalizedContentLayers = getContentBackgroundLayers(currentValue, contentLayers);
+  return {
+    borderTopColor: "transparent",
+    borderRightColor: "transparent",
+    borderBottomColor: "transparent",
+    borderLeftColor: "transparent",
+    backgroundImage: [...normalizedContentLayers, gradient].join(", "),
+    backgroundOrigin: GRADIENT_BORDER_BOX_VALUE,
+    backgroundClip: GRADIENT_BORDER_BOX_VALUE,
+  };
+};
+
+const buildClearGradientBorderValue = (
+  currentValue: CSSProperties & Record<string, any>,
+  contentLayers?: string[] | null
+) => {
+  if (!hasGradientBorderBackground(currentValue)) {
+    return {};
+  }
+  const normalizedContentLayers = getContentBackgroundLayers(currentValue, contentLayers);
+  const fallbackLayer = toSolidBackgroundLayer(currentValue.backgroundColor || "transparent");
+  const shouldClearBackgroundImage = normalizedContentLayers.length === 1 && normalizedContentLayers[0] === fallbackLayer;
+  return {
+    backgroundImage: shouldClearBackgroundImage ? null : normalizedContentLayers.join(", "),
+    backgroundOrigin: null,
+    backgroundClip: null,
+  };
+};
+
+const getColorEditorValue = (input: any) => {
+  if (typeof input === "string") {
+    return input;
+  }
+  if (Array.isArray(input)) {
+    const backgroundImage = input.find((item) => item.key === "backgroundImage" && item.value !== "none");
+    const backgroundColor = input.find((item) => item.key === "backgroundColor");
+    return backgroundImage?.value || backgroundColor?.value;
+  }
+  return input?.value;
+};
+
 export function Border({ value, onChange, config, showTitle, collapse }: BorderProps) {
   const [
     {
@@ -108,6 +212,8 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
     });
     return defaultValue;
   }, []);
+  const contentBackgroundLayersRef = useRef<string[] | null>(getContentBackgroundLayers(defaultBorderValue));
+  const borderGradientRef = useRef<string | undefined>(getGradientBorderValue(defaultBorderValue));
   const [borderValue, setBorderValue] = useState(defaultBorderValue);
   const [forceRenderKey, setForceRenderKey] = useState<number>(Math.random());
   const [splitRadiusIcon, setSplitRadiusIcon] = useState(
@@ -120,6 +226,9 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
     (value: CSSProperties & Record<string, any>) => {
       setBorderValue((val) => {
         const {
+          backgroundImage,
+          backgroundOrigin,
+          backgroundClip,
           borderTopWidth,
           borderRightWidth,
           borderBottomWidth,
@@ -138,7 +247,14 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
           borderTopRightRadius,
         } = val ?? {};
 
-        const newValues = {
+        const newValues: Record<string, any> = {
+          // 仅当 backgroundImage 代表实际的渐变边框（非 none/空）时才携带背景属性，
+          // 否则普通边框宽度/样式/圆角操作会把 "none" 写入，覆盖用户的背景渐变图片。
+          ...(backgroundImage && backgroundImage !== 'none' ? {
+            backgroundImage,
+            backgroundOrigin,
+            backgroundClip,
+          } : {}),
           borderTopWidth,
           borderRightWidth,
           borderBottomWidth,
@@ -157,22 +273,23 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
           borderTopRightRadius,
           ...value,
         }
+        const deletedKeys = Object.keys(value).filter((key) => value[key] === null);
 
         onChange(
-          Object.keys(newValues)
-            .filter((key) => newValues[key] != null)
+          Array.from(new Set([...Object.keys(newValues), ...deletedKeys]))
+            .filter((key) => newValues[key] != null || deletedKeys.includes(key))
             .map((key) => {
               return {
                 key,
                 // TODO
-                value: `${newValues[key]}${useImportant ? "!important" : ""}`,
+                value: newValues[key] === null ? null : `${newValues[key]}${useImportant ? "!important" : ""}`,
               };
             })
         );
         return newValues;
       });
     },
-    []
+    [onChange, useImportant]
   );
 
   const isLengthNineAndEndsWithZeroes = (str: string) => {
@@ -229,16 +346,35 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                 <ColorEditor
                   // tip='边框颜色'
                   style={{ padding: "0 0 0 1px", marginLeft: shouldShowMiniLayout ? 0 : 2, flex: 1, minWidth: 26 }}
-                  defaultValue={borderValue.borderTopColor}
-                  showSubTabs={false}
-                  onChange={(value: string) => {
+                  defaultValue={getGradientBorderValue(borderValue) || borderValue.borderTopColor}
+                  showSubTabs={true}
+                  disableBackgroundImage={true}
+                  onChange={(input: any) => {
+                    const value = getColorEditorValue(input);
+                    if (!value) {
+                      return;
+                    }
                     setBorderValue((val) => {
-                      let newValue: Record<string, any> = {
-                        borderTopColor: value,
-                        borderRightColor: value,
-                        borderBottomColor: value,
-                        borderLeftColor: value,
-                      };
+                      let newValue: Record<string, any>;
+
+                      if (isGradientValue(value)) {
+                        if (!contentBackgroundLayersRef.current?.length) {
+                          contentBackgroundLayersRef.current = getContentBackgroundLayers(val);
+                        }
+                        newValue = buildGradientBorderValue(value, val, contentBackgroundLayersRef.current);
+                        borderGradientRef.current = value;
+                      } else {
+                        newValue = {
+                          borderTopColor: value,
+                          borderRightColor: value,
+                          borderBottomColor: value,
+                          borderLeftColor: value,
+                          ...buildClearGradientBorderValue(val, contentBackgroundLayersRef.current),
+                        };
+                        borderGradientRef.current = undefined;
+                        contentBackgroundLayersRef.current = null;
+                      }
+
                       if (
                         !isLengthNineAndEndsWithZeroes(value) &&
                         val.borderTopWidth === "0px"
@@ -346,7 +482,11 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                         style={{ padding: 0, marginLeft: 2, flex: 1, minWidth: 26 }}
                         defaultValue={borderValue.borderLeftColor}
                         showSubTabs={false}
-                        onChange={(value: string) => {
+                        onChange={(input: any) => {
+                          const value = getColorEditorValue(input);
+                          if (!value) {
+                            return;
+                          }
                           const newValue: Record<string, any> = {
                             borderLeftColor: value,
                           };
@@ -431,7 +571,11 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                         style={{ padding: 0, marginLeft: 2, flex: 1, minWidth: 26 }}
                         defaultValue={borderValue.borderTopColor}
                         showSubTabs={false}
-                        onChange={(value: string) => {
+                        onChange={(input: any) => {
+                          const value = getColorEditorValue(input);
+                          if (!value) {
+                            return;
+                          }
                           const newValue: Record<string, any> = {
                             borderTopColor: value,
                           };
@@ -505,7 +649,11 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                         style={{ padding: 0, marginLeft: 2, flex: 1, minWidth: 26 }}
                         defaultValue={borderValue.borderRightColor}
                         showSubTabs={false}
-                        onChange={(value: string) => {
+                        onChange={(input: any) => {
+                          const value = getColorEditorValue(input);
+                          if (!value) {
+                            return;
+                          }
                           const newValue: Record<string, any> = {
                             borderRightColor: value,
                           };
@@ -579,7 +727,11 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                         style={{ padding: 0, marginLeft: 2, flex: 1, minWidth: 26 }}
                         defaultValue={borderValue.borderBottomColor}
                         showSubTabs={false}
-                        onChange={(value: string) => {
+                        onChange={(input: any) => {
+                          const value = getColorEditorValue(input);
+                          if (!value) {
+                            return;
+                          }
                           const newValue: Record<string, any> = {
                             borderBottomColor: value,
                           };
@@ -816,6 +968,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
       // mergeCSSProperties 可能生成的简写属性
       'border', 'borderTop', 'borderRight', 'borderBottom', 'borderLeft',
       'borderRadius', 'borderWidth', 'borderStyle', 'borderColor',
+      ...GRADIENT_BORDER_KEYS,
     ];
     onChange(borderKeys.map(key => ({ key, value: null })));
     setBorderValue({} as any);
