@@ -332,6 +332,7 @@ export function Size({value, onChange, config, showTitle, collapse}: SizeProps) 
       onAddOption={handleAddOption}
       rightColumn={
         <div className={css.sizeActions}>
+          {showWidthHeight && <div className={css.sizeRemoveBtn} style={{visibility: 'hidden'}}><MinusOutlined /></div>}
           {showMinRow && (
             <div className={css.sizeRemoveBtn} onClick={handleRemoveMin}>
               <MinusOutlined />
