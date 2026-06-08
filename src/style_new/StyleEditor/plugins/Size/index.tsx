@@ -123,16 +123,6 @@ export function Size({value, onChange, config, showTitle, collapse}: SizeProps) 
     setMinHeightPending(undefined);
   }, [onChange]);
 
-  const handleDeleteWidthHeight = useCallback(() => {
-    onChange([
-      { key: 'width', value: null },
-      { key: 'height', value: null },
-    ]);
-    setShowWidthHeight(false);
-    setWidthPending(undefined);
-    setHeightPending(undefined);
-  }, [onChange]);
-
   const isDraggingWidth = useRef(false);
   const isDraggingHeight = useRef(false);
 
@@ -342,11 +332,6 @@ export function Size({value, onChange, config, showTitle, collapse}: SizeProps) 
       onAddOption={handleAddOption}
       rightColumn={
         <div className={css.sizeActions}>
-          {showWidthHeight && (
-            <div className={css.sizeRemoveBtn} onClick={handleDeleteWidthHeight}>
-              <MinusOutlined />
-            </div>
-          )}
           {showMinRow && (
             <div className={css.sizeRemoveBtn} onClick={handleRemoveMin}>
               <MinusOutlined />
