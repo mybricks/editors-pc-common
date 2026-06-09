@@ -449,13 +449,21 @@ export default function ({editConfig}: EditorProps) {
       // 运行时实际 class 与静态 class 的差集 = 动态 class（如 iconUser）
       // comId 为空时跳过，避免无样式表过滤依据时产生噪音
       // 再过滤：只保留在组件样式表中真实存在的 class，排除平台注入的噪音 class
-      // 过滤掉 pages_StoreDecoration_index_less-pageTitle 前面的文件名 ---> pageTitle
+
+      // CSS module 会将 class 名混淆为 "<模块路径>-<真实class名>" 的形式（如 pages_Foo_less-text-container-213），
+      // 而 knownClasses（来自 data-loc.cn）只存储短名（如 text-container-213），两者格式不同无法精确匹配。
+      // isMangledKnown 用"带答案找问题"的方式：直接检查 DOM class 是否以 "-已知短名" 结尾，
+      // 且前缀部分含下划线（模块路径特征），是则认定为静态 class 的混淆版本，在 filter 阶段直接排除。
+      const isMangledKnown = (c: string) =>
+        knownClasses.some(kc => c.endsWith(`-${kc}`) && c.slice(0, c.length - kc.length - 1).includes('_'))
+
       const dynamicClasses = (comId
         ? Array.from((dom as Element)?.classList ?? []).filter(c =>
-            !knownClasses.includes(c) && classesInStyleSheet.has(c)
+            !knownClasses.includes(c) &&  // 精确匹配（短名直接挂在 DOM 上时）
+            !isMangledKnown(c) &&         // 混淆名反向匹配（CSS module 编译后的长名）
+            classesInStyleSheet.has(c)
           )
-        : []
-      ).map(c => c.includes('-') ? c.split('-').pop()! : c)
+        : [])
 
       
       // 有动态 class 时，与静态选择器组合成复合选择器（无空格，即同元素上多个 class）
