@@ -764,10 +764,8 @@ function Style ({editConfig, options, setValue, collapsedOptions, readonlyExpand
           ? (editConfig.options as any).selector
           : undefined)
 
-    // debugger
     //在这里把selector放在了第二个参数
     //bug: 有时候这个selector是："[data-zone-selector='[".searchArea .hotWords span"]']"
-    // console.log("editConfig.value.set",selector)
     editConfig.value.set(mergedCssProperties, selector ? { selector } : undefined)
   }, [editConfig, options])
 
@@ -2037,8 +2035,7 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration, 
     lineHeight = computedValues.lineHeight
   }
   if (!fontFamily) {
-    // fontFamily = computedValues.fontFamily
-    fontFamily = 'inherit'
+    fontFamily = computedValues?.fontFamily || 'inherit'
   }
   if (isNotSet(letterSpacing)) {
     letterSpacing = computedValues.letterSpacing
