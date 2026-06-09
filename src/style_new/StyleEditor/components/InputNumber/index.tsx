@@ -30,6 +30,8 @@ interface InputNumberProps extends InputProps {
   onAction?: (value: any) => void;
   unitIconClassName?: string;
   unitSelectStyle?: React.CSSProperties;
+  /** 在单位选择器前渲染的额外徽标内容，如 "Hug" */
+  badge?: React.ReactNode;
 }
 
 export function InputNumber ({
@@ -54,6 +56,7 @@ export function InputNumber ({
   onAction,
   unitIconClassName,
   unitSelectStyle,
+  badge,
 }: InputNumberProps) {
   const [unit, setUnit] = useState<string>(getUnit(value || defaultValue, defaultUnitValue, unitOptions))
   const [number, handleNumberChange] = useInputNumber<string | number | undefined>(value || defaultValue)
@@ -129,6 +132,10 @@ export function InputNumber ({
     if (customSuffix) {
       return customSuffix
     } else if (Array.isArray(unitOptions)) {
+      // Hug badge 时直接替代单位选择器，不再显示下拉
+      if (badge) {
+        return <>{badge}</>
+      }
       return (
         <Select
           tip='单位'
@@ -146,7 +153,7 @@ export function InputNumber ({
     }
 
     return null
-  }, [unit, isDefaultUnit])
+  }, [unit, isDefaultUnit, badge])
 
   useUpdateEffect(() => {
     if (value) {

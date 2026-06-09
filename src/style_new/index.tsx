@@ -2430,11 +2430,13 @@ function getStyleRules (element: HTMLElement | null, selector: string | null): {
           // 格式：:where(.u_wYqS8) .pages_StoreDecoration_index_less-pageContainer
           if (/^:where\(/.test(selectorText) && element) {
             const lastPart = selectorText.trim().split(/\s+/).pop() || ''
-            const realClass = lastPart.includes('-')
-              ? lastPart.slice(lastPart.lastIndexOf('-') + 1)
-              : lastPart.replace(/^\./, '')
+            const classWithoutDot = lastPart.replace(/^\./, '')
             const selectorLastClass = (selector.trim().split(/\s+/).pop() || selector).replace(/^\./, '')
-            if (realClass === selectorLastClass) {
+            // 原始类名可能含连字符（如 frame-216），不能只取 lastIndexOf('-') 后面的部分
+            // 改用 endsWith 检查：hashed class 以 "-{originalClass}" 结尾
+            const isClassMatch = classWithoutDot === selectorLastClass ||
+              classWithoutDot.endsWith('-' + selectorLastClass)
+            if (isClassMatch) {
               try {
                 if (element.matches(selectorText)) finalRules.push(rule)
               } catch {}
@@ -2446,7 +2448,23 @@ function getStyleRules (element: HTMLElement | null, selector: string | null): {
           if (!/:[a-zA-Z\-]/.test(selectorText)) {
             const isGlobalRule = selectorText === lastSeg
             const isScopedRule = selectorText.endsWith(' ' + lastSeg)
-            if (isGlobalRule || isScopedRule) {
+
+            // CSS Modules 哈希类名回退：编译后类名格式为 "{moduleHash}-{originalClass}"
+            // 当 element.matches 确认元素确实应用了此规则，且规则末尾类名以 "-{原始类名}" 结尾时视为匹配
+            let isHashedModuleMatch = false
+            if (!isGlobalRule && !isScopedRule && element) {
+              try {
+                const matchResult = element.matches(selectorText)
+                const ruleLast = (selectorText.split(/\s+/).pop() || '').replace(/^\./, '')
+                const selLast = lastSeg.replace(/^\./, '')
+                const endsWith = ruleLast.endsWith('-' + selLast)
+                if (matchResult) {
+                  isHashedModuleMatch = ruleLast === selLast || endsWith
+                }
+              } catch {}
+            }
+
+            if (isGlobalRule || isScopedRule || isHashedModuleMatch) {
               finalRules.push(rule)
             }
           }

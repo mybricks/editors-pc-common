@@ -37,6 +37,8 @@ const SIZE_UNIT_SELECT_STYLE: React.CSSProperties = {
   background: "transparent",
 };
 
+const HugBadge = <span className={css.hugBadge}>Hug</span>;
+
 /** 归一化尺寸值：auto / inherit / fit-content / 未配置 → undefined，让输入框显示为空（默认状态） */
 function normalizeSizeValue(val: any): string | undefined {
   if (!val || val === 'auto' || val === 'inherit' || val === 'fit-content') return undefined;
@@ -370,6 +372,7 @@ export function Size({value, onChange, config, showTitle, collapse}: SizeProps) 
                   unitSelectStyle={SIZE_UNIT_SELECT_STYLE}
                   disabled={cfg.disableWidth}
                   tip={cfg.disableWidth ? SIZE_DISABLED_TIP : undefined}
+                  badge={(!widthEffective && actualWidth > 0) ? HugBadge : undefined}
                 />
               </Panel.Item>
               <Panel.Item style={{ display: "flex", alignItems: "center", paddingLeft: 4 }}>
@@ -393,6 +396,7 @@ export function Size({value, onChange, config, showTitle, collapse}: SizeProps) 
                   unitSelectStyle={SIZE_UNIT_SELECT_STYLE}
                   disabled={cfg.disableHeight}
                   tip={cfg.disableHeight ? SIZE_DISABLED_TIP : undefined}
+                  badge={(!heightEffective && actualHeight > 0) ? HugBadge : undefined}
                 />
               </Panel.Item>
             </Panel.Content>
