@@ -8,8 +8,10 @@ import css from "./index.less";
 interface DropdownOption {
   label: string | number;
   value: any;
-  type?: 'action';
+  type?: 'action' | 'divider';
   checked?: boolean;
+  icon?: ReactNode;
+  iconSize?: 'sm' | 'md';
 }
 
 interface DropdownProps {
@@ -125,14 +127,11 @@ const Items = React.forwardRef<HTMLDivElement, ItemsProps>((props, forwardRef) =
       const bottom = top + menusContainerBct.height;
 
       if (bottom > totalHeight) {
-        // 目前判断下方是否超出即可
-        // 向上
         menusContainer.style.top = positionElementBct.top - menusContainerBct.height + "px";
       } else {
         menusContainer.style.top = top + "px";
       }
 
-      // 保证完全展示
       if (menusContainerBct.width > positionElementBct.width) {
         menusContainer.style.left = left - menusContainerBct.width + positionElementBct.width + "px";
       } else {
@@ -146,19 +145,28 @@ const Items = React.forwardRef<HTMLDivElement, ItemsProps>((props, forwardRef) =
     }
   }, [open, ref.current]);
 
+  const hasAnyIcon = options.some(o => o.icon);
+
   return (
     <div ref={ref} className={css.items} data-dropdown-portal="true">
-      {options.map(({ label, value, type, checked }, index) => {
+      {options.map(({ label, value, type, checked, icon, iconSize }, index) => {
+        if (type === 'divider') {
+          return <div key={index} className={css.divider} />;
+        }
         const isAction = type === 'action';
+        const isChecked = !isAction
+          ? value === currentValue || (Array.isArray(currentValue) && currentValue.includes(value))
+          : !!checked;
         return (
           <div key={index} className={css.item} onClick={() => onClick(value, isAction)}>
-            {!isAction && (value === currentValue || (Array.isArray(currentValue) && currentValue.includes(value))) ? (
-              <CheckOutlined />
-            ) : isAction && checked ? (
-              <CheckOutlined />
-            ) : (
-              <></>
-            )}
+            <span className={css.itemCheck}>
+              {isChecked ? <CheckOutlined /> : null}
+            </span>
+            {icon ? (
+              <span className={iconSize === 'sm' ? css.itemIconSm : css.itemIcon}>
+                {icon}
+              </span>
+            ) : (hasAnyIcon ? <span style={{ paddingLeft: 5 }} /> : null)}
             {label}
           </div>
         );

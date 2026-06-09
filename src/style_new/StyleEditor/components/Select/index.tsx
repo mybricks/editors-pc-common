@@ -19,7 +19,7 @@ interface SelectProps {
   labelStyle?: CSSProperties;
   onChange: (value: any) => void;
   onAction?: (value: any) => void;
-  options: Array<{ value: any; label: string | number; type?: 'action'; checked?: boolean }>;
+  options: Array<{ value: any; label: string | number; type?: 'action' | 'divider'; checked?: boolean; icon?: ReactNode; iconSize?: 'sm' | 'md' }>;
   multiple?: boolean;
   /** 是否展示下拉的icon */
   showIcon?: boolean;
