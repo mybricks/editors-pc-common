@@ -15,7 +15,7 @@
 .unselected {
   width: 24px;
   height: 24px;
-  .flex-center;
+  .flex-center();
 }
 .justifyWrap {
   display: flex;
@@ -30,7 +30,7 @@
     cursor: pointer;
     color: #555;
     opacity: 0.65;
-    .unselected;
+    .unselected();
   }
   .svgWrapper:hover {
     background-color: #fff8f4;
@@ -40,13 +40,13 @@
     opacity: 1;
   }
   .justifyContent-select {
-    .selected;
+    .selected();
   }
 }
 
 .wrap {
   cursor: pointer;
-  .unselected;
+  .unselected();
   // margin-top: 4px;
   svg {
     display: inline-block;

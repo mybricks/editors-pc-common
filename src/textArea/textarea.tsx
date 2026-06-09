@@ -129,17 +129,19 @@ export default function ({editConfig}: EditorProps): JSX.Element {
     const nowHeight = Math.max(styles.height, 26)
 
     return (
-      <div className={`${css.textArea} ${css.vCenter}`}
-           onMouseDown={e => {
-             e.stopPropagation()
-           }}
-           style={{
-             width: nowWidth,
-             height: nowHeight
-           }}>
+        <div className={`${css.textArea} ${css.vCenter}`}
+             onMouseDown={e => {
+               e.stopPropagation()
+             }}
+             style={{
+               width: nowWidth,
+               height: nowHeight
+             }}>
         <textarea ref={el => {
           if (el) {
             changedRef.current = el
+
+            el.scrollTop = el.scrollHeight / 2//滚动
           }
         }}
                   style={styles}
@@ -163,60 +165,60 @@ export default function ({editConfig}: EditorProps): JSX.Element {
                   {...res}
                   value={curText}
         />
-        {
-          localeEnable ? (
-            <span className={`${useLocale ? css.useLocale : ''} ${css.icon}`}
-                  onClick={openLocale}
-                  data-mybricks-tip={`多语言`}>
+          {
+            localeEnable ? (
+                <span className={`${useLocale ? css.useLocale : ''} ${css.icon}`}
+                      onClick={openLocale}
+                      data-mybricks-tip={`多语言`}>
             {world}
           </span>
-          ) : null
-        }
-      </div>
+            ) : null
+          }
+        </div>
     )
   } else {
     return (
-      <div className={`${css.textArea}`}
-           style={{
-             width,
-             height
-           }}>
-        <Input.TextArea ref={el => {
-          if (el) {
-            changedRef.current = el
-          }
-        }}
-                        style={styles}
-                        onDoubleClick={e => {
-                          e.stopPropagation()
-                        }}
-                        onChange={evt => {
-                          setCurText(evt.target.value)
-                        }}
-                        onKeyPress={evt => {
-                          if (onEnterSet) {
-                            if (evt.key !== 'Enter') return
+        <div className={`${css.textArea}`}
+             style={{
+               width,
+               height
+             }}>
+          <Input.TextArea ref={el => {
+            if (el) {
+              changedRef.current = el
+            }
+          }}
+                          style={styles}
+                          onDoubleClick={e => {
+                            e.stopPropagation()
+                          }}
+                          onChange={evt => {
+                            setCurText(evt.target.value)
+                          }}
+                          onKeyPress={evt => {
+                            if (onEnterSet) {
+                              if (evt.key !== 'Enter') return
+                              updateVal(evt)
+                            }
+                          }}
+                          onBlur={(evt) => {
                             updateVal(evt)
-                          }
-                        }}
-                        onBlur={(evt) => {
-                          updateVal(evt)
-                        }}
-                        disabled={readonly || useLocale}
-                        defaultValue={val}
-                        {...res}
-                        value={curText}
-        />
-        {
-          localeEnable ? (
-            <span className={`${useLocale ? css.useLocale : ''} ${css.icon}`}
-                  onClick={openLocale}
-                  data-mybricks-tip={`多语言`}>
+                          }}
+                          disabled={readonly || useLocale}
+                          defaultValue={val}
+                          {...res}
+                          value={curText}
+          />
+          {
+            localeEnable ? (
+                <span className={`${useLocale ? css.useLocale : ''} ${css.icon}`}
+                      onClick={openLocale}
+                      data-mybricks-tip={`多语言`}>
             {world}
           </span>
-          ) : null
-        }
-      </div>
+            ) : null
+          }
+        </div>
     )
   }
 }
