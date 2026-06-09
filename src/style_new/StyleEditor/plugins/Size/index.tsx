@@ -38,6 +38,7 @@ const SIZE_UNIT_SELECT_STYLE: React.CSSProperties = {
 };
 
 const HugBadge = <span className={css.hugBadge}>Hug</span>;
+const FillBadge = <span className={css.fillBadge}>Fill</span>;
 
 /** 归一化尺寸值：auto / inherit / fit-content / 未配置 → undefined，让输入框显示为空（默认状态） */
 function normalizeSizeValue(val: any): string | undefined {
@@ -157,6 +158,10 @@ export function Size({value, onChange, config, showTitle, collapse}: SizeProps) 
   const widthEffective = normalizeSizeValue(widthPending ?? value.width);
   const heightEffective = normalizeSizeValue(heightPending ?? value.height);
   const maxWidthEffective = normalizeSizeValue(maxWidthPending ?? value.maxWidth);
+
+  // Fill 检测：CSS 值为百分比（100%、50% 等），由父容器尺寸决定
+  const isWidthFill = !!(widthEffective?.includes('%') && actualWidth > 0);
+  const isHeightFill = !!(heightEffective?.includes('%') && actualHeight > 0);
   const minWidthEffective = normalizeSizeValue(minWidthPending ?? value.minWidth);
   const maxHeightEffective = normalizeSizeValue(maxHeightPending ?? value.maxHeight);
   const minHeightEffective = normalizeSizeValue(minHeightPending ?? value.minHeight);
@@ -359,9 +364,9 @@ export function Size({value, onChange, config, showTitle, collapse}: SizeProps) 
                   <span className={`${css.tip} ${cfg.disableWidth ? css.tipDisabled : ''}`} style={{ flexShrink: 0}}>宽度</span>
                 </div>
                 <InputNumber
-                  key={widthEffective ? getUnitKey(widthEffective) : (actualWidth > 0 ? `dom-w-${Math.round(actualWidth)}` : 'empty')}
+                  key={isWidthFill ? `fill-w-${Math.round(actualWidth)}` : (widthEffective ? getUnitKey(widthEffective) : (actualWidth > 0 ? `dom-w-${Math.round(actualWidth)}` : 'empty'))}
                   style={{ flex: 1, minWidth: 0, marginLeft: 4 }}
-                  defaultValue={widthEffective ?? (actualWidth > 0 ? `${Math.round(actualWidth)}px` : undefined)}
+                  defaultValue={isWidthFill ? `${Math.round(actualWidth)}px` : (widthEffective ?? (actualWidth > 0 ? `${Math.round(actualWidth)}px` : undefined))}
                   defaultUnitValue="px"
                   unitOptions={widthUnitOptions}
                   unitDisabledList={UNIT_DISABLED_LIST}
@@ -372,7 +377,7 @@ export function Size({value, onChange, config, showTitle, collapse}: SizeProps) 
                   unitSelectStyle={SIZE_UNIT_SELECT_STYLE}
                   disabled={cfg.disableWidth}
                   tip={cfg.disableWidth ? SIZE_DISABLED_TIP : undefined}
-                  badge={(!widthEffective && actualWidth > 0) ? HugBadge : undefined}
+                  badge={isWidthFill ? FillBadge : ((!widthEffective && actualWidth > 0) ? HugBadge : undefined)}
                 />
               </Panel.Item>
               <Panel.Item style={{ display: "flex", alignItems: "center", paddingLeft: 4 }}>
@@ -383,9 +388,9 @@ export function Size({value, onChange, config, showTitle, collapse}: SizeProps) 
                   <span className={`${css.tip} ${cfg.disableHeight ? css.tipDisabled : ''}`} style={{ flexShrink: 0 }}>高度</span>
                 </div>
                 <InputNumber
-                  key={heightEffective ? getUnitKey(heightEffective) : (actualHeight > 0 ? `dom-h-${Math.round(actualHeight)}` : 'empty')}
+                  key={isHeightFill ? `fill-h-${Math.round(actualHeight)}` : (heightEffective ? getUnitKey(heightEffective) : (actualHeight > 0 ? `dom-h-${Math.round(actualHeight)}` : 'empty'))}
                   style={{ flex: 1, minWidth: 0, marginLeft: 4 }}
-                  defaultValue={heightEffective ?? (actualHeight > 0 ? `${Math.round(actualHeight)}px` : undefined)}
+                  defaultValue={isHeightFill ? `${Math.round(actualHeight)}px` : (heightEffective ?? (actualHeight > 0 ? `${Math.round(actualHeight)}px` : undefined))}
                   defaultUnitValue="px"
                   unitOptions={heightUnitOptions}
                   unitDisabledList={UNIT_DISABLED_LIST}
@@ -396,7 +401,7 @@ export function Size({value, onChange, config, showTitle, collapse}: SizeProps) 
                   unitSelectStyle={SIZE_UNIT_SELECT_STYLE}
                   disabled={cfg.disableHeight}
                   tip={cfg.disableHeight ? SIZE_DISABLED_TIP : undefined}
-                  badge={(!heightEffective && actualHeight > 0) ? HugBadge : undefined}
+                  badge={isHeightFill ? FillBadge : ((!heightEffective && actualHeight > 0) ? HugBadge : undefined)}
                 />
               </Panel.Item>
             </Panel.Content>
