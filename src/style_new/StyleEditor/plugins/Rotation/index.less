@@ -1,0 +1,55 @@
+@import "../../../../theme";
+
+.angleIconWrap {
+  display: flex;
+  align-items: center;
+  padding-left: 4px;
+  padding-right: 2px;
+  flex-shrink: 0;
+  cursor: ew-resize;
+  color: @font-color-content;
+
+  svg {
+    width: 26px;
+    height: 26px;
+    --fpl-icon-color: currentColor;
+  }
+}
+
+.degUnit {
+  font-size: 11px;
+  color: @font-color-content;
+  padding-right: 6px;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.actionBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  border-radius: @border-radius;
+  background-color: @bg-color-main-secondary;
+  color: @font-color-content;
+  cursor: pointer;
+  user-select: none;
+  margin-left: 4px;
+  box-sizing: border-box;
+
+  svg {
+    width: 20px;
+    height: 20px;
+    --fpl-icon-color: currentColor;
+  }
+
+  &:hover {
+    outline: 1px solid @boder-color;
+  }
+
+  &.actionBtnActive {
+    color: @font-color-active;
+  }
+}

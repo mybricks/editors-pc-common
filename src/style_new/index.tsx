@@ -1270,6 +1270,11 @@ const getDefaultValueFunctionMap = {
       zIndex: values.zIndex
     }
   },
+  rotation(values: CSSProperties, config: any) {
+    return {
+      transform: values.transform
+    }
+  },
   layout(values: CSSProperties, config: any) {
     return {
       display: values.display,
@@ -1384,6 +1389,11 @@ const getDefaultValueFunctionMap2 = {
   zindex() {
     return {
       zIndex: ''
+    }
+  },
+  rotation() {
+    return {
+      transform: 'none'
     }
   },
   layout() {
@@ -1688,6 +1698,10 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration, 
   let zIndex // 非继承属性
   /** zindex */
 
+  /** rotation */
+  let transform // 非继承属性
+  /** rotation */
+
   /** layout */
   let display // 非继承属性
   let flexDirection // 非继承属性
@@ -1991,6 +2005,13 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration, 
     }
     /** zindex */
 
+    /** rotation */
+    const { transform: styleTransform } = style
+    if (styleTransform) {
+      transform = styleTransform
+    }
+    /** rotation */
+
     /** layout */
     const {
       display: styleDisplay,
@@ -2199,6 +2220,10 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration, 
   // zIndex 不兜底 computedValues（auto 无意义），未设置时保持 undefined
   /** zindex */
 
+  /** rotation */
+  // transform 不兜底 computedValues（计算值为 matrix，无法回显为角度），未设置时保持 undefined
+  /** rotation */
+
   /** layout */
   // 若 CSS 规则里没有显式设置这些属性，则从 computedValues 读取当前计算值作为回显基准。
   // position 默认为 'static'（浏览器计算值），回显时直接使用即可。
@@ -2285,6 +2310,8 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration, 
     opacity,
 
     zIndex,
+
+    transform,
 
     display,
     flexDirection,

@@ -153,6 +153,9 @@ export function getSuggestOptionsByElement(selectDom: HTMLElement): { type: stri
       {
         type: 'zindex'
       },
+      {
+        type: 'rotation'
+      },
       sizeOption
     ].filter(t => !!t)
 

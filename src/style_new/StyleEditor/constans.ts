@@ -10,5 +10,6 @@ export const DEFAULT_OPTIONS = [
   'boxshadow',
   'overflow',
   'opacity',
-  'zindex'
+  'zindex',
+  'rotation'
 ] as const

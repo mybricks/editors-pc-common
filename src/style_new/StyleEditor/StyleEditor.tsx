@@ -14,6 +14,7 @@ import {
   Radius,
   Layout,
   ZIndex,
+  Rotation,
 } from "./plugins";
 
 import type { StyleEditorProps, Option } from "./type";
@@ -35,6 +36,7 @@ const PLUGINS_MAP: Record<string, (value: any) => React.ReactNode> = {
   BOXSHADOW: BoxShadow,
   CURSOR: Cursor,
   ZINDEX: ZIndex,
+  ROTATION: Rotation,
 };
 
 export default function ({
