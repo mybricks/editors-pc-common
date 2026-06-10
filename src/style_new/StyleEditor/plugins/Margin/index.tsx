@@ -47,7 +47,7 @@ export function Margin ({value, onChange, config, showTitle, collapse}: MarginPr
   const [marginValue, setMarginValue] = useState({...value})
   const [forceRenderKey, setForceRenderKey] = useState<number>(Math.random())
   const [splitMarginIcon, setSplitMarginIcon] = useState(<PaddingTopOutlined />)
-  const getDragProps = useDragNumber({ continuous: true })
+  const getDragProps = useDragNumber({ continuous: true, min: -Infinity })
   const [isReset, setIsReset] = useState(false)
 
   const cfg = useMemo(() => ({ ...DEFAULT_CONFIG, ...(config ?? {}) }), [config]);
