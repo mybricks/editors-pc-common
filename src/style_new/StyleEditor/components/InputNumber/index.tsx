@@ -78,7 +78,7 @@ export function InputNumber ({
     target: any, code: any; preventDefault: () => void
   }) => {
     const code = e.code
-    const newValue = incrementDecrement(e.target.value, code);
+    const newValue = incrementDecrement(e.target.value, code, allowNegative);
     if (['ArrowUp', 'ArrowDown'].includes(code)) {
       e.target.value = newValue;
       e.target.select();// 光标增减时依旧选中
@@ -210,7 +210,7 @@ function getUnit (value: any, defaultUnitValue: string | undefined = void 0, uni
   return unitOption ? unitOption.value : (unit || (typeof defaultUnitValue !== 'undefined' ? defaultUnitValue : value))
 }
 
-function incrementDecrement(inputNumber: string, keyEvent: 'ArrowUp' | 'ArrowDown') {
+function incrementDecrement(inputNumber: string, keyEvent: 'ArrowUp' | 'ArrowDown', allowNegative = false) {
   if (inputNumber.includes('.')) {
     var decimalPlaces = inputNumber.split('.')[1].length
     var increment = Math.pow(10, -decimalPlaces)
@@ -232,5 +232,6 @@ function incrementDecrement(inputNumber: string, keyEvent: 'ArrowUp' | 'ArrowDow
     }
   }
 
+  if (allowNegative) return updatedNumber
   return Number(updatedNumber) > 0 ? updatedNumber : '0'
 }

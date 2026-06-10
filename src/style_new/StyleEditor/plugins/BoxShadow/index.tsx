@@ -281,6 +281,7 @@ function BoxShadowSketch({
   onReset,
 }: BoxShadowSketchProps) {
   const getDragProps = useDragNumber({ continuous: true })
+  const getDragPropsNegative = useDragNumber({ continuous: true, min: -Infinity })
 
   useEffect(() => {
     const container = childRef.current
@@ -326,8 +327,9 @@ function BoxShadowSketch({
         <span className={css.shadowLabel}>位置</span>
         <InputNumber
           style={{ flex: 1 }}
+          allowNegative={true}
           prefix={
-            <div {...getDragProps(values.offsetX, '拖拽调整x轴偏移')}>
+            <div {...getDragPropsNegative(values.offsetX, '拖拽调整x轴偏移')}>
               <div className={css.shadowLabelIcon}>X</div>
             </div>
           }
@@ -340,8 +342,9 @@ function BoxShadowSketch({
         <span className={css.shadowLabel}></span>
         <InputNumber
           style={{ flex: 1 }}
+          allowNegative={true}
           prefix={
-            <div {...getDragProps(values.offsetY, '拖拽调整y轴偏移')}>
+            <div {...getDragPropsNegative(values.offsetY, '拖拽调整y轴偏移')}>
               <div className={css.shadowLabelIcon}>Y</div>
             </div>
           }
