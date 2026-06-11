@@ -16,6 +16,7 @@ import {
   TextAlignLeftOutlined,
   TextAlignRightOutlined,
   TextAlignCenterOutlined,
+  TruncateTextOutlined,
 } from "../../components";
 import { splitValueAndUnit } from "../../utils";
 import { isObject } from "../../../../util/lodash/isObject";
@@ -123,6 +124,7 @@ const DEFAULT_CONFIG = {
   disableLineHeight: false,
   disableLetterSpacing: false,
   disableWhiteSpace: false,
+  disableTruncateText: false,
   /** flex/inline-flex 容器时为 'flex'，此时对齐按钮映射到 justify-content */
   textAlignMode: '' as '' | 'flex',
 
@@ -246,6 +248,16 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
   const [lineHeight, setLineHeight] = useState<string | number>(
     value.lineHeight!
   );
+
+  const [truncateLines, setTruncateLines] = useState<number>(() => {
+    const clamp = (value as any).webkitLineClamp;
+    return clamp && clamp !== 'none' ? Math.max(1, Number(clamp)) : 1;
+  });
+
+  const [isTruncated, setIsTruncated] = useState(() => {
+    const v = value as any;
+    return v.textOverflow === 'ellipsis' || (v.webkitLineClamp && v.webkitLineClamp !== 'none');
+  });
   
   const throttleTimerRef = useRef<NodeJS.Timeout | null>(null);
   const lastUpdateTimeRef = useRef<number>(0);
@@ -334,6 +346,39 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
     [lineHeight]
   );
 
+  const applyTruncate = useCallback((lines: number) => {
+    if (isNaN(lines) || lines < 1) return;
+    if (lines <= 1) {
+      // 单行：white-space: nowrap + text-overflow: ellipsis 方案
+      onChange([
+        { key: 'textOverflow', value: 'ellipsis' },
+        { key: 'overflow', value: 'hidden' },
+        { key: 'whiteSpace', value: 'nowrap' },
+        { key: 'display', value: null },
+        { key: 'WebkitLineClamp', value: null },
+        { key: 'WebkitBoxOrient', value: null },
+        { key: 'overflowClipMargin', value: null },
+        { key: 'maxHeight', value: null },
+      ]);
+    } else {
+      // 多行：display:-webkit-box + -webkit-line-clamp，兼容性最佳。
+      // 使用 overflow:clip + overflow-clip-margin:content-box，
+      // 裁剪边界从 border-box 收窄到 content-box，
+      // 无论 padding 多大都不会有多余行"漏"到 padding 区域。
+      onChange([
+        { key: 'overflow', value: 'clip' },
+        { key: 'overflowClipMargin', value: 'content-box' },
+        { key: 'whiteSpace', value: 'normal' },
+        { key: 'display', value: '-webkit-box' },
+        { key: 'WebkitLineClamp', value: String(lines) },
+        { key: 'WebkitBoxOrient', value: 'vertical' },
+        { key: 'textOverflow', value: null },
+        { key: 'height', value: null },
+        { key: 'maxHeight', value: null },
+      ]);
+    }
+  }, [onChange]);
+
   const refresh = useCallback(() => {
     onChange([
       { key: 'color', value: null },
@@ -344,6 +389,13 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
       { key: 'letterSpacing', value: null },
       { key: 'textAlign', value: null },
       { key: 'whiteSpace', value: null },
+      { key: 'textOverflow', value: null },
+      { key: 'overflow', value: null },
+      { key: 'overflowClipMargin', value: null },
+      { key: 'display', value: null },
+      { key: 'WebkitLineClamp', value: null },
+      { key: 'WebkitBoxOrient', value: null },
+      { key: 'maxHeight', value: null },
       ...(cfg.textAlignMode === 'flex' ? [{ key: 'justifyContent', value: null }] : []),
     ]);
   }, [onChange, cfg.textAlignMode]);
@@ -556,6 +608,65 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
             }}
           />
         </Panel.Content>
+      )}
+      {cfg.disableTruncateText ? null : (
+        <>
+          <Panel.Content>
+            <Toggle
+              key={`truncate-${(value as any).textOverflow || ''}-${(value as any).webkitLineClamp || ''}`}
+              defaultValue={
+                (value as any).textOverflow === 'ellipsis' ||
+                ((value as any).webkitLineClamp && (value as any).webkitLineClamp !== 'none')
+                  ? 'ellipsis'
+                  : 'clip'
+              }
+              options={[
+                { label: <span style={{ fontWeight: 'bold', fontSize: 13, lineHeight: 1 }}>—</span>, value: 'clip', tip: '不截断' },
+                { label: <TruncateTextOutlined />, value: 'ellipsis', tip: '省略号截断' },
+              ]}
+              onChange={(v) => {
+                if (v === 'ellipsis') {
+                  setIsTruncated(true);
+                  applyTruncate(truncateLines);
+                } else {
+                  setIsTruncated(false);
+                  onChange([
+                    { key: 'textOverflow', value: null },
+                    { key: 'overflow', value: null },
+                    { key: 'overflowClipMargin', value: null },
+                    { key: 'whiteSpace', value: null },
+                    { key: 'WebkitLineClamp', value: null },
+                    { key: 'display', value: null },
+                    { key: 'WebkitBoxOrient', value: null },
+                    { key: 'height', value: null },
+                    { key: 'maxHeight', value: null },
+                  ]);
+                }
+              }}
+            />
+          </Panel.Content>
+          {isTruncated && (
+            <Panel.Content>
+              <Panel.Item style={{ display: 'flex', alignItems: 'center', flex: 1, padding: '0 8px' }}>
+                <span style={{ fontSize: 12, whiteSpace: 'nowrap', marginRight: 4, color: 'var(--font-color-content, #888)' }}>行数</span>
+                <InputNumber
+                  tip="最大行数"
+                  type="number"
+                  style={{ flex: 1 }}
+                  defaultUnitValue=""
+                  value={String(truncateLines)}
+                  onChange={(lines) => {
+                    const parsed = parseInt(String(lines), 10);
+                    if (isNaN(parsed)) return;
+                    const n = Math.max(1, parsed);
+                    setTruncateLines(n);
+                    applyTruncate(n);
+                  }}
+                />
+              </Panel.Item>
+            </Panel.Content>
+          )}
+        </>
       )}
     </Panel>
   );

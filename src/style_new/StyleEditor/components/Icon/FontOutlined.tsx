@@ -294,3 +294,27 @@ export function WhiteSpaceOutlined() {
     </svg>
   );
 }
+
+/** 截断文本（省略号）图标：字母 A + 省略号 */
+export function TruncateTextOutlined() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="16"
+      height="16"
+      viewBox="0 0 16 16"
+      fill="none"
+    >
+      {/* 字母 A */}
+      <path
+        fillRule="evenodd"
+        fill="currentColor"
+        d="M5.5 2L2 11h1.3l0.9-2.4h3.6L8.7 11H10L6.5 2H5.5zm0.5 1.6l1.4 3.8H4.6L6 3.6z"
+      />
+      {/* 省略号三个点 */}
+      <circle cx="10" cy="10.5" r="0.8" fill="currentColor" />
+      <circle cx="12.2" cy="10.5" r="0.8" fill="currentColor" />
+      <circle cx="14.4" cy="10.5" r="0.8" fill="currentColor" />
+    </svg>
+  );
+}

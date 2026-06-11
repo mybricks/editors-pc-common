@@ -1182,7 +1182,9 @@ const getDefaultValueFunctionMap = {
       fontFamily: values.fontFamily,
       lineHeight: values.lineHeight,
       letterSpacing: values.letterSpacing,
-      whiteSpace: values.whiteSpace
+      whiteSpace: values.whiteSpace,
+      textOverflow: (values as any).textOverflow,
+      webkitLineClamp: (values as any).webkitLineClamp
     }
   },
   border(values: CSSProperties, config: any) {
@@ -1304,7 +1306,9 @@ const getDefaultValueFunctionMap2 = {
       fontFamily: '默认',
       lineHeight: 'inherit',
       letterSpacing: 0,
-      whiteSpace: 'normal'
+      whiteSpace: 'normal',
+      textOverflow: 'clip',
+      webkitLineClamp: 'none'
     }
   },
   border() {
@@ -1623,6 +1627,8 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration, 
   let letterSpacing // 继承属性
   let linHeight // 继承属性
   let whiteSpace // 继承属性
+  let textOverflow // 非继承属性
+  let webkitLineClamp // 非继承属性
   /** font */
 
   /** padding */
@@ -1991,6 +1997,20 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration, 
     }
     /** overflow */
 
+    /** textOverflow */
+    const { textOverflow: styleTextOverflow } = style
+    if (styleTextOverflow) {
+      textOverflow = styleTextOverflow
+    }
+    /** textOverflow */
+
+    /** webkitLineClamp */
+    const styleWebkitLineClamp = style.webkitLineClamp
+    if (styleWebkitLineClamp) {
+      webkitLineClamp = styleWebkitLineClamp
+    }
+    /** webkitLineClamp */
+
     /** opacity */
     const { opacity: styleOpacity } = style
     if (styleOpacity) {
@@ -2210,6 +2230,14 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration, 
   }
   /** overflow */
 
+  /** textOverflow */
+  // text-overflow 不继承，无需兜底 computedValues（计算值始终为 'clip'，无法区分是否显式设置）
+  /** textOverflow */
+
+  /** webkitLineClamp */
+  // -webkit-line-clamp 不继承，无需兜底 computedValues
+  /** webkitLineClamp */
+
   /** opacity */
   if (!opacity) {
     opacity = 1
@@ -2306,6 +2334,9 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration, 
 
     overflowX,
     overflowY,
+
+    textOverflow,
+    webkitLineClamp,
 
     opacity,
 
