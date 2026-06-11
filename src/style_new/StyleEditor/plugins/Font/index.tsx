@@ -648,7 +648,7 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
           {isTruncated && (
             <Panel.Content>
               <Panel.Item style={{ display: 'flex', alignItems: 'center', flex: 1, padding: '0 8px' }}>
-                <span style={{ fontSize: 12, whiteSpace: 'nowrap', marginRight: 4, color: 'var(--font-color-content, #888)' }}>行数</span>
+                <span style={{ fontSize: 12, whiteSpace: 'nowrap', marginRight: 4, color: 'var(--font-color-content, #888)' }}>最大行数</span>
                 <InputNumber
                   tip="最大行数"
                   type="number"
