@@ -21,16 +21,38 @@ import { splitValueAndUnit } from "../../utils";
 import { isObject } from "../../../../util/lodash/isObject";
 import { PanelBaseProps } from "../../type";
 import { useDragNumber } from "../../hooks";
-import uniq from "lodash/uniq";
 
 interface FontProps extends PanelBaseProps {
   value: CSSProperties;
   onChange: (value: { key: string; value: any } | Array<{ key: string; value: any }>) => void;
 }
 
+/** CSS 通用族名及关键字，无需加引号 */
+const CSS_FONT_KEYWORDS = new Set([
+  'inherit', 'initial', 'unset', 'revert',
+  'serif', 'sans-serif', 'monospace', 'cursive', 'fantasy',
+  'system-ui', 'ui-serif', 'ui-sans-serif', 'ui-monospace', 'ui-rounded',
+  'emoji', 'math', 'fangsong',
+]);
+
+/**
+ * 对需要引号的字体名加双引号：
+ * - 含非 ASCII 字符（如 微软雅黑）
+ * - 含空格（如 Microsoft YaHei、PingFang SC）
+ * - CSS 关键字、以 - 开头的系统字体（-apple-system）不加引号
+ */
+function quoteIfNeeded(fontName: string): string {
+  const trimmed = fontName.trim();
+  if (CSS_FONT_KEYWORDS.has(trimmed)) return trimmed;
+  if (trimmed.startsWith('-')) return trimmed;
+  if (/[^\x00-\x7F]/.test(trimmed) || trimmed.includes(' ')) {
+    return `"${trimmed}"`;
+  }
+  return trimmed;
+}
+
 /** 字体选项 */
 const FONT_FAMILY_OPTIONS = [
-  { label: "默认", value: "inherit" },
   { label: "PingFang SC", value: "PingFang SC" },
   { label: "Microsoft YaHei", value: "Microsoft YaHei" },
   { label: "微软雅黑", value: "微软雅黑" },
@@ -179,34 +201,21 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
   const getDragPropsLineHeight = useDragNumber({ continuous: true });
   const getDragPropsLetterSpacing = useDragNumber({ continuous: true });
 
-  function mergeFonts(additionalFonts: string[]) {
-    // 去除空格去重
-    const fonts = uniq(additionalFonts);
-    // 如果遇到预设没有的字体就直接加到选项中
-    const newOptions = fonts.map((font) => {
-      const replaceFont = font.replace(/^"|"$/g, "");
-      const existingOption = FONT_FAMILY_OPTIONS.find(
-        (option) => option.value === replaceFont
-      );
-      if (existingOption) {
-        return existingOption;
-      } else {
-        // 如果不存在，可以添加一个新的对象，这里假设label和value相同
-        return { label: replaceFont, value: replaceFont };
-      }
-    });
-
-    // 合并新的选项到原有的 FONT_FAMILY_OPTIONS
-    return mergeFontOptionsByValue(
-      FONT_FAMILY_OPTIONS as FontFamilyOption[],
-      newOptions as FontFamilyOption[]
-    );
-  }
-
   const fontFamilyOptions = useCallback(() => {
-    const updatedOptions = mergeFonts(innerFontFamily || []);
     const configFontfaces = normalizeFontfaceOptions(cfg.fontfaces as ExternalFontface[]);
-    return mergeFontOptionsByValue(updatedOptions, configFontfaces, outterFontFamilyOptions);
+    // 固定顺序：预设 → config注入 → context注入，不受当前选中值影响
+    const baseOptions = mergeFontOptionsByValue(
+      FONT_FAMILY_OPTIONS as FontFamilyOption[],
+      configFontfaces,
+      outterFontFamilyOptions,
+    );
+    // 兼容旧数据：当前选中字体不在任何列表中时，追加到末尾（inherit 不作为字体项追加）
+    const extraOptions = (innerFontFamily || [])
+      .filter((f) => f && f !== 'inherit' && !baseOptions.some((o) => o.value === f))
+      .map((f) => ({ label: f, value: f }));
+    return extraOptions.length > 0
+      ? mergeFontOptionsByValue(baseOptions, extraOptions)
+      : baseOptions;
   }, [cfg.fontfaces, innerFontFamily, outterFontFamilyOptions]);
 
   const getTextAlignOptions = useCallback(() => {
@@ -344,47 +353,50 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
 
       {cfg.disableFontFamily ? null : (
         <Panel.Content>
-          {cfg.disableFontFamily ? null : (
-            <Select
-              tip={
-                "字体" +
-                (innerFontFamily?.[0] !== "inherit"
-                  ? "：" +
-                  innerFontFamily
-                    ?.map?.(
-                      (item) =>
-                        fontFamilyOptions().find(
-                          (option) => option.value === item
-                        )?.label ?? item
-                    )
-                    .filter(Boolean)
-                    .join("，")
-                  : "")
+          <Select
+            tip={
+              "字体" +
+              (innerFontFamily?.[0] !== "inherit"
+                ? "：" +
+                innerFontFamily
+                  ?.map?.(
+                    (item) =>
+                      fontFamilyOptions().find(
+                        (option) => option.value === item
+                      )?.label ?? item
+                  )
+                  .filter(Boolean)
+                  .join("，")
+                : "")
+            }
+            prefix={<FontFamilyOutlined />}
+            style={{ padding: "0 8px", overflow: "hidden" }}
+            defaultValue={value.fontFamily}
+            options={fontFamilyOptions()}
+            multiple={true}
+            value={innerFontFamily}
+            onChange={(newValue: string[]) => {
+              let nextValue = newValue.filter((item) => item !== "inherit");
+              if (nextValue.length === 0) {
+                nextValue = ["inherit"];
+              } else {
+                // 按下拉列表中的顺序排列，保证 CSS font-family 顺序与列表一致
+                const opts = fontFamilyOptions();
+                nextValue = nextValue.slice().sort((a, b) => {
+                  const ai = opts.findIndex((o) => o.value === a);
+                  const bi = opts.findIndex((o) => o.value === b);
+                  return (ai === -1 ? 9999 : ai) - (bi === -1 ? 9999 : bi);
+                });
               }
-              prefix={<FontFamilyOutlined />}
-              style={{ flexBasis: `100%`,padding: "0 8px", overflow: "hidden" }}
-              defaultValue={value.fontFamily}
-              options={fontFamilyOptions()}
-              multiple={true}
-              value={innerFontFamily}
-              onChange={(newValue: string[]) => {
-                if (
-                  Array.isArray(newValue) &&
-                  newValue[newValue.length - 1] === "inherit"
-                ) {
-                  onChange({ key: "fontFamily", value: "inherit" });
-                  setInnerFontFamily(["inherit"]);
-                } else {
-                  let nextValue = newValue.filter((item) => item !== "inherit");
-                  if (nextValue.length === 0) {
-                    nextValue = ["inherit"];
-                  }
-                  onChange({ key: "fontFamily", value: nextValue.join(", ") });
-                  setInnerFontFamily(nextValue);
-                }
-              }}
-            />
-          )}
+              onChange({ key: "fontFamily", value: nextValue.map(quoteIfNeeded).join(", ") });
+              setInnerFontFamily(nextValue);
+            }}
+            onReorder={(newOrder: string[]) => {
+              setInnerFontFamily(newOrder);
+              onChange({ key: "fontFamily", value: newOrder.map(quoteIfNeeded).join(", ") });
+            }}
+            placeholder="未配置字体"
+          />
         </Panel.Content>
       )}
       {cfg.disableColor ? null : (

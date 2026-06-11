@@ -19,6 +19,7 @@ interface SelectProps {
   labelStyle?: CSSProperties;
   onChange: (value: any) => void;
   onAction?: (value: any) => void;
+  onReorder?: (newOrder: any[]) => void;
   options: Array<{ value: any; label: string | number; type?: 'action' | 'divider'; checked?: boolean; icon?: ReactNode; iconSize?: 'sm' | 'md' }>;
   multiple?: boolean;
   /** 是否展示下拉的icon */
@@ -29,6 +30,9 @@ interface SelectProps {
   iconClassName?: string;
   tip?: string;
   disabled?: boolean;
+  clearable?: boolean;
+  onClear?: () => void;
+  placeholder?: string;
 }
 
 export function Select({
@@ -39,6 +43,7 @@ export function Select({
   labelStyle,
   onChange,
   onAction,
+  onReorder,
   options,
   showIcon = true,
   hideLabel = false,
@@ -47,6 +52,9 @@ export function Select({
   multiple = false,
   tip,
   disabled = false,
+  clearable = false,
+  onClear,
+  placeholder,
 }: SelectProps) {
   const [value, setValue] = useState(propsValue !== undefined ? propsValue : defaultValue);
   const [label, setLabel] = useState(
@@ -75,7 +83,8 @@ export function Select({
         }
         setLabel(
           nextValue
-            .map((v) => options.find(({ value }) => value === v)!.label)
+            .map((v) => options.find(({ value }) => value === v)?.label ?? v)
+            .filter(Boolean)
             .join(",")
         );
         onChange(nextValue);
@@ -83,7 +92,7 @@ export function Select({
       }
 
       if (value !== clickValue) {
-        setLabel(options.find(({ value }) => value === clickValue)!.label);
+        setLabel(options.find(({ value }) => value === clickValue)?.label ?? clickValue);
         onChange(clickValue);
       }
 
@@ -116,6 +125,11 @@ export function Select({
         value={value}
         onClick={handleDropDownClick}
         onAction={onAction}
+        onReorder={onReorder ? (newOrder) => {
+          setValue(newOrder);
+          setLabel(newOrder.map((v) => options.find(({ value }) => value === v)?.label ?? v).join(","));
+          onReorder(newOrder);
+        } : undefined}
         disabled={disabled}
       >
         <div
@@ -127,10 +141,21 @@ export function Select({
           {!hideLabel && (
             <div
               style={labelStyle}
-              className={`${css.value}${labelClassName ? ` ${labelClassName}` : ''}`}
+              className={`${css.value}${labelClassName ? ` ${labelClassName}` : ''}${!label && placeholder ? ` ${css.placeholder}` : ''}`}
             >
-              {label}
+              {label || placeholder}
             </div>
+          )}
+          {clearable && (
+            <span
+              className={css.clearIcon}
+              onClick={(e) => {
+                e.stopPropagation();
+                onClear?.();
+              }}
+            >
+              ×
+            </span>
           )}
           {showIcon && (
             <span className={`${css.icon}${iconClassName ? ` ${iconClassName}` : ''}`}>
