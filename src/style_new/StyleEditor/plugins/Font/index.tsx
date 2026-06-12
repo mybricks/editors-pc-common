@@ -1,4 +1,5 @@
-import React, { useState, useCallback, useRef, CSSProperties } from "react";
+import React, { useState, useCallback, useRef, useEffect, CSSProperties } from "react";
+import { createPortal } from "react-dom";
 
 import { useStyleEditorContext } from "../..";
 
@@ -22,6 +23,11 @@ import { splitValueAndUnit } from "../../utils";
 import { isObject } from "../../../../util/lodash/isObject";
 import { PanelBaseProps } from "../../type";
 import { useDragNumber } from "../../hooks";
+import { FontSetting } from "../../icons/FontSetting";
+import { FontSettingNoTruncation } from "../../icons/FontSettingNoTruncation";
+import { FontSettingTruncation } from "../../icons/FontSettingTruncation";
+
+import css from "./index.less";
 
 interface FontProps extends PanelBaseProps {
   value: CSSProperties;
@@ -258,7 +264,11 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
     const v = value as any;
     return v.textOverflow === 'ellipsis' || (v.webkitLineClamp && v.webkitLineClamp !== 'none');
   });
-  
+
+  const [popoverOpen, setPopoverOpen] = useState(false);
+  const popoverBtnRef = useRef<HTMLDivElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
+
   const throttleTimerRef = useRef<NodeJS.Timeout | null>(null);
   const lastUpdateTimeRef = useRef<number>(0);
 
@@ -345,6 +355,44 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
     },
     [lineHeight]
   );
+
+  useEffect(() => {
+    if (!popoverOpen) return;
+
+    const positionPopover = () => {
+      if (!popoverBtnRef.current || !popoverRef.current) return;
+      const btnRect = popoverBtnRef.current.getBoundingClientRect();
+      const popRect = popoverRef.current.getBoundingClientRect();
+      const windowH = window.innerHeight;
+
+      const left = btnRect.right - popRect.width;
+      let top = btnRect.bottom + 4;
+      if (top + popRect.height > windowH) {
+        top = btnRect.top - popRect.height - 4;
+      }
+
+      popoverRef.current.style.left = Math.max(8, left) + 'px';
+      popoverRef.current.style.top = top + 'px';
+      popoverRef.current.style.visibility = 'visible';
+    };
+
+    const timer = setTimeout(positionPopover, 0);
+
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        popoverRef.current && !popoverRef.current.contains(e.target as Node) &&
+        popoverBtnRef.current && !popoverBtnRef.current.contains(e.target as Node)
+      ) {
+        setPopoverOpen(false);
+      }
+    };
+
+    document.addEventListener('click', handleClickOutside);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener('click', handleClickOutside);
+    };
+  }, [popoverOpen]);
 
   const applyTruncate = useCallback((lines: number) => {
     if (isNaN(lines) || lines < 1) return;
@@ -584,8 +632,23 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
           />
         </Panel.Content>
       )} */}
-      {cfg.disableTextAlign ? null : (
-        <Panel.Content>
+      {cfg.disableTextAlign ? (
+        // 无对齐行时，单独显示截断按钮
+        cfg.disableTruncateText ? null : (
+          <Panel.Content style={{ justifyContent: 'flex-end' }}>
+            <div
+              ref={popoverBtnRef}
+              className={`${css.truncateBtn}${popoverOpen ? ` ${css.active}` : ''}`}
+              style={{ marginRight: -25 }}
+              onClick={() => setPopoverOpen(v => !v)}
+              data-mybricks-tip="截断文字"
+            >
+              <FontSetting />
+            </div>
+          </Panel.Content>
+        )
+      ) : (
+        <Panel.Content style={{ position: 'relative' }}>
           <Toggle
             key={cfg.textAlignMode === 'flex'
               ? `flex-${value.justifyContent || ''}`
@@ -607,67 +670,80 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
               }
             }}
           />
+          {cfg.disableTruncateText ? null : (
+            <div
+              ref={popoverBtnRef}
+              className={`${css.truncateBtn}${popoverOpen ? ` ${css.active}` : ''}`}
+              style={{ position: 'absolute', right: -22, top: '50%', transform: 'translateY(-50%)' }}
+              onClick={() => setPopoverOpen(v => !v)}
+              data-mybricks-tip="截断文字"
+            >
+              <FontSetting />
+            </div>
+          )}
         </Panel.Content>
       )}
-      {cfg.disableTruncateText ? null : (
-        <>
-          <Panel.Content>
-            <Toggle
-              key={`truncate-${(value as any).textOverflow || ''}-${(value as any).webkitLineClamp || ''}`}
-              defaultValue={
-                (value as any).textOverflow === 'ellipsis' ||
-                ((value as any).webkitLineClamp && (value as any).webkitLineClamp !== 'none')
-                  ? 'ellipsis'
-                  : 'clip'
-              }
-              options={[
-                { label: <span style={{ fontWeight: 'bold', fontSize: 13, lineHeight: 1 }}>—</span>, value: 'clip', tip: '不截断' },
-                { label: <TruncateTextOutlined />, value: 'ellipsis', tip: '省略号截断' },
-              ]}
-              onChange={(v) => {
-                if (v === 'ellipsis') {
-                  setIsTruncated(true);
-                  applyTruncate(truncateLines);
-                } else {
-                  setIsTruncated(false);
-                  onChange([
-                    { key: 'textOverflow', value: null },
-                    { key: 'overflow', value: null },
-                    { key: 'overflowClipMargin', value: null },
-                    { key: 'whiteSpace', value: null },
-                    { key: 'WebkitLineClamp', value: null },
-                    { key: 'display', value: null },
-                    { key: 'WebkitBoxOrient', value: null },
-                    { key: 'height', value: null },
-                    { key: 'maxHeight', value: null },
-                  ]);
-                }
+      {(!cfg.disableTruncateText && popoverOpen && createPortal(
+      <div
+        ref={popoverRef}
+        className={css.truncatePopover}
+        onClick={e => e.stopPropagation()}
+      >
+        <div className={css.popoverLabel}>截断文字</div>
+        <Toggle
+          key={`truncate-${(value as any).textOverflow || ''}-${(value as any).webkitLineClamp || ''}`}
+          defaultValue={
+            (value as any).textOverflow === 'ellipsis' ||
+            ((value as any).webkitLineClamp && (value as any).webkitLineClamp !== 'none')
+              ? 'ellipsis'
+              : 'clip'
+          }
+          options={[
+            { label: <FontSettingNoTruncation />, value: 'clip', tip: '不截断' },
+            { label: <FontSettingTruncation />, value: 'ellipsis', tip: '省略号截断' },
+          ]}
+          onChange={(v) => {
+            if (v === 'ellipsis') {
+              setIsTruncated(true);
+              applyTruncate(truncateLines);
+            } else {
+              setIsTruncated(false);
+              onChange([
+                { key: 'textOverflow', value: null },
+                { key: 'overflow', value: null },
+                { key: 'overflowClipMargin', value: null },
+                { key: 'whiteSpace', value: null },
+                { key: 'WebkitLineClamp', value: null },
+                { key: 'display', value: null },
+                { key: 'WebkitBoxOrient', value: null },
+                { key: 'height', value: null },
+                { key: 'maxHeight', value: null },
+              ]);
+            }
+          }}
+        />
+        {isTruncated && (
+          <div className={css.popoverRow}>
+            <span className={css.maxLinesLabel}>最大行数</span>
+            <InputNumber
+              tip="最大行数"
+              type="number"
+              style={{ flex: 1, maxWidth: 120 }}
+              defaultUnitValue=""
+              value={String(truncateLines)}
+              onChange={(lines) => {
+                const parsed = parseInt(String(lines), 10);
+                if (isNaN(parsed)) return;
+                const n = Math.max(1, parsed);
+                setTruncateLines(n);
+                applyTruncate(n);
               }}
             />
-          </Panel.Content>
-          {isTruncated && (
-            <Panel.Content>
-              <Panel.Item style={{ display: 'flex', alignItems: 'center', flex: 1, padding: '0 8px' }}>
-                <span style={{ fontSize: 12, whiteSpace: 'nowrap', marginRight: 4, color: 'var(--font-color-content, #888)' }}>最大行数</span>
-                <InputNumber
-                  tip="最大行数"
-                  type="number"
-                  style={{ flex: 1 }}
-                  defaultUnitValue=""
-                  value={String(truncateLines)}
-                  onChange={(lines) => {
-                    const parsed = parseInt(String(lines), 10);
-                    if (isNaN(parsed)) return;
-                    const n = Math.max(1, parsed);
-                    setTruncateLines(n);
-                    applyTruncate(n);
-                  }}
-                />
-              </Panel.Item>
-            </Panel.Content>
-          )}
-        </>
-      )}
+          </div>
+        )}
+      </div>,
+      document.body
+    )) as React.ReactNode}
     </Panel>
   );
 }

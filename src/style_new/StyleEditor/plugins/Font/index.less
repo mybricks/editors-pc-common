@@ -1,0 +1,59 @@
+@import "../../../../theme";
+
+// 文字对齐行末尾的"字体设置"图标按钮
+.truncateBtn {
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  cursor: pointer;
+  flex-shrink: 0;
+  color: @font-color-content;
+  transition: background 0.15s;
+
+  &:hover {
+    background: @bg-color-hover;
+  }
+
+  &.active {
+    background: @bg-color-active;
+  }
+}
+
+// 弹出浮层主体
+.truncatePopover {
+  position: fixed;
+  z-index: 9999;
+  background: @menu-bg-color;
+  border-radius: 8px;
+  border: 0.3px solid @boder-color;
+  box-shadow: @shadow-main;
+  padding: 12px;
+  min-width: 208px;
+  visibility: hidden;
+}
+
+.popoverLabel {
+  font-size: 11px;
+  color: @font-color-content;
+  margin-bottom: 6px;
+  opacity: 0.55;
+  user-select: none;
+}
+
+.popoverRow {
+  display: flex;
+  align-items: center;
+  margin-top: 8px;
+}
+
+.maxLinesLabel {
+  font-size: 12px;
+  white-space: nowrap;
+  margin-right: 8px;
+  color: @font-color-content;
+  opacity: 0.7;
+  flex-shrink: 0;
+}
