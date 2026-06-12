@@ -565,7 +565,7 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
         </Panel.Content>
       )}
       {cfg.disableLineHeight && cfg.disableLetterSpacing ? null : (
-        <Panel.Content>
+        <Panel.Content style={cfg.disableTextAlign && !cfg.disableTruncateText ? { position: 'relative' } : undefined}>
           {cfg.disableLineHeight ? null : (
             <Panel.Item style={{ display: "flex", alignItems: "center", flex: 1, padding: "0 8px" }}>
               <div 
@@ -618,6 +618,17 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
               />
             </Panel.Item>
           )}
+          {cfg.disableTextAlign && !cfg.disableTruncateText ? (
+            <div
+              ref={popoverBtnRef}
+              className={`${css.truncateBtn}${popoverOpen ? ` ${css.active}` : ''}`}
+              style={{ position: 'absolute', right: -22, top: '50%', transform: 'translateY(-50%)' }}
+              onClick={() => setPopoverOpen(v => !v)}
+              data-mybricks-tip="截断文字"
+            >
+              <FontSetting />
+            </div>
+          ) : null}
         </Panel.Content>
       )}
       {/* {cfg.disableWhiteSpace ? null : (
@@ -633,8 +644,8 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
         </Panel.Content>
       )} */}
       {cfg.disableTextAlign ? (
-        // 无对齐行时，单独显示截断按钮
-        cfg.disableTruncateText ? null : (
+        // 无对齐行时，按钮已合并进行高/字间距行；若那行也不显示，才单独兜底
+        (!cfg.disableTruncateText && cfg.disableLineHeight && cfg.disableLetterSpacing) ? (
           <Panel.Content style={{ justifyContent: 'flex-end' }}>
             <div
               ref={popoverBtnRef}
@@ -646,7 +657,7 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
               <FontSetting />
             </div>
           </Panel.Content>
-        )
+        ) : null
       ) : (
         <Panel.Content style={{ position: 'relative' }}>
           <Toggle
