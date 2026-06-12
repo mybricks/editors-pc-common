@@ -1127,9 +1127,11 @@ function getDefaultConfiguration ({value, options}: GetDefaultConfigurationProps
           if (v === 'rgba(0, 0, 0, 0)') return null
           return v
         }
-        // 空白基准为 '' 的属性（如 borderTopColor / backgroundColor）
-        // 其 computedStyle 兜底值是 currentColor 继承来的任意 RGB，无法与"无配置"状态区分，
-        // 直接跳过，不参与 diff，避免误判为有 UA 值
+        // 空白基准为 '' 的属性（如 borderTopColor）：
+        // 其 computedStyle 初始值依赖 currentColor（随 color 属性变化），
+        // 无法与"无配置"状态区分，直接跳过，避免误判为有 UA 值。
+        // 注：backgroundColor 不属于此类（不继承，初始值固定为 transparent），
+        // 已改为 'rgba(0,0,0,0)' 作为空白基准，可正常参与 diff。
         if (emptyVal === '') return false
         // 当前值存在且与空白默认值不同，说明有 UA 或 computed 值填充
         const isDiff = currentVal !== undefined && normalize(currentVal) !== normalize(emptyVal);
@@ -1336,7 +1338,9 @@ const getDefaultValueFunctionMap2 = {
   },
   background() {
     return {
-      backgroundColor: '',
+      // backgroundColor 不继承，初始值固定为 transparent（rgba(0,0,0,0)），
+      // 与 borderTopColor 不同，可安全地与计算值做 diff 来检测 UA 填充（如 button 的 buttonface）。
+      backgroundColor: 'rgba(0, 0, 0, 0)',
       backgroundImage: 'none',
       backgroundRepeat: 'repeat',
       backgroundPosition: 'left top',
