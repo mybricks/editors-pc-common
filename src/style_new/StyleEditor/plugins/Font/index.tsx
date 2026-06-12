@@ -26,7 +26,6 @@ import { useDragNumber } from "../../hooks";
 import { FontSetting } from "../../icons/FontSetting";
 import { FontSettingNoTruncation } from "../../icons/FontSettingNoTruncation";
 import { FontSettingTruncation } from "../../icons/FontSettingTruncation";
-
 import css from "./index.less";
 
 interface FontProps extends PanelBaseProps {
@@ -475,6 +474,11 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
             options={fontFamilyOptions()}
             multiple={true}
             value={innerFontFamily}
+            clearable={!!(innerFontFamily?.length && innerFontFamily[0] !== 'inherit')}
+            onClear={() => {
+              setInnerFontFamily(['inherit']);
+              onChange({ key: 'fontFamily', value: null });
+            }}
             onChange={(newValue: string[]) => {
               let nextValue = newValue.filter((item) => item !== "inherit");
               if (nextValue.length === 0) {

@@ -8,6 +8,7 @@ import React, {
 
 import { useUpdateEffect } from "../../hooks";
 import { Panel, Dropdown, DownOutlined } from "../";
+import { CleanFont } from "../../icons/CleanFont";
 
 import css from "./index.less";
 
@@ -57,6 +58,7 @@ export function Select({
   placeholder,
 }: SelectProps) {
   const [value, setValue] = useState(propsValue !== undefined ? propsValue : defaultValue);
+  const [hovered, setHovered] = useState(false);
   const [label, setLabel] = useState(
     Array.isArray(value)
       ? value
@@ -133,9 +135,11 @@ export function Select({
         disabled={disabled}
       >
         <div
-          data-mybricks-tip={tip}
+          data-mybricks-tip={clearable && hovered ? undefined : tip}
           className={`${css.select}${disabled ? ` ${css.disabled}` : ''}`}
           style={showIcon ? {} : { padding: 0 }}
+          onMouseEnter={() => setHovered(true)}
+          onMouseLeave={() => setHovered(false)}
         >
           {prefix && <div className={css.prefix}>{prefix}</div>}
           {!hideLabel && (
@@ -146,21 +150,25 @@ export function Select({
               {label || placeholder}
             </div>
           )}
-          {clearable && (
-            <span
-              className={css.clearIcon}
-              onClick={(e) => {
-                e.stopPropagation();
-                onClear?.();
-              }}
-            >
-              ×
-            </span>
-          )}
           {showIcon && (
-            <span className={`${css.icon}${iconClassName ? ` ${iconClassName}` : ''}`}>
-              <DownOutlined />
-            </span>
+            clearable && hovered
+              ? (
+                <span
+                  className={`${css.icon}${iconClassName ? ` ${iconClassName}` : ''} ${css.clearIcon}`}
+                  data-mybricks-tip="清空"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onClear?.();
+                  }}
+                >
+                  <CleanFont />
+                </span>
+              )
+              : (
+                <span className={`${css.icon}${iconClassName ? ` ${iconClassName}` : ''}`}>
+                  <DownOutlined />
+                </span>
+              )
           )}
         </div>
       </Dropdown>
