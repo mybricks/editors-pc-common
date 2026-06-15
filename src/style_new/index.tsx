@@ -1438,9 +1438,20 @@ function findElementInState(
   if (!comId) return null
   const comRoot = getDocument().querySelector('#' + comId)
   if (!comRoot) return null
-  return (Array.from(comRoot.querySelectorAll('[class]')) as HTMLElement[])
-    .find(el => el !== anchor && Array.from(el.classList).some(c => c.endsWith('-' + rawClass)))
-    ?? null
+  const allEls = Array.from(comRoot.querySelectorAll('[class]')) as HTMLElement[]
+  // 复合选择器（如 "bubble.aiBubble"）：拆分为独立 class，元素需同时持有所有 class
+  if (rawClass.includes('.')) {
+    const parts = rawClass.split('.').filter(Boolean)
+    return allEls.find(el =>
+      el !== anchor &&
+      parts.every(part =>
+        Array.from(el.classList).some(c => c === part || c.endsWith('-' + part))
+      )
+    ) ?? null
+  }
+  return allEls.find(el =>
+    el !== anchor && Array.from(el.classList).some(c => c === rawClass || c.endsWith('-' + rawClass))
+  ) ?? null
 }
 
 /** 获取当前 CSS 规则下生效的样式及面板配置 */
@@ -1471,9 +1482,15 @@ function getEffectedCssPropertyAndOptions (element: HTMLElement | null, selector
         const rawClass = (sel.trim().split(/\s+/).pop() ?? sel)
           .replace(/^\./, '')
           .replace(/:{1,2}[a-zA-Z\-]+(?:\([^)]*\))?$/, '')
+        // 复合选择器（如 ".bubble.aiBubble" → rawClass="bubble.aiBubble"）：
+        // 拆分为独立 class，元素需同时持有所有 class（支持 CSS Modules hash 前缀）
         const elementHasClass = !rawClass
           ? classListValue.indexOf(sel) !== -1
-          : Array.from(element.classList).some(c => c === rawClass || c.endsWith('-' + rawClass))
+          : rawClass.includes('.')
+            ? rawClass.split('.').filter(Boolean).every(part =>
+                Array.from(element.classList).some(c => c === part || c.endsWith('-' + part))
+              )
+            : Array.from(element.classList).some(c => c === rawClass || c.endsWith('-' + rawClass))
 
         let queryEl: HTMLElement = element
         if (!elementHasClass && rawClass && sel.startsWith('.')) {
@@ -2540,8 +2557,16 @@ function getStyleRules (element: HTMLElement | null, selector: string | null): {
             const selectorLastClass = (selector.trim().split(/\s+/).pop() || selector).replace(/^\./, '')
             // 原始类名可能含连字符（如 frame-216），不能只取 lastIndexOf('-') 后面的部分
             // 改用 endsWith 检查：hashed class 以 "-{originalClass}" 结尾
+            // 复合选择器（如 "bubble.aiBubble"）时，额外用最后一个 class token（"aiBubble"）回退，
+            // 以便 CSS 只写了 .aiBubble（单类）时也能命中
+            const lastToken = selectorLastClass.includes('.')
+              ? (selectorLastClass.split('.').filter(Boolean).pop() ?? selectorLastClass)
+              : selectorLastClass
             const isClassMatch = classWithoutDot === selectorLastClass ||
-              classWithoutDot.endsWith('-' + selectorLastClass)
+              classWithoutDot.endsWith('-' + selectorLastClass) ||
+              (selectorLastClass !== lastToken && (
+                classWithoutDot === lastToken || classWithoutDot.endsWith('-' + lastToken)
+              ))
             if (isClassMatch) {
               try {
                 if (element.matches(selectorText)) finalRules.push(rule)
@@ -2554,18 +2579,50 @@ function getStyleRules (element: HTMLElement | null, selector: string | null): {
           if (!/:[a-zA-Z\-]/.test(selectorText)) {
             const isGlobalRule = selectorText === lastSeg
             const isScopedRule = selectorText.endsWith(' ' + lastSeg)
+            // 复合 selector（如 ".bubble.aiBubble"）时，CSS 只写单类（如 .aiBubble / .u_xxx .aiBubble）
+            // 也应命中：用最后一个 class token 做 scoped 检查
+            const lastSegLastToken = lastSeg.includes('.')
+              ? ('.' + (lastSeg.split('.').filter(Boolean).pop() ?? ''))
+              : lastSeg
+            const isScopedRuleByLastToken = lastSeg !== lastSegLastToken && (
+              selectorText === lastSegLastToken || selectorText.endsWith(' ' + lastSegLastToken)
+            )
 
             // CSS Modules 哈希类名回退：编译后类名格式为 "{moduleHash}-{originalClass}"
             // isStateSelector 语义即"元素当前不在该状态"，element.matches 必然失败，
             // 只用末尾类名 endsWith 判断即可，无需 element.matches 守卫
+            //
+            // 同时支持复合选择器两种情形：
+            // 情形A（CSS 也是复合）：".bubble.aiBubble" → ".pages_xxx-bubble.pages_xxx-aiBubble"
+            //   → 按 '.' 拆分后对每段分别做 endsWith 匹配
+            // 情形B（CSS 只有单类）：selector=".bubble.aiBubble"，CSS 只有 ".aiBubble"
+            //   → 用复合 selector 的最后一个 class token（"aiBubble"）做回退匹配
+            //   → 语义：".aiBubble" 规则是 ".bubble.aiBubble" 状态的"定态类"，应当包含
             let isHashedModuleMatch = false
             if (!isGlobalRule && !isScopedRule) {
               const ruleLast = (selectorText.split(/\s+/).pop() || '').replace(/^\./, '')
               const selLast = lastSeg.replace(/^\./, '')
-              isHashedModuleMatch = ruleLast === selLast || ruleLast.endsWith('-' + selLast)
+              if (ruleLast === selLast || ruleLast.endsWith('-' + selLast)) {
+                isHashedModuleMatch = true
+              } else if (selLast.includes('.')) {
+                const ruleClasses = ruleLast.split('.').filter(Boolean)
+                const selClasses = selLast.split('.').filter(Boolean)
+                if (ruleClasses.length === selClasses.length && selClasses.length > 1) {
+                  // 情形A：CSS Modules 编译后的复合选择器，token 数相同，逐段匹配
+                  isHashedModuleMatch = selClasses.every((sClass, i) => {
+                    const rClass = ruleClasses[i]
+                    return rClass === sClass || rClass.endsWith('-' + sClass)
+                  })
+                }
+                if (!isHashedModuleMatch && ruleClasses.length === 1) {
+                  // 情形B：CSS 只写了单类（如 .aiBubble），用复合 selector 末尾 token 回退
+                  const lastSelClass = selClasses[selClasses.length - 1]
+                  isHashedModuleMatch = ruleLast === lastSelClass || ruleLast.endsWith('-' + lastSelClass)
+                }
+              }
             }
 
-            if (isGlobalRule || isScopedRule || isHashedModuleMatch) {
+            if (isGlobalRule || isScopedRule || isScopedRuleByLastToken || isHashedModuleMatch) {
               finalRules.push(rule)
             }
           }
