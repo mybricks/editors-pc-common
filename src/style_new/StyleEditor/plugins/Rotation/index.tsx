@@ -136,7 +136,7 @@ export function Rotation({ value, onChange, showTitle, collapse }: RotationProps
 
   return (
     <Panel
-      title="角度"
+      title="旋转"
       showTitle={showTitle}
       showReset={true}
       resetFunction={handleReset}
