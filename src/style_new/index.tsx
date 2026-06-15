@@ -765,8 +765,8 @@ function Style ({editConfig, options, setValue, collapsedOptions, readonlyExpand
           : undefined)
 
     //在这里把selector放在了第二个参数
-    console.log("编辑器透传selector",selector)
-    debugger
+    // console.log("编辑器透传selector",selector)
+    // debugger
     editConfig.value.set(mergedCssProperties, selector ? { selector } : undefined)
   }, [editConfig, options])
 
