@@ -1154,7 +1154,9 @@ function getDefaultConfiguration ({value, options}: GetDefaultConfigurationProps
     collapsedOptions,
     readonlyExpandedOptions,
     autoCollapseWhenUnusedProperty,
-    defaultValue: Object.assign(defaultValue, splitedSetValue),
+    defaultValue: getDefaultValue
+      ? Object.assign(defaultValue, splitedSetValue)
+      : Object.assign({}, splitedSetValue, defaultValue),
     setValue: Object.assign({}, splitedSetValue),
     finalOpen,
     finalSelector,
@@ -1423,6 +1425,23 @@ const getDefaultValueFunctionMap2 = {
   }
 }
 
+/**
+ * 在 comId 组件根节点内，找到一个当前持有目标 rawClass（或其 CSS Modules 哈希变体）的元素。
+ * 搜索范围严格限定在 #comId 以内，不做祖先链遍历，不跨组件实例，不做全局搜索。
+ */
+function findElementInState(
+  anchor: HTMLElement,
+  rawClass: string,
+  comId?: string,
+): HTMLElement | null {
+  if (!comId) return null
+  const comRoot = getDocument().querySelector('#' + comId)
+  if (!comRoot) return null
+  return (Array.from(comRoot.querySelectorAll('[class]')) as HTMLElement[])
+    .find(el => el !== anchor && Array.from(el.classList).some(c => c.endsWith('-' + rawClass)))
+    ?? null
+}
+
 /** 获取当前 CSS 规则下生效的样式及面板配置 */
 function getEffectedCssPropertyAndOptions (element: HTMLElement | null, selector: string | string[], comId?: string) {
   // 多类名时传数组，对每个 selector 分别查规则后去重合并；单个 selector 行为不变
@@ -1438,10 +1457,36 @@ function getEffectedCssPropertyAndOptions (element: HTMLElement | null, selector
     if (element) {
       const classListValue = element.classList.value;
 
+      // 最终用于 getComputedStyle 的元素；默认与聚焦元素相同，
+      // 若目标 selector 是"状态类"（当前元素不处于该状态），会替换为 DOM 中真正处于该状态的元素
+      let computedElement: HTMLElement = element
+
       // 按 selectorText 去重，避免多次查询返回重复规则
       const rulesMap = new Map<string, any>();
       for (const sel of selectorArray) {
-        const { rules, inheritOnlyRules } = getStyleRules(element, classListValue.indexOf(sel) !== -1 ? null : sel);
+        // 判断当前元素是否真正持有 sel 对应的 class（兼容 CSS Modules hash 后缀）
+        // 例：sel=".pageBtnActive"，rawClass="pageBtnActive"，
+        // 元素实际 class 为 "pages_xxx-pageBtnActive" → endsWith 命中 → elementHasClass=true
+        const rawClass = (sel.trim().split(/\s+/).pop() ?? sel)
+          .replace(/^\./, '')
+          .replace(/:{1,2}[a-zA-Z\-]+(?:\([^)]*\))?$/, '')
+        const elementHasClass = !rawClass
+          ? classListValue.indexOf(sel) !== -1
+          : Array.from(element.classList).some(c => c === rawClass || c.endsWith('-' + rawClass))
+
+        let queryEl: HTMLElement = element
+        if (!elementHasClass && rawClass && sel.startsWith('.')) {
+          // 当前元素不在目标状态（如聚焦的是 pageBtn，编辑的是 pageBtnActive）
+          // 在 #comId 组件根节点内查找处于该状态的元素，不跨组件实例，不做全局搜索
+          const found = findElementInState(element, rawClass, comId)
+          if (found) {
+            queryEl = found
+            computedElement = found
+          }
+        }
+
+        const { rules, inheritOnlyRules } = getStyleRules(queryEl, sel);
+
         rules.forEach((rule: any) => {
           if (!rulesMap.has(rule.selectorText)) {
             rulesMap.set(rule.selectorText, rule);
@@ -1470,9 +1515,9 @@ function getEffectedCssPropertyAndOptions (element: HTMLElement | null, selector
       const isPseudoElement = primarySelector.includes('::') || primarySelector.includes(':before') || primarySelector.includes(':after')
       if (isPseudoElement) {
         const pseudoSelector = primarySelector.split(':')[1]
-        computedValues = window.getComputedStyle(element, pseudoSelector)
+        computedValues = window.getComputedStyle(computedElement, pseudoSelector)
       } else {
-        computedValues = window.getComputedStyle(element)
+        computedValues = window.getComputedStyle(computedElement)
       }
     } else if (primarySelector) {
 
@@ -1496,13 +1541,11 @@ function getEffectedCssPropertyAndOptions (element: HTMLElement | null, selector
         return compare(a.tempCompare, b.tempCompare)
       })
 
-      // 获取基础选择器对应的元素
+      // 获取基础选择器对应的元素，严格限定在 #comId 组件根节点内，不做全局搜索
       const root = getDocument()
       // 去掉末尾伪类/伪元素部分，得到真实 DOM 的选择器
       const baseSelector = primarySelector.replace(/:{1,2}[a-zA-Z\-]+(\([^)]*\))?$/, '').trim()
-      // 先在 comId 作用域内查找，找不到则去掉 comId 再试一次（comId 不匹配时的兜底）
-      const targetElement = root.querySelector(`#${comId} ${baseSelector}`)
-        ?? root.querySelector(baseSelector)
+      const targetElement = comId ? root.querySelector(`#${comId} ${baseSelector}`) : null
       
       if (targetElement) {
         // 检查是否是伪元素（如::before、::after、::placeholder）
@@ -2512,18 +2555,13 @@ function getStyleRules (element: HTMLElement | null, selector: string | null): {
             const isScopedRule = selectorText.endsWith(' ' + lastSeg)
 
             // CSS Modules 哈希类名回退：编译后类名格式为 "{moduleHash}-{originalClass}"
-            // 当 element.matches 确认元素确实应用了此规则，且规则末尾类名以 "-{原始类名}" 结尾时视为匹配
+            // isStateSelector 语义即"元素当前不在该状态"，element.matches 必然失败，
+            // 只用末尾类名 endsWith 判断即可，无需 element.matches 守卫
             let isHashedModuleMatch = false
-            if (!isGlobalRule && !isScopedRule && element) {
-              try {
-                const matchResult = element.matches(selectorText)
-                const ruleLast = (selectorText.split(/\s+/).pop() || '').replace(/^\./, '')
-                const selLast = lastSeg.replace(/^\./, '')
-                const endsWith = ruleLast.endsWith('-' + selLast)
-                if (matchResult) {
-                  isHashedModuleMatch = ruleLast === selLast || endsWith
-                }
-              } catch {}
+            if (!isGlobalRule && !isScopedRule) {
+              const ruleLast = (selectorText.split(/\s+/).pop() || '').replace(/^\./, '')
+              const selLast = lastSeg.replace(/^\./, '')
+              isHashedModuleMatch = ruleLast === selLast || ruleLast.endsWith('-' + selLast)
             }
 
             if (isGlobalRule || isScopedRule || isHashedModuleMatch) {
