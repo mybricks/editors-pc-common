@@ -4015,9 +4015,11 @@ function convertTextNode(irNode, guid, parentGuid, siblingIndex, fontCtxMap, blo
     var _slLineAsc = measured.ascender;
     if (!_isMultiLine && lineHeightVal > 0 && measured.lineHeight > 0.001) {
       var _halfLead = (lineHeightVal - measured.lineHeight) / 2;
-      // halfLeading 可能为负（CSS lineHeight < naturalLineHeight），此时按 0 计算，
-      // 让 ascender 保持原始值（naturalAscender），不会比紧行高场景更差。
-      _slAscY = Math.max(_halfLead, 0) + measured.ascender;
+      // CSS half-leading 模型：baseline = naturalAscender + halfLeading。
+      // halfLeading 为负时（CSS lineHeight < naturalLineHeight，如紧行高 lineHeight==fontSize）
+      // 必须应用负值，将 content area 相对 line box 上移；若强制钳位到 0，
+      // 当 naturalAscender > lineHeight 时 position.y 会超出盒高，首帧字形偏下。
+      _slAscY = _halfLead + measured.ascender;
       _slLineAsc = _slAscY;
     }
     // 单行 CENTER/BOTTOM：行框在盒内的起点 = (nh-lh)/2 或 nh-lh。须覆盖「盒高 < 行高」（表格压扁单元格 + buildInlineTextStyle 写 textRect.height），
