@@ -678,10 +678,11 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
     if (computed.display === 'none' || computed.visibility === 'hidden') return null;
 
     // body 下方 class 以 selection- 开头的节点不参与输出
-    // append- 是 MyBricks 画布的组件追加区域包裹层，boardTitle- 是画布标题区，均属画布内部骨架节点，不应导出为设计稿内容
+    // append- 是 MyBricks 画布的组件追加区域包裹层，boardTitle- 是画布标题区，pageTitleBar- 是页面标题栏，均属画布内部骨架节点，不应导出为设计稿内容
     if (hasClassPrefix(el, 'selection-')) return null;
     if (hasClassPrefix(el, 'append-')) return null;
     if (hasClassPrefix(el, 'boardTitle-')) return null;
+    if (hasClassPrefix(el, 'pageTitleBar-')) return null;
 
     // ant-checkbox-inner / ant-radio-inner 由变体 INSTANCE 负责渲染，跳过避免重复
     if (COMPONENT_LIBRARY_ENABLED && el.classList && (
@@ -708,6 +709,7 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
           if (hasClassPrefix(elChild, 'selection-')) continue;
           if (hasClassPrefix(elChild, 'append-')) continue;
           if (hasClassPrefix(elChild, 'boardTitle-')) continue;
+          if (hasClassPrefix(elChild, 'pageTitleBar-')) continue;
           const childNode = walk(elChild, parentRect);
           if (childNode) childNodes.push(childNode);
         }
@@ -1301,7 +1303,7 @@ function domToMybricksJson(frameId, styleTagId, _rootElOverride, options) {
             if (_ecChild.nodeType === 1) {
               var _ecTag = (_ecChild.tagName || '').toLowerCase();
               if (_ecTag === 'script' || _ecTag === 'style' || _ecTag === 'link') continue;
-              if (hasClassPrefix(_ecChild, 'selection-') || hasClassPrefix(_ecChild, 'append-') || hasClassPrefix(_ecChild, 'boardTitle-')) continue;
+              if (hasClassPrefix(_ecChild, 'selection-') || hasClassPrefix(_ecChild, 'append-') || hasClassPrefix(_ecChild, 'boardTitle-') || hasClassPrefix(_ecChild, 'pageTitleBar-')) continue;
               var _ecNode = walk(_ecChild, rect);
               if (_ecNode) _earlyChildren.push(_ecNode);
             } else if (_ecChild.nodeType === 3) {
