@@ -1,5 +1,6 @@
 import React, {
   useState,
+  useRef,
   ReactNode,
   useCallback,
   CSSProperties,
@@ -34,6 +35,8 @@ interface SelectProps {
   clearable?: boolean;
   onClear?: () => void;
   placeholder?: string;
+  /** 固定在下拉底部的自定义内容，不随列表滚动 */
+  footer?: ReactNode;
 }
 
 export function Select({
@@ -56,6 +59,7 @@ export function Select({
   clearable = false,
   onClear,
   placeholder,
+  footer,
 }: SelectProps) {
   const [value, setValue] = useState(propsValue !== undefined ? propsValue : defaultValue);
   const [hovered, setHovered] = useState(false);
@@ -68,14 +72,24 @@ export function Select({
           ?.label || value
   );
 
+  // 用 ref 保持最新值，避免 useCallback([]依赖) 闭包读到旧值（模式切换时 multiple/options/onChange 会变）
+  const multipleRef = useRef(multiple);
+  multipleRef.current = multiple;
+  const optionsRef = useRef(options);
+  optionsRef.current = options;
+  const onActionRef = useRef(onAction);
+  onActionRef.current = onAction;
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+
   const handleDropDownClick = useCallback((clickValue: any) => {
-    const clickedOption = options.find(o => o.value === clickValue);
+    const clickedOption = optionsRef.current.find(o => o.value === clickValue);
     if (clickedOption?.type === 'action') {
-      onAction?.(clickValue);
+      onActionRef.current?.(clickValue);
       return;
     }
     setValue((value: any) => {
-      if (multiple) {
+      if (multipleRef.current) {
         const nextValue = Array.isArray(value) ? value.slice() : [value];
         const index = nextValue.indexOf(clickValue);
         if (index > -1) {
@@ -85,17 +99,17 @@ export function Select({
         }
         setLabel(
           nextValue
-            .map((v) => options.find(({ value }) => value === v)?.label ?? v)
+            .map((v) => optionsRef.current.find(({ value }) => value === v)?.label ?? v)
             .filter(Boolean)
             .join(",")
         );
-        onChange(nextValue);
+        onChangeRef.current(nextValue);
         return nextValue;
       }
 
       if (value !== clickValue) {
-        setLabel(options.find(({ value }) => value === clickValue)?.label ?? clickValue);
-        onChange(clickValue);
+        setLabel(optionsRef.current.find(({ value }) => value === clickValue)?.label ?? clickValue);
+        onChangeRef.current(clickValue);
       }
 
       return clickValue;
@@ -133,6 +147,7 @@ export function Select({
           onReorder(newOrder);
         } : undefined}
         disabled={disabled}
+        footer={footer}
       >
         <div
           data-mybricks-tip={clearable && hovered ? undefined : tip}

@@ -184,6 +184,19 @@ function mergeFontOptionsByValue(...optionGroups: FontFamilyOption[][]): FontFam
   return Array.from(map.values());
 }
 
+const FONT_MULTI_MAX = 4;
+
+function parseFontFamily(fontFamily: any): string[] {
+  if (!fontFamily || fontFamily === 'inherit') return [];
+  const arr = Array.isArray(fontFamily)
+    ? fontFamily
+    : (fontFamily as string)
+        .split(',')
+        .filter(Boolean)
+        .map((item: string) => item.trim().replace(/^["']|["']$/g, ''));
+  return arr.slice(0, FONT_MULTI_MAX);
+}
+
 export function Font({ value, onChange, config, showTitle, collapse }: FontProps) {
   const context = useStyleEditorContext();
   const editConfig = context?.editConfig;
@@ -196,14 +209,12 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
   }
 
   const [cfg] = useState({ ...DEFAULT_CONFIG, ...config });
+
   const [innerFontFamily, setInnerFontFamily] = useState<string[] | undefined>(
-    Array.isArray(value.fontFamily)
-      ? value.fontFamily
-      : value.fontFamily
-        ?.split(",")
-        .filter(Boolean)
-        .map((item) => item.trim().replace(/^"|"$/g, ""))
+    parseFontFamily(value.fontFamily)
   );
+
+  const [isMultiMode, setIsMultiMode] = useState(false);
   const getDragPropsFontSize = useDragNumber({ continuous: true });
   const getDragPropsLineHeight = useDragNumber({ continuous: true });
   const getDragPropsLetterSpacing = useDragNumber({ continuous: true });
@@ -452,55 +463,110 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
 
       {cfg.disableFontFamily ? null : (
         <Panel.Content>
-          <Select
-            tip={
-              "字体" +
-              (innerFontFamily?.[0] !== "inherit"
-                ? "：" +
-                innerFontFamily
-                  ?.map?.(
-                    (item) =>
-                      fontFamilyOptions().find(
-                        (option) => option.value === item
-                      )?.label ?? item
-                  )
-                  .filter(Boolean)
-                  .join("，")
-                : "")
-            }
-            prefix={<FontFamilyOutlined />}
-            style={{ padding: "0 8px", overflow: "hidden" }}
-            defaultValue={value.fontFamily}
-            options={fontFamilyOptions()}
-            multiple={true}
-            value={innerFontFamily}
-            clearable={!!(innerFontFamily?.length && innerFontFamily[0] !== 'inherit')}
-            onClear={() => {
-              setInnerFontFamily(['inherit']);
-              onChange({ key: 'fontFamily', value: null });
-            }}
-            onChange={(newValue: string[]) => {
-              let nextValue = newValue.filter((item) => item !== "inherit");
-              if (nextValue.length === 0) {
-                nextValue = ["inherit"];
-              } else {
-                // 按下拉列表中的顺序排列，保证 CSS font-family 顺序与列表一致
-                const opts = fontFamilyOptions();
-                nextValue = nextValue.slice().sort((a, b) => {
-                  const ai = opts.findIndex((o) => o.value === a);
-                  const bi = opts.findIndex((o) => o.value === b);
-                  return (ai === -1 ? 9999 : ai) - (bi === -1 ? 9999 : bi);
-                });
-              }
-              onChange({ key: "fontFamily", value: nextValue.map(quoteIfNeeded).join(", ") });
-              setInnerFontFamily(nextValue);
-            }}
-            onReorder={(newOrder: string[]) => {
-              setInnerFontFamily(newOrder);
-              onChange({ key: "fontFamily", value: newOrder.map(quoteIfNeeded).join(", ") });
-            }}
-            placeholder="未配置字体"
-          />
+          {(() => {
+            const modeFooter = (
+              <div className={css.modeTabBar}>
+                <span
+                  className={`${css.modeTab} ${!isMultiMode ? css.modeTabActive : ''}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (!isMultiMode) return;
+                    const first = innerFontFamily?.[0] && innerFontFamily[0] !== 'inherit' ? [innerFontFamily[0]] : [];
+                    setInnerFontFamily(first);
+                    onChange({ key: 'fontFamily', value: first.length ? quoteIfNeeded(first[0]) : null });
+                    setIsMultiMode(false);
+                  }}
+                >
+                  单字体
+                </span>
+                <span
+                  className={`${css.modeTab} ${isMultiMode ? css.modeTabActive : ''}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (isMultiMode) return;
+                    setIsMultiMode(true);
+                  }}
+                >
+                  多字体
+                </span>
+              </div>
+            );
+
+            return isMultiMode ? (
+              // 多字体模式：多选 + 拖拽排序 + 序号徽标
+              <Select
+                tip={
+                  "字体" +
+                  (innerFontFamily?.length && innerFontFamily[0] !== "inherit"
+                    ? "：" +
+                    innerFontFamily
+                      ?.map?.(
+                        (item) =>
+                          fontFamilyOptions().find(
+                            (option) => option.value === item
+                          )?.label ?? item
+                      )
+                      .filter(Boolean)
+                      .join("，")
+                    : "")
+                }
+                prefix={<FontFamilyOutlined />}
+                style={{ padding: "0 8px", overflow: "hidden" }}
+                options={fontFamilyOptions()}
+                multiple={true}
+                value={innerFontFamily}
+                clearable={!!(innerFontFamily?.length && innerFontFamily[0] !== 'inherit')}
+                onClear={() => {
+                  setInnerFontFamily([]);
+                  onChange({ key: 'fontFamily', value: null });
+                }}
+                onChange={(newValue: string[]) => {
+                  let nextValue = newValue.filter((item) => item !== "inherit");
+                  // 新增的字体插到第一位
+                  const prev = innerFontFamily ?? [];
+                  const added = nextValue.find(v => !prev.includes(v));
+                  if (added) {
+                    nextValue = [added, ...nextValue.filter(v => v !== added)];
+                  }
+                  // 最多保留 FONT_MULTI_MAX 个
+                  nextValue = nextValue.slice(0, FONT_MULTI_MAX);
+                  onChange({ key: "fontFamily", value: nextValue.length ? nextValue.map(quoteIfNeeded).join(", ") : null });
+                  setInnerFontFamily(nextValue);
+                }}
+                onReorder={(newOrder: string[]) => {
+                  setInnerFontFamily(newOrder);
+                  onChange({ key: "fontFamily", value: newOrder.map(quoteIfNeeded).join(", ") });
+                }}
+                footer={modeFooter}
+                placeholder="未配置字体"
+              />
+            ) : (
+              // 单字体模式：简洁单选
+              <Select
+                tip={
+                  "字体" +
+                  (innerFontFamily?.[0] && innerFontFamily[0] !== "inherit"
+                    ? "：" + (fontFamilyOptions().find(o => o.value === innerFontFamily[0])?.label ?? innerFontFamily[0])
+                    : "")
+                }
+                prefix={<FontFamilyOutlined />}
+                style={{ padding: "0 8px", overflow: "hidden" }}
+                options={fontFamilyOptions()}
+                value={innerFontFamily?.[0] && innerFontFamily[0] !== 'inherit' ? innerFontFamily[0] : undefined}
+                clearable={!!(innerFontFamily?.[0] && innerFontFamily[0] !== 'inherit')}
+                onClear={() => {
+                  setInnerFontFamily([]);
+                  onChange({ key: 'fontFamily', value: null });
+                }}
+                onChange={(newValue: string) => {
+                  setInnerFontFamily([newValue]);
+                  onChange({ key: 'fontFamily', value: quoteIfNeeded(newValue) });
+                }}
+                footer={modeFooter}
+                placeholder="未配置字体"
+              />
+            );
+          })()}
         </Panel.Content>
       )}
       {cfg.disableColor ? null : (

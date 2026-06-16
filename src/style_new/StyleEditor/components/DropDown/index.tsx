@@ -2,6 +2,7 @@ import React, { useRef, useState, useEffect, ReactNode, useCallback, useImperati
 import { createPortal } from "react-dom";
 
 import { CheckOutlined } from "../";
+import { question as QuestionIcon } from "../../../icon/question";
 
 import css from "./index.less";
 
@@ -24,6 +25,7 @@ interface DropdownProps {
   onAction?: (value: any) => void;
   onReorder?: (newOrder: any[]) => void;
   className?: string;
+  footer?: ReactNode;
 }
 
 function DragHandleIcon() {
@@ -39,11 +41,15 @@ function DragHandleIcon() {
   );
 }
 
-export function Dropdown({ value, options, children, onClick, onAction, onReorder, className, multiple, disabled = false }: DropdownProps) {
+export function Dropdown({ value, options, children, onClick, onAction, onReorder, className, multiple, disabled = false, footer }: DropdownProps) {
   const positionRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const [show, setShow] = useState(false);
   const [open, setOpen] = useState(false);
+
+  // 用 ref 保持最新的 multiple 值，避免 handleClick 闭包读到旧值（模式切换时 multiple 会变）
+  const multipleRef = useRef(multiple);
+  multipleRef.current = multiple;
 
   const handleDropDownClick = useCallback(() => {
     if (disabled) return;
@@ -57,12 +63,12 @@ export function Dropdown({ value, options, children, onClick, onAction, onReorde
       setOpen(false);
     } else {
       onClick(value);
-      if (!multiple) setOpen(false);
+      if (!multipleRef.current) setOpen(false);
     }
-  }, [onClick, onAction, multiple]);
+  }, [onClick, onAction]);
 
   const handleClick = useCallback((event: { target: any; }) => {
-    if (multiple) {
+    if (multipleRef.current) {
       let currentDOM = event.target;
       while (currentDOM) {
         if (currentDOM === listRef.current) {
@@ -110,6 +116,7 @@ export function Dropdown({ value, options, children, onClick, onAction, onReorde
             onClick={handleItemClick}
             multiple={multiple}
             onReorder={onReorder}
+            footer={footer}
           />,
           document.body
         )}
@@ -125,10 +132,11 @@ interface ItemsProps {
   positionElement: HTMLDivElement;
   multiple?: boolean;
   onReorder?: (newOrder: any[]) => void;
+  footer?: ReactNode;
 }
 
 const Items = React.forwardRef<HTMLDivElement, ItemsProps>((props, forwardRef) => {
-  const { open, options, positionElement, onClick, value: currentValue, multiple, onReorder } = props;
+  const { open, options, positionElement, onClick, value: currentValue, multiple, onReorder, footer } = props;
   const ref = useRef<HTMLDivElement>(null);
   const dragValueRef = useRef<any>(null);
 
@@ -167,32 +175,18 @@ const Items = React.forwardRef<HTMLDivElement, ItemsProps>((props, forwardRef) =
   const hasAnyIcon = options.some(o => o.icon);
   const canReorder = multiple && !!onReorder;
 
-  // 当可拖拽排序时，把已选中的 item 按 currentValue 顺序提前显示，未选中的放后面
-  const displayOptions = canReorder && Array.isArray(currentValue) && currentValue.length >= 1
-    ? (() => {
-        const checkedValues = (currentValue as any[]).filter((v) => v !== 'inherit');
-        if (checkedValues.length === 0) return options;
-        const checkedItems = checkedValues
-          .map((v) => options.find((o) => o.value === v))
-          .filter(Boolean) as typeof options;
-        const uncheckedItems = options.filter(
-          (o) => o.type !== 'action' && !checkedValues.includes(o.value)
-        );
-        const actionItems = options.filter((o) => o.type === 'action');
-        return [
-          { label: '已选字体', value: '__header_selected__', type: 'header' as const },
-          ...checkedItems,
-          ...(uncheckedItems.length > 0 ? [
-            { label: '', value: '__divider_mid__', type: 'divider' as const },
-            { label: '更多字体', value: '__header_more__', type: 'header' as const },
-            ...uncheckedItems,
-          ] : []),
-          ...(actionItems.length > 0 ? [{ label: '', value: '__divider2__', type: 'divider' as const }, ...actionItems] : []),
-        ];
-      })()
-    : options;
+  const checkedValues = canReorder && Array.isArray(currentValue)
+    ? (currentValue as any[]).filter((v) => v !== 'inherit')
+    : [];
+  const checkedItems = checkedValues
+    .map((v) => options.find((o) => o.value === v))
+    .filter(Boolean) as typeof options;
+  const uncheckedItems = canReorder
+    ? options.filter((o) => o.type !== 'action' && !checkedValues.includes(o.value))
+    : [];
+  const actionItems = options.filter((o) => o.type === 'action');
 
-  const renderItem = (opt: typeof options[number], key: string | number) => {
+  const renderItem = (opt: typeof options[number], key: string | number, orderIndex?: number) => {
     const { label, value, type, checked, icon, iconSize } = opt;
     if (type === 'divider') {
       return <div key={key} className={css.divider} />;
@@ -205,11 +199,15 @@ const Items = React.forwardRef<HTMLDivElement, ItemsProps>((props, forwardRef) =
       ? value === currentValue || (Array.isArray(currentValue) && currentValue.includes(value))
       : !!checked;
     const isDraggable = canReorder && isChecked && !isAction;
+    // 多选模式下已选字体显示序号，普通模式显示 ✓
+    const order = orderIndex !== undefined ? orderIndex : (
+      isDraggable ? checkedValues.indexOf(value) + 1 : null
+    );
     return (
       <div
         key={key}
         className={`${css.item}${isDraggable ? ` ${css.itemDraggable}` : ''}`}
-        onClick={() => onClick(value, isAction)}
+        onClick={(e) => { e.stopPropagation(); onClick(value, isAction); }}
         draggable={isDraggable}
         onDragStart={isDraggable ? (e) => {
           dragValueRef.current = value;
@@ -236,7 +234,9 @@ const Items = React.forwardRef<HTMLDivElement, ItemsProps>((props, forwardRef) =
         } : undefined}
       >
         <span className={css.itemCheck}>
-          {isChecked ? <CheckOutlined /> : null}
+          {isDraggable && order !== null
+            ? <span className={css.itemOrder}>{order}</span>
+            : isChecked ? <CheckOutlined /> : null}
         </span>
         {icon ? (
           <span className={iconSize === 'sm' ? css.itemIconSm : css.itemIcon}>
@@ -269,14 +269,59 @@ const Items = React.forwardRef<HTMLDivElement, ItemsProps>((props, forwardRef) =
     );
   };
 
+  if (canReorder) {
+    return (
+      <div
+        ref={ref}
+        className={css.items}
+        data-dropdown-portal="true"
+        onDragOver={(e) => e.preventDefault()}
+      >
+        {/* 已选字体区块：固定在顶部，不参与滚动 */}
+        {checkedItems.length > 0 && (
+          <div className={css.selectedArea}>
+            <div className={css.sectionHeader}>
+              已选字体
+              <span className={css.sectionHeaderTip} data-mybricks-tip="字体优先级从上到下递减">
+                <QuestionIcon />
+              </span>
+            </div>
+            <div className={css.selectedSection}>
+              {checkedItems.map((opt, i) => renderItem(opt, opt.value, i + 1))}
+            </div>
+            <div className={css.divider} />
+          </div>
+        )}
+        {/* 更多字体：可滚动 */}
+        <div className={css.scrollBody}>
+          {uncheckedItems.length > 0 && (
+            <>
+              <div className={css.sectionHeader}>更多字体</div>
+              {uncheckedItems.map((opt, index) => renderItem(opt, opt.value))}
+            </>
+          )}
+          {actionItems.length > 0 && (
+            <>
+              <div className={css.divider} />
+              {actionItems.map((opt, index) => renderItem(opt, `action-${index}`))}
+            </>
+          )}
+        </div>
+        {footer && <div className={css.fixedFooter}>{footer}</div>}
+      </div>
+    );
+  }
+
   return (
     <div
       ref={ref}
       className={css.items}
       data-dropdown-portal="true"
-      onDragOver={canReorder ? (e) => e.preventDefault() : undefined}
     >
-      {displayOptions.map((opt, index) => renderItem(opt, opt.type === 'divider' ? `divider-${index}` : opt.value))}
+      <div className={css.scrollBody}>
+        {options.map((opt, index) => renderItem(opt, opt.type === 'divider' ? `divider-${index}` : opt.value))}
+      </div>
+      {footer && <div className={css.fixedFooter}>{footer}</div>}
     </div>
   );
 });

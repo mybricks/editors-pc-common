@@ -57,3 +57,41 @@
   opacity: 0.7;
   flex-shrink: 0;
 }
+
+.modeTabBar {
+  display: flex;
+  height: 28px;
+}
+
+.modeTab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  cursor: pointer;
+  user-select: none;
+  color: @font-color-content;
+  opacity: 0.55;
+  transition: opacity 0.15s, background 0.15s;
+
+  &:hover {
+    opacity: 0.8;
+    background: @bg-color-hover;
+  }
+
+  &:first-child {
+    border-radius: 0 0 0 5px;
+  }
+
+  &:last-child {
+    border-radius: 0 0 5px 0;
+    border-left: 0.3px solid @boder-color;
+  }
+}
+
+.modeTabActive {
+  opacity: 1;
+  color: @color-primary;
+  font-weight: 500;
+}
