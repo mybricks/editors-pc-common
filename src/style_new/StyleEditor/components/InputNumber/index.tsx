@@ -116,15 +116,26 @@ export function InputNumber ({
       newValue = Number(newValue) > 0 ? newValue : '0'
     }
 
+    // 捕获当前 number，用于判断 handleNumberChange 后是否发生了变化
+    const prevNumber = number;
     // 用户明确输入了数字，如果当前是 disabled 单位（默认/Hug）则自动切到 px
-    if (unitDisabledList.includes(unit)) {
+    const unitWillChange = unitDisabledList.includes(unit);
+    if (unitWillChange) {
       setUnit('px');
     }
 
     const finalVal = handleNumberChange(newValue);
     e.target.value = finalVal;
-    setDisplayValue(finalVal)
-  }, [number, allowNegative, unit, unitDisabledList]);
+    setDisplayValue(finalVal);
+
+    // useUpdateEffect([unit, number]) 只在 unit 或 number 发生变化时才触发 onChange。
+    // 当两者均未变化时（例如 HUG/FILL 模式下用户输入了与预填像素值相同的数字），
+    // 需要在此处直接调用 onChange，确保失焦操作始终能提交值。
+    if (!unitWillChange && finalVal === prevNumber) {
+      const changeValue = String(parseFloat(finalVal)) + unit;
+      onChange?.(changeValue);
+    }
+  }, [number, allowNegative, unit, unitDisabledList, onChange]);
 
   const isDefaultUnit = unitDisabledList.includes(unit)
 
