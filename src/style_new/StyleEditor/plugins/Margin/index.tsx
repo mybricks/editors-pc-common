@@ -19,8 +19,29 @@ import { allEqual } from '../../utils'
 import { useUpdateEffect, useDragNumber } from '../../hooks'
 
 import type { ChangeEvent, PanelBaseProps } from '../../type'
+import { useStyleEditorContext } from '../../context'
 
 import css from './index.less'
+
+/**
+ * 检测当前元素与父容器 flex 对齐的冲突情况。
+ * 返回 { isRow, alignItems } 表示父容器是行方向以及其对齐值，
+ * 或返回 null（无 flex 父容器 / 元素已设置 align-self）。
+ */
+function getAlignConflict(targetDom: HTMLElement | null | undefined) {
+  const parent = targetDom?.parentElement
+  if (!parent) return null
+
+  const ps = window.getComputedStyle(parent)
+  if (ps.display !== 'flex' && ps.display !== 'inline-flex') return null
+
+  // 元素自身已有明确的 align-self 时跳过（用户已主动控制对齐）
+  const selfAlign = targetDom ? window.getComputedStyle(targetDom).alignSelf : 'auto'
+  if (selfAlign !== 'auto' && selfAlign !== 'normal') return null
+
+  const isRow = !ps.flexDirection || ps.flexDirection.startsWith('row')
+  return { isRow, alignItems: ps.alignItems }
+}
 
 interface MarginProps extends PanelBaseProps {
   value: CSSProperties
@@ -49,6 +70,7 @@ export function Margin ({value, onChange, config, showTitle, collapse}: MarginPr
   const [splitMarginIcon, setSplitMarginIcon] = useState(<PaddingTopOutlined />)
   const getDragProps = useDragNumber({ continuous: true, min: -Infinity })
   const [isReset, setIsReset] = useState(false)
+  const context = useStyleEditorContext()
 
   const cfg = useMemo(() => ({ ...DEFAULT_CONFIG, ...(config ?? {}) }), [config]);
 
@@ -59,13 +81,40 @@ export function Margin ({value, onChange, config, showTitle, collapse}: MarginPr
         ...value
       }
     })
-    onChange(Object.keys(value).map((key) => {
-      return {
-        key,
-        value: value[key]
+
+    const changeList = Object.keys(value).map((key) => ({ key, value: value[key] }))
+
+    // 检测父容器 flex 对齐冲突，自动追加 align-self 修复
+    const conflict = getAlignConflict(context?.targetDom)
+    if (conflict) {
+      const { isRow, alignItems } = conflict
+      const crossStart = isRow ? 'marginTop' : 'marginLeft'
+      const crossEnd   = isRow ? 'marginBottom' : 'marginRight'
+
+      if (alignItems === 'flex-end' && value[crossStart] != null) {
+        // 父容器底/右对齐，用户设置 cross-start 方向 margin → 自动顶/左对齐
+        onChange([...changeList, { key: 'alignSelf', value: 'flex-start' }])
+        return
       }
-    }))
-  }, [])
+      if (alignItems === 'flex-start' && value[crossEnd] != null) {
+        // 父容器顶/左对齐，用户设置 cross-end 方向 margin → 自动底/右对齐
+        onChange([...changeList, { key: 'alignSelf', value: 'flex-end' }])
+        return
+      }
+      if (alignItems === 'center') {
+        if (value[crossStart] != null) {
+          onChange([...changeList, { key: 'alignSelf', value: 'flex-start' }])
+          return
+        }
+        if (value[crossEnd] != null) {
+          onChange([...changeList, { key: 'alignSelf', value: 'flex-end' }])
+          return
+        }
+      }
+    }
+
+    onChange(changeList)
+  }, [context?.targetDom, onChange])
 
   useUpdateEffect(() => {
     if (toggle) {
