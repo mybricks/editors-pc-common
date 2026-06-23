@@ -1649,7 +1649,19 @@ function getEffectedCssPropertyAndOptions (element: HTMLElement | null, selector
           return tailSegments.every(tail => {
             // 对于单段（无空格）的 tail，用末尾精确匹配
             // 对于包含空格的 tail（不应出现，做兜底），直接 endsWith
-            return ruleMatchesTailSegment(st, tail) || st.includes(tail);
+            if (ruleMatchesTailSegment(st, tail) || st.includes(tail)) return true;
+            // CSS Modules 哈希类名兜底：tail=".myClass" 对应编译后 "pages_xxx_less-myClass"
+            // 规则选择器末尾段中，若某个类以 "-{原始类名}" 结尾则视为命中
+            if (tail.startsWith('.') && element) {
+              const tailClass = tail.slice(1);
+              const stLast = (st.trim().split(/\s+/).pop() || '');
+              const stClasses = (stLast.match(/\.([^.#[:]+)/g) ?? []).map((c: string) => c.slice(1));
+              const isHashedMatch = stClasses.some((c: string) => c === tailClass || c.endsWith('-' + tailClass));
+              if (isHashedMatch) {
+                try { return element.matches(st); } catch {}
+              }
+            }
+            return false;
           });
         })
       : finalRules;
