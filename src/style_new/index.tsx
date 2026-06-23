@@ -1597,9 +1597,31 @@ function getEffectedCssPropertyAndOptions (element: HTMLElement | null, selector
 
     const values = getValues(finalRules, computedValues, allInheritOnlyRules);
 
+    // ── 内联 style 补丁：展开面板 + 用 element.style 原始值覆盖 ────────────────
+    // 背景：element.style 里的属性不在任何 CSSStyleRule 中，
+    //       getEffectedPanelsFromCssRules 无法感知，对应面板会保持折叠。
+    //       同时 getValues 对 width/height 等属性使用静态 'auto' 兜底，
+    //       会丢失内联 style 的真实值。
+    const inlineEffectedPanels: string[] = [];
+    if (element && element.style.length > 0) {
+      for (let i = 0; i < element.style.length; i++) {
+        const kebabProp = element.style[i];
+        const camelProp = toHump(kebabProp);
+        const panel = PANEL_MAP[camelProp];
+        if (panel && !inlineEffectedPanels.includes(panel)) {
+          inlineEffectedPanels.push(panel);
+        }
+        const inlineVal = element.style.getPropertyValue(kebabProp);
+        if (inlineVal) {
+          (values as any)[camelProp] = inlineVal;
+        }
+      }
+    }
+    // ────────────────────────────────────────────────────────────────────────
+
     const effectedFromDirectParent = element ? getEffectedPanelsFromDirectParent(element, comId) : [];
     const finalEffectedPanels = Array.from(
-      new Set([...(effectedFromRules as string[]), ...effectedFromDirectParent])
+      new Set([...(effectedFromRules as string[]), ...effectedFromDirectParent, ...inlineEffectedPanels])
     );
 
     // 当前编辑的选择器由 selectorArray 里多个 selector 共同描述（如 [".primary", ".actionBtn"]），
@@ -1672,7 +1694,7 @@ function getEffectedCssPropertyAndOptions (element: HTMLElement | null, selector
     }
     // ────────────────────────────────────────────────────────────────────────
 
-    return [values, finalEffectedPanels, ownRulesPanels, [...effectedFromDirectParent, ...otherRulesPanels, ...baseStateVarPanels]]
+    return [values, finalEffectedPanels, ownRulesPanels, [...effectedFromDirectParent, ...otherRulesPanels, ...baseStateVarPanels, ...inlineEffectedPanels]]
   } catch (e) {
     console.warn('[getEffectedCssPropertyAndOptions] 异常:', e)
     return [{}, []]
