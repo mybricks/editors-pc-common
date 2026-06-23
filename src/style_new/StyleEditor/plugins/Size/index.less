@@ -57,6 +57,65 @@
   }
 }
 
+.lockBtnRow {
+  width: 22px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.lockBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  cursor: pointer;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 0;
+  color: @font-color-content;
+  outline: none;
+
+  svg {
+    width: 22px;
+    height: 22px;
+    flex-shrink: 0;
+  }
+
+  &:hover {
+    background-color: @bg-color-active;
+  }
+}
+
+.lockBtnActive {
+  border-color: color-mix(in srgb, @color-primary 20%, transparent);
+  color: @color-primary;
+  background-color: color-mix(in srgb, @color-primary 10%, transparent);
+
+  &:hover {
+    background-color: color-mix(in srgb, @color-primary 15%, transparent);
+  }
+}
+
+.linkDot {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 6px;
+  height: 6px;
+  background-color: #f5f5f5;
+  border-radius: 1px;
+  pointer-events: none;
+  z-index: 2;
+  opacity: 0.7;
+}
+
 .removeBtn {
   display: flex;
   align-items: center;
