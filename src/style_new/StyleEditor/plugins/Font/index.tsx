@@ -458,11 +458,32 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
     ]);
   }, [onChange, cfg.textAlignMode]);
 
+  // 截断按钮附着位置计算：依次寻找第一个有实际内容的可见行
+  const needTruncateFallback = !cfg.disableTruncateText && cfg.disableTextAlign;
+  const lineHeightRowVisible = !(cfg.disableLineHeight && cfg.disableLetterSpacing);
+  const weightSizeRowHasContent = !cfg.disableFontWeight || !cfg.disableFontSize;
+  const truncateBtnInWeightRow = needTruncateFallback && !lineHeightRowVisible && weightSizeRowHasContent;
+  const truncateBtnInColorRow = needTruncateFallback && !lineHeightRowVisible && !weightSizeRowHasContent && !cfg.disableColor;
+  const truncateBtnInFamilyRow = needTruncateFallback && !lineHeightRowVisible && !weightSizeRowHasContent && cfg.disableColor && !cfg.disableFontFamily;
+
+  const truncateBtnNode = (
+    <div
+      ref={popoverBtnRef}
+      className={`${css.truncateBtn}${popoverOpen ? ` ${css.active}` : ''}`}
+      style={{ position: 'absolute', right: -22, top: '50%', transform: 'translateY(-50%)' }}
+      onClick={() => setPopoverOpen(v => !v)}
+      data-mybricks-tip="截断文字"
+    >
+      <FontSetting />
+    </div>
+  );
+
   return (
     <Panel title="字体" showTitle={showTitle} showReset={true} resetFunction={refresh} collapse={collapse}>
 
       {cfg.disableFontFamily ? null : (
-        <Panel.Content>
+        <Panel.Content style={truncateBtnInFamilyRow ? { position: 'relative' } : undefined}>
+          {truncateBtnInFamilyRow ? truncateBtnNode : null}
           {(() => {
             const modeFooter = (
               <div className={css.modeTabBar}>
@@ -570,7 +591,8 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
         </Panel.Content>
       )}
       {cfg.disableColor ? null : (
-        <Panel.Content>
+        <Panel.Content style={truncateBtnInColorRow ? { position: 'relative' } : undefined}>
+          {truncateBtnInColorRow ? truncateBtnNode : null}
           <ColorEditor
             style={{
               flex: 2,
@@ -585,8 +607,8 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
         </Panel.Content>
       )}
 
-      {cfg.disableFontWeight && cfg.disableColor && cfg.disableFontSize ? null : (
-        <Panel.Content>
+      {cfg.disableFontWeight && cfg.disableFontSize ? null : (
+        <Panel.Content style={truncateBtnInWeightRow ? { position: 'relative' } : undefined}>
 
           {cfg.disableFontWeight ? null : (
             <Select
@@ -632,6 +654,7 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
               />
             </Panel.Item>
           )}
+          {truncateBtnInWeightRow ? truncateBtnNode : null}
         </Panel.Content>
       )}
       {cfg.disableLineHeight && cfg.disableLetterSpacing ? null : (
@@ -714,20 +737,8 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
         </Panel.Content>
       )} */}
       {cfg.disableTextAlign ? (
-        // 无对齐行时，按钮已合并进行高/字间距行；若那行也不显示，才单独兜底
-        (!cfg.disableTruncateText && cfg.disableLineHeight && cfg.disableLetterSpacing) ? (
-          <Panel.Content style={{ justifyContent: 'flex-end' }}>
-            <div
-              ref={popoverBtnRef}
-              className={`${css.truncateBtn}${popoverOpen ? ` ${css.active}` : ''}`}
-              style={{ marginRight: -25 }}
-              onClick={() => setPopoverOpen(v => !v)}
-              data-mybricks-tip="截断文字"
-            >
-              <FontSetting />
-            </div>
-          </Panel.Content>
-        ) : null
+        // 无对齐行时，按钮已合并进行高/字间距行或字重/字号行，无需单独兜底
+        null
       ) : (
         <Panel.Content style={{ position: 'relative' }}>
           <Toggle
