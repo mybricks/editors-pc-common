@@ -33,6 +33,7 @@ const DEFAULT_STYLE = {
   // maxWidth: 41,
   // marginLeft: 4
 }
+const PADDING_KEYS = ['paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft'] as const
 
 export function Padding({value, onChange, config, showTitle, collapse}: PaddingProps) {
   const [toggle, setToggle] = useState(getToggleDefaultValue(value))
@@ -40,6 +41,10 @@ export function Padding({value, onChange, config, showTitle, collapse}: PaddingP
   const [forceRenderKey, setForceRenderKey] = useState<number>(Math.random())
   const [splitPaddingIcon, setSplitPaddingIcon] = useState(<PaddingTopOutlined/>)
   const getDragProps = useDragNumber({ continuous: true })
+  const handleSwitchToUnified = useCallback(() => {
+    onChange(PADDING_KEYS.map((key) => ({ key, value: null })))
+    setToggle(true)
+  }, [onChange])
 
   const handleChange = useCallback((value: any) => {
     setPaddingValue((val) => {
@@ -185,7 +190,7 @@ export function Padding({value, onChange, config, showTitle, collapse}: PaddingP
           <div
             data-mybricks-tip={`{content:'切换为统一配置',position:'left'}`}
             className={css.independentActionIcon}
-            onClick={() => setToggle(true)}
+            onClick={handleSwitchToUnified}
           >
             <PaddingAllOutlined/>
           </div>

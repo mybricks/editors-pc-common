@@ -19,6 +19,8 @@ const hasLayeredBorderBackground = (cssProperties: React.CSSProperties) => {
   )
 }
 
+const hasDefinedValue = (value: any) => value !== null && typeof value !== 'undefined'
+
 // 创建一个缓存容器
 let containerCache: HTMLDivElement | null = null
 let componentCache: HTMLDivElement | null = null
@@ -73,13 +75,13 @@ export const mergeCSSProperties = (
 
   // margin
   if (
-    cssProperties.margin ||
+    hasDefinedValue(cssProperties.margin) ||
     [
       cssProperties.marginLeft,
       cssProperties.marginRight,
       cssProperties.marginTop,
       cssProperties.marginBottom,
-    ].filter((t) => !!t).length > 2
+    ].filter(hasDefinedValue).length > 2
   ) {
     mergedStyles.margin = computedStyle.margin
     delete mergedStyles.marginLeft
@@ -90,13 +92,13 @@ export const mergeCSSProperties = (
 
   // padding
   if (
-    cssProperties.padding ||
+    hasDefinedValue(cssProperties.padding) ||
     [
       cssProperties.paddingLeft,
       cssProperties.paddingRight,
       cssProperties.paddingTop,
       cssProperties.paddingBottom,
-    ].filter((t) => !!t).length > 2
+    ].filter(hasDefinedValue).length > 2
   ) {
     mergedStyles.padding = computedStyle.padding
     delete mergedStyles.paddingLeft

@@ -55,6 +55,7 @@ const DEFAULT_STYLE = {
   // maxWidth: 41,
   // marginLeft: 4
 }
+const MARGIN_KEYS = ['marginTop', 'marginRight', 'marginBottom', 'marginLeft'] as const
 
 const DEFAULT_CONFIG = {
   disableMarginTop: false,
@@ -71,6 +72,10 @@ export function Margin ({value, onChange, config, showTitle, collapse}: MarginPr
   const getDragProps = useDragNumber({ continuous: true, min: -Infinity })
   const [isReset, setIsReset] = useState(false)
   const context = useStyleEditorContext()
+  const handleSwitchToUnified = useCallback(() => {
+    onChange(MARGIN_KEYS.map((key) => ({ key, value: null })))
+    setToggle(true)
+  }, [onChange])
 
   const cfg = useMemo(() => ({ ...DEFAULT_CONFIG, ...(config ?? {}) }), [config]);
 
@@ -249,7 +254,7 @@ export function Margin ({value, onChange, config, showTitle, collapse}: MarginPr
           <div
             data-mybricks-tip={`{content:'切换为统一配置',position:'left'}`}
             className={css.independentActionIcon}
-            onClick={() => setToggle(true)}
+            onClick={handleSwitchToUnified}
           >
             <PaddingAllOutlined/>
           </div>
@@ -258,19 +263,20 @@ export function Margin ({value, onChange, config, showTitle, collapse}: MarginPr
     }
   }, [toggle, splitMarginIcon, marginValue, getDragProps, handleChange])
 
-  const MARGIN_KEYS = new Set(['marginTop', 'marginRight', 'marginBottom', 'marginLeft'])
+  const marginKeySet = new Set(MARGIN_KEYS)
 
   const refresh = useCallback(() => {
-    const keys = Object.keys(value ?? {}).filter(key => MARGIN_KEYS.has(key))
+    const keys = Object.keys(value ?? {}).filter(key => marginKeySet.has(key as any))
     console.log("margin refresh", keys);
     onChange(keys.map(key => ({ key, value: null })))
     setIsReset(true)
     setMarginValue({} as any)
     setForceRenderKey(prev => prev + 1)
-  }, [value,onChange])
+  }, [value, onChange])
 
   useEffect(() => {
-    if (isReset && value && Object.keys(value).some(k => value[k] != null)) {
+    const currentValue = value as Record<string, any> | undefined
+    if (isReset && currentValue && Object.keys(currentValue).some(k => currentValue[k] != null)) {
       setIsReset(false)
     }
   }, [value, isReset])
