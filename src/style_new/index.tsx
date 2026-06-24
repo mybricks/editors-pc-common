@@ -36,6 +36,29 @@ interface State {
   editMode: boolean
 }
 
+type SuggestOptionItem = { type: string, config?: any }
+type SuggestOptionsCache = WeakMap<HTMLElement, { options: SuggestOptionItem[], timestamp: number }>
+
+const SUGGEST_OPTIONS_CACHE_TTL = 1500
+
+function getSuggestOptionsWithCache(realTargetDom: HTMLElement, cache?: SuggestOptionsCache) {
+  if (!cache) {
+    return getSuggestOptionsByElement(realTargetDom)
+  }
+
+  const now = Date.now()
+  const cacheItem = cache.get(realTargetDom)
+  if (cacheItem && (now - cacheItem.timestamp) < SUGGEST_OPTIONS_CACHE_TTL) {
+    return cacheItem.options
+  }
+
+  const suggestOptions = getSuggestOptionsByElement(realTargetDom)
+  if (suggestOptions) {
+    cache.set(realTargetDom, { options: suggestOptions as SuggestOptionItem[], timestamp: now })
+  }
+  return suggestOptions
+}
+
 function getDocument() {
   const root = document.getElementById('_mybricks-geo-webview_')?.shadowRoot || document
   return root
@@ -192,6 +215,11 @@ export default function ({editConfig}: EditorProps) {
   const [activeZoneIdx, setActiveZoneIdx] = useState(0)
   const [affectedCount, setAffectedCount] = useState<number | null>(null)
   const isResetRef = useRef(false)
+  const suggestOptionsCacheRef = useRef<SuggestOptionsCache>(new WeakMap())
+
+  useEffect(() => {
+    suggestOptionsCacheRef.current = new WeakMap()
+  }, [key])
 
   // 只从 editConfig 中拿 targetDom，用于 hover 标记效果
   const targetDom = useMemo(() => {
@@ -558,7 +586,7 @@ export default function ({editConfig}: EditorProps) {
           options: { ...originalOptions, selector: zoneSelectorList[activeZoneIdx] }
         }
       })()
-      const config = getDefaultConfiguration(resolvedEditConfig)
+      const config = getDefaultConfiguration(resolvedEditConfig, suggestOptionsCacheRef.current)
 
 
       const { targetDom: _td, ...activeStyleProps } = config
@@ -976,7 +1004,7 @@ function getDefaultConfiguration2 ({value, options}: GetDefaultConfigurationProp
 /**
  * 获取默认的配置项和样式
  */
-function getDefaultConfiguration ({value, options}: GetDefaultConfigurationProps) {
+function getDefaultConfiguration ({value, options}: GetDefaultConfigurationProps, suggestOptionsCache?: SuggestOptionsCache) {
   let finalOpen = false
   let finalOptions
   /** 自动收起没有生效的 CSS 插件 */
@@ -1028,7 +1056,7 @@ function getDefaultConfiguration ({value, options}: GetDefaultConfigurationProps
     }
     // 未配置options，自动disabled不可用的配置
     if ((userNoConfig || autoOptions) && !!realTargetDom) {
-      finalOptions = getSuggestOptionsByElement(realTargetDom) ?? finalOptions
+      finalOptions = getSuggestOptionsWithCache(realTargetDom, suggestOptionsCache) ?? finalOptions
     }
 
 

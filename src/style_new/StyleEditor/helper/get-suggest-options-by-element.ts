@@ -24,7 +24,7 @@ export function getSuggestOptionsByElement(selectDom: HTMLElement): { type: stri
   try {
     // const startTime = new Date().getTime();
 
-    const { getMatchedCssRules, cleanCache } = createGetMatchedCssRulesWithCache()
+    const { getMatchedCssRules } = getMatchedCssRulesWithCache
 
     // 处理字体相关
     let fontOption: any = {
@@ -34,7 +34,8 @@ export function getSuggestOptionsByElement(selectDom: HTMLElement): { type: stri
     /** 深层遍历，当前Dom下方所有的带直接文本节点的元素 */
     const textElemnts = findElementsWithDirectTextChildren(selectDom);
     // flex/inline-flex/grid/inline-grid 容器：text-align 无效，需映射到 justify-content
-    const selectDomDisplay = window.getComputedStyle(selectDom).display;
+    const selectDomStyle = window.getComputedStyle(selectDom);
+    const selectDomDisplay = selectDomStyle.display;
     const isFlexLike = ['flex', 'inline-flex', 'grid', 'inline-grid'].includes(selectDomDisplay);
     // flex 容器也要判断容器是否比内容更宽，不够宽时 justify-content 同样没有视觉效果
     const flexAlignDisabled = isFlexLike && !isContainerWiderThanContent(selectDom);
@@ -45,15 +46,16 @@ export function getSuggestOptionsByElement(selectDom: HTMLElement): { type: stri
       // 1.text-align在多个子元素中，有特殊性（计算是否足够textAlign的宽度 + 继承规则过于复杂），直接不允许配置
       // 2.fontFamily 和 letterSpacing 虽然可以继承，但是，同时配置多个子元素的情况太少了，直接不允许配置
       // 3. whiteSpace 和 lineHeight 继承规则比较复杂，在多个子元素时同时配置的情况也很少，直接不允许配置
+      const inheritDisabledConfig = getInheritedDisabledConfig(selectDom, textElemnts, getMatchedCssRules, isMoreThanOne);
       fontOption.config = {
-        disableFontFamily: isMoreThanOne ? true : shouldHeritPropertyDisabled(selectDom, 'fontFamily', { getMatchedCssRules, textElemnts }),
-        disableColor: shouldHeritPropertyDisabled(selectDom, 'color', { getMatchedCssRules, textElemnts }),
-        disableFontSize: shouldHeritPropertyDisabled(selectDom, 'fontSize', { getMatchedCssRules, textElemnts }),
-        disableFontWeight: shouldHeritPropertyDisabled(selectDom, 'fontWeight', { getMatchedCssRules, textElemnts }),
-        disableLetterSpacing: isMoreThanOne ? true : shouldHeritPropertyDisabled(selectDom, 'letterSpaceing', { getMatchedCssRules, textElemnts }),
-        disableLineHeight: isMoreThanOne ? true : shouldHeritPropertyDisabled(selectDom, 'lineHeight', { getMatchedCssRules, textElemnts }),
-        disableWhiteSpace: isMoreThanOne ? true : shouldHeritPropertyDisabled(selectDom, 'whiteSpace', { getMatchedCssRules, textElemnts }),
-        disableTextAlign: isMoreThanOne ? true : (isFlexLike ? flexAlignDisabled : shouldTextAlignDisabled(selectDom)),
+        disableFontFamily: inheritDisabledConfig.disableFontFamily,
+        disableColor: inheritDisabledConfig.disableColor,
+        disableFontSize: inheritDisabledConfig.disableFontSize,
+        disableFontWeight: inheritDisabledConfig.disableFontWeight,
+        disableLetterSpacing: inheritDisabledConfig.disableLetterSpacing,
+        disableLineHeight: inheritDisabledConfig.disableLineHeight,
+        disableWhiteSpace: inheritDisabledConfig.disableWhiteSpace,
+        disableTextAlign: isMoreThanOne ? true : (isFlexLike ? flexAlignDisabled : shouldTextAlignDisabled(selectDom, selectDomStyle)),
         ...(isFlexLike && !isMoreThanOne && !flexAlignDisabled ? { textAlignMode: 'flex' } : {}),
       }
     } else if (Array.isArray(textElemnts) && textElemnts.length === 0) { // 未找到文本元素，隐藏字体配置
@@ -81,7 +83,7 @@ export function getSuggestOptionsByElement(selectDom: HTMLElement): { type: stri
         disableLetterSpacing: false,
         disableLineHeight: false,
         disableWhiteSpace: false,
-        disableTextAlign: isFlexLike ? flexAlignDisabled : shouldTextAlignDisabled(selectDom),
+        disableTextAlign: isFlexLike ? flexAlignDisabled : shouldTextAlignDisabled(selectDom, selectDomStyle),
         ...(isFlexLike && !flexAlignDisabled ? { textAlignMode: 'flex' } : {}),
       }
     }
@@ -159,9 +161,6 @@ export function getSuggestOptionsByElement(selectDom: HTMLElement): { type: stri
       sizeOption
     ].filter(t => !!t)
 
-    // 清理缓存
-    cleanCache();
-
     // console.log('result', ...suggestion, new Date().getTime() - startTime)
 
     return suggestion
@@ -214,50 +213,101 @@ export function getEditableCssPropertiesByElement(selectDom: HTMLElement): Sugge
 
 type GetMatchedCssRulesFunctionType = (dom: HTMLElement | Element) => CSSStyleRule[]
 
-function shouldHeritPropertyDisabled(selectDom: HTMLElement, property: string, { textElemnts, getMatchedCssRules }: {
-  getMatchedCssRules: GetMatchedCssRulesFunctionType,
-  textElemnts: Element[]
-}) {
-  let hasSetting = false;
-  textElemnts.forEach(element => {
-    const doms = getChildDomPath(selectDom, element);
+const INHERIT_DISABLE_PROPERTY_MAP = {
+  disableFontFamily: 'fontFamily',
+  disableColor: 'color',
+  disableFontSize: 'fontSize',
+  disableFontWeight: 'fontWeight',
+  disableLetterSpacing: 'letterSpaceing',
+  disableLineHeight: 'lineHeight',
+  disableWhiteSpace: 'whiteSpace',
+} as const;
 
-    // TODO，如果出现元素被隐藏的话，认为不可编辑
-    if (doms.some(dom => {
-      const domStyle = window.getComputedStyle(dom)
-      return domStyle.visibility === 'hidden' && domStyle.pointerEvents === 'none'
-    })) {
-      return hasSetting = true
-    }
+type InheritDisableKey = keyof typeof INHERIT_DISABLE_PROPERTY_MAP;
 
-    return doms.some(dom => {
-      const cssRules = getMatchedCssRules(dom)
-      hasSetting = hasSetting || cssRules.some(cssRule => {
-        if (dom.matches(cssRule.selectorText)) {
-          /** 当前Dom是否被配置了样式 */
-          let isConfig = false
-          switch (true) {
-            default: {
-              isConfig = !!cssRule.style[property]
-              break
-            }
-          }
-          // 文本子元素被配置 同时 selectDom 中也不命中这个规则（selectDom命中的话，说明是*或者其他的通用匹配，匹配到了selectDom和下方所有子元素，这种就应该可以覆盖）
-          const result = !!isConfig && !selectDom.matches(cssRule.selectorText)
-          return result
-        }
-        return false
-      })
-
-      return hasSetting
-    })
-  })
-  return hasSetting
+function createInheritDisableConfig(isMoreThanOne: boolean) {
+  return {
+    disableFontFamily: isMoreThanOne,
+    disableColor: false,
+    disableFontSize: false,
+    disableFontWeight: false,
+    disableLetterSpacing: isMoreThanOne,
+    disableLineHeight: isMoreThanOne,
+    disableWhiteSpace: isMoreThanOne,
+  };
 }
 
+function getInheritedDisabledConfig(
+  selectDom: HTMLElement,
+  textElemnts: Element[],
+  getMatchedCssRules: GetMatchedCssRulesFunctionType,
+  isMoreThanOne: boolean
+) {
+  const disableConfig = createInheritDisableConfig(isMoreThanOne);
+  const unresolvedKeys = (Object.keys(INHERIT_DISABLE_PROPERTY_MAP) as InheritDisableKey[]).filter((key) => !disableConfig[key]);
 
-function shouldTextAlignDisabled(selectDom: HTMLElement) {
-  const selectDomStyle = window.getComputedStyle(selectDom);
+  if (!unresolvedKeys.length) {
+    return disableConfig;
+  }
+
+  let hasAnyHiddenPath = false;
+
+  for (const element of textElemnts) {
+    const doms = getChildDomPath(selectDom, element);
+
+    for (const dom of doms) {
+      const domStyle = window.getComputedStyle(dom);
+      if (domStyle.visibility === 'hidden' && domStyle.pointerEvents === 'none') {
+        hasAnyHiddenPath = true;
+        break;
+      }
+
+      const cssRules = getMatchedCssRules(dom);
+      for (const cssRule of cssRules) {
+        let isMatchedBySelectDom = false;
+        try {
+          isMatchedBySelectDom = selectDom.matches(cssRule.selectorText);
+        } catch {
+          isMatchedBySelectDom = false;
+        }
+        if (isMatchedBySelectDom) {
+          continue;
+        }
+
+        for (const key of unresolvedKeys) {
+          if (disableConfig[key]) {
+            continue;
+          }
+          const property = INHERIT_DISABLE_PROPERTY_MAP[key];
+          if (cssRule.style[property as any]) {
+            disableConfig[key] = true;
+          }
+        }
+
+        if (unresolvedKeys.every((key) => disableConfig[key])) {
+          return disableConfig;
+        }
+      }
+    }
+
+    if (hasAnyHiddenPath) {
+      break;
+    }
+  }
+
+  if (hasAnyHiddenPath) {
+    unresolvedKeys.forEach((key) => {
+      disableConfig[key] = true;
+    });
+  }
+
+  return disableConfig;
+}
+
+function shouldTextAlignDisabled(
+  selectDom: HTMLElement,
+  selectDomStyle = window.getComputedStyle(selectDom)
+) {
 
   if (selectDomStyle.display === 'flex' || selectDomStyle.display === 'grid') {
     return true
@@ -553,9 +603,8 @@ function findElementsWithDirectTextChildren(element: HTMLElement) {
 }
 
 function getChildDomPath(currentDOM: HTMLElement, childElement: Element) {
-  let res = []
-
-  let current = childElement;
+  const res: Element[] = []
+  let current: Element | null = childElement;
 
   // 当还没到达当前DOM节点，且仍有父节点时继续向上查找
   while (current && current !== currentDOM) {
@@ -568,14 +617,14 @@ function getChildDomPath(currentDOM: HTMLElement, childElement: Element) {
 
 function traverseDomFromChildToCurrent(
   currentDOM: HTMLElement,
-  childElement: Element,
+  childElement: HTMLElement,
   callback: (current: HTMLElement) => boolean | void
 ) {
   if (!callback || typeof callback !== 'function') {
     return;
   }
 
-  let current = childElement;
+  let current: HTMLElement | null = childElement;
 
   // 当还没到达当前DOM节点，且仍有父节点时继续向上查找
   while (current && current !== currentDOM) {
@@ -596,7 +645,7 @@ interface CacheItem {
 }
 
 interface StyleSheetCache {
-  sheets: CSSStyleSheet[];
+  rules: CSSStyleRule[];
   timestamp: number;
 }
 
@@ -614,24 +663,34 @@ function createGetMatchedCssRulesWithCache(cacheTimeout = 5000, styleSheetCacheT
   let styleSheetCache: StyleSheetCache | null = null;
 
   // 获取所有样式表（带缓存）
-  const getAllStyleSheets = (): CSSStyleSheet[] => {
+  const getAllCssRules = (): CSSStyleRule[] => {
     const now = Date.now();
 
     // 如果缓存存在且未过期，返回缓存的样式表
     if (styleSheetCache && (now - styleSheetCache.timestamp) < styleSheetCacheTimeout) {
-      return styleSheetCache.sheets;
+      return styleSheetCache.rules;
     }
 
-    // 获取新的样式表列表
     const sheets = Array.from(COSNT.DOCUMENT_ELEMENT.styleSheets);
+    const mergedRules: CSSStyleRule[] = [];
+    sheets.forEach((sheet) => {
+      try {
+        const rules = Array.from(sheet.cssRules || sheet.rules);
+        rules.forEach((rule) => {
+          if (rule instanceof CSSStyleRule) {
+            mergedRules.push(rule);
+          }
+        });
+      } catch {}
+    });
 
     // 更新缓存
     styleSheetCache = {
-      sheets,
+      rules: mergedRules,
       timestamp: now
     };
 
-    return sheets;
+    return mergedRules;
   };
 
 
@@ -658,30 +717,19 @@ function createGetMatchedCssRulesWithCache(cacheTimeout = 5000, styleSheetCacheT
       return cacheItem.rules;
     }
 
-    // 获取所有样式表（使用缓存）
-    const styleSheets = getAllStyleSheets();
-
+    // 获取所有样式规则（使用缓存）
+    const cssRules = getAllCssRules();
     // 查找匹配的规则
-    const matchedRules = styleSheets.reduce((acc: CSSStyleRule[], sheet) => {
+    const matchedRules: CSSStyleRule[] = [];
+    cssRules.forEach((rule) => {
       try {
-        const rules = Array.from(sheet.cssRules || sheet.rules);
-        const filteredRules = rules
-          .filter((rule): rule is CSSStyleRule => rule instanceof CSSStyleRule)
-          .filter(rule => {
-            try {
-              return element.matches(rule.selectorText);
-            } catch {
-              return false;
-            }
-          });
-
-        return acc.concat(filteredRules);
-      } catch (e) {
-        // 处理跨域样式表的错误
-        // console.warn('Cannot access rules from stylesheet:', e);
-        return acc;
+        if (element.matches(rule.selectorText)) {
+          matchedRules.push(rule);
+        }
+      } catch {
+        // 过滤非法 selectorText
       }
-    }, []);
+    });
 
     // 更新规则缓存
     rulesCache.set(element, {
@@ -703,3 +751,5 @@ function createGetMatchedCssRulesWithCache(cacheTimeout = 5000, styleSheetCacheT
     cleanCache
   };
 }
+
+const getMatchedCssRulesWithCache = createGetMatchedCssRulesWithCache();
