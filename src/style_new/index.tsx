@@ -764,7 +764,6 @@ function Style ({editConfig, options, setValue, collapsedOptions, readonlyExpand
     liveStyleRef.current = initLiveStyle(deepCopy(setValue || {}), (defaultValue as any) || {})
   }, [setValue])
 
-
   const handleChange: ChangeEvent = useCallback((value) => {
     // 每次操作开始前清空上次可能残留的删除信号，防止普通组件的删除操作污染 AI 组件
     ;(window as any).__mybricks_style_deletions = null
@@ -776,14 +775,44 @@ function Style ({editConfig, options, setValue, collapsedOptions, readonlyExpand
       nextSetValue
     );
 
+    let hasRealChange = false
+    const collapsedPanelSet = new Set(
+      (collapsedOptions || []).map((panelKey: string) => panelKey?.toLowerCase?.())
+    )
+    const resolvePanelMapKey = (styleKey: string) => {
+      if (PANEL_MAP[styleKey]) return styleKey
+      if (!styleKey) return styleKey
+      const normalizedKey = styleKey[0].toLowerCase() + styleKey.slice(1)
+      return PANEL_MAP[normalizedKey] ? normalizedKey : styleKey
+    }
+
     changeItems.forEach(({ key, value }) => {
       if (value === null) {
-        deletedKeys.push(key)
-        delete nextSetValue[key]
+        const hasUserSetValue = key in nextSetValue
+        // 仅当该 key 已由用户写入，或其所属面板当前有生效样式，才视为真实删除。
+        // 否则（如展开空面板后折叠、或插件内部的无效 null），跳过，不触发写入。
+        const panelMapKey = resolvePanelMapKey(key)
+        const panelKey = PANEL_MAP[panelMapKey]
+        const hasEffectedStyle = panelKey ? !collapsedPanelSet.has(panelKey.toLowerCase()) : false
+        const shouldDelete = hasUserSetValue || hasEffectedStyle
+
+        if (shouldDelete) {
+          deletedKeys.push(key)
+          hasRealChange = true
+        }
+        if (hasUserSetValue) {
+          delete nextSetValue[key]
+        }
       } else {
+        if (nextSetValue[key] !== value) {
+          hasRealChange = true
+        }
         nextSetValue[key] = value
       }
     })
+
+    // 没有任何实际变更时直接返回，不触发样式写入（避免展开面板后折叠产生多余版本）
+    if (!hasRealChange) return
 
     // 删除信号通过 window 侧通道传递给 valueProxy.set，
     // 不污染 editConfig.value（代码编辑器不会看到 null 值）
@@ -806,7 +835,7 @@ function Style ({editConfig, options, setValue, collapsedOptions, readonlyExpand
     // console.log("编辑器透传selector",selector)
     // debugger
     editConfig.value.set(mergedCssProperties, selector ? { selector } : undefined)
-  }, [editConfig, options])
+  }, [editConfig, options, collapsedOptions])
 
   const editorContext = useMemo(() => {
     const dom = (!editConfig.options || Array.isArray(editConfig.options))

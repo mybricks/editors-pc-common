@@ -1,6 +1,5 @@
-import React, { CSSProperties, ReactNode, useCallback, useEffect, useRef, useState } from 'react'
+import React, { CSSProperties, ReactNode, useCallback, useEffect, useState } from 'react'
 
-import { useStyleEditorContext } from '../../context'
 import { PlusOutlined, MinusOutlined } from '../Icon'
 import { Dropdown } from '../DropDown'
 
@@ -147,7 +146,7 @@ function Item ({
   //   e.stopPropagation();
   // }, []);
 
-  const onFocus = useCallback((e) => {
+  const onFocus = useCallback((e: React.FocusEvent<HTMLDivElement>) => {
     setActive(true);
     e.stopPropagation();
   }, [])
