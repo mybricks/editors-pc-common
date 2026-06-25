@@ -8,8 +8,14 @@ import {
   safeEncoder,
 } from "./util";
 import styles from "./index.less";
+import { useDarkMode } from '../hooks';
 
 type UnionString = string | undefined;
+
+const useEditorTheme = () => {
+  const isDark = useDarkMode();
+  return isDark ? 'vs-dark' : 'light'
+}
 
 export default function ({editConfig}: any): JSX.Element {
   const {value, options = {}, getDefaultOptions, aiView} = editConfig;
@@ -216,6 +222,8 @@ export default function ({editConfig}: any): JSX.Element {
     }
   }, []);
 
+  const editorTheme = useEditorTheme()
+
   return (
     <div className={!showBtn ? styles.wrapper : void 0}>
       <Editor
@@ -272,7 +280,7 @@ export default function ({editConfig}: any): JSX.Element {
           value: comments,
           className: styles.comment,
         }}
-        theme={theme ?? "light"}
+        theme={editorTheme}
         className={styles.editor}
         wrapperClassName={showBtn ? styles["btn-wrapper"] : styles['editor-wrapper']}
         path={path}
