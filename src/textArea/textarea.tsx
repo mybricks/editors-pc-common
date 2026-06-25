@@ -134,8 +134,8 @@ export default function ({editConfig}: EditorProps): JSX.Element {
                e.stopPropagation()
              }}
              style={{
-               width: nowWidth,
-               height: nowHeight
+               minWidth: nowWidth,
+               minHeight: nowHeight
              }}>
         <textarea ref={el => {
           if (el) {
@@ -153,7 +153,9 @@ export default function ({editConfig}: EditorProps): JSX.Element {
                   }}
                   onKeyPress={evt => {
                     if (onEnterSet) {
-                      if (evt.key !== 'Enter') return
+                      if (evt.shiftKey || evt.key !== 'Enter') {
+                        return
+                      }
                       updateVal(evt)
                     }
                   }}
@@ -197,7 +199,7 @@ export default function ({editConfig}: EditorProps): JSX.Element {
                           }}
                           onKeyPress={evt => {
                             if (onEnterSet) {
-                              if (evt.key !== 'Enter') return
+                              if (evt.shiftKey || evt.key !== 'Enter') return
                               updateVal(evt)
                             }
                           }}
