@@ -1722,7 +1722,13 @@ function getEffectedCssPropertyAndOptions (element: HTMLElement | null, selector
           });
         })
       : finalRules;
-    const ownRulesPanels = getEffectedPanelsFromCssRules(ownSelectorRules) as string[];
+    // inlineEffectedPanels 也视为"自身拥有的样式"（用户通过编辑器写入的内联 style），
+    // 加入 ownRulesPanels 后会进入 ownEffectedSet，使对应面板显示 - 删除按钮，
+    // 而不是作为只读继承（'inherited'）展示。
+    const ownRulesPanels = Array.from(new Set([
+      ...(getEffectedPanelsFromCssRules(ownSelectorRules) as string[]),
+      ...inlineEffectedPanels,
+    ]));
 
     // 其他命中当前 DOM 但不属于当前编辑选择器的规则（如 .actionBtn 当编辑 .actionBtn.primary 时），
     // 产生的面板需要展开回显但不能有减号，单独返回供外层计算 readonlyExpandedOptions。
