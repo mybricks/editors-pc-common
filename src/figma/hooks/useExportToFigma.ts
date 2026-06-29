@@ -22,17 +22,12 @@ export interface FontfaceConfig {
   url?: string;
 }
 
-class ExportCancelledError extends Error {
-  constructor() { super('export-cancelled'); }
-}
-
 export function useExportToFigma(
   comEle: HTMLElement | null | undefined,
   comId: string,
   options?: { fontfaces?: FontfaceConfig[]; svgExportMode?: 'image' | 'vector'; getCanvasList?: () => ArrayLike<Element>; componentLibraryEnabled?: boolean }
 ) {
   const [loading, setLoading] = React.useState(false);
-  const exportGenRef = React.useRef(0); // 每次新导出自增，checkCancelled 用于区分旧/新链路
   const [progress, setProgress] = React.useState<ExportProgress>({
     percent: 0,
     text: '准备中...',
@@ -148,10 +143,6 @@ export function useExportToFigma(
 
   const handleExport = React.useCallback(() => {
     if (loading) return;
-    const gen = ++exportGenRef.current;
-    const checkCancelled = () => {
-      if (exportGenRef.current !== gen) throw new ExportCancelledError();
-    };
     // 有 primaryEle：导出单张页面；没有 primaryEle：遍历 canvasList 全部帧合并导出
     const primaryEle = (comEle?.dataset?.zoneType === 'page'
       ? comEle
@@ -177,7 +168,6 @@ export function useExportToFigma(
         let generatedHtml = '';
         try {
           await setStage(8, '准备中...');
-          checkCancelled();
 
           await waitStageWithTrickle({
             text: '解析页面结构...',
@@ -185,7 +175,6 @@ export function useExportToFigma(
             to: 25,
             task: () => sleep(650),
           });
-          checkCancelled();
 
           // ===== 阶段 1: 同步构建 DOM 模型（25 → 32）=====
           // 注意：elementToMybricksJson 是纯同步的 DOM walking，会阻塞主线程
@@ -237,7 +226,6 @@ export function useExportToFigma(
           }
 
           await setStage(32, '构建 DOM 模型...', { smooth: true, durationMs: 200 });
-          checkCancelled();
 
           // ===== 阶段 2: 异步拉取图片资源（32 → 55）=====
           // 图片进度回调：
@@ -264,7 +252,6 @@ export function useExportToFigma(
               onImageProgress,
             });
           }
-          checkCancelled();
 
           await setStage(55, '拉取图片资源完成', { smooth: true, durationMs: 200 });
 
@@ -277,7 +264,6 @@ export function useExportToFigma(
               setProgress(prev => ({ ...prev, text }));
             }),
           });
-          checkCancelled();
 
           await setStage(75, '生成 Figma 数据...', { smooth: true, durationMs: 360 });
           // 提前生成并缓存，便于剪贴板失败时复用
@@ -289,23 +275,15 @@ export function useExportToFigma(
             to: 98,
             task: () => writeHtmlToClipboard(generatedHtml),
           });
-          checkCancelled();
 
           await setStage(100, '完成', { smooth: true, durationMs: 280 });
           await sleep(220);
-          if (exportGenRef.current !== gen) return;
           setLoading(false);
 
           if (msg) msg.success('已复制，请前往 Figma 直接 Cmd+V / Ctrl+V 粘贴');
           else alert('已复制，请前往 Figma 直接 Cmd+V / Ctrl+V 粘贴');
         } catch (err: any) {
-          // 如果 gen 已被新导出抢占，此链路的所有副作用都应忽略
-          if (exportGenRef.current !== gen) return;
           setLoading(false);
-          if (err instanceof ExportCancelledError) {
-            setProgress({ percent: 0, text: '准备中...' });
-            return;
-          }
           // 若剪贴板写入因失焦失败，但数据已生成 → 缓存数据，提示用户点击按钮手动复制
           if (isNotFocusedClipboardError(err) && generatedHtml) {
             setPendingClipboardHtml(generatedHtml);
@@ -323,12 +301,6 @@ export function useExportToFigma(
       });
     });
   }, [loading, comEle, comId, fontUrlMap, svgExportMode, getCanvasList, componentLibraryEnabled, setStage, waitStageWithTrickle]);
-
-  const handleCancel = React.useCallback(() => {
-    exportGenRef.current++; // 使当前 checkCancelled 抛出，旧链路静默退出
-    setLoading(false);
-    setProgress({ percent: 0, text: '准备中...' });
-  }, []);
 
   const handleRetryClipboard = React.useCallback(async () => {
     if (!pendingClipboardHtml) return;
@@ -348,5 +320,5 @@ export function useExportToFigma(
     }
   }, [pendingClipboardHtml]);
 
-  return { loading, progress, handleExport, handleCancel, pendingClipboardHtml, handleRetryClipboard };
+  return { loading, progress, handleExport, pendingClipboardHtml, handleRetryClipboard };
 }

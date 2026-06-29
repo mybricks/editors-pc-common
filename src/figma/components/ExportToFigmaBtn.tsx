@@ -80,8 +80,6 @@ export interface ExportToFigmaBtnProps {
 
 export function ExportToFigmaBtn({ comEle, comId, fontfaces, getCanvasList }: ExportToFigmaBtnProps) {
   const [componentLibraryEnabled, setComponentLibraryEnabled] = React.useState(false);
-  const [hoverCancel, setHoverCancel] = React.useState(false);
-  const mouseOverBtnRef = React.useRef(false);
   const [pageDropdownVisible, setPageDropdownVisible] = React.useState(false);
   const [pageInfos, setPageInfos] = React.useState<PageInfo[]>([]);
   // null = 全选（默认），Set = 具体选中的索引集合
@@ -103,22 +101,12 @@ export function ExportToFigmaBtn({ comEle, comId, fontfaces, getCanvasList }: Ex
 
   const isMultiCanvas = !comEle;
 
-  const { loading, progress, handleExport, handleCancel, pendingClipboardHtml, handleRetryClipboard } = useExportToFigma(
+  const { loading, progress, handleExport, pendingClipboardHtml, handleRetryClipboard } = useExportToFigma(
     comEle,
     comId,
     // 单组件导出走原始 getCanvasList；多画布导出走 getEffectiveCanvasList 以支持页面过滤
     { fontfaces, getCanvasList: isMultiCanvas ? getEffectiveCanvasList : getCanvasList, componentLibraryEnabled }
   );
-
-  // loading 结束时重置 hover 状态，防止 cursor/文案残留
-  React.useEffect(() => {
-    if (!loading) {
-      setHoverCancel(false);
-    } else if (mouseOverBtnRef.current) {
-      // 鼠标已在按钮上时开始 loading，立即显示"点击取消"
-      setHoverCancel(true);
-    }
-  }, [loading]);
 
   // 点击区域外关闭下拉
   React.useEffect(() => {
@@ -276,15 +264,14 @@ export function ExportToFigmaBtn({ comEle, comId, fontfaces, getCanvasList }: Ex
           {/* 主区 */}
           <button
             type="button"
-            onClick={loading ? handleCancel : (noneSelected ? handleOpenDropdown : (isRetry ? handleRetryClipboard : handleExport))}
-            onMouseEnter={() => { mouseOverBtnRef.current = true; if (loading) setHoverCancel(true); }}
-            onMouseLeave={() => { mouseOverBtnRef.current = false; setHoverCancel(false); }}
+            disabled={loading}
+            onClick={loading ? undefined : (noneSelected ? handleOpenDropdown : (isRetry ? handleRetryClipboard : handleExport))}
             style={{
               ...figmaButtonStyle,
               flex: 1,
               border: 'none',
               borderRadius: 0,
-              cursor: 'pointer',
+              cursor: loading ? 'default' : 'pointer',
               position: 'relative',
               overflow: 'hidden',
             }}
@@ -296,8 +283,8 @@ export function ExportToFigmaBtn({ comEle, comId, fontfaces, getCanvasList }: Ex
                   position: 'absolute', top: 0, left: 0, height: '100%',
                   width: `${Math.min(Math.max(progress.percent, 0), 100)}%`,
                   background: 'var(--mybricks-color-primary, #1677ff)',
-                  opacity: hoverCancel ? 0.35 : 0.22,
-                  transition: 'width 320ms ease-out, opacity 0.15s',
+                  opacity: 0.22,
+                  transition: 'width 320ms ease-out',
                 }} />
               </>
             )}
@@ -305,20 +292,13 @@ export function ExportToFigmaBtn({ comEle, comId, fontfaces, getCanvasList }: Ex
               {isRetry ? (
                 retryLabel
               ) : loading ? (
-                hoverCancel ? (
-                  <>
-                    <SpinIcon />
-                    <span style={{ marginLeft: 2 }}>点击取消</span>
-                  </>
-                ) : (
-                  <>
-                    <SpinIcon />
-                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flexShrink: 1, minWidth: 0 }}>
-                      {progress.text}
-                    </span>
-                    <span style={{ flexShrink: 0, marginLeft: 4 }}>{Math.round(progress.percent)}%</span>
-                  </>
-                )
+                <>
+                  <SpinIcon />
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flexShrink: 1, minWidth: 0 }}>
+                    {progress.text}
+                  </span>
+                  <span style={{ flexShrink: 0, marginLeft: 4 }}>{Math.round(progress.percent)}%</span>
+                </>
               ) : (
                 <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{mainBtnLabel}</span>
               )}
