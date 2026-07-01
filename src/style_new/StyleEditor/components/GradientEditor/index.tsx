@@ -124,10 +124,15 @@ export function GradientEditor({
     stops
   );
   const [isMoveDone, setIsMoveDone] = useState(true);
+  // 防抖函数只在 defaultValue 变化时重建，直接闭包 isMoveDone 会捕获陈旧值
+  // （尤其是拖拽结束后 isMoveDone 卡在 false 时，会导致后续修改永久不生效），
+  // 改用 ref 让防抖回调始终读到最新值。
+  const isMoveDoneRef = useRef(isMoveDone);
+  isMoveDoneRef.current = isMoveDone;
 
   const changeFinalValue = useCallback(
     debounce((value: string) => {
-      if (defaultValue && isMoveDone) {
+      if (defaultValue && isMoveDoneRef.current) {
         if (ExtractBackground(defaultValue, "image").length > 0) {
           onChange?.(
             `${ExtractBackground(defaultValue, "image")[0]}, ${value}`

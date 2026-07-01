@@ -125,6 +125,8 @@ const PanelRender = ({
   const onMouseUp = (event: React.MouseEvent<HTMLDivElement>) => {
     setDragStartFlag(false);
     setMoveMarkerEndTime(+new Date());
+    // 拖拽结束需要把移动标志复位，否则后续（拖拽或输入框）修改的 onChange 会被永久拦截
+    setIsMoveDone(true);
     // setCurElementId(null);
     event.stopPropagation();
   };
