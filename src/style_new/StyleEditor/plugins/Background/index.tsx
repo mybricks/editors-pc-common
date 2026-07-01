@@ -1,6 +1,7 @@
-import React, { useMemo, useState, CSSProperties, useCallback, useEffect } from "react";
+import React, { useMemo, useState, CSSProperties, useCallback, useEffect, useRef } from "react";
 import { getRealKey } from "../../utils";
 import { useStyleEditorContext } from "../..";
+import { useUpdateEffect } from "../../hooks";
 import { PanelBaseProps } from "./../../type";
 import { Panel, Image, ColorEditor, Gradient } from "../../components";
 import { DeleteOutlined, ReloadOutlined } from "@ant-design/icons";
@@ -11,6 +12,10 @@ import {
   isTransparentSolidLayer,
   isSolidColorGradient,
 } from "../../helper/gradient-border";
+
+/** 判断一个 backgroundImage 值是否携带图片/渐变这类需要交给 ColorEditor 展示的实际内容 */
+const isImageOrGradientValue = (value: any): boolean =>
+  typeof value === "string" && /url\(|gradient/.test(value);
 
 interface BackgroundProps extends PanelBaseProps {
   value: CSSProperties;
@@ -88,6 +93,10 @@ export function Background({
     })));
     setIsReset(true);
     setForceRenderKey(prev => prev + 1);
+    // 重置后重新允许一次追赶，避免重置瞬间又碰上 value 快照滞后
+    hasCaughtUpRef.current = false;
+    hasUserEditedRef.current = false;
+    mountedColorEditorValueRef.current = undefined;
   }, [onChange]);
 
   // 当外部 value 有实际值时，取消重置状态
@@ -125,6 +134,38 @@ export function Background({
     ) as Record<typeof IMAGE_KEYS[number], string | undefined>,
   [defaultBackgroundValue]);
 
+  // ColorEditor（以及内部懒挂载的 GradientEditor）只在自己挂载那一刻用 defaultValue
+  // 初始化内部状态，之后不会再跟随 defaultValue 变化重新同步。
+  // 而面板挂载的瞬间，DOM computedStyle 有时还没跟上最新的背景渐变/图片信息，
+  // 导致 colorEditorDefaultValue 的初始快照缺失渐变（表现为渐变角度被复位成默认的 90°、
+  // 或渐变/图片直接显示不出来）。这里做一次性追赶：一旦发现挂载后 value 补上了
+  // 渐变/图片信息而挂载时没有，就 bump key 让 ColorEditor 用正确的值重新挂载。
+  // 一旦用户开始编辑，则永久停用追赶，避免被滞后的外部 value 覆盖用户的操作。
+  const [colorEditorKey, setColorEditorKey] = useState(0);
+  const mountedColorEditorValueRef = useRef(colorEditorDefaultValue);
+  const hasCaughtUpRef = useRef(false);
+  const hasUserEditedRef = useRef(false);
+  useUpdateEffect(() => {
+    if (hasCaughtUpRef.current || hasUserEditedRef.current) {
+      return;
+    }
+    const prevHasContent = isImageOrGradientValue(mountedColorEditorValueRef.current);
+    const nextHasContent = isImageOrGradientValue(colorEditorDefaultValue);
+    hasCaughtUpRef.current = true;
+    if (!prevHasContent && nextHasContent) {
+      mountedColorEditorValueRef.current = colorEditorDefaultValue;
+      setColorEditorKey((k) => k + 1);
+    }
+  }, [colorEditorDefaultValue]);
+
+  const handleColorEditorChange = useCallback(
+    (value: any) => {
+      hasUserEditedRef.current = true;
+      (onChange as any)(value);
+    },
+    [onChange]
+  );
+
   return (
     <Panel
       title="背景"
@@ -136,9 +177,10 @@ export function Background({
       <React.Fragment key={forceRenderKey}>
         <Panel.Content>
             <ColorEditor
+              key={colorEditorKey}
               style={{ flex: 2 }}
               defaultValue={colorEditorDefaultValue}
-              onChange={onChange as (value: { key: string; value: string } | { key: string; value: string }[] | string) => void}
+              onChange={handleColorEditorChange as (value: { key: string; value: string } | { key: string; value: string }[] | string) => void}
               keyMap={keyMap}
               useImportant={useImportant}
               upload={context?.editConfig?.upload as any}

@@ -226,6 +226,48 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
   const borderGradientRef = useRef<string | undefined>(getGradientBorderValue(defaultBorderValue));
   const [borderValue, setBorderValue] = useState(defaultBorderValue);
   const [forceRenderKey, setForceRenderKey] = useState<number>(Math.random());
+  // 面板切换重挂载的瞬间，value（DOM computedStyle）有时还没同步到最新的渐变边框信息，
+  // 导致 defaultBorderValue 快照缺失渐变边框；borderValue 挂载后不会再跟随 value 更新，
+  // 于是渐变颜色编辑器会一直显示成默认的 90° 白色渐变。这里做一次性补偿：
+  // 一旦发现外部 value 补上了渐变边框数据而内部状态还没有，就同步过来，
+  // 并 bump ColorEditor 的 key 让它用正确的初始值重新挂载。
+  // 只在挂载后"追一次"，避免用户主动清除渐变边框后，被滞后的外部 value 错误地复原。
+  const [borderColorEditorKey, setBorderColorEditorKey] = useState(0);
+  const hasCaughtUpGradientRef = useRef(false);
+  const hasUserEditedRef = useRef(false);
+  useUpdateEffect(() => {
+    if (hasCaughtUpGradientRef.current || hasUserEditedRef.current) {
+      return;
+    }
+    if (hasGradientBorderBackground(borderValue)) {
+      hasCaughtUpGradientRef.current = true;
+      return;
+    }
+    const incomingValue: CSSProperties & Record<string, any> = Object.assign({}, value);
+    Object.entries(incomingValue).forEach(([key, v]) => {
+      if (typeof v === "string") {
+        // @ts-ignore
+        incomingValue[key] = v.replace(/!.*$/, "");
+      }
+    });
+    if (!hasGradientBorderBackground(incomingValue)) {
+      return;
+    }
+    const gradientLayer = getGradientBorderValue(incomingValue);
+    if (!gradientLayer) {
+      return;
+    }
+    hasCaughtUpGradientRef.current = true;
+    contentBackgroundLayersRef.current = getContentBackgroundLayers(incomingValue);
+    borderGradientRef.current = gradientLayer;
+    setBorderValue((val) => ({
+      ...val,
+      backgroundImage: incomingValue.backgroundImage,
+      backgroundOrigin: incomingValue.backgroundOrigin,
+      backgroundClip: incomingValue.backgroundClip,
+    }));
+    setBorderColorEditorKey((k) => k + 1);
+  }, [value]);
   const [splitRadiusIcon, setSplitRadiusIcon] = useState(
     <BorderTopLeftRadiusOutlined />
   );
@@ -234,6 +276,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
 
   const handleChange = useCallback(
     (value: CSSProperties & Record<string, any>) => {
+      hasUserEditedRef.current = true;
       setBorderValue((val) => {
         const {
           backgroundImage,
@@ -355,6 +398,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
               {disableBorderColor ? null : (
                 <ColorEditor
                   // tip='边框颜色'
+                  key={borderColorEditorKey}
                   style={{ padding: "0 0 0 1px", marginLeft: shouldShowMiniLayout ? 0 : 2, flex: 1, minWidth: 26 }}
                   defaultValue={getGradientBorderValue(borderValue) || borderValue.borderTopColor}
                   showSubTabs={true}
@@ -785,7 +829,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
         </div>
       );
     }
-  }, [borderToggleValue, borderValue, getDragPropsBorder]);
+  }, [borderToggleValue, borderValue, getDragPropsBorder, borderColorEditorKey]);
 
   const radiusConfig = useMemo(() => {
     if (disableBorderRadius) {
