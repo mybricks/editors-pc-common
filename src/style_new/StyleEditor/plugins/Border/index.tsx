@@ -109,18 +109,28 @@ const getGradientBorderValue = (value: CSSProperties & Record<string, any>) => {
   return getEffectiveGradientBorderLayer(layers);
 };
 
+const isInvisibleBackgroundLayer = (layer: string): boolean =>
+  layer === 'initial' || layer === 'none' || isTransparentSolidLayer(layer);
+
 const getContentBackgroundLayers = (
   value: CSSProperties & Record<string, any>,
   fallbackLayers?: string[] | null
 ) => {
   if (fallbackLayers?.length) {
-    return fallbackLayers;
+    // "initial" / "none" 不是有效的多层 background-image 层值（CSS 全局关键字不能用于列表单项），
+    // 将其替换为 backgroundColor 对应的实色渐变层，否则会导致整条 background-image 声明无效。
+    const normalized = fallbackLayers.map((l) =>
+      isInvisibleBackgroundLayer(l)
+        ? toSolidBackgroundLayer((value as any).backgroundColor || 'transparent')
+        : l
+    );
+    return normalized;
   }
   const layers = splitBackgroundLayers(value.backgroundImage);
   if (hasGradientBorderBackground(value)) {
     const contentLayers = layers.slice(0, -1);
-    if (contentLayers.length === 1 && isTransparentSolidLayer(contentLayers[0]) && value.backgroundColor) {
-      return [toSolidBackgroundLayer(value.backgroundColor)];
+    if (contentLayers.length === 1 && isInvisibleBackgroundLayer(contentLayers[0])) {
+      return [toSolidBackgroundLayer(value.backgroundColor || 'transparent')];
     }
     return contentLayers.length ? [contentLayers[0]] : [toSolidBackgroundLayer(value.backgroundColor || "transparent")];
   }
