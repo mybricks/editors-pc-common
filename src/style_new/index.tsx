@@ -786,14 +786,27 @@ function Style ({editConfig, options, setValue, collapsedOptions, readonlyExpand
       return PANEL_MAP[normalizedKey] ? normalizedKey : styleKey
     }
 
+    // 同一批 onChange 里，若有其他 key 被赋了真实值（非 null），说明用户正在真实编辑
+    // 该 key 所属的面板（如 Size 插件同批提交 width 真实值 + flex/flexGrow/flexBasis 清空），
+    // 此时不应受 collapsedOptions 初始快照（选中元素时一次性算好、后续不再更新）的影响，
+    // 否则面板初始被判定为"无生效样式"而折叠时，同批的清除请求会被误判为无效删除而丢弃。
+    const activePanelsInBatch = new Set(
+      changeItems
+        .filter(({ value }) => value !== null)
+        .map(({ key }) => PANEL_MAP[resolvePanelMapKey(key)])
+        .filter(Boolean)
+    )
+
     changeItems.forEach(({ key, value }) => {
       if (value === null) {
         const hasUserSetValue = key in nextSetValue
-        // 仅当该 key 已由用户写入，或其所属面板当前有生效样式，才视为真实删除。
+        // 仅当该 key 已由用户写入、其所属面板当前有生效样式、或同批次有该面板的真实赋值，才视为真实删除。
         // 否则（如展开空面板后折叠、或插件内部的无效 null），跳过，不触发写入。
         const panelMapKey = resolvePanelMapKey(key)
         const panelKey = PANEL_MAP[panelMapKey]
-        const hasEffectedStyle = panelKey ? !collapsedPanelSet.has(panelKey.toLowerCase()) : false
+        const hasEffectedStyle = panelKey
+          ? (!collapsedPanelSet.has(panelKey.toLowerCase()) || activePanelsInBatch.has(panelKey))
+          : false
         const shouldDelete = hasUserSetValue || hasEffectedStyle
 
         if (shouldDelete) {
@@ -1441,6 +1454,13 @@ const getDefaultValueFunctionMap2 = {
       maxHeight: 'auto',
       minWidth: 'auto',
       minHeight: 'auto',
+      // flex/flexGrow/flexBasis 本身不是 Size 面板展示的字段，
+      // 但 Size 插件在改宽高时会尝试清空它们（避免 flex-basis 覆盖 width/height），
+      // 这里注册空白基准值只是为了让它们进入 PANEL_MAP，归属到 size 面板，
+      // 使 handleChange 的删除守卫能正确识别并放行这几个属性的清除请求。
+      flex: 'auto',
+      flexGrow: '0',
+      flexBasis: 'auto',
     }
   },
   cursor() {

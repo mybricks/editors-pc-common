@@ -529,7 +529,7 @@ function shouldSizeDisabled(selectDom: HTMLElement) {
   if (parentDom) {
     const parentDomStyle = window.getComputedStyle(parentDom);
 
-    if (parentDomStyle.display === 'flex' && (
+    if ((parentDomStyle.display === 'flex' || parentDomStyle.display === 'inline-flex') && (
       (!isNaN(parseFloat(selectDomStyle.flexGrow)) && parseFloat(selectDomStyle.flexGrow) > 0) || // flex-grow > 0
       !['0', '1'].includes(selectDomStyle.flexShrink) || // flex-shrink !== 0或1，此时空间收缩不忠于宽度配置，=== 0或1 的话会忠于宽度配置
       !['auto'].includes(selectDomStyle.flexBasis) // 子元素宽度被flex-basis覆盖，auto是默认值
