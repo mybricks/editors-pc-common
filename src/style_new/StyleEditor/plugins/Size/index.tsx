@@ -40,10 +40,11 @@ const MIN_WIDTH_UNIT_OPTIONS  = [...MAX_MIN_UNIT_OPTIONS, { label: '移除最小
 const MIN_HEIGHT_UNIT_OPTIONS = [...MAX_MIN_UNIT_OPTIONS, { label: '移除最小高', value: 'remove', type: 'action' as const }];
 const MAX_WIDTH_UNIT_OPTIONS  = [...MAX_MIN_UNIT_OPTIONS, { label: '移除最大宽', value: 'remove', type: 'action' as const }];
 const MAX_HEIGHT_UNIT_OPTIONS = [...MAX_MIN_UNIT_OPTIONS, { label: '移除最大高', value: 'remove', type: 'action' as const }];
-const UNIT_DISABLED_LIST = ["max-content", "default"];
+const UNIT_DISABLED_LIST = ["max-content", "default", "fit-content"];
 const UNIT_DISPLAY_LABEL_MAP: Record<string, string> = {
   "max-content": "适应",
   "default": "默认",
+  "fit-content": "Hug",
 };
 const SIZE_DISABLED_TIP = "由布局自动控制，修改后将改为固定值";
 const SIZE_UNIT_SELECT_STYLE: React.CSSProperties = {
@@ -74,7 +75,7 @@ function SizingModeBadge({ mode, dimension, actualSize, onChange, onAddMin, onAd
 
   const handleClick = useCallback((val: string) => {
     if (val === 'fixed')      onChange(`${actualSize}px`);
-    else if (val === 'hug')   onChange(null);
+    else if (val === 'hug')   onChange('fit-content');
     else if (val === 'fill')  onChange('100%');
   }, [actualSize, onChange]);
 
@@ -96,9 +97,9 @@ function SizingModeBadge({ mode, dimension, actualSize, onChange, onAddMin, onAd
   );
 }
 
-/** 归一化尺寸值：auto / inherit / fit-content / 未配置 → undefined，让输入框显示为空（默认状态） */
+/** 归一化尺寸值：auto / inherit / 未配置 → undefined，让输入框显示为空（默认状态）。fit-content 保留原值，用于区分"显式 Hug"与"未配置" */
 function normalizeSizeValue(val: any): string | undefined {
-  if (!val || val === 'auto' || val === 'inherit' || val === 'fit-content') return undefined;
+  if (!val || val === 'auto' || val === 'inherit') return undefined;
   return val as string;
 }
 
@@ -164,13 +165,19 @@ export function Size({value, onChange, config, showTitle, collapse}: SizeProps) 
       setActualHeight(0);
       return;
     }
-    const w = targetDom.offsetWidth;
-    const h = targetDom.offsetHeight;
-    setActualWidth(w);
-    setActualHeight(h);
-    if (w > 0 || h > 0) {
-      setShowWidthHeight(true);
-    }
+    const measure = () => {
+      const w = targetDom.offsetWidth;
+      const h = targetDom.offsetHeight;
+      setActualWidth(w);
+      setActualHeight(h);
+      if (w > 0 || h > 0) {
+        setShowWidthHeight(true);
+      }
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(targetDom);
+    return () => observer.disconnect();
   }, [targetDom]);
 
   const refresh = useCallback(() => {
@@ -623,16 +630,16 @@ export function Size({value, onChange, config, showTitle, collapse}: SizeProps) 
                 </div>
                 <div ref={widthInputWrapRef} style={{ flex: 1, minWidth: 0, display: 'contents' }}>
                   <InputNumber
-                    key={`${isWidthFill ? `fill-w-${Math.round(actualWidth)}` : (widthEffective ? getUnitKey(widthEffective) : (actualWidth > 0 ? `dom-w-${Math.round(actualWidth)}` : 'empty'))}-wlk${widthLockKey}`}
+                    key={`${isWidthFill ? `fill-w-${Math.round(actualWidth)}` : (widthEffective === 'fit-content' ? `hug-w-${Math.round(actualWidth)}` : (widthEffective ? getUnitKey(widthEffective) : (actualWidth > 0 ? `dom-w-${Math.round(actualWidth)}` : 'empty')))}-wlk${widthLockKey}`}
                     style={{ flex: 1, minWidth: 0, marginLeft: 4 }}
-                    defaultValue={isWidthFill ? `${Math.round(actualWidth)}px` : (widthEffective ?? (actualWidth > 0 ? `${Math.round(actualWidth)}px` : undefined))}
+                    defaultValue={isWidthFill ? `${Math.round(actualWidth)}px` : (widthEffective === 'fit-content' ? (actualWidth > 0 ? `${Math.round(actualWidth)}px` : undefined) : (widthEffective ?? (actualWidth > 0 ? `${Math.round(actualWidth)}px` : undefined)))}
                     defaultUnitValue="px"
                     unitOptions={widthUnitOptions}
                     unitDisabledList={UNIT_DISABLED_LIST}
                     unitDisplayLabelMap={UNIT_DISPLAY_LABEL_MAP}
                     onChange={handleWidthChange}
                     onAction={(val) => {
-                      if (val === 'hug') { setWidthPending('auto'); onChange({ key: 'width', value: null }); }
+                      if (val === 'hug') { setWidthPending('fit-content'); onChange({ key: 'width', value: 'fit-content' }); }
                       else if (val === 'fill') { setWidthPending('100%'); onChange({ key: 'width', value: '100%' }); }
                       else if (val === 'addMinWidth') { setShowMinWidth(true); setShowWidthHeight(true); }
                       else if (val === 'addMaxWidth') { setShowMaxWidth(true); setShowWidthHeight(true); }
@@ -651,12 +658,12 @@ export function Size({value, onChange, config, showTitle, collapse}: SizeProps) 
                           onAddMin={() => { setShowMinWidth(true); setShowWidthHeight(true); }}
                           onAddMax={() => { setShowMaxWidth(true); setShowWidthHeight(true); }}
                         />
-                      ) : (!widthEffective && actualWidth > 0) ? (
+                      ) : (widthEffective === 'fit-content') ? (
                         <SizingModeBadge
                           mode="hug"
                           dimension="width"
                           actualSize={Math.round(actualWidth)}
-                          onChange={(v) => { setWidthPending(v ?? 'auto'); onChange({ key: 'width', value: v }); }}
+                          onChange={(v) => { setWidthPending(v ?? 'fit-content'); onChange({ key: 'width', value: v }); }}
                           onAddMin={() => { setShowMinWidth(true); setShowWidthHeight(true); }}
                           onAddMax={() => { setShowMaxWidth(true); setShowWidthHeight(true); }}
                         />
@@ -674,16 +681,16 @@ export function Size({value, onChange, config, showTitle, collapse}: SizeProps) 
                 </div>
                 <div ref={heightInputWrapRef} style={{ flex: 1, minWidth: 0, display: 'contents' }}>
                   <InputNumber
-                    key={`${isHeightFill ? `fill-h-${Math.round(actualHeight)}` : (heightEffective ? getUnitKey(heightEffective) : (actualHeight > 0 ? `dom-h-${Math.round(actualHeight)}` : 'empty'))}-hlk${heightLockKey}`}
+                    key={`${isHeightFill ? `fill-h-${Math.round(actualHeight)}` : (heightEffective === 'fit-content' ? `hug-h-${Math.round(actualHeight)}` : (heightEffective ? getUnitKey(heightEffective) : (actualHeight > 0 ? `dom-h-${Math.round(actualHeight)}` : 'empty')))}-hlk${heightLockKey}`}
                     style={{ flex: 1, minWidth: 0, marginLeft: 4 }}
-                    defaultValue={isHeightFill ? `${Math.round(actualHeight)}px` : (heightEffective ?? (actualHeight > 0 ? `${Math.round(actualHeight)}px` : undefined))}
+                    defaultValue={isHeightFill ? `${Math.round(actualHeight)}px` : (heightEffective === 'fit-content' ? (actualHeight > 0 ? `${Math.round(actualHeight)}px` : undefined) : (heightEffective ?? (actualHeight > 0 ? `${Math.round(actualHeight)}px` : undefined)))}
                     defaultUnitValue="px"
                     unitOptions={heightUnitOptions}
                     unitDisabledList={UNIT_DISABLED_LIST}
                     unitDisplayLabelMap={UNIT_DISPLAY_LABEL_MAP}
                     onChange={handleHeightChange}
                     onAction={(val) => {
-                      if (val === 'hug') { setHeightPending('auto'); onChange({ key: 'height', value: null }); }
+                      if (val === 'hug') { setHeightPending('fit-content'); onChange({ key: 'height', value: 'fit-content' }); }
                       else if (val === 'fill') { setHeightPending('100%'); onChange({ key: 'height', value: '100%' }); }
                       else if (val === 'addMinHeight') { setShowMinHeight(true); setShowWidthHeight(true); }
                       else if (val === 'addMaxHeight') { setShowMaxHeight(true); setShowWidthHeight(true); }
@@ -702,12 +709,12 @@ export function Size({value, onChange, config, showTitle, collapse}: SizeProps) 
                           onAddMin={() => { setShowMinHeight(true); setShowWidthHeight(true); }}
                           onAddMax={() => { setShowMaxHeight(true); setShowWidthHeight(true); }}
                         />
-                      ) : (!heightEffective && actualHeight > 0) ? (
+                      ) : (heightEffective === 'fit-content') ? (
                         <SizingModeBadge
                           mode="hug"
                           dimension="height"
                           actualSize={Math.round(actualHeight)}
-                          onChange={(v) => { setHeightPending(v ?? 'auto'); onChange({ key: 'height', value: v }); }}
+                          onChange={(v) => { setHeightPending(v ?? 'fit-content'); onChange({ key: 'height', value: v }); }}
                           onAddMin={() => { setShowMinHeight(true); setShowWidthHeight(true); }}
                           onAddMax={() => { setShowMaxHeight(true); setShowWidthHeight(true); }}
                         />
