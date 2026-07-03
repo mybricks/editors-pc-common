@@ -1379,6 +1379,9 @@ const getDefaultValueFunctionMap = {
       paddingBottom: values.paddingBottom,
       paddingLeft: values.paddingLeft,
     }
+  },
+  csspaste(values: CSSProperties, config: any) {
+    return {}
   }
 }
 
@@ -1512,6 +1515,9 @@ const getDefaultValueFunctionMap2 = {
       paddingBottom: '0px',
       paddingLeft: '0px',
     }
+  },
+  csspaste() {
+    return {}
   }
 }
 

@@ -158,7 +158,10 @@ export function getSuggestOptionsByElement(selectDom: HTMLElement): { type: stri
       {
         type: 'rotation'
       },
-      sizeOption
+      sizeOption,
+      {
+        type: 'csspaste'
+      }
     ].filter(t => !!t)
 
     // console.log('result', ...suggestion, new Date().getTime() - startTime)
