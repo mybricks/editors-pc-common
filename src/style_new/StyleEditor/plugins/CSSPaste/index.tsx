@@ -88,7 +88,7 @@ export function CSSPaste({ onChange, showTitle, collapse }: CSSPasteProps) {
 
   return (
     <Panel
-      title="导入样式"
+      title=""
       showTitle={showTitle}
       showDelete={false}
       collapse={false}
@@ -106,9 +106,7 @@ export function CSSPaste({ onChange, showTitle, collapse }: CSSPasteProps) {
               gap: 6,
               width: '100%',
               height: 26,
-              border: isError
-                ? '1px dashed #F55753'
-                : '1px solid transparent',
+              border: '1px solid transparent',
               borderRadius: 6,
               background: isSuccess
                 ? 'rgba(82,196,26,0.08)'
