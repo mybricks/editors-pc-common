@@ -159,6 +159,13 @@ export function Size({value, onChange, config, showTitle, collapse}: SizeProps) 
   const [actualWidth, setActualWidth] = useState<number>(0);
   const [actualHeight, setActualHeight] = useState<number>(0);
 
+  const actualWidthRef = useRef(0);
+  const actualHeightRef = useRef(0);
+  const targetDomRef = useRef<HTMLElement | null>(null);
+  actualWidthRef.current = actualWidth;
+  actualHeightRef.current = actualHeight;
+  targetDomRef.current = targetDom;
+
   useEffect(() => {
     if (!targetDom) {
       setActualWidth(0);
@@ -166,6 +173,7 @@ export function Size({value, onChange, config, showTitle, collapse}: SizeProps) 
       return;
     }
     const measure = () => {
+      if (isDraggingWidth.current || isDraggingHeight.current) return;
       const w = targetDom.offsetWidth;
       const h = targetDom.offsetHeight;
       setActualWidth(w);
@@ -268,6 +276,11 @@ export function Size({value, onChange, config, showTitle, collapse}: SizeProps) 
   const getDragPropsWidth = useDragNumber({
     onDragStart: (currentValue, inputEl) => {
       isDraggingWidth.current = true;
+      if (currentValue === 'fit-content') {
+        const fallback = Math.round(actualWidthRef.current);
+        if (inputEl) { inputEl.disabled = false; inputEl.value = String(fallback); }
+        return fallback;
+      }
       const parsed = parseFloat(currentValue);
       if (!currentValue || currentValue === 'max-content' || isNaN(parsed)) {
         if (inputEl) {
@@ -280,6 +293,8 @@ export function Size({value, onChange, config, showTitle, collapse}: SizeProps) 
     },
     onDragEnd: (finalValue: number) => {
       isDraggingWidth.current = false;
+      const dom = targetDomRef.current;
+      if (dom) { setActualWidth(dom.offsetWidth); setActualHeight(dom.offsetHeight); }
       const newVal = `${finalValue}px`;
       if (lockedRef.current && ratioRef.current > 0) {
         const newH = Math.max(1, Math.round(finalValue * ratioRef.current));
@@ -316,6 +331,11 @@ export function Size({value, onChange, config, showTitle, collapse}: SizeProps) 
   const getDragPropsHeight = useDragNumber({
     onDragStart: (currentValue, inputEl) => {
       isDraggingHeight.current = true;
+      if (currentValue === 'fit-content') {
+        const fallback = Math.round(actualHeightRef.current);
+        if (inputEl) { inputEl.disabled = false; inputEl.value = String(fallback); }
+        return fallback;
+      }
       const parsed = parseFloat(currentValue);
       if (!currentValue || currentValue === 'max-content' || isNaN(parsed)) {
         if (inputEl) {
@@ -328,6 +348,8 @@ export function Size({value, onChange, config, showTitle, collapse}: SizeProps) 
     },
     onDragEnd: (finalValue: number) => {
       isDraggingHeight.current = false;
+      const dom = targetDomRef.current;
+      if (dom) { setActualWidth(dom.offsetWidth); setActualHeight(dom.offsetHeight); }
       const newVal = `${finalValue}px`;
       if (lockedRef.current && ratioRef.current > 0) {
         const newW = Math.max(1, Math.round(finalValue / ratioRef.current));
