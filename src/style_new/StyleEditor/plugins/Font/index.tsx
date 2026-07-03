@@ -197,6 +197,14 @@ function parseFontFamily(fontFamily: any): string[] {
   return arr.slice(0, FONT_MULTI_MAX);
 }
 
+/** 解析当前 textDecoration，返回 'underline' | 'line-through' | 'none' */
+function parseTextDecoration(td: string | undefined): 'underline' | 'line-through' | 'none' {
+  if (!td || td === 'none') return 'none';
+  if (String(td).includes('line-through')) return 'line-through';
+  if (String(td).includes('underline')) return 'underline';
+  return 'none';
+}
+
 export function Font({ value, onChange, config, showTitle, collapse }: FontProps) {
   const context = useStyleEditorContext();
   const editConfig = context?.editConfig;
@@ -274,6 +282,10 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
     const v = value as any;
     return v.textOverflow === 'ellipsis' || (v.webkitLineClamp && v.webkitLineClamp !== 'none');
   });
+
+  const [textDecorationValue, setTextDecorationValue] = useState<'none' | 'underline' | 'line-through'>(
+    () => parseTextDecoration(value.textDecoration as string)
+  );
 
   const [popoverOpen, setPopoverOpen] = useState(false);
   const popoverBtnRef = useRef<HTMLDivElement>(null);
@@ -454,9 +466,11 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
       { key: 'WebkitLineClamp', value: null },
       { key: 'WebkitBoxOrient', value: null },
       { key: 'maxHeight', value: null },
+      { key: 'textDecoration', value: null },
       ...(cfg.textAlignMode === 'flex' ? [{ key: 'justifyContent', value: null }] : []),
     ]);
   }, [onChange, cfg.textAlignMode]);
+
 
   // 截断按钮附着位置计算：依次寻找第一个有实际内容的可见行
   const needTruncateFallback = !cfg.disableTruncateText && cfg.disableTextAlign;
@@ -781,42 +795,73 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
         className={css.truncatePopover}
         onClick={e => e.stopPropagation()}
       >
-        <div className={css.popoverLabel}>截断文字</div>
-        <Toggle
-          key={`truncate-${(value as any).textOverflow || ''}-${(value as any).webkitLineClamp || ''}`}
-          defaultValue={
-            (value as any).textOverflow === 'ellipsis' ||
-            ((value as any).webkitLineClamp && (value as any).webkitLineClamp !== 'none')
-              ? 'ellipsis'
-              : 'clip'
-          }
-          options={[
-            { label: <FontSettingNoTruncation />, value: 'clip', tip: '不截断' },
-            { label: <FontSettingTruncation />, value: 'ellipsis', tip: '省略号截断' },
-          ]}
-          onChange={(v) => {
-            if (v === 'ellipsis') {
-              setIsTruncated(true);
-              applyTruncate(truncateLines);
-            } else {
-              setIsTruncated(false);
-              onChange([
-                { key: 'textOverflow', value: null },
-                { key: 'overflow', value: null },
-                { key: 'overflowClipMargin', value: null },
-                { key: 'whiteSpace', value: null },
-                { key: 'WebkitLineClamp', value: null },
-                { key: 'display', value: null },
-                { key: 'WebkitBoxOrient', value: null },
-                { key: 'height', value: null },
-                { key: 'maxHeight', value: null },
-              ]);
+        <div className={css.popoverInlineRow}>
+          <div className={css.popoverLabel} style={{ marginBottom: 0 }}>装饰</div>
+          <Toggle
+            key={`decoration-${textDecorationValue}`}
+            defaultValue={textDecorationValue}
+            options={[
+              {
+                label: <span style={{ fontWeight: 500, fontSize: 13 }}>—</span>,
+                value: 'none',
+                tip: '无装饰',
+              },
+              {
+                label: <span style={{ textDecoration: 'underline', fontWeight: 500, fontSize: 13 }}>U</span>,
+                value: 'underline',
+                tip: '下划线',
+              },
+              {
+                label: <span style={{ textDecoration: 'line-through', fontWeight: 500, fontSize: 13 }}>S</span>,
+                value: 'line-through',
+                tip: '删除线',
+              },
+            ]}
+            onChange={(v) => {
+              const next = v as 'none' | 'underline' | 'line-through';
+              setTextDecorationValue(next);
+              onChange({ key: 'textDecoration', value: next === 'none' ? null : next });
+            }}
+          />
+        </div>
+        <div className={css.popoverInlineRow}>
+          <div className={css.popoverLabel} style={{ marginBottom: 0 }}>截断文字</div>
+          <Toggle
+            key={`truncate-${(value as any).textOverflow || ''}-${(value as any).webkitLineClamp || ''}`}
+            defaultValue={
+              (value as any).textOverflow === 'ellipsis' ||
+              ((value as any).webkitLineClamp && (value as any).webkitLineClamp !== 'none')
+                ? 'ellipsis'
+                : 'clip'
             }
-          }}
-        />
+            options={[
+              { label: <FontSettingNoTruncation />, value: 'clip', tip: '不截断' },
+              { label: <FontSettingTruncation />, value: 'ellipsis', tip: '省略号截断' },
+            ]}
+            onChange={(v) => {
+              if (v === 'ellipsis') {
+                setIsTruncated(true);
+                applyTruncate(truncateLines);
+              } else {
+                setIsTruncated(false);
+                onChange([
+                  { key: 'textOverflow', value: null },
+                  { key: 'overflow', value: null },
+                  { key: 'overflowClipMargin', value: null },
+                  { key: 'whiteSpace', value: null },
+                  { key: 'WebkitLineClamp', value: null },
+                  { key: 'display', value: null },
+                  { key: 'WebkitBoxOrient', value: null },
+                  { key: 'height', value: null },
+                  { key: 'maxHeight', value: null },
+                ]);
+              }
+            }}
+          />
+        </div>
         {isTruncated && (
-          <div className={css.popoverRow}>
-            <span className={css.maxLinesLabel}>最大行数</span>
+          <div className={css.popoverInlineRow}>
+            <div className={css.popoverLabel} style={{ marginBottom: 0 }}>最大行数</div>
             <InputNumber
               tip="最大行数"
               type="number"

@@ -41,22 +41,21 @@
   margin-bottom: 6px;
   opacity: 0.55;
   user-select: none;
-}
-
-.popoverRow {
-  display: flex;
-  align-items: center;
-  margin-top: 8px;
-}
-
-.maxLinesLabel {
-  font-size: 12px;
   white-space: nowrap;
-  margin-right: 8px;
-  color: @font-color-content;
-  opacity: 0.7;
   flex-shrink: 0;
 }
+
+.popoverInlineRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+
+  & + & {
+    margin-top: 8px;
+  }
+}
+
 
 .modeTabBar {
   display: flex;

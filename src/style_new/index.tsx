@@ -1269,7 +1269,8 @@ const getDefaultValueFunctionMap = {
       letterSpacing: values.letterSpacing,
       whiteSpace: values.whiteSpace,
       textOverflow: (values as any).textOverflow,
-      webkitLineClamp: (values as any).webkitLineClamp
+      webkitLineClamp: (values as any).webkitLineClamp,
+      textDecoration: (values as any).textDecoration,
     }
   },
   border(values: CSSProperties, config: any) {
@@ -1393,7 +1394,8 @@ const getDefaultValueFunctionMap2 = {
       letterSpacing: 0,
       whiteSpace: 'normal',
       textOverflow: 'clip',
-      webkitLineClamp: 'none'
+      webkitLineClamp: 'none',
+      textDecoration: 'none',
     }
   },
   border() {
@@ -1821,6 +1823,7 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration, 
   let whiteSpace // 继承属性
   let textOverflow // 非继承属性
   let webkitLineClamp // 非继承属性
+  let textDecoration // 非继承属性
   /** font */
 
   /** padding */
@@ -2196,6 +2199,13 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration, 
     }
     /** textOverflow */
 
+    /** textDecoration */
+    const { textDecoration: styleTextDecoration } = style
+    if (styleTextDecoration && styleTextDecoration !== 'none') {
+      textDecoration = styleTextDecoration
+    }
+    /** textDecoration */
+
     /** webkitLineClamp */
     const styleWebkitLineClamp = style.webkitLineClamp
     if (styleWebkitLineClamp) {
@@ -2460,7 +2470,7 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration, 
   /** layout */
 
   const rawValues = {
-    color, fontSize, textAlign, fontWeight, lineHeight, fontFamily, letterSpacing, whiteSpace,
+    color, fontSize, textAlign, fontWeight, lineHeight, fontFamily, letterSpacing, whiteSpace, textDecoration,
     paddingTop, paddingRight, paddingBottom, paddingLeft,
     marginTop, marginRight, marginBottom, marginLeft,
     backgroundColor, backgroundImage, width, height,
@@ -2529,6 +2539,7 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration, 
 
     textOverflow,
     webkitLineClamp,
+    textDecoration,
 
     opacity,
 
