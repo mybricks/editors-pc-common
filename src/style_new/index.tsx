@@ -526,10 +526,58 @@ export default function ({editConfig}: EditorProps) {
     return result
   }, [targetDom, pseudoSelectorList])
 
-  // zoneSelectorList 变化（targetDom / 伪类扫描结果更新）时，重置激活下标到第 0 项
+  // 监听目标元素 class 属性变化，实时将 activeZoneIdx 对齐到当前实际匹配的 selector。
+  // 同时承担 zoneSelectorList 变化时的初始对齐（替代原来的固定重置为 0）。
   useEffect(() => {
-    setActiveZoneIdx(0)
-  }, [zoneSelectorList])
+    const el = (
+      Object.prototype.toString.call(targetDom) === '[object NodeList]'
+        ? Array.from(targetDom as NodeList)[0]
+        : targetDom
+    ) as Element | null
+    if (!el || zoneSelectorList.length === 0) {
+      setActiveZoneIdx(0)
+      return
+    }
+
+    /**
+     * 判断一个 DOM class 是否对应选择器里的某个短名。
+     * 支持三种形式：
+     *   1. 精确匹配：cls === shortName
+     *   2. CSS Modules "--" 分隔：pages_Foo--shortName
+     *   3. CSS Modules "-" 分隔（含下划线前缀）：pages_Foo_less-shortName
+     */
+    function classMatchesShortName(cls: string, shortName: string): boolean {
+      return cls === shortName ||
+        cls.endsWith('--' + shortName) ||
+        (cls.endsWith('-' + shortName) && cls.slice(0, cls.length - shortName.length - 1).includes('_'))
+    }
+
+    /**
+     * 用"选择器末段短名"匹配元素的实际（可能哈希的）classList。
+     * 只验证末段（空格分隔的最后一段），祖先部分由 zoneSelectorList 构建逻辑保证。
+     */
+    function elMatchesSelectorTail(element: Element, sel: string): boolean {
+      const lastPart = sel.trim().split(/\s+/).pop() ?? ''
+      const shortNames = (lastPart.match(/\.([a-zA-Z_][a-zA-Z0-9_-]*)/g) ?? []).map(c => c.slice(1))
+      if (shortNames.length === 0) return false
+      const elClasses = Array.from(element.classList)
+      return shortNames.every(sn => elClasses.some(cls => classMatchesShortName(cls, sn)))
+    }
+
+    function syncActiveIdx() {
+      const idx = zoneSelectorList.findIndex(sel => {
+        const base = sel.replace(/:{1,2}[a-zA-Z\-]+(\([^)]*\))?/g, '').trim()
+        return !!base && elMatchesSelectorTail(el as Element, base)
+      })
+      setActiveZoneIdx(idx >= 0 ? idx : 0)
+    }
+
+    syncActiveIdx()
+
+    const observer = new MutationObserver(syncActiveIdx)
+    observer.observe(el, { attributes: true, attributeFilter: ['class'] })
+    return () => observer.disconnect()
+  }, [targetDom, zoneSelectorList])
 
   // 计算当前激活 selector 在页面中命中的元素个数
   useEffect(() => {
