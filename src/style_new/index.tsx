@@ -859,8 +859,12 @@ function Style ({editConfig, options, setValue, collapsedOptions, readonlyExpand
         ? dom[0]
         : dom
     ) as HTMLElement | null
+    const CDN = (editConfig as any).getDefaultOptions?.('stylenew')?.CDN
     return {
-      editConfig,
+      editConfig: {
+        ...editConfig,
+        CDN,
+      },
       autoCollapseWhenUnusedProperty,
       targetDom: realDom,
     }

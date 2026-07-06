@@ -18,6 +18,8 @@ interface StyleEditorContextValue {
       /** 值（必须为有效色值，优先级高于value） */
       resetValue?: string;
     }>
+    /** Monaco Editor CDN 地址 */
+    CDN?: string
   },
   /** 自动收起没有生效的 CSS 插件 */
   autoCollapseWhenUnusedProperty: boolean

@@ -1,160 +1,214 @@
-import React, { CSSProperties, useCallback, useState, useRef } from 'react'
+import React, { CSSProperties, useCallback, useRef, useState } from 'react'
+import MonacoEditor from '@mybricks/code-editor'
 
 import { Panel } from '../../components'
+import { useStyleEditorContext } from '../../context'
 
 import type { ChangeEvent, PanelBaseProps } from '../../type'
+import css from './index.less'
 
 interface CSSPasteProps extends PanelBaseProps {
   value: CSSProperties
   onChange: ChangeEvent
 }
 
-/** 将 kebab-case 转为 camelCase */
 function kebabToCamel(prop: string): string {
   return prop.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase())
 }
 
-/**
- * 解析 Figma 复制的 CSS 文本，返回 camelCase key 的样式变更列表。
- *
- * Figma Dev 面板输出格式示例：
- *   width: 200px;
- *   background: rgba(75, 88, 181, 1);
- *   border-radius: 8px;
- *   box-shadow: 0px 4px 12px 0px rgba(0, 0, 0, 0.20);
- */
-function parseFigmaCSS(cssText: string): Array<{ key: string; value: string }> {
+function expandShorthands(key: string, value: string): Array<{ key: string; value: string }> {
+  if (key === 'gap') {
+    const parts = value.trim().split(/\s+/)
+    return [
+      { key: 'rowGap', value: parts[0] },
+      { key: 'columnGap', value: parts[1] ?? parts[0] },
+    ]
+  }
+  return [{ key, value }]
+}
+
+function parseCSS(cssText: string): Array<{ key: string; value: string }> {
   const result: Array<{ key: string; value: string }> = []
-  const lines = cssText.split('\n')
-
-  for (const line of lines) {
+  for (const line of cssText.split('\n')) {
     const trimmed = line.trim()
-
     if (!trimmed) continue
     if (trimmed.startsWith('/*') || trimmed.startsWith('//')) continue
     if (trimmed === '{' || trimmed === '}') continue
-
     const colonIdx = trimmed.indexOf(':')
     if (colonIdx === -1) continue
-
     const propRaw = trimmed.slice(0, colonIdx).trim()
     if (!/^[\w-]+$/.test(propRaw)) continue
-
     const valueRaw = trimmed.slice(colonIdx + 1).trim().replace(/;$/, '').trim()
     if (!valueRaw) continue
-
-    result.push({ key: kebabToCamel(propRaw), value: valueRaw })
+    result.push(...expandShorthands(kebabToCamel(propRaw), valueRaw))
   }
-
   return result
 }
 
-type Status = 'idle' | 'success' | 'error'
+let languageRegistered = false
+
+/** 注册专门用于 CSS 属性声明（无选择器）的 Monaco 语言 */
+function registerCSSPropertiesLanguage(monaco: any) {
+  if (languageRegistered) return
+  languageRegistered = true
+
+  monaco.languages.register({ id: 'css-properties' })
+
+  monaco.languages.setMonarchTokensProvider('css-properties', {
+    tokenizer: {
+      root: [
+        // 注释
+        [/\/\*/, 'comment', '@comment'],
+        [/\/\/.*$/, 'comment'],
+        // CSS 属性名（紧接 :）
+        [/[\w-]+(?=\s*:)/, 'attribute.name'],
+        // 冒号分隔
+        [/:/, 'delimiter'],
+        // 十六进制颜色
+        [/#[0-9a-fA-F]{3,8}\b/, 'number.hex'],
+        // CSS 变量 var(--xxx) 或 var(--xxx, fallback)
+        [/var\(--[\w-]+[^)]*\)/, 'variable.css'],
+        // 数值 + 单位
+        [/-?\d+\.?\d*(%|px|em|rem|vh|vw|vmin|vmax|dvh|dvw|svh|svw|pt|cm|mm|in|ex|ch|fr|deg|rad|turn|grad|s|ms)\b/, 'number'],
+        [/-?\d+\.?\d*\b/, 'number'],
+        // 字符串
+        [/"[^"]*"/, 'string'],
+        [/'[^']*'/, 'string'],
+        // 关键字值
+        [/\b(flex|grid|block|inline|none|auto|inherit|initial|unset|revert|normal|bold|italic|center|left|right|top|bottom|middle|stretch|baseline|flex-start|flex-end|space-between|space-around|space-evenly|wrap|nowrap|column|row|hidden|visible|scroll|clip|solid|dashed|dotted|double|groove|ridge|inset|outset|absolute|relative|fixed|sticky|static|pointer|default|not-allowed|transparent|currentColor)\b/, 'keyword'],
+        // 函数调用（rgba / linear-gradient / etc.）
+        [/[\w-]+(?=\()/, 'type'],
+        // 其余字母数字（属性值的其他部分）
+        [/[\w-]+/, 'identifier'],
+        // 标点
+        [/[;,()\/]/, 'delimiter'],
+      ],
+      comment: [
+        [/[^/*]+/, 'comment'],
+        [/\*\//, 'comment', '@pop'],
+        [/[/*]/, 'comment'],
+      ],
+    },
+  })
+
+  // 颜色映射（复用 CSS 高亮风格）
+  monaco.editor.defineTheme('css-properties-light', {
+    base: 'vs',
+    inherit: true,
+    rules: [
+      { token: 'attribute.name', foreground: '9B1C7C' },   // 属性名：深粉/品红
+      { token: 'number', foreground: '098658' },            // 数字：绿
+      { token: 'number.hex', foreground: '098658' },
+      { token: 'string', foreground: 'A31515' },            // 字符串：红
+      { token: 'keyword', foreground: '0070C1' },           // 关键字：蓝
+      { token: 'type', foreground: '795E26' },              // 函数名：棕
+      { token: 'variable.css', foreground: '001080' },      // CSS 变量：深蓝
+      { token: 'comment', foreground: '6A9955' },           // 注释：灰绿
+      { token: 'delimiter', foreground: '000000' },
+      { token: 'identifier', foreground: '001080' },
+    ],
+    colors: {},
+  })
+}
+
+const MIN_HEIGHT = 56
+const DEFAULT_HEIGHT = 120
 
 export function CSSPaste({ onChange, showTitle, collapse }: CSSPasteProps) {
-  const [status, setStatus] = useState<Status>('idle')
+  const context = useStyleEditorContext()
+  const CDN = context?.editConfig?.CDN
+  const editorRef = useRef<any>(null)
   const [lastCount, setLastCount] = useState(0)
-  const [hovered, setHovered] = useState(false)
+  const [editorHeight, setEditorHeight] = useState(DEFAULT_HEIGHT)
 
-  const handleClick = useCallback(async () => {
-    try {
-      const text = await navigator.clipboard.readText()
-      if (!text?.trim()) {
-        setStatus('error')
-        setLastCount(0)
-        setTimeout(() => setStatus('idle'), 2000)
-        return
-      }
-      const changes = parseFigmaCSS(text)
-      if (changes.length > 0) {
-        onChange(changes)
-        setLastCount(changes.length)
-        setStatus('success')
-        setTimeout(() => setStatus('idle'), 2000)
-      } else {
-        setStatus('error')
-        setLastCount(0)
-        setTimeout(() => setStatus('idle'), 2000)
-      }
-    } catch {
-      setStatus('error')
-      setLastCount(0)
-      setTimeout(() => setStatus('idle'), 2000)
+  const onMounted = useCallback((editor: any, monaco: any) => {
+    editorRef.current = editor
+    registerCSSPropertiesLanguage(monaco)
+    monaco.editor.setTheme('css-properties-light')
+    editor.updateOptions({
+      lineNumbers: 'off',
+      lineDecorationsWidth: 8,
+      lineNumbersMinChars: 0,
+      glyphMargin: false,
+      folding: false,
+    })
+    // 粘贴后滚动到顶部，保持内容从左上角开始显示
+    editor.onDidPaste(() => {
+      editor.setScrollPosition({ scrollTop: 0, scrollLeft: 0 })
+      editor.setPosition({ lineNumber: 1, column: 1 })
+    })
+  }, [])
+
+  const handleApply = useCallback(() => {
+    if (lastCount > 0) return
+    const val = editorRef.current?.getValue?.() ?? ''
+    if (!val.trim()) return
+    const changes = parseCSS(val)
+    if (changes.length > 0) {
+      onChange(changes)
+      setLastCount(changes.length)
+      editorRef.current?.setValue?.('')
+      setTimeout(() => setLastCount(0), 2000)
     }
-  }, [onChange])
+  }, [onChange, lastCount])
 
-  const isSuccess = status === 'success'
-  const isError = status === 'error'
+  // 拖拽调节高度
+  const handleDragMouseDown = useCallback(() => {
+    const onMouseMove = (e: MouseEvent) => {
+      setEditorHeight(h => Math.max(MIN_HEIGHT, h + e.movementY))
+    }
+    const onMouseUp = () => {
+      document.removeEventListener('mousemove', onMouseMove)
+      document.removeEventListener('mouseup', onMouseUp)
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+    }
+    document.body.style.cursor = 'ns-resize'
+    document.body.style.userSelect = 'none'
+    document.addEventListener('mousemove', onMouseMove)
+    document.addEventListener('mouseup', onMouseUp)
+  }, [])
 
   return (
     <Panel
-      title=""
+      title="粘贴 CSS"
       showTitle={showTitle}
-      showDelete={false}
-      collapse={false}
+      collapse={collapse}
     >
-      <Panel.Content>
-        <Panel.Item activeWhenBlur={false}>
-          <button
-            onClick={handleClick}
-            onMouseEnter={() => setHovered(true)}
-            onMouseLeave={() => setHovered(false)}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 6,
-              width: '100%',
-              height: 26,
-              border: '1px solid transparent',
-              borderRadius: 6,
-              background: isSuccess
-                ? 'rgba(82,196,26,0.08)'
-                : isError
-                  ? 'rgba(245,87,83,0.06)'
-                  : 'var(--mybricks-bg-color-secondary, #F5F5F5)',
-              cursor: 'pointer',
-              fontSize: 12,
-              color: isError
-                ? '#F55753'
-                : isSuccess
-                  ? '#52c41a'
-                  : hovered
-                    ? 'var(--mybricks-color-primary, #FA6400)'
-                    : 'var(--mybricks-text-color-main, #333)',
-              transition: 'all 0.15s',
-              padding: '0 10px',
-              boxSizing: 'border-box',
+      <Panel.Content style={{ flexDirection: 'column', gap: 4 }}>
+        <div className={css.editorWrap}>
+          <MonacoEditor
+            height={`${editorHeight}px`}
+            language="css-properties"
+            CDN={CDN}
+            lineNumbers="off"
+            value=""
+            onMounted={onMounted}
+            options={{
+              minimap: { enabled: false },
+              scrollbar: { vertical: 'hidden', horizontal: 'hidden' },
+              overviewRulerLanes: 0,
+              hideCursorInOverviewRuler: true,
+              renderLineHighlight: 'none',
+              folding: false,
+              glyphMargin: false,
+              lineDecorationsWidth: 8,
+              lineNumbersMinChars: 0,
+              wordWrap: 'on',
+              fontSize: 11,
+              padding: { top: 4, bottom: 4 },
+              scrollBeyondLastLine: false,
+              automaticLayout: true,
             }}
-          >
-            {isSuccess ? (
-              <>
-                <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
-                  <circle cx="6.5" cy="6.5" r="6" stroke="currentColor" />
-                  <path d="M3.5 6.5L5.5 8.5L9.5 4.5" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-                已导入 {lastCount} 个样式属性
-              </>
-            ) : isError ? (
-              <>
-                <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
-                  <circle cx="6.5" cy="6.5" r="6" stroke="currentColor" />
-                  <path d="M4.5 4.5L8.5 8.5M8.5 4.5L4.5 8.5" stroke="currentColor" strokeLinecap="round" />
-                </svg>
-                剪切板中未检测到 CSS
-              </>
-            ) : (
-              <>
-                <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
-                  <rect x="3" y="1.5" width="7" height="9" rx="1" stroke="currentColor" />
-                  <path d="M5 1.5V2.5H8V1.5" stroke="currentColor" strokeLinecap="round" />
-                  <path d="M5 5.5H8M5 7.5H7" stroke="currentColor" strokeLinecap="round" />
-                </svg>
-                读取剪切板 CSS
-              </>
-            )}
-          </button>
-        </Panel.Item>
+          />
+          <div className={css.dragHandle} onMouseDown={handleDragMouseDown} />
+        </div>
+        <button
+          className={`${css.applyBtn}${lastCount > 0 ? ` ${css.applyBtnSuccess}` : ''}`}
+          onClick={handleApply}
+        >
+          {lastCount > 0 ? `已应用 ${lastCount} 条样式` : '应用样式'}
+        </button>
       </Panel.Content>
     </Panel>
   )
