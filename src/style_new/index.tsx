@@ -1275,6 +1275,8 @@ const getDefaultValueFunctionMap = {
       textOverflow: (values as any).textOverflow,
       webkitLineClamp: (values as any).webkitLineClamp,
       textDecoration: (values as any).textDecoration,
+      fontStyle: (values as any).fontStyle,
+      textTransform: (values as any).textTransform,
     }
   },
   border(values: CSSProperties, config: any) {
@@ -1403,6 +1405,8 @@ const getDefaultValueFunctionMap2 = {
       textOverflow: 'clip',
       webkitLineClamp: 'none',
       textDecoration: 'none',
+      fontStyle: 'normal',
+      textTransform: 'none',
     }
   },
   border() {
@@ -1834,6 +1838,8 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration, 
   let textOverflow // 非继承属性
   let webkitLineClamp // 非继承属性
   let textDecoration // 非继承属性
+  let fontStyle // 非继承属性
+  let textTransform // 非继承属性
   /** font */
 
   /** padding */
@@ -2216,6 +2222,20 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration, 
     }
     /** textDecoration */
 
+    /** fontStyle */
+    const { fontStyle: styleFontStyle } = style
+    if (styleFontStyle && styleFontStyle !== 'normal') {
+      fontStyle = styleFontStyle
+    }
+    /** fontStyle */
+
+    /** textTransform */
+    const { textTransform: styleTextTransform } = style
+    if (styleTextTransform && styleTextTransform !== 'none') {
+      textTransform = styleTextTransform
+    }
+    /** textTransform */
+
     /** webkitLineClamp */
     const styleWebkitLineClamp = style.webkitLineClamp
     if (styleWebkitLineClamp) {
@@ -2480,7 +2500,7 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration, 
   /** layout */
 
   const rawValues = {
-    color, fontSize, textAlign, fontWeight, lineHeight, fontFamily, letterSpacing, whiteSpace, textDecoration,
+    color, fontSize, textAlign, fontWeight, lineHeight, fontFamily, letterSpacing, whiteSpace, textDecoration, fontStyle, textTransform,
     paddingTop, paddingRight, paddingBottom, paddingLeft,
     marginTop, marginRight, marginBottom, marginLeft,
     backgroundColor, backgroundImage, width, height,
@@ -2550,6 +2570,8 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration, 
     textOverflow,
     webkitLineClamp,
     textDecoration,
+    fontStyle,
+    textTransform,
 
     opacity,
 

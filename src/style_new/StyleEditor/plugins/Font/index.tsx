@@ -24,7 +24,6 @@ import { isObject } from "../../../../util/lodash/isObject";
 import { PanelBaseProps } from "../../type";
 import { useDragNumber } from "../../hooks";
 import { FontSetting } from "../../icons/FontSetting";
-import { FontSettingNoTruncation } from "../../icons/FontSettingNoTruncation";
 import { FontSettingTruncation } from "../../icons/FontSettingTruncation";
 import css from "./index.less";
 
@@ -285,6 +284,14 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
 
   const [textDecorationValue, setTextDecorationValue] = useState<'none' | 'underline' | 'line-through'>(
     () => parseTextDecoration(value.textDecoration as string)
+  );
+
+  const [isFontStyleItalic, setIsFontStyleItalic] = useState<boolean>(
+    () => (value as any).fontStyle === 'italic'
+  );
+
+  const [textTransformValue, setTextTransformValue] = useState<string>(
+    () => (value as any).textTransform || 'none'
   );
 
   const [popoverOpen, setPopoverOpen] = useState(false);
@@ -797,32 +804,50 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
       >
         <div className={css.popoverInlineRow}>
           <div className={css.popoverLabel} style={{ marginBottom: 0 }}>装饰</div>
-          <Toggle
-            key={`decoration-${textDecorationValue}`}
-            defaultValue={textDecorationValue}
-            options={[
-              {
-                label: <span style={{ fontWeight: 500, fontSize: 13 }}>—</span>,
-                value: 'none',
-                tip: '无装饰',
-              },
-              {
-                label: <span style={{ textDecoration: 'underline', fontWeight: 500, fontSize: 13 }}>U</span>,
-                value: 'underline',
-                tip: '下划线',
-              },
-              {
-                label: <span style={{ textDecoration: 'line-through', fontWeight: 500, fontSize: 13 }}>S</span>,
-                value: 'line-through',
-                tip: '删除线',
-              },
-            ]}
-            onChange={(v) => {
-              const next = v as 'none' | 'underline' | 'line-through';
-              setTextDecorationValue(next);
-              onChange({ key: 'textDecoration', value: next === 'none' ? null : next });
-            }}
-          />
+          <Panel.Item style={{ padding: 2 }}>
+            <div className={css.decoGroup}>
+              {([
+                { label: <span style={{ fontWeight: 500, fontSize: 13 }}>—</span>, value: 'none', tip: '无装饰' },
+                { label: <span style={{ textDecoration: 'underline', fontWeight: 500, fontSize: 13 }}>U</span>, value: 'underline', tip: '下划线' },
+                { label: <span style={{ textDecoration: 'line-through', fontWeight: 500, fontSize: 13 }}>S</span>, value: 'line-through', tip: '删除线' },
+              ] as const).map(({ label, value: v, tip }) => (
+                <div
+                  key={v}
+                  className={`${css.decoBtn}${textDecorationValue === v ? ` ${css.decoBtnActive}` : ''}`}
+                  data-mybricks-tip={tip}
+                  onClick={() => {
+                    setTextDecorationValue(v);
+                    onChange({ key: 'textDecoration', value: v === 'none' ? null : v });
+                  }}
+                >
+                  {label}
+                </div>
+              ))}
+            </div>
+          </Panel.Item>
+        </div>
+        <div className={css.popoverInlineRow}>
+          <div className={css.popoverLabel} style={{ marginBottom: 0 }}>斜体</div>
+          <Panel.Item style={{ padding: 2 }}>
+            <div className={css.decoGroup}>
+              {([
+                { label: <span style={{ fontWeight: 500, fontSize: 13 }}>—</span>, value: false, tip: '无斜体' },
+                { label: <span style={{ fontStyle: 'italic', fontWeight: 500, fontSize: 13 }}>I</span>, value: true, tip: '斜体' },
+              ] as const).map(({ label, value: v, tip }) => (
+                <div
+                  key={String(v)}
+                  className={`${css.decoBtn}${isFontStyleItalic === v ? ` ${css.decoBtnActive}` : ''}`}
+                  data-mybricks-tip={tip}
+                  onClick={() => {
+                    setIsFontStyleItalic(v);
+                    onChange({ key: 'fontStyle', value: v ? 'italic' : null });
+                  }}
+                >
+                  {label}
+                </div>
+              ))}
+            </div>
+          </Panel.Item>
         </div>
         <div className={css.popoverInlineRow}>
           <div className={css.popoverLabel} style={{ marginBottom: 0 }}>截断文字</div>
@@ -835,7 +860,7 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
                 : 'clip'
             }
             options={[
-              { label: <FontSettingNoTruncation />, value: 'clip', tip: '不截断' },
+              { label: <span style={{ fontWeight: 500, fontSize: 13 }}>—</span>, value: 'clip', tip: '不截断' },
               { label: <FontSettingTruncation />, value: 'ellipsis', tip: '省略号截断' },
             ]}
             onChange={(v) => {
@@ -856,6 +881,24 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
                   { key: 'maxHeight', value: null },
                 ]);
               }
+            }}
+          />
+        </div>
+        <div className={css.popoverInlineRow}>
+          <div className={css.popoverLabel} style={{ marginBottom: 0 }}>大小写</div>
+          <Toggle
+            key={`textTransform-${textTransformValue}`}
+            defaultValue={textTransformValue}
+            options={[
+              { label: <span style={{ fontWeight: 500, fontSize: 12 }}>Ag</span>, value: 'none', tip: '默认' },
+              { label: <span style={{ fontWeight: 700, fontSize: 12 }}>AG</span>, value: 'uppercase', tip: '全大写' },
+              { label: <span style={{ fontWeight: 500, fontSize: 12 }}>ag</span>, value: 'lowercase', tip: '全小写' },
+              { label: <span style={{ fontWeight: 500, fontSize: 12, textTransform: 'capitalize' }}>ab</span>, value: 'capitalize', tip: '首字母大写' },
+            ]}
+            onChange={(v) => {
+              const next = v as string;
+              setTextTransformValue(next);
+              onChange({ key: 'textTransform', value: next === 'none' ? null : next });
             }}
           />
         </div>
