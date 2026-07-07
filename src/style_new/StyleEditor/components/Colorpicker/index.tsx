@@ -294,10 +294,16 @@ function ColorSketch({
       const bgImage = imageValue.backgroundImage
       if (bgImage && bgImage !== 'none') {
         onChange([
+          { key: 'backgroundColor', value: '' },
           { key: 'backgroundImage', value: bgImage },
           { key: 'backgroundSize', value: imageValue.backgroundSize || 'auto' },
           { key: 'backgroundRepeat', value: imageValue.backgroundRepeat || 'no-repeat' },
           { key: 'backgroundPosition', value: imageValue.backgroundPosition || 'center center' }
+        ])
+      } else {
+        onChange([
+          { key: 'backgroundColor', value: '' },
+          { key: 'backgroundImage', value: 'none' },
         ])
       }
     }
