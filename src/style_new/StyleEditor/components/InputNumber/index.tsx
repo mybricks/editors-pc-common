@@ -164,7 +164,7 @@ export function InputNumber ({
     }
 
     return null
-  }, [unit, isDefaultUnit, badge])
+  }, [unit, isDefaultUnit, badge, unitOptions, onAction])
 
   useUpdateEffect(() => {
     if (value) {

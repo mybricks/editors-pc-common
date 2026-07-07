@@ -61,16 +61,14 @@ interface SizingModeBadgeProps {
 }
 
 function SizingModeBadge({ mode, dimension, actualSize, onChange, onAddMin, onAddMax }: SizingModeBadgeProps) {
-  const [hovered, setHovered] = useState(false);
-
   const dim = dimension === 'width' ? 'width' : 'height';
   const options = [
-    { label: `Fixed ${dim} (${actualSize}px)`, value: 'fixed', icon: <FixedWidth /> },
-    { label: 'Hug contents',                   value: 'hug',   icon: <HugContents /> },
-    { label: 'Fill container',                 value: 'fill',  icon: <FillContainer /> },
+    { label: `固定${dim === 'width' ? '宽度' : '高度'} (${actualSize}px)`, value: 'fixed', icon: <FixedWidth /> },
+    { label: '适应内容',                          value: 'hug',   icon: <HugContents /> },
+    { label: '填满父容器',                          value: 'fill',  icon: <FillContainer /> },
     { label: '', value: '__divider__', type: 'divider' as const },
-    { label: `Add min ${dim}...`, value: 'addMin', type: 'action' as const, icon: <AddMin />, iconSize: 'sm' as const },
-    { label: `Add max ${dim}...`, value: 'addMax', type: 'action' as const, icon: <AddMax />, iconSize: 'sm' as const },
+    { label: `添加最小${dim === 'width' ? '宽度' : '高度'}...`, value: 'addMin', type: 'action' as const, icon: <AddMin />, iconSize: 'sm' as const },
+    { label: `添加最大${dim === 'width' ? '宽度' : '高度'}...`, value: 'addMax', type: 'action' as const, icon: <AddMax />, iconSize: 'sm' as const },
   ];
 
   const handleClick = useCallback((val: string) => {
@@ -86,12 +84,9 @@ function SizingModeBadge({ mode, dimension, actualSize, onChange, onAddMin, onAd
 
   return (
     <Dropdown value={mode} options={options} onClick={handleClick} onAction={handleAction}>
-      <span
-        className={mode === 'fill' ? css.fillBadge : css.hugBadge}
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
-      >
-        {hovered ? <span className={css.badgeArrow}><DownOutlined /></span> : (mode === 'fill' ? 'Fill' : 'Hug')}
+      <span className={mode === 'fill' ? css.fillBadge : css.hugBadge}>
+        <span className={css.badgeLabel}>{mode === 'fill' ? '填满' : '适应'}</span>
+        <span className={css.badgeArrow}><DownOutlined /></span>
       </span>
     </Dropdown>
   );
@@ -527,20 +522,20 @@ export function Size({value, onChange, config, showTitle, collapse}: SizeProps) 
 
   const widthUnitOptions = useMemo(() => [
     ...BASE_UNIT_OPTIONS.filter(o => o.value !== 'max-content'),
-    { label: 'Hug contents', value: 'hug', type: 'action' as const, icon: <HugContents /> },
-    { label: 'Fill container', value: 'fill', type: 'action' as const, icon: <FillContainer /> },
+    { label: '适应内容', value: 'hug', type: 'action' as const, icon: <HugContents /> },
+    { label: '填满父容器', value: 'fill', type: 'action' as const, icon: <FillContainer /> },
     ...(!showMinWidth || !showMaxWidth ? [{ label: '', value: '__divider__', type: 'divider' as const }] : []),
-    ...(!showMinWidth ? [{ label: 'Add min width...', value: 'addMinWidth', type: 'action' as const, icon: <AddMin />, iconSize: 'sm' as const }] : []),
-    ...(!showMaxWidth ? [{ label: 'Add max width...', value: 'addMaxWidth', type: 'action' as const, icon: <AddMax />, iconSize: 'sm' as const }] : []),
+    ...(!showMinWidth ? [{ label: '添加最小宽度...', value: 'addMinWidth', type: 'action' as const, icon: <AddMin />, iconSize: 'sm' as const }] : []),
+    ...(!showMaxWidth ? [{ label: '添加最大宽度...', value: 'addMaxWidth', type: 'action' as const, icon: <AddMax />, iconSize: 'sm' as const }] : []),
   ], [showMinWidth, showMaxWidth]);
 
   const heightUnitOptions = useMemo(() => [
     ...BASE_UNIT_OPTIONS.filter(o => o.value !== 'max-content'),
-    { label: 'Hug contents', value: 'hug', type: 'action' as const, icon: <HugContents /> },
-    { label: 'Fill container', value: 'fill', type: 'action' as const, icon: <FillContainer /> },
+    { label: '适应内容', value: 'hug', type: 'action' as const, icon: <HugContents /> },
+    { label: '填满父容器', value: 'fill', type: 'action' as const, icon: <FillContainer /> },
     ...(!showMinHeight || !showMaxHeight ? [{ label: '', value: '__divider__', type: 'divider' as const }] : []),
-    ...(!showMinHeight ? [{ label: 'Add min height...', value: 'addMinHeight', type: 'action' as const, icon: <AddMin />, iconSize: 'sm' as const }] : []),
-    ...(!showMaxHeight ? [{ label: 'Add max height...', value: 'addMaxHeight', type: 'action' as const, icon: <AddMax />, iconSize: 'sm' as const }] : []),
+    ...(!showMinHeight ? [{ label: '添加最小高度...', value: 'addMinHeight', type: 'action' as const, icon: <AddMin />, iconSize: 'sm' as const }] : []),
+    ...(!showMaxHeight ? [{ label: '添加最大高度...', value: 'addMaxHeight', type: 'action' as const, icon: <AddMax />, iconSize: 'sm' as const }] : []),
   ], [showMinHeight, showMaxHeight]);
 
   const showMaxRow = showMaxWidth || showMaxHeight;

@@ -137,23 +137,9 @@
   }
 }
 
-.hugBadge {
-  display: inline-flex;
-  align-items: center;
-  font-size: 10px;
-  font-weight: 500;
-  color: @font-color-content;
-  border-radius: 3px;
-  padding: 0 4px;
-  height: 16px;
-  white-space: nowrap;
-  flex-shrink: 0;
-  cursor: pointer;
-  user-select: none;
-  margin-right: 7px;
-}
-
+.hugBadge,
 .fillBadge {
+  position: relative;
   display: inline-flex;
   align-items: center;
   font-size: 10px;
@@ -167,10 +153,29 @@
   cursor: pointer;
   user-select: none;
   margin-right: 7px;
-}
 
-.badgeArrow {
-  display: inline-flex;
-  align-items: center;
-  font-size: 10px;
+  .badgeLabel {
+    opacity: 1;
+    transition: opacity 0.1s;
+  }
+
+  .badgeArrow {
+    position: absolute;
+    inset: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    opacity: 0;
+    transition: opacity 0.1s;
+  }
+
+  &:hover {
+    .badgeLabel {
+      opacity: 0;
+    }
+    .badgeArrow {
+      opacity: 1;
+    }
+  }
 }
