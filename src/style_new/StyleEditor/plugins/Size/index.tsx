@@ -456,6 +456,7 @@ export function Size({value, onChange, config, showTitle, collapse}: SizeProps) 
           updates.push({ key: 'flexBasis', value: null });
         }
         onChange(updates);
+        setWidthPending(realVal);
         setHeightPending(newHVal);
         if (isDraggingWidth.current) {
           // 拖拽中：直接操作 DOM，避免每帧重挂载导致闪烁
@@ -478,6 +479,7 @@ export function Size({value, onChange, config, showTitle, collapse}: SizeProps) 
     } else {
       onChange({ key: 'width', value: realVal });
     }
+    setWidthPending(realVal ?? undefined);
   }, [onChange, cfg.disableWidth, locked]);
 
   const handleHeightChange = useCallback((val: string) => {
@@ -498,6 +500,7 @@ export function Size({value, onChange, config, showTitle, collapse}: SizeProps) 
         }
         onChange(updates);
         setWidthPending(newWVal);
+        setHeightPending(realVal);
         if (isDraggingHeight.current) {
           // 拖拽中：直接操作 DOM，避免每帧重挂载导致闪烁
           const widthInput = getLockedInput(widthInputWrapRef);
@@ -518,6 +521,7 @@ export function Size({value, onChange, config, showTitle, collapse}: SizeProps) 
     } else {
       onChange({ key: 'height', value: realVal });
     }
+    setHeightPending(realVal ?? undefined);
   }, [onChange, cfg.disableHeight, locked]);
 
   const widthUnitOptions = useMemo(() => [
