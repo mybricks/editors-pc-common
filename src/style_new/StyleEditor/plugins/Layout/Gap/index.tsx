@@ -33,6 +33,19 @@ export default ({ value, onChange, onBlur, flexDirection }: GapProps) => {
         onBlur={(v) => onBlur({ ...value, columnGap: v })}
       />}
 
+      {flexDirection === "row" && <InputNumber
+        addonBefore={
+          <div {...getDragProps(value.rowGap, "拖拽调整行间距")}>
+            <Icon name="row-gap" />
+          </div>
+        }
+        tooltip="行间距"
+        className={styles.input}
+        value={value.rowGap}
+        onChange={(v) => onChange({ ...value, rowGap: v })}
+        onBlur={(v) => onBlur({ ...value, rowGap: v })}
+      />}
+
       {flexDirection === "column" && <InputNumber
         addonBefore={
           <div {...getDragProps(value.rowGap, "拖拽调整行间距")}>
