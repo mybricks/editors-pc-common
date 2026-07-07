@@ -1,0 +1,170 @@
+@import "../theme.less";
+
+.listSetter {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  border: 1px solid @boder-color;
+  border-radius: @border-radius;
+  background: @bg-color-main;
+  overflow: hidden;
+
+  .btnGroup {
+    display: flex;
+
+    .btn {
+      .button-base();
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: @bg-color-hover;
+      margin: 2px;
+
+      span {
+        font-size: 16px;
+        margin-right: 5px;
+        margin-top: -3px;
+        color: #aaa;
+      }
+
+      &:hover {
+        background: @bg-color-hover;
+      }
+
+      &:last-child {
+        border-bottom-right-radius: 0;
+      }
+
+      &:first-child {
+        border-bottom-left-radius: 0;
+      }
+    }
+  }
+
+  .content {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+
+    &:empty {
+      padding-top: 0;
+    }
+  }
+}
+
+.listItemSelect {
+  cursor: pointer;
+
+  &.active {
+    border: 1px solid @color-primary;
+    border-radius: 6px;
+  }
+}
+
+.listItem {
+  width: 100%;
+  background: @bg-color-main;
+  border: 1px solid transparent;
+
+  &:hover {
+    background-color: @bg-color-hover;
+  }
+
+  .listItemCard {
+    &:hover {
+      .btns {
+        display: flex;
+      }
+    }
+  }
+
+  .listItemCardTop {
+    width: 100%;
+    height: 26px;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    padding-right: 5px;
+  }
+
+  .grab {
+    cursor: move;
+    display: flex;
+    align-items: center;
+    height: 22px;
+    padding-left: 7px;
+    margin-top: -2px;
+    margin-right: -3px;
+
+    svg {
+      height: 10px;
+      fill: #bbb;
+    }
+  }
+
+  .listItemContent {
+    padding-left: 10px;
+    flex: 1;
+    height: 100%;
+    overflow: hidden;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+  }
+
+  .editInput {
+    flex: 1;
+    width: 100%;
+    height: 22px;
+    line-height: 22px;
+    border: none;
+    outline: none;
+    background: transparent;
+    font-size: 12px;
+    color: @font-color-content;
+    padding: 0;
+    text-overflow: ellipsis;
+
+    &::placeholder {
+      color: #ccc;
+    }
+
+    &:focus {
+      background: @bg-color-hover;
+      border-radius: 2px;
+    }
+  }
+
+  .btns {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    margin-left: auto;
+    gap: 3px;
+  }
+
+  .delete {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: @border-radius;
+    cursor: pointer;
+    height: 22px;
+    width: 22px;
+
+    svg {
+      fill: #555;
+      max-width: 11px;
+      max-height: 11px;
+    }
+
+    &:hover {
+      background-color: transparent;
+
+      svg {
+        fill: @color-primary;
+      }
+    }
+  }
+}

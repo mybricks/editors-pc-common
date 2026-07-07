@@ -19,6 +19,7 @@ import EditorRichText from "./richText";
 import EditorDragList from "./draglist";
 import EditorSlider from "./slider";
 import EditorArray from "./array";
+import EditorStringArray from "./stringArray";
 import expressionCodeEditor from "./expressionCode";
 import EditorArrayCheckbox from "./arrayCheckbox";
 import EditorMapCheckbox from "./mapCheckbox";
@@ -55,6 +56,7 @@ const PcEditorMap: any = {
   MAP: EditorMap,
   LIST: EditorList,
   ARRAY: EditorArray,
+  STRINGARRAY: EditorStringArray,
   CODE: Code,
   JSON: EditorJSON,
   RADIO: EditorRadio,
