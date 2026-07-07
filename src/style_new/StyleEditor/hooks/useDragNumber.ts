@@ -21,6 +21,8 @@ interface DragNumberOptions {
   continuous?: boolean
   /** 拖拽开始时的回调，可返回数字覆盖起始值 */
   onDragStart?: (currentValue: any, inputEl: HTMLInputElement | null) => number | void
+  /** 拖拽过程中实时回调（RAF 节流），适合受控组件实时预览，不依赖 DOM focus/blur */
+  onDragChange?: (value: number) => void
   /** 拖拽结束时的回调，当 onDragStart 返回了覆盖值时调用（替代 blur 提交） */
   onDragEnd?: (finalValue: number) => void
 }
@@ -40,11 +42,13 @@ interface DragNumberOptions {
  * <InputNumber defaultValue={...} onChange={...} />
  */
 export function useDragNumber(options: DragNumberOptions = {}) {
-  const { min = 0, max = Infinity, sensitivity = 1, continuous = false, onDragStart, onDragEnd } = options
+  const { min = 0, max = Infinity, sensitivity = 1, continuous = false, onDragStart, onDragChange, onDragEnd } = options
 
   // 用 ref 保存回调，避免 handler 因回调变化而重建
   const onDragStartRef = useRef(onDragStart)
   onDragStartRef.current = onDragStart
+  const onDragChangeRef = useRef(onDragChange)
+  onDragChangeRef.current = onDragChange
   const onDragEndRef = useRef(onDragEnd)
   onDragEndRef.current = onDragEnd
 
@@ -120,12 +124,10 @@ export function useDragNumber(options: DragNumberOptions = {}) {
     // 直接操作 DOM 更新输入框显示值
     if (state.inputEl) {
       state.inputEl.value = newValueStr
-      
-      // 如果开启了持续提交模式，使用 RAF 节流提交值
+
+      // 持续提交模式：RAF 节流，通过 focus→blur 触发 InputNumber 内部 onChange
       if (continuous) {
-        if (state.rafId !== null) {
-          cancelAnimationFrame(state.rafId)
-        }
+        if (state.rafId !== null) cancelAnimationFrame(state.rafId)
         state.rafId = requestAnimationFrame(() => {
           if (state.inputEl) {
             state.inputEl.focus()
@@ -134,6 +136,15 @@ export function useDragNumber(options: DragNumberOptions = {}) {
           state.rafId = null
         })
       }
+    }
+
+    // onDragChange：RAF 节流直接回调，适合受控 input（不依赖 DOM change 事件）
+    if (onDragChangeRef.current) {
+      if (state.rafId !== null) cancelAnimationFrame(state.rafId)
+      state.rafId = requestAnimationFrame(() => {
+        onDragChangeRef.current?.(newValue)
+        state.rafId = null
+      })
     }
   }, [min, max, sensitivity, continuous])
 

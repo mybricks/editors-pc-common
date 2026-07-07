@@ -143,8 +143,10 @@ function LayerItem({
   const getDragProps = useDragNumber({
     min: 0,
     max: 100,
-    continuous: true,
     onDragStart: () => getColorOpacity(layer.value),
+    onDragChange: (value) => {
+      onLayerChange({ value: setColorOpacity(layer.value, Math.round(value)) });
+    },
     onDragEnd: (finalValue) => {
       onLayerChange({ value: setColorOpacity(layer.value, Math.round(finalValue)) });
     },
