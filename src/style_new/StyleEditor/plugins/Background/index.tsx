@@ -1,24 +1,51 @@
-import React, { useMemo, useState, CSSProperties, useCallback, useEffect, useRef } from "react";
-import { getRealKey } from "../../utils";
+import React, {
+  CSSProperties,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import ColorUtil from "color";
 import { useStyleEditorContext } from "../..";
-import { useUpdateEffect } from "../../hooks";
 import { PanelBaseProps } from "./../../type";
-import { Panel, Image, ColorEditor, Gradient } from "../../components";
-import { DeleteOutlined, ReloadOutlined } from "@ant-design/icons";
+import { Panel, Colorpicker } from "../../components";
+import { MinusOutlined, TransparentColorOutlined } from "../../components/Icon";
+import { useDragNumber } from "../../hooks";
 import css from "./index.less";
 import {
-  GRADIENT_BORDER_BOX_VALUE,
-  splitBackgroundLayers,
-  isTransparentSolidLayer,
-  isSolidColorGradient,
-} from "../../helper/gradient-border";
+  BgLayer,
+  generateLayerId,
+  getColorOpacity,
+  setColorOpacity,
+  parseLayers,
+  serializeLayers,
+  interpretPickerChange,
+} from "./layers";
 
-/** 判断一个 backgroundImage 值是否携带图片/渐变这类需要交给 ColorEditor 展示的实际内容 */
-const isImageOrGradientValue = (value: any): boolean =>
-  typeof value === "string" && /url\(|gradient/.test(value);
+function GripIcon() {
+  return (
+    <svg viewBox="0 0 8 12" fill="currentColor" width="8" height="12">
+      <circle cx="2" cy="2" r="1" />
+      <circle cx="6" cy="2" r="1" />
+      <circle cx="2" cy="6" r="1" />
+      <circle cx="6" cy="6" r="1" />
+      <circle cx="2" cy="10" r="1" />
+      <circle cx="6" cy="10" r="1" />
+    </svg>
+  );
+}
+
+const ALL_BACKGROUND_KEYS = [
+  "backgroundColor",
+  "backgroundImage",
+  "backgroundRepeat",
+  "backgroundPosition",
+  "backgroundSize",
+] as const;
 
 interface BackgroundProps extends PanelBaseProps {
-  value: CSSProperties;
+  value: CSSProperties & Record<string, any>;
   onChange: (
     value: { key: string; value: any } | { key: string; value: any }[]
   ) => void;
@@ -28,25 +55,176 @@ const DEFAULT_CONFIG = {
   disableBackgroundColor: false,
   disableBackgroundImage: false,
   disableGradient: false,
-  keyMap: {},
   useImportant: false,
 };
 
-// 背景图片相关的 CSS 属性
-const IMAGE_KEYS = ['backgroundImage', 'backgroundRepeat', 'backgroundPosition', 'backgroundSize'] as const;
-// 所有背景相关的 CSS 属性
-const ALL_BACKGROUND_KEYS = ['backgroundColor', ...IMAGE_KEYS] as const;
-const getBackgroundEditorImage = (value: CSSProperties & Record<string, any>) => {
-  const bgImage = value.backgroundImage;
-  if (
-    typeof bgImage === 'string' &&
-    value.backgroundOrigin === GRADIENT_BORDER_BOX_VALUE &&
-    value.backgroundClip === GRADIENT_BORDER_BOX_VALUE
-  ) {
-    return splitBackgroundLayers(bgImage)[0];
+function getSwatchStyle(layer: BgLayer): CSSProperties {
+  if (layer.type === "image") {
+    return {
+      backgroundImage: layer.value,
+      backgroundSize: "cover",
+      backgroundPosition: "center",
+    };
   }
-  return bgImage;
-};
+  if (layer.type === "gradient") {
+    return { backgroundImage: layer.value };
+  }
+  // Solid color: when partially transparent, split the swatch left=solid /
+  // right=actual opacity (Figma style), so the checkered base shows through.
+  const alpha = getColorOpacity(layer.value);
+  if (alpha < 100) {
+    try {
+      const solidHex = new ColorUtil(layer.value).alpha(1).hex();
+      return {
+        backgroundImage: `linear-gradient(to right, ${solidHex} 50%, ${layer.value} 50%)`,
+      };
+    } catch {
+      // fall through to plain backgroundColor
+    }
+  }
+  return { backgroundColor: layer.value || "transparent" };
+}
+
+function getLayerLabel(layer: BgLayer): string {
+  if (layer.type === "image") return "图片";
+  if (layer.type === "gradient") return "渐变";
+  try {
+    const c = new ColorUtil(layer.value);
+    const hex = c.alpha() === 1 ? c.hex() : c.hexa();
+    return hex.toUpperCase();
+  } catch {
+    return layer.value || "纯色";
+  }
+}
+
+// ── Single Layer Item ───────────────────────────────────────────────────────
+
+interface LayerItemProps {
+  layer: BgLayer;
+  onLayerChange: (partial: Partial<BgLayer>) => void;
+  upload?: (files: File[], args: any) => Promise<string[]>;
+  disableBackgroundColor?: boolean;
+  disableBackgroundImage?: boolean;
+  disableGradient?: boolean;
+}
+
+function LayerItem({
+  layer,
+  onLayerChange,
+  upload,
+  disableBackgroundColor,
+  disableBackgroundImage,
+  disableGradient,
+}: LayerItemProps) {
+  const [colorPickerCtx] = useState<{ open?: () => void }>({});
+
+  const handlePickerChange = useCallback(
+    (change: any) => {
+      const partial = interpretPickerChange(change, layer);
+      if (partial) onLayerChange(partial);
+    },
+    [layer, onLayerChange]
+  );
+
+  const handleOpacityChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const opacity = Math.max(0, Math.min(100, Number(e.target.value)));
+      onLayerChange({ value: setColorOpacity(layer.value, opacity) });
+    },
+    [layer.value, onLayerChange]
+  );
+
+  const opacity = layer.type === "solid" ? getColorOpacity(layer.value) : 100;
+
+  // ── Opacity drag scrubbing (reuses useDragNumber hook) ──────────────────
+  // onDragStart returns the current opacity → triggers useCustomEnd path in
+  // the hook, so it calls onDragEnd on mouseUp instead of focus/blur.
+  // onDragEnd commits the final value exactly once via onLayerChange.
+  const getDragProps = useDragNumber({
+    min: 0,
+    max: 100,
+    continuous: true,
+    onDragStart: () => getColorOpacity(layer.value),
+    onDragEnd: (finalValue) => {
+      onLayerChange({ value: setColorOpacity(layer.value, Math.round(finalValue)) });
+    },
+  });
+
+  const imageValue = useMemo(
+    () => ({
+      backgroundImage: layer.value,
+      backgroundSize: layer.size,
+      backgroundRepeat: layer.repeat,
+      backgroundPosition: layer.position,
+    }),
+    [layer.value, layer.size, layer.repeat, layer.position]
+  );
+
+  return (
+    // style={{ marginLeft: 0 }} overrides Panel.Item's :not(:first-child) { margin-left: 4px }
+    // which is designed for horizontal flex and would shift rows in a vertical stack
+    <Panel.Item className={css.layerRow} style={{ marginLeft: 0 }} activeWhenBlur={false}>
+      {/* Drag handle — visibility toggled via CSS on parent .layerItemWrapper:hover */}
+      <div className={css.dragHandle}>
+        <GripIcon />
+      </div>
+
+      {/* Swatch + Color Picker trigger */}
+      <Colorpicker
+        context={colorPickerCtx}
+        value={layer.value}
+        onChange={handlePickerChange}
+        showSubTabs={true}
+        upload={upload}
+        imageValue={imageValue}
+        className={css.colorPickerContainer}
+        disableBackgroundColor={disableBackgroundColor}
+        disableBackgroundImage={disableBackgroundImage}
+        disableGradient={disableGradient}
+      >
+        <div className={css.block} style={getSwatchStyle(layer)} />
+        <div className={css.icon}>
+          <TransparentColorOutlined />
+        </div>
+      </Colorpicker>
+
+      {/* Label — click to open picker */}
+      <div
+        className={css.layerLabel}
+        onClick={() => colorPickerCtx.open?.()}
+      >
+        {getLayerLabel(layer)}
+      </div>
+
+      {/* Opacity */}
+      <div className={css.opacity}>
+        {layer.type === "solid" ? (
+          <input
+            type="number"
+            min={0}
+            max={100}
+            value={Math.round(opacity)}
+            onChange={handleOpacityChange}
+          />
+        ) : (
+          <span style={{ width: 20, textAlign: "right", fontSize: 10 }}>100</span>
+        )}
+        {layer.type === "solid" ? (
+          <div
+            {...getDragProps(Math.round(opacity), "{content:'拖拽调整不透明度',position:'left'}")}
+            className={css.opacityUnit}
+          >
+            %
+          </div>
+        ) : (
+          <div>%</div>
+        )}
+      </div>
+    </Panel.Item>
+  );
+}
+
+// ── Main Background Plugin ──────────────────────────────────────────────────
 
 export function Background({
   value,
@@ -56,141 +234,213 @@ export function Background({
   collapse,
 }: BackgroundProps) {
   const context = useStyleEditorContext();
-  const [
-    {
-      keyMap,
-      useImportant,
-      disableBackgroundColor,
-      disableBackgroundImage,
-      disableGradient,
-    },
-  ] = useState({ ...DEFAULT_CONFIG, ...config });
-  const [forceRenderKey, setForceRenderKey] = useState<number>(Math.random()); // 用于点击重置按钮重新渲染获取新value
+  const [{ disableBackgroundColor, disableBackgroundImage, disableGradient }] =
+    useState({ ...DEFAULT_CONFIG, ...config });
 
-  const [isReset, setIsReset] = useState(false);
+  // ── Layer state ──────────────────────────────────────────────────────────
 
-  const defaultBackgroundValue: CSSProperties & Record<string, any> =
-    useMemo(() => {
-      if (isReset) {
-        return {};
-      }
-      const defaultValue = Object.assign({}, value);
-      Object.entries(defaultValue).forEach(([key, value]) => {
-        if (typeof value === "string") {
-          // TODO: 全局处理
-          // @ts-ignore
-          defaultValue[key] = value.replace(/!.*$/, "");
-        }
-      });
+  const [layers, setLayers] = useState<BgLayer[]>(() =>
+    parseLayers(
+      value?.backgroundImage as string,
+      value?.backgroundColor as string,
+      value?.backgroundSize as string,
+      value?.backgroundRepeat as string,
+      value?.backgroundPosition as string
+    )
+  );
 
-      return defaultValue;
-    }, [value, isReset]);
+  // Always-fresh ref — avoids stale closures in handlers (Colorpicker's inner
+  // Sketch picker may retain an old onChange callback across re-renders)
+  const layersRef = useRef<BgLayer[]>(layers);
+  layersRef.current = layers;
 
-  const refresh = useCallback(() => {
-    onChange(ALL_BACKGROUND_KEYS.map(key => ({ 
-      key, 
-      value: null 
-    })));
-    setIsReset(true);
-    setForceRenderKey(prev => prev + 1);
-    // 重置后重新允许一次追赶，避免重置瞬间又碰上 value 快照滞后
-    hasCaughtUpRef.current = false;
-    hasUserEditedRef.current = false;
-    mountedColorEditorValueRef.current = undefined;
-  }, [onChange]);
+  // Guard: skip re-parsing when the value change came from our own emit.
+  // Initialize with the current backgroundImage so the guard passes on fresh
+  // mount (prevents redundant re-parse when the component first renders).
+  const lastEmittedRef = useRef((value?.backgroundImage as string) ?? "");
 
-  // 当外部 value 有实际值时，取消重置状态
   useEffect(() => {
-    if (isReset && value && Object.keys(value).length > 0) {
-      const hasValue = Object.values(value).some(v => v !== undefined && v !== '' && v !== 'none');
-      if (hasValue) {
-        setIsReset(false);
-      }
-    }
-  }, [value, isReset]);
+    const bgImage = (value?.backgroundImage as string) ?? "";
+    const bgColor = (value?.backgroundColor as string) ?? "";
+    if (bgImage === lastEmittedRef.current) return;
+    lastEmittedRef.current = bgImage;
+    setLayers(
+      parseLayers(
+        bgImage,
+        bgColor,
+        (value?.backgroundSize as string) ?? "",
+        (value?.backgroundRepeat as string) ?? "",
+        (value?.backgroundPosition as string) ?? ""
+      )
+    );
+  }, [
+    value?.backgroundImage,
+    value?.backgroundColor,
+    value?.backgroundSize,
+    value?.backgroundRepeat,
+    value?.backgroundPosition,
+  ]);
 
-  // 计算 ColorEditor 的 defaultValue，优先使用 backgroundImage（图片或渐变）
-  const colorEditorDefaultValue = useMemo(() => {
-    const bgImage = getBackgroundEditorImage({
-      ...defaultBackgroundValue,
-      backgroundImage: defaultBackgroundValue[getRealKey(keyMap, "backgroundImage")] 
-        || defaultBackgroundValue.backgroundImage,
-    });
-    const bgColor = defaultBackgroundValue[getRealKey(keyMap, "backgroundColor")] 
-      || defaultBackgroundValue.backgroundColor;
-    if (bgImage && typeof bgImage === 'string' && /url\(|gradient/.test(bgImage)) {
-      // 过滤渐变边框产生的透明/纯色内容层占位符，直接回退到 backgroundColor
-      if (isTransparentSolidLayer(bgImage) || isSolidColorGradient(bgImage)) {
-        return bgColor;
-      }
-      return bgImage;
-    }
-    return bgColor;
-  }, [defaultBackgroundValue, keyMap]);
+  // ── Emit helper ──────────────────────────────────────────────────────────
 
-  const imageValue = useMemo(() => 
-    Object.fromEntries(
-      IMAGE_KEYS.map(key => [key, defaultBackgroundValue[key] as string | undefined])
-    ) as Record<typeof IMAGE_KEYS[number], string | undefined>,
-  [defaultBackgroundValue]);
-
-  // ColorEditor（以及内部懒挂载的 GradientEditor）只在自己挂载那一刻用 defaultValue
-  // 初始化内部状态，之后不会再跟随 defaultValue 变化重新同步。
-  // 而面板挂载的瞬间，DOM computedStyle 有时还没跟上最新的背景渐变/图片信息，
-  // 导致 colorEditorDefaultValue 的初始快照缺失渐变（表现为渐变角度被复位成默认的 90°、
-  // 或渐变/图片直接显示不出来）。这里做一次性追赶：一旦发现挂载后 value 补上了
-  // 渐变/图片信息而挂载时没有，就 bump key 让 ColorEditor 用正确的值重新挂载。
-  // 一旦用户开始编辑，则永久停用追赶，避免被滞后的外部 value 覆盖用户的操作。
-  const [colorEditorKey, setColorEditorKey] = useState(0);
-  const mountedColorEditorValueRef = useRef(colorEditorDefaultValue);
-  const hasCaughtUpRef = useRef(false);
-  const hasUserEditedRef = useRef(false);
-  useUpdateEffect(() => {
-    if (hasCaughtUpRef.current || hasUserEditedRef.current) {
-      return;
-    }
-    const prevHasContent = isImageOrGradientValue(mountedColorEditorValueRef.current);
-    const nextHasContent = isImageOrGradientValue(colorEditorDefaultValue);
-    hasCaughtUpRef.current = true;
-    if (!prevHasContent && nextHasContent) {
-      mountedColorEditorValueRef.current = colorEditorDefaultValue;
-      setColorEditorKey((k) => k + 1);
-    }
-  }, [colorEditorDefaultValue]);
-
-  const handleColorEditorChange = useCallback(
-    (value: any) => {
-      hasUserEditedRef.current = true;
-      (onChange as any)(value);
+  const emitLayers = useCallback(
+    (newLayers: BgLayer[]) => {
+      const changes = serializeLayers(newLayers);
+      const bgImage = changes.find((c) => c.key === "backgroundImage")?.value ?? "";
+      lastEmittedRef.current = bgImage;
+      setLayers(newLayers);
+      (onChange as any)(changes);
     },
     [onChange]
   );
+
+  // ── Layer handlers ───────────────────────────────────────────────────────
+  // All handlers read from layersRef.current (not closed-over state) to avoid
+  // stale-closure bugs when the Colorpicker's inner Sketch picker retains an
+  // old onChange reference across re-renders.
+
+  const handleLayerChange = useCallback(
+    (index: number, partial: Partial<BgLayer>) => {
+      emitLayers(layersRef.current.map((l, i) => (i === index ? { ...l, ...partial } : l)));
+    },
+    [emitLayers]
+  );
+
+  const handleLayerRemove = useCallback(
+    (index: number) => {
+      emitLayers(layersRef.current.filter((_, i) => i !== index));
+    },
+    [emitLayers]
+  );
+
+  const handleAddLayer = useCallback(() => {
+    const newLayer: BgLayer = {
+      id: generateLayerId(),
+      type: "solid",
+      value: "#00000033", // black at ~20% — avoids fully opaque default that hides layers below
+      visible: true,
+      size: "",
+      repeat: "",
+      position: "",
+    };
+    emitLayers([newLayer, ...layersRef.current]);
+  }, [emitLayers]);
+
+  const handleReset = useCallback(() => {
+    lastEmittedRef.current = "none";
+    setLayers([]);
+    (onChange as any)(ALL_BACKGROUND_KEYS.map((key) => ({ key, value: null })));
+  }, [onChange]);
+
+  // ── Drag-to-reorder ──────────────────────────────────────────────────────
+
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [overState, setOverState] = useState<{ index: number; half: "top" | "bottom" } | null>(null);
+
+  const handleDragStart = useCallback((e: React.DragEvent<HTMLDivElement>, index: number) => {
+    setDragIndex(index);
+    e.dataTransfer.effectAllowed = "move";
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>, index: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    const rect = e.currentTarget.getBoundingClientRect();
+    const half = e.clientY < rect.top + rect.height / 2 ? "top" : "bottom";
+    setOverState({ index, half });
+  }, []);
+
+  const handleDrop = useCallback(
+    (e: React.DragEvent<HTMLDivElement>, targetIndex: number) => {
+      e.preventDefault();
+      if (dragIndex === null) return;
+
+      const rect = e.currentTarget.getBoundingClientRect();
+      const half = e.clientY < rect.top + rect.height / 2 ? "top" : "bottom";
+
+      let insertAt = half === "top" ? targetIndex : targetIndex + 1;
+      if (dragIndex < insertAt) insertAt -= 1;
+
+      setDragIndex(null);
+      setOverState(null);
+
+      if (dragIndex === insertAt) return;
+
+      const newLayers = [...layersRef.current];
+      const [removed] = newLayers.splice(dragIndex, 1);
+      newLayers.splice(insertAt, 0, removed);
+      emitLayers(newLayers);
+    },
+    [dragIndex, emitLayers]
+  );
+
+  const handleDragEnd = useCallback(() => {
+    setDragIndex(null);
+    setOverState(null);
+  }, []);
+
+  // ── Render ───────────────────────────────────────────────────────────────
 
   return (
     <Panel
       title="背景"
       showTitle={showTitle}
-      showReset={true}
       collapse={collapse}
-      resetFunction={refresh}
+      onAdd={handleAddLayer}
+      showDelete={false}
+      rightColumn={
+        layers.length > 0 ? (
+          <div className={css.deleteColumn}>
+            {layers.map((layer, index) => (
+              <div
+                key={layer.id}
+                className={css.deleteBtn}
+                onClick={() => handleLayerRemove(index)}
+              >
+                <MinusOutlined />
+              </div>
+            ))}
+          </div>
+        ) : <></>
+      }
     >
-      <React.Fragment key={forceRenderKey}>
-        <Panel.Content>
-            <ColorEditor
-              key={colorEditorKey}
-              style={{ flex: 2 }}
-              defaultValue={colorEditorDefaultValue}
-              onChange={handleColorEditorChange as (value: { key: string; value: string } | { key: string; value: string }[] | string) => void}
-              keyMap={keyMap}
-              useImportant={useImportant}
-              upload={context?.editConfig?.upload as any}
-              imageValue={imageValue}
-              disableBackgroundColor={disableBackgroundColor}
-              disableBackgroundImage={disableBackgroundImage}
-              disableGradient={disableGradient}
-            />
-        </Panel.Content>
-      </React.Fragment>
+      {layers.length > 0 && (
+        <div
+          className={css.layerList}
+          onDragLeave={(e) => {
+            if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+              setOverState(null);
+            }
+          }}
+        >
+          {layers.map((layer, index) => (
+            <div
+              key={layer.id}
+              className={`${css.layerItemWrapper}${dragIndex === index ? ` ${css.layerDragging}` : ""}`}
+              draggable
+              onDragStart={(e) => handleDragStart(e, index)}
+              onDragOver={(e) => handleDragOver(e, index)}
+              onDrop={(e) => handleDrop(e, index)}
+              onDragEnd={handleDragEnd}
+            >
+              {overState?.index === index && overState.half === "top" && dragIndex !== index && (
+                <div className={css.dropIndicator} />
+              )}
+              <LayerItem
+                layer={layer}
+                onLayerChange={(partial) => handleLayerChange(index, partial)}
+                upload={context?.editConfig?.upload as any}
+                disableBackgroundColor={disableBackgroundColor}
+                disableBackgroundImage={disableBackgroundImage}
+                disableGradient={disableGradient}
+              />
+              {overState?.index === index && overState.half === "bottom" && dragIndex !== index && (
+                <div className={css.dropIndicator} />
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </Panel>
   );
 }

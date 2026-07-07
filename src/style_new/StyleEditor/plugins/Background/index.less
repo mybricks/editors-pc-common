@@ -1,6 +1,186 @@
-.unbind {
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    margin-left: 5px;
+@import "../../../../theme.less";
+
+// ── Layers container — row gap + padding matching Panel.Content ──────────────
+
+.layerList {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px 3px;
+}
+
+// ── Draggable item wrapper ────────────────────────────────────────────────────
+
+.layerItemWrapper {
+  position: relative;
+
+  &:hover .dragHandle {
+    visibility: visible;
   }
+
+  &.layerDragging {
+    opacity: 0.35;
+  }
+}
+
+// ── Drag handle (grip dots) — hidden until row is hovered ────────────────────
+
+.dragHandle {
+  visibility: hidden;
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: @font-color-content;
+  cursor: grab;
+  opacity: 0.5;
+  margin-right: 2px;
+
+  &:active {
+    cursor: grabbing;
+  }
+}
+
+// ── Drop position indicator (blue insertion line) ────────────────────────────
+
+.dropIndicator {
+  height: 2px;
+  background: @color-primary;
+  border-radius: 1px;
+  pointer-events: none;
+  margin: 0 2px;
+}
+
+// ── Delete column (rightColumn) — one "—" per layer, outside the gray blocks ─
+
+.deleteColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px 0;
+  flex-shrink: 0;
+}
+
+.deleteBtn {
+  width: 22px;
+  height: 26px; // matches Panel.Item height
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: @font-color-content;
+
+  svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  &:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+    border-radius: 5px;
+  }
+}
+
+// ── Layer row — mirrors ColorEditor's .color flex row ───────────────────────
+
+.layerRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0 8px;
+}
+
+// ── Swatch (colorPickerContainer + block + icon) ─────────────────────────────
+// Mirrors ColorEditor's .colorPickerContainer / .block / .icon
+
+.colorPickerContainer {
+  position: relative;
+  overflow: hidden;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.block {
+  z-index: 2;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 3px;
+  min-width: 13px;
+  min-height: 13px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.icon {
+  z-index: 1;
+  position: absolute;
+  top: 0;
+
+  svg {
+    max-width: 13px;
+    max-height: 13px;
+  }
+}
+
+// ── Label (mirrors .input / .text) ───────────────────────────────────────────
+
+.layerLabel {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 500;
+  color: @font-color-content;
+  cursor: pointer;
+  user-select: none;
+}
+
+// ── Opacity (mirrors ColorEditor's .opacity) ─────────────────────────────────
+
+.opacityUnit {
+  cursor: ew-resize;
+  user-select: none;
+}
+
+.opacity {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  overflow: hidden;
+
+  > div {
+    color: #AAA;
+    cursor: text;
+    margin-left: 1px;
+    font-size: 11px;
+  }
+
+  input {
+    text-align: right;
+    width: 20px;
+    height: 100%;
+    border: none;
+    box-sizing: border-box;
+    background: transparent;
+    cursor: text;
+    font-size: 10px;
+    font-weight: 500;
+    color: @font-color-content;
+
+    // Hide spin buttons
+    -moz-appearance: textfield;
+    &::-webkit-inner-spin-button,
+    &::-webkit-outer-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+  }
+}
+
