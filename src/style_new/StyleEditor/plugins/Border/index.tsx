@@ -1,4 +1,5 @@
-import React, { useMemo, useState, useCallback, useRef, CSSProperties } from "react";
+import React, { useMemo, useState, useCallback, useRef, useEffect, CSSProperties } from "react";
+import { createPortal } from "react-dom";
 
 import {
   Panel,
@@ -16,7 +17,9 @@ import {
   BorderBottomOutlined,
   BorderLeftOutlined,
   BorderRightOutlined,
+  MinusOutlined,
 } from "../../components";
+import { Setting as SettingIcon } from "../../icons/Setting";
 import { allEqual } from "../../utils";
 import { useUpdateEffect, useDragNumber } from "../../hooks";
 import {
@@ -42,6 +45,19 @@ const BORDER_STYLE_OPTIONS = [
   { label: "无", value: "none" },
   { label: "实线", value: "solid" },
   { label: "虚线", value: "dashed" },
+];
+
+const STROKE_STYLE_POPUP_OPTIONS = [
+  { value: 'solid', label: '实线' },
+  { value: 'dashed', label: '虚线' },
+];
+
+type BorderPosition = "outside" | "center" | "inside";
+
+const BORDER_POSITION_OPTIONS = [
+  { label: "外部", value: "outside" },
+  { label: "居中", value: "center" },
+  { label: "内部", value: "inside" },
 ];
 const UNIT_OPTIONS = [
   { label: "px", value: "px" },
@@ -90,6 +106,33 @@ const DEFAULT_CONFIG = {
 };
 
 const GRADIENT_BORDER_KEYS = ["backgroundImage", "backgroundOrigin", "backgroundClip"];
+
+const BORDER_LOGICAL_KEYS = [
+  'borderTopWidth', 'borderRightWidth', 'borderBottomWidth', 'borderLeftWidth',
+  'borderTopColor', 'borderRightColor', 'borderBottomColor', 'borderLeftColor',
+  'borderTopStyle', 'borderRightStyle', 'borderBottomStyle', 'borderLeftStyle',
+];
+
+const detectPositionFromCSS = (cssValue: CSSProperties & Record<string, any>): BorderPosition => {
+  const outline = String(cssValue.outline || '');
+  const boxShadow = String(cssValue.boxShadow || '');
+  if (outline && outline !== 'none' && outline !== 'initial') return 'outside';
+  if (boxShadow && boxShadow.includes('inset')) return 'inside';
+  return 'center';
+};
+
+const parseOutlineToVirtual = (outline: string) => {
+  const clean = outline.trim();
+  const m4 = clean.match(/^([\d.]+px)\s+(solid|dashed|dotted)\s+(.+)$/);
+  if (m4) return { width: m4[1], style: m4[2], color: m4[3] };
+  const m3 = clean.match(/^([\d.]+px)\s+(.+)$/);
+  return { width: m3?.[1] ?? '1px', style: 'solid', color: m3?.[2] ?? '#000000' };
+};
+
+const parseInsetShadowToVirtual = (boxShadow: string) => {
+  const m = boxShadow.match(/inset\s+[\d.]+(?:px)?\s+[\d.]+(?:px)?\s+[\d.]+(?:px)?\s+([\d.]+px)\s+(.+)/);
+  return { width: m?.[1] ?? '1px', style: 'solid', color: m?.[2]?.trim() ?? '#000000' };
+};
 
 const hasGradientBorderBackground = (value: CSSProperties & Record<string, any>) => {
   const layers = splitBackgroundLayers(value.backgroundImage);
@@ -212,14 +255,30 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
     getToggleDefaultValue(value)
   );
   const defaultBorderValue = useMemo(() => {
-    const defaultValue = Object.assign({}, value);
-    Object.entries(defaultValue).forEach(([key, value]) => {
-      if (typeof value === "string") {
-        // TODO: 全局处理
+    const defaultValue = Object.assign({}, value) as CSSProperties & Record<string, any>;
+    Object.entries(defaultValue).forEach(([key, val]) => {
+      if (typeof val === "string") {
         // @ts-ignore
-        defaultValue[key] = value.replace(/!.*$/, "");
+        defaultValue[key] = val.replace(/!.*$/, "");
       }
     });
+    // 对于 outside/inside 模式，从 outline/boxShadow 还原虚拟 border* 值供编辑器显示
+    const pos = detectPositionFromCSS(defaultValue);
+    if (pos === 'outside' && defaultValue.outline) {
+      const v = parseOutlineToVirtual(String(defaultValue.outline));
+      BORDER_LOGICAL_KEYS.forEach(k => {
+        if (k.endsWith('Width')) defaultValue[k] = v.width;
+        else if (k.endsWith('Style')) defaultValue[k] = v.style;
+        else if (k.endsWith('Color')) defaultValue[k] = v.color;
+      });
+    } else if (pos === 'inside' && defaultValue.boxShadow) {
+      const v = parseInsetShadowToVirtual(String(defaultValue.boxShadow));
+      BORDER_LOGICAL_KEYS.forEach(k => {
+        if (k.endsWith('Width')) defaultValue[k] = v.width;
+        else if (k.endsWith('Style')) defaultValue[k] = 'solid';
+        else if (k.endsWith('Color')) defaultValue[k] = v.color;
+      });
+    }
     return defaultValue;
   }, []);
   const contentBackgroundLayersRef = useRef<string[] | null>(getContentBackgroundLayers(defaultBorderValue));
@@ -273,6 +332,46 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
   );
   const getDragPropsRadius = useDragNumber({ continuous: true });
   const getDragPropsBorder = useDragNumber({ continuous: true });
+
+  const [showStyleSettings, setShowStyleSettings] = useState(false);
+  const styleSettingsBtnRef = useRef<HTMLDivElement>(null);
+  const styleSettingsPopoverRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!showStyleSettings) return;
+
+    const positionPopover = () => {
+      if (!styleSettingsBtnRef.current || !styleSettingsPopoverRef.current) return;
+      const btnRect = styleSettingsBtnRef.current.getBoundingClientRect();
+      const popRect = styleSettingsPopoverRef.current.getBoundingClientRect();
+      const windowH = window.innerHeight;
+      const left = btnRect.right - popRect.width;
+      let top = btnRect.bottom + 4;
+      if (top + popRect.height > windowH) {
+        top = btnRect.top - popRect.height - 4;
+      }
+      styleSettingsPopoverRef.current.style.left = Math.max(8, left) + 'px';
+      styleSettingsPopoverRef.current.style.top = top + 'px';
+      styleSettingsPopoverRef.current.style.visibility = 'visible';
+    };
+
+    const timer = setTimeout(positionPopover, 0);
+
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        styleSettingsPopoverRef.current && !styleSettingsPopoverRef.current.contains(e.target as Node) &&
+        styleSettingsBtnRef.current && !styleSettingsBtnRef.current.contains(e.target as Node)
+      ) {
+        setShowStyleSettings(false);
+      }
+    };
+
+    document.addEventListener('click', handleClickOutside);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener('click', handleClickOutside);
+    };
+  }, [showStyleSettings]);
 
   const handleChange = useCallback(
     (value: CSSProperties & Record<string, any>) => {
@@ -358,135 +457,246 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
     return showPreset
   }, [])
 
+  const [borderPosition, setBorderPosition] = useState<BorderPosition>(
+    () => detectPositionFromCSS(defaultBorderValue)
+  );
+
+  const refresh = useCallback(() => {
+    const borderKeys = [
+      'borderTopWidth', 'borderRightWidth', 'borderBottomWidth', 'borderLeftWidth',
+      'borderTopColor', 'borderRightColor', 'borderBottomColor', 'borderLeftColor',
+      'borderTopStyle', 'borderRightStyle', 'borderBottomStyle', 'borderLeftStyle',
+      'borderTopLeftRadius', 'borderTopRightRadius', 'borderBottomLeftRadius', 'borderBottomRightRadius',
+      'border', 'borderTop', 'borderRight', 'borderBottom', 'borderLeft',
+      'borderRadius', 'borderWidth', 'borderStyle', 'borderColor',
+      'outline', 'outlineOffset', 'boxShadow',
+      ...GRADIENT_BORDER_KEYS,
+    ];
+    onChange(borderKeys.map(key => ({ key, value: null })));
+    setBorderValue({} as any);
+    setBorderPosition('center');
+    setForceRenderKey(prev => prev + 1);
+  }, [onChange]);
+
+  const borderPositionRef = useRef<BorderPosition>(borderPosition);
+  borderPositionRef.current = borderPosition;
+
+  const borderValueRef = useRef(borderValue);
+  borderValueRef.current = borderValue;
+
+  // 构建 outside/inside 模式的 CSS 输出
+  const emitPositionCSS = useCallback((
+    pos: BorderPosition,
+    w: string,
+    c: string,
+    s: string,
+  ) => {
+    const wNum = parseFloat(String(w)) || 1;
+    const borderNullEntries = BORDER_LOGICAL_KEYS.map(k => ({ key: k, value: null as any }));
+    if (pos === 'outside') {
+      onChange([
+        { key: 'outline', value: `${wNum}px ${s || 'solid'} ${c || '#000000'}` },
+        { key: 'outlineOffset', value: '0px' },
+        { key: 'boxShadow', value: null },
+        ...borderNullEntries,
+      ]);
+    } else if (pos === 'inside') {
+      onChange([
+        { key: 'boxShadow', value: `inset 0 0 0 ${wNum}px ${c || '#000000'}` },
+        { key: 'outline', value: null },
+        { key: 'outlineOffset', value: null },
+        ...borderNullEntries,
+      ]);
+    }
+  }, [onChange]);
+
+  // all 模式下感知 position 的变更处理（outside/inside 时转换为 outline/boxShadow 输出）
+  const handleAllModeChange = useCallback((changes: Record<string, any>) => {
+    const pos = borderPositionRef.current;
+    if (pos === 'center') {
+      handleChange(changes);
+      return;
+    }
+    hasUserEditedRef.current = true;
+    const currentVal = borderValueRef.current;
+    const newVal = { ...currentVal, ...changes };
+    setBorderValue(newVal);
+    const w = newVal.borderTopWidth || '1px';
+    const c = newVal.borderTopColor || '#000000';
+    const s = newVal.borderTopStyle || 'solid';
+    emitPositionCSS(pos, w, c, s);
+  }, [handleChange, emitPositionCSS]);
+
+  // Position 下拉切换时，将当前 borderValue 转换为新的 CSS 位置输出
+  const handlePositionChange = useCallback((newPos: BorderPosition) => {
+    const oldPos = borderPositionRef.current;
+    if (oldPos === newPos) return;
+    setBorderPosition(newPos);
+    hasUserEditedRef.current = true;
+    const val = borderValueRef.current;
+    const w = val.borderTopWidth || '1px';
+    const c = val.borderTopColor || '#000000';
+    const s = val.borderTopStyle || 'solid';
+    const wNum = parseFloat(String(w)) || 1;
+    const borderNullEntries = BORDER_LOGICAL_KEYS.map(k => ({ key: k, value: null as any }));
+    if (newPos === 'outside') {
+      onChange([
+        { key: 'outline', value: `${wNum}px ${s} ${c}` },
+        { key: 'outlineOffset', value: '0px' },
+        { key: 'boxShadow', value: null },
+        ...borderNullEntries,
+      ]);
+    } else if (newPos === 'inside') {
+      onChange([
+        { key: 'boxShadow', value: `inset 0 0 0 ${wNum}px ${c}` },
+        { key: 'outline', value: null },
+        { key: 'outlineOffset', value: null },
+        ...borderNullEntries,
+      ]);
+    } else {
+      // center: 恢复为标准 border
+      onChange([
+        ...BORDER_LOGICAL_KEYS.filter(k => k.endsWith('Width')).map(k => ({ key: k, value: w })),
+        ...BORDER_LOGICAL_KEYS.filter(k => k.endsWith('Color')).map(k => ({ key: k, value: c })),
+        ...BORDER_LOGICAL_KEYS.filter(k => k.endsWith('Style')).map(k => ({ key: k, value: s })),
+        { key: 'outline', value: null },
+        { key: 'outlineOffset', value: null },
+        { key: 'boxShadow', value: null },
+      ]);
+    }
+  }, [onChange]);
+
   const borderConfig = useMemo(() => {
     if (disableBorderWidth && disableBorderColor && disableBorderStyle) {
       return null;
     }
     if (borderToggleValue === "all") {
       return (
-        <div className={css.row}>
-          <Panel.Content style={{ padding: 3, flex: 1, minWidth: 0 }}>
-            <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
-              <div className={css.icon} {...getDragPropsBorder(borderValue.borderTopWidth, '拖拽调整边框宽度')}>
-                <BorderWeightOutlined />
-              </div>
-              {disableBorderWidth ? null : (
-                <InputNumber
-                  tip="边框宽度"
-                  style={{ ...shouldShowMiniLayout ? DEFAULT_STYLE_MINI : DEFAULT_STYLE_SMALL, flexShrink: 0 }}
-                  defaultValue={borderValue.borderTopWidth}
-                  defaultUnitValue="px"
-                  // suffix={'px'}
-                  onChange={(value) => {
-                    const borderStyle =
-                      !borderValue.borderTopStyle || borderValue.borderTopStyle === "none"
-                        ? "solid"
-                        : borderValue.borderTopStyle;
-                    handleChange({
-                      borderTopWidth: value,
-                      borderRightWidth: value,
-                      borderBottomWidth: value,
-                      borderLeftWidth: value,
-                      borderTopStyle: borderStyle,
-                      borderRightStyle: borderStyle,
-                      borderBottomStyle: borderStyle,
-                      borderLeftStyle: borderStyle,
-                    });
-                  }}
-                />
-              )}
-              {disableBorderColor ? null : (
-                <ColorEditor
-                  // tip='边框颜色'
-                  key={borderColorEditorKey}
-                  style={{ padding: "0 0 0 1px", marginLeft: shouldShowMiniLayout ? 0 : 2, flex: 1, minWidth: 26 }}
-                  defaultValue={getGradientBorderValue(borderValue) || borderValue.borderTopColor}
-                  showSubTabs={true}
-                  disableBackgroundImage={true}
-                  onChange={(input: any) => {
-                    const value = getColorEditorValue(input);
-                    if (!value) {
-                      return;
-                    }
-                    setBorderValue((val) => {
-                      let newValue: Record<string, any>;
-
-                      if (isGradientValue(value)) {
-                        if (!contentBackgroundLayersRef.current?.length) {
-                          contentBackgroundLayersRef.current = getContentBackgroundLayers(val);
-                        }
-                        newValue = buildGradientBorderValue(value, val, contentBackgroundLayersRef.current);
-                        borderGradientRef.current = value;
+        <div>
+          {/* 行1：颜色 + 删除按钮 */}
+          <div className={css.row}>
+            <Panel.Content style={{ padding: 3, flex: 1, minWidth: 0 }}>
+              <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
+                {disableBorderColor ? null : (
+                  <ColorEditor
+                    key={borderColorEditorKey}
+                    style={{ padding: "0 0 0 1px", flex: 1, minWidth: 26 }}
+                    defaultValue={getGradientBorderValue(borderValue) || borderValue.borderTopColor}
+                    showSubTabs={borderPosition === 'center'}
+                    disableBackgroundImage={true}
+                    onChange={(input: any) => {
+                      const value = getColorEditorValue(input);
+                      if (!value) return;
+                      const pos = borderPositionRef.current;
+                      if (pos === 'center') {
+                        // 居中模式：保留完整渐变/纯色逻辑
+                        setBorderValue((val) => {
+                          let newValue: Record<string, any>;
+                          if (isGradientValue(value)) {
+                            if (!contentBackgroundLayersRef.current?.length) {
+                              contentBackgroundLayersRef.current = getContentBackgroundLayers(val);
+                            }
+                            newValue = buildGradientBorderValue(value, val, contentBackgroundLayersRef.current);
+                            borderGradientRef.current = value;
+                          } else {
+                            newValue = {
+                              borderTopColor: value,
+                              borderRightColor: value,
+                              borderBottomColor: value,
+                              borderLeftColor: value,
+                              ...buildClearGradientBorderValue(val, contentBackgroundLayersRef.current),
+                            };
+                            borderGradientRef.current = undefined;
+                            contentBackgroundLayersRef.current = null;
+                          }
+                          if (!isLengthNineAndEndsWithZeroes(value) && val.borderTopWidth === "0px") {
+                            newValue = {
+                              ...newValue,
+                              borderTopWidth: "1px",
+                              borderRightWidth: "1px",
+                              borderBottomWidth: "1px",
+                              borderLeftWidth: "1px",
+                            };
+                          }
+                          handleChange(newValue);
+                          return { ...val, ...newValue };
+                        });
                       } else {
-                        newValue = {
-                          borderTopColor: value,
-                          borderRightColor: value,
-                          borderBottomColor: value,
-                          borderLeftColor: value,
-                          ...buildClearGradientBorderValue(val, contentBackgroundLayersRef.current),
-                        };
-                        borderGradientRef.current = undefined;
-                        contentBackgroundLayersRef.current = null;
+                        // 外部/内部模式：仅支持纯色，输出 outline/boxShadow
+                        if (isLengthNineAndEndsWithZeroes(value)) return;
+                        const autoWidth = borderValueRef.current.borderTopWidth === "0px";
+                        handleAllModeChange({
+                          borderTopColor: value, borderRightColor: value,
+                          borderBottomColor: value, borderLeftColor: value,
+                          ...(autoWidth ? {
+                            borderTopWidth: "1px", borderRightWidth: "1px",
+                            borderBottomWidth: "1px", borderLeftWidth: "1px",
+                          } : {}),
+                        });
                       }
+                    }}
+                  />
+                )}
+              </Panel.Item>
+            </Panel.Content>
+          </div>
 
-                      if (
-                        !isLengthNineAndEndsWithZeroes(value) &&
-                        val.borderTopWidth === "0px"
-                      ) {
-                        newValue = {
-                          ...newValue,
-                          borderTopWidth: "1px",
-                          borderRightWidth: "1px",
-                          borderBottomWidth: "1px",
-                          borderLeftWidth: "1px",
-                        };
-                      }
-
-                      handleChange(newValue)
-
-                      return {
-                        ...val,
-                        ...newValue,
-                      };
-                    });
-                  }}
-                />
-              )}
-              {disableBorderStyle ? null : (
+          {/* 行2：[Position 下拉] [≡ Weight 输入 + 线型] */}
+          <div className={css.row}>
+            <Panel.Content style={{ padding: 3, flex: 1, minWidth: 0 }}>
+              <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
                 <Select
-                  tip="边框线条样式"
-                  style={{
-                    padding: 0,
-                    width: 26,
-                    minWidth: 20,
-                    marginLeft: 0,
-                    textAlign: "right",
-                    flexShrink: 0,
-                  }}
-                  labelClassName={css.label}
-                  value={borderValue.borderTopStyle ?? 'none'}
-                  options={BORDER_STYLE_OPTIONS}
-                  showIcon={false}
-                  onChange={(value) =>
-                    handleChange({
-                      borderTopStyle: value,
-                      borderRightStyle: value,
-                      borderBottomStyle: value,
-                      borderLeftStyle: value,
-                    })
-                  }
+                  tip="边框位置"
+                  style={{ padding: 0, flex: 1 }}
+                  value={borderPosition}
+                  options={BORDER_POSITION_OPTIONS}
+                  onChange={(val) => handlePositionChange(val as BorderPosition)}
                 />
-              )}
-            </Panel.Item>
-          </Panel.Content>
-          <div
-            data-mybricks-tip={`{content:'切换为单独配置',position:'left'}`}
-            className={css.actionIcon}
-            onClick={() =>
-              handleToggleChange({ key: "borderToggleValue", value: "split" })
-            }
-          >
-            <BorderSplitOutlined />
+              </Panel.Item>
+            </Panel.Content>
+            <Panel.Content style={{ padding: 3, flex: 1, minWidth: 0 }}>
+              <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
+                <div className={css.weightGroup}>
+                  <div className={css.icon} {...getDragPropsBorder(borderValue.borderTopWidth, '拖拽调整边框宽度')}>
+                    <BorderWeightOutlined />
+                  </div>
+                  {disableBorderWidth ? null : (
+                    <InputNumber
+                      tip="边框宽度"
+                      style={{ ...shouldShowMiniLayout ? DEFAULT_STYLE_MINI : DEFAULT_STYLE_SMALL, flex: 1 }}
+                      defaultValue={borderValue.borderTopWidth}
+                      defaultUnitValue="px"
+                      onChange={(value) => {
+                        const borderStyle =
+                          !borderValue.borderTopStyle || borderValue.borderTopStyle === "none"
+                            ? "solid"
+                            : borderValue.borderTopStyle;
+                        handleAllModeChange({
+                          borderTopWidth: value,
+                          borderRightWidth: value,
+                          borderBottomWidth: value,
+                          borderLeftWidth: value,
+                          borderTopStyle: borderStyle,
+                          borderRightStyle: borderStyle,
+                          borderBottomStyle: borderStyle,
+                          borderLeftStyle: borderStyle,
+                        });
+                      }}
+                    />
+                  )}
+                </div>
+              </Panel.Item>
+            </Panel.Content>
+            {disableBorderStyle ? null : (
+              <div
+                ref={styleSettingsBtnRef}
+                className={css.styleSettingsBtn}
+                data-mybricks-tip="线条样式设置"
+                    onClick={() => setShowStyleSettings(v => !v)}
+              >
+                    <SettingIcon />
+                  </div>
+            )}
           </div>
         </div>
       );
@@ -500,17 +710,33 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
         return null;
       }
       return (
-        <div className={css.row}>
-          <div className={css.col}>
+        <div className={css.col}>
           {!disableBorderLeft && (
-              <div className={css.row}>
-                <Panel.Content style={{ padding: 3, flex: 1, minWidth: 0 }}>
-                  <Panel.Item
-                    className={css.editArea}
-                    style={{ padding: "0px 8px" }}
-                  >
+            <div className={css.row}>
+              <Panel.Content style={{ padding: 3, flex: 1, minWidth: 0 }}>
+                <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
+                  <div className={css.icon}>
+                    <BorderLeftOutlined />
+                  </div>
+                  {disableBorderColor ? null : (
+                    <ColorEditor
+                      style={{ padding: 0, marginLeft: 2, flex: 1, minWidth: 26 }}
+                      defaultValue={borderValue.borderLeftColor}
+                      showSubTabs={false}
+                      onChange={(input: any) => {
+                        const value = getColorEditorValue(input);
+                        if (!value) return;
+                        const newValue: Record<string, any> = { borderLeftColor: value };
+                        if (!isLengthNineAndEndsWithZeroes(value) && borderValue.borderLeftWidth === "0px") {
+                          newValue.borderLeftWidth = "1px";
+                        }
+                        handleChange(newValue);
+                      }}
+                    />
+                  )}
+                  <div className={css.weightGroup}>
                     <div className={css.icon} {...getDragPropsBorder(borderValue.borderLeftWidth, '拖拽调整左边框宽度')}>
-                      <BorderLeftOutlined />
+                      <BorderWeightOutlined />
                     </div>
                     {disableBorderWidth ? null : (
                       <InputNumber
@@ -518,7 +744,6 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                         style={{ ...shouldShowMiniLayout ? DEFAULT_STYLE_MINI : DEFAULT_STYLE_SMALL, flexShrink: 0 }}
                         defaultValue={borderValue.borderLeftWidth}
                         defaultUnitValue="px"
-                        // suffix={'px'}
                         onChange={(value) =>
                           handleChange({
                             borderLeftWidth: value,
@@ -530,76 +755,37 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                         }
                       />
                     )}
-                    {disableBorderColor ? null : (
-                      <ColorEditor
-                        // tip='左边框颜色'
-                        style={{ padding: 0, marginLeft: 2, flex: 1, minWidth: 26 }}
-                        defaultValue={borderValue.borderLeftColor}
-                        showSubTabs={false}
-                        onChange={(input: any) => {
-                          const value = getColorEditorValue(input);
-                          if (!value) {
-                            return;
-                          }
-                          const newValue: Record<string, any> = {
-                            borderLeftColor: value,
-                          };
-                          if (
-                            !isLengthNineAndEndsWithZeroes(value) &&
-                            borderValue.borderLeftWidth === "0px"
-                          ) {
-                            newValue.borderLeftWidth = "1px";
-                          }
-                          handleChange(newValue);
-                        }}
-                      />
-                    )}
-                    {disableBorderStyle ? null : (
-                      <Select
-                        tip="左边框线条样式"
-                        style={{
-                          padding: 0,
-                          width: 26,
-                          minWidth: 20,
-                          marginLeft: 0,
-                          textAlign: "right",
-                          flexShrink: 0,
-                        }}
-                        labelClassName={css.label}
-                        value={borderValue.borderLeftStyle ?? 'none'}
-                        options={BORDER_STYLE_OPTIONS}
-                        showIcon={false}
-                        onChange={(value) =>
-                          handleChange({ borderLeftStyle: value })
+                  </div>
+                </Panel.Item>
+              </Panel.Content>
+            </div>
+          )}
+          {!disableBorderTop && (
+            <div className={css.row}>
+              <Panel.Content style={{ padding: 3, flex: 1, minWidth: 0 }}>
+                <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
+                  <div className={css.icon}>
+                    <BorderTopOutlined />
+                  </div>
+                  {disableBorderColor ? null : (
+                    <ColorEditor
+                      style={{ padding: 0, marginLeft: 2, flex: 1, minWidth: 26 }}
+                      defaultValue={borderValue.borderTopColor}
+                      showSubTabs={false}
+                      onChange={(input: any) => {
+                        const value = getColorEditorValue(input);
+                        if (!value) return;
+                        const newValue: Record<string, any> = { borderTopColor: value };
+                        if (!isLengthNineAndEndsWithZeroes(value) && borderValue.borderTopWidth === "0px") {
+                          newValue.borderTopWidth = "1px";
                         }
-                      />
-                    )}
-                  </Panel.Item>
-                </Panel.Content>
-                <div
-                  data-mybricks-tip={`{content:'切换为统一配置',position:'left'}`}
-                  className={css.independentActionIcon}
-                  style={{ marginTop: 0 }}
-                  onClick={() =>
-                    handleToggleChange({
-                      key: "borderToggleValue",
-                      value: "all",
-                    })
-                  }
-                >
-                  <BorderSplitOutlined />
-                </div>
-              </div>
-            )}
-            {!disableBorderTop && (
-              <div className={css.row}>
-                <Panel.Content style={{ padding: 3, flex: 1, minWidth: 0 }}>
-                  <Panel.Item
-                    className={css.editArea}
-                    style={{ padding: "0px 8px" }}
-                  >
+                        handleChange(newValue);
+                      }}
+                    />
+                  )}
+                  <div className={css.weightGroup}>
                     <div className={css.icon} {...getDragPropsBorder(borderValue.borderTopWidth, '拖拽调整上边框宽度')}>
-                      <BorderTopOutlined />
+                      <BorderWeightOutlined />
                     </div>
                     {disableBorderWidth ? null : (
                       <InputNumber
@@ -607,7 +793,6 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                         style={{ ...shouldShowMiniLayout ? DEFAULT_STYLE_MINI : DEFAULT_STYLE_SMALL, flexShrink: 0 }}
                         defaultValue={borderValue.borderTopWidth}
                         defaultUnitValue="px"
-                        // suffix={'px'}
                         onChange={(value) =>
                           handleChange({
                             borderTopWidth: value,
@@ -619,65 +804,38 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                         }
                       />
                     )}
-                    {disableBorderColor ? null : (
-                      <ColorEditor
-                        // tip='上边框颜色'
-                        style={{ padding: 0, marginLeft: 2, flex: 1, minWidth: 26 }}
-                        defaultValue={borderValue.borderTopColor}
-                        showSubTabs={false}
-                        onChange={(input: any) => {
-                          const value = getColorEditorValue(input);
-                          if (!value) {
-                            return;
-                          }
-                          const newValue: Record<string, any> = {
-                            borderTopColor: value,
-                          };
-                          if (
-                            !isLengthNineAndEndsWithZeroes(value) &&
-                            borderValue.borderTopWidth === "0px"
-                          ) {
-                            newValue.borderTopWidth = "1px";
-                          }
-                          handleChange(newValue);
-                        }}
-                      />
-                    )}
-                    {disableBorderStyle ? null : (
-                      <Select
-                        tip="上边框线条样式"
-                        style={{
-                          padding: 0,
-                          width: 26,
-                          minWidth: 20,
-                          marginLeft: 0,
-                          textAlign: "right",
-                          flexShrink: 0,
-                        }}
-                        labelClassName={css.label}
-                        value={borderValue.borderTopStyle ?? 'none'}
-                        options={BORDER_STYLE_OPTIONS}
-                        showIcon={false}
-                        onChange={(value) =>
-                          handleChange({ borderTopStyle: value })
-                        }
-                      />
-                    )}
-                  </Panel.Item>
-                </Panel.Content>
-                <div className={css.actionIcon} />
-              </div>
-            )}
+                  </div>
+                </Panel.Item>
+              </Panel.Content>
+            </div>
+          )}
 
-            {!disableBorderRight && (
-              <div className={css.row}>
-                <Panel.Content style={{ padding: 3, flex: 1, minWidth: 0 }}>
-                  <Panel.Item
-                    className={css.editArea}
-                    style={{ padding: "0px 8px" }}
-                  >
+          {!disableBorderRight && (
+            <div className={css.row}>
+              <Panel.Content style={{ padding: 3, flex: 1, minWidth: 0 }}>
+                <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
+                  <div className={css.icon}>
+                    <BorderRightOutlined />
+                  </div>
+                  {disableBorderColor ? null : (
+                    <ColorEditor
+                      style={{ padding: 0, marginLeft: 2, flex: 1, minWidth: 26 }}
+                      defaultValue={borderValue.borderRightColor}
+                      showSubTabs={false}
+                      onChange={(input: any) => {
+                        const value = getColorEditorValue(input);
+                        if (!value) return;
+                        const newValue: Record<string, any> = { borderRightColor: value };
+                        if (!isLengthNineAndEndsWithZeroes(value) && borderValue.borderRightWidth === "0px") {
+                          newValue.borderRightWidth = "1px";
+                        }
+                        handleChange(newValue);
+                      }}
+                    />
+                  )}
+                  <div className={css.weightGroup}>
                     <div className={css.icon} {...getDragPropsBorder(borderValue.borderRightWidth, '拖拽调整右边框宽度')}>
-                      <BorderRightOutlined />
+                      <BorderWeightOutlined />
                     </div>
                     {disableBorderWidth ? null : (
                       <InputNumber
@@ -685,7 +843,6 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                         style={{ ...shouldShowMiniLayout ? DEFAULT_STYLE_MINI : DEFAULT_STYLE_SMALL, flexShrink: 0 }}
                         defaultValue={borderValue.borderRightWidth}
                         defaultUnitValue="px"
-                        // suffix={'px'}
                         onChange={(value) =>
                           handleChange({
                             borderRightWidth: value,
@@ -697,65 +854,38 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                         }
                       />
                     )}
-                    {disableBorderColor ? null : (
-                      <ColorEditor
-                        // tip='右边框颜色'
-                        style={{ padding: 0, marginLeft: 2, flex: 1, minWidth: 26 }}
-                        defaultValue={borderValue.borderRightColor}
-                        showSubTabs={false}
-                        onChange={(input: any) => {
-                          const value = getColorEditorValue(input);
-                          if (!value) {
-                            return;
-                          }
-                          const newValue: Record<string, any> = {
-                            borderRightColor: value,
-                          };
-                          if (
-                            !isLengthNineAndEndsWithZeroes(value) &&
-                            borderValue.borderRightWidth === "0px"
-                          ) {
-                            newValue.borderRightWidth = "1px";
-                          }
-                          handleChange(newValue);
-                        }}
-                      />
-                    )}
-                    {disableBorderStyle ? null : (
-                      <Select
-                        tip="右边框线条样式"
-                        style={{
-                          padding: 0,
-                          width: 26,
-                          minWidth: 20,
-                          marginLeft: 0,
-                          textAlign: "right",
-                          flexShrink: 0,
-                        }}
-                        labelClassName={css.label}
-                        value={borderValue.borderRightStyle ?? 'none'}
-                        options={BORDER_STYLE_OPTIONS}
-                        showIcon={false}
-                        onChange={(value) =>
-                          handleChange({ borderRightStyle: value })
-                        }
-                      />
-                    )}
-                  </Panel.Item>
-                </Panel.Content>
-                <div className={css.actionIcon} />
-              </div>
-            )}
+                  </div>
+                </Panel.Item>
+              </Panel.Content>
+            </div>
+          )}
 
-            {!disableBorderBottom && (
-              <div className={css.row}>
-                <Panel.Content style={{ padding: 3, flex: 1, minWidth: 0 }}>
-                  <Panel.Item
-                    className={css.editArea}
-                    style={{ padding: "0px 8px" }}
-                  >
+          {!disableBorderBottom && (
+            <div className={css.row}>
+              <Panel.Content style={{ padding: 3, flex: 1, minWidth: 0 }}>
+                <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
+                  <div className={css.icon}>
+                    <BorderBottomOutlined />
+                  </div>
+                  {disableBorderColor ? null : (
+                    <ColorEditor
+                      style={{ padding: 0, marginLeft: 2, flex: 1, minWidth: 26 }}
+                      defaultValue={borderValue.borderBottomColor}
+                      showSubTabs={false}
+                      onChange={(input: any) => {
+                        const value = getColorEditorValue(input);
+                        if (!value) return;
+                        const newValue: Record<string, any> = { borderBottomColor: value };
+                        if (!isLengthNineAndEndsWithZeroes(value) && borderValue.borderBottomWidth === "0px") {
+                          newValue.borderBottomWidth = "1px";
+                        }
+                        handleChange(newValue);
+                      }}
+                    />
+                  )}
+                  <div className={css.weightGroup}>
                     <div className={css.icon} {...getDragPropsBorder(borderValue.borderBottomWidth, '拖拽调整下边框宽度')}>
-                      <BorderBottomOutlined />
+                      <BorderWeightOutlined />
                     </div>
                     {disableBorderWidth ? null : (
                       <InputNumber
@@ -763,7 +893,6 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                         style={{ ...shouldShowMiniLayout ? DEFAULT_STYLE_MINI : DEFAULT_STYLE_SMALL, flexShrink: 0 }}
                         defaultValue={borderValue.borderBottomWidth}
                         defaultUnitValue="px"
-                        // suffix={'px'}
                         onChange={(value) =>
                           handleChange({
                             borderBottomWidth: value,
@@ -775,61 +904,15 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                         }
                       />
                     )}
-                    {disableBorderColor ? null : (
-                      <ColorEditor
-                        // tip='下边框颜色'
-                        style={{ padding: 0, marginLeft: 2, flex: 1, minWidth: 26 }}
-                        defaultValue={borderValue.borderBottomColor}
-                        showSubTabs={false}
-                        onChange={(input: any) => {
-                          const value = getColorEditorValue(input);
-                          if (!value) {
-                            return;
-                          }
-                          const newValue: Record<string, any> = {
-                            borderBottomColor: value,
-                          };
-                          if (
-                            !isLengthNineAndEndsWithZeroes(value) &&
-                            borderValue.borderBottomWidth === "0px"
-                          ) {
-                            newValue.borderBottomWidth = "1px";
-                          }
-                          handleChange(newValue);
-                        }}
-                      />
-                    )}
-                    {disableBorderStyle ? null : (
-                      <Select
-                        tip="下边框线条样式"
-                        style={{
-                          padding: 0,
-                          width: 26,
-                          minWidth: 20,
-                          marginLeft: 0,
-                          textAlign: "right",
-                          flexShrink: 0,
-                        }}
-                        labelClassName={css.label}
-                        value={borderValue.borderBottomStyle ?? 'none'}
-                        options={BORDER_STYLE_OPTIONS}
-                        showIcon={false}
-                        onChange={(value) =>
-                          handleChange({ borderBottomStyle: value })
-                        }
-                      />
-                    )}
-                  </Panel.Item>
-                </Panel.Content>
-                <div className={css.actionIcon} />
-              </div>
-            )}
-            
-          </div>
+                  </div>
+                </Panel.Item>
+              </Panel.Content>
+            </div>
+          )}
         </div>
       );
     }
-  }, [borderToggleValue, borderValue, getDragPropsBorder, borderColorEditorKey]);
+  }, [borderToggleValue, borderValue, getDragPropsBorder, borderColorEditorKey, borderPosition, refresh, handleAllModeChange, handlePositionChange]);
 
   const radiusConfig = useMemo(() => {
     if (disableBorderRadius) {
@@ -1013,29 +1096,79 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
     });
   }, [radiusToggleValue]);
 
-  const refresh = useCallback(() => {
-    const borderKeys = [
-      'borderTopWidth', 'borderRightWidth', 'borderBottomWidth', 'borderLeftWidth',
-      'borderTopColor', 'borderRightColor', 'borderBottomColor', 'borderLeftColor',
-      'borderTopStyle', 'borderRightStyle', 'borderBottomStyle', 'borderLeftStyle',
-      'borderTopLeftRadius', 'borderTopRightRadius', 'borderBottomLeftRadius', 'borderBottomRightRadius',
-      // mergeCSSProperties 可能生成的简写属性
-      'border', 'borderTop', 'borderRight', 'borderBottom', 'borderLeft',
-      'borderRadius', 'borderWidth', 'borderStyle', 'borderColor',
-      ...GRADIENT_BORDER_KEYS,
-    ];
-    onChange(borderKeys.map(key => ({ key, value: null })));
-    setBorderValue({} as any);
-    setForceRenderKey(prev => prev + 1);
-  }, [onChange]);
+  const hasBorderSection = !(disableBorderWidth && disableBorderColor && disableBorderStyle);
+
+  const currentBorderStyle = borderValue.borderTopStyle ?? 'none';
+
+  const popupStyleValue = currentBorderStyle === 'none' ? 'solid' : currentBorderStyle;
+
+  const styleSettingsPortal = !disableBorderStyle && showStyleSettings
+    ? createPortal(
+        <div
+          ref={styleSettingsPopoverRef}
+          className={css.styleSettingsPopover}
+        >
+          <div className={css.strokePopoverTitle}>线条设置</div>
+          <div className={css.strokePopoverRow}>
+            <span className={css.strokePopoverLabel}>样式</span>
+            <Select
+              style={{ flex: 1, padding: '0 8px' }}
+              value={popupStyleValue}
+              options={STROKE_STYLE_POPUP_OPTIONS}
+              onChange={(val) => {
+                handleAllModeChange({
+                  borderTopStyle: val,
+                  borderRightStyle: val,
+                  borderBottomStyle: val,
+                  borderLeftStyle: val,
+                });
+              }}
+            />
+          </div>
+        </div>,
+        document.body
+      )
+    : null;
 
   return (
-    <Panel title="边框" showTitle={showTitle} showReset={true} resetFunction={refresh} collapse={collapse}>
+    <>
+    {styleSettingsPortal as React.ReactNode}
+    <Panel
+      title="边框"
+      showTitle={showTitle}
+      collapse={collapse}
+      rightColumn={
+        <div className={css.rightColumn}>
+          <div
+            data-mybricks-tip={`{content:'重置边框',position:'left'}`}
+            className={css.rightColumnBtn}
+            onClick={refresh}
+          >
+            <MinusOutlined />
+          </div>
+          {hasBorderSection && (
+            <div
+              data-mybricks-tip={borderToggleValue === 'all'
+                ? `{content:'切换为单独配置',position:'left'}`
+                : `{content:'切换为统一配置',position:'left'}`}
+              className={`${css.rightColumnBtn} ${css.rightColumnBtnSmall}`}
+              onClick={() => handleToggleChange({
+                key: "borderToggleValue",
+                value: borderToggleValue === 'all' ? "split" : "all",
+              })}
+            >
+              <BorderSplitOutlined />
+            </div>
+          )}
+        </div>
+      }
+    >
       <React.Fragment key={forceRenderKey}>
         {borderConfig}
         {radiusConfig}
       </React.Fragment>
     </Panel>
+    </>
   );
 }
 

@@ -82,7 +82,7 @@ export function Panel ({title, children, showReset = false, showTitle = true, sh
                 <PlusOutlined />
               </Dropdown>
             ) : (
-              <div className={css.right} onClick={() => setCollapsed(false)}>
+              <div className={css.right} onClick={() => { setCollapsed(false); onAdd?.(); }}>
                 <PlusOutlined />
               </div>
             )

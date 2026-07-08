@@ -110,7 +110,11 @@ export function parseLayers(
   // guard only triggers a re-parse when backgroundImage changes — hover states
   // only mutate backgroundColor, so the guard blocks those spurious re-parses.
   const SKIP_BG_COLOR = /^(transparent|initial|inherit|unset|revert|none)$/i;
-  if (backgroundColor && !SKIP_BG_COLOR.test(backgroundColor.trim())) {
+  // rgba(0,0,0,0) 是浏览器 computedStyle 中 transparent 的等价形式，统一跳过，避免误建图层
+  const isTransparentComputed = (color: string) =>
+    /^rgba?\(\s*0\s*,\s*0\s*,\s*0\s*,\s*0\s*\)$/i.test(color.trim()) ||
+    /^#00000000$/i.test(color.trim());
+  if (backgroundColor && !SKIP_BG_COLOR.test(backgroundColor.trim()) && !isTransparentComputed(backgroundColor)) {
     try {
       new ColorUtil(backgroundColor); // throws for unparseable / computed values
       layers.push({

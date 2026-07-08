@@ -69,12 +69,97 @@
   justify-content: center;
   min-width: 24px;
   cursor: pointer;
-  // margin-left: 3px;
-  // margin-right: 3px;
   margin-top: 4px;
-  // color: var(--mybricks-color-primary, #FA6400);
   color: @font-color-content;
   background-color: @bg-color-active;
   border-radius: 5px;
+}
 
+.weightGroup {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.rightColumn {
+  display: flex;
+  flex-direction: column;
+  width: 22px;
+  flex-shrink: 0;
+  padding-top: 3px;
+}
+
+.rightColumnBtn {
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: @font-color-content;
+  flex-shrink: 0;
+
+  &:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+    border-radius: 5px;
+  }
+}
+
+.rightColumnBtnSmall {
+  margin-top: 12px;
+
+  svg {
+    max-width: 13px;
+    max-height: 13px;
+  }
+}
+
+.styleSettingsBtn {
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: @font-color-content;
+  flex-shrink: 0;
+  border-radius: 4px;
+
+  &:hover {
+    background-color: rgba(0, 0, 0, 0.06);
+  }
+}
+
+.styleSettingsPopover {
+  position: fixed;
+  z-index: 999;
+  background: @menu-bg-color;
+  border-radius: 8px;
+  border: 0.3px solid @boder-color;
+  box-shadow: @shadow-main;
+  padding: 12px;
+  min-width: 200px;
+  visibility: hidden;
+}
+
+.strokePopoverTitle {
+  font-size: 12px;
+  font-weight: 600;
+  color: @font-color-content;
+  margin-bottom: 12px;
+}
+
+.strokePopoverRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.strokePopoverLabel {
+  font-size: 12px;
+  color: @font-color-content;
+  opacity: 0.55;
+  white-space: nowrap;
+  flex-shrink: 0;
 }

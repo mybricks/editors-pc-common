@@ -383,11 +383,14 @@ export function Background({
 
   // ── Render ───────────────────────────────────────────────────────────────
 
+  // 没有背景图层时默认折叠
+  const effectiveCollapse = layers.length === 0 ? true : collapse;
+
   return (
     <Panel
       title="背景"
       showTitle={showTitle}
-      collapse={collapse}
+      collapse={effectiveCollapse}
       onAdd={handleAddLayer}
       showDelete={false}
       rightColumn={
