@@ -336,6 +336,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
   const [showStyleSettings, setShowStyleSettings] = useState(false);
   const styleSettingsBtnRef = useRef<HTMLDivElement>(null);
   const styleSettingsPopoverRef = useRef<HTMLDivElement>(null);
+  const panelDeleteRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     if (!showStyleSettings) return;
@@ -462,17 +463,42 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
   );
 
   const refresh = useCallback(() => {
-    const borderKeys = [
-      'borderTopWidth', 'borderRightWidth', 'borderBottomWidth', 'borderLeftWidth',
+    const pos = borderPositionRef.current;
+    const items: Array<{ key: string; value: any }> = [];
+
+    // 显式写入 'none'/'0px'，确保覆盖组件自身 CSS 中定义的 border（无法通过 null 删除）
+    if (pos === 'outside') {
+      items.push({ key: 'outline', value: 'none' });
+      items.push({ key: 'outlineOffset', value: '0px' });
+    } else if (pos === 'inside') {
+      items.push({ key: 'boxShadow', value: 'none' });
+    } else {
+      // center（默认）：逐侧显式清零
+      items.push(
+        { key: 'borderTopStyle', value: 'none' },
+        { key: 'borderRightStyle', value: 'none' },
+        { key: 'borderBottomStyle', value: 'none' },
+        { key: 'borderLeftStyle', value: 'none' },
+        { key: 'borderTopWidth', value: '0px' },
+        { key: 'borderRightWidth', value: '0px' },
+        { key: 'borderBottomWidth', value: '0px' },
+        { key: 'borderLeftWidth', value: '0px' },
+      );
+    }
+
+    // 其余属性以 null 删除（走 handleChange 正常删除流程）
+    // 非 null 项已使 activePanelsInBatch 包含 'border'，绕过删除守卫
+    const nullKeys = [
       'borderTopColor', 'borderRightColor', 'borderBottomColor', 'borderLeftColor',
-      'borderTopStyle', 'borderRightStyle', 'borderBottomStyle', 'borderLeftStyle',
       'borderTopLeftRadius', 'borderTopRightRadius', 'borderBottomLeftRadius', 'borderBottomRightRadius',
       'border', 'borderTop', 'borderRight', 'borderBottom', 'borderLeft',
       'borderRadius', 'borderWidth', 'borderStyle', 'borderColor',
       'outline', 'outlineOffset', 'boxShadow',
       ...GRADIENT_BORDER_KEYS,
     ];
-    onChange(borderKeys.map(key => ({ key, value: null })));
+    items.push(...nullKeys.map(key => ({ key, value: null })));
+
+    onChange(items);
     setBorderValue({} as any);
     setBorderPosition('center');
     setForceRenderKey(prev => prev + 1);
@@ -1137,12 +1163,14 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
       title="边框"
       showTitle={showTitle}
       collapse={collapse}
+      resetFunction={refresh}
+      deleteRef={panelDeleteRef}
       rightColumn={
         <div className={css.rightColumn}>
           <div
-            data-mybricks-tip={`{content:'重置边框',position:'left'}`}
+            data-mybricks-tip={`{content:'删除边框',position:'left'}`}
             className={css.rightColumnBtn}
-            onClick={refresh}
+            onClick={() => panelDeleteRef.current?.()}
           >
             <MinusOutlined />
           </div>

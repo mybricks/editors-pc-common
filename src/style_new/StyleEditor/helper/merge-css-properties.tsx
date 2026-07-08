@@ -165,7 +165,21 @@ export const mergeCSSProperties = (
       delete mergedStyles.borderLeftWidth
 
       // [bugfix]，在仅配置颜色的时候，发现getComputedStyle会多一个border（borderWidth = 0px, borderStyle === 'none'）出来，先临时删除吧
-      if (computedStyle.borderWidth === '0px' && computedStyle.borderStyle === 'none') {
+      // 但若 cssProperties 中已明确提供了 borderStyle 或 borderWidth（如清除边框时写入 'none'/'0px'），
+      // 则说明是用户主动设置，不能删除，否则清除边框的 override 会被丢失。
+      const hasExplicitBorderStyleOrWidth =
+        hasDefinedValue(cssProperties.borderTopStyle) ||
+        hasDefinedValue(cssProperties.borderRightStyle) ||
+        hasDefinedValue(cssProperties.borderBottomStyle) ||
+        hasDefinedValue(cssProperties.borderLeftStyle) ||
+        hasDefinedValue(cssProperties.borderTopWidth) ||
+        hasDefinedValue(cssProperties.borderRightWidth) ||
+        hasDefinedValue(cssProperties.borderBottomWidth) ||
+        hasDefinedValue(cssProperties.borderLeftWidth) ||
+        hasDefinedValue(cssProperties.borderWidth) ||
+        hasDefinedValue(cssProperties.borderStyle) ||
+        hasDefinedValue(cssProperties.border);
+      if (computedStyle.borderWidth === '0px' && computedStyle.borderStyle === 'none' && !hasExplicitBorderStyleOrWidth) {
         delete mergedStyles.border
       }
   } else {
