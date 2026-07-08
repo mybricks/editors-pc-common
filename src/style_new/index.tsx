@@ -2398,8 +2398,10 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration, 
 
 
   /** background */
+  // backgroundColor 是非继承属性；不用 computedStyle 兜底，避免元素处于 :hover 时污染非 hover 编辑器
+  // （与 backgroundImage 处理保持一致：该属性也不使用 computedValues 兜底）
   if (!isVarRef(backgroundColor) && (!backgroundColor || !colorUtil.get(backgroundColor))) {
-    backgroundColor = computedValues.backgroundColor
+    backgroundColor = ''
   }
   if (!backgroundImage) {
     // backgroundImage = computedValues.backgroundImage
