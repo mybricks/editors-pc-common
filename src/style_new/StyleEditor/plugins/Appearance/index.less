@@ -1,0 +1,119 @@
+@import "../../../../theme";
+
+.inputItem {
+  display: flex;
+  align-items: center;
+  padding: 0 4px;
+  flex: 1;
+  min-width: 0;
+}
+
+.editArea {
+  display: flex;
+  align-items: center;
+}
+
+.row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+}
+
+.col {
+  width: 100%;
+}
+
+.independentBox {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+}
+
+.inputIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  color: @font-color-content;
+  opacity: 0.7;
+}
+
+.opacityIcon {
+  width: 24px;
+  height: 24px;
+
+  svg {
+    width: 24px;
+    height: 24px;
+  }
+}
+
+.opacityInput {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-size: 12px;
+  font-weight: 500;
+  font-family: inherit;
+  color: @font-color-content;
+  text-align: left;
+  padding: 0 2px;
+  margin-left: 2px;
+  width: 100%;
+
+  &::-webkit-inner-spin-button,
+  &::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    appearance: none;
+    margin: 0;
+  }
+}
+
+.percentSuffix {
+  font-size: 11px;
+  color: @font-color-content;
+  opacity: 0.6;
+  flex-shrink: 0;
+  margin-right: 2px;
+}
+
+.toggleBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: @font-color-content;
+  border-radius: 5px;
+  padding: 0;
+
+  svg {
+    width: 13px;
+    height: 13px;
+  }
+
+  &:hover {
+    background-color: rgba(0, 0, 0, 0.06);
+  }
+}
+
+.toggleBtnActive {
+  color: @color-primary;
+}
+
+.actionsColumn {
+  display: flex;
+  flex-direction: column;
+  width: 22px;
+  flex-shrink: 0;
+  align-items: center;
+  padding-top: 2px;
+}

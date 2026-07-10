@@ -892,9 +892,6 @@ function Style ({editConfig, options, setValue, collapsedOptions, readonlyExpand
           ? (editConfig.options as any).selector
           : undefined)
 
-    //在这里把selector放在了第二个参数
-    // console.log("编辑器透传selector",selector)
-    // debugger
     editConfig.value.set(mergedCssProperties, selector ? { selector } : undefined)
   }, [editConfig, options, collapsedOptions])
 
@@ -1407,6 +1404,15 @@ const getDefaultValueFunctionMap = {
       opacity: values.opacity
     }
   },
+  appearance(values: CSSProperties, config: any) {
+    return {
+      opacity: values.opacity,
+      borderTopLeftRadius: values.borderTopLeftRadius,
+      borderTopRightRadius: values.borderTopRightRadius,
+      borderBottomRightRadius: values.borderBottomRightRadius,
+      borderBottomLeftRadius: values.borderBottomLeftRadius,
+    }
+  },
   zindex(values: CSSProperties, config: any) {
     return {
       zIndex: values.zIndex
@@ -1543,6 +1549,15 @@ const getDefaultValueFunctionMap2 = {
   opacity() {
     return {
       opacity: 1
+    }
+  },
+  appearance() {
+    return {
+      opacity: 1,
+      borderTopLeftRadius: '0px',
+      borderTopRightRadius: '0px',
+      borderBottomRightRadius: '0px',
+      borderBottomLeftRadius: '0px',
     }
   },
   zindex() {

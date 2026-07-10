@@ -3,6 +3,7 @@ import React, { useMemo, useCallback } from "react";
 import {
   Font,
   Size,
+  Appearance,
   Cursor,
   Border,
   Margin,
@@ -27,6 +28,7 @@ const PLUGINS_MAP: Record<string, (value: any) => React.ReactNode> = {
   CSSPASTE: CSSPaste,
   LAYOUT: Layout,
   SIZE: Size,
+  APPEARANCE: Appearance,
   FONT: Font,
   BACKGROUND: Background,
   BORDER: Border,

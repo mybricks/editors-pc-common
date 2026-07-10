@@ -850,6 +850,24 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
           </Panel.Item>
         </div>
         <div className={css.popoverInlineRow}>
+          <div className={css.popoverLabel} style={{ marginBottom: 0 }}>大小写</div>
+          <Toggle
+            key={`textTransform-${textTransformValue}`}
+            defaultValue={textTransformValue}
+            options={[
+              { label: <span style={{ fontWeight: 500, fontSize: 12 }}>Ag</span>, value: 'none', tip: '默认' },
+              { label: <span style={{ fontWeight: 700, fontSize: 12 }}>AG</span>, value: 'uppercase', tip: '全大写' },
+              { label: <span style={{ fontWeight: 500, fontSize: 12 }}>ag</span>, value: 'lowercase', tip: '全小写' },
+              { label: <span style={{ fontWeight: 500, fontSize: 12, textTransform: 'capitalize' }}>ab</span>, value: 'capitalize', tip: '首字母大写' },
+            ]}
+            onChange={(v) => {
+              const next = v as string;
+              setTextTransformValue(next);
+              onChange({ key: 'textTransform', value: next === 'none' ? null : next });
+            }}
+          />
+        </div>
+        <div className={css.popoverInlineRow}>
           <div className={css.popoverLabel} style={{ marginBottom: 0 }}>截断文字</div>
           <Toggle
             key={`truncate-${(value as any).textOverflow || ''}-${(value as any).webkitLineClamp || ''}`}
@@ -881,24 +899,6 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
                   { key: 'maxHeight', value: null },
                 ]);
               }
-            }}
-          />
-        </div>
-        <div className={css.popoverInlineRow}>
-          <div className={css.popoverLabel} style={{ marginBottom: 0 }}>大小写</div>
-          <Toggle
-            key={`textTransform-${textTransformValue}`}
-            defaultValue={textTransformValue}
-            options={[
-              { label: <span style={{ fontWeight: 500, fontSize: 12 }}>Ag</span>, value: 'none', tip: '默认' },
-              { label: <span style={{ fontWeight: 700, fontSize: 12 }}>AG</span>, value: 'uppercase', tip: '全大写' },
-              { label: <span style={{ fontWeight: 500, fontSize: 12 }}>ag</span>, value: 'lowercase', tip: '全小写' },
-              { label: <span style={{ fontWeight: 500, fontSize: 12, textTransform: 'capitalize' }}>ab</span>, value: 'capitalize', tip: '首字母大写' },
-            ]}
-            onChange={(v) => {
-              const next = v as string;
-              setTextTransformValue(next);
-              onChange({ key: 'textTransform', value: next === 'none' ? null : next });
             }}
           />
         </div>

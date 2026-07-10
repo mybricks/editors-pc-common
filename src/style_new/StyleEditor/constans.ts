@@ -6,6 +6,7 @@ export const DEFAULT_OPTIONS = [
   'padding',
   'margin',
   'size',
+  'appearance',
   'cursor',
   'boxshadow',
   'overflow',

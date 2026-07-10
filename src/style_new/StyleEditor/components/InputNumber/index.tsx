@@ -32,6 +32,8 @@ interface InputNumberProps extends InputProps {
   unitSelectStyle?: React.CSSProperties;
   /** 在单位选择器前渲染的额外徽标内容，如 "Hug" */
   badge?: React.ReactNode;
+  /** 输入框占位文案，默认“默认” */
+  placeholder?: string;
 }
 
 export function InputNumber ({
@@ -57,6 +59,7 @@ export function InputNumber ({
   unitIconClassName,
   unitSelectStyle,
   badge,
+  placeholder = '默认',
 }: InputNumberProps) {
   const [unit, setUnit] = useState<string>(getUnit(value || defaultValue, defaultUnitValue, unitOptions))
   const [number, handleNumberChange] = useInputNumber<string | number | undefined>(value || defaultValue)
@@ -199,7 +202,7 @@ export function InputNumber ({
       prefix={prefix}
       prefixTip={prefixTip}
       value={displayValue}
-      placeholder="默认"
+      placeholder={placeholder}
       // onChange={handleNumberChange}
       suffix={suffix}
       disabled={isDisabledUnit()}

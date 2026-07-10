@@ -18,9 +18,28 @@ const CURSOR_OPTIONS = [
   {label: '默认', value: 'default'},
 ]
 
+// tooltip 内容过长时做截断，避免超长 dataURI 把浮层撑爆
+const MAX_TIP_LENGTH = 300
+
 export function Cursor ({value, onChange, config, showTitle, collapse}: CursorProps) {
   const [forceRenderKey, setForceRenderKey] = useState<number>(Math.random())
   const [isReset, setIsReset] = useState(false)
+
+  const cursorValue = value?.cursor
+  // 自定义光标（如 cursor: url("data:image/svg+xml;base64,...") ...）不在预置选项中，
+  // 若直接把这段超长原始字符串丢给 Select 展示，会被截断成一堆看似乱码的字符。
+  // 这里临时补一个"自定义"选项，让 Select 能匹配到，展示为友好文案，完整值通过 tip 提示。
+  const isCustomCursor = typeof cursorValue === 'string'
+    && cursorValue.length > 0
+    && !CURSOR_OPTIONS.some(({value}) => value === cursorValue)
+  const options = isCustomCursor
+    ? [{label: '自定义', value: cursorValue}, ...CURSOR_OPTIONS]
+    : CURSOR_OPTIONS
+  const tip = isCustomCursor
+    ? `{content:'自定义光标：${
+        cursorValue.length > MAX_TIP_LENGTH ? `${cursorValue.slice(0, MAX_TIP_LENGTH)}...` : cursorValue
+      }',position:'top'}`
+    : undefined
 
   useEffect(() => {
     if (isReset && value?.cursor != null) {
@@ -40,8 +59,9 @@ export function Cursor ({value, onChange, config, showTitle, collapse}: CursorPr
         <React.Fragment key={forceRenderKey}>
           <Select
             style={{padding: 0}}
-            defaultValue={isReset ? undefined : value.cursor}
-            options={CURSOR_OPTIONS}
+            defaultValue={isReset ? undefined : cursorValue}
+            options={options}
+            tip={tip}
             onChange={(value) => onChange({key: 'cursor', value})}
           />
         </React.Fragment>

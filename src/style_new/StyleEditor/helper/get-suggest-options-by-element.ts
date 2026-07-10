@@ -150,7 +150,7 @@ export function getSuggestOptionsByElement(selectDom: HTMLElement): { type: stri
       },
       overflowOption,
       {
-        type: 'opacity'
+        type: 'appearance'
       },
       {
         type: 'zindex'
