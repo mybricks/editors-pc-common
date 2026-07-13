@@ -53,7 +53,7 @@ interface RotationProps extends PanelBaseProps {
   onChange: ChangeEvent
 }
 
-export function Rotation({ value, onChange, showTitle, collapse }: RotationProps) {
+export function Rotation({ value, onChange, showTitle }: RotationProps) {
   const transformStr = value?.transform as string | undefined
   const { angle: parsedAngle, flipX, flipY } = parseTransform(transformStr)
 
@@ -131,20 +131,26 @@ export function Rotation({ value, onChange, showTitle, collapse }: RotationProps
     setLocalAngle('0')
   }, [onChange])
 
-  const hasValue = parsedAngle !== 0 || flipX || flipY
-  const effectiveCollapse = hasValue ? false : collapse
-
   return (
     <Panel
       title="旋转"
       showTitle={showTitle}
+      showDelete={false}
       showReset={true}
       resetFunction={handleReset}
-      collapse={effectiveCollapse}
+      collapse={false}
     >
-      <Panel.Content>
+      <Panel.Content className={css.rotationPanelContent}>
         {/* Angle input with drag-on-icon */}
-        <Panel.Item style={{ display: 'flex', alignItems: 'center', flex: 1, width: 'auto' }}>
+        <Panel.Item
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            flex: '1 1 0',
+            width: 'auto',
+            minWidth: 0,
+          }}
+        >
           <div
             {...getDragAngle(localAngle, '拖拽调整旋转角度')}
             className={css.angleIconWrap}
@@ -176,26 +182,28 @@ export function Rotation({ value, onChange, showTitle, collapse }: RotationProps
         </Panel.Item>
 
         {/* Action buttons: rotate 90R / flip H / flip V */}
-        <div
-          className={css.actionBtn}
-          onClick={handleRotate90R}
-          data-mybricks-tip="顺时针旋转90°"
-        >
-          <Rotation90R />
-        </div>
-        <div
-          className={`${css.actionBtn} ${flipX ? css.actionBtnActive : ''}`}
-          onClick={handleFlipH}
-          data-mybricks-tip="水平翻转"
-        >
-          <RotationFlipHorizontal />
-        </div>
-        <div
-          className={`${css.actionBtn} ${flipY ? css.actionBtnActive : ''}`}
-          onClick={handleFlipV}
-          data-mybricks-tip="垂直翻转"
-        >
-          <RotationFlipVertical />
+        <div className={css.actionButtons}>
+          <div
+            className={css.actionBtn}
+            onClick={handleRotate90R}
+            data-mybricks-tip="顺时针旋转90°"
+          >
+            <Rotation90R />
+          </div>
+          <div
+            className={`${css.actionBtn} ${flipX ? css.actionBtnActive : ''}`}
+            onClick={handleFlipH}
+            data-mybricks-tip="水平翻转"
+          >
+            <RotationFlipHorizontal />
+          </div>
+          <div
+            className={`${css.actionBtn} ${flipY ? css.actionBtnActive : ''}`}
+            onClick={handleFlipV}
+            data-mybricks-tip="垂直翻转"
+          >
+            <RotationFlipVertical />
+          </div>
         </div>
       </Panel.Content>
     </Panel>

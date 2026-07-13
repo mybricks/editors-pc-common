@@ -1,5 +1,13 @@
 @import "../../../../theme";
 
+.rotationPanelContent {
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 4px;
+  min-width: 0;
+}
+
 .angleIconWrap {
   display: flex;
   align-items: center;
@@ -24,6 +32,13 @@
   user-select: none;
 }
 
+.actionButtons {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 4px;
+}
+
 .actionBtn {
   display: flex;
   align-items: center;
@@ -36,7 +51,6 @@
   color: @font-color-content;
   cursor: pointer;
   user-select: none;
-  margin-left: 4px;
   box-sizing: border-box;
 
   svg {
