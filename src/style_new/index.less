@@ -279,3 +279,233 @@
     margin-left: 4px;
   }
 }
+
+.styleSection {
+  min-width: 0;
+  padding: 0 1px;
+  background-color: #fff;
+}
+
+.batchActionStickyWrap {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background-color: #fff;
+  padding-top: 12px;
+  padding-bottom: 10px;
+  margin: 0 1px 4px;
+  overflow: hidden;
+}
+
+.batchActionBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  position: relative;
+  isolation: isolate;
+  opacity: 1;
+  visibility: visible;
+  min-height: 30px;
+  margin: 0;
+  padding: 6px 12px;
+  border-radius: 8px;
+  background-color: #fff;
+  border: none;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  overflow: visible;
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    padding: 1.5px;
+    border-radius: inherit;
+    pointer-events: none;
+    z-index: 2;
+    background: linear-gradient(
+      120deg,
+      #7a5cff 0%,
+      #43a6ff 22%,
+      #2fd3c4 42%,
+      #8ad85a 58%,
+      #ffb84d 74%,
+      #ff6f7d 88%,
+      #7a5cff 100%
+    );
+    background-size: 220% 220%;
+    animation: aiRainbowBorderShift 4.5s linear infinite;
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+  }
+
+  &::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: calc(100% - 2px);
+    height: 18px;
+    pointer-events: none;
+    border-bottom-left-radius: 12px;
+    border-bottom-right-radius: 12px;
+    z-index: 1;
+    background: linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 1) 0%,
+      rgba(255, 255, 255, 1) 36%,
+      rgba(255, 255, 255, 0.9) 56%,
+      rgba(255, 255, 255, 0.64) 76%,
+      rgba(255, 255, 255, 0.28) 90%,
+      rgba(255, 255, 255, 0) 100%
+    );
+  }
+
+  > * {
+    position: relative;
+    z-index: 3;
+  }
+}
+
+@keyframes aiRainbowBorderShift {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 220% 50%;
+  }
+}
+
+.batchMetaInfo {
+  min-width: 0;
+  flex: 1;
+  color: @font-color-content;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 20px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.batchActions {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.batchIconBtn {
+  width: 22px !important;
+  min-width: 22px !important;
+  max-width: 22px !important;
+  height: 22px !important;
+  padding: 0 !important;
+  border-radius: 50% !important;
+  flex: 0 0 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid @boder-color !important;
+  color: @font-color-content;
+  font-size: 10px;
+  line-height: 1 !important;
+  background: #EDEDED !important;
+  box-shadow: none !important;
+  position: relative;
+  isolation: isolate;
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    padding: 1px;
+    border-radius: 50%;
+    pointer-events: none;
+    opacity: 0;
+    z-index: 0;
+    background: linear-gradient(
+      120deg,
+      #7a5cff 0%,
+      #43a6ff 24%,
+      #2fd3c4 44%,
+      #8ad85a 62%,
+      #ffb84d 78%,
+      #ff6f7d 92%,
+      #7a5cff 100%
+    );
+    background-size: 220% 220%;
+    transition: opacity 0.2s ease;
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+  }
+
+  :global(.anticon) {
+    color: inherit;
+    font-size: 10px;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    vertical-align: middle;
+    position: relative;
+    z-index: 2;
+  }
+
+  &:hover,
+  &:focus,
+  &:active,
+  &.ant-btn:hover,
+  &.ant-btn:focus,
+  &.ant-btn:active,
+  &.ant-btn-default:hover,
+  &.ant-btn-default:focus,
+  &.ant-btn-default:active {
+    color: @font-color-content !important;
+    border-color: transparent !important;
+    background: #E2E2E2 !important;
+
+    &::before {
+      opacity: 1;
+      animation: aiRainbowBorderShift 3.8s linear infinite;
+    }
+  }
+}
+
+.batchConfirmBtn {
+  transition: border-color .2s ease, color .2s ease;
+  background: #EDEDED;
+}
+
+@media (max-width: 380px) {
+  .batchActionStickyWrap {
+    top: 0;
+    padding-top: 4px;
+    padding-bottom: 8px;
+    margin-bottom: 2px;
+  }
+
+  .batchActionBar {
+    min-height: 46px;
+    gap: 6px;
+    padding: 8px;
+    border-radius: 12px;
+  }
+
+  .batchMetaInfo {
+    font-size: 12px;
+    line-height: 18px;
+  }
+
+  .batchIconBtn {
+    width: 28px !important;
+    min-width: 28px !important;
+    max-width: 28px !important;
+    height: 28px !important;
+    flex-basis: 28px;
+  }
+}

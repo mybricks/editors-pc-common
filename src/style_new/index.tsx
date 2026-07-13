@@ -8,9 +8,9 @@ import {toCSS, toJSON} from 'cssjson';
 // @ts-ignore
 import {calculate, compare} from 'specificity';
 
-import {message, Tooltip} from "antd";
+import {Button, message, Tooltip} from "antd";
 
-import {AppstoreOutlined, CaretRightOutlined, CodeOutlined, CopyOutlined, ReloadOutlined,DeleteOutlined} from '@ant-design/icons'
+import {AppstoreOutlined, CaretRightOutlined, CheckOutlined, CloseOutlined, CodeOutlined, CopyOutlined, ReloadOutlined,DeleteOutlined} from '@ant-design/icons'
 // @ts-ignore
 import MonacoEditor from "@mybricks/code-editor";
 
@@ -229,6 +229,21 @@ export default function ({editConfig}: EditorProps) {
 
   // 从样式表中扫描到的伪类选择器列表，如 [".searchArea .hotWords span:hover"]
   const [pseudoSelectorList, setPseudoSelectorList] = useState<string[]>([])
+  const [batchMeta, setBatchMeta] = useState<{ enabled: boolean; dirtyCount: number; submitting: boolean }>({
+    enabled: false,
+    dirtyCount: 0,
+    submitting: false,
+  })
+  const refreshBatchMeta = useCallback(() => {
+    const localMeta = editConfig.value.getBatchMeta?.()
+    const bridgeMeta = (window as any).__mybricks_style_batch_bridge?.getMeta?.()
+    const localDirty = Number(localMeta?.dirtyCount || 0)
+    const bridgeDirty = Number(bridgeMeta?.dirtyCount || 0)
+    const dirtyCount = Math.max(localDirty, bridgeDirty)
+    const submitting = !!(localMeta?.submitting || bridgeMeta?.submitting)
+    const enabled = !!(localMeta?.enabled || bridgeMeta?.enabled || dirtyCount > 0)
+    setBatchMeta({ enabled, dirtyCount, submitting })
+  }, [editConfig])
 
   useEffect(() => {
     if (!open) return
@@ -314,6 +329,28 @@ export default function ({editConfig}: EditorProps) {
   useUpdateEffect(() => {
     setKey(key => key + 1)
   }, [editConfig.ifRefresh?.()])
+
+  useEffect(() => {
+    refreshBatchMeta()
+  }, [refreshBatchMeta, key, activeZoneIdx, editMode])
+
+  const onBatchDiscard = useCallback(() => {
+    if (editConfig.value.discardBatch) {
+      editConfig.value.discardBatch()
+    } else {
+      (window as any).__mybricks_style_batch_bridge?.discard?.()
+    }
+    refreshBatchMeta()
+  }, [editConfig, refreshBatchMeta])
+
+  const onBatchCommit = useCallback(() => {
+    if (editConfig.value.commitBatch) {
+      editConfig.value.commitBatch()
+    } else {
+      (window as any).__mybricks_style_batch_bridge?.commit?.()
+    }
+    refreshBatchMeta()
+  }, [editConfig, refreshBatchMeta])
 
   const title = useMemo(() => {
     return (
@@ -424,7 +461,7 @@ export default function ({editConfig}: EditorProps) {
       </div>)}
       </>
     )
-  }, [open, editMode, titleContent])
+  }, [open, editMode, titleContent, batchMeta, onBatchDiscard, onBatchCommit])
 
   const zoneSelectorList = useMemo(() => {
     const domList = Object.prototype.toString.call(targetDom) === '[object NodeList]'
@@ -646,7 +683,7 @@ export default function ({editConfig}: EditorProps) {
         activeStyleProps.collapsedOptions = allOptionKeys
       }
       return (
-        <Style editConfig={resolvedEditConfig} {...activeStyleProps}/>
+        <Style editConfig={resolvedEditConfig} onBatchMetaChange={refreshBatchMeta} {...activeStyleProps}/>
       )
     } else {
       return (
@@ -656,7 +693,7 @@ export default function ({editConfig}: EditorProps) {
         }}/>
       )
     }
-  }, [editMode, key, activeZoneIdx])
+  }, [editMode, key, activeZoneIdx, refreshBatchMeta])
 
   function onMouseEnter() {
     try {
@@ -759,15 +796,55 @@ export default function ({editConfig}: EditorProps) {
   return {
     render: (
       <>
+        {batchMeta.enabled && (
+          <div className={css.batchActionStickyWrap}>
+            <div className={css.batchActionBar}>
+              <div className={css.batchMetaInfo}>
+                {batchMeta.dirtyCount} 处变更
+              </div>
+              <div className={css.batchActions}>
+                <Button
+                  size="small"
+                  type="default"
+                  shape="circle"
+                  className={css.batchIconBtn}
+                  data-tip="全部丢弃"
+                  data-mybricks-tip="全部丢弃"
+                  disabled={batchMeta.submitting || batchMeta.dirtyCount === 0}
+                  onClick={onBatchDiscard}
+                  aria-label="清空暂存"
+                >
+                  <CloseOutlined />
+                </Button>
+                <Button
+                  size="small"
+                  type="default"
+                  shape="circle"
+                  className={`${css.batchIconBtn} ${css.batchConfirmBtn}`}
+                  data-tip="交给AI应用"
+                  data-mybricks-tip={`{content:'交给AI应用',position:'left'}`}
+                  loading={batchMeta.submitting}
+                  disabled={batchMeta.dirtyCount === 0}
+                  onClick={onBatchCommit}
+                  aria-label="提交给AI修改"
+                >
+                  {!batchMeta.submitting && <CheckOutlined />}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
         {zoneSelectorList.length > 0 && zoneTabBar}
         {zoneSelectorList.length > 0 && affectedCount !== null && affectedCount > 1 && (
           <div className={css.affectedHint} style={{marginTop: zoneSelectorList.length > 1 ? '10px' : '0'}}>
             修改当前样式会影响 {affectedCount} 个区域
           </div>
         )}
-        {title}
+        <div className={css.styleSection}>
+          {title}
         <div key={`${key}_${activeZoneIdx}`} style={{display: open ? 'block' : 'none'}}>
           {show && editor}
+        </div>
         </div>
         {canvasEle && targetStyle && createPortal(
           <>
@@ -800,7 +877,7 @@ interface StyleProps extends EditorProps {
   [key: string]: any;
 }
 
-function Style ({editConfig, options, setValue, collapsedOptions, readonlyExpandedOptions, autoCollapseWhenUnusedProperty, finnalExcludeOptions, defaultValue }: StyleProps) {
+function Style ({editConfig, options, setValue, collapsedOptions, readonlyExpandedOptions, autoCollapseWhenUnusedProperty, finnalExcludeOptions, defaultValue, onBatchMetaChange }: StyleProps) {
   // 追踪每次 handleChange 实际写入后的完整样式快照，
   // 替代 stale 的 setValue prop，作为渐变边框保护逻辑的数据源。
   const liveStyleRef = useRef<Record<string, any>>(
@@ -892,8 +969,27 @@ function Style ({editConfig, options, setValue, collapsedOptions, readonlyExpand
           ? (editConfig.options as any).selector
           : undefined)
 
-    editConfig.value.set(mergedCssProperties, selector ? { selector } : undefined)
-  }, [editConfig, options, collapsedOptions])
+    const setOptions = selector ? { selector } : undefined
+    const batchMeta = editConfig.value.getBatchMeta?.()
+    const bridgeMeta = (window as any).__mybricks_style_batch_bridge?.getMeta?.()
+    const targetDom = (!Array.isArray(editConfig.options) && editConfig.options)
+      ? (editConfig.options as any).targetDom ?? null
+      : null
+    const realTargetDom = (
+      Object.prototype.toString.call(targetDom) === '[object NodeList]' && targetDom?.length
+        ? targetDom[0]
+        : targetDom
+    ) as HTMLElement | null
+    const isThirdPartyFocus = !!realTargetDom && !realTargetDom.getAttribute('data-zone-selector')
+    if ((batchMeta?.enabled || isThirdPartyFocus) && editConfig.value.previewBatch) {
+      editConfig.value.previewBatch(mergedCssProperties, setOptions)
+      onBatchMetaChange?.()
+      return
+    }
+
+    editConfig.value.set(mergedCssProperties, setOptions)
+    onBatchMetaChange?.()
+  }, [editConfig, options, collapsedOptions, onBatchMetaChange])
 
   const editorContext = useMemo(() => {
     const dom = (!editConfig.options || Array.isArray(editConfig.options))

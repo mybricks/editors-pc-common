@@ -18,6 +18,14 @@ export interface EditorProps {
     value: {
       set(style: Style, options?: { selector?: string }): void
       get(): Style
+      previewBatch?(style: Style, options?: { selector?: string }): void
+      commitBatch?(): void
+      discardBatch?(): void
+      getBatchMeta?(): {
+        enabled: boolean
+        dirtyCount: number
+        submitting: boolean
+      }
     }
     upload: (file: Array<File>) => Array<string>
     title: string
