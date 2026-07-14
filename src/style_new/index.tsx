@@ -1849,6 +1849,74 @@ function getEffectedCssPropertyAndOptions (element: HTMLElement | null, selector
 
     const values = getValues(finalRules, computedValues, allInheritOnlyRules);
 
+    // ── 高优先级竞争规则覆盖校正 ──────────────────────────────────────────────
+    // 默认态下，CSS 规则里的颜色值可能被更高特指度规则（如 .tableHeadRow th { color: #555 }，
+    // 特指度 0,1,1）覆盖，而目标选择器（如 .colTag，特指度 0,1,0）的规则值无法生效。
+    // getStyleRules 只返回匹配目标选择器的规则，不含竞争规则，导致回显与实际不符。
+    //
+    // 修复：扫描 document.styleSheets 中所有匹配当前 element 的规则，按 CSS 级联规则
+    // （!important 优先，再比特指度，最后按源码顺序）找出真正胜出的值覆盖回显。
+    // element.matches() 天然过滤伪类规则（:hover/:disabled 等非激活态不会匹配），
+    // 因此无需担心点击选中时 hover 状态的干扰。
+    // 仅在默认态（primarySelector 无伪类后缀）且有真实 DOM 时执行。
+    const _hasPseudo = /:{1,2}[a-zA-Z\-]+(?:\([^)]*\))?$/.test(primarySelector)
+    if (element && !_hasPseudo) {
+      const _isVarRef = (v: any) => typeof v === 'string' && v.startsWith('var(')
+      const colorPropMap: Array<[string, string]> = [
+        ['color', 'color'],
+        ['backgroundColor', 'background-color'],
+        ['borderTopColor', 'border-top-color'],
+        ['borderRightColor', 'border-right-color'],
+        ['borderBottomColor', 'border-bottom-color'],
+        ['borderLeftColor', 'border-left-color'],
+      ]
+      colorPropMap.forEach(([camel, hyphen]) => {
+        const val = (values as any)[camel]
+        if (!val || _isVarRef(val)) return
+
+        // 找到所有匹配 element 且设置了该属性的规则，按 CSS 级联规则取最终胜出的值
+        let winnerValue: string | null = null
+        let winnerSpec: any = null
+        let winnerImportant = false
+        try {
+          const _root = getDocument()
+          for (const sheet of Array.from(_root.styleSheets)) {
+            try {
+              for (const rule of Array.from(sheet.cssRules || [])) {
+                if (!(rule instanceof CSSStyleRule)) continue
+                const propVal = rule.style.getPropertyValue(hyphen)
+                if (!propVal) continue
+                try { if (!element.matches(rule.selectorText)) continue } catch { continue }
+                const isImportant = rule.style.getPropertyPriority(hyphen) === 'important'
+                let ruleSpec: any
+                try { ruleSpec = calculate(rule.selectorText) } catch { continue }
+
+                if (winnerSpec === null) {
+                  winnerSpec = ruleSpec; winnerValue = propVal; winnerImportant = isImportant
+                } else if (winnerImportant && !isImportant) {
+                  // 当前胜者是 !important，新规则不是 → 保持
+                } else if (!winnerImportant && isImportant) {
+                  // 新规则是 !important → 直接胜出
+                  winnerSpec = ruleSpec; winnerValue = propVal; winnerImportant = true
+                } else if (compare(ruleSpec, winnerSpec) >= 0) {
+                  // 同等 !important 状态 → 特指度高者或相同时后来者胜出
+                  winnerSpec = ruleSpec; winnerValue = propVal; winnerImportant = isImportant
+                }
+              }
+            } catch {}
+          }
+        } catch {}
+
+        if (winnerValue === null) return
+        const c1 = colorUtil.get(val)
+        const c2 = colorUtil.get(winnerValue)
+        if (c1 && c2 && c1.value.join(',') !== c2.value.join(',')) {
+          (values as any)[camel] = winnerValue
+        }
+      })
+    }
+    // ────────────────────────────────────────────────────────────────────────
+
     // ── 内联 style 补丁：展开面板 + 用 element.style 原始值覆盖 ────────────────
     // 背景：element.style 里的属性不在任何 CSSStyleRule 中，
     //       getEffectedPanelsFromCssRules 无法感知，对应面板会保持折叠。
