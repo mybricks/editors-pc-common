@@ -1849,6 +1849,7 @@ function getEffectedCssPropertyAndOptions (element: HTMLElement | null, selector
 
     const values = getValues(finalRules, computedValues, allInheritOnlyRules);
 
+
     // ── 高优先级竞争规则覆盖校正 ──────────────────────────────────────────────
     // 默认态下，CSS 规则里的颜色值可能被更高特指度规则（如 .tableHeadRow th { color: #555 }，
     // 特指度 0,1,1）覆盖，而目标选择器（如 .colTag，特指度 0,1,0）的规则值无法生效。
@@ -1862,6 +1863,81 @@ function getEffectedCssPropertyAndOptions (element: HTMLElement | null, selector
     const _hasPseudo = /:{1,2}[a-zA-Z\-]+(?:\([^)]*\))?$/.test(primarySelector)
     if (element && !_hasPseudo) {
       const _isVarRef = (v: any) => typeof v === 'string' && v.startsWith('var(')
+      // ── 公共级联扫描：找到所有匹配 element 的规则中，按 CSS 级联（!important → 特指度 → 源码顺序）
+      // 取最终胜出的属性值。注意：点击元素时 element.matches(':hover') 可能返回 true，
+      // 因此需在规则循环内显式过滤交互伪类选择器（:hover/:focus/:active 等）。
+      //
+      // background shorthand 语义处理：
+      //   • `background: #1677ff` 不含 gradient → background-image 隐式变为 'none'，background-color = '#1677ff'
+      //   • `background: linear-gradient(...)` 含 gradient → background-image = gradient，background-color = ''
+      const _findCascadeWinner = (hyphen: string): string | null => {
+        let winnerValue: string | null = null
+        let winnerSpec: any = null
+        let winnerImportant = false
+        try {
+          const _root = getDocument()
+          for (const sheet of Array.from(_root.styleSheets)) {
+            try {
+              for (const rule of Array.from(sheet.cssRules || [])) {
+                if (!(rule instanceof CSSStyleRule)) continue
+                let _dbgMatches = false
+                try { _dbgMatches = element.matches(rule.selectorText) } catch { continue }
+                if (!_dbgMatches) continue
+                // 跳过含交互态伪类的规则（:hover/:focus/:active 等）。
+                // 原因：点击元素时 element.matches(':hover') = true，导致 hover 规则以 !important 赢得级联，
+                // 默认态面板错误回显 hover 颜色。交互态规则只应在对应 pseudo tab（_hasPseudo=true）下生效。
+                if (/:(hover|focus-within|focus-visible|focus|active|visited|checked|disabled|indeterminate|placeholder-shown|target|enabled|read-only|read-write)\b/i.test(rule.selectorText)) continue
+
+                // 提取该规则对目标属性（hyphen）的有效值，处理 background shorthand 展开逻辑
+                let propVal = rule.style.getPropertyValue(hyphen)
+                if (!propVal && hyphen.startsWith('background-')) {
+                  const bgShorthand = rule.style.getPropertyValue('background')
+                  if (bgShorthand) {
+                    const hasGradient = bgShorthand.includes('gradient')
+                    if (hyphen === 'background-image') {
+                      // background: color → image 隐式为 none；background: gradient → gradient IS image
+                      propVal = hasGradient ? bgShorthand : 'none'
+                    } else if (hyphen === 'background-color') {
+                      // background: color → this IS the color；background: gradient → no explicit color
+                      // Chrome 可能以完整 canonical 形式返回 shorthand（如 'rgb(22,119,255) none 0%...'），
+                      // 尝试用 rgba?\([^)]+\)|#[0-9a-f]{3,8} 提取首个颜色令牌
+                      if (!hasGradient) {
+                        const colorMatch = bgShorthand.match(/^(rgba?\([^)]+\)|#[0-9a-f]{3,8}|hsla?\([^)]+\))/)
+                        propVal = colorMatch ? colorMatch[1] : bgShorthand
+                      }
+                    }
+                  }
+                }
+                // 'initial'/'unset'/'revert' 对 background-image 语义等同于 'none'
+                // Chrome 对 `background: #1677ff` 的 getPropertyValue('background-image') 返回 'initial'，
+                // 需归一化，否则后续 fallback 条件 backgroundImage === 'none' 无法命中。
+                if (hyphen === 'background-image' && propVal && /^(initial|unset|revert)$/i.test(propVal.trim())) {
+                  propVal = 'none'
+                }
+                if (!propVal) continue
+
+                const isImportant = rule.style.getPropertyPriority(hyphen) === 'important'
+                  || rule.style.getPropertyPriority('background') === 'important'
+                let ruleSpec: any
+                try { ruleSpec = calculate(rule.selectorText) } catch { continue }
+
+                if (winnerSpec === null) {
+                  winnerSpec = ruleSpec; winnerValue = propVal; winnerImportant = isImportant
+                } else if (winnerImportant && !isImportant) {
+                  // 当前胜者是 !important，新规则不是 → 保持
+                } else if (!winnerImportant && isImportant) {
+                  winnerSpec = ruleSpec; winnerValue = propVal; winnerImportant = true
+                } else if (compare(ruleSpec, winnerSpec) >= 0) {
+                  winnerSpec = ruleSpec; winnerValue = propVal; winnerImportant = isImportant
+                }
+              }
+            } catch {}
+          }
+        } catch {}
+        return winnerValue
+      }
+
+      // ── 颜色属性：用 colorUtil 归一化比较（处理 rgb/rgba/hex 格式差异）─────────────
       const colorPropMap: Array<[string, string]> = [
         ['color', 'color'],
         ['backgroundColor', 'background-color'],
@@ -1873,8 +1949,64 @@ function getEffectedCssPropertyAndOptions (element: HTMLElement | null, selector
       colorPropMap.forEach(([camel, hyphen]) => {
         const val = (values as any)[camel]
         if (!val || _isVarRef(val)) return
+        const winnerValue = _findCascadeWinner(hyphen)
+        if (winnerValue === null) return
+        const c1 = colorUtil.get(val)
+        const c2 = colorUtil.get(winnerValue)
+        if (c1 && c2 && c1.value.join(',') !== c2.value.join(',')) {
+          (values as any)[camel] = winnerValue
+        }
+      })
 
-        // 找到所有匹配 element 且设置了该属性的规则，按 CSS 级联规则取最终胜出的值
+      // ── 背景图属性：用字符串比较（linear-gradient 无法被 colorUtil 解析）────────────
+      // 场景：antd `.ant-btn-variant-solid { background: #1677ff }` 特指度 (0,2,0) 高于
+      // 组件单类 `.headerStockInBtn` (0,1,0)，实际 background-image 被重置为 none，
+      // 但 getValues 读到的是 Less 文件里的渐变值，导致回显错误。
+      const bgImageVal = (values as any)['backgroundImage']
+      if (bgImageVal && bgImageVal !== 'none' && !_isVarRef(bgImageVal)) {
+        const bgWinner = _findCascadeWinner('background-image')
+        if (bgWinner !== null) {
+          const norm = (s: string) => s.replace(/\s+/g, ' ').trim().toLowerCase()
+          if (norm(bgImageVal) !== norm(bgWinner)) {
+            (values as any)['backgroundImage'] = bgWinner
+          }
+        }
+      }
+
+      // ── backgroundColor 兜底：组件 Less 无 background-color 时从 CSSOM 取实际生效值 ────
+      // 场景：antd Button 的背景色由 `.ant-btn-variant-solid { background: #1677ff }` 设置，
+      // 组件 Less 中无对应 background-color 规则，导致 getValues 返回空字符串，
+      // colorPropMap 的 !val 守卫跳过级联扫描，样式面板背景区域显示空白。
+      // 修复：当 values.backgroundColor 为空时，主动扫描 CSSOM 取实际生效的背景色，
+      // 让用户能看到并覆盖外部库（如 antd）设置的默认背景。
+      if (!(values as any)['backgroundColor'] && ((values as any)['backgroundImage'] === 'none' || (values as any)['backgroundImage'] === 'initial')) {
+        // 优先用级联扫描（过滤伪类规则），兜底用 computedValues（处理 shorthand 展开失败的场景）
+        let _bgColorCandidate = _findCascadeWinner('background-color')
+        if (!_bgColorCandidate || !colorUtil.get(_bgColorCandidate)) {
+          // _findCascadeWinner 返回了无法解析的 canonical shorthand 字符串（或 null），
+          // 改用 computedValues.background-color，在初始选中（非 hover）状态下是安全的
+          const _compBg = computedValues?.getPropertyValue('background-color') ?? ''
+          if (_compBg) _bgColorCandidate = _compBg
+        }
+        if (_bgColorCandidate && _bgColorCandidate !== 'none') {
+          const c = colorUtil.get(_bgColorCandidate)
+          // 过滤掉透明色（rgba(0,0,0,0)）和无效值，只显示真实背景色
+          if (c && !(c.value[0] === 0 && c.value[1] === 0 && c.value[2] === 0 && c.value[3] === 0)) {
+            (values as any)['backgroundColor'] = _bgColorCandidate
+          }
+        }
+      }
+    }
+
+    // ── hover 态级联校正：getValues 按特指度取最后规则，不考虑 !important，
+    // 导致 antd 高特指度 hover 规则覆盖组件自身 hover 规则的值。
+    // 修复：扫描所有以 :hover 结尾且 element（去掉:hover后）匹配的规则，
+    // 按完整 CSS 级联（!important → 特指度 → 源码顺序）找出真正胜出的值并更新 values。
+    if (element && _hasPseudo && /^.*:hover\s*$/i.test(primarySelector)) {
+      const _isVarRefH = (v: any) => typeof v === 'string' && v.startsWith('var(')
+      const HOVER_TAIL_RE = /:hover\s*$/i
+
+      const _findHoverCascadeWinner = (hyphen: string): string | null => {
         let winnerValue: string | null = null
         let winnerSpec: any = null
         let winnerImportant = false
@@ -1884,29 +2016,64 @@ function getEffectedCssPropertyAndOptions (element: HTMLElement | null, selector
             try {
               for (const rule of Array.from(sheet.cssRules || [])) {
                 if (!(rule instanceof CSSStyleRule)) continue
-                const propVal = rule.style.getPropertyValue(hyphen)
+                if (!HOVER_TAIL_RE.test(rule.selectorText)) continue
+                const ruleBase = rule.selectorText.replace(HOVER_TAIL_RE, '').trim()
+                try { if (!ruleBase || !element.matches(ruleBase)) continue } catch { continue }
+
+                let propVal = rule.style.getPropertyValue(hyphen)
+                if (!propVal && hyphen.startsWith('background-')) {
+                  const bgShorthand = rule.style.getPropertyValue('background')
+                  if (bgShorthand) {
+                    const hasGradient = bgShorthand.includes('gradient')
+                    if (hyphen === 'background-image') {
+                      propVal = hasGradient ? bgShorthand : 'none'
+                    } else if (hyphen === 'background-color') {
+                      if (!hasGradient) {
+                        const colorMatch = bgShorthand.match(/^(rgba?\([^)]+\)|#[0-9a-f]{3,8}|hsla?\([^)]+\))/)
+                        propVal = colorMatch ? colorMatch[1] : bgShorthand
+                      }
+                    }
+                  }
+                }
+                if (hyphen === 'background-image' && propVal && /^(initial|unset|revert)$/i.test(propVal.trim())) {
+                  propVal = 'none'
+                }
                 if (!propVal) continue
-                try { if (!element.matches(rule.selectorText)) continue } catch { continue }
+
                 const isImportant = rule.style.getPropertyPriority(hyphen) === 'important'
+                  || rule.style.getPropertyPriority('background') === 'important'
                 let ruleSpec: any
                 try { ruleSpec = calculate(rule.selectorText) } catch { continue }
 
                 if (winnerSpec === null) {
                   winnerSpec = ruleSpec; winnerValue = propVal; winnerImportant = isImportant
                 } else if (winnerImportant && !isImportant) {
-                  // 当前胜者是 !important，新规则不是 → 保持
+                  // 当前胜者是 !important，保持
                 } else if (!winnerImportant && isImportant) {
-                  // 新规则是 !important → 直接胜出
                   winnerSpec = ruleSpec; winnerValue = propVal; winnerImportant = true
                 } else if (compare(ruleSpec, winnerSpec) >= 0) {
-                  // 同等 !important 状态 → 特指度高者或相同时后来者胜出
                   winnerSpec = ruleSpec; winnerValue = propVal; winnerImportant = isImportant
                 }
               }
             } catch {}
           }
         } catch {}
+        return winnerValue
+      }
 
+      // 颜色属性校正
+      const colorPropMapH: Array<[string, string]> = [
+        ['color', 'color'],
+        ['backgroundColor', 'background-color'],
+        ['borderTopColor', 'border-top-color'],
+        ['borderRightColor', 'border-right-color'],
+        ['borderBottomColor', 'border-bottom-color'],
+        ['borderLeftColor', 'border-left-color'],
+      ]
+      colorPropMapH.forEach(([camel, hyphen]) => {
+        const val = (values as any)[camel]
+        if (!val || _isVarRefH(val)) return
+        const winnerValue = _findHoverCascadeWinner(hyphen)
         if (winnerValue === null) return
         const c1 = colorUtil.get(val)
         const c2 = colorUtil.get(winnerValue)
@@ -1914,6 +2081,45 @@ function getEffectedCssPropertyAndOptions (element: HTMLElement | null, selector
           (values as any)[camel] = winnerValue
         }
       })
+
+      // 背景图属性校正
+      const bgImageValH = (values as any)['backgroundImage']
+      if (bgImageValH && bgImageValH !== 'none' && !_isVarRefH(bgImageValH)) {
+        const bgWinnerH = _findHoverCascadeWinner('background-image')
+        if (bgWinnerH !== null) {
+          const norm = (s: string) => s.replace(/\s+/g, ' ').trim().toLowerCase()
+          if (norm(bgImageValH) !== norm(bgWinnerH)) {
+            (values as any)['backgroundImage'] = bgWinnerH
+          }
+        }
+      }
+      // 若 backgroundImage 被校正为真实渐变（说明组件 hover 规则以 !important 胜出），
+      // 则 antd background 简写设置的 backgroundColor 在视觉上被渐变覆盖、不可见，
+      // 清空以避免 parseLayers 渲染出冗余的第二背景图层。
+      const _bgImageAfterH = (values as any)['backgroundImage']
+      if (
+        _bgImageAfterH !== bgImageValH &&
+        _bgImageAfterH &&
+        _bgImageAfterH !== 'none' &&
+        _bgImageAfterH !== 'initial'
+      ) {
+        ;(values as any)['backgroundColor'] = ''
+      }
+
+      // backgroundColor 兜底：hover tab 下外部库覆盖时回显实际生效背景色
+      if (!(values as any)['backgroundColor'] && ((values as any)['backgroundImage'] === 'none' || (values as any)['backgroundImage'] === 'initial')) {
+        let _bgColorCandidateH = _findHoverCascadeWinner('background-color')
+        if (!_bgColorCandidateH || !colorUtil.get(_bgColorCandidateH)) {
+          const _compBg = computedValues?.getPropertyValue('background-color') ?? ''
+          if (_compBg) _bgColorCandidateH = _compBg
+        }
+        if (_bgColorCandidateH && _bgColorCandidateH !== 'none') {
+          const c = colorUtil.get(_bgColorCandidateH)
+          if (c && !(c.value[0] === 0 && c.value[1] === 0 && c.value[2] === 0 && c.value[3] === 0)) {
+            (values as any)['backgroundColor'] = _bgColorCandidateH
+          }
+        }
+      }
     }
     // ────────────────────────────────────────────────────────────────────────
 
