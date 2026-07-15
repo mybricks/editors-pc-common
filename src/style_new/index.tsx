@@ -242,7 +242,16 @@ export default function ({editConfig}: EditorProps) {
     const dirtyCount = Math.max(localDirty, bridgeDirty)
     const submitting = !!(localMeta?.submitting || bridgeMeta?.submitting)
     const enabled = !!(localMeta?.enabled || bridgeMeta?.enabled || dirtyCount > 0)
-    setBatchMeta({ enabled, dirtyCount, submitting })
+    setBatchMeta(prev => {
+      if (
+        prev.enabled === enabled &&
+        prev.dirtyCount === dirtyCount &&
+        prev.submitting === submitting
+      ) {
+        return prev
+      }
+      return { enabled, dirtyCount, submitting }
+    })
   }, [editConfig])
 
   useEffect(() => {
