@@ -77,16 +77,16 @@ const FONT_FAMILY_OPTIONS = [
   { label: "Noto Color Emoji", value: "Noto Color Emoji" },
 ];
 
-/** 字体加粗(原先的需求对标的某个app，忘了) */
 const FONT_WEIGHT_OPTIONS = [
-  { label: "极细", value: "100" },
-  { label: "特细", value: "200" },
-  { label: "细", value: "300" },
-  { label: "标准", value: "400" },
-  { label: "中黑", value: "500" },
-  { label: "中粗", value: "700" },
-  { label: "特粗", value: "900" },
-  // { label: "默认", value: "inherit" },
+  { label: "极细",  value: "100" },
+  { label: "特细",  value: "200" },
+  { label: "细体",  value: "300" },
+  { label: "标准",  value: "400" },
+  { label: "中等",  value: "500" },
+  { label: "中黑",  value: "600" },
+  { label: "粗体",  value: "700" },
+  { label: "特粗",  value: "800" },
+  { label: "极粗",  value: "900" },
 ];
 
 const WHITE_SPACE_OPTIONS = [

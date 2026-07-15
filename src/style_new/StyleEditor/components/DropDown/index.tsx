@@ -244,7 +244,7 @@ const Items = React.forwardRef<HTMLDivElement, ItemsProps>((props, forwardRef) =
           </span>
         ) : (hasAnyIcon ? <span style={{ paddingLeft: 5 }} /> : null)}
         <span style={{ flex: 1, minWidth: 0 }}>{label}</span>
-        {isChecked && !isAction && (
+        {multiple && isChecked && !isAction && (
           <span
             className={css.itemRemove}
             data-mybricks-tip="移除该字体"
