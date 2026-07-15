@@ -231,7 +231,7 @@ export function Appearance({ value, onChange, config, showTitle, collapse }: App
           min={0}
           max={100}
           step={1}
-          onBlur={e => handleOpacityChange(e.target.value)}
+          onBlur={e => { const v = e.target.value.trim(); if (!v || isNaN(parseFloat(v))) { e.target.value = String(opacityPercent); } else { handleOpacityChange(v); } }}
           onKeyDown={e => {
             if (e.key === 'Enter') {
               handleOpacityChange((e.target as HTMLInputElement).value)
@@ -261,6 +261,7 @@ export function Appearance({ value, onChange, config, showTitle, collapse }: App
             value={stripImportant(radiusValue.borderTopLeftRadius)}
             defaultUnitValue='px'
             unitOptions={RADIUS_UNIT_OPTIONS}
+            fallbackValue={0}
             onChange={val =>
               handleRadiusChange({
                 borderTopLeftRadius: val,
@@ -278,6 +279,7 @@ export function Appearance({ value, onChange, config, showTitle, collapse }: App
             placeholder='mix'
             defaultUnitValue='px'
             unitOptions={RADIUS_UNIT_OPTIONS}
+            fallbackValue={0}
             onChange={val => {
               handleRadiusChange({
                 borderTopLeftRadius: val,
@@ -338,6 +340,7 @@ export function Appearance({ value, onChange, config, showTitle, collapse }: App
                     value={stripImportant(radiusValue.borderTopLeftRadius)}
                     defaultUnitValue='px'
                     unitOptions={RADIUS_UNIT_OPTIONS}
+                    fallbackValue={0}
                     onChange={val => handleRadiusChange({ borderTopLeftRadius: val })}
                   />
                 </Panel.Item>
@@ -349,6 +352,7 @@ export function Appearance({ value, onChange, config, showTitle, collapse }: App
                     value={stripImportant(radiusValue.borderTopRightRadius)}
                     defaultUnitValue='px'
                     unitOptions={RADIUS_UNIT_OPTIONS}
+                    fallbackValue={0}
                     onChange={val => handleRadiusChange({ borderTopRightRadius: val })}
                   />
                   <span
@@ -381,6 +385,7 @@ export function Appearance({ value, onChange, config, showTitle, collapse }: App
                     value={stripImportant(radiusValue.borderBottomLeftRadius)}
                     defaultUnitValue='px'
                     unitOptions={RADIUS_UNIT_OPTIONS}
+                    fallbackValue={0}
                     onChange={val => handleRadiusChange({ borderBottomLeftRadius: val })}
                   />
                 </Panel.Item>
@@ -392,6 +397,7 @@ export function Appearance({ value, onChange, config, showTitle, collapse }: App
                     value={stripImportant(radiusValue.borderBottomRightRadius)}
                     defaultUnitValue='px'
                     unitOptions={RADIUS_UNIT_OPTIONS}
+                    fallbackValue={0}
                     onChange={val => handleRadiusChange({ borderBottomRightRadius: val })}
                   />
                   <span

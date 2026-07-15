@@ -34,6 +34,8 @@ interface InputNumberProps extends InputProps {
   badge?: React.ReactNode;
   /** 输入框占位文案，默认“默认” */
   placeholder?: string;
+  /** 失焦时输入为空的兜底值，设置后会自动补填并提交，而非显示 placeholder */
+  fallbackValue?: number | string;
 }
 
 export function InputNumber ({
@@ -60,6 +62,7 @@ export function InputNumber ({
   unitSelectStyle,
   badge,
   placeholder = '默认',
+  fallbackValue,
 }: InputNumberProps) {
   const [unit, setUnit] = useState<string>(getUnit(value || defaultValue, defaultUnitValue, unitOptions))
   const [number, handleNumberChange] = useInputNumber<string | number | undefined>(value || defaultValue)
@@ -107,10 +110,19 @@ export function InputNumber ({
   }) => {
     const trimmed = e.target.value.trim();
 
-    // 空值或非法值：回到默认状态，不提交
+    // 空值或非法值：若有兜底值则补填并提交，否则回到默认状态
     if (!trimmed || isNaN(parseFloat(trimmed))) {
-      setDisplayValue('');
-      e.target.value = '';
+      if (typeof fallbackValue !== 'undefined') {
+        const fallbackStr = String(fallbackValue);
+        e.target.value = fallbackStr;
+        handleNumberChange(fallbackStr);
+        setDisplayValue(fallbackStr);
+        const changeValue = String(parseFloat(fallbackStr)) + unit;
+        onChange?.(changeValue);
+      } else {
+        setDisplayValue('');
+        e.target.value = '';
+      }
       return;
     }
 
@@ -138,7 +150,7 @@ export function InputNumber ({
       const changeValue = String(parseFloat(finalVal)) + unit;
       onChange?.(changeValue);
     }
-  }, [number, allowNegative, unit, unitDisabledList, onChange]);
+  }, [number, allowNegative, unit, unitDisabledList, onChange, fallbackValue, handleNumberChange]);
 
   const isDefaultUnit = unitDisabledList.includes(unit)
 

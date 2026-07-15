@@ -96,6 +96,7 @@ export function Radius({ value, onChange, config, showTitle, collapse }: BorderP
                 style={DEFAULT_STYLE}
                 defaultValue={borderValue.borderTopLeftRadius}
                 unitOptions={UNIT_OPTIONS}
+                fallbackValue={0}
                 onChange={(value) =>
                   handleChange({
                     borderTopLeftRadius: value,
@@ -131,6 +132,7 @@ export function Radius({ value, onChange, config, showTitle, collapse }: BorderP
                 style={DEFAULT_STYLE__NEW}
                 defaultValue={borderValue.borderTopLeftRadius}
                 unitOptions={UNIT_OPTIONS}
+                fallbackValue={0}
                 onChange={(value) =>
                   handleChange({ borderTopLeftRadius: value })
                 }
@@ -143,6 +145,7 @@ export function Radius({ value, onChange, config, showTitle, collapse }: BorderP
                 style={DEFAULT_STYLE__NEW}
                 defaultValue={borderValue.borderTopRightRadius}
                 unitOptions={UNIT_OPTIONS}
+                fallbackValue={0}
                 onChange={(value) =>
                   handleChange({ borderTopRightRadius: value })
                 }
@@ -155,6 +158,7 @@ export function Radius({ value, onChange, config, showTitle, collapse }: BorderP
                 style={DEFAULT_STYLE__NEW}
                 defaultValue={borderValue.borderBottomRightRadius}
                 unitOptions={UNIT_OPTIONS}
+                fallbackValue={0}
                 onChange={(value) =>
                   handleChange({ borderBottomRightRadius: value })
                 }
@@ -167,6 +171,7 @@ export function Radius({ value, onChange, config, showTitle, collapse }: BorderP
                 style={DEFAULT_STYLE__NEW}
                 defaultValue={borderValue.borderBottomLeftRadius}
                 unitOptions={UNIT_OPTIONS}
+                fallbackValue={0}
                 onChange={(value) =>
                   handleChange({ borderBottomLeftRadius: value })
                 }

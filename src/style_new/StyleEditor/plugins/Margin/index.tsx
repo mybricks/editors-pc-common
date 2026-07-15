@@ -150,6 +150,7 @@ export function Margin ({value, onChange, config, showTitle, collapse}: MarginPr
                 defaultValue={marginValue.marginTop}
                 defaultUnitValue="px"
                 allowNegative
+                fallbackValue={0}
                 onChange={(value) => handleChange({
                   marginTop: value,
                   marginRight: value,
@@ -187,6 +188,7 @@ export function Margin ({value, onChange, config, showTitle, collapse}: MarginPr
                     defaultValue={marginValue.marginLeft}
                     defaultUnitValue="px"
                     allowNegative
+                    fallbackValue={0}
                     onChange={(value) => handleChange({marginLeft: value})}
                     onFocus={() => setSplitMarginIcon(<PaddingLeftOutlined/>)}
                   />
@@ -205,6 +207,7 @@ export function Margin ({value, onChange, config, showTitle, collapse}: MarginPr
                     defaultValue={marginValue.marginTop}
                     defaultUnitValue="px"
                     allowNegative
+                    fallbackValue={0}
                     onChange={(value) => handleChange({marginTop: value})}
                     onFocus={() => setSplitMarginIcon(<PaddingTopOutlined/>)}
                   />
@@ -225,6 +228,7 @@ export function Margin ({value, onChange, config, showTitle, collapse}: MarginPr
                     defaultValue={marginValue.marginRight}
                     defaultUnitValue="px"
                     allowNegative
+                    fallbackValue={0}
                     onChange={(value) => handleChange({marginRight: value})}
                     onFocus={() => setSplitMarginIcon(<PaddingRightOutlined/>)}
                   />
@@ -243,6 +247,7 @@ export function Margin ({value, onChange, config, showTitle, collapse}: MarginPr
                     defaultValue={marginValue.marginBottom}
                     defaultUnitValue="px"
                     allowNegative
+                    fallbackValue={0}
                     onChange={(value) => handleChange({marginBottom: value})}
                     onFocus={() => setSplitMarginIcon(<PaddingBottomOutlined/>)}
                   />

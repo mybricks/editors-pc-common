@@ -138,8 +138,30 @@
   font-size: 12px;
   font-weight: 500;
   color: @font-color-content;
-  cursor: pointer;
+  cursor: text;
   user-select: none;
+}
+
+.layerLabelInput {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 12px;
+  font-weight: 500;
+  color: @font-color-content;
+  padding: 0;
+  height: 100%;
+  cursor: text;
+
+  // Hide spin buttons (number input fallback)
+  -moz-appearance: textfield;
+  &::-webkit-inner-spin-button,
+  &::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
 }
 
 // ── Opacity (mirrors ColorEditor's .opacity) ─────────────────────────────────

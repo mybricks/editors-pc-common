@@ -692,6 +692,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                       style={{ ...shouldShowMiniLayout ? DEFAULT_STYLE_MINI : DEFAULT_STYLE_SMALL, flex: 1 }}
                       defaultValue={borderValue.borderTopWidth}
                       defaultUnitValue="px"
+                      fallbackValue={0}
                       onChange={(value) => {
                         const borderStyle =
                           !borderValue.borderTopStyle || borderValue.borderTopStyle === "none"
@@ -770,6 +771,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                         style={{ ...shouldShowMiniLayout ? DEFAULT_STYLE_MINI : DEFAULT_STYLE_SMALL, flexShrink: 0 }}
                         defaultValue={borderValue.borderLeftWidth}
                         defaultUnitValue="px"
+                        fallbackValue={0}
                         onChange={(value) =>
                           handleChange({
                             borderLeftWidth: value,
@@ -819,6 +821,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                         style={{ ...shouldShowMiniLayout ? DEFAULT_STYLE_MINI : DEFAULT_STYLE_SMALL, flexShrink: 0 }}
                         defaultValue={borderValue.borderTopWidth}
                         defaultUnitValue="px"
+                        fallbackValue={0}
                         onChange={(value) =>
                           handleChange({
                             borderTopWidth: value,
@@ -869,6 +872,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                         style={{ ...shouldShowMiniLayout ? DEFAULT_STYLE_MINI : DEFAULT_STYLE_SMALL, flexShrink: 0 }}
                         defaultValue={borderValue.borderRightWidth}
                         defaultUnitValue="px"
+                        fallbackValue={0}
                         onChange={(value) =>
                           handleChange({
                             borderRightWidth: value,
@@ -919,6 +923,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                         style={{ ...shouldShowMiniLayout ? DEFAULT_STYLE_MINI : DEFAULT_STYLE_SMALL, flexShrink: 0 }}
                         defaultValue={borderValue.borderBottomWidth}
                         defaultUnitValue="px"
+                        fallbackValue={0}
                         onChange={(value) =>
                           handleChange({
                             borderBottomWidth: value,
@@ -958,6 +963,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                 // suffix={'px'}
                 defaultValue={borderValue.borderTopLeftRadius}
                 unitOptions={UNIT_OPTIONS}
+                fallbackValue={0}
                 onChange={(value) =>
                   handleChange({
                     borderTopLeftRadius: value,
@@ -995,6 +1001,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                     style={DEFAULT_STYLE__NEW}
                     defaultValue={borderValue.borderTopLeftRadius}
                     unitOptions={UNIT_OPTIONS}
+                    fallbackValue={0}
                     onChange={(value) =>
                       handleChange({ borderTopLeftRadius: value })
                     }
@@ -1012,6 +1019,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                     style={DEFAULT_STYLE__NEW}
                     defaultValue={borderValue.borderTopRightRadius}
                     unitOptions={UNIT_OPTIONS}
+                    fallbackValue={0}
                     onChange={(value) =>
                       handleChange({ borderTopRightRadius: value })
                     }
@@ -1038,6 +1046,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                     style={DEFAULT_STYLE__NEW}
                     defaultValue={borderValue.borderBottomLeftRadius}
                     unitOptions={UNIT_OPTIONS}
+                    fallbackValue={0}
                     onChange={(value) =>
                       handleChange({ borderBottomLeftRadius: value })
                     }
@@ -1055,6 +1064,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                     style={DEFAULT_STYLE__NEW}
                     defaultValue={borderValue.borderBottomRightRadius}
                     unitOptions={UNIT_OPTIONS}
+                    fallbackValue={0}
                     onChange={(value) =>
                       handleChange({ borderBottomRightRadius: value })
                     }

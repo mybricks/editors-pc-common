@@ -728,6 +728,7 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
                 defaultValue={value.letterSpacing}
                 unitOptions={LETTERSPACING_UNIT_OPTIONS}
                 // unitDisabledList={LETTERSPACING_UNIT_DISABLED_LIST}
+                fallbackValue={0}
                 onChange={(value) => onChange({ key: "letterSpacing", value })}
               />
             </Panel.Item>
@@ -911,6 +912,7 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
               style={{ flex: 1, maxWidth: 120 }}
               defaultUnitValue=""
               value={String(truncateLines)}
+              fallbackValue={1}
               onChange={(lines) => {
                 const parsed = parseInt(String(lines), 10);
                 if (isNaN(parsed)) return;

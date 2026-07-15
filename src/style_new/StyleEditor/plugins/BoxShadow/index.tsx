@@ -334,6 +334,7 @@ function BoxShadowSketch({
             </div>
           }
           defaultValue={values.offsetX}
+          fallbackValue={0}
           onChange={update('offsetX')}
         />
       </div>
@@ -349,6 +350,7 @@ function BoxShadowSketch({
             </div>
           }
           defaultValue={values.offsetY}
+          fallbackValue={0}
           onChange={update('offsetY')}
         />
       </div>
@@ -365,6 +367,7 @@ function BoxShadowSketch({
             </div>
           }
           defaultValue={values.blurRadius}
+          fallbackValue={0}
           onChange={update('blurRadius')}
         />
       </div>
@@ -381,6 +384,7 @@ function BoxShadowSketch({
             </div>
           }
           defaultValue={values.spreadRadius}
+          fallbackValue={0}
           onChange={update('spreadRadius')}
         />
       </div>

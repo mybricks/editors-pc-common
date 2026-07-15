@@ -658,6 +658,7 @@ export function Size({value, onChange, config, showTitle, collapse}: SizeProps) 
                     unitOptions={widthUnitOptions}
                     unitDisabledList={UNIT_DISABLED_LIST}
                     unitDisplayLabelMap={UNIT_DISPLAY_LABEL_MAP}
+                    fallbackValue={0}
                     onChange={handleWidthChange}
                     onAction={(val) => {
                       if (val === 'hug') { setWidthPending('fit-content'); onChange({ key: 'width', value: 'fit-content' }); }
@@ -709,6 +710,7 @@ export function Size({value, onChange, config, showTitle, collapse}: SizeProps) 
                     unitOptions={heightUnitOptions}
                     unitDisabledList={UNIT_DISABLED_LIST}
                     unitDisplayLabelMap={UNIT_DISPLAY_LABEL_MAP}
+                    fallbackValue={0}
                     onChange={handleHeightChange}
                     onAction={(val) => {
                       if (val === 'hug') { setHeightPending('fit-content'); onChange({ key: 'height', value: 'fit-content' }); }
@@ -766,6 +768,7 @@ export function Size({value, onChange, config, showTitle, collapse}: SizeProps) 
                       defaultValue={minWidthEffective}
                       defaultUnitValue="px"
                       unitOptions={MIN_WIDTH_UNIT_OPTIONS}
+                      fallbackValue={0}
                       onChange={(val) => onChange({key: 'minWidth', value: val})}
                       onAction={() => { onChange({key: 'minWidth', value: null}); setShowMinWidth(false); setMinWidthPending(undefined); }}
                       showIcon={true}
@@ -787,6 +790,7 @@ export function Size({value, onChange, config, showTitle, collapse}: SizeProps) 
                       defaultValue={maxWidthEffective}
                       defaultUnitValue="px"
                       unitOptions={MAX_WIDTH_UNIT_OPTIONS}
+                      fallbackValue={0}
                       onChange={(val) => onChange({key: 'maxWidth', value: val})}
                       onAction={() => { onChange({key: 'maxWidth', value: null}); setShowMaxWidth(false); setMaxWidthPending(undefined); }}
                       showIcon={true}
@@ -809,6 +813,7 @@ export function Size({value, onChange, config, showTitle, collapse}: SizeProps) 
                       defaultValue={minHeightEffective}
                       defaultUnitValue="px"
                       unitOptions={MIN_HEIGHT_UNIT_OPTIONS}
+                      fallbackValue={0}
                       onChange={(val) => onChange({key: 'minHeight', value: val})}
                       onAction={() => { onChange({key: 'minHeight', value: null}); setShowMinHeight(false); setMinHeightPending(undefined); }}
                       showIcon={true}
@@ -830,6 +835,7 @@ export function Size({value, onChange, config, showTitle, collapse}: SizeProps) 
                       defaultValue={maxHeightEffective}
                       defaultUnitValue="px"
                       unitOptions={MAX_HEIGHT_UNIT_OPTIONS}
+                      fallbackValue={0}
                       onChange={(val) => onChange({key: 'maxHeight', value: val})}
                       onAction={() => { onChange({key: 'maxHeight', value: null}); setShowMaxHeight(false); setMaxHeightPending(undefined); }}
                       showIcon={true}
