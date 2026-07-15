@@ -16,13 +16,133 @@ function kebabToCamel(prop: string): string {
   return prop.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase())
 }
 
+/** 需要长度单位的属性，纯数字值自动补 px */
+const LENGTH_PROPS = new Set([
+  'width', 'height', 'minWidth', 'maxWidth', 'minHeight', 'maxHeight',
+  'top', 'right', 'bottom', 'left',
+  'margin', 'marginTop', 'marginRight', 'marginBottom', 'marginLeft',
+  'padding', 'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft',
+  'borderRadius',
+  'borderTopLeftRadius', 'borderTopRightRadius', 'borderBottomLeftRadius', 'borderBottomRightRadius',
+  'borderWidth', 'borderTopWidth', 'borderRightWidth', 'borderBottomWidth', 'borderLeftWidth',
+  'fontSize', 'letterSpacing', 'wordSpacing', 'textIndent',
+  'gap', 'rowGap', 'columnGap',
+  'inset', 'insetBlock', 'insetInline',
+  'outlineWidth', 'outlineOffset',
+  'translate', 'rotate',
+])
+
+function normalizePx(key: string, value: string): string {
+  if (/^-?\d+\.?\d*$/.test(value) && LENGTH_PROPS.has(key)) {
+    return value + 'px'
+  }
+  return value
+}
+
 function expandShorthands(key: string, value: string): Array<{ key: string; value: string }> {
   if (key === 'gap') {
     const parts = value.trim().split(/\s+/)
     return [
-      { key: 'rowGap', value: parts[0] },
-      { key: 'columnGap', value: parts[1] ?? parts[0] },
+      { key: 'rowGap', value: normalizePx('rowGap', parts[0]) },
+      { key: 'columnGap', value: normalizePx('columnGap', parts[1] ?? parts[0]) },
     ]
+  }
+  return [{ key, value: normalizePx(key, value) }]
+}
+
+// ─── Category D：Figma 私有属性，无 CSS 对应，直接跳过 ───────────────────────
+const FIGMA_SKIP_PROPS = new Set([
+  'fill', 'stroke', 'strokeWidth', 'strokeDasharray', 'strokeLinecap', 'strokeLinejoin',
+  'layoutMode', 'layoutAlign', 'contentAlign',
+  'primaryAxisAlignItems', 'counterAxisAlignItems',
+  'primaryAxisSizingMode', 'counterAxisSizingMode',
+  'sizing', 'type',
+  'effects', 'counterAxisSpacing', 'layoutGrow', 'constraints', 'colorProfile',
+])
+
+// ─── Category C：Figma 特有 → 转换为 CSS ─────────────────────────────────────
+type TransformResult = Array<{ key: string; value: string }> | null
+
+const FIGMA_TO_CSS: Record<string, (value: string) => TransformResult> = {
+  // angle: 45 deg → transform: rotate(45deg)；值为 0 则跳过
+  angle: (v) => {
+    const num = parseFloat(v)
+    if (isNaN(num) || num === 0) return null
+    return [{ key: 'transform', value: `rotate(${num}deg)` }]
+  },
+  // blend-mode: multiply → mix-blend-mode: multiply
+  blendMode: (v) => [{ key: 'mixBlendMode', value: v }],
+  // item-spacing: 12 → gap: 12px
+  itemSpacing: (v) => [{ key: 'gap', value: normalizePx('gap', v) }],
+  // horizontal-padding: 16 → padding-left: 16px + padding-right: 16px
+  horizontalPadding: (v) => {
+    const val = normalizePx('padding', v)
+    return [
+      { key: 'paddingLeft', value: val },
+      { key: 'paddingRight', value: val },
+    ]
+  },
+  // vertical-padding: 8 → padding-top: 8px + padding-bottom: 8px
+  verticalPadding: (v) => {
+    const val = normalizePx('padding', v)
+    return [
+      { key: 'paddingTop', value: val },
+      { key: 'paddingBottom', value: val },
+    ]
+  },
+  // layout-wrap: wrap → flex-wrap: wrap
+  layoutWrap: (v) => [{ key: 'flexWrap', value: v }],
+  // rotation: 45 → transform: rotate(45deg)（angle 的别名）
+  rotation: (v) => {
+    const num = parseFloat(v)
+    if (isNaN(num) || num === 0) return null
+    return [{ key: 'transform', value: `rotate(${num}deg)` }]
+  },
+  // line-height: AUTO → line-height: normal
+  lineHeight: (v) => {
+    if (v.toUpperCase() === 'AUTO') return [{ key: 'lineHeight', value: 'normal' }]
+    return [{ key: 'lineHeight', value: v }]
+  },
+  // text-case: UPPER/LOWER/TITLE → text-transform
+  textCase: (v) => {
+    const map: Record<string, string> = {
+      UPPER: 'uppercase', LOWER: 'lowercase', TITLE: 'capitalize', NONE: 'none',
+    }
+    const mapped = map[v.toUpperCase()]
+    return mapped ? [{ key: 'textTransform', value: mapped }] : null
+  },
+  // font-weight: Regular/Medium/SemiBold/Bold/... → numeric
+  fontWeight: (v) => {
+    const namedWeights: Record<string, string> = {
+      thin: '100', hairline: '100',
+      extralight: '200', ultralight: '200',
+      light: '300',
+      regular: '400', normal: '400', book: '400',
+      medium: '500',
+      semibold: '600', demibold: '600',
+      bold: '700',
+      extrabold: '800', ultrabold: '800',
+      black: '900', heavy: '900',
+    }
+    const mapped = namedWeights[v.toLowerCase().replace(/[\s-]/g, '')]
+    return [{ key: 'fontWeight', value: mapped ?? v }]
+  },
+  // layer-blur / blur: 8 → filter: blur(8px)
+  layerBlur: (v) => {
+    const px = /^-?\d+\.?\d*$/.test(v) ? v + 'px' : v
+    return [{ key: 'filter', value: `blur(${px})` }]
+  },
+  blur: (v) => {
+    const px = /^-?\d+\.?\d*$/.test(v) ? v + 'px' : v
+    return [{ key: 'filter', value: `blur(${px})` }]
+  },
+}
+
+/** Category C/D 统一处理：返回转换后的条目数组，或 null 表示跳过 */
+function figmaTransform(key: string, value: string): TransformResult {
+  if (FIGMA_SKIP_PROPS.has(key)) return null
+  if (Object.prototype.hasOwnProperty.call(FIGMA_TO_CSS, key)) {
+    return FIGMA_TO_CSS[key](value)
   }
   return [{ key, value }]
 }
@@ -40,7 +160,10 @@ function parseCSS(cssText: string): Array<{ key: string; value: string }> {
     if (!/^[\w-]+$/.test(propRaw)) continue
     const valueRaw = trimmed.slice(colonIdx + 1).trim().replace(/;$/, '').trim()
     if (!valueRaw) continue
-    result.push(...expandShorthands(kebabToCamel(propRaw), valueRaw))
+    for (const entry of expandShorthands(kebabToCamel(propRaw), valueRaw)) {
+      const transformed = figmaTransform(entry.key, entry.value)
+      if (transformed) result.push(...transformed)
+    }
   }
   return result
 }
