@@ -117,6 +117,9 @@ function LayerItem({
   disableGradient,
 }: LayerItemProps) {
   const [colorPickerCtx] = useState<{ open?: () => void }>({});
+  const [editing, setEditing] = useState(false);
+  const [editText, setEditText] = useState("");
+  const labelInputRef = useRef<HTMLInputElement>(null);
 
   const handlePickerChange = useCallback(
     (change: any) => {
@@ -137,9 +140,6 @@ function LayerItem({
   const opacity = layer.type === "solid" ? getColorOpacity(layer.value) : 100;
 
   // ── Opacity drag scrubbing (reuses useDragNumber hook) ──────────────────
-  // onDragStart returns the current opacity → triggers useCustomEnd path in
-  // the hook, so it calls onDragEnd on mouseUp instead of focus/blur.
-  // onDragEnd commits the final value exactly once via onLayerChange.
   const getDragProps = useDragNumber({
     min: 0,
     max: 100,
@@ -162,12 +162,58 @@ function LayerItem({
     [layer.value, layer.size, layer.repeat, layer.position]
   );
 
+  // ── Inline label editing (solid colors only) ─────────────────────────────
+
+  const startEditing = useCallback(() => {
+    if (layer.type !== "solid") {
+      colorPickerCtx.open?.();
+      return;
+    }
+    setEditText(getLayerLabel(layer));
+    setEditing(true);
+    // Focus the input after render
+    setTimeout(() => {
+      labelInputRef.current?.select();
+    }, 0);
+  }, [layer, colorPickerCtx]);
+
+  const commitEdit = useCallback(() => {
+    setEditing(false);
+    const raw = editText.trim();
+    if (!raw) return;
+    try {
+      // Preserve original opacity if the user typed a hex without alpha
+      const parsed = new ColorUtil(raw);
+      const currentOpacity = getColorOpacity(layer.value);
+      // If user input has no alpha component (6-digit hex), keep existing opacity
+      const hasAlpha = /^#[0-9a-fA-F]{8}$/.test(raw) || raw.toLowerCase().startsWith("rgba");
+      const finalColor = hasAlpha
+        ? parsed.hexa().toUpperCase()
+        : setColorOpacity(parsed.hex().toUpperCase(), currentOpacity);
+      onLayerChange({ value: finalColor });
+    } catch {
+      // Invalid color — revert silently
+    }
+  }, [editText, layer.value, onLayerChange]);
+
+  const handleLabelKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        commitEdit();
+      } else if (e.key === "Escape") {
+        setEditing(false);
+      }
+    },
+    [commitEdit]
+  );
+
   return (
     // style={{ marginLeft: 0 }} overrides Panel.Item's :not(:first-child) { margin-left: 4px }
     // which is designed for horizontal flex and would shift rows in a vertical stack
     <Panel.Item className={css.layerRow} style={{ marginLeft: 0 }} activeWhenBlur={false}>
       {/* Drag handle — visibility toggled via CSS on parent .layerItemWrapper:hover */}
-      <div className={css.dragHandle}>
+      <div className={css.dragHandle} data-drag-handle>
         <GripIcon />
       </div>
 
@@ -190,13 +236,25 @@ function LayerItem({
         </div>
       </Colorpicker>
 
-      {/* Label — click to open picker */}
-      <div
-        className={css.layerLabel}
-        onClick={() => colorPickerCtx.open?.()}
-      >
-        {getLayerLabel(layer)}
-      </div>
+      {/* Label — click to edit inline (solid) or open picker (gradient/image) */}
+      {editing ? (
+        <input
+          ref={labelInputRef}
+          className={css.layerLabelInput}
+          value={editText}
+          onChange={(e) => setEditText(e.target.value)}
+          onBlur={commitEdit}
+          onKeyDown={handleLabelKeyDown}
+          spellCheck={false}
+        />
+      ) : (
+        <div
+          className={css.layerLabel}
+          onClick={startEditing}
+        >
+          {getLayerLabel(layer)}
+        </div>
+      )}
 
       {/* Opacity */}
       <div className={css.opacity}>
@@ -339,7 +397,17 @@ export function Background({
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [overState, setOverState] = useState<{ index: number; half: "top" | "bottom" } | null>(null);
 
+  // mousedown 时 e.target 才是真实的鼠标按下元素（input/textarea 等）；
+  // 而 dragstart 的 e.target 始终是带 draggable 的 wrapper div，无法直接判断来源。
+  // 用 ref 在 mousedown 阶段记录是否应阻止拖拽，避免不必要的 re-render。
+  const dragBlockedRef = useRef(false);
+
   const handleDragStart = useCallback((e: React.DragEvent<HTMLDivElement>, index: number) => {
+    if (dragBlockedRef.current) {
+      e.preventDefault();
+      dragBlockedRef.current = false;
+      return;
+    }
     setDragIndex(index);
     e.dataTransfer.effectAllowed = "move";
   }, []);
@@ -423,6 +491,10 @@ export function Background({
               key={layer.id}
               className={`${css.layerItemWrapper}${dragIndex === index ? ` ${css.layerDragging}` : ""}`}
               draggable
+              onMouseDown={(e) => {
+                // 只有从拖拽 handle 按下才允许拖拽，其他区域（label、input、swatch 等）一律阻止
+                dragBlockedRef.current = !(e.target as HTMLElement).closest("[data-drag-handle]");
+              }}
               onDragStart={(e) => handleDragStart(e, index)}
               onDragOver={(e) => handleDragOver(e, index)}
               onDrop={(e) => handleDrop(e, index)}
