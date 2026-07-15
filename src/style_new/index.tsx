@@ -3029,6 +3029,27 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration, 
 }
 
 // 修改getStyleRules函数以更好地处理伪类选择器
+
+/** CSS Modules 哈希类名：规则末尾 class 必须属于当前 element，避免 ant-*-title 误匹配 .title */
+function ruleLastClassBelongsToElement (
+  element: HTMLElement | null,
+  ruleLast: string,
+  selLast: string
+): boolean {
+  if (!element) {
+    return ruleLast === selLast || ruleLast.endsWith('-' + selLast)
+  }
+  const elementHasTargetClass = Array.from(element.classList).some(
+    c => c === selLast || c.endsWith('-' + selLast)
+  )
+  if (elementHasTargetClass) {
+    // element 已在目标类上（如 xxx--title）：规则末尾 class 必须精确归属该 element
+    return Array.from(element.classList).some(c => c === ruleLast)
+  }
+  // 编辑尚未激活的状态类（如 formTabActive）：element 不含目标 class，保留 endsWith 宽松匹配
+  return ruleLast === selLast || ruleLast.endsWith('-' + selLast)
+}
+
 function getStyleRules (element: HTMLElement | null, selector: string | null): { rules: CSSStyleRule[], inheritOnlyRules: Set<CSSStyleRule> } {
   const finalRules: CSSStyleRule[] = [] // 最终返回的规则
   // 标记哪些规则是"父级继承来源"——这些规则命中的原因是子元素（如 span）继承了父级样式，
@@ -3208,7 +3229,7 @@ function getStyleRules (element: HTMLElement | null, selector: string | null): {
               const ruleLast = (selectorText.split(/\s+/).pop() || '').replace(/^\./, '')
               const selLast = lastSeg.replace(/^\./, '')
               if (ruleLast === selLast || ruleLast.endsWith('-' + selLast)) {
-                isHashedModuleMatch = true
+                isHashedModuleMatch = ruleLastClassBelongsToElement(element, ruleLast, selLast)
               } else if (selLast.includes('.')) {
                 const ruleClasses = ruleLast.split('.').filter(Boolean)
                 const selClasses = selLast.split('.').filter(Boolean)
@@ -3216,13 +3237,13 @@ function getStyleRules (element: HTMLElement | null, selector: string | null): {
                   // 情形A：CSS Modules 编译后的复合选择器，token 数相同，逐段匹配
                   isHashedModuleMatch = selClasses.every((sClass, i) => {
                     const rClass = ruleClasses[i]
-                    return rClass === sClass || rClass.endsWith('-' + sClass)
+                    return rClass === sClass || ruleLastClassBelongsToElement(element, rClass, sClass)
                   })
                 }
                 if (!isHashedModuleMatch && ruleClasses.length === 1) {
                   // 情形B：CSS 只写了单类（如 .aiBubble），用复合 selector 末尾 token 回退
                   const lastSelClass = selClasses[selClasses.length - 1]
-                  isHashedModuleMatch = ruleLast === lastSelClass || ruleLast.endsWith('-' + lastSelClass)
+                  isHashedModuleMatch = ruleLastClassBelongsToElement(element, ruleLast, lastSelClass)
                 }
               }
             }
