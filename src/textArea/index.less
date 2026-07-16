@@ -9,8 +9,9 @@
       // resize: none;
       font-size: 12px;
       height: 26px;
+      color: @font-color-content;
       background: @bg-color-main;
-      border: 1px solid #D9D9D9;
+      border: 1px solid @boder-color;
       border-radius: 4px;
       transition: none;
     }
@@ -38,7 +39,7 @@
     }
 
     .ant-input[disabled]:hover {
-      border-color: #d9d9d9;
+      border-color: @boder-color;
     }
   }
 }
@@ -64,6 +65,8 @@
     //padding: 10px 0 0 0 !important;
     resize: both;
     width: 100%;
+    color: @font-color-content;
+    background: @bg-color-main;
     //line-height: 1;
 
     &:active {
