@@ -9,6 +9,8 @@ import css from "./index.less";
 interface DropdownOption {
   label: string | number;
   value: any;
+  /** 下拉项右侧辅助文案，如字重数值 */
+  suffix?: string | number;
   type?: 'action' | 'divider' | 'header';
   checked?: boolean;
   icon?: ReactNode;
@@ -187,7 +189,7 @@ const Items = React.forwardRef<HTMLDivElement, ItemsProps>((props, forwardRef) =
   const actionItems = options.filter((o) => o.type === 'action');
 
   const renderItem = (opt: typeof options[number], key: string | number, orderIndex?: number) => {
-    const { label, value, type, checked, icon, iconSize } = opt;
+    const { label, value, suffix, type, checked, icon, iconSize } = opt;
     if (type === 'divider') {
       return <div key={key} className={css.divider} />;
     }
@@ -243,7 +245,12 @@ const Items = React.forwardRef<HTMLDivElement, ItemsProps>((props, forwardRef) =
             {icon}
           </span>
         ) : (hasAnyIcon ? <span style={{ paddingLeft: 5 }} /> : null)}
-        <span style={{ flex: 1, minWidth: 0 }}>{label}</span>
+        <span className={css.itemLabel}>
+          {label}
+          {suffix != null && suffix !== '' && (
+            <span className={css.itemSuffix}>{suffix}</span>
+          )}
+        </span>
         {multiple && isChecked && !isAction && (
           <span
             className={css.itemRemove}

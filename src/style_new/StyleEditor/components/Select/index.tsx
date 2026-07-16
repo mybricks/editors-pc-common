@@ -22,7 +22,7 @@ interface SelectProps {
   onChange: (value: any) => void;
   onAction?: (value: any) => void;
   onReorder?: (newOrder: any[]) => void;
-  options: Array<{ value: any; label: string | number; type?: 'action' | 'divider'; checked?: boolean; icon?: ReactNode; iconSize?: 'sm' | 'md' }>;
+  options: Array<{ value: any; label: string | number; suffix?: string | number; type?: 'action' | 'divider'; checked?: boolean; icon?: ReactNode; iconSize?: 'sm' | 'md' }>;
   multiple?: boolean;
   /** 是否展示下拉的icon */
   showIcon?: boolean;
@@ -68,8 +68,7 @@ export function Select({
       ? value
           .map((v) => options.find(({ value }) => value === v)?.label)
           .join(",")
-      : options.find(({ value: optionValue }) => optionValue === value)
-          ?.label || value
+      : options.find(({ value: optionValue }) => optionValue === value)?.label || value
   );
 
   // 用 ref 保持最新值，避免 useCallback([]依赖) 闭包读到旧值（模式切换时 multiple/options/onChange 会变）
@@ -126,8 +125,7 @@ export function Select({
         ? propsValue
             .map((v) => options.find(({ value }) => value === v)?.label)
             .join(",")
-        : options.find(({ value: optionValue }) => optionValue === value)
-            ?.label || value
+        : options.find(({ value: optionValue }) => optionValue === value)?.label || value
     );
   }, [value]);
 
@@ -162,7 +160,13 @@ export function Select({
               style={labelStyle}
               className={`${css.value}${labelClassName ? ` ${labelClassName}` : ''}${!label && placeholder ? ` ${css.placeholder}` : ''}`}
             >
-              {label || placeholder}
+              <span className={css.valueText}>
+                {label || placeholder}
+                {!Array.isArray(value) && options.find(o => o.value === value)?.suffix
+                  ? <span className={css.valueSuffix}>{options.find(o => o.value === value)?.suffix}</span>
+                  : null
+                }
+              </span>
             </div>
           )}
           {showIcon && (

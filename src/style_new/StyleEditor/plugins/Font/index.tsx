@@ -78,15 +78,15 @@ const FONT_FAMILY_OPTIONS = [
 ];
 
 const FONT_WEIGHT_OPTIONS = [
-  { label: "极细",  value: "100" },
-  { label: "特细",  value: "200" },
-  { label: "细体",  value: "300" },
-  { label: "标准",  value: "400" },
-  { label: "中等",  value: "500" },
-  { label: "中黑",  value: "600" },
-  { label: "粗体",  value: "700" },
-  { label: "特粗",  value: "800" },
-  { label: "极粗",  value: "900" },
+  { label: "极细",  value: "100", suffix: "100" },
+  { label: "特细",  value: "200", suffix: "200" },
+  { label: "细体",  value: "300", suffix: "300" },
+  { label: "标准",  value: "400", suffix: "400" },
+  { label: "中等",  value: "500", suffix: "500" },
+  { label: "中黑",  value: "600", suffix: "600" },
+  { label: "粗体",  value: "700", suffix: "700" },
+  { label: "特粗",  value: "800", suffix: "800" },
+  { label: "极粗",  value: "900", suffix: "900" },
 ];
 
 const WHITE_SPACE_OPTIONS = [
