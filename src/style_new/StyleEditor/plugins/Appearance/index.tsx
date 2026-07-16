@@ -214,86 +214,91 @@ export function Appearance({ value, onChange, config, showTitle, collapse }: App
 
   // ─── 主行（opacity + 圆角），统一/分离模式共用 ─────────────────
   const mainRow = (
-    <Panel.Content style={{ paddingTop: 0 }}>
-      {/* 不透明度输入 */}
-      <Panel.Item className={css.inputItem}>
-        <span
-          className={`${css.inputIcon} ${css.opacityIcon}`}
-          {...getDragPropsOpacity(opacityPercent, "{content:'拖拽调整不透明度',position:'left'}")}
-        >
-          <OpacityIcon />
-        </span>
-        <input
-          key={opacityForceKey}
-          type='number'
-          className={css.opacityInput}
-          defaultValue={opacityPercent}
-          min={0}
-          max={100}
-          step={1}
-          onBlur={e => { const v = e.target.value.trim(); if (!v || isNaN(parseFloat(v))) { e.target.value = String(opacityPercent); } else { handleOpacityChange(v); } }}
-          onKeyDown={e => {
-            if (e.key === 'Enter') {
-              handleOpacityChange((e.target as HTMLInputElement).value)
-            }
-          }}
-        />
-        <span className={css.percentSuffix}>%</span>
-      </Panel.Item>
-
-      {/* 圆角输入（统一模式）或汇总显示（分离模式） */}
-      <Panel.Item className={css.inputItem} style={{ flex: 1 }}>
-        <span
-          className={css.inputIcon}
-          {...(radiusMode === 'split' ? getDragPropsRadiusSplit : getDragPropsRadiusAll)(
-            stripImportant(radiusValue.borderTopLeftRadius),
-            radiusMode === 'all'
-              ? "{content:'拖拽调整圆角半径',position:'left'}"
-              : "{content:'拖拽统一调整各圆角',position:'left'}"
-          )}
-        >
-          <BorderRadiusSplitOutlined />
-        </span>
-        {radiusMode === 'all' ? (
-          <InputNumber
-            key='radius-all'
-            style={{ flex: 1, minWidth: 0, marginLeft: 2 }}
-            value={stripImportant(radiusValue.borderTopLeftRadius)}
-            defaultUnitValue='px'
-            unitOptions={RADIUS_UNIT_OPTIONS}
-            fallbackValue={0}
-            onChange={val =>
-              handleRadiusChange({
-                borderTopLeftRadius: val,
-                borderTopRightRadius: val,
-                borderBottomLeftRadius: val,
-                borderBottomRightRadius: val,
-              })
-            }
-          />
-        ) : (
-          <InputNumber
-            key={`radius-mixed-${isMixedRadius ? 'mixed' : 'same'}`}
-            style={{ flex: 1, minWidth: 0, marginLeft: 2 }}
-            value={isMixedRadius ? undefined : mixedRadiusValue}
-            placeholder='mix'
-            defaultUnitValue='px'
-            unitOptions={RADIUS_UNIT_OPTIONS}
-            fallbackValue={0}
-            onChange={val => {
-              handleRadiusChange({
-                borderTopLeftRadius: val,
-                borderTopRightRadius: val,
-                borderBottomLeftRadius: val,
-                borderBottomRightRadius: val,
-              })
-              setSplitRadiusSyncKey(k => k + 1)
+    <>
+      <div className={css.fieldLabels}>
+        <span>不透明度</span>
+        <span>圆角</span>
+      </div>
+      <Panel.Content style={{ paddingTop: 0 }}>
+        {/* 不透明度输入 */}
+        <Panel.Item className={css.inputItem}>
+          <span
+            className={`${css.inputIcon} ${css.opacityIcon}`}
+            {...getDragPropsOpacity(opacityPercent, "{content:'拖拽调整不透明度',position:'left'}")}
+          >
+            <OpacityIcon />
+          </span>
+          <input
+            key={opacityForceKey}
+            type='number'
+            className={css.opacityInput}
+            defaultValue={opacityPercent}
+            min={0}
+            max={100}
+            step={1}
+            onBlur={e => { const v = e.target.value.trim(); if (!v || isNaN(parseFloat(v))) { e.target.value = String(opacityPercent); } else { handleOpacityChange(v); } }}
+            onKeyDown={e => {
+              if (e.key === 'Enter') {
+                handleOpacityChange((e.target as HTMLInputElement).value)
+              }
             }}
           />
-        )}
-      </Panel.Item>
+          <span className={css.percentSuffix}>%</span>
+        </Panel.Item>
 
-    </Panel.Content>
+        {/* 圆角输入（统一模式）或汇总显示（分离模式） */}
+        <Panel.Item className={css.inputItem} style={{ flex: 1 }}>
+          <span
+            className={css.inputIcon}
+            {...(radiusMode === 'split' ? getDragPropsRadiusSplit : getDragPropsRadiusAll)(
+              stripImportant(radiusValue.borderTopLeftRadius),
+              radiusMode === 'all'
+                ? "{content:'拖拽调整圆角半径',position:'left'}"
+                : "{content:'拖拽统一调整各圆角',position:'left'}"
+            )}
+          >
+            <BorderRadiusSplitOutlined />
+          </span>
+          {radiusMode === 'all' ? (
+            <InputNumber
+              key='radius-all'
+              style={{ flex: 1, minWidth: 0, marginLeft: 2 }}
+              value={stripImportant(radiusValue.borderTopLeftRadius)}
+              defaultUnitValue='px'
+              unitOptions={RADIUS_UNIT_OPTIONS}
+              fallbackValue={0}
+              onChange={val =>
+                handleRadiusChange({
+                  borderTopLeftRadius: val,
+                  borderTopRightRadius: val,
+                  borderBottomLeftRadius: val,
+                  borderBottomRightRadius: val,
+                })
+              }
+            />
+          ) : (
+            <InputNumber
+              key={`radius-mixed-${isMixedRadius ? 'mixed' : 'same'}`}
+              style={{ flex: 1, minWidth: 0, marginLeft: 2 }}
+              value={isMixedRadius ? undefined : mixedRadiusValue}
+              placeholder='mix'
+              defaultUnitValue='px'
+              unitOptions={RADIUS_UNIT_OPTIONS}
+              fallbackValue={0}
+              onChange={val => {
+                handleRadiusChange({
+                  borderTopLeftRadius: val,
+                  borderTopRightRadius: val,
+                  borderBottomLeftRadius: val,
+                  borderBottomRightRadius: val,
+                })
+                setSplitRadiusSyncKey(k => k + 1)
+              }}
+            />
+          )}
+        </Panel.Item>
+      </Panel.Content>
+    </>
   )
 
   return (
