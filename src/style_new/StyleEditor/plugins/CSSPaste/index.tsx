@@ -139,6 +139,53 @@ const FIGMA_TO_CSS: Record<string, (value: string) => TransformResult> = {
 }
 
 /** Category C/D 统一处理：返回转换后的条目数组，或 null 表示跳过 */
+function resolveCSSVariableFallback(value: string): string | null {
+  if (!/\bvar\(\s*--/i.test(value)) return value
+
+  // Figma 导出的变量名无法映射到灵创主题变量；用 fallback 替换所有 var()。
+  // 支持颜色函数、渐变和嵌套 var() 等 fallback 写法；任一变量无 fallback 时跳过整条声明。
+  let result = ''
+  let cursor = 0
+
+  while (cursor < value.length) {
+    const varStart = value.slice(cursor).search(/\bvar\(\s*--/i)
+    if (varStart === -1) {
+      result += value.slice(cursor)
+      break
+    }
+
+    const start = cursor + varStart
+    const contentStart = value.indexOf('(', start) + 1
+    let depth = 1
+    let end = contentStart
+    for (; end < value.length && depth > 0; end++) {
+      if (value[end] === '(') depth++
+      else if (value[end] === ')') depth--
+    }
+    if (depth !== 0) return null
+
+    const content = value.slice(contentStart, end - 1)
+    let commaIndex = -1
+    let contentDepth = 0
+    for (let i = 0; i < content.length; i++) {
+      if (content[i] === '(') contentDepth++
+      else if (content[i] === ')') contentDepth--
+      else if (content[i] === ',' && contentDepth === 0) {
+        commaIndex = i
+        break
+      }
+    }
+    if (commaIndex === -1) return null
+
+    const fallback = resolveCSSVariableFallback(content.slice(commaIndex + 1).trim())
+    if (!fallback) return null
+    result += value.slice(cursor, start) + fallback
+    cursor = end
+  }
+
+  return result.trim()
+}
+
 function figmaTransform(key: string, value: string): TransformResult {
   if (FIGMA_SKIP_PROPS.has(key)) return null
   if (Object.prototype.hasOwnProperty.call(FIGMA_TO_CSS, key)) {
@@ -161,7 +208,9 @@ function parseCSS(cssText: string): Array<{ key: string; value: string }> {
     const valueRaw = trimmed.slice(colonIdx + 1).trim().replace(/;$/, '').trim()
     if (!valueRaw) continue
     for (const entry of expandShorthands(kebabToCamel(propRaw), valueRaw)) {
-      const transformed = figmaTransform(entry.key, entry.value)
+      const value = resolveCSSVariableFallback(entry.value)
+      if (value === null) continue
+      const transformed = figmaTransform(entry.key, value)
       if (transformed) result.push(...transformed)
     }
   }
