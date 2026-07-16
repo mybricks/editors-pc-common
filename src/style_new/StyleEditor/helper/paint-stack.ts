@@ -52,6 +52,124 @@ export const clipHasText = (clip?: string): boolean => {
   return splitBackgroundLayers(clip).some((c) => c.trim() === 'text');
 };
 
+/** 是否为渐变边框用的双层 clip */
+export const hasGradientBorderClip = (clip?: string): boolean => {
+  if (!clip || typeof clip !== 'string') return false;
+  const parts = splitBackgroundLayers(clip).map((c) => c.trim());
+  return parts.includes('padding-box') && parts.includes('border-box');
+};
+
+const TEXT_FILL_OWNED_PROPS = new Set([
+  'backgroundImage',
+  'backgroundClip',
+  'WebkitBackgroundClip',
+  'webkitBackgroundClip',
+  'backgroundOrigin',
+  'WebkitTextFillColor',
+  'webkitTextFillColor',
+  'backgroundSize',
+  'backgroundRepeat',
+  'backgroundPosition',
+]);
+
+/**
+ * 修正 PANEL_MAP 归属：
+ * - 文字渐变独占的栈属性归 font
+ * - 普通背景渐变占用的 backgroundImage/clip 不归 border（除非真有渐变边框）
+ * 避免误把边框/背景面板算作「有生效样式」而强制展开。
+ */
+export const refineEffectedPanel = (
+  property: string,
+  mappedPanel: string | undefined,
+  styleBag: Record<string, any> = {}
+): string | undefined => {
+  if (!mappedPanel) return undefined;
+
+  const clip = getBackgroundClip(styleBag);
+  const textActive = clipHasText(clip);
+  const stack = decomposeBackgroundStack(styleBag);
+  const borderActive =
+    !!stack.borderLayer || hasGradientBorderClip(clip);
+
+  // 无文字渐变时：border 面板注册的 background* 仅在「真有渐变边框」时才归属 border
+  if (!textActive) {
+    if (
+      mappedPanel === 'border' &&
+      TEXT_FILL_OWNED_PROPS.has(property) &&
+      !borderActive
+    ) {
+      if (property === 'backgroundImage') return 'background';
+      // clip/origin 等无边框语义时不展开任何面板
+      return undefined;
+    }
+    return mappedPanel;
+  }
+
+  const textOnlyStack =
+    !!stack.textLayer && !borderActive && stack.contentLayers.length === 0;
+
+  if (
+    property === 'WebkitTextFillColor' ||
+    property === 'webkitTextFillColor'
+  ) {
+    return 'font';
+  }
+
+  if (
+    property === 'backgroundClip' ||
+    property === 'WebkitBackgroundClip' ||
+    property === 'webkitBackgroundClip' ||
+    property === 'backgroundOrigin'
+  ) {
+    // 与渐变边框共存时仍归属 border；仅文字渐变时归 font
+    return borderActive ? 'border' : 'font';
+  }
+
+  if (property === 'backgroundImage') {
+    if (borderActive) return mappedPanel;
+    if (stack.contentLayers.length > 0) return 'background';
+    if (stack.textLayer) return 'font';
+  }
+
+  if (
+    (property === 'backgroundSize' ||
+      property === 'backgroundRepeat' ||
+      property === 'backgroundPosition') &&
+    textOnlyStack
+  ) {
+    return 'font';
+  }
+
+  return mappedPanel;
+};
+
+/** UA/diff 检测时：文字渐变占用的栈属性不应算作边框/背景面板有值 */
+export const isPaintStackPropOwnedByTextFill = (
+  property: string,
+  styleBag: Record<string, any> = {}
+): boolean => {
+  if (!TEXT_FILL_OWNED_PROPS.has(property)) return false;
+  const refined = refineEffectedPanel(property, 'border', styleBag);
+  // 若修正后归 font，说明该属性由文字填充占用
+  return refined === 'font';
+};
+
+/**
+ * 边框面板 UA/diff：backgroundImage/clip/origin 仅服务于渐变边框。
+ * 普通背景渐变写在同一属性上时，不应让边框面板被当成「有值」而展开。
+ */
+export const isPaintStackPropIrrelevantToBorder = (
+  property: string,
+  styleBag: Record<string, any> = {}
+): boolean => {
+  if (!TEXT_FILL_OWNED_PROPS.has(property)) return false;
+  const clip = getBackgroundClip(styleBag);
+  const stack = decomposeBackgroundStack(styleBag);
+  const borderActive =
+    !!stack.borderLayer || hasGradientBorderClip(clip);
+  return !borderActive;
+};
+
 const padParallel = (
   values: string[],
   length: number,

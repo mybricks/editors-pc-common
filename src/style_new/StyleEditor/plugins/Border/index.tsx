@@ -484,13 +484,16 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
 
     // 其余属性以 null 删除（走 handleChange 正常删除流程）
     // 非 null 项已使 activePanelsInBatch 包含 'border'，绕过删除守卫
+    // 仅在确实存在渐变边框层时清 background*，避免误删文字渐变占用的栈
+    const styleForStack = (value || borderValueRef.current) as Record<string, any>;
+    const hasBorderGradientLayer = !!decomposeBackgroundStack(styleForStack).borderLayer;
     const nullKeys = [
       'borderTopColor', 'borderRightColor', 'borderBottomColor', 'borderLeftColor',
       'borderTopLeftRadius', 'borderTopRightRadius', 'borderBottomLeftRadius', 'borderBottomRightRadius',
       'border', 'borderTop', 'borderRight', 'borderBottom', 'borderLeft',
       'borderRadius', 'borderWidth', 'borderStyle', 'borderColor',
       'outline', 'outlineOffset', 'boxShadow',
-      ...GRADIENT_BORDER_KEYS,
+      ...(hasBorderGradientLayer ? GRADIENT_BORDER_KEYS : []),
     ];
     items.push(...nullKeys.map(key => ({ key, value: null })));
 
@@ -498,7 +501,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
     setBorderValue({} as any);
     setBorderPosition('center');
     setForceRenderKey(prev => prev + 1);
-  }, [onChange]);
+  }, [onChange, value]);
 
   const borderPositionRef = useRef<BorderPosition>(borderPosition);
   borderPositionRef.current = borderPosition;

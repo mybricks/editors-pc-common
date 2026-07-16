@@ -19,7 +19,13 @@ import StyleEditor, {DEFAULT_OPTIONS, StyleEditorProvider} from './StyleEditor'
 
 import {getSuggestOptionsByElement, mergeCSSProperties, splitCSSProperties} from './StyleEditor/helper'
 import { initLiveStyle } from './StyleEditor/helper/gradient-border'
-import { preservePaintRoles } from './StyleEditor/helper/paint-stack'
+import {
+  decomposeBackgroundStack,
+  isPaintStackPropIrrelevantToBorder,
+  isPaintStackPropOwnedByTextFill,
+  preservePaintRoles,
+  refineEffectedPanel,
+} from './StyleEditor/helper/paint-stack'
 
 import type {EditorProps, GetDefaultConfigurationProps} from './type'
 import type {ChangeEvent, Options, Style} from './StyleEditor/type'
@@ -1322,9 +1328,18 @@ function getDefaultConfiguration ({value, options}: GetDefaultConfigurationProps
   const splitedSetValue = splitCSSProperties(setValue)
 
   const setValueEffectedPanels = new Set<string>();
+  const setValueBag = splitedSetValue as Record<string, any>
   Object.keys(splitedSetValue).forEach(property => {
-    if (PANEL_MAP[property]) {
-      setValueEffectedPanels.add(PANEL_MAP[property])
+    const mapped = PANEL_MAP[property]
+    if (isMeaninglessStylePropForPanel(property, setValueBag[property], mapped, setValueBag)) {
+      return
+    }
+    const panel = refineEffectedPanel(property, mapped, setValueBag)
+    if (panel) {
+      if (panel === 'border' && !isBorderPanelMeaningfullyUsed(setValueBag)) {
+        return
+      }
+      setValueEffectedPanels.add(panel)
     }
   })
 
@@ -1349,6 +1364,18 @@ function getDefaultConfiguration ({value, options}: GetDefaultConfigurationProps
       const emptyValues: Record<string, any> = getDefaultValueFunctionMap2[panelKey]?.() ?? {};
       const diffProps: Array<{prop: string, empty: any, current: any}> = [];
       const hasUAValue = Object.keys(emptyValues).some(prop => {
+        const styleBag = defaultValue as Record<string, any>
+        // 文字渐变占用的 backgroundImage/clip 等不应让边框/背景面板被当成「有值」而展开
+        if (isPaintStackPropOwnedByTextFill(prop, styleBag)) {
+          return false
+        }
+        // 普通背景渐变写在 backgroundImage 上：边框面板空白基准也含该字段，需排除
+        if (
+          panelKey === 'border' &&
+          isPaintStackPropIrrelevantToBorder(prop, styleBag)
+        ) {
+          return false
+        }
         const emptyVal = emptyValues[prop];
         // @ts-ignore
         const currentVal = defaultValue[prop];
@@ -2146,18 +2173,43 @@ function getEffectedCssPropertyAndOptions (element: HTMLElement | null, selector
     //       会丢失内联 style 的真实值。
     const inlineEffectedPanels: string[] = [];
     if (element && element.style.length > 0) {
+      const inlineBag: Record<string, any> = {};
       for (let i = 0; i < element.style.length; i++) {
         const kebabProp = element.style[i];
         const camelProp = toHump(kebabProp);
-        const panel = PANEL_MAP[camelProp];
-        if (panel && !inlineEffectedPanels.includes(panel)) {
-          inlineEffectedPanels.push(panel);
-        }
         const inlineVal = element.style.getPropertyValue(kebabProp);
         if (inlineVal) {
           (values as any)[camelProp] = inlineVal;
+          inlineBag[camelProp] = inlineVal;
         }
       }
+      // 补齐 webkit 读法，供文字渐变面板归属判断
+      const webkitClip = element.style.getPropertyValue('-webkit-background-clip');
+      const webkitFill = element.style.getPropertyValue('-webkit-text-fill-color');
+      if (webkitClip) inlineBag.WebkitBackgroundClip = webkitClip;
+      if (webkitFill) inlineBag.WebkitTextFillColor = webkitFill;
+
+      const inlineStyleBag = { ...values, ...inlineBag };
+      Object.keys(inlineBag).forEach((camelProp) => {
+        const mapped = PANEL_MAP[camelProp];
+        if (
+          isMeaninglessStylePropForPanel(
+            camelProp,
+            inlineBag[camelProp],
+            mapped,
+            inlineStyleBag
+          )
+        ) {
+          return;
+        }
+        const panel = refineEffectedPanel(camelProp, mapped, inlineStyleBag);
+        if (panel === 'border' && !isBorderPanelMeaningfullyUsed(inlineStyleBag)) {
+          return;
+        }
+        if (panel && !inlineEffectedPanels.includes(panel)) {
+          inlineEffectedPanels.push(panel);
+        }
+      });
     }
     // ────────────────────────────────────────────────────────────────────────
 
@@ -3408,17 +3460,173 @@ Object.keys(getDefaultValueFunctionMap2).forEach(panelType => {
 /**
  * @description 从 css rules 中获取当前生效的插件，用于展示插件的是否默认折叠
  */
+function cssRuleStyleToBag (style: CSSStyleDeclaration): Record<string, any> {
+  const bag: Record<string, any> = {}
+  // 遍历 style 声明，供文字渐变归属 / 边框空值判断使用
+  for (let i = 0; i < style.length; i++) {
+    const kebab = style[i]
+    const camel = toHump(kebab)
+    const val = style.getPropertyValue(kebab)
+    if (val) bag[camel] = val
+  }
+  const webkitClip = style.getPropertyValue('-webkit-background-clip')
+  const webkitFill = style.getPropertyValue('-webkit-text-fill-color')
+  if (webkitClip) {
+    bag.WebkitBackgroundClip = webkitClip
+    if (!bag.backgroundClip) bag.backgroundClip = webkitClip
+  }
+  if (webkitFill) bag.WebkitTextFillColor = webkitFill
+  return bag
+}
+
+/** 长度是否为 0（0 / 0px / 0%） */
+function isZeroCssLength (value?: string): boolean {
+  if (value == null || value === '') return true
+  const s = String(value).trim().toLowerCase()
+  return s === '0' || s === '0px' || s === '0%' || s === '0em' || s === '0rem'
+}
+
+/**
+ * 边框面板是否「真正有内容」：
+ * 点 - 号后会残留 border: 0px none ... / border-radius: 0px，
+ * 这些不应再把边框面板算作生效（否则无法折叠）。
+ */
+function isBorderPanelMeaningfullyUsed (styleBag: Record<string, any> = {}): boolean {
+  if (decomposeBackgroundStack(styleBag).borderLayer) return true
+
+  const sides = ['Top', 'Right', 'Bottom', 'Left'] as const
+  for (const side of sides) {
+    const width = styleBag[`border${side}Width`]
+    const style = styleBag[`border${side}Style`]
+    if (!isZeroCssLength(width) && style && style !== 'none' && style !== 'hidden') {
+      return true
+    }
+  }
+
+  // shorthand: border / borderTop ...
+  for (const key of ['border', 'borderTop', 'borderRight', 'borderBottom', 'borderLeft']) {
+    const raw = styleBag[key]
+    if (typeof raw !== 'string' || !raw.trim()) continue
+    const s = raw.trim().toLowerCase()
+    if (s === 'none' || s === '0' || s === '0px') continue
+    // 0px none ... / none 0px ... → 视为已清除
+    if (/^0(px)?\s+none\b/.test(s) || /^none\b/.test(s)) continue
+    // 含非 0 宽度或非 none 的 style 才算有边框
+    if (!/\b0(px)?\b/.test(s) || !/\bnone\b/.test(s)) {
+      // 更严谨：若同时出现 0 宽度和 none，跳过；否则有实质边框
+      const hasNone = /\bnone\b/.test(s)
+      const hasZeroWidth = /(?:^|\s)0(?:px)?(?:\s|$)/.test(s)
+      if (!(hasNone && hasZeroWidth)) return true
+    }
+  }
+
+  for (const key of [
+    'borderTopLeftRadius',
+    'borderTopRightRadius',
+    'borderBottomRightRadius',
+    'borderBottomLeftRadius',
+    'borderRadius',
+  ]) {
+    const raw = styleBag[key]
+    if (raw == null || raw === '') continue
+    // border-radius: 0 / 0px / 0px 0px 0px 0px
+    const parts = String(raw).trim().split(/\s+/)
+    if (parts.some((p) => !isZeroCssLength(p))) return true
+  }
+
+  const outline = styleBag.outline
+  if (outline && outline !== 'none' && outline !== '0' && outline !== '0px') {
+    const o = String(outline).toLowerCase()
+    if (!(o.includes('none') && /(?:^|\s)0(?:px)?(?:\s|$)/.test(o))) {
+      return true
+    }
+  }
+
+  return false
+}
+
+/** 属性值是否等价于该面板空白基准（或对边框面板无视觉意义） */
+function isMeaninglessStylePropForPanel (
+  property: string,
+  value: any,
+  mappedPanel: string | undefined,
+  styleBag: Record<string, any>
+): boolean {
+  if (value === null || value === undefined || value === '') return true
+  const str = String(value).replace(/!important/gi, '').trim()
+  if (!str) return true
+
+  // 对照各面板空白基准
+  // @ts-ignore
+  const emptyBag = mappedPanel ? getDefaultValueFunctionMap2[mappedPanel]?.() : null
+  if (emptyBag && property in emptyBag) {
+    const emptyVal = emptyBag[property]
+    const normalize = (v: any) => {
+      if (v === '' || CSS_TRIVIAL_VALUES.has(v)) return null
+      if (v === 'rgba(0, 0, 0, 0)' || v === 'rgba(0,0,0,0)') return null
+      return String(v).replace(/\s+/g, '').toLowerCase()
+    }
+    if (normalize(str) === normalize(emptyVal)) return true
+  }
+
+  if (mappedPanel === 'border' || mappedPanel === 'appearance') {
+    // 边框/圆角相关：单独无意义的颜色、0 宽度、none style 不算
+    if (/^border(Top|Right|Bottom|Left)?Color$/i.test(property)) {
+      return !isBorderPanelMeaningfullyUsed(styleBag)
+    }
+    if (/Width$/i.test(property) && /border/i.test(property)) {
+      return isZeroCssLength(str)
+    }
+    if (/Style$/i.test(property) && /border/i.test(property)) {
+      return str === 'none' || str === 'hidden'
+    }
+    if (/Radius$/i.test(property) || property === 'borderRadius') {
+      return String(str).split(/\s+/).every((p) => isZeroCssLength(p))
+    }
+    if (
+      property === 'border' ||
+      property === 'borderTop' ||
+      property === 'borderRight' ||
+      property === 'borderBottom' ||
+      property === 'borderLeft'
+    ) {
+      const s = str.toLowerCase()
+      if (s === 'none') return true
+      const hasNone = /\bnone\b/.test(s)
+      const hasZeroWidth = /(?:^|\s)0(?:px)?(?:\s|$)/.test(s)
+      return hasNone && hasZeroWidth
+    }
+  }
+
+  return false
+}
+
 function getEffectedPanelsFromCssRules (rules: CSSStyleRule[]) {
-  let effectedPanels = new Set();
+  let effectedPanels = new Set<string>();
   rules.filter(rule => {
     if (rule.selectorText.indexOf('.desn-') === 0 && rule.selectorText.indexOf('*') > -1) {
       return false
     }
     return true
   }).forEach(rule => {
-    rule.styleMap.forEach((_, key) => {
-      if (PANEL_MAP[toHump(key)]) {
-        effectedPanels.add(PANEL_MAP[toHump(key)])
+    const styleBag = cssRuleStyleToBag(rule.style)
+    rule.styleMap.forEach((cssVal, key) => {
+      const camel = toHump(key)
+      const rawVal =
+        typeof (cssVal as any)?.toString === 'function'
+          ? (cssVal as any).toString()
+          : styleBag[camel]
+      const mapped = PANEL_MAP[camel]
+      if (isMeaninglessStylePropForPanel(camel, rawVal, mapped, styleBag)) {
+        return
+      }
+      const panel = refineEffectedPanel(camel, mapped, styleBag)
+      if (panel) {
+        // 边框面板额外总检：全是 0/none 残留时不展开
+        if (panel === 'border' && !isBorderPanelMeaningfullyUsed(styleBag)) {
+          return
+        }
+        effectedPanels.add(panel)
       }
     })
   })
