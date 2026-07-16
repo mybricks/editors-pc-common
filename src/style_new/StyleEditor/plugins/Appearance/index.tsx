@@ -62,7 +62,7 @@ function stripImportant(val: any): any {
   return val
 }
 
-export function Appearance({ value, onChange, config, showTitle, collapse }: AppearanceProps) {
+export function Appearance({ value, onChange, config, collapse }: AppearanceProps) {
   const [{ useImportant }] = useState({ ...DEFAULT_CONFIG, ...config })
   const [splitRadiusSyncKey, setSplitRadiusSyncKey] = useState(0)
 
@@ -304,7 +304,7 @@ export function Appearance({ value, onChange, config, showTitle, collapse }: App
   return (
     <Panel
       title='外观'
-      showTitle={showTitle}
+      showTitle={false}
       showReset={true}
       showDelete={false}
       resetFunction={handleReset}
