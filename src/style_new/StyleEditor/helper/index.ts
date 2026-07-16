@@ -1,3 +1,6 @@
 export * from './get-suggest-options-by-element'
 export * from './merge-css-properties'
 export * from './gradient-border'
+export * from './paint-stack'
+export * from './text-fill'
+export * from './get-color-editor-value'

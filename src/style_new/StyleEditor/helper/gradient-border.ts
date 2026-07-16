@@ -9,6 +9,8 @@
  *   background-origin: padding-box, border-box;
  *   background-clip:   padding-box, border-box;
  *   border: Xpx solid transparent;
+ *
+ * 跨面板角色保护见 paint-stack.preservePaintRoles（已替代原 preserveGradientBorderLayer）。
  */
 
 /** background-origin / background-clip 双层值的标识字符串 */
@@ -137,115 +139,32 @@ export const initLiveStyle = (
     if (dv.backgroundClip) initial.backgroundClip = dv.backgroundClip;
     if (dv.backgroundColor && !initial.backgroundColor) initial.backgroundColor = dv.backgroundColor;
   }
+
+  // 文字渐变：setValue 可能缺 clip/text-fill，从 defaultValue（DOM）补齐
+  // 用 splitBackgroundLayers 判断 text，与 paint-stack.clipHasText 语义一致（避免循环依赖）
+  const dvClip = dv.backgroundClip || dv.WebkitBackgroundClip || dv.webkitBackgroundClip;
+  const initialClip =
+    initial.backgroundClip || initial.WebkitBackgroundClip || initial.webkitBackgroundClip;
+  const clipListHasText = (clip?: string) =>
+    typeof clip === 'string' &&
+    splitBackgroundLayers(clip).some((c) => c.trim() === 'text');
+  if (clipListHasText(dvClip) && !clipListHasText(initialClip)) {
+    if (dv.backgroundImage) initial.backgroundImage = dv.backgroundImage;
+    if (dvClip) {
+      initial.backgroundClip = dvClip;
+      initial.WebkitBackgroundClip = dvClip;
+    }
+    const textFill =
+      dv.WebkitTextFillColor || dv.webkitTextFillColor || 'transparent';
+    initial.WebkitTextFillColor = textFill;
+    if (dv.color !== undefined) initial.color = dv.color;
+    if (dv.backgroundOrigin) initial.backgroundOrigin = dv.backgroundOrigin;
+    if (dv.backgroundSize) initial.backgroundSize = dv.backgroundSize;
+    if (dv.backgroundRepeat) initial.backgroundRepeat = dv.backgroundRepeat;
+    if (dv.backgroundPosition) initial.backgroundPosition = dv.backgroundPosition;
+  }
+
   return initial;
 };
 
 export type StyleChangeItem = { key: string; value: any };
-
-/**
- * 从 liveStyle 快照中取出渐变边框层（始终是 backgroundImage 的最后一层）。
- * 当 backgroundOrigin / backgroundClip 不符合双层格式时返回 undefined。
- */
-export const getGradientBorderLayerFromStyle = (
-  style: Record<string, any>
-): string | undefined => {
-  if (
-    typeof style.backgroundImage === 'string' &&
-    style.backgroundOrigin === GRADIENT_BORDER_BOX_VALUE &&
-    style.backgroundClip === GRADIENT_BORDER_BOX_VALUE
-  ) {
-    const layers = splitBackgroundLayers(style.backgroundImage);
-    // 边框渐变层始终是最后一层，直接取最后一层，避免 isDefaultWhiteGradientLayer 误过滤
-    const lastLayer = layers[layers.length - 1];
-    return (layers.length > 1 && isGradientValue(lastLayer)) ? lastLayer : undefined;
-  }
-  return undefined;
-};
-
-/**
- * 当 liveStyle 已存在渐变边框时，保护渐变边框层不被其他面板（Background、颜色等）的
- * onChange 事件覆盖掉。
- *
- * 处理三种情况：
- * 1. 入参已包含完整渐变边框格式（Border 插件主动发来）→ 若当前已有，则只替换边框层，
- *    保留当前内容层，避免 contentBackgroundLayersRef 的初始化时差覆盖用户改过的背景。
- * 2. 入参包含 backgroundImage 变更（Background 面板） → 追加边框层，保持多层格式。
- * 3. 入参只含 backgroundColor 变更，且内容层是占位层 → 同步更新内容层颜色。
- */
-export const preserveGradientBorderLayer = (
-  items: StyleChangeItem[],
-  currentSetValue: Record<string, any>
-): StyleChangeItem[] => {
-  // Case 1：Border 插件已完整设置渐变边框格式（content + border 双层）
-  const incomingAlreadyHasGradientBorderSetup = items.some(
-    i => i.key === 'backgroundOrigin' && i.value === GRADIENT_BORDER_BOX_VALUE
-  );
-  if (incomingAlreadyHasGradientBorderSetup) {
-    const currentBgImageLayers = splitBackgroundLayers(currentSetValue.backgroundImage);
-    const currentHasGradientBorderFormat =
-      currentSetValue.backgroundOrigin === GRADIENT_BORDER_BOX_VALUE &&
-      currentSetValue.backgroundClip === GRADIENT_BORDER_BOX_VALUE &&
-      currentBgImageLayers.length > 1;
-    if (currentHasGradientBorderFormat) {
-      // 保留当前内容层，只替换入参中的边框渐变层
-      const currentContentLayer = currentBgImageLayers[0];
-      return items.map(item => {
-        if (item.key !== 'backgroundImage') return item;
-        const incomingLayers = splitBackgroundLayers(item.value);
-        if (incomingLayers.length < 2) return item;
-        const newBorderGradient = incomingLayers[incomingLayers.length - 1];
-        return { key: 'backgroundImage', value: `${currentContentLayer}, ${newBorderGradient}` };
-      });
-    }
-    return items;
-  }
-
-  const borderLayer = getGradientBorderLayerFromStyle(currentSetValue);
-  if (!borderLayer) {
-    return items;
-  }
-
-  const hasBackgroundImageChange = items.some(item => item.key === 'backgroundImage');
-  const hasBackgroundColorChange = items.some(item => item.key === 'backgroundColor');
-
-  if (!hasBackgroundImageChange && !hasBackgroundColorChange) {
-    return items;
-  }
-
-  const nextBackgroundColor = items.find(item => item.key === 'backgroundColor')?.value
-    ?? currentSetValue.backgroundColor
-    ?? 'transparent';
-
-  // Case 2：backgroundImage 变更 → 把新的 backgroundImage 作为内容层，追加边框层
-  if (hasBackgroundImageChange) {
-    return items.flatMap(item => {
-      if (item.key !== 'backgroundImage') return [item];
-      const contentLayer = item.value && item.value !== 'none'
-        ? item.value
-        : toSolidBackgroundLayer(nextBackgroundColor);
-      return [
-        { key: 'backgroundImage', value: `${contentLayer}, ${borderLayer}` },
-        { key: 'backgroundOrigin', value: GRADIENT_BORDER_BOX_VALUE },
-        { key: 'backgroundClip', value: GRADIENT_BORDER_BOX_VALUE },
-      ];
-    });
-  }
-
-  // Case 3：仅 backgroundColor 变更 —— 内容层是透明/纯色占位时同步更新
-  const existingLayers = splitBackgroundLayers(currentSetValue.backgroundImage);
-  if (existingLayers.length > 1) {
-    const firstLayer = existingLayers[0];
-    if (isTransparentSolidLayer(firstLayer) || isSolidColorGradient(firstLayer)) {
-      const newContentLayer = toSolidBackgroundLayer(nextBackgroundColor);
-      const newBackgroundImage = [newContentLayer, ...existingLayers.slice(1)].join(', ');
-      return [
-        ...items,
-        { key: 'backgroundImage', value: newBackgroundImage },
-        { key: 'backgroundOrigin', value: GRADIENT_BORDER_BOX_VALUE },
-        { key: 'backgroundClip', value: GRADIENT_BORDER_BOX_VALUE },
-      ];
-    }
-  }
-
-  return items;
-};

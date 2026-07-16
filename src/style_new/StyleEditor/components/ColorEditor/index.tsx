@@ -610,7 +610,7 @@ export function ColorEditor({
         </div>
       </Colorpicker>
     );
-  }, [state.finalValue, state.nonColorValue, handleColorpickerChange, showSubTabs, upload, imageValue]);
+  }, [state.finalValue, state.nonColorValue, handleColorpickerChange, showSubTabs, upload, imageValue, disableBackgroundColor, disableBackgroundImage, disableGradient]);
 
   const preset = useMemo(() => {
     if (!state.showPreset) {

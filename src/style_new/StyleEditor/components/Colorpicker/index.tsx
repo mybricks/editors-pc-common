@@ -14,7 +14,14 @@ import { useDebounceFn } from "../../../../hooks"
 import { GradientEditor } from "../GradientEditor"
 import { ImagePanel } from "../ImagePanel"
 
+import { isDefaultWhiteGradientLayer } from "../../helper/gradient-border";
+
 import css from "./index.less";
+
+const DEFAULT_SOLID = "rgba(0,0,0,1)";
+const DEFAULT_GRADIENT =
+  "linear-gradient(90deg, rgba(255,255,255,1) 0%, rgba(0,0,0,1) 100%)";
+
 interface ColorpickerProps {
   context: any;
   value: string;
@@ -221,9 +228,8 @@ function ColorSketch({
   )
   const [list, setList] = useState(window.MYBRICKS_THEME_PACKAGE_VARIABLES?.variables || [])
   
-  // 默认纯色和渐变值
-  const defaultColor = "rgba(255,255,255,1)"
-  const defaultGradient = "linear-gradient(90deg, rgba(255,255,255,1) 0%, rgba(255,255,255,1) 100%)"
+  const defaultColor = DEFAULT_SOLID
+  const defaultGradient = DEFAULT_GRADIENT
   
   // 根据 value 判断初始 subTab（优先检查图片），同时考虑禁用配置
   const getSubTabByValue = useCallback((currentValue?: string) => {
@@ -240,12 +246,19 @@ function ColorSketch({
   const [subTab, setSubTab] = useState(() => getSubTabByValue(value))
   
   // 保存纯色和渐变值，切换 tab 时使用
-  const [colorValue, setColorValue] = useState<string>(
-    value?.includes?.("gradient") || value?.includes?.("url(") ? defaultColor : (value || defaultColor)
-  )
-  const [gradientValue, setGradientValue] = useState<string>(
-    value?.includes?.("gradient") && !value?.includes?.("url(") ? value : defaultGradient
-  )
+  const [colorValue, setColorValue] = useState<string>(() => {
+    if (value?.includes?.("gradient") || value?.includes?.("url(")) {
+      return defaultColor
+    }
+    return value || defaultColor
+  })
+  const [gradientValue, setGradientValue] = useState<string>(() => {
+    if (value?.includes?.("gradient") && !value?.includes?.("url(")) {
+      // 历史双白占位换成默认可见渐变
+      return isDefaultWhiteGradientLayer(value) ? defaultGradient : value
+    }
+    return defaultGradient
+  })
   
   // 使用 colorValue 计算 Sketch 的颜色
   const sketchColor = useCallback(() => {
@@ -289,7 +302,12 @@ function ColorSketch({
         { key: 'backgroundImage', value: 'none' }
       ])
     } else if (tab === "gradient") {
-      onChange({ key: 'backgroundImage', value: gradientValue })
+      let nextGradient = gradientValue
+      if (!nextGradient || isDefaultWhiteGradientLayer(nextGradient)) {
+        nextGradient = defaultGradient
+        setGradientValue(nextGradient)
+      }
+      onChange({ key: 'backgroundImage', value: nextGradient })
     } else if (tab === "image") {
       const bgImage = imageValue.backgroundImage
       if (bgImage && bgImage !== 'none') {

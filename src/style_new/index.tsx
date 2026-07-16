@@ -18,10 +18,8 @@ import {copyText, deepCopy} from '../utils'
 import StyleEditor, {DEFAULT_OPTIONS, StyleEditorProvider} from './StyleEditor'
 
 import {getSuggestOptionsByElement, mergeCSSProperties, splitCSSProperties} from './StyleEditor/helper'
-import {
-  initLiveStyle,
-  preserveGradientBorderLayer,
-} from './StyleEditor/helper/gradient-border'
+import { initLiveStyle } from './StyleEditor/helper/gradient-border'
+import { preservePaintRoles } from './StyleEditor/helper/paint-stack'
 
 import type {EditorProps, GetDefaultConfigurationProps} from './type'
 import type {ChangeEvent, Options, Style} from './StyleEditor/type'
@@ -904,7 +902,7 @@ function Style ({editConfig, options, setValue, collapsedOptions, readonlyExpand
     const deletedKeys: string[] = []
     const nextSetValue: Record<string, any> = deepCopy(liveStyleRef.current || {})
     const rawItems = Array.isArray(value) ? value : [value]
-    const changeItems = preserveGradientBorderLayer(
+    const changeItems = preservePaintRoles(
       rawItems,
       nextSetValue
     );
@@ -1427,6 +1425,13 @@ const getDefaultValueFunctionMap = {
       textDecoration: (values as any).textDecoration,
       fontStyle: (values as any).fontStyle,
       textTransform: (values as any).textTransform,
+      // 文字渐变回显（与 background / border 共用栈，Font 侧需要读到）
+      backgroundImage: values.backgroundImage,
+      backgroundClip: values.backgroundClip,
+      backgroundOrigin: (values as any).backgroundOrigin,
+      WebkitBackgroundClip: (values as any).WebkitBackgroundClip ?? (values as any).webkitBackgroundClip,
+      WebkitTextFillColor: (values as any).WebkitTextFillColor ?? (values as any).webkitTextFillColor,
+      backgroundColor: values.backgroundColor,
     }
   },
   border(values: CSSProperties, config: any) {
@@ -1566,6 +1571,8 @@ const getDefaultValueFunctionMap2 = {
       textDecoration: 'none',
       fontStyle: 'normal',
       textTransform: 'none',
+      // 用于 PANEL_MAP：文字填充相关属性归属 font（后注册的 border/background 会覆盖同名 key）
+      WebkitTextFillColor: '',
     }
   },
   border() {
@@ -2282,6 +2289,8 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration, 
   let textDecoration // 非继承属性
   let fontStyle // 非继承属性
   let textTransform // 非继承属性
+  let webkitTextFillColor // 非继承属性（文字渐变）
+  let webkitBackgroundClip // 非继承属性（文字渐变 / 多角色 clip）
   /** font */
 
   /** padding */
@@ -2305,7 +2314,7 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration, 
   let backgroundPosition // 非继承属性
   let backgroundSize // 非继承属性
   let backgroundOrigin // 非继承属性
-  let backgroundClip // 非继承属性
+  let backgroundClip: string | undefined // 非继承属性
   /** background */
 
   /** border */
@@ -2685,6 +2694,22 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration, 
     }
     /** webkitLineClamp */
 
+    /** webkitTextFillColor / webkitBackgroundClip（文字渐变） */
+    const styleWebkitTextFillColor =
+      (style as any).webkitTextFillColor || (style as any).WebkitTextFillColor
+    if (styleWebkitTextFillColor) {
+      webkitTextFillColor = styleWebkitTextFillColor
+    }
+    const styleWebkitBackgroundClip =
+      (style as any).webkitBackgroundClip || (style as any).WebkitBackgroundClip
+    if (styleWebkitBackgroundClip) {
+      webkitBackgroundClip = styleWebkitBackgroundClip
+      if (!backgroundClip) {
+        backgroundClip = styleWebkitBackgroundClip
+      }
+    }
+    /** webkitTextFillColor / webkitBackgroundClip */
+
     /** opacity */
     const { opacity: styleOpacity } = style
     if (styleOpacity) {
@@ -3016,6 +3041,10 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration, 
     textDecoration,
     fontStyle,
     textTransform,
+    webkitTextFillColor,
+    WebkitTextFillColor: webkitTextFillColor,
+    webkitBackgroundClip,
+    WebkitBackgroundClip: webkitBackgroundClip || backgroundClip,
 
     opacity,
 

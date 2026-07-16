@@ -22,6 +22,7 @@ import {
   serializeLayers,
   interpretPickerChange,
 } from "./layers";
+import { getContentBackgroundMeta } from "../../helper/paint-stack";
 
 function GripIcon() {
   return (
@@ -299,15 +300,28 @@ export function Background({
 
   // ── Layer state ──────────────────────────────────────────────────────────
 
-  const [layers, setLayers] = useState<BgLayer[]>(() =>
-    parseLayers(
-      value?.backgroundImage as string,
+  const buildContentFingerprint = (style: Record<string, any>) => {
+    const meta = getContentBackgroundMeta(style);
+    const bgColor = (style?.backgroundColor as string) ?? "";
+    return [
+      meta.backgroundImage,
+      bgColor,
+      meta.backgroundSize,
+      meta.backgroundRepeat,
+      meta.backgroundPosition,
+    ].join("|");
+  };
+
+  const [layers, setLayers] = useState<BgLayer[]>(() => {
+    const meta = getContentBackgroundMeta(value as Record<string, any>);
+    return parseLayers(
+      meta.backgroundImage,
       value?.backgroundColor as string,
-      value?.backgroundSize as string,
-      value?.backgroundRepeat as string,
-      value?.backgroundPosition as string
-    )
-  );
+      meta.backgroundSize,
+      meta.backgroundRepeat,
+      meta.backgroundPosition
+    );
+  });
 
   // Always-fresh ref — avoids stale closures in handlers (Colorpicker's inner
   // Sketch picker may retain an old onChange callback across re-renders)
@@ -315,22 +329,24 @@ export function Background({
   layersRef.current = layers;
 
   // Guard: skip re-parsing when the value change came from our own emit.
-  // Initialize with the current backgroundImage so the guard passes on fresh
-  // mount (prevents redundant re-parse when the component first renders).
-  const lastEmittedRef = useRef((value?.backgroundImage as string) ?? "");
+  // Fingerprint 含 content image + 并行属性 + color，避免角色层干扰且能同步外部 color 变更。
+  const lastEmittedRef = useRef(
+    buildContentFingerprint(value as Record<string, any>)
+  );
 
   useEffect(() => {
-    const bgImage = (value?.backgroundImage as string) ?? "";
-    const bgColor = (value?.backgroundColor as string) ?? "";
-    if (bgImage === lastEmittedRef.current) return;
-    lastEmittedRef.current = bgImage;
+    const style = value as Record<string, any>;
+    const fingerprint = buildContentFingerprint(style);
+    if (fingerprint === lastEmittedRef.current) return;
+    lastEmittedRef.current = fingerprint;
+    const meta = getContentBackgroundMeta(style);
     setLayers(
       parseLayers(
-        bgImage,
-        bgColor,
-        (value?.backgroundSize as string) ?? "",
-        (value?.backgroundRepeat as string) ?? "",
-        (value?.backgroundPosition as string) ?? ""
+        meta.backgroundImage,
+        (style?.backgroundColor as string) ?? "",
+        meta.backgroundSize,
+        meta.backgroundRepeat,
+        meta.backgroundPosition
       )
     );
   }, [
@@ -339,6 +355,9 @@ export function Background({
     value?.backgroundSize,
     value?.backgroundRepeat,
     value?.backgroundPosition,
+    value?.backgroundClip,
+    value?.WebkitBackgroundClip,
+    value?.backgroundOrigin,
   ]);
 
   // ── Emit helper ──────────────────────────────────────────────────────────
@@ -346,8 +365,15 @@ export function Background({
   const emitLayers = useCallback(
     (newLayers: BgLayer[]) => {
       const changes = serializeLayers(newLayers);
-      const bgImage = changes.find((c) => c.key === "backgroundImage")?.value ?? "";
-      lastEmittedRef.current = bgImage;
+      const get = (key: string) =>
+        changes.find((c) => c.key === key)?.value ?? "";
+      lastEmittedRef.current = [
+        get("backgroundImage") || "none",
+        get("backgroundColor") || "",
+        get("backgroundSize") || "",
+        get("backgroundRepeat") || "",
+        get("backgroundPosition") || "",
+      ].join("|");
       setLayers(newLayers);
       (onChange as any)(changes);
     },

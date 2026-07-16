@@ -25,6 +25,15 @@ import { PanelBaseProps } from "../../type";
 import { useDragNumber } from "../../hooks";
 import { FontSetting } from "../../icons/FontSetting";
 import { FontSettingTruncation } from "../../icons/FontSettingTruncation";
+import { isGradientValue } from "../../helper/gradient-border";
+import { toStyleChangeItems } from "../../helper/paint-stack";
+import {
+  buildGradientTextFill,
+  buildSolidTextFill,
+  isTextFillActive,
+  parseTextFillDisplayValue,
+} from "../../helper/text-fill";
+import { getColorEditorValue } from "../../helper/get-color-editor-value";
 import css from "./index.less";
 
 interface FontProps extends PanelBaseProps {
@@ -208,6 +217,8 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
   const context = useStyleEditorContext();
   const editConfig = context?.editConfig;
   const outterFontFamilyOptions = normalizeFontfaceOptions(editConfig?.fontfaces || []);
+  const valueRef = useRef(value);
+  valueRef.current = value;
 
   // 重置脏数据
   if (isObject(value.fontFamily)) {
@@ -216,6 +227,25 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
   }
 
   const [cfg] = useState({ ...DEFAULT_CONFIG, ...config });
+
+  const handleTextFillChange = useCallback(
+    (input: any) => {
+      const next = getColorEditorValue(input);
+      if (!next) return;
+      const current = valueRef.current as Record<string, any>;
+      if (isGradientValue(next)) {
+        onChange(toStyleChangeItems(buildGradientTextFill(next, current)));
+      } else {
+        onChange(toStyleChangeItems(buildSolidTextFill(next, current)));
+      }
+    },
+    [onChange]
+  );
+
+  const textFillDisplayValue = parseTextFillDisplayValue(value as Record<string, any>);
+  const textFillEditorKey = isTextFillActive(value as Record<string, any>)
+    ? "text-fill-gradient"
+    : "text-fill-solid";
 
   const [innerFontFamily, setInnerFontFamily] = useState<string[] | undefined>(
     parseFontFamily(value.fontFamily)
@@ -457,7 +487,7 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
   }, [onChange]);
 
   const refresh = useCallback(() => {
-    onChange([
+    const items: Array<{ key: string; value: any }> = [
       { key: 'color', value: null },
       { key: 'fontSize', value: null },
       { key: 'fontWeight', value: null },
@@ -474,8 +504,24 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
       { key: 'WebkitBoxOrient', value: null },
       { key: 'maxHeight', value: null },
       { key: 'textDecoration', value: null },
+      // 触发 preservePaintRoles 清除文字渐变栈（仅 null color 不会拆 background-clip:text）
+      { key: 'WebkitTextFillColor', value: null },
       ...(cfg.textAlignMode === 'flex' ? [{ key: 'justifyContent', value: null }] : []),
-    ]);
+    ];
+
+    // 主动拆掉 text 层，保留 content / border，避免只靠拦截器猜意图
+    if (isTextFillActive(valueRef.current as Record<string, any>)) {
+      const cleared = buildSolidTextFill('', valueRef.current as Record<string, any>);
+      items.push(
+        ...toStyleChangeItems({
+          ...cleared,
+          color: null,
+          WebkitTextFillColor: null,
+        })
+      );
+    }
+
+    onChange(items);
   }, [onChange, cfg.textAlignMode]);
 
 
@@ -615,15 +661,17 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
         <Panel.Content style={truncateBtnInColorRow ? { position: 'relative' } : undefined}>
           {truncateBtnInColorRow ? truncateBtnNode : null}
           <ColorEditor
+            key={textFillEditorKey}
             style={{
               flex: 2,
               padding: 6,
               overflow: "hidden",
               paddingLeft: 8,
             }}
-            defaultValue={value.color}
-            showSubTabs={false}
-            onChange={(value) => onChange({ key: "color", value })}
+            defaultValue={textFillDisplayValue}
+            showSubTabs={true}
+            disableBackgroundImage={true}
+            onChange={handleTextFillChange}
           />
         </Panel.Content>
       )}

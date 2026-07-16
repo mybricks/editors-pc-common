@@ -23,14 +23,15 @@ import { Setting as SettingIcon } from "../../icons/Setting";
 import { allEqual } from "../../utils";
 import { useUpdateEffect, useDragNumber } from "../../hooks";
 import {
-  GRADIENT_BORDER_BOX_VALUE,
   isGradientValue,
-  splitBackgroundLayers,
   toSolidBackgroundLayer,
   isTransparentSolidLayer,
-  isDefaultWhiteGradientLayer,
-  getEffectiveGradientBorderLayer,
 } from "../../helper/gradient-border";
+import {
+  composeBackgroundStack,
+  decomposeBackgroundStack,
+} from "../../helper/paint-stack";
+import { getColorEditorValue } from "../../helper/get-color-editor-value";
 
 import type { ChangeEvent, PanelBaseProps } from "../../type";
 
@@ -135,21 +136,13 @@ const parseInsetShadowToVirtual = (boxShadow: string) => {
 };
 
 const hasGradientBorderBackground = (value: CSSProperties & Record<string, any>) => {
-  const layers = splitBackgroundLayers(value.backgroundImage);
-  return (
-    layers.length > 1 &&
-    !!getEffectiveGradientBorderLayer(layers) &&
-    value.backgroundOrigin === GRADIENT_BORDER_BOX_VALUE &&
-    value.backgroundClip === GRADIENT_BORDER_BOX_VALUE
-  );
+  const { borderLayer } = decomposeBackgroundStack(value);
+  return !!borderLayer;
 };
 
 const getGradientBorderValue = (value: CSSProperties & Record<string, any>) => {
-  if (!hasGradientBorderBackground(value)) {
-    return;
-  }
-  const layers = splitBackgroundLayers(value.backgroundImage);
-  return getEffectiveGradientBorderLayer(layers);
+  const { borderLayer } = decomposeBackgroundStack(value);
+  return borderLayer;
 };
 
 const isInvisibleBackgroundLayer = (layer: string): boolean =>
@@ -169,23 +162,12 @@ const getContentBackgroundLayers = (
     );
     return normalized;
   }
-  const layers = splitBackgroundLayers(value.backgroundImage);
-  if (hasGradientBorderBackground(value)) {
-    const contentLayers = layers.slice(0, -1);
-    if (contentLayers.length === 1 && isInvisibleBackgroundLayer(contentLayers[0])) {
-      return [toSolidBackgroundLayer(value.backgroundColor || 'transparent')];
-    }
-    return contentLayers.length ? [contentLayers[0]] : [toSolidBackgroundLayer(value.backgroundColor || "transparent")];
+  const { contentLayers } = decomposeBackgroundStack(value);
+  if (contentLayers.length === 1 && isInvisibleBackgroundLayer(contentLayers[0])) {
+    return [toSolidBackgroundLayer(value.backgroundColor || 'transparent')];
   }
-  if (layers.length > 1) {
-    return isTransparentSolidLayer(layers[0]) && value.backgroundColor
-      ? [toSolidBackgroundLayer(value.backgroundColor)]
-      : [layers[0]];
-  }
-  if (layers.length === 1) {
-    return isTransparentSolidLayer(layers[0]) && value.backgroundColor
-      ? [toSolidBackgroundLayer(value.backgroundColor)]
-      : layers;
+  if (contentLayers.length) {
+    return contentLayers;
   }
   const backgroundColor = value.backgroundColor || "transparent";
   return [toSolidBackgroundLayer(backgroundColor)];
@@ -196,15 +178,28 @@ const buildGradientBorderValue = (
   currentValue: CSSProperties & Record<string, any>,
   contentLayers?: string[] | null
 ) => {
+  const {
+    textLayer,
+    contentSizes,
+    contentRepeats,
+    contentPositions,
+  } = decomposeBackgroundStack(currentValue);
   const normalizedContentLayers = getContentBackgroundLayers(currentValue, contentLayers);
+  const stack = composeBackgroundStack({
+    textLayer,
+    contentLayers: normalizedContentLayers,
+    borderLayer: gradient,
+    backgroundColor: currentValue.backgroundColor,
+    contentSizes,
+    contentRepeats,
+    contentPositions,
+  });
   return {
     borderTopColor: "transparent",
     borderRightColor: "transparent",
     borderBottomColor: "transparent",
     borderLeftColor: "transparent",
-    backgroundImage: [...normalizedContentLayers, gradient].join(", "),
-    backgroundOrigin: GRADIENT_BORDER_BOX_VALUE,
-    backgroundClip: GRADIENT_BORDER_BOX_VALUE,
+    ...stack,
   };
 };
 
@@ -215,26 +210,27 @@ const buildClearGradientBorderValue = (
   if (!hasGradientBorderBackground(currentValue)) {
     return {};
   }
+  const {
+    textLayer,
+    contentSizes,
+    contentRepeats,
+    contentPositions,
+  } = decomposeBackgroundStack(currentValue);
   const normalizedContentLayers = getContentBackgroundLayers(currentValue, contentLayers);
   const fallbackLayer = toSolidBackgroundLayer(currentValue.backgroundColor || "transparent");
-  const shouldClearBackgroundImage = normalizedContentLayers.length === 1 && normalizedContentLayers[0] === fallbackLayer;
-  return {
-    backgroundImage: shouldClearBackgroundImage ? null : normalizedContentLayers.join(", "),
-    backgroundOrigin: null,
-    backgroundClip: null,
-  };
-};
-
-const getColorEditorValue = (input: any) => {
-  if (typeof input === "string") {
-    return input;
-  }
-  if (Array.isArray(input)) {
-    const backgroundImage = input.find((item) => item.key === "backgroundImage" && item.value !== "none");
-    const backgroundColor = input.find((item) => item.key === "backgroundColor");
-    return backgroundImage?.value || backgroundColor?.value;
-  }
-  return input?.value;
+  const shouldClearContent =
+    !textLayer &&
+    normalizedContentLayers.length === 1 &&
+    normalizedContentLayers[0] === fallbackLayer;
+  return composeBackgroundStack({
+    textLayer,
+    contentLayers: shouldClearContent ? [] : normalizedContentLayers,
+    borderLayer: undefined,
+    backgroundColor: currentValue.backgroundColor,
+    contentSizes: shouldClearContent ? [] : contentSizes,
+    contentRepeats: shouldClearContent ? [] : contentRepeats,
+    contentPositions: shouldClearContent ? [] : contentPositions,
+  });
 };
 
 export function Border({ value, onChange, config, showTitle, collapse }: BorderProps) {

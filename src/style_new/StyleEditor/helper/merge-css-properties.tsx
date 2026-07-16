@@ -1,4 +1,5 @@
 import React from 'react'
+import { clipHasText, getBackgroundClip } from './paint-stack'
 
 const hasCSSVariable = (value: string | any) => {
   if (typeof value !== 'string') return false;
@@ -17,6 +18,12 @@ const hasLayeredBorderBackground = (cssProperties: React.CSSProperties) => {
     cssProperties.backgroundOrigin.includes('padding-box') &&
     cssProperties.backgroundOrigin.includes('border-box')
   )
+}
+
+/** 文字渐变或多角色背景栈：禁止 merge 时折叠掉 backgroundImage / clip */
+const hasTextOrLayeredBackground = (cssProperties: React.CSSProperties & Record<string, any>) => {
+  if (hasLayeredBorderBackground(cssProperties)) return true
+  return clipHasText(getBackgroundClip(cssProperties))
 }
 
 const hasDefinedValue = (value: any) => value !== null && typeof value !== 'undefined'
@@ -71,7 +78,7 @@ export const mergeCSSProperties = (
   const mergedStyles: React.CSSProperties = {
     ...(cssProperties ?? {}),
   }
-  const shouldKeepLayeredBackground = hasLayeredBorderBackground(cssProperties)
+  const shouldKeepLayeredBackground = hasTextOrLayeredBackground(cssProperties)
 
   // margin
   if (
@@ -221,6 +228,21 @@ export const mergeCSSProperties = (
     mergedStyles.backgroundImage = cssProperties.backgroundImage
     mergedStyles.backgroundClip = cssProperties.backgroundClip
     mergedStyles.backgroundOrigin = cssProperties.backgroundOrigin
+    if ((cssProperties as any).backgroundSize != null) {
+      mergedStyles.backgroundSize = (cssProperties as any).backgroundSize
+    }
+    if ((cssProperties as any).backgroundRepeat != null) {
+      mergedStyles.backgroundRepeat = (cssProperties as any).backgroundRepeat
+    }
+    if ((cssProperties as any).backgroundPosition != null) {
+      mergedStyles.backgroundPosition = (cssProperties as any).backgroundPosition
+    }
+    if ((cssProperties as any).WebkitBackgroundClip != null) {
+      (mergedStyles as any).WebkitBackgroundClip = (cssProperties as any).WebkitBackgroundClip
+    }
+    if ((cssProperties as any).WebkitTextFillColor != null) {
+      (mergedStyles as any).WebkitTextFillColor = (cssProperties as any).WebkitTextFillColor
+    }
   }
 
   return mergedStyles
