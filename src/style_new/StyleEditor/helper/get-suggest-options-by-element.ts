@@ -122,9 +122,6 @@ export function getSuggestOptionsByElement(selectDom: HTMLElement): { type: stri
     // 处理border
     const borderOption = shouldBorderDisabled(selectDom) ? void 0 : {
       type: 'border',
-      config: {
-        disableBorderRadius: shouldBorderRadiusDisabled(selectDom)
-      }
     }
 
     const overflowOption = shouldOverflowDisabled(selectDom) ? void 0 : {
@@ -374,26 +371,6 @@ function isContainerWiderThanContent(element: HTMLElement): boolean {
 
 function shouldBorderDisabled(selectDom: HTMLElement) {
   return false
-}
-
-function shouldBorderRadiusDisabled(selectDom: HTMLElement) {
-  // 先放开吧，感觉overflow的case没那么多
-  return false
-
-  const selectDomStyle = window.getComputedStyle(selectDom);
-
-  const noOverflow = selectDomStyle.overflowX !== 'hidden' && selectDomStyle.overflowY !== 'hidden'
-
-  const computedStyle = window.getComputedStyle(selectDom);
-
-  // 获取border宽度
-  const borderTopLeftRadius = parseInt(computedStyle.borderTopLeftRadius);
-  const borderTopRightRadius = parseInt(computedStyle.borderTopRightRadius);
-  const borderBottomLeftRadius = parseInt(computedStyle.borderBottomLeftRadius);
-  const borderBottomRightRadius = parseInt(computedStyle.borderBottomRightRadius);
-
-  // [TODO] 粗暴一点，如果没有border 且不是 overflow:hidden 就禁用，否则性能太差了
-  return noOverflow && borderTopLeftRadius === 0 && borderTopRightRadius === 0 && borderBottomLeftRadius === 0 && borderBottomRightRadius === 0
 }
 
 function shouldBoxshadowDisabled(selectDom: HTMLElement) {

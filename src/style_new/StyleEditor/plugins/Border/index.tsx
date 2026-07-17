@@ -6,11 +6,6 @@ import {
   Select,
   ColorEditor,
   InputNumber,
-  BorderRadiusSplitOutlined,
-  BorderTopLeftRadiusOutlined,
-  BorderTopRightRadiusOutlined,
-  BorderBottomLeftRadiusOutlined,
-  BorderBottomRightRadiusOutlined,
   BorderWeightOutlined,
   BorderSplitOutlined,
   BorderTopOutlined,
@@ -60,17 +55,6 @@ const BORDER_POSITION_OPTIONS = [
   { label: "居中", value: "center" },
   { label: "内部", value: "inside" },
 ];
-const UNIT_OPTIONS = [
-  { label: "px", value: "px" },
-  { label: "%", value: "%" },
-];
-const DEFAULT_STYLE = {
-  padding: 0,
-  fontSize: 10,
-  minWidth: 71,
-  //maxWidth: 71,
-  marginLeft: 4,
-};
 
 const DEFAULT_STYLE_SMALL = {
   padding: 0,
@@ -88,17 +72,10 @@ const DEFAULT_STYLE_MINI = {
   marginLeft: 2,
 }
 
-const DEFAULT_STYLE__NEW = {
-  padding: 0,
-  fontSize: 10,
-  marginLeft: 0,
-};
-
 const DEFAULT_CONFIG = {
   disableBorderStyle: false,
   disableBorderWidth: false,
   disableBorderColor: false,
-  disableBorderRadius: false,
   disableBorderTop: false,
   disableBorderRight: false,
   disableBorderBottom: false,
@@ -239,7 +216,6 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
       disableBorderWidth,
       disableBorderColor,
       disableBorderStyle,
-      disableBorderRadius,
       disableBorderTop,
       disableBorderRight,
       disableBorderBottom,
@@ -247,7 +223,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
       useImportant,
     },
   ] = useState({ ...DEFAULT_CONFIG, ...config });
-  const [{ borderToggleValue, radiusToggleValue }, setToggleValue] = useState(
+  const [{ borderToggleValue }, setToggleValue] = useState(
     getToggleDefaultValue(value)
   );
   const defaultBorderValue = useMemo(() => {
@@ -323,10 +299,6 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
     }));
     setBorderColorEditorKey((k) => k + 1);
   }, [value]);
-  const [splitRadiusIcon, setSplitRadiusIcon] = useState(
-    <BorderTopLeftRadiusOutlined />
-  );
-  const getDragPropsRadius = useDragNumber({ continuous: true });
   const getDragPropsBorder = useDragNumber({ continuous: true });
 
   const [showStyleSettings, setShowStyleSettings] = useState(false);
@@ -390,15 +362,11 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
           borderRightStyle,
           borderBottomStyle,
           borderLeftStyle,
-          borderTopLeftRadius,
-          borderBottomLeftRadius,
-          borderBottomRightRadius,
-          borderTopRightRadius,
         } = val ?? {};
 
         const newValues: Record<string, any> = {
           // 仅当 backgroundImage 代表实际的渐变边框（非 none/空）时才携带背景属性，
-          // 否则普通边框宽度/样式/圆角操作会把 "none" 写入，覆盖用户的背景渐变图片。
+          // 否则普通边框宽度/样式操作会把 "none" 写入，覆盖用户的背景渐变图片。
           ...(backgroundImage && backgroundImage !== 'none' ? {
             backgroundImage,
             backgroundOrigin,
@@ -416,10 +384,6 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
           borderRightStyle,
           borderBottomStyle,
           borderLeftStyle,
-          borderTopLeftRadius,
-          borderBottomLeftRadius,
-          borderBottomRightRadius,
-          borderTopRightRadius,
           ...value,
         }
         const deletedKeys = Object.keys(value).filter((key) => value[key] === null);
@@ -489,9 +453,8 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
     const hasBorderGradientLayer = !!decomposeBackgroundStack(styleForStack).borderLayer;
     const nullKeys = [
       'borderTopColor', 'borderRightColor', 'borderBottomColor', 'borderLeftColor',
-      'borderTopLeftRadius', 'borderTopRightRadius', 'borderBottomLeftRadius', 'borderBottomRightRadius',
       'border', 'borderTop', 'borderRight', 'borderBottom', 'borderLeft',
-      'borderRadius', 'borderWidth', 'borderStyle', 'borderColor',
+      'borderWidth', 'borderStyle', 'borderColor',
       'outline', 'outlineOffset', 'boxShadow',
       ...(hasBorderGradientLayer ? GRADIENT_BORDER_KEYS : []),
     ];
@@ -944,155 +907,6 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
     }
   }, [borderToggleValue, borderValue, getDragPropsBorder, borderColorEditorKey, borderPosition, refresh, handleAllModeChange, handlePositionChange]);
 
-  const radiusConfig = useMemo(() => {
-    if (disableBorderRadius) {
-      return null;
-    }
-    if (radiusToggleValue === "all") {
-      return (
-        <div className={css.row}>
-          <Panel.Content style={{ padding: 3 }}>
-            <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
-              <div className={css.icon} {...getDragPropsRadius(borderValue.borderTopLeftRadius, '拖拽调整圆角半径')}>
-                <BorderRadiusSplitOutlined />
-              </div>
-              <InputNumber
-                tip="圆角半径"
-                style={DEFAULT_STYLE}
-                // suffix={'px'}
-                defaultValue={borderValue.borderTopLeftRadius}
-                unitOptions={UNIT_OPTIONS}
-                fallbackValue={0}
-                onChange={(value) =>
-                  handleChange({
-                    borderTopLeftRadius: value,
-                    borderBottomLeftRadius: value,
-                    borderBottomRightRadius: value,
-                    borderTopRightRadius: value,
-                  })
-                }
-              />
-            </Panel.Item>
-          </Panel.Content>
-          <div
-            data-mybricks-tip={`{content:'切换为单独配置',position:'left'}`}
-            className={css.actionIcon}
-            onClick={() =>
-              handleToggleChange({ key: "radiusToggleValue", value: "split" })
-            }
-          >
-            <BorderRadiusSplitOutlined />
-          </div>
-        </div>
-      );
-    } else {
-      return (
-        <div className={css.independentBox}>
-          <div style={{ minWidth: "120px", flex: 1 }}>
-            <div className={css.row} style={{ paddingRight: 0 }}>
-              <Panel.Content style={{ padding: 3 }}>
-                <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
-                  <div className={css.icon} {...getDragPropsRadius(borderValue.borderTopLeftRadius, '拖拽调整左上圆角')}>
-                    <BorderTopLeftRadiusOutlined />
-                  </div>
-                  <InputNumber
-                    //tip="左上"
-                    style={DEFAULT_STYLE__NEW}
-                    defaultValue={borderValue.borderTopLeftRadius}
-                    unitOptions={UNIT_OPTIONS}
-                    fallbackValue={0}
-                    onChange={(value) =>
-                      handleChange({ borderTopLeftRadius: value })
-                    }
-                    onFocus={() =>
-                      setSplitRadiusIcon(<BorderTopLeftRadiusOutlined />)
-                    }
-                  />
-                </Panel.Item>
-              </Panel.Content>
-              <Panel.Content style={{ padding: 3 }}>
-                <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
-                  <InputNumber
-                    //tip="右上角半径"
-                    align="right"
-                    style={DEFAULT_STYLE__NEW}
-                    defaultValue={borderValue.borderTopRightRadius}
-                    unitOptions={UNIT_OPTIONS}
-                    fallbackValue={0}
-                    onChange={(value) =>
-                      handleChange({ borderTopRightRadius: value })
-                    }
-                    onFocus={() =>
-                      setSplitRadiusIcon(<BorderTopRightRadiusOutlined />)
-                    }
-                  />
-                  <div className={css.icon} {...getDragPropsRadius(borderValue.borderTopRightRadius, '拖拽调整右上圆角')}>
-                    <BorderTopRightRadiusOutlined />
-                  </div>
-                </Panel.Item>
-
-              </Panel.Content>
-            </div>
-            <div className={css.row} style={{ paddingRight: 0 }}>
-              <Panel.Content style={{ padding: 3 }}>
-
-                <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
-                  <div className={css.icon} {...getDragPropsRadius(borderValue.borderBottomLeftRadius, '拖拽调整左下圆角')}>
-                    <BorderBottomLeftRadiusOutlined />
-                  </div>
-                  <InputNumber
-                    //tip="左下角半径"
-                    style={DEFAULT_STYLE__NEW}
-                    defaultValue={borderValue.borderBottomLeftRadius}
-                    unitOptions={UNIT_OPTIONS}
-                    fallbackValue={0}
-                    onChange={(value) =>
-                      handleChange({ borderBottomLeftRadius: value })
-                    }
-                    onFocus={() =>
-                      setSplitRadiusIcon(<BorderBottomLeftRadiusOutlined />)
-                    }
-                  />
-                </Panel.Item>
-              </Panel.Content>
-              <Panel.Content style={{ padding: 3 }}>
-                <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
-                  <InputNumber
-                    //tip="右下角半径"
-                    align="right"
-                    style={DEFAULT_STYLE__NEW}
-                    defaultValue={borderValue.borderBottomRightRadius}
-                    unitOptions={UNIT_OPTIONS}
-                    fallbackValue={0}
-                    onChange={(value) =>
-                      handleChange({ borderBottomRightRadius: value })
-                    }
-                    onFocus={() =>
-                      setSplitRadiusIcon(<BorderBottomRightRadiusOutlined />)
-                    }
-                  />
-                  <div className={css.icon} {...getDragPropsRadius(borderValue.borderBottomRightRadius, '拖拽调整右下圆角')}>
-                    <BorderBottomRightRadiusOutlined />
-                  </div>
-                </Panel.Item>
-              </Panel.Content>
-            </div>
-          </div>
-
-          <div
-            data-mybricks-tip={`{content:'切换为统一配置',position:'left'}`}
-            className={css.independentActionIcon}
-            onClick={() =>
-              handleToggleChange({ key: "radiusToggleValue", value: "all" })
-            }
-          >
-            <BorderRadiusSplitOutlined />
-          </div>
-        </div>
-      );
-    }
-  }, [radiusToggleValue, splitRadiusIcon, borderValue, getDragPropsRadius]);
-
   const handleToggleChange = useCallback(
     ({ key, value }: { key: string; value: string }) => {
       setToggleValue((val) => {
@@ -1121,15 +935,6 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
       borderLeftWidth: borderValue.borderTopWidth,
     });
   }, [borderToggleValue]);
-
-  useUpdateEffect(() => {
-    handleChange({
-      borderTopLeftRadius: borderValue.borderTopLeftRadius,
-      borderTopRightRadius: borderValue.borderTopLeftRadius,
-      borderBottomLeftRadius: borderValue.borderTopLeftRadius,
-      borderBottomRightRadius: borderValue.borderTopLeftRadius,
-    });
-  }, [radiusToggleValue]);
 
   const hasBorderSection = !(disableBorderWidth && disableBorderColor && disableBorderStyle);
 
@@ -1202,7 +1007,6 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
     >
       <React.Fragment key={forceRenderKey}>
         {borderConfig}
-        {radiusConfig}
       </React.Fragment>
     </Panel>
     </>
@@ -1232,13 +1036,5 @@ function getToggleDefaultValue(value: CSSProperties) {
         ])
         ? "all"
         : "split",
-    radiusToggleValue: allEqual([
-      value.borderTopLeftRadius,
-      value.borderTopRightRadius,
-      value.borderBottomRightRadius,
-      value.borderBottomLeftRadius,
-    ])
-      ? "all"
-      : "split",
   };
 }
