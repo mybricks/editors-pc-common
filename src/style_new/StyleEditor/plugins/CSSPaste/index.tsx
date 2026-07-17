@@ -1,6 +1,7 @@
 import React, { CSSProperties, useCallback, useRef, useState } from 'react'
 import MonacoEditor from '@mybricks/code-editor'
 
+import { useDarkMode } from '../../../../hooks'
 import { Panel } from '../../components'
 import { useStyleEditorContext } from '../../context'
 
@@ -236,7 +237,7 @@ function parseCSS(cssText: string): Array<{ key: string; value: string }> {
 
 let languageRegistered = false
 
-/** 注册专门用于 CSS 属性声明（无选择器）的 Monaco 语言 */
+/** 注册专门用于 CSS 属性声明（无选择器）的 Monaco 语言；不高亮主题，复用全局 vs / vs-dark */
 function registerCSSPropertiesLanguage(monaco: any) {
   if (languageRegistered) return
   languageRegistered = true
@@ -279,29 +280,16 @@ function registerCSSPropertiesLanguage(monaco: any) {
       ],
     },
   })
-
-  // 颜色映射（复用 CSS 高亮风格）
-  monaco.editor.defineTheme('css-properties-light', {
-    base: 'vs',
-    inherit: true,
-    rules: [
-      { token: 'attribute.name', foreground: '9B1C7C' },   // 属性名：深粉/品红
-      { token: 'number', foreground: '098658' },            // 数字：绿
-      { token: 'number.hex', foreground: '098658' },
-      { token: 'string', foreground: 'A31515' },            // 字符串：红
-      { token: 'keyword', foreground: '0070C1' },           // 关键字：蓝
-      { token: 'type', foreground: '795E26' },              // 函数名：棕
-      { token: 'variable.css', foreground: '001080' },      // CSS 变量：深蓝
-      { token: 'comment', foreground: '6A9955' },           // 注释：灰绿
-      { token: 'delimiter', foreground: '000000' },
-      { token: 'identifier', foreground: '001080' },
-    ],
-    colors: {},
-  })
 }
 
 const MIN_HEIGHT = 56
 const DEFAULT_HEIGHT = 120
+
+/** 与 code/index.tsx 一致：复用项目已有的 light / vs-dark，不 defineTheme / setTheme */
+function useEditorTheme(): 'light' | 'vs-dark' {
+  const isDark = useDarkMode()
+  return isDark ? 'vs-dark' : 'light'
+}
 
 export function CSSPaste({ onChange, showTitle, collapse }: CSSPasteProps) {
   const context = useStyleEditorContext()
@@ -309,11 +297,11 @@ export function CSSPaste({ onChange, showTitle, collapse }: CSSPasteProps) {
   const editorRef = useRef<any>(null)
   const [lastCount, setLastCount] = useState(0)
   const [editorHeight, setEditorHeight] = useState(DEFAULT_HEIGHT)
+  const editorTheme = useEditorTheme()
 
   const onMounted = useCallback((editor: any, monaco: any) => {
     editorRef.current = editor
     registerCSSPropertiesLanguage(monaco)
-    monaco.editor.setTheme('css-properties-light')
     editor.updateOptions({
       lineNumbers: 'off',
       lineDecorationsWidth: 8,
@@ -370,6 +358,7 @@ export function CSSPaste({ onChange, showTitle, collapse }: CSSPasteProps) {
             height={`${editorHeight}px`}
             language="css-properties"
             CDN={CDN}
+            theme={editorTheme}
             lineNumbers="off"
             value=""
             onMounted={onMounted}

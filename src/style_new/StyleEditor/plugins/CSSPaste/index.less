@@ -6,6 +6,7 @@
   border-radius: 4px;
   overflow: hidden;
   box-sizing: border-box;
+  background: @bg-color-main;
 }
 
 .dragHandle {
@@ -21,32 +22,33 @@
 }
 
 .applyBtn {
+  .button-base();
   width: 100%;
   height: 24px;
+  line-height: 24px !important;
   border: none;
   border-radius: 4px;
   background: @bg-color-main-secondary;
-  color: @font-color-content;
   outline: none;
   box-shadow: none;
-  font-size: @font-size-content;
-  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
   transition: all 0.15s;
   flex-shrink: 0;
 
   &:hover {
-    color: @color-primary;
+    color: @color-primary !important;
     box-shadow: inset 0 0 0 1px @color-primary;
   }
 }
 
 .applyBtnSuccess {
-  background: #f6ffed;
-  color: @color-success;
+  background: @bg-color-active;
+  color: @color-success !important;
   cursor: default;
 
   &:hover {
-    color: @color-success;
+    color: @color-success !important;
     box-shadow: none;
   }
 }
