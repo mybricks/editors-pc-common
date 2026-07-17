@@ -53,7 +53,7 @@ interface RotationProps extends PanelBaseProps {
   onChange: ChangeEvent
 }
 
-export function Rotation({ value, onChange, showTitle }: RotationProps) {
+export function Rotation({ value, onChange, showTitle, collapse }: RotationProps) {
   const transformStr = value?.transform as string | undefined
   const { angle: parsedAngle, flipX, flipY } = parseTransform(transformStr)
 
@@ -135,10 +135,9 @@ export function Rotation({ value, onChange, showTitle }: RotationProps) {
     <Panel
       title="旋转"
       showTitle={showTitle}
-      showDelete={false}
       showReset={true}
       resetFunction={handleReset}
-      collapse={false}
+      collapse={collapse}
     >
       <Panel.Content className={css.rotationPanelContent}>
         {/* Angle input with drag-on-icon */}

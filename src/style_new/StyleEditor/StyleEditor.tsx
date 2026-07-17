@@ -26,7 +26,6 @@ import css from "./StyleEditor.less";
 // 排序顺序 需要调整顺序只要改下面就行
 const PLUGINS_MAP: Record<string, (value: any) => React.ReactNode> = {
   CSSPASTE: CSSPaste,
-  ROTATION: Rotation,
   LAYOUT: Layout,
   SIZE: Size,
   APPEARANCE: Appearance,
@@ -39,6 +38,7 @@ const PLUGINS_MAP: Record<string, (value: any) => React.ReactNode> = {
   OVERFLOW: OverFlow,
   OPACITY: Opacity,
   BOXSHADOW: BoxShadow,
+  ROTATION: Rotation,
   CURSOR: Cursor,
   ZINDEX: ZIndex,
 };
