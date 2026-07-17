@@ -136,6 +136,23 @@ const FIGMA_TO_CSS: Record<string, (value: string) => TransformResult> = {
     const px = /^-?\d+\.?\d*$/.test(v) ? v + 'px' : v
     return [{ key: 'filter', value: `blur(${px})` }]
   },
+  // background-blur / backdrop-blur → backdrop-filter: blur(8px)
+  backgroundBlur: (v) => {
+    const px = /^-?\d+\.?\d*$/.test(v) ? v + 'px' : v
+    const value = `blur(${px})`
+    return [
+      { key: 'backdropFilter', value },
+      { key: 'WebkitBackdropFilter', value },
+    ]
+  },
+  backdropBlur: (v) => {
+    const px = /^-?\d+\.?\d*$/.test(v) ? v + 'px' : v
+    const value = `blur(${px})`
+    return [
+      { key: 'backdropFilter', value },
+      { key: 'WebkitBackdropFilter', value },
+    ]
+  },
 }
 
 /** Category C/D 统一处理：返回转换后的条目数组，或 null 表示跳过 */

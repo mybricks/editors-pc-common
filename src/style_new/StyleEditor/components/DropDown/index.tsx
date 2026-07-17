@@ -15,6 +15,8 @@ interface DropdownOption {
   checked?: boolean;
   icon?: ReactNode;
   iconSize?: 'sm' | 'md';
+  /** 置灰不可点（如 Effects 中已占用的模糊类型） */
+  disabled?: boolean;
 }
 
 interface DropdownProps {
@@ -189,7 +191,7 @@ const Items = React.forwardRef<HTMLDivElement, ItemsProps>((props, forwardRef) =
   const actionItems = options.filter((o) => o.type === 'action');
 
   const renderItem = (opt: typeof options[number], key: string | number, orderIndex?: number) => {
-    const { label, value, suffix, type, checked, icon, iconSize } = opt;
+    const { label, value, suffix, type, checked, icon, iconSize, disabled: itemDisabled } = opt;
     if (type === 'divider') {
       return <div key={key} className={css.divider} />;
     }
@@ -200,7 +202,7 @@ const Items = React.forwardRef<HTMLDivElement, ItemsProps>((props, forwardRef) =
     const isChecked = !isAction
       ? value === currentValue || (Array.isArray(currentValue) && currentValue.includes(value))
       : !!checked;
-    const isDraggable = canReorder && isChecked && !isAction;
+    const isDraggable = canReorder && isChecked && !isAction && !itemDisabled;
     // 多选模式下已选字体显示序号，普通模式显示 ✓
     const order = orderIndex !== undefined ? orderIndex : (
       isDraggable ? checkedValues.indexOf(value) + 1 : null
@@ -208,8 +210,12 @@ const Items = React.forwardRef<HTMLDivElement, ItemsProps>((props, forwardRef) =
     return (
       <div
         key={key}
-        className={`${css.item}${isDraggable ? ` ${css.itemDraggable}` : ''}`}
-        onClick={(e) => { e.stopPropagation(); onClick(value, isAction); }}
+        className={`${css.item}${isDraggable ? ` ${css.itemDraggable}` : ''}${itemDisabled ? ` ${css.itemDisabled}` : ''}`}
+        onClick={(e) => {
+          e.stopPropagation();
+          if (itemDisabled) return;
+          onClick(value, isAction);
+        }}
         draggable={isDraggable}
         onDragStart={isDraggable ? (e) => {
           dragValueRef.current = value;

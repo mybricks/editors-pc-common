@@ -22,7 +22,7 @@ interface SelectProps {
   onChange: (value: any) => void;
   onAction?: (value: any) => void;
   onReorder?: (newOrder: any[]) => void;
-  options: Array<{ value: any; label: string | number; suffix?: string | number; type?: 'action' | 'divider'; checked?: boolean; icon?: ReactNode; iconSize?: 'sm' | 'md' }>;
+  options: Array<{ value: any; label: string | number; suffix?: string | number; type?: 'action' | 'divider'; checked?: boolean; icon?: ReactNode; iconSize?: 'sm' | 'md'; disabled?: boolean }>;
   multiple?: boolean;
   /** 是否展示下拉的icon */
   showIcon?: boolean;
@@ -83,6 +83,7 @@ export function Select({
 
   const handleDropDownClick = useCallback((clickValue: any) => {
     const clickedOption = optionsRef.current.find(o => o.value === clickValue);
+    if (clickedOption?.disabled) return;
     if (clickedOption?.type === 'action') {
       onActionRef.current?.(clickValue);
       return;

@@ -8,7 +8,7 @@ export const DEFAULT_OPTIONS = [
   'size',
   'appearance',
   'cursor',
-  'boxshadow',
+  'effects',
   'overflow',
   'opacity',
   'zindex',

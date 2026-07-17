@@ -101,9 +101,10 @@ export function getSuggestOptionsByElement(selectDom: HTMLElement): { type: stri
       config: sizeDisabled,
     }
 
-    // 处理boxShadow
-    const boxShadowOption = shouldBoxshadowDisabled(selectDom) ? void 0 : {
-      type: 'boxShadow',
+    // 效果（阴影 / 模糊）：模糊不受祖先 overflow 裁切影响，整面板始终建议展示
+    // （外阴影在窄裁切容器中可能不可见，但仍可通过面板编辑模糊等效果）
+    const effectsOption = {
+      type: 'effects',
     }
 
     // 处理margin
@@ -137,7 +138,7 @@ export function getSuggestOptionsByElement(selectDom: HTMLElement): { type: stri
       fontOption,
       marginOption,
       paddingOption,
-      boxShadowOption,
+      effectsOption,
       {
         type: 'background'
       },
@@ -373,28 +374,6 @@ function shouldBorderDisabled(selectDom: HTMLElement) {
   return false
 }
 
-function shouldBoxshadowDisabled(selectDom: HTMLElement) {
-  let hasEnoughSpace = true;
-  const selectDomRect = selectDom.getBoundingClientRect();
-  traverseDomFromChildToCurrent(COSNT.ROOT_ELEMENT, selectDom, (current) => {
-    if (current === selectDom) {
-      return false
-    }
-
-    const isOverflow = window.getComputedStyle(current).overflow === 'hidden';
-    if (isOverflow) {
-      const currentRect = current.getBoundingClientRect();
-      if (currentRect.top - selectDomRect.top >= 0 && currentRect.bottom - selectDomRect.bottom <= 0 && currentRect.left - selectDomRect.left >= 0 && currentRect.right - selectDomRect.right <= 0) {
-        hasEnoughSpace = false
-      }
-    }
-    // 如果当前元素没有足够的空间，则中止遍历
-    return !hasEnoughSpace
-  })
-
-  return !hasEnoughSpace
-}
-
 function shouldMarginDisabled(selectDom: HTMLElement) {
   const selectDomStyle = window.getComputedStyle(selectDom);
 
@@ -594,29 +573,6 @@ function getChildDomPath(currentDOM: HTMLElement, childElement: Element) {
 
   return res
 }
-
-function traverseDomFromChildToCurrent(
-  currentDOM: HTMLElement,
-  childElement: HTMLElement,
-  callback: (current: HTMLElement) => boolean | void
-) {
-  if (!callback || typeof callback !== 'function') {
-    return;
-  }
-
-  let current: HTMLElement | null = childElement;
-
-  // 当还没到达当前DOM节点，且仍有父节点时继续向上查找
-  while (current && current !== currentDOM) {
-    // 如果回调返回 true，则中止遍历
-    if (callback(current) === true) {
-      return;
-    }
-    current = current.parentElement;
-  }
-}
-
-
 
 // 定义类型
 interface CacheItem {

@@ -1201,6 +1201,36 @@ function getDefaultConfiguration2 ({value, options}: GetDefaultConfigurationProp
   }
 }
 
+/** 旧 boxshadow / blur 与 effects 统一别名 */
+const EFFECTS_ALIASES = new Set(['effects', 'boxshadow', 'blur'])
+
+function mapPanelAliasToEffects(panel: string): string {
+  return EFFECTS_ALIASES.has(panel) && panel !== 'effects' ? 'effects' : panel
+}
+
+function mapEffectedPanels(panels: string[] | null | undefined): string[] {
+  return Array.from(new Set((panels ?? []).map(mapPanelAliasToEffects)))
+}
+
+/** 将旧的 boxshadow / blur 插件配置归一为 effects，避免双面板 */
+function normalizeEffectOptions (options: any): any {
+  if (!Array.isArray(options)) return options
+  let hasEffects = false
+  const result: any[] = []
+  for (const option of options) {
+    const type = (typeof option === 'string' ? option : option?.type)?.toLowerCase?.()
+    if (type && EFFECTS_ALIASES.has(type)) {
+      if (!hasEffects) {
+        hasEffects = true
+        result.push(typeof option === 'string' ? 'effects' : { ...option, type: 'effects' })
+      }
+      continue
+    }
+    result.push(option)
+  }
+  return result
+}
+
 /**
  * 获取默认的配置项和样式
  */
@@ -1284,9 +1314,10 @@ function getDefaultConfiguration ({value, options}: GetDefaultConfigurationProps
       getDefaultValue = false;
       const [styleValues, options, ownRulesPanels, ancestorPanels] = getEffectedCssPropertyAndOptions(realDom, realSelectors.length > 1 ? realSelectors : (realSelector ?? ''), comId);
 
-      effctedOptions = options;
-      effectedFromRulesOnly = ownRulesPanels as string[] ?? [];
-      effectedFromAncestorsOnly = ancestorPanels as string[] ?? [];
+      effctedOptions = options == null ? options : mapEffectedPanels(options as string[]);
+      effectedFromRulesOnly = mapEffectedPanels(ownRulesPanels as string[]);
+      effectedFromAncestorsOnly = mapEffectedPanels(ancestorPanels as string[]);
+      finalOptions = normalizeEffectOptions(finalOptions)
       finalOptions.forEach((option) => {
         let type, config;
         if (typeof option === 'string') {
@@ -1304,6 +1335,8 @@ function getDefaultConfiguration ({value, options}: GetDefaultConfigurationProps
       });
     }
   }
+
+  finalOptions = normalizeEffectOptions(finalOptions)
 
   if (getDefaultValue) {
     finalOptions.forEach((option) => {
@@ -1525,10 +1558,20 @@ const getDefaultValueFunctionMap = {
       cursor: values.cursor
     }
   },
-  boxshadow(values: CSSProperties, config: any) {
+  effects(values: CSSProperties, config: any) {
     return {
-      boxShadow: values.boxShadow
+      boxShadow: values.boxShadow,
+      filter: values.filter,
+      backdropFilter: (values as any).backdropFilter,
+      WebkitBackdropFilter: (values as any).WebkitBackdropFilter ?? (values as any).webkitBackdropFilter,
     }
+  },
+  // 旧配置兼容：boxshadow / blur → effects
+  boxshadow(values: CSSProperties, config: any) {
+    return getDefaultValueFunctionMap.effects(values, config)
+  },
+  blur(values: CSSProperties, config: any) {
+    return getDefaultValueFunctionMap.effects(values, config)
   },
   overflow(values: CSSProperties, config: any) {
     return {
@@ -1674,10 +1717,20 @@ const getDefaultValueFunctionMap2 = {
       cursor: 'inherit'
     }
   },
-  boxshadow() {
+  effects() {
     return {
-      boxShadow: 'none'
+      boxShadow: 'none',
+      filter: 'none',
+      backdropFilter: 'none',
+      WebkitBackdropFilter: 'none',
     }
+  },
+  // 旧配置兼容占位：不注册 CSS 属性到 PANEL_MAP，避免覆盖 effects
+  boxshadow() {
+    return {}
+  },
+  blur() {
+    return {}
   },
   overflow() {
     return {
@@ -2405,6 +2458,12 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration, 
   let boxShadow // 非继承属性
   /** boxshadow */
 
+  /** blur / effects */
+  let filter: string | undefined // 非继承属性
+  let backdropFilter: string | undefined // 非继承属性
+  let webkitBackdropFilter: string | undefined // 非继承属性
+  /** blur / effects */
+
   /** overflow */
   let overflowX // 非继承属性
   let overflowY // 非继承属性
@@ -2698,6 +2757,24 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration, 
     //   }
     /** boxShadow */
 
+    /** blur */
+    const {
+      filter: styleFilter,
+      backdropFilter: styleBackdropFilter,
+    } = style
+    if (styleFilter) {
+      filter = styleFilter
+    }
+    if (styleBackdropFilter) {
+      backdropFilter = styleBackdropFilter
+    }
+    const styleWebkitBackdropFilter = style.getPropertyValue?.('-webkit-backdrop-filter')
+    if (styleWebkitBackdropFilter) {
+      webkitBackdropFilter = styleWebkitBackdropFilter
+      if (!backdropFilter) backdropFilter = styleWebkitBackdropFilter
+    }
+    /** blur */
+
     /** overflow */
     const {
       overflowX: styleOverflowX,
@@ -2974,6 +3051,20 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration, 
   }
   /** boxshadow */
 
+  /** blur */
+  if (!filter) {
+    filter = computedValues.filter;
+  }
+  if (!backdropFilter) {
+    backdropFilter = computedValues.backdropFilter
+      || computedValues.getPropertyValue?.('-webkit-backdrop-filter')
+      || webkitBackdropFilter;
+  }
+  if (!webkitBackdropFilter) {
+    webkitBackdropFilter = computedValues.getPropertyValue?.('-webkit-backdrop-filter') || backdropFilter;
+  }
+  /** blur */
+
   /** overflow */
   if (!overflowX) {
     overflowX = computedValues.overflowX
@@ -3084,6 +3175,10 @@ function getValues (rules: CSSStyleRule[], computedValues: CSSStyleDeclaration, 
     cursor,
 
     boxShadow,
+
+    filter,
+    backdropFilter,
+    WebkitBackdropFilter: webkitBackdropFilter || backdropFilter,
 
     overflowX,
     overflowY,

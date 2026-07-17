@@ -8,6 +8,8 @@ import css from './index.less'
 interface AddOption {
   label: string;
   value: string;
+  disabled?: boolean;
+  icon?: ReactNode;
 }
 
 interface PanelProps {
