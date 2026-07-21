@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect, ReactNode, useCallback, useImperativeHandle } from "react";
+import React, { useRef, useState, useEffect, ReactNode, useCallback, useImperativeHandle, CSSProperties } from "react";
 import { createPortal } from "react-dom";
 
 import { CheckOutlined } from "../";
@@ -17,6 +17,8 @@ interface DropdownOption {
   iconSize?: 'sm' | 'md';
   /** 置灰不可点（如 Effects 中已占用的模糊类型） */
   disabled?: boolean;
+  /** 列表项样式（如字体预览的 fontFamily） */
+  style?: CSSProperties;
 }
 
 interface DropdownProps {
@@ -191,7 +193,7 @@ const Items = React.forwardRef<HTMLDivElement, ItemsProps>((props, forwardRef) =
   const actionItems = options.filter((o) => o.type === 'action');
 
   const renderItem = (opt: typeof options[number], key: string | number, orderIndex?: number) => {
-    const { label, value, suffix, type, checked, icon, iconSize, disabled: itemDisabled } = opt;
+    const { label, value, suffix, type, checked, icon, iconSize, disabled: itemDisabled, style: itemStyle } = opt;
     if (type === 'divider') {
       return <div key={key} className={css.divider} />;
     }
@@ -251,7 +253,7 @@ const Items = React.forwardRef<HTMLDivElement, ItemsProps>((props, forwardRef) =
             {icon}
           </span>
         ) : (hasAnyIcon ? <span style={{ paddingLeft: 5 }} /> : null)}
-        <span className={css.itemLabel}>
+        <span className={css.itemLabel} style={itemStyle}>
           {label}
           {suffix != null && suffix !== '' && (
             <span className={css.itemSuffix}>{suffix}</span>

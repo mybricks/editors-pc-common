@@ -22,7 +22,7 @@ interface SelectProps {
   onChange: (value: any) => void;
   onAction?: (value: any) => void;
   onReorder?: (newOrder: any[]) => void;
-  options: Array<{ value: any; label: string | number; suffix?: string | number; type?: 'action' | 'divider'; checked?: boolean; icon?: ReactNode; iconSize?: 'sm' | 'md'; disabled?: boolean }>;
+  options: Array<{ value: any; label: string | number; suffix?: string | number; type?: 'action' | 'divider'; checked?: boolean; icon?: ReactNode; iconSize?: 'sm' | 'md'; disabled?: boolean; style?: CSSProperties }>;
   multiple?: boolean;
   /** 是否展示下拉的icon */
   showIcon?: boolean;

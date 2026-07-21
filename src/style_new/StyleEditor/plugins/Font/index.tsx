@@ -158,13 +158,21 @@ function alignToJustifyContent(align: string): string {
   return 'flex-start';
 }
 
-type FontFamilyOption = { label: string; value: string };
+type FontFamilyOption = { label: string; value: string; style?: CSSProperties };
 type ExternalFontface = {
   label?: string;
   value?: string;
   /** 字体文件 URL，供导出到 Figma 时加载字形数据使用 */
   url?: string;
 };
+
+/** 为字体选项附加 fontFamily，供下拉列表项样式回显 */
+function withFontFamilyPreview(option: FontFamilyOption): FontFamilyOption {
+  return {
+    ...option,
+    style: { fontFamily: quoteIfNeeded(option.value) },
+  };
+}
 
 function normalizeFontfaceOptions(fontfaces: ExternalFontface[] = []): FontFamilyOption[] {
   return fontfaces
@@ -174,7 +182,7 @@ function normalizeFontfaceOptions(fontfaces: ExternalFontface[] = []): FontFamil
       if (!value || !label) {
         return null;
       }
-      return { label, value };
+      return withFontFamilyPreview({ label, value });
     })
     .filter(Boolean) as FontFamilyOption[];
 }
@@ -260,14 +268,14 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
     const configFontfaces = normalizeFontfaceOptions(cfg.fontfaces as ExternalFontface[]);
     // 固定顺序：预设 → config注入 → context注入，不受当前选中值影响
     const baseOptions = mergeFontOptionsByValue(
-      FONT_FAMILY_OPTIONS as FontFamilyOption[],
+      (FONT_FAMILY_OPTIONS as FontFamilyOption[]).map(withFontFamilyPreview),
       configFontfaces,
       outterFontFamilyOptions,
     );
     // 兼容旧数据：当前选中字体不在任何列表中时，追加到末尾（inherit 不作为字体项追加）
     const extraOptions = (innerFontFamily || [])
       .filter((f) => f && f !== 'inherit' && !baseOptions.some((o) => o.value === f))
-      .map((f) => ({ label: f, value: f }));
+      .map((f) => withFontFamilyPreview({ label: f, value: f }));
     return extraOptions.length > 0
       ? mergeFontOptionsByValue(baseOptions, extraOptions)
       : baseOptions;
@@ -600,6 +608,11 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
                 }
                 prefix={<FontFamilyOutlined />}
                 style={{ padding: "0 8px", overflow: "hidden" }}
+                labelStyle={
+                  innerFontFamily?.[0] && innerFontFamily[0] !== "inherit"
+                    ? { fontFamily: quoteIfNeeded(innerFontFamily[0]) }
+                    : undefined
+                }
                 options={fontFamilyOptions()}
                 multiple={true}
                 value={innerFontFamily}
@@ -639,6 +652,11 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
                 }
                 prefix={<FontFamilyOutlined />}
                 style={{ padding: "0 8px", overflow: "hidden" }}
+                labelStyle={
+                  innerFontFamily?.[0] && innerFontFamily[0] !== "inherit"
+                    ? { fontFamily: quoteIfNeeded(innerFontFamily[0]) }
+                    : undefined
+                }
                 options={fontFamilyOptions()}
                 value={innerFontFamily?.[0] && innerFontFamily[0] !== 'inherit' ? innerFontFamily[0] : undefined}
                 clearable={!!(innerFontFamily?.[0] && innerFontFamily[0] !== 'inherit')}
