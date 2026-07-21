@@ -348,7 +348,7 @@ export function CSSPaste({ onChange, showTitle, collapse }: CSSPasteProps) {
 
   return (
     <Panel
-      title="粘贴 CSS"
+      title="CSS"
       showTitle={showTitle}
       collapse={collapse}
     >

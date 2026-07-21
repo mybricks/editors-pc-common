@@ -1,0 +1,109 @@
+@import url("../../../../theme.less");
+
+.trigger {
+  width: 24px;
+  height: 24px;
+  border-radius: 5px;
+  flex-shrink: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: transparent;
+  color: @font-color-content;
+
+  svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  &:hover {
+    border-color: @boder-color;
+  }
+}
+
+.triggerActive {
+  border-color: @border-color-main;
+  background-color: @bg-color-active;
+  color: @color-primary;
+}
+
+.blurSketch {
+  z-index: 1000;
+  position: fixed;
+  visibility: hidden;
+  width: 248px;
+  border-radius: 12px;
+  background-color: @bg-color-main;
+  box-shadow: @shadow-main;
+  border: 0.3px solid @boder-color;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-bottom: 10px;
+
+  .blurHeader {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-bottom: 2px;
+    padding: 8px;
+    width: 100%;
+    border-bottom: 1px solid @boder-color;
+    position: relative;
+
+    .blurHeaderBtn {
+      width: 24px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      border-radius: 5px;
+      color: @font-color-content;
+      flex-shrink: 0;
+      padding: 0;
+      outline: none;
+      position: absolute;
+      right: 10px;
+      top: 12px;
+
+      &:hover {
+        background-color: @bg-color-hover;
+        color: @font-color-content;
+      }
+    }
+  }
+
+  .blurRow {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 12px;
+    padding-left: 18px;
+
+    .blurLabelIcon {
+      width: 24px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: @font-color-content;
+      margin-right: 2px;
+
+      svg {
+        width: 24px;
+        height: 24px;
+      }
+    }
+
+    .blurLabel {
+      width: 34px;
+      font-size: 11px;
+      color: @font-color-content;
+      flex-shrink: 0;
+    }
+  }
+}
