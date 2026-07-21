@@ -12,7 +12,7 @@ import {
   ReloadOutlined,
 } from '@ant-design/icons'
 
-import { copyText, deepCopy } from '../utils'
+import { copyText } from '../utils'
 import { getDefaultConfiguration, getDefaultConfiguration2 } from './core/get-default-configuration'
 import type { SuggestOptionsCache } from './core/get-default-configuration'
 import { CssEditor } from './CssEditor'
@@ -132,19 +132,12 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
             <div className={css.title} onClick={onOpenClick}>
               <div>{editConfig.title}</div>
             </div>
-            <div className={css.actions}>
+            <div className={css.actions_allawys_display}>
+              <div className={css.icon} data-mybricks-tip={'CSS编辑'} onClick={onEditModeClick}>
+                {editMode ? <CodeOutlined /> : <AppstoreOutlined />}
+              </div>
               <div className={css.selector} data-mybricks-tip={finalSelector} onClick={copy}>
                 {finalSelector}
-              </div>
-
-              <div className={css.icon} data-mybricks-tip={'复制selector'} onClick={copy}>
-                <CopyOutlined />
-              </div>
-              <div className={css.icon} data-mybricks-tip={'重置'} onClick={refresh}>
-                <ReloadOutlined />
-              </div>
-              <div className={css.icon} data-mybricks-tip={'代码编辑'} onClick={onEditModeClick}>
-                {editMode ? <CodeOutlined /> : <AppstoreOutlined />}
               </div>
             </div>
           </div>
@@ -168,22 +161,23 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
               <div>{editConfig.title}</div>
             </div>
             <div className={css.actions_allawys_display}>
-              <div className={css.selector} data-mybricks-tip={finalSelector} onClick={copy}>
-                {finalSelector}
-              </div>
-              <div className={css.icon} data-mybricks-tip={'复制selector'} onClick={copy}>
-                <CopyOutlined />
-              </div>
-              <div className={css.icon} data-mybricks-tip={'重置'} onClick={refresh}>
-                <ReloadOutlined />
-              </div>
-              <div
+            <div
                 className={css.icon}
                 data-mybricks-tip={`{content:'返回可视化编辑',position:'left'}`}
                 onClick={onEditModeClick}
               >
                 {goBackIcon}
               </div>
+              <div className={css.selector} data-mybricks-tip={finalSelector} onClick={copy}>
+                {finalSelector}
+              </div>
+              {/* <div className={css.icon} data-mybricks-tip={'复制selector'} onClick={copy}>
+                <CopyOutlined />
+              </div> */}
+              {/* <div className={css.icon} data-mybricks-tip={'重置'} onClick={refresh}>
+                <ReloadOutlined />
+              </div> */}
+
             </div>
           </div>
         )}
@@ -192,19 +186,25 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
   }, [open, editMode, titleContent, batchMeta, onBatchDiscard, onBatchCommit])
 
   const editor = useMemo(() => {
-    if (editMode) {
-      const resolvedEditConfig = (() => {
-        const originalOptions = editConfig.options
-        if (zoneSelectorList.length < 1 || !originalOptions || Array.isArray(originalOptions)) {
-          return editConfig
-        }
-        return {
-          ...editConfig,
-          options: { ...originalOptions, selector: zoneSelectorList[activeZoneIdx] },
-        }
-      })()
-      const config = getDefaultConfiguration(resolvedEditConfig, suggestOptionsCacheRef.current)
+    const resolvedEditConfig = (() => {
+      const originalOptions = editConfig.options
+      if (zoneSelectorList.length < 1 || !originalOptions || Array.isArray(originalOptions)) {
+        return editConfig
+      }
+      return {
+        ...editConfig,
+        options: { ...originalOptions, selector: zoneSelectorList[activeZoneIdx] },
+      }
+    })()
+    const config = getDefaultConfiguration(resolvedEditConfig, suggestOptionsCacheRef.current)
+    const activeSelector =
+      zoneSelectorList[activeZoneIdx] ||
+      (!Array.isArray(resolvedEditConfig.options) && resolvedEditConfig.options
+        ? (resolvedEditConfig.options as any).selector
+        : undefined) ||
+      finalSelector
 
+    if (editMode) {
       const { targetDom: _td, ...activeStyleProps } = config
       if (isResetRef.current) {
         isResetRef.current = false
@@ -220,18 +220,21 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
           {...activeStyleProps}
         />
       )
-    } else {
-      return (
-        <CssEditor
-          {...editConfig}
-          selector={':root'}
-          onChange={(value: any) => {
-            editConfig.value.set(deepCopy(value))
-          }}
-        />
-      )
     }
-  }, [editMode, key, activeZoneIdx, refreshBatchMeta, zoneSelectorList])
+
+    return (
+      <CssEditor
+        popView={(editConfig as any).popView}
+        getDefaultOptions={editConfig.getDefaultOptions}
+        editConfig={resolvedEditConfig}
+        selector={activeSelector}
+        initialStyle={config.defaultValue}
+        // 代码编辑删除某行时需能落到 deletions；不沿用可视化折叠快照
+        collapsedOptions={[]}
+        onBatchMetaChange={refreshBatchMeta}
+      />
+    )
+  }, [editMode, key, activeZoneIdx, refreshBatchMeta, zoneSelectorList, finalSelector])
 
   function onMouseEnter() {
     try {

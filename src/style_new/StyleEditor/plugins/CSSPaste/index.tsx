@@ -5,6 +5,7 @@ import { useDarkMode } from '../../../../hooks'
 import { Panel } from '../../components'
 import { useStyleEditorContext } from '../../context'
 
+import { registerCSSPropertiesLanguage } from '../../../css-properties-language'
 import type { ChangeEvent, PanelBaseProps } from '../../type'
 import css from './index.less'
 
@@ -233,53 +234,6 @@ function parseCSS(cssText: string): Array<{ key: string; value: string }> {
     }
   }
   return result
-}
-
-let languageRegistered = false
-
-/** 注册专门用于 CSS 属性声明（无选择器）的 Monaco 语言；不高亮主题，复用全局 vs / vs-dark */
-function registerCSSPropertiesLanguage(monaco: any) {
-  if (languageRegistered) return
-  languageRegistered = true
-
-  monaco.languages.register({ id: 'css-properties' })
-
-  monaco.languages.setMonarchTokensProvider('css-properties', {
-    tokenizer: {
-      root: [
-        // 注释
-        [/\/\*/, 'comment', '@comment'],
-        [/\/\/.*$/, 'comment'],
-        // CSS 属性名（紧接 :）
-        [/[\w-]+(?=\s*:)/, 'attribute.name'],
-        // 冒号分隔
-        [/:/, 'delimiter'],
-        // 十六进制颜色
-        [/#[0-9a-fA-F]{3,8}\b/, 'number.hex'],
-        // CSS 变量 var(--xxx) 或 var(--xxx, fallback)
-        [/var\(--[\w-]+[^)]*\)/, 'variable.css'],
-        // 数值 + 单位
-        [/-?\d+\.?\d*(%|px|em|rem|vh|vw|vmin|vmax|dvh|dvw|svh|svw|pt|cm|mm|in|ex|ch|fr|deg|rad|turn|grad|s|ms)\b/, 'number'],
-        [/-?\d+\.?\d*\b/, 'number'],
-        // 字符串
-        [/"[^"]*"/, 'string'],
-        [/'[^']*'/, 'string'],
-        // 关键字值
-        [/\b(flex|grid|block|inline|none|auto|inherit|initial|unset|revert|normal|bold|italic|center|left|right|top|bottom|middle|stretch|baseline|flex-start|flex-end|space-between|space-around|space-evenly|wrap|nowrap|column|row|hidden|visible|scroll|clip|solid|dashed|dotted|double|groove|ridge|inset|outset|absolute|relative|fixed|sticky|static|pointer|default|not-allowed|transparent|currentColor)\b/, 'keyword'],
-        // 函数调用（rgba / linear-gradient / etc.）
-        [/[\w-]+(?=\()/, 'type'],
-        // 其余字母数字（属性值的其他部分）
-        [/[\w-]+/, 'identifier'],
-        // 标点
-        [/[;,()\/]/, 'delimiter'],
-      ],
-      comment: [
-        [/[^/*]+/, 'comment'],
-        [/\*\//, 'comment', '@pop'],
-        [/[/*]/, 'comment'],
-      ],
-    },
-  })
 }
 
 const MIN_HEIGHT = 56

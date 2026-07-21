@@ -16,7 +16,6 @@ import {
   Layout,
   ZIndex,
   Rotation,
-  CSSPaste,
 } from "./plugins";
 
 import type { StyleEditorProps, Option } from "./type";
@@ -40,7 +39,6 @@ const PLUGINS_MAP: Record<string, (value: any) => React.ReactNode> = {
   ROTATION: Rotation,
   CURSOR: Cursor,
   ZINDEX: ZIndex,
-  CSSPASTE: CSSPaste,
 };
 
 export default function ({

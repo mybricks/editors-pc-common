@@ -1,48 +1,98 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 // @ts-ignore
 import MonacoEditor from '@mybricks/code-editor'
 
 import { deepCopy } from '../utils'
-import { parseToCssCode, parseToStyleData } from './core/css-code-codec'
+import { applyStyleChange } from './core/apply-style-change'
+import {
+  diffStyleData,
+  filterStyleForCssCode,
+  parseToCssCode,
+  parseToStyleData,
+  resolveDisplaySelector,
+} from './core/css-code-codec'
+import { registerCSSPropertiesLanguage } from './css-properties-language'
 import { fullScreenIcon } from './icon'
 import css from './index.less'
 
 const CSS_EDITOR_TITLE = 'CSS样式编辑'
 
-function getDefaultValue({ value, selector }: any) {
-  const styleValue = deepCopy(value.get() || {})
-  return parseToCssCode(styleValue, selector)
-}
-
 export function CssEditor({
   popView,
-  options,
-  value,
   selector,
-  onChange: onPropsChange,
+  initialStyle,
+  editConfig,
+  collapsedOptions,
+  onBatchMetaChange,
   getDefaultOptions,
 }: any) {
-  const [cssValue, setCssValue] = useState(getDefaultValue({ value, selector }))
+  const displaySelector = resolveDisplaySelector(selector)
+  // baseline：编辑器回显快照，用于 blur 时 diff（含 CSSOM 回显值）
+  // liveStyle：与可视化一致，只累积真正写入过的属性，避免把计算样式整包写进 less
+  const [baselineStyle] = useState(() => filterStyleForCssCode(deepCopy(initialStyle || {})))
+  const [cssValue, setCssValue] = useState(() => parseToCssCode(baselineStyle, displaySelector))
   const editorRef = useRef<MonacoEditor>(null)
+  const baselineRef = useRef<Record<string, any>>(baselineStyle)
+  const liveStyleRef = useRef<Record<string, any>>({})
   const defaultOptions = useMemo(() => getDefaultOptions?.('stylenew') ?? {}, [])
-  const [context] = useState({ value: cssValue })
+  const contextRef = useRef({ value: cssValue })
+  const [editorHeight, setEditorHeight] = useState(300)
+  const dragStartRef = useRef<{ y: number; h: number } | null>(null)
 
-  const onMounted = useCallback((editor: any) => {
+  const handleDragMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    dragStartRef.current = { y: e.clientY, h: editorHeight }
+    document.body.style.cursor = 'ns-resize'
+    document.body.style.userSelect = 'none'
+
+    const onMouseMove = (ev: MouseEvent) => {
+      if (!dragStartRef.current) return
+      const delta = ev.clientY - dragStartRef.current.y
+      setEditorHeight(Math.max(80, dragStartRef.current.h + delta))
+    }
+    const onMouseUp = () => {
+      dragStartRef.current = null
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+      document.removeEventListener('mousemove', onMouseMove)
+      document.removeEventListener('mouseup', onMouseUp)
+    }
+    document.addEventListener('mousemove', onMouseMove)
+    document.addEventListener('mouseup', onMouseUp)
+  }, [editorHeight])
+
+  const onMounted = useCallback((editor: any, monaco: any) => {
     editorRef.current = editor
+    registerCSSPropertiesLanguage(monaco)
   }, [])
 
   const onChange = useCallback((value: any) => {
     setCssValue(value)
-    context.value = value
+    contextRef.current.value = value
   }, [])
 
   const onBlur = useCallback(() => {
-    const newStyleData = parseToStyleData(context.value, selector)
-    onPropsChange(newStyleData)
-  }, [])
+    const nextStyle = parseToStyleData(contextRef.current.value, displaySelector)
+    const changes = diffStyleData(baselineRef.current, nextStyle)
+    if (changes.length === 0) return
+
+    const { nextLiveStyle, applied } = applyStyleChange({
+      value: changes,
+      liveStyle: liveStyleRef.current,
+      collapsedOptions,
+      editConfig,
+      onBatchMetaChange,
+    })
+
+    if (applied) {
+      liveStyleRef.current = nextLiveStyle
+      // baseline 与编辑器内容对齐，供下次 diff
+      baselineRef.current = filterStyleForCssCode(nextStyle)
+    }
+  }, [displaySelector, collapsedOptions, editConfig, onBatchMetaChange])
 
   const onFullscreen = useCallback(() => {
-    popView(
+    popView?.(
       CSS_EDITOR_TITLE,
       () => {
         return <div className={css.modal}>{monaco}</div>
@@ -64,20 +114,21 @@ export function CssEditor({
         onChange={onChange}
         CDN={defaultOptions.CDN}
         onBlur={onBlur}
-        language="css"
+        language="css-properties"
       />
     )
-  }, [cssValue])
+  }, [cssValue, onBlur, onChange, onMounted, defaultOptions.CDN])
 
   return (
     <div className={css.codeWrap}>
       <div className={css.inlineWrap}>
-        <div className={css.body}>
+        <div className={css.body} style={{ height: editorHeight }}>
           <div data-mybricks-tip="放大" className={css.plus} onClick={onFullscreen}>
             {fullScreenIcon}
           </div>
           {monaco}
         </div>
+        <div className={css.dragHandle} onMouseDown={handleDragMouseDown} />
       </div>
     </div>
   )
