@@ -64,11 +64,12 @@
 
 .listItem {
   width: 100%;
-  background: @bg-color-main;
+  background: @bg-color-main-secondary;
   border: 1px solid transparent;
 
-  &:hover {
-    background-color: @bg-color-hover;
+  &:focus-within {
+    border-color: @color-primary;
+    border-radius: @border-radius;
   }
 
   .listItemCard {
@@ -128,11 +129,6 @@
 
     &::placeholder {
       color: #ccc;
-    }
-
-    &:focus {
-      background: @bg-color-hover;
-      border-radius: 2px;
     }
   }
 

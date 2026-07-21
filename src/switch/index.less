@@ -1,39 +1,65 @@
 @import '../theme';
 
 .editor-switch {
-  :global {
-    .ant-switch {
-      transition: none !important;
-      background: @boder-color;
+  display: flex;
+  align-items: center;
+}
 
-      * {
-        transition: none !important;
-      }
-    }
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 28px;
+  height: 16px;
+  cursor: pointer;
+}
 
-    .ant-switch-checked {
-      background-color: @color-primary;
+.input {
+  position: absolute;
+  width: 0;
+  height: 0;
+  opacity: 0;
+}
 
-      &:hover:not(.ant-switch-disabled) {
-        background-color: @color-primary !important;
-      }
-    }
+.slider {
+  position: absolute;
+  inset: 0;
+  border-radius: 8px;
+  background: @boder-color;
+  transition: none;
 
-    .ant-switch-disabled,
-    .ant-switch-loading {
-      cursor: default;
-      opacity: 1;
-    }
-
-    .ant-switch-disabled *,
-    .ant-switch-loading * {
-      cursor: default;
-    }
-
-    --antd-wave-shadow-color: @color-primary !important;
-
-    .ant-switch-checked:focus {
-      box-shadow: var(--box-shadow);
-    }
+  &::before {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 2px 4px 0 rgba(0, 35, 11, 0.2);
+    transition: none;
+    content: '';
   }
+}
+
+.input:checked + .slider {
+  background: @color-primary;
+}
+
+.input:checked + .slider::before {
+  transform: translateX(12px);
+}
+
+.input:focus + .slider {
+  box-shadow: var(--box-shadow);
+}
+
+.input:disabled + .slider {
+  cursor: default;
+  opacity: 1;
+}
+
+.input:disabled ~ .slider,
+.input:disabled + .slider::before,
+.input:disabled {
+  cursor: default;
 }

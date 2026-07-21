@@ -1,31 +1,32 @@
-import React, { useCallback } from 'react';
-import { Switch } from 'antd';
-import { useObservable } from '@mybricks/rxui';
+import React, { useCallback, useState } from 'react';
+import { EditorProps } from '../interface';
 import { isValid } from '../utils';
 import css from './index.less';
 
-export default function FN({ editConfig }): any {
+export default function FN({ editConfig }: EditorProps): any {
   const { value, options } = editConfig;
   const { readonly = false } = options || {};
 
-  const model = useObservable(
-    { val: isValid(value.get()) ? value.get() : false, value },
-    [value]
-  );
+  const [checked, setChecked] = useState(isValid(value.get()) ? value.get() : false);
 
-  const onChange = useCallback(() => {
-    model.val = !model.val;
-    model.value.set(model.val);
-  }, []);
+  const onChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    const nextValue = event.target.checked;
+    setChecked(nextValue);
+    value.set(nextValue);
+  }, [value]);
 
   return (
     <div className={css['editor-switch']}>
-      <Switch
-        disabled={readonly}
-        checked={model.val}
-        size="small"
-        onChange={onChange}
-      />
+      <label className={css.switch}>
+        <input
+          className={css.input}
+          type="checkbox"
+          disabled={readonly}
+          checked={checked}
+          onChange={onChange}
+        />
+        <span className={css.slider} />
+      </label>
     </div>
   );
 }
