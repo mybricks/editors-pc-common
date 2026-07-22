@@ -389,8 +389,7 @@ export function ColorEditor({
 
     if (pastedText?.startsWith("#") && pastedText.length === 7) {
       event.preventDefault();
-      // 阻止默认的粘贴行为
-      inputColorRef.current!.value = pastedText;
+      setUserInput(pastedText);
       handleInputChange(pastedText);
     }
   };
