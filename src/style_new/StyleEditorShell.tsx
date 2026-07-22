@@ -7,10 +7,10 @@ import {
   CaretRightOutlined,
   CheckOutlined,
   CloseOutlined,
-  CodeOutlined,
   CopyOutlined,
   ReloadOutlined,
 } from '@ant-design/icons'
+import { Code } from './StyleEditor/icons/Code'
 
 import { copyText } from '../utils'
 import { getDefaultConfiguration, getDefaultConfiguration2 } from './core/get-default-configuration'
@@ -133,11 +133,12 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
               <div>{editConfig.title}</div>
             </div>
             <div className={css.actions_allawys_display}>
-              <div className={css.icon} data-mybricks-tip={'CSS编辑'} onClick={onEditModeClick}>
-                {editMode ? <CodeOutlined /> : <AppstoreOutlined />}
-              </div>
               <div className={css.selector} data-mybricks-tip={finalSelector} onClick={copy}>
                 {finalSelector}
+              </div>
+
+              <div className={`${css.icon} ${css.codeIcon}`} data-mybricks-tip={`{content:'CSS编辑',position:'left'}`} onClick={onEditModeClick}>
+                {editMode ? <Code /> : <AppstoreOutlined />}
               </div>
             </div>
           </div>
@@ -161,15 +162,15 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
               <div>{editConfig.title}</div>
             </div>
             <div className={css.actions_allawys_display}>
-            <div
+              <div className={css.selector} data-mybricks-tip={finalSelector} onClick={copy}>
+                {finalSelector}
+              </div>
+              <div
                 className={css.icon}
                 data-mybricks-tip={`{content:'返回可视化编辑',position:'left'}`}
                 onClick={onEditModeClick}
               >
                 {goBackIcon}
-              </div>
-              <div className={css.selector} data-mybricks-tip={finalSelector} onClick={copy}>
-                {finalSelector}
               </div>
               {/* <div className={css.icon} data-mybricks-tip={'复制selector'} onClick={copy}>
                 <CopyOutlined />

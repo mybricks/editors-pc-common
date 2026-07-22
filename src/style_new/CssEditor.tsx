@@ -10,6 +10,7 @@ import {
   parseToCssCode,
   parseToStyleData,
   resolveDisplaySelector,
+  toLine,
 } from './core/css-code-codec'
 import { registerCSSPropertiesLanguage } from './css-properties-language'
 import { fullScreenIcon } from './icon'
@@ -76,8 +77,29 @@ export function CssEditor({
     const changes = diffStyleData(baselineRef.current, nextStyle)
     if (changes.length === 0) return
 
+    // 先检查本批是否有无效的新增/修改（属性名或值不合法）
+    // CSS 变量（--xxx）和 var() 引用跳过校验
+    const isInvalidChange = ({ key, value }: { key: string; value: any }) => {
+      if (value === null) return false
+      const prop = toLine(key)
+      const strVal = String(value).replace(/\s*!important\s*$/, '').trim()
+      if (prop.startsWith('--') || strVal.includes('var(')) return false
+      if (typeof CSS === 'undefined') return false
+      return !CSS.supports(prop, strVal)
+    }
+    const hasInvalidAdditions = changes.some(isInvalidChange)
+
+    // 有无效新增时，删除操作一并拦截（防止 color→color11(无效) 意外删掉 color）
+    // 无效的新增/修改本身始终跳过；有效变更正常写入
+    const validChanges = changes.filter(({ key, value }) => {
+      if (value === null) return !hasInvalidAdditions
+      return !isInvalidChange({ key, value })
+    })
+
+    if (validChanges.length === 0) return
+
     const { nextLiveStyle, applied } = applyStyleChange({
-      value: changes,
+      value: validChanges,
       liveStyle: liveStyleRef.current,
       collapsedOptions,
       editConfig,
@@ -114,7 +136,7 @@ export function CssEditor({
         onChange={onChange}
         CDN={defaultOptions.CDN}
         onBlur={onBlur}
-        language="css-properties"
+        language="css"
       />
     )
   }, [cssValue, onBlur, onChange, onMounted, defaultOptions.CDN])

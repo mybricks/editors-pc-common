@@ -6,7 +6,7 @@
   cursor: pointer;
   align-items: center;
   justify-content: start;
-  margin-right: 30px;
+  margin-right: 0px;
   min-width: 0;
 
   &:hover {
@@ -119,8 +119,10 @@
       align-items: center;
       justify-content: center;
       cursor: pointer;
-      margin: 0 4px;
+      margin-left: auto;
       flex-shrink: 0;
+      width: 24px;
+      height: 24px;
 
       svg {
         max-height: 11px;
@@ -130,11 +132,17 @@
           fill: @font-color-content;
         }
       }
+
+      &.codeIcon svg {
+        max-height: 22px;
+        max-width: 22px;
+      }
     }
   }
 }
 
 .codeWrap {
+  margin-top: 10px;
   :global {
     .suggest-widget {
       left: 2px !important;

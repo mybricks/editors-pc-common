@@ -37,6 +37,31 @@ const TRIVIAL_NUMERIC_MAP: Record<string, string | number> = {
 }
 
 /**
+ * 按属性名定义的 UA/CSS 默认值。
+ * 这些值本身不是全局 trivial（例如 "block" 在其他属性上有意义），
+ * 但对于特定属性而言等同于默认值，不应回显到 CSS 编辑器。
+ */
+const CSS_CODE_TRIVIAL_VALUE_BY_PROP: Record<string, Set<string>> = {
+  display: new Set(['block', 'inline']),
+  flexDirection: new Set(['row']),
+  flexWrap: new Set(['nowrap']),
+  boxSizing: new Set(['content-box']),
+  textAlign: new Set(['start', 'left']),
+  verticalAlign: new Set(['baseline']),
+  wordBreak: new Set(['normal']),
+  overflowWrap: new Set(['normal']),
+  whiteSpace: new Set(['normal']),
+  float: new Set(['none']),
+  clear: new Set(['none']),
+  cursor: new Set(['auto']),
+  pointerEvents: new Set(['auto']),
+  tableLayout: new Set(['auto']),
+  unicodeBidi: new Set(['normal']),
+  direction: new Set(['ltr']),
+  writingMode: new Set(['horizontal-tb']),
+}
+
+/**
  * 将驼峰写法改成xx-xx的css命名写法
  * @param styleKey
  */
@@ -58,6 +83,8 @@ function isTrivialCssValue(value: unknown, key?: string): boolean {
   if (ZERO_VALUE_RE.test(strVal)) return true
   // 属性级别的默认数值（如 opacity: 1）
   if (key && key in TRIVIAL_NUMERIC_MAP && String(TRIVIAL_NUMERIC_MAP[key]) === strVal) return true
+  // 属性特定的 UA 默认值（如 display: block、flex-direction: row）
+  if (key && CSS_CODE_TRIVIAL_VALUE_BY_PROP[key]?.has(strVal)) return true
   return false
 }
 
@@ -72,6 +99,29 @@ export function filterStyleForCssCode(styleData: Record<string, any> | null | un
     if (typeof value === 'object') continue
     result[key] = value
   }
+
+  // border-*-color 后置过滤：
+  // 当某边没有可见边框（无宽度 / 宽度为 0 / style 为 none/hidden）时，
+  // CSSOM 会将 currentColor 计算值填入对应的 border-*-color，这属于噪音。
+  const BORDER_SIDES = ['Top', 'Bottom', 'Left', 'Right'] as const
+  for (const side of BORDER_SIDES) {
+    const colorKey = `border${side}Color`
+    if (!(colorKey in result)) continue
+    const widthVal = String(styleData[`border${side}Width`] ?? '').trim()
+    const styleVal = String(styleData[`border${side}Style`] ?? '').trim()
+    const hasVisibleWidth = widthVal && !ZERO_VALUE_RE.test(widthVal)
+    const hasVisibleStyle =
+      styleVal &&
+      styleVal !== 'none' &&
+      styleVal !== 'hidden' &&
+      styleVal !== 'initial' &&
+      styleVal !== 'unset' &&
+      styleVal !== 'auto'
+    if (!hasVisibleWidth || !hasVisibleStyle) {
+      delete result[colorKey]
+    }
+  }
+
   return result
 }
 
@@ -94,16 +144,17 @@ export function resolveDisplaySelector(selector: string | undefined | null): str
 }
 
 /**
- * 将样式对象序列化为纯属性声明（无选择器/花括号），便于代码编辑区直接编辑。
- * selector 参数保留以兼容旧调用方，不再参与输出。
+ * 将样式对象序列化为标准 CSS 规则块（含选择器/花括号），
+ * 便于直接使用 Monaco 内置 CSS 语言服务（校验/补全/hover）。
  */
-export function parseToCssCode(styleData: Record<string, any> | StyleData, _selector?: string) {
+export function parseToCssCode(styleData: Record<string, any> | StyleData, selector?: string) {
   const filtered = filterStyleForCssCode(styleData as Record<string, any>)
   const lines: string[] = []
   for (const styleKey in filtered) {
-    lines.push(`${toLine(styleKey)}: ${filtered[styleKey]};`)
+    lines.push(`  ${toLine(styleKey)}: ${filtered[styleKey]};`)
   }
-  return lines.join('\n')
+  const displaySel = selector ? resolveDisplaySelector(selector) : 'element'
+  return `${displaySel} {\n${lines.join('\n')}\n}`
 }
 
 function pickAttributesFromCssJson(cssJson: any, selector: string): Record<string, any> | undefined {
