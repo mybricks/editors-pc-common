@@ -1,7 +1,8 @@
 // @ts-ignore
-import { calculate, compare } from 'specificity'
+import { compare } from 'specificity'
 
 import { getDocument } from './dom'
+import { calculateSafeSpecificity } from './selector-utils'
 
 export type CascadeMode = 'default' | 'hover'
 
@@ -86,12 +87,9 @@ export function findCascadeWinner(
           const isImportant =
             rule.style.getPropertyPriority(hyphen) === 'important' ||
             rule.style.getPropertyPriority('background') === 'important'
-          let ruleSpec: any
-          try {
-            ruleSpec = calculate(rule.selectorText)
-          } catch {
-            continue
-          }
+          // calculate 不支持逗号合并选择器，需走 calculateSafeSpecificity
+          const ruleSpec = calculateSafeSpecificity(rule.selectorText, element)
+          if (!ruleSpec) continue
 
           if (winnerSpec === null) {
             winnerSpec = ruleSpec

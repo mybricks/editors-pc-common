@@ -1,7 +1,7 @@
 // @ts-ignore
 import colorUtil from 'color-string'
 // @ts-ignore
-import { calculate, compare } from 'specificity'
+import { compare } from 'specificity'
 
 import { refineEffectedPanel } from '../StyleEditor/helper/paint-stack'
 import { findCascadeWinner } from './cascade-winner'
@@ -11,6 +11,7 @@ import { getDocument } from './dom'
 import { getStyleRules } from './get-style-rules'
 import { getValues } from './get-values'
 import { PANEL_MAP } from './panel-defaults'
+import { calculateSafeSpecificity, someSelectorPart } from './selector-utils'
 import {
   getEffectedPanelsFromCssRules,
   getEffectedPanelsFromDirectParent,
@@ -169,10 +170,8 @@ export function getEffectedCssPropertyAndOptions (element: HTMLElement | null, s
       }
 
       finalRules = Array.from(rulesMap.values()).filter((finalRule: any) => {
-        let tempCompare
-        try {
-          tempCompare = calculate(finalRule.selectorText)
-        } catch {}
+        // calculate 不支持逗号合并选择器，需走 calculateSafeSpecificity
+        const tempCompare = calculateSafeSpecificity(finalRule.selectorText, computedElement)
 
         if (tempCompare) {
           finalRule.tempCompare = tempCompare
@@ -203,10 +202,8 @@ export function getEffectedCssPropertyAndOptions (element: HTMLElement | null, s
       const { rules: rawRules, inheritOnlyRules } = getStyleRules(null, primarySelector)
       inheritOnlyRules.forEach(r => allInheritOnlyRules.add(r))
       finalRules = rawRules.filter((finalRule: any) => {
-        let tempCompare
-        try {
-          tempCompare = calculate(finalRule.selectorText)
-        } catch {}
+        // calculate 不支持逗号合并选择器，需走 calculateSafeSpecificity
+        const tempCompare = calculateSafeSpecificity(finalRule.selectorText, null)
 
         if (tempCompare) {
           finalRule.tempCompare = tempCompare
@@ -469,29 +466,32 @@ export function getEffectedCssPropertyAndOptions (element: HTMLElement | null, s
       if (idx === -1) return false;
       if (idx + tail.length !== selectorText.length) return false;
       const charBefore = selectorText[idx - 1];
-      return charBefore === ' ' || charBefore === '>' || charBefore === '+' || charBefore === '~';
+      return charBefore === ' ' || charBefore === '>' || charBefore === '+' || charBefore === '~' || charBefore === ',';
     };
 
     const ownSelectorRules = tailSegments.length > 0
       ? finalRules.filter((rule: any) => {
           const st: string = rule.selectorText ?? '';
-          return tailSegments.every(tail => {
-            // 对于单段（无空格）的 tail，用末尾精确匹配
-            // 对于包含空格的 tail（不应出现，做兜底），直接 endsWith
-            if (ruleMatchesTailSegment(st, tail) || st.includes(tail)) return true;
-            // CSS Modules 哈希类名兜底：tail=".myClass" 对应编译后 "pages_xxx_less-myClass"
-            // 规则选择器末尾段中，若某个类以 "-{原始类名}" 结尾则视为命中
-            if (tail.startsWith('.') && element) {
-              const tailClass = tail.slice(1);
-              const stLast = (st.trim().split(/\s+/).pop() || '');
-              const stClasses = (stLast.match(/\.([^.#[:]+)/g) ?? []).map((c: string) => c.slice(1));
-              const isHashedMatch = stClasses.some((c: string) => c === tailClass || c.endsWith('-' + tailClass));
-              if (isHashedMatch) {
-                try { return element.matches(st); } catch {}
+          // 逗号合并选择器由 someSelectorPart 统一拆分后逐段判断
+          return tailSegments.every(tail =>
+            someSelectorPart(st, (part) => {
+              // 对于单段（无空格）的 tail，用末尾精确匹配
+              // 对于包含空格的 tail（不应出现，做兜底），直接 endsWith
+              if (ruleMatchesTailSegment(part, tail) || part.includes(tail)) return true;
+              // CSS Modules 哈希类名兜底：tail=".myClass" 对应编译后 "pages_xxx_less-myClass"
+              // 规则选择器末尾段中，若某个类以 "-{原始类名}" 结尾则视为命中
+              if (tail.startsWith('.') && element) {
+                const tailClass = tail.slice(1);
+                const stLast = (part.trim().split(/\s+/).pop() || '');
+                const stClasses = (stLast.match(/\.([^.#[:]+)/g) ?? []).map((c: string) => c.slice(1));
+                const isHashedMatch = stClasses.some((c: string) => c === tailClass || c.endsWith('-' + tailClass));
+                if (isHashedMatch) {
+                  try { return element.matches(st); } catch {}
+                }
               }
-            }
-            return false;
-          });
+              return false;
+            })
+          );
         })
       : finalRules;
     // inlineEffectedPanels 也视为"自身拥有的样式"（用户通过编辑器写入的内联 style），

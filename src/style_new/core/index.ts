@@ -1,5 +1,6 @@
 export * from './dom'
 export * from './css-modules-match'
+export * from './selector-utils'
 export * from './css-code-codec'
 export * from './effects-alias'
 export * from './panel-defaults'

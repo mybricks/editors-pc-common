@@ -1,4 +1,5 @@
 import { getDocument, escapeRegExp } from './dom'
+import { forEachSelectorPart } from './selector-utils'
 
 /**
  * 伪类的展示优先级顺序。
@@ -62,11 +63,16 @@ export function scanPseudoSelectors(baseSelectors: string[], comId: string): str
         const regex = new RegExp(
           escapeRegExp(comId) + '.*' + segmentPattern + '(:{1,2}[a-zA-Z\\-]+(?:\\([^)]*\\))?)$'
         )
-        const match = selectorText.match(regex)
-        if (match) {
-          pseudoMap.get(sel)!.add(match[1])
-          continue
-        }
+        // 逗号合并选择器由 forEachSelectorPart 统一拆分；否则 $ 锚定只会命中末段伪类
+        let matchedSelf = false
+        forEachSelectorPart(selectorText, (part) => {
+          const match = part.match(regex)
+          if (match) {
+            pseudoMap.get(sel)!.add(match[1])
+            matchedSelf = true
+          }
+        })
+        if (matchedSelf) continue
 
         // ── 父级伪类兜底 ──────────────────────────────────────────────────────
         // 场景：sel 末尾是纯 HTML 标签名（如 "span"），自身没有 :hover 规则，
@@ -85,10 +91,12 @@ export function scanPseudoSelectors(baseSelectors: string[], comId: string): str
             const parentPseudoRegex = new RegExp(
               escapeRegExp(comId) + '.*' + parentSegPattern + '(:{1,2}[a-zA-Z\\-]+(?:\\([^)]*\\))?)$'
             )
-            const parentMatch = selectorText.match(parentPseudoRegex)
-            if (parentMatch) {
-              pseudoMap.get(sel)!.add(parentMatch[1])
-            }
+            forEachSelectorPart(selectorText, (part) => {
+              const parentMatch = part.match(parentPseudoRegex)
+              if (parentMatch) {
+                pseudoMap.get(sel)!.add(parentMatch[1])
+              }
+            })
           }
         }
       }
