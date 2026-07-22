@@ -231,9 +231,19 @@ export function InputNumber ({
 
 function getUnit (value: any, defaultUnitValue: string | undefined = void 0, unitOptions: Array<UnitOption> = []) {
   const [, unit] = splitValueAndUnit(value)
-  const unitOption = unitOptions.find((unitOption: UnitOption) => unitOption.value === unit)
-
-  return unitOption ? unitOption.value : (unit || (typeof defaultUnitValue !== 'undefined' ? defaultUnitValue : value))
+  // 解析出的单位在选项中（如 12px → px）
+  if (unitOptions.some((unitOption: UnitOption) => unitOption.value === unit)) {
+    return unit as string
+  }
+  // 整值本身就是合法单位关键字（如 auto / fit-content），且在选项中
+  if (unitOptions.some((unitOption: UnitOption) => unitOption.value === value)) {
+    return value
+  }
+  // 未识别单位（如 letter-spacing 的 normal）时，回退到默认单位，避免把关键字裸露成「单位」
+  if (typeof defaultUnitValue !== 'undefined') {
+    return defaultUnitValue
+  }
+  return unit || unitOptions[0]?.value || ''
 }
 
 function incrementDecrement(inputNumber: string, keyEvent: 'ArrowUp' | 'ArrowDown', allowNegative = false) {

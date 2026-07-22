@@ -144,6 +144,21 @@ const DEFAULT_CONFIG = {
   fontfaces: [],
 };
 
+/** letter-spacing 关键字/空值 → 可编辑长度，避免 InputNumber 把 normal 当成单位显示 */
+function normalizeLetterSpacingDisplay(letterSpacing: unknown): string {
+  if (
+    letterSpacing == null ||
+    letterSpacing === '' ||
+    ['unset', 'normal', 'inherit'].includes(letterSpacing as string)
+  ) {
+    return '0px';
+  }
+  if (typeof letterSpacing === 'number') {
+    return `${letterSpacing}px`;
+  }
+  return String(letterSpacing);
+}
+
 /** justify-content 值 → 对齐按钮显示值 */
 function justifyContentToAlign(jc?: string): string {
   if (jc === 'center') return 'center';
@@ -775,7 +790,10 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
           {cfg.disableLetterSpacing ? null : (
             <Panel.Item style={{ display: "flex", alignItems: "center", flex: 1, padding: "0 8px" }}>
               <div 
-                {...getDragPropsLetterSpacing(value.letterSpacing, '拖拽调整字间距')}
+                {...getDragPropsLetterSpacing(
+                  normalizeLetterSpacingDisplay(value.letterSpacing),
+                  '拖拽调整字间距'
+                )}
                 style={{ 
                   height: "100%", 
                   display: "flex", 
@@ -791,7 +809,8 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
                 tip="字间距"
                 type="number"
                 style={{ flex: 1, marginLeft: 4 }}
-                defaultValue={value.letterSpacing}
+                value={normalizeLetterSpacingDisplay(value.letterSpacing)}
+                defaultUnitValue="px"
                 unitOptions={LETTERSPACING_UNIT_OPTIONS}
                 // unitDisabledList={LETTERSPACING_UNIT_DISABLED_LIST}
                 fallbackValue={0}
