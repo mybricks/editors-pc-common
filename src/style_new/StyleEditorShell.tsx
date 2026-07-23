@@ -7,15 +7,27 @@ import {
   CaretRightOutlined,
   CheckOutlined,
   CloseOutlined,
-  CopyOutlined,
   ReloadOutlined,
 } from '@ant-design/icons'
 import { Code } from './StyleEditor/icons/Code'
+import { Copy } from './StyleEditor/icons/Copy'
+import { Paste } from './StyleEditor/icons/Paste'
 
 import { copyText } from '../utils'
+import { applyStyleChange } from './core/apply-style-change'
+import {
+  buildCssRule,
+  diffStyleData,
+  extractCssRuleBody,
+  filterStyleForCssCode,
+  parseToCssCode,
+  parseToStyleData,
+  resolveDisplaySelector,
+} from './core/css-code-codec'
 import { getDefaultConfiguration, getDefaultConfiguration2 } from './core/get-default-configuration'
 import type { SuggestOptionsCache } from './core/get-default-configuration'
 import { CssEditor } from './CssEditor'
+import type { CssEditorHandle } from './CssEditor'
 import { useUpdateEffect } from './StyleEditor/hooks'
 import { StyleMount } from './StyleMount'
 import type { EditorProps } from './type'
@@ -24,6 +36,33 @@ import { useBatchMeta } from './hooks/useBatchMeta'
 import { useZoneSelectors } from './hooks/useZoneSelectors'
 import { goBackIcon } from './icon'
 import css from './index.less'
+
+async function writeClipboardText(text: string): Promise<boolean> {
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text)
+      return true
+    }
+  } catch {}
+  // fallback：textarea 可保留多行；utils.copyText 用 input 会丢换行
+  const ta = document.createElement('textarea')
+  ta.value = text
+  ta.setAttribute('readonly', 'true')
+  ta.style.position = 'fixed'
+  ta.style.left = '-9999px'
+  document.body.appendChild(ta)
+  ta.select()
+  const ok = document.execCommand('copy')
+  document.body.removeChild(ta)
+  return ok
+}
+
+async function readClipboardText(): Promise<string> {
+  if (navigator.clipboard?.readText) {
+    return navigator.clipboard.readText()
+  }
+  throw new Error('clipboard unavailable')
+}
 
 export default function StyleEditorShell({ editConfig }: EditorProps) {
   const [titleContent, setTitleContent] = useState('')
@@ -46,6 +85,7 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
   const [key, setKey] = useState(0)
   const isResetRef = useRef(false)
   const suggestOptionsCacheRef = useRef<SuggestOptionsCache>(new WeakMap())
+  const cssEditorHandleRef = useRef<CssEditorHandle | null>(null)
 
   useEffect(() => {
     suggestOptionsCacheRef.current = new WeakMap()
@@ -64,6 +104,24 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
     open
   )
   const affectedCount = useAffectedCount(activeZoneIdx, zoneSelectorList, finalSelector)
+
+  const resolveActiveEditContext = useCallback(() => {
+    const originalOptions = editConfig.options
+    const resolvedEditConfig =
+      zoneSelectorList.length < 1 || !originalOptions || Array.isArray(originalOptions)
+        ? editConfig
+        : {
+            ...editConfig,
+            options: { ...originalOptions, selector: zoneSelectorList[activeZoneIdx] },
+          }
+    const activeSelector =
+      zoneSelectorList[activeZoneIdx] ||
+      (!Array.isArray(resolvedEditConfig.options) && resolvedEditConfig.options
+        ? (resolvedEditConfig.options as any).selector
+        : undefined) ||
+      finalSelector
+    return { resolvedEditConfig, activeSelector }
+  }, [editConfig, zoneSelectorList, activeZoneIdx, finalSelector])
 
   const refresh = useCallback(() => {
     editConfig.value.set({})
@@ -92,6 +150,76 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
       message.success('复制成功')
     }
   }, [])
+
+  const onCopyStyle = useCallback(async () => {
+    let body = ''
+    if (cssEditorHandleRef.current) {
+      body = cssEditorHandleRef.current.getCssBody()
+    } else {
+      const { resolvedEditConfig, activeSelector } = resolveActiveEditContext()
+      const config = getDefaultConfiguration(resolvedEditConfig, suggestOptionsCacheRef.current)
+      body = extractCssRuleBody(parseToCssCode(config.defaultValue, activeSelector))
+    }
+    const ok = await writeClipboardText(body)
+    if (ok) {
+      message.success(body ? '样式已复制' : '已复制（当前无样式）')
+    } else {
+      message.error('复制失败')
+    }
+  }, [resolveActiveEditContext])
+
+  const onPasteStyle = useCallback(async () => {
+    let text = ''
+    try {
+      text = await readClipboardText()
+    } catch {
+      message.error('无法读取剪切板，请检查浏览器权限')
+      return
+    }
+    const body = extractCssRuleBody(text)
+    if (!body.trim()) {
+      message.warning('剪切板中没有可粘贴的样式')
+      return
+    }
+
+    // CSS 编辑态：直接替换 Monaco 中 {} 内容并落盘
+    if (cssEditorHandleRef.current) {
+      cssEditorHandleRef.current.replaceCssBody(body)
+      message.success('样式已粘贴')
+      return
+    }
+
+    // 可视化态：与 CSS 编辑器一致，用 diff 生成变更。
+    // 不能「先全量 null 再 set」——styleProxy 会先写 value 再按 deletions 删除，
+    // 重叠 key 会被删掉，表现为粘贴后样式变空。
+    const { resolvedEditConfig, activeSelector } = resolveActiveEditContext()
+    const config = getDefaultConfiguration(resolvedEditConfig, suggestOptionsCacheRef.current)
+    const currentStyle = filterStyleForCssCode(config.defaultValue || {})
+    const displaySelector = resolveDisplaySelector(activeSelector)
+    const nextStyle = parseToStyleData(buildCssRule(displaySelector, body), displaySelector)
+    const changes = diffStyleData(currentStyle, nextStyle)
+    if (changes.length === 0) {
+      message.warning('没有可应用的样式')
+      return
+    }
+    if (Object.keys(nextStyle).length === 0) {
+      message.warning('剪切板样式无法解析')
+      return
+    }
+    const { applied } = applyStyleChange({
+      value: changes,
+      liveStyle: currentStyle,
+      collapsedOptions: [],
+      editConfig: resolvedEditConfig,
+      onBatchMetaChange: refreshBatchMeta,
+    })
+    if (applied) {
+      setKey((k) => k + 1)
+      message.success('样式已粘贴')
+    } else {
+      message.warning('样式未发生变化')
+    }
+  }, [resolveActiveEditContext, refreshBatchMeta])
 
   function onOpenClick() {
     if (!finalDisabledSwitch) {
@@ -136,9 +264,28 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
               <div className={css.selector} data-mybricks-tip={finalSelector} onClick={copy}>
                 {finalSelector}
               </div>
-
-              <div className={`${css.icon} ${css.codeIcon}`} data-mybricks-tip={`{content:'CSS编辑',position:'left'}`} onClick={onEditModeClick}>
-                {editMode ? <Code /> : <AppstoreOutlined />}
+              <div className={css.iconActions}>
+                <div
+                  className={`${css.icon} ${css.codeIcon}`}
+                  data-mybricks-tip={`{content:'复制样式',position:'left'}`}
+                  onClick={onCopyStyle}
+                >
+                  <Copy />
+                </div>
+                <div
+                  className={`${css.icon} ${css.codeIcon}`}
+                  data-mybricks-tip={`{content:'粘贴样式',position:'left'}`}
+                  onClick={onPasteStyle}
+                >
+                  <Paste />
+                </div>
+                <div
+                  className={`${css.icon} ${css.codeIcon}`}
+                  data-mybricks-tip={`{content:'CSS编辑',position:'left'}`}
+                  onClick={onEditModeClick}
+                >
+                  {editMode ? <Code /> : <AppstoreOutlined />}
+                </div>
               </div>
             </div>
           </div>
@@ -165,12 +312,28 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
               <div className={css.selector} data-mybricks-tip={finalSelector} onClick={copy}>
                 {finalSelector}
               </div>
-              <div
-                className={css.icon}
-                data-mybricks-tip={`{content:'返回可视化编辑',position:'left'}`}
-                onClick={onEditModeClick}
-              >
-                {goBackIcon}
+              <div className={css.iconActions}>
+                <div
+                  className={`${css.icon} ${css.codeIcon}`}
+                  data-mybricks-tip={`{content:'复制样式',position:'left'}`}
+                  onClick={onCopyStyle}
+                >
+                  <Copy />
+                </div>
+                <div
+                  className={`${css.icon} ${css.codeIcon}`}
+                  data-mybricks-tip={`{content:'粘贴样式',position:'left'}`}
+                  onClick={onPasteStyle}
+                >
+                  <Paste />
+                </div>
+                <div
+                  className={css.icon}
+                  data-mybricks-tip={`{content:'返回可视化编辑',position:'left'}`}
+                  onClick={onEditModeClick}
+                >
+                  {goBackIcon}
+                </div>
               </div>
               {/* <div className={css.icon} data-mybricks-tip={'复制selector'} onClick={copy}>
                 <CopyOutlined />
@@ -178,13 +341,12 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
               {/* <div className={css.icon} data-mybricks-tip={'重置'} onClick={refresh}>
                 <ReloadOutlined />
               </div> */}
-
             </div>
           </div>
         )}
       </>
     )
-  }, [open, editMode, titleContent, batchMeta, onBatchDiscard, onBatchCommit])
+  }, [open, editMode, titleContent, batchMeta, onBatchDiscard, onBatchCommit, onCopyStyle, onPasteStyle])
 
   const editor = useMemo(() => {
     const resolvedEditConfig = (() => {
@@ -233,6 +395,7 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
         // 代码编辑删除某行时需能落到 deletions；不沿用可视化折叠快照
         collapsedOptions={[]}
         onBatchMetaChange={refreshBatchMeta}
+        editorHandleRef={cssEditorHandleRef}
       />
     )
   }, [editMode, key, activeZoneIdx, refreshBatchMeta, zoneSelectorList, finalSelector])

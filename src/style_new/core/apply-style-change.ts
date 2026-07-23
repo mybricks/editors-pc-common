@@ -93,9 +93,12 @@ export function applyStyleChange({
   }
 
   // 删除信号通过 window 侧通道传递给 valueProxy.set，
-  // 不污染 editConfig.value（代码编辑器不会看到 null 值）
-  if (deletedKeys.length > 0) {
-    ;(window as any).__mybricks_style_deletions = deletedKeys
+  // 不污染 editConfig.value（代码编辑器不会看到 null 值）。
+  // 同批又被赋了新值的 key 必须排除：styleProxy 会先写 value 再按 deletions 删除，
+  // 重叠 key 会被清掉（表现为粘贴/批量替换后样式变空）。
+  const effectiveDeletions = deletedKeys.filter((key) => !(key in nextSetValue))
+  if (effectiveDeletions.length > 0) {
+    ;(window as any).__mybricks_style_deletions = effectiveDeletions
   }
 
   const mergedCssProperties = mergeCSSProperties(deepCopy(nextSetValue))

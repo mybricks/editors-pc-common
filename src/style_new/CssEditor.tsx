@@ -5,7 +5,9 @@ import MonacoEditor from '@mybricks/code-editor'
 import { deepCopy } from '../utils'
 import { applyStyleChange } from './core/apply-style-change'
 import {
+  buildCssRule,
   diffStyleData,
+  extractCssRuleBody,
   filterStyleForCssCode,
   parseToCssCode,
   parseToStyleData,
@@ -18,6 +20,11 @@ import css from './index.less'
 
 const CSS_EDITOR_TITLE = 'CSS样式编辑'
 
+export type CssEditorHandle = {
+  getCssBody: () => string
+  replaceCssBody: (body: string) => void
+}
+
 export function CssEditor({
   popView,
   selector,
@@ -26,6 +33,7 @@ export function CssEditor({
   collapsedOptions,
   onBatchMetaChange,
   getDefaultOptions,
+  editorHandleRef,
 }: any) {
   const displaySelector = resolveDisplaySelector(selector)
   // baseline：编辑器回显快照，用于 blur 时 diff（含 CSSOM 回显值）
@@ -72,8 +80,8 @@ export function CssEditor({
     contextRef.current.value = value
   }, [])
 
-  const onBlur = useCallback(() => {
-    const nextStyle = parseToStyleData(contextRef.current.value, displaySelector)
+  const commitCssValue = useCallback((nextCss: string) => {
+    const nextStyle = parseToStyleData(nextCss, displaySelector)
     const changes = diffStyleData(baselineRef.current, nextStyle)
     if (changes.length === 0) return
 
@@ -112,6 +120,27 @@ export function CssEditor({
       baselineRef.current = filterStyleForCssCode(nextStyle)
     }
   }, [displaySelector, collapsedOptions, editConfig, onBatchMetaChange])
+
+  const onBlur = useCallback(() => {
+    commitCssValue(contextRef.current.value)
+  }, [commitCssValue])
+
+  useEffect(() => {
+    if (!editorHandleRef) return
+    editorHandleRef.current = {
+      getCssBody: () => extractCssRuleBody(contextRef.current.value),
+      replaceCssBody: (body: string) => {
+        const nextCss = buildCssRule(displaySelector, body)
+        setCssValue(nextCss)
+        contextRef.current.value = nextCss
+        // Monaco 受控更新后立即提交，等同 blur 落盘
+        commitCssValue(nextCss)
+      },
+    }
+    return () => {
+      editorHandleRef.current = null
+    }
+  }, [displaySelector, commitCssValue, editorHandleRef])
 
   const onFullscreen = useCallback(() => {
     popView?.(

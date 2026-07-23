@@ -157,6 +157,23 @@ export function parseToCssCode(styleData: Record<string, any> | StyleData, selec
   return `${displaySel} {\n${lines.join('\n')}\n}`
 }
 
+/** 提取 CSS 规则块 `{}` 内的声明文本（不含花括号） */
+export function extractCssRuleBody(cssCode: string): string {
+  const start = (cssCode || '').indexOf('{')
+  const end = (cssCode || '').lastIndexOf('}')
+  if (start === -1 || end === -1 || end <= start) {
+    return (cssCode || '').trim()
+  }
+  return cssCode.slice(start + 1, end).trim()
+}
+
+/** 用声明文本重建完整 CSS 规则块 */
+export function buildCssRule(selector: string | undefined | null, body: string): string {
+  const displaySel = resolveDisplaySelector(selector)
+  const trimmed = (body || '').trim()
+  return trimmed ? `${displaySel} {\n${trimmed}\n}` : `${displaySel} {\n}`
+}
+
 function pickAttributesFromCssJson(cssJson: any, selector: string): Record<string, any> | undefined {
   const children = cssJson?.children
   if (!children || typeof children !== 'object') return undefined
