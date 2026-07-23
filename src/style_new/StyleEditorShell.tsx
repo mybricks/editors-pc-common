@@ -26,6 +26,8 @@ import {
 } from './core/css-code-codec'
 import { getDefaultConfiguration, getDefaultConfiguration2 } from './core/get-default-configuration'
 import type { SuggestOptionsCache } from './core/get-default-configuration'
+import { mergeStylesWithPasteConflicts } from './core/paste-style-merge'
+import { normalizePastedStyleVars } from './core/resolve-paste-css-vars'
 import { CssEditor } from './CssEditor'
 import type { CssEditorHandle } from './CssEditor'
 import { useUpdateEffect } from './StyleEditor/hooks'
@@ -184,13 +186,21 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
 
     const { resolvedEditConfig, activeSelector } = resolveActiveEditContext()
     const displaySelector = resolveDisplaySelector(activeSelector)
-    const pastedStyle = parseToStyleData(buildCssRule(displaySelector, body), displaySelector)
+    const scopeEl =
+      (Array.isArray(targetDom) ? targetDom[0] : targetDom) ||
+      canvasEle ||
+      null
+    // Figma 等来源常带 var(--xxx, #fallback)；灵创无该变量时只保留兜底色值
+    const pastedStyle = normalizePastedStyleVars(
+      parseToStyleData(buildCssRule(displaySelector, body), displaySelector),
+      scopeEl
+    )
     if (Object.keys(pastedStyle).length === 0) {
       message.warning('剪切板样式无法解析')
       return
     }
 
-    // 合并粘贴：剪切板属性覆盖同名项，缺省属性保留（适配 Figma 只拷 Style 片段等场景）
+    // 合并粘贴：同名覆盖 + 缺省保留；简写/longhand 冲突按粘贴侧清理
     // CSS 编辑态：合并进 Monaco {} 后落盘
     if (cssEditorHandleRef.current) {
       const currentBody = cssEditorHandleRef.current.getCssBody()
@@ -198,19 +208,19 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
         buildCssRule(displaySelector, currentBody),
         displaySelector
       )
-      const mergedStyle = { ...currentStyle, ...pastedStyle }
+      const mergedStyle = mergeStylesWithPasteConflicts(currentStyle, pastedStyle)
       const mergedBody = extractCssRuleBody(parseToCssCode(mergedStyle, displaySelector))
       cssEditorHandleRef.current.replaceCssBody(mergedBody)
       message.success('样式已粘贴')
       return
     }
 
-    // 可视化态：对「当前 ∪ 粘贴」做 diff，只产生新增/覆盖，不删除缺省 key。
-    // 不能「先全量 null 再 set」——styleProxy 会先写 value 再按 deletions 删除，
-    // 重叠 key 会被删掉，表现为粘贴后样式变空。
+    // 可视化态：对「当前 ∪ 粘贴」做 diff。
+    // 冲突清理会删掉冲突 longhand（如粘贴 background 时去掉旧 backgroundImage），
+    // diff 会生成 value:null；非冲突缺省属性仍保留。
     const config = getDefaultConfiguration(resolvedEditConfig, suggestOptionsCacheRef.current)
     const currentStyle = filterStyleForCssCode(config.defaultValue || {})
-    const mergedStyle = { ...currentStyle, ...pastedStyle }
+    const mergedStyle = mergeStylesWithPasteConflicts(currentStyle, pastedStyle)
     const changes = diffStyleData(currentStyle, mergedStyle)
     if (changes.length === 0) {
       message.warning('没有可应用的样式')
@@ -229,7 +239,7 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
     } else {
       message.warning('样式未发生变化')
     }
-  }, [resolveActiveEditContext, refreshBatchMeta])
+  }, [resolveActiveEditContext, refreshBatchMeta, targetDom, canvasEle])
 
   function onOpenClick() {
     if (!finalDisabledSwitch) {
