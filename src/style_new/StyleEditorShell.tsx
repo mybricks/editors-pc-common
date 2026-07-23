@@ -182,28 +182,38 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
       return
     }
 
-    // CSS 编辑态：直接替换 Monaco 中 {} 内容并落盘
+    const { resolvedEditConfig, activeSelector } = resolveActiveEditContext()
+    const displaySelector = resolveDisplaySelector(activeSelector)
+    const pastedStyle = parseToStyleData(buildCssRule(displaySelector, body), displaySelector)
+    if (Object.keys(pastedStyle).length === 0) {
+      message.warning('剪切板样式无法解析')
+      return
+    }
+
+    // 合并粘贴：剪切板属性覆盖同名项，缺省属性保留（适配 Figma 只拷 Style 片段等场景）
+    // CSS 编辑态：合并进 Monaco {} 后落盘
     if (cssEditorHandleRef.current) {
-      cssEditorHandleRef.current.replaceCssBody(body)
+      const currentBody = cssEditorHandleRef.current.getCssBody()
+      const currentStyle = parseToStyleData(
+        buildCssRule(displaySelector, currentBody),
+        displaySelector
+      )
+      const mergedStyle = { ...currentStyle, ...pastedStyle }
+      const mergedBody = extractCssRuleBody(parseToCssCode(mergedStyle, displaySelector))
+      cssEditorHandleRef.current.replaceCssBody(mergedBody)
       message.success('样式已粘贴')
       return
     }
 
-    // 可视化态：与 CSS 编辑器一致，用 diff 生成变更。
+    // 可视化态：对「当前 ∪ 粘贴」做 diff，只产生新增/覆盖，不删除缺省 key。
     // 不能「先全量 null 再 set」——styleProxy 会先写 value 再按 deletions 删除，
     // 重叠 key 会被删掉，表现为粘贴后样式变空。
-    const { resolvedEditConfig, activeSelector } = resolveActiveEditContext()
     const config = getDefaultConfiguration(resolvedEditConfig, suggestOptionsCacheRef.current)
     const currentStyle = filterStyleForCssCode(config.defaultValue || {})
-    const displaySelector = resolveDisplaySelector(activeSelector)
-    const nextStyle = parseToStyleData(buildCssRule(displaySelector, body), displaySelector)
-    const changes = diffStyleData(currentStyle, nextStyle)
+    const mergedStyle = { ...currentStyle, ...pastedStyle }
+    const changes = diffStyleData(currentStyle, mergedStyle)
     if (changes.length === 0) {
       message.warning('没有可应用的样式')
-      return
-    }
-    if (Object.keys(nextStyle).length === 0) {
-      message.warning('剪切板样式无法解析')
       return
     }
     const { applied } = applyStyleChange({
