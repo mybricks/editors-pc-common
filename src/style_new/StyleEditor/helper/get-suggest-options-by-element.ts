@@ -156,6 +156,9 @@ export function getSuggestOptionsByElement(selectDom: HTMLElement): { type: stri
       {
         type: 'rotation'
       },
+      {
+        type: 'position'
+      },
       sizeOption,
       {
         type: 'csspaste'

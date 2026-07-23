@@ -134,6 +134,14 @@ export const getDefaultValueFunctionMap = {
       transform: values.transform
     }
   },
+  position(values: CSSProperties, config: any) {
+    return {
+      left: values.left,
+      top: values.top,
+      // 自由定位切换按钮依赖 position 回显（高亮 / 取消）
+      position: values.position,
+    }
+  },
   layout(values: CSSProperties, config: any) {
     return {
       display: values.display,
@@ -291,6 +299,13 @@ export const getDefaultValueFunctionMap2 = {
   rotation() {
     return {
       transform: 'none'
+    }
+  },
+  position() {
+    return {
+      left: 'auto',
+      top: 'auto',
+      position: 'static',
     }
   },
   layout() {

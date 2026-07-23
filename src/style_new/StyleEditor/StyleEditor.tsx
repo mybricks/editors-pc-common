@@ -16,6 +16,7 @@ import {
   Layout,
   ZIndex,
   Rotation,
+  Position,
 } from "./plugins";
 
 import type { StyleEditorProps, Option } from "./type";
@@ -26,6 +27,7 @@ import css from "./StyleEditor.less";
 const PLUGINS_MAP: Record<string, (value: any) => React.ReactNode> = {
   LAYOUT: Layout,
   SIZE: Size,
+  POSITION: Position,
   APPEARANCE: Appearance,
   FONT: Font,
   BACKGROUND: Background,

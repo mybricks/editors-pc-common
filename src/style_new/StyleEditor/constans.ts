@@ -6,6 +6,7 @@ export const DEFAULT_OPTIONS = [
   'padding',
   'margin',
   'size',
+  'position',
   'appearance',
   'cursor',
   'effects',

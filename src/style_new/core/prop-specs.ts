@@ -151,4 +151,8 @@ export const PROP_SPECS: PropSpec[] = [
   { camel: 'columnGap', inherit: false, fallback: 'gap', treatAsUnset: ['normal'] },
   { camel: 'position', inherit: false, fallback: 'computed' },
   { camel: 'overflow', inherit: false, fallback: 'computed' },
+
+  // position offset (left / top)
+  { camel: 'left', inherit: false, fallback: 'none' },
+  { camel: 'top', inherit: false, fallback: 'none' },
 ]

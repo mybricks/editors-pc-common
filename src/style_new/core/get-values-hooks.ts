@@ -178,5 +178,8 @@ export function buildExportBag(acc: ValuesAcc): Record<string, any> {
     columnGap: acc.columnGap,
     position: acc.position,
     overflow: acc.overflow,
+
+    left: acc.left,
+    top: acc.top,
   }
 }
