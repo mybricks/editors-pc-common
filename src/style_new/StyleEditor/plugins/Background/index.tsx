@@ -385,6 +385,8 @@ export function Background({
   // stale-closure bugs when the Colorpicker's inner Sketch picker retains an
   // old onChange reference across re-renders.
 
+  const panelDeleteRef = useRef<(() => void) | null>(null);
+
   const handleLayerChange = useCallback(
     (index: number, partial: Partial<BgLayer>) => {
       emitLayers(layersRef.current.map((l, i) => (i === index ? { ...l, ...partial } : l)));
@@ -394,6 +396,10 @@ export function Background({
 
   const handleLayerRemove = useCallback(
     (index: number) => {
+      if (layersRef.current.length === 1) {
+        panelDeleteRef.current?.();
+        return;
+      }
       emitLayers(layersRef.current.filter((_, i) => i !== index));
     },
     [emitLayers]
@@ -487,6 +493,8 @@ export function Background({
       collapse={effectiveCollapse}
       onAdd={handleAddLayer}
       showDelete={false}
+      deleteRef={panelDeleteRef}
+      resetFunction={handleReset}
       rightColumn={
         layers.length > 0 ? (
           <div className={css.deleteColumn}>
