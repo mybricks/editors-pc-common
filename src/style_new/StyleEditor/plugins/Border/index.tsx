@@ -653,6 +653,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                       tip="边框宽度"
                       style={{ ...shouldShowMiniLayout ? DEFAULT_STYLE_MINI : DEFAULT_STYLE_SMALL, flex: 1 }}
                       defaultValue={borderValue.borderTopWidth}
+                      value={borderValue.borderTopWidth}
                       defaultUnitValue="px"
                       fallbackValue={0}
                       onChange={(value) => {
@@ -732,6 +733,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                         tip="左边框宽度"
                         style={{ ...shouldShowMiniLayout ? DEFAULT_STYLE_MINI : DEFAULT_STYLE_SMALL, flexShrink: 0 }}
                         defaultValue={borderValue.borderLeftWidth}
+                        value={borderValue.borderLeftWidth}
                         defaultUnitValue="px"
                         fallbackValue={0}
                         onChange={(value) =>
@@ -782,6 +784,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                         tip="上边框宽度"
                         style={{ ...shouldShowMiniLayout ? DEFAULT_STYLE_MINI : DEFAULT_STYLE_SMALL, flexShrink: 0 }}
                         defaultValue={borderValue.borderTopWidth}
+                        value={borderValue.borderTopWidth}
                         defaultUnitValue="px"
                         fallbackValue={0}
                         onChange={(value) =>
@@ -833,6 +836,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                         tip="右边框宽度"
                         style={{ ...shouldShowMiniLayout ? DEFAULT_STYLE_MINI : DEFAULT_STYLE_SMALL, flexShrink: 0 }}
                         defaultValue={borderValue.borderRightWidth}
+                        value={borderValue.borderRightWidth}
                         defaultUnitValue="px"
                         fallbackValue={0}
                         onChange={(value) =>
@@ -884,6 +888,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                         tip="下边框宽度"
                         style={{ ...shouldShowMiniLayout ? DEFAULT_STYLE_MINI : DEFAULT_STYLE_SMALL, flexShrink: 0 }}
                         defaultValue={borderValue.borderBottomWidth}
+                        value={borderValue.borderBottomWidth}
                         defaultUnitValue="px"
                         fallbackValue={0}
                         onChange={(value) =>

@@ -182,17 +182,17 @@ export function InputNumber ({
   }, [unit, isDefaultUnit, badge, unitOptions, onAction])
 
   useUpdateEffect(() => {
-    if (value) {
+    if (value == null || value === '') return
 
-      const unit = getUnit(value, defaultUnitValue, unitOptions)
-      setUnit(unit)
-      handleNumberChange(String(value))
-      if (typeof unit !== 'undefined' && typeof value !== 'undefined' && unit === value) {
-        const unitLabel = unitDisplayLabelMap[unit] ?? unitOptions?.find(o => o.value === unit)?.label ?? unit
-        setDisplayValue(unitLabel)
-      } else {
-        setDisplayValue(number)
-      }
+    const nextUnit = getUnit(value, defaultUnitValue, unitOptions)
+    setUnit(nextUnit)
+    const nextNumber = handleNumberChange(String(value))
+    if (typeof nextUnit !== 'undefined' && nextUnit === value) {
+      const unitLabel = unitDisplayLabelMap[nextUnit] ?? unitOptions?.find(o => o.value === nextUnit)?.label ?? nextUnit
+      setDisplayValue(unitLabel)
+    } else {
+      // 使用 handleNumberChange 的返回值，避免闭包中的旧 number
+      setDisplayValue(nextNumber)
     }
   }, [value])
 
@@ -204,6 +204,10 @@ export function InputNumber ({
     } else {
       setDisplayValue(number)
       changeValue = changeValue + unit
+    }
+    // 外部 value 同步进来的变更不再回写，避免受控回显触发二次 onChange
+    if (value != null && value !== '' && String(value) === changeValue) {
+      return
     }
     onChange && onChange(changeValue)
   }, [unit, number])
