@@ -32,6 +32,10 @@ interface LayoutModel {
   paddingLeft?: CSSProperties["paddingLeft"];
 }
 
+function isFlexLikeDisplay(display?: CSSProperties["display"]) {
+  return display === "flex" || display === "inline-flex";
+}
+
 const LAYOUT_KEYS = new Set([
   'display', 'position', 'flexDirection', 'alignItems', 'justifyContent',
   'flexWrap', 'rowGap', 'columnGap', 'overflow',
@@ -136,7 +140,7 @@ function LayoutEditor({ editValue, onChangeValue }: LayoutEditorInternalProps): 
     ? (_value.position as string)
     : isPreservedCssPosition(_value.position)
       ? (_value.position as string)
-      : (_value.display === "flex" ? "inherit" : "default");
+      : (isFlexLikeDisplay(_value.display as CSSProperties["display"]) ? "inherit" : "default");
 
   const [model, setModel] = useState<LayoutModel>({
     ...defaultValue,
@@ -185,8 +189,10 @@ function LayoutEditor({ editValue, onChangeValue }: LayoutEditorInternalProps): 
     [model]
   );
 
-  // isFlexActive：当前是否处于 flex 横/纵布局（与容器 position 无关）
-  const isFlexActive = model.display === "flex" && (model.flexDirection === "row" || model.flexDirection === "column");
+  // isFlexActive：当前是否处于 flex/inline-flex 横/纵布局（与容器 position 无关）
+  const isFlexActive =
+    isFlexLikeDisplay(model.display) &&
+    (model.flexDirection === "row" || model.flexDirection === "column");
   const hasSelectedDirection = model.position === "default" || model.position === "absolute" || isFlexActive ||
     isPreservedCssPosition(model.position);
 
@@ -224,11 +230,12 @@ function LayoutEditor({ editValue, onChangeValue }: LayoutEditorInternalProps): 
       const comingFromDefault = model.position === "default";
       const alignItems = comingFromDefault ? "center" : model.alignItems;
       const justifyContent = comingFromDefault ? "center" : model.justifyContent;
-      setModel(prev => ({ ...prev, flexDirection, display: "flex", position: "inherit", flexWrap, alignItems, justifyContent }));
+      const nextDisplay = isFlexLikeDisplay(model.display) ? model.display : "flex";
+      setModel(prev => ({ ...prev, flexDirection, display: nextDisplay, position: "inherit", flexWrap, alignItems, justifyContent }));
       if (comingFromDefault) {
         emitValue({ display: "flex", flexDirection, flexWrap, alignItems, justifyContent });
       } else {
-        emitValue({ display: "flex", flexDirection, flexWrap });
+        emitValue({ display: nextDisplay, flexDirection, flexWrap });
       }
     };
     return (

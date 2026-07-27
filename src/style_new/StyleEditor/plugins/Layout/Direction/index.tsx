@@ -40,13 +40,14 @@ export default ({
   const isAbsolute = position === "absolute";
   const isRow = flexDirection === "row";
   const isColumn = flexDirection === "column";
+  const isFlexLike = display === "flex" || display === "inline-flex";
 
   // 高亮逻辑只看 display + flexDirection，与容器自身的 position 无关
   const isActive = (value: Layout) => {
     if (value === "absolute") return isAbsolute;
-    if (value === "default") return display !== "flex";
-    if (value === "row") return display === "flex" && isRow;
-    if (value === "column") return display === "flex" && isColumn;
+    if (value === "default") return !isFlexLike;
+    if (value === "row") return isFlexLike && isRow;
+    if (value === "column") return isFlexLike && isColumn;
     return false;
   };
 
