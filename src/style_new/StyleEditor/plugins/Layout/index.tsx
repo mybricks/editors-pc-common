@@ -36,6 +36,13 @@ function isFlexLikeDisplay(display?: CSSProperties["display"]) {
   return display === "flex" || display === "inline-flex";
 }
 
+function getDisplayWhenEnableFlex(display?: CSSProperties["display"]) {
+  if (display === "inline-flex" || display === "inline-block") {
+    return "inline-flex";
+  }
+  return "flex";
+}
+
 const LAYOUT_KEYS = new Set([
   'display', 'position', 'flexDirection', 'alignItems', 'justifyContent',
   'flexWrap', 'rowGap', 'columnGap', 'overflow',
@@ -161,8 +168,9 @@ function LayoutEditor({ editValue, onChangeValue }: LayoutEditorInternalProps): 
     (style: Partial<LayoutModel>) => {
       // 切换到默认：清除所有 flex 布局相关属性；容器自身的 position 不动
       if (style.position === "default") {
+        const resetDisplay = model.display === "inline-flex" ? "inline-block" : null;
         onChangeValue({
-          display: null,
+          display: resetDisplay,
           flexDirection: null,
           alignItems: null,
           justifyContent: null,
@@ -230,10 +238,13 @@ function LayoutEditor({ editValue, onChangeValue }: LayoutEditorInternalProps): 
       const comingFromDefault = model.position === "default";
       const alignItems = comingFromDefault ? "center" : model.alignItems;
       const justifyContent = comingFromDefault ? "center" : model.justifyContent;
-      const nextDisplay = isFlexLikeDisplay(model.display) ? model.display : "flex";
+      // 优先使用外部样式源的回显值决定 display（如 inline-block -> inline-flex），
+      // 避免纯本地状态在切换序列中丢失语义。
+      const sourceDisplay = (editValue.display as CSSProperties["display"] | undefined) ?? model.display;
+      const nextDisplay = getDisplayWhenEnableFlex(sourceDisplay);
       setModel(prev => ({ ...prev, flexDirection, display: nextDisplay, position: "inherit", flexWrap, alignItems, justifyContent }));
       if (comingFromDefault) {
-        emitValue({ display: "flex", flexDirection, flexWrap, alignItems, justifyContent });
+        emitValue({ display: nextDisplay, flexDirection, flexWrap, alignItems, justifyContent });
       } else {
         emitValue({ display: nextDisplay, flexDirection, flexWrap });
       }
