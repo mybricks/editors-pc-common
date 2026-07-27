@@ -43,17 +43,13 @@
   gap: 6px;
   margin-top: 6px;
   padding: 0 2px;
-  cursor: pointer;
   user-select: none;
-
-  &:hover .checkbox {
-    border-color: @border-color-main;
-  }
 }
 
 .overflowLabel {
   font-size: 12px;
   color: @font-color-content;
+  cursor: pointer;
 }
 
 .checkbox {
@@ -68,6 +64,11 @@
   flex-shrink: 0;
   transition: border-color 0.15s, background-color 0.15s;
   color: @font-color-content;
+  cursor: pointer;
+
+  &:hover {
+    border-color: @border-color-main;
+  }
 }
 
 .checkboxChecked {

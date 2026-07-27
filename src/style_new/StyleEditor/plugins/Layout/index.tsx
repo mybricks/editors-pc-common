@@ -318,15 +318,15 @@ function LayoutEditor({ editValue, onChangeValue }: LayoutEditorInternalProps): 
     };
     if (!hasSelectedDirection) return null;
     return (
-      <div className={styles.overflowRow} onClick={toggle}>
-        <div className={`${styles.checkbox} ${isHidden ? styles.checkboxChecked : ""}`}>
+      <div className={styles.overflowRow}>
+        <div className={`${styles.checkbox} ${isHidden ? styles.checkboxChecked : ""}`} onClick={toggle}>
           {isHidden && (
             <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
               <path d="M1 3.5L3.8 6.5L9 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           )}
         </div>
-        <span className={styles.overflowLabel}>超出容器不显示</span>
+        <span className={styles.overflowLabel} onClick={toggle}>超出容器不显示</span>
       </div>
     );
   };
