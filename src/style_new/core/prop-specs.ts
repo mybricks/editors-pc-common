@@ -32,12 +32,13 @@ export type PropSpec = {
 export const PROP_SPECS: PropSpec[] = [
   // font（可继承）
   { camel: 'color', inherit: true, fallback: 'computedIfInvalid', unsetMode: 'notSet' },
-  { camel: 'fontSize', inherit: true, fallback: 'computed', unsetMode: 'notSet' },
+  // 不回落 computed：未配置时留给 Font 用 placeholder「默认（N）」展示，避免删除后回显计算值
+  { camel: 'fontSize', inherit: true, fallback: 'none', unsetMode: 'notSet' },
   { camel: 'textAlign', inherit: true, fallback: 'computed', unsetMode: 'notSet' },
   { camel: 'fontWeight', inherit: true, fallback: 'computed', unsetMode: 'notSet' },
-  { camel: 'lineHeight', inherit: true, fallback: 'computed', unsetMode: 'notSet' },
+  { camel: 'lineHeight', inherit: true, fallback: 'none', unsetMode: 'notSet' },
   { camel: 'fontFamily', inherit: true, fallback: 'fontFamily' },
-  { camel: 'letterSpacing', inherit: true, fallback: 'computed', unsetMode: 'notSet' },
+  { camel: 'letterSpacing', inherit: true, fallback: 'none', unsetMode: 'notSet' },
   { camel: 'whiteSpace', inherit: true, fallback: 'computed', unsetMode: 'notSet' },
 
   // font（非继承；注意：旧实现在 inheritOnly return 之后才读 cursor，父级规则不会带入 cursor）

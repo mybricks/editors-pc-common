@@ -26,6 +26,8 @@ interface SelectProps {
   multiple?: boolean;
   /** 是否展示下拉的icon */
   showIcon?: boolean;
+  /** hover 时隐藏单位文案、仅显示下拉箭头（需配合 showIcon） */
+  showIconOnHover?: boolean;
   /** 隐藏当前选中 label，只保留下拉箭头 */
   hideLabel?: boolean;
   labelClassName?: string;
@@ -50,6 +52,7 @@ export function Select({
   onReorder,
   options,
   showIcon = true,
+  showIconOnHover = false,
   hideLabel = false,
   labelClassName,
   iconClassName,
@@ -150,7 +153,7 @@ export function Select({
       >
         <div
           data-mybricks-tip={clearable && hovered ? undefined : tip}
-          className={`${css.select}${disabled ? ` ${css.disabled}` : ''}`}
+          className={`${css.select}${disabled ? ` ${css.disabled}` : ''}${showIconOnHover && !hideLabel ? ` ${css.iconOnHover}` : ''}`}
           style={showIcon ? {} : { padding: 0 }}
           onMouseEnter={() => setHovered(true)}
           onMouseLeave={() => setHovered(false)}

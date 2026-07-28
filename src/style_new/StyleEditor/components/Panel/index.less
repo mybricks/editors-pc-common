@@ -18,6 +18,11 @@
     border-top-color: @boder-color;
   }
 
+  // 与上一 Panel 合并视觉分组（如布局 + 尺寸）
+  &.hideTopBorder {
+    border-top-color: transparent;
+  }
+
   // 保持 collapsed 状态不额外叠加边框，避免与分类分割线形成双线
   &.collapsed {
     border-bottom: 0;

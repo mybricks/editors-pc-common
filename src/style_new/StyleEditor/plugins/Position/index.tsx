@@ -118,19 +118,27 @@ function PositionInput({
     }
   }, [cssKey, onChange, ensureActivated, isLocked])
 
+  /** 回车/失焦提交：空值或非法值兜底为 0（与 InputNumber fallbackValue={0} 一致） */
+  const commitValue = useCallback((raw: string) => {
+    if (isLocked) return
+    const out = toOutputValue(raw.trim()) ?? '0px'
+    ensureActivated()
+    onChange({ key: cssKey, value: out })
+    setLocalValue(toDisplayValue(out))
+  }, [cssKey, onChange, ensureActivated, isLocked])
+
   const handleBlur = useCallback((e: React.FocusEvent<HTMLInputElement>) => {
     isEditingRef.current = false
     isDraggingRef.current = false
-    if (isLocked) return
-    const val = e.target.value.trim()
-    const out = toOutputValue(val)
-    if (out !== null) {
-      ensureActivated()
-    }
-    // 空值 → 清除显式 CSS，回到 DOM 计算值（不自动开启自由定位）
-    onChange({ key: cssKey, value: out })
-    setLocalValue(out === null ? computedValue : toDisplayValue(out))
-  }, [cssKey, onChange, computedValue, ensureActivated, isLocked])
+    commitValue(e.target.value)
+  }, [commitValue])
+
+  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.code !== 'Enter') return
+    e.preventDefault()
+    commitValue((e.target as HTMLInputElement).value)
+    ;(e.target as HTMLInputElement).blur()
+  }, [commitValue])
 
   const dragProps = useDragNumber({
     min: Number.NEGATIVE_INFINITY,
@@ -174,6 +182,7 @@ function PositionInput({
           onChange={handleChange}
           onFocus={handleFocus}
           onBlur={handleBlur}
+          onKeyDown={handleKeyDown}
           disabled={isLocked}
         />
       </div>
@@ -255,6 +264,7 @@ export function Position({ value, onChange, showTitle }: PositionProps) {
       showTitle={false}
       showDelete={false}
       collapse={false}
+      hideTopBorder
     >
       <div className={css.headerRow}>
         {showTitle !== false && <div className={css.title}>位置</div>}

@@ -146,9 +146,28 @@
   }
 }
 
+/* 默认态：右侧仅箭头，文案改由 placeholder「默认（N）」展示 */
+.defaultBadgeArrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 16px;
+  margin-right: 7px;
+  font-size: 10px;
+  color: @font-color-content;
+  cursor: pointer;
+  user-select: none;
+  flex-shrink: 0;
+  opacity: 0.55;
+
+  &:hover {
+    opacity: 1;
+  }
+}
+
 .hugBadge,
-.fillBadge,
-.defaultBadge {
+.fillBadge {
   position: relative;
   display: inline-flex;
   align-items: center;

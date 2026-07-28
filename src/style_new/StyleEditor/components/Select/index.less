@@ -76,3 +76,33 @@
 .placeholder {
   opacity: 0.45;
 }
+
+/* 默认显示单位文案，hover 时文案淡出、仅显示下拉箭头 */
+.iconOnHover {
+  .value {
+    opacity: 1;
+    transition: opacity 0.1s;
+  }
+
+  .icon {
+    position: absolute;
+    inset: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0;
+    opacity: 0;
+    transition: opacity 0.1s;
+    pointer-events: none;
+  }
+
+  &:hover {
+    .value {
+      opacity: 0;
+    }
+
+    .icon {
+      opacity: 1;
+    }
+  }
+}

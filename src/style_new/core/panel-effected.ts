@@ -118,7 +118,7 @@ export function isMeaninglessStylePropForPanel (
     if (normalize(str) === normalize(emptyVal)) return true
   }
 
-  if (mappedPanel === 'border' || mappedPanel === 'appearance') {
+  if (mappedPanel === 'border') {
     // 边框/圆角相关：单独无意义的颜色、0 宽度、none style 不算
     if (/^border(Top|Right|Bottom|Left)?Color$/i.test(property)) {
       return !isBorderPanelMeaningfullyUsed(styleBag)

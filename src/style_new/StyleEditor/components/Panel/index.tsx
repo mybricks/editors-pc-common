@@ -29,6 +29,8 @@ interface PanelProps {
   addTip?: string
   addOptions?: AddOption[]
   onAddOption?: (value: string) => void
+  /** 隐藏与上一个 Panel 之间的顶部分割线（如布局与尺寸合并视觉分组） */
+  hideTopBorder?: boolean
 }
 interface ContentProps {
   style?: CSSProperties
@@ -43,7 +45,7 @@ interface ItemProps {
   activeWhenBlur?: boolean
 }
 
-export function Panel ({title, children, showReset = false, showTitle = true, showDelete = true, deleteNode, onDelete, rightColumn, deleteRef, resetFunction = () => {}, isActive = false, collapse = false, onAdd, addTip, addOptions, onAddOption}: PanelProps) {
+export function Panel ({title, children, showReset = false, showTitle = true, showDelete = true, deleteNode, onDelete, rightColumn, deleteRef, resetFunction = () => {}, isActive = false, collapse = false, onAdd, addTip, addOptions, onAddOption, hideTopBorder = false}: PanelProps) {
   const isInherited = collapse === 'inherited'
   const [collapsed, setCollapsed] = useState(collapse === true)
 
@@ -69,7 +71,7 @@ export function Panel ({title, children, showReset = false, showTitle = true, sh
     setCollapsed(collapse === true)
   }, [collapse])
   return (
-    <div className={`${css.panel} ${collapsed ? css.collapsed : ''}`}>
+    <div className={`${css.panel} ${collapsed ? css.collapsed : ''} ${hideTopBorder ? css.hideTopBorder : ''}`}>
       <div className={css.header}>
         {showTitle && <div className={css.title}>{title}</div>}
         {

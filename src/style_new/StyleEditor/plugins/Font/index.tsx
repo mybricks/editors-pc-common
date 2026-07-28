@@ -114,13 +114,12 @@ const FONT_SIZE_OPTIONS = [
 const FONT_SIZE_DISABLED_LIST = ["inherit"];
 
 const LINEHEIGHT_UNIT_OPTIONS = [
+  { label: "默认", value: "default" },
   { label: "倍数", value: "" },
   { label: "px", value: "px" },
   { label: "%", value: "%" },
-  // { label: "继承", value: "inherit" },
-  // { label: "默认", value: "normal" },
 ];
-const LINEHEIGHT_UNIT_DISABLED_LIST = ["normal", "inherit"];
+const LINEHEIGHT_UNIT_DISABLED_LIST = ["default"];
 const LETTERSPACING_UNIT_OPTIONS = [
   { label: "px", value: "px" },
   // { label: "继承", value: "inherit" },
@@ -144,19 +143,62 @@ const DEFAULT_CONFIG = {
   fontfaces: [],
 };
 
-/** letter-spacing 关键字/空值 → 可编辑长度，避免 InputNumber 把 normal 当成单位显示 */
-function normalizeLetterSpacingDisplay(letterSpacing: unknown): string {
-  if (
-    letterSpacing == null ||
-    letterSpacing === '' ||
-    ['unset', 'normal', 'inherit'].includes(letterSpacing as string)
-  ) {
-    return '0px';
-  }
-  if (typeof letterSpacing === 'number') {
-    return `${letterSpacing}px`;
-  }
-  return String(letterSpacing);
+const CSS_LENGTH_UNSET_KEYWORDS = ['unset', 'normal', 'inherit', 'initial'];
+
+/** 是否为用户显式配置的长度类样式（非空、非关键字） */
+function isConfiguredCssLength(value: unknown): boolean {
+  if (value == null || value === '') return false;
+  return !CSS_LENGTH_UNSET_KEYWORDS.includes(String(value));
+}
+
+/** 读取 DOM 计算值（px），用于未配置时的 placeholder / tip */
+function getComputedCssLengthPx(
+  dom: HTMLElement | null | undefined,
+  prop: 'fontSize' | 'lineHeight' | 'letterSpacing'
+): number | null {
+  if (!dom) return null;
+  const raw = window.getComputedStyle(dom)[prop];
+  // letter-spacing: normal → 0
+  if (prop === 'letterSpacing' && (!raw || raw === 'normal')) return 0;
+  const n = parseFloat(raw);
+  if (isNaN(n)) return null;
+  return Math.round(n);
+}
+
+function buildDefaultLengthPlaceholder(px: number | null): string {
+  return px != null ? `默认（${px}）` : '默认';
+}
+
+function buildDefaultLengthTip(label: string, px: number | null): string {
+  return px != null ? `当前未配置${label}值，${px}为计算值` : label;
+}
+
+/** 行高单位互转：先归一到 px，再转到目标单位；无效时用 defaultPx */
+function convertLineHeightValue(
+  num: number,
+  fromUnit: string,
+  toUnit: string,
+  fontSizePx: number,
+  defaultPx: number
+): string {
+  const fs = fontSizePx > 0 ? fontSizePx : 14;
+  let px: number;
+  if (fromUnit === 'px') px = num;
+  else if (fromUnit === '%') px = (num / 100) * fs;
+  else px = num * fs; // 倍数（unit === ''）
+
+  if (!px || isNaN(px)) px = defaultPx;
+
+  if (toUnit === 'px') return `${Math.round(px)}px`;
+  if (toUnit === '%') return `${parseFloat(((px / fs) * 100).toFixed(2))}%`;
+  return `${parseFloat((px / fs).toFixed(2))}`;
+}
+
+/** 行高单位 key：仅单位变化时重挂载，避免拖拽改数字导致输入框失焦 */
+function getLineHeightUnitKey(val: string | number | null | undefined): string {
+  if (val == null || val === '' || !isConfiguredCssLength(val)) return 'default';
+  const [, unit] = splitValueAndUnit(String(val));
+  return unit || 'ratio';
 }
 
 /** justify-content 值 → 对齐按钮显示值 */
@@ -236,7 +278,7 @@ function parseTextDecoration(td: string | undefined): 'underline' | 'line-throug
   return 'none';
 }
 
-export function Font({ value, onChange, config, showTitle, collapse }: FontProps) {
+export function Font({ value, onChange, config, showTitle }: FontProps) {
   const context = useStyleEditorContext();
   const editConfig = context?.editConfig;
   const outterFontFamilyOptions = normalizeFontfaceOptions(editConfig?.fontfaces || []);
@@ -321,9 +363,53 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
     ];
   }, []);
 
-  const [lineHeight, setLineHeight] = useState<string | number>(
-    value.lineHeight!
+  const targetDom = context?.targetDom ?? null;
+
+  const [fontSize, setFontSize] = useState<string | number | null>(() =>
+    isConfiguredCssLength(value.fontSize) ? (value.fontSize as string | number) : null
   );
+  const [lineHeight, setLineHeight] = useState<string | number | null>(() =>
+    isConfiguredCssLength(value.lineHeight) ? (value.lineHeight as string | number) : null
+  );
+  const [letterSpacing, setLetterSpacing] = useState<string | number | null>(() =>
+    isConfiguredCssLength(value.letterSpacing) ? (value.letterSpacing as string | number) : null
+  );
+
+  // 切换选中元素时按规则重算；同元素内以本地 onChange 为准，避免与乐观更新互相覆盖
+  useEffect(() => {
+    setFontSize(isConfiguredCssLength(value.fontSize) ? (value.fontSize as string | number) : null);
+    setLineHeight(isConfiguredCssLength(value.lineHeight) ? (value.lineHeight as string | number) : null);
+    setLetterSpacing(
+      isConfiguredCssLength(value.letterSpacing) ? (value.letterSpacing as string | number) : null
+    );
+  }, [targetDom]);
+
+  const defaultFontSizePx = getComputedCssLengthPx(targetDom, 'fontSize');
+  const fontSizeUnconfigured = !isConfiguredCssLength(fontSize);
+  const fontSizePlaceholder = fontSizeUnconfigured
+    ? buildDefaultLengthPlaceholder(defaultFontSizePx)
+    : '默认';
+  const fontSizeTip = fontSizeUnconfigured
+    ? buildDefaultLengthTip('字号', defaultFontSizePx)
+    : '字号';
+
+  const defaultLineHeightPx = getComputedCssLengthPx(targetDom, 'lineHeight');
+  const lineHeightUnconfigured = !isConfiguredCssLength(lineHeight);
+  const lineHeightPlaceholder = lineHeightUnconfigured
+    ? buildDefaultLengthPlaceholder(defaultLineHeightPx)
+    : '默认';
+  const lineHeightTip = lineHeightUnconfigured
+    ? buildDefaultLengthTip('行高', defaultLineHeightPx)
+    : '行高';
+
+  const defaultLetterSpacingPx = getComputedCssLengthPx(targetDom, 'letterSpacing');
+  const letterSpacingUnconfigured = !isConfiguredCssLength(letterSpacing);
+  const letterSpacingPlaceholder = letterSpacingUnconfigured
+    ? buildDefaultLengthPlaceholder(defaultLetterSpacingPx)
+    : '默认';
+  const letterSpacingTip = letterSpacingUnconfigured
+    ? buildDefaultLengthTip('字间距', defaultLetterSpacingPx)
+    : '字间距';
 
   const [truncateLines, setTruncateLines] = useState<number>(() => {
     const clamp = (value as any).webkitLineClamp;
@@ -355,34 +441,48 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
   const lastUpdateTimeRef = useRef<number>(0);
 
   const onFontSizeChange = useCallback(
-    (fontSize: string | number) => {
-      const [fontSizeValue, fontSizeUnit] = splitValueAndUnit(fontSize);
-      const [lineHeightValue, lineHeightUnit] = splitValueAndUnit(lineHeight);
+    (nextFontSize: string | number | null) => {
+      if (nextFontSize == null || nextFontSize === '') {
+        setFontSize(null);
+        onChange({ key: "fontSize", value: null });
+        return;
+      }
+
+      setFontSize(nextFontSize);
+
+      const [fontSizeValue, fontSizeUnit] = splitValueAndUnit(nextFontSize);
+      const [, lineHeightUnit] = splitValueAndUnit(lineHeight as any);
 
       if (fontSizeUnit === "px") {
+        // 行高已清空时只改字号，避免 Number(null)===0 误写回 lineHeight
+        if (lineHeight == null || lineHeight === '') {
+          onChange({ key: "fontSize", value: nextFontSize });
+          return;
+        }
+
         const fontSizeNumber = Number(fontSizeValue);
         const lineHeightNumber = fontSizeNumber + 8; // 根据fontSizeNumber需设置的行高
         
         const executeUpdate = () => {
           if (lineHeightUnit === "px") {
-            onLineHeightChange(`${lineHeightNumber}px`, fontSize);
+            onLineHeightChange(`${lineHeightNumber}px`, nextFontSize);
           } else if (lineHeightUnit === "%") {
             onLineHeightChange(
               `${parseFloat(
                 ((lineHeightNumber * 100) / fontSizeNumber).toFixed(4)
               )}%`,
-              fontSize
+              nextFontSize
             );
           } else if (!isNaN(Number(lineHeight))) {
             // 计算倍数并保留一位小数，避免拖拽时出现过多小数位
             const ratio = lineHeightNumber / fontSizeNumber;
             const roundedRatio = Math.round(ratio * 10) / 10;
-            onLineHeightChange(`${roundedRatio}`, fontSize);
+            onLineHeightChange(`${roundedRatio}`, nextFontSize);
           } else {
             // 计算倍数并保留一位小数，避免拖拽时出现过多小数位
             const ratio = lineHeightNumber / fontSizeNumber;
             const roundedRatio = Math.round(ratio * 10) / 10;
-            onLineHeightChange(`${roundedRatio}`, fontSize);
+            onLineHeightChange(`${roundedRatio}`, nextFontSize);
           }
         };
         
@@ -399,7 +499,7 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
             executeUpdate();
           }, 200);
           // 先只更新字体大小
-          onChange({ key: "fontSize", value: fontSize });
+          onChange({ key: "fontSize", value: nextFontSize });
           return;
         }
         
@@ -407,25 +507,44 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
         executeUpdate();
       } else {
         // 需要修改lineHeight就合并，不需要就单独修改
-        onChange({ key: "fontSize", value: fontSize });
+        onChange({ key: "fontSize", value: nextFontSize });
       }
-
-      // if (fontSizeUnit === lineHeightUnit && lineHeightUnit === "px") {
-      //   const fontSizeNumber = Number(fontSizeValue);
-      //   const lineHeightNumber = Number(lineHeightValue);
-      //   if (!isNaN(lineHeightNumber) && !isNaN(fontSizeNumber) && lineHeightNumber < fontSizeNumber) {
-      //     onLineHeightChange(fontSize);
-      //   }
-      // }
     },
     [lineHeight]
   );
 
   const onLineHeightChange = useCallback(
-    (value: string | number, fontSize?: string | number) => {
+    (next: string | number | null, nextFontSize?: string | number) => {
+      let value = next;
+      // 下拉选择「默认」：清除行高，回到未配置态
+      if (value === 'default' || value === 'normal') {
+        value = null;
+      } else if (value != null && value !== '') {
+        const fsRaw = splitValueAndUnit(String(nextFontSize ?? fontSize ?? ''))[0];
+        const fontSizePx = Number(fsRaw || defaultFontSizePx || 14) || 14;
+        const defaultPx = defaultLineHeightPx ?? Math.round(fontSizePx + 8);
+        const [newNumStr, newUnitRaw] = splitValueAndUnit(String(value));
+        const newUnit = newUnitRaw ?? '';
+        const newNum = parseFloat(String(newNumStr));
+
+        if (isConfiguredCssLength(lineHeight)) {
+          const [oldNumStr, oldUnitRaw] = splitValueAndUnit(String(lineHeight));
+          const oldUnit = oldUnitRaw ?? '';
+          const oldNum = parseFloat(String(oldNumStr));
+          // InputNumber 切单位时数字不变，在此做单位换算；原值为 0 时回退到计算默认值
+          if (!isNaN(oldNum) && oldNum === newNum && oldUnit !== newUnit) {
+            value = convertLineHeightValue(oldNum, oldUnit, newUnit, fontSizePx, defaultPx);
+          }
+        } else {
+          // 未配置时切到具体单位：按计算默认值填充（对齐尺寸编辑器）
+          value = convertLineHeightValue(defaultPx, 'px', newUnit, fontSizePx, defaultPx);
+        }
+      }
+
       const res = [];
-      if (fontSize) {
-        res.push({ key: "fontSize", value: fontSize });
+      if (nextFontSize) {
+        res.push({ key: "fontSize", value: nextFontSize });
+        setFontSize(nextFontSize);
       }
       if (lineHeight !== value) {
         res.push({ key: "lineHeight", value });
@@ -435,7 +554,15 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
         onChange(res);
       }
     },
-    [lineHeight]
+    [lineHeight, fontSize, defaultFontSizePx, defaultLineHeightPx, onChange]
+  );
+
+  const onLetterSpacingChange = useCallback(
+    (value: string | number | null) => {
+      setLetterSpacing(value);
+      onChange({ key: "letterSpacing", value });
+    },
+    [onChange]
   );
 
   useEffect(() => {
@@ -569,7 +696,7 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
   );
 
   return (
-    <Panel title="字体" showTitle={showTitle} showReset={true} resetFunction={refresh} collapse={collapse}>
+    <Panel title="字体" showTitle={showTitle} showReset={true} showDelete={false} resetFunction={refresh} collapse={false}>
 
       {cfg.disableFontFamily ? null : (
         <Panel.Content style={truncateBtnInFamilyRow ? { position: 'relative' } : undefined}>
@@ -733,7 +860,12 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
           {cfg.disableFontSize ? null : (
             <Panel.Item style={{ display: "flex", alignItems: "center", flex: 1, padding: "0 8px" }}>
               <div 
-                {...getDragPropsFontSize(value.fontSize, '拖拽调整字号')}
+                {...getDragPropsFontSize(
+                  fontSizeUnconfigured
+                    ? (defaultFontSizePx != null ? `${defaultFontSizePx}px` : '14px')
+                    : fontSize,
+                  '拖拽调整字号'
+                )}
                 style={{ 
                   height: "100%", 
                   display: "flex", 
@@ -746,10 +878,11 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
                 <FontSizeOutlined />
               </div>
               <InputNumber
-                tip="字号"
+                tip={fontSizeTip}
                 type="number"
                 style={{ flex: 1, marginLeft: 4 }}
-                defaultValue={value.fontSize}
+                value={fontSizeUnconfigured ? null : fontSize}
+                placeholder={fontSizePlaceholder}
                 unitOptions={FONT_SIZE_OPTIONS}
                 // unitDisabledList={FONT_SIZE_DISABLED_LIST}
                 onChange={onFontSizeChange}
@@ -764,7 +897,12 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
           {cfg.disableLineHeight ? null : (
             <Panel.Item style={{ display: "flex", alignItems: "center", flex: 1, padding: "0 8px" }}>
               <div 
-                {...getDragPropsLineHeight(lineHeight, '拖拽调整行高')}
+                {...getDragPropsLineHeight(
+                  lineHeight == null || lineHeight === '' || ['unset', 'normal', 'inherit'].includes(lineHeight as string)
+                    ? '1'
+                    : lineHeight,
+                  '拖拽调整行高'
+                )}
                 style={{ 
                   height: "100%", 
                   display: "flex", 
@@ -777,12 +915,18 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
                 <LineHeightOutlined />
               </div>
               <InputNumber
-                tip="行高"
+                key={`lineHeight-${getLineHeightUnitKey(lineHeight)}`}
+                tip={lineHeightTip}
                 type="number"
                 style={{ flex: 1, marginLeft: 4 }}
-                value={['unset', 'normal', 'inherit'].includes(lineHeight as string) ? '1' : lineHeight}
+                value={lineHeightUnconfigured ? null : lineHeight}
+                placeholder={lineHeightPlaceholder}
+                defaultUnitValue="default"
                 unitOptions={LINEHEIGHT_UNIT_OPTIONS}
-                // unitDisabledList={LINEHEIGHT_UNIT_DISABLED_LIST}
+                unitDisabledList={LINEHEIGHT_UNIT_DISABLED_LIST}
+                hideUnitWhenEmpty
+                showIcon
+                showIconOnHover
                 onChange={onLineHeightChange}
               />
             </Panel.Item>
@@ -791,7 +935,9 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
             <Panel.Item style={{ display: "flex", alignItems: "center", flex: 1, padding: "0 8px" }}>
               <div 
                 {...getDragPropsLetterSpacing(
-                  normalizeLetterSpacingDisplay(value.letterSpacing),
+                  letterSpacingUnconfigured
+                    ? `${defaultLetterSpacingPx ?? 0}px`
+                    : letterSpacing,
                   '拖拽调整字间距'
                 )}
                 style={{ 
@@ -806,15 +952,15 @@ export function Font({ value, onChange, config, showTitle, collapse }: FontProps
                 <LetterSpacingOutlined />
               </div>
               <InputNumber
-                tip="字间距"
+                tip={letterSpacingTip}
                 type="number"
                 style={{ flex: 1, marginLeft: 4 }}
-                value={normalizeLetterSpacingDisplay(value.letterSpacing)}
+                value={letterSpacingUnconfigured ? null : letterSpacing}
+                placeholder={letterSpacingPlaceholder}
                 defaultUnitValue="px"
                 unitOptions={LETTERSPACING_UNIT_OPTIONS}
                 // unitDisabledList={LETTERSPACING_UNIT_DISABLED_LIST}
-                fallbackValue={0}
-                onChange={(value) => onChange({ key: "letterSpacing", value })}
+                onChange={onLetterSpacingChange}
               />
             </Panel.Item>
           )}

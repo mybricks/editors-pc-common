@@ -14,7 +14,7 @@ interface UnitOption {
   label: string;
   value: string;
 }
-interface InputNumberProps extends InputProps {
+interface InputNumberProps extends Omit<InputProps, 'onChange' | 'value'> {
   defaultUnitValue?: string
   unitDisabledList?: Array<string>
   unitOptions?: Array<UnitOption>
@@ -23,6 +23,8 @@ interface InputNumberProps extends InputProps {
   /** 允许负数 */
   allowNegative?: boolean,
   showIcon?: boolean
+  /** hover 时隐藏单位文案、仅显示下拉箭头（需配合 showIcon） */
+  showIconOnHover?: boolean
   prefixTip?: string
   type?: string
   align?: 'left' | 'right'
@@ -40,6 +42,9 @@ interface InputNumberProps extends InputProps {
   hideUnitWhenEmpty?: boolean;
   /** 这些单位不显示文案（仍保留下拉箭头），如 ['px'] */
   unitHideLabelList?: Array<string>;
+  value?: string | number | null;
+  /** 空值回车/失焦且无 fallbackValue 时传 null，供上层删除对应 CSS 属性 */
+  onChange?: (value: string | null) => void;
 }
 
 export function InputNumber ({
@@ -60,6 +65,7 @@ export function InputNumber ({
   tip,
   allowNegative = false,
   showIcon = false,
+  showIconOnHover = false,
   type = void 0,
   onAction,
   unitIconClassName,
@@ -84,6 +90,8 @@ export function InputNumber ({
   const isEmptyValue = !displayValue && !(value || defaultValue)
 
   const isDisabledUnit = useCallback(() => {
+    // default 表示未配置：输入框与下拉仍可用，便于继续输入或切换单位
+    if (unit === 'default') return !!disabled;
     const isUnitDisabled = (unitDisabledList && unit) ? unitDisabledList.includes(unit) : false;
     return disabled || isUnitDisabled;
   }, [unit, disabled, unitDisabledList])
@@ -100,9 +108,19 @@ export function InputNumber ({
     } else if (code === 'Enter') {
       const trimmed = e.target.value.trim();
       if (!trimmed || isNaN(parseFloat(trimmed))) {
-        // 空值或非法值，回到默认状态
-        setDisplayValue('');
-        e.target.value = '';
+        // 空值或非法值：有兜底则补填，否则清空并通知上层删除属性
+        if (typeof fallbackValue !== 'undefined') {
+          const fallbackStr = String(fallbackValue);
+          e.target.value = fallbackStr;
+          handleNumberChange(fallbackStr);
+          setDisplayValue(fallbackStr);
+          const changeValue = String(parseFloat(fallbackStr)) + unit;
+          onChange?.(changeValue);
+        } else {
+          setDisplayValue('');
+          e.target.value = '';
+          onChange?.(null);
+        }
         return;
       }
       if (unitDisabledList.includes(unit)) {
@@ -111,14 +129,14 @@ export function InputNumber ({
       e.target.value = newValue;
       handleNumberChange(newValue);
     }
-  }, [number, unit, unitDisabledList]);
+  }, [number, unit, unitDisabledList, fallbackValue, onChange, handleNumberChange]);
 
   const onBlur = useCallback((e: {
     target: any,
   }) => {
     const trimmed = e.target.value.trim();
 
-    // 空值或非法值：若有兜底值则补填并提交，否则回到默认状态
+    // 空值或非法值：若有兜底值则补填并提交，否则回到默认状态并删除属性
     if (!trimmed || isNaN(parseFloat(trimmed))) {
       if (typeof fallbackValue !== 'undefined') {
         const fallbackStr = String(fallbackValue);
@@ -130,6 +148,7 @@ export function InputNumber ({
       } else {
         setDisplayValue('');
         e.target.value = '';
+        onChange?.(null);
       }
       return;
     }
@@ -170,6 +189,10 @@ export function InputNumber ({
       if (badge) {
         return <>{badge}</>
       }
+      // 仅一个单位选项时无切换必要，不展示下拉（如只有 px）
+      if (unitOptions.length <= 1) {
+        return null
+      }
       // 无值 / 指定单位（如 px）隐藏文案，仍保留下拉箭头与布局
       const hideUnitLabel =
         isDefaultUnit ||
@@ -179,9 +202,10 @@ export function InputNumber ({
         <Select
           tip='单位'
           style={{ padding: 0, fontSize: 10, ...unitSelectStyle }}
-          defaultValue={unit}
+          value={unit}
           options={unitOptions}
           showIcon={showIcon}
+          showIconOnHover={showIconOnHover}
           hideLabel={hideUnitLabel}
           iconClassName={unitIconClassName}
           onChange={setUnit}
@@ -192,10 +216,20 @@ export function InputNumber ({
     }
 
     return null
-  }, [unit, isDefaultUnit, badge, unitOptions, onAction, hideUnitWhenEmpty, isEmptyValue, unitHideLabelList])
+  }, [unit, isDefaultUnit, badge, unitOptions, onAction, hideUnitWhenEmpty, isEmptyValue, unitHideLabelList, showIcon, showIconOnHover])
 
   useUpdateEffect(() => {
-    if (value == null || value === '') return
+    // 外部清空（删除属性）时同步清空回显，单位回到 default（若有）以便下拉勾选「默认」
+    if (value == null || value === '') {
+      setDisplayValue('')
+      const hasDefaultUnit = unitOptions?.some((o) => o.value === 'default')
+      if (hasDefaultUnit) {
+        setUnit('default')
+      } else {
+        setUnit(getUnit(undefined, defaultUnitValue, unitOptions))
+      }
+      return
+    }
 
     const nextUnit = getUnit(value, defaultUnitValue, unitOptions)
     setUnit(nextUnit)
@@ -210,19 +244,40 @@ export function InputNumber ({
   }, [value])
 
   useUpdateEffect(() => {
-    let changeValue = String(parseFloat(number))
     if (unitDisabledList.includes(unit)) {
       setDisplayValue('')
-      changeValue = unit
-    } else {
-      setDisplayValue(number)
-      changeValue = changeValue + unit
+      onChange?.(unit)
+      return
     }
+
+    const parsed = parseFloat(String(number))
+    // 切单位时若当前无有效数字，用 fallbackValue 填充，避免产出 NaNpx / 空值
+    if (number === '' || number == null || isNaN(parsed)) {
+      if (typeof fallbackValue !== 'undefined') {
+        const fallbackStr = String(fallbackValue)
+        const fallbackNum = String(parseFloat(fallbackStr))
+        handleNumberChange(fallbackStr)
+        setDisplayValue(fallbackNum)
+        onChange?.(fallbackNum + unit)
+      } else if (value == null || value === '') {
+        // 默认态切到具体单位：带上 0 让上层按计算默认值换算填充
+        onChange?.(`0${unit}`)
+      }
+      return
+    }
+
+    const changeValue = String(parsed) + unit
+    setDisplayValue(number)
     // 外部 value 同步进来的变更不再回写，避免受控回显触发二次 onChange
     if (value != null && value !== '' && String(value) === changeValue) {
       return
     }
-    onChange && onChange(changeValue)
+    // 默认态下 number 可能残留旧值，切单位时仍走 0+unit 交给上层填充
+    if ((value == null || value === '') && unit !== 'default') {
+      onChange?.(`0${unit}`)
+      return
+    }
+    onChange?.(changeValue)
   }, [unit, number])
 
   return (

@@ -118,10 +118,6 @@ export const getDefaultValueFunctionMap = {
   appearance(values: CSSProperties, config: any) {
     return {
       opacity: values.opacity,
-      borderTopLeftRadius: values.borderTopLeftRadius,
-      borderTopRightRadius: values.borderTopRightRadius,
-      borderBottomRightRadius: values.borderBottomRightRadius,
-      borderBottomLeftRadius: values.borderBottomLeftRadius,
     }
   },
   zindex(values: CSSProperties, config: any) {
@@ -285,10 +281,6 @@ export const getDefaultValueFunctionMap2 = {
   appearance() {
     return {
       opacity: 1,
-      borderTopLeftRadius: '0px',
-      borderTopRightRadius: '0px',
-      borderBottomRightRadius: '0px',
-      borderBottomLeftRadius: '0px',
     }
   },
   zindex() {

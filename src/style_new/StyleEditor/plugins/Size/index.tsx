@@ -87,11 +87,13 @@ interface SizingModeBadgeProps {
   actualSize: number;
   parentSize?: number;
   onChange: (value: string | null) => void;
+  /** 用户显式选择 % 单位时置 true，避免换算成 100% 后被误判为「填满」 */
+  onPreferPercent?: (prefer: boolean) => void;
   onAddMin?: () => void;
   onAddMax?: () => void;
 }
 
-function SizingModeBadge({ mode, dimension, actualSize, parentSize = 0, onChange, onAddMin, onAddMax }: SizingModeBadgeProps) {
+function SizingModeBadge({ mode, dimension, actualSize, parentSize = 0, onChange, onPreferPercent, onAddMin, onAddMax }: SizingModeBadgeProps) {
   const dim = dimension === 'width' ? 'width' : 'height';
   const options = [
     { label: '默认', value: 'default', tip: dim === 'width' ? DEFAULT_WIDTH_TIP : DEFAULT_HEIGHT_TIP },
@@ -105,12 +107,23 @@ function SizingModeBadge({ mode, dimension, actualSize, parentSize = 0, onChange
   ];
 
   const handleClick = useCallback((val: string) => {
-    if (val === 'default')    onChange(null);
-    else if (val === 'fixed') onChange(`${actualSize}px`);
-    else if (val === '%')     onChange(sizeToPercent(actualSize, parentSize));
-    else if (val === 'hug')   onChange('fit-content');
-    else if (val === 'fill')  onChange('100%');
-  }, [actualSize, parentSize, onChange]);
+    if (val === 'default') {
+      onPreferPercent?.(false);
+      onChange(null);
+    } else if (val === 'fixed') {
+      onPreferPercent?.(false);
+      onChange(`${actualSize}px`);
+    } else if (val === '%') {
+      onPreferPercent?.(true);
+      onChange(sizeToPercent(actualSize, parentSize));
+    } else if (val === 'hug') {
+      onPreferPercent?.(false);
+      onChange('fit-content');
+    } else if (val === 'fill') {
+      onPreferPercent?.(false);
+      onChange('100%');
+    }
+  }, [actualSize, parentSize, onChange, onPreferPercent]);
 
   const handleAction = useCallback((val: string) => {
     if (val === 'addMin') onAddMin?.();
@@ -132,18 +145,21 @@ interface DefaultModeBadgeProps {
   actualSize: number;
   parentSize?: number;
   onChange: (value: string | null) => void;
+  /** 用户显式选择 % 单位时置 true，避免换算成 100% 后被误判为「填满」 */
+  onPreferPercent?: (prefer: boolean) => void;
   onAddMin?: () => void;
   onAddMax?: () => void;
   showAddMin?: boolean;
   showAddMax?: boolean;
 }
 
-/** 未配置宽/高：数字回显实测值，单位区显示「默认」，hover 后显示下拉箭头 */
+/** 未配置宽/高：placeholder 显示「默认（N）」，右侧只保留下拉箭头 */
 function DefaultModeBadge({
   dimension,
   actualSize,
   parentSize = 0,
   onChange,
+  onPreferPercent,
   onAddMin,
   onAddMax,
   showAddMin = true,
@@ -162,23 +178,33 @@ function DefaultModeBadge({
   ], [dimension, dimLabel, showAddMin, showAddMax]);
 
   const handleClick = useCallback((val: string) => {
-    if (val === 'default') onChange(null);
-    else if (val === 'px') onChange(`${Math.max(0, actualSize)}px`);
-    else if (val === '%') onChange(sizeToPercent(actualSize, parentSize));
-  }, [actualSize, parentSize, onChange]);
+    if (val === 'default') {
+      onPreferPercent?.(false);
+      onChange(null);
+    } else if (val === 'px') {
+      onPreferPercent?.(false);
+      onChange(`${Math.max(0, actualSize)}px`);
+    } else if (val === '%') {
+      onPreferPercent?.(true);
+      onChange(sizeToPercent(actualSize, parentSize));
+    }
+  }, [actualSize, parentSize, onChange, onPreferPercent]);
 
   const handleAction = useCallback((val: string) => {
-    if (val === 'hug') onChange('fit-content');
-    else if (val === 'fill') onChange('100%');
-    else if (val === 'addMin') onAddMin?.();
+    if (val === 'hug') {
+      onPreferPercent?.(false);
+      onChange('fit-content');
+    } else if (val === 'fill') {
+      onPreferPercent?.(false);
+      onChange('100%');
+    } else if (val === 'addMin') onAddMin?.();
     else if (val === 'addMax') onAddMax?.();
-  }, [onChange, onAddMin, onAddMax]);
+  }, [onChange, onPreferPercent, onAddMin, onAddMax]);
 
   return (
     <Dropdown value="default" options={options} onClick={handleClick} onAction={handleAction}>
-      <span className={css.defaultBadge}>
-        <span className={css.badgeLabel}>默认</span>
-        <span className={css.badgeArrow}><DownOutlined /></span>
+      <span className={css.defaultBadgeArrow} data-mybricks-tip="单位">
+        <DownOutlined />
       </span>
     </Dropdown>
   );
@@ -330,6 +356,8 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
     setMaxHeightPending(undefined);
     setMinWidthPending(undefined);
     setMinHeightPending(undefined);
+    setWidthPreferPercent(false);
+    setHeightPreferPercent(false);
   }, [onChange]);
 
   const isDraggingWidth = useRef(false);
@@ -341,6 +369,14 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
   const [minWidthPending, setMinWidthPending] = useState<string | undefined>();
   const [maxHeightPending, setMaxHeightPending] = useState<string | undefined>();
   const [minHeightPending, setMinHeightPending] = useState<string | undefined>();
+  // 用户显式选了 % 单位：即使换算结果是 100% 也按百分比展示，不落入「填满」
+  const [widthPreferPercent, setWidthPreferPercent] = useState(false);
+  const [heightPreferPercent, setHeightPreferPercent] = useState(false);
+
+  useEffect(() => {
+    setWidthPreferPercent(false);
+    setHeightPreferPercent(false);
+  }, [targetDom]);
 
   useEffect(() => {
     if (widthPending !== undefined) setWidthPending(undefined);
@@ -365,9 +401,13 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
   const heightEffective = normalizeSizeValue(heightPending ?? value.height);
   const maxWidthEffective = normalizeSizeValue(maxWidthPending ?? value.maxWidth);
 
-  // Fill 仅对应「填满父容器」写入的 100%；其它百分比（如 50%、162%）走普通 % 单位展示
-  const isWidthFill = !!(widthEffective?.includes('%') && parseFloat(widthEffective) === 100 && actualWidth > 0);
-  const isHeightFill = !!(heightEffective?.includes('%') && parseFloat(heightEffective) === 100 && actualHeight > 0);
+  // Fill 仅对应「填满父容器」写入的 100%；用户显式选 %（含换算成 100%）走普通 % 单位展示
+  const isWidthFill = !!(widthEffective?.includes('%') && parseFloat(widthEffective) === 100 && actualWidth > 0 && !widthPreferPercent);
+  const isHeightFill = !!(heightEffective?.includes('%') && parseFloat(heightEffective) === 100 && actualHeight > 0 && !heightPreferPercent);
+  const isWidthDefault = !isWidthFill && widthEffective !== 'fit-content' && !widthEffective;
+  const isHeightDefault = !isHeightFill && heightEffective !== 'fit-content' && !heightEffective;
+  const widthDefaultPx = actualWidth > 0 ? Math.round(actualWidth) : null;
+  const heightDefaultPx = actualHeight > 0 ? Math.round(actualHeight) : null;
 
   // 宽高比跟踪：px 用配置值；填满/%/适应/未配置用 DOM 实测值，避免比例停在初始 1
   const widthPxVal = useMemo(() => {
@@ -570,10 +610,17 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
     let realVal: string | null = val === 'default' ? null : val;
     const prevWidth = normalizeSizeValue(widthPending ?? value.width);
     const parentW = targetDomRef.current?.parentElement?.clientWidth ?? 0;
+    if (realVal === null || realVal === 'fit-content' || realVal?.endsWith('px')) {
+      setWidthPreferPercent(false);
+    }
     // px → %：按相对父级换算（InputNumber 默认会沿用同一数字，如 162px → 162%）
     if (realVal?.endsWith('%') && prevWidth?.endsWith('px')) {
       realVal = sizeToPercent(parseFloat(prevWidth), parentW);
+      setWidthPreferPercent(true);
       setWidthLockKey(k => k + 1);
+    } else if (realVal?.endsWith('%')) {
+      // 已是 % 或从其它状态切到 %：按百分比单位展示
+      setWidthPreferPercent(true);
     }
     // % → px：按父级反算像素
     if (realVal?.endsWith('px') && prevWidth?.endsWith('%')) {
@@ -625,10 +672,17 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
     let realVal: string | null = val === 'default' ? null : val;
     const prevHeight = normalizeSizeValue(heightPending ?? value.height);
     const parentH = targetDomRef.current?.parentElement?.clientHeight ?? 0;
+    if (realVal === null || realVal === 'fit-content' || realVal?.endsWith('px')) {
+      setHeightPreferPercent(false);
+    }
     // px → %：按相对父级换算
     if (realVal?.endsWith('%') && prevHeight?.endsWith('px')) {
       realVal = sizeToPercent(parseFloat(prevHeight), parentH);
+      setHeightPreferPercent(true);
       setHeightLockKey(k => k + 1);
+    } else if (realVal?.endsWith('%')) {
+      // 已是 % 或从其它状态切到 %：按百分比单位展示
+      setHeightPreferPercent(true);
     }
     // % → px：按父级反算像素
     if (realVal?.endsWith('px') && prevHeight?.endsWith('%')) {
@@ -762,6 +816,7 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
       resetFunction={refresh}
       collapse={allHidden ? true : false}
       showDelete={false}
+      hideTopBorder
       addOptions={addOptions.length > 0 ? addOptions : undefined}
       onAddOption={handleAddOption}
       rightColumn={
@@ -818,26 +873,46 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
                 </div>
                 <div ref={widthInputWrapRef} style={{ flex: 1, minWidth: 0, display: 'contents' }}>
                   <InputNumber
-                    key={`${isWidthFill ? `fill-w-${Math.round(actualWidth)}` : (widthEffective === 'fit-content' ? `hug-w-${Math.round(actualWidth)}` : (widthEffective ? getUnitKey(widthEffective) : (actualWidth > 0 ? `dom-w-${Math.round(actualWidth)}` : 'empty')))}-wlk${widthLockKey}`}
+                    key={`${isWidthFill ? `fill-w-${Math.round(actualWidth)}` : (widthEffective === 'fit-content' ? `hug-w-${Math.round(actualWidth)}` : (widthEffective ? getUnitKey(widthEffective) : 'default'))}-wlk${widthLockKey}`}
                     style={{ flex: 1, minWidth: 0, marginLeft: 4 }}
-                    defaultValue={isWidthFill ? `${Math.round(actualWidth)}px` : (widthEffective === 'fit-content' ? (actualWidth > 0 ? `${Math.round(actualWidth)}px` : undefined) : (widthEffective ?? (actualWidth > 0 ? `${Math.round(actualWidth)}px` : undefined)))}
+                    {...(isWidthDefault ? { value: null as any } : {})}
+                    defaultValue={
+                      isWidthDefault
+                        ? undefined
+                        : isWidthFill
+                          ? `${Math.round(actualWidth)}px`
+                          : (widthEffective === 'fit-content'
+                            ? (actualWidth > 0 ? `${Math.round(actualWidth)}px` : undefined)
+                            : widthEffective)
+                    }
                     defaultUnitValue="px"
                     unitOptions={widthUnitOptions}
                     unitDisabledList={UNIT_DISABLED_LIST}
                     unitDisplayLabelMap={UNIT_DISPLAY_LABEL_MAP}
-                    fallbackValue={0}
+                    placeholder={
+                      isWidthDefault
+                        ? (widthDefaultPx != null ? `默认（${widthDefaultPx}）` : '默认')
+                        : '默认'
+                    }
                     onChange={handleWidthChange}
                     onAction={(val) => {
-                      if (val === 'hug') { setWidthPending('fit-content'); onChange({ key: 'width', value: 'fit-content' }); }
-                      else if (val === 'fill') { setWidthPending('100%'); onChange({ key: 'width', value: '100%' }); }
+                      if (val === 'hug') { setWidthPreferPercent(false); setWidthPending('fit-content'); onChange({ key: 'width', value: 'fit-content' }); }
+                      else if (val === 'fill') { setWidthPreferPercent(false); setWidthPending('100%'); onChange({ key: 'width', value: '100%' }); }
                       else if (val === 'addMinWidth') { setShowMinWidth(true); setShowWidthHeight(true); }
                       else if (val === 'addMaxWidth') { setShowMaxWidth(true); setShowWidthHeight(true); }
                     }}
                     showIcon={true}
+                    showIconOnHover
                     unitIconClassName={css.sizeUnitIcon}
                     unitSelectStyle={SIZE_UNIT_SELECT_STYLE}
                     unitHideLabelList={SIZE_UNIT_HIDE_LABEL_LIST}
-                    tip={cfg.disableWidth ? SIZE_DISABLED_TIP : undefined}
+                    tip={
+                      cfg.disableWidth
+                        ? SIZE_DISABLED_TIP
+                        : isWidthDefault && widthDefaultPx != null
+                          ? `当前未配置宽度值，${widthDefaultPx}为计算值`
+                          : undefined
+                    }
                     badge={
                       isWidthFill ? (
                         <SizingModeBadge
@@ -845,6 +920,7 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
                           dimension="width"
                           actualSize={Math.round(actualWidth)}
                           parentSize={parentWidth}
+                          onPreferPercent={setWidthPreferPercent}
                           onChange={(v) => { setWidthPending(v ?? 'auto'); onChange({ key: 'width', value: v }); }}
                           onAddMin={() => { setShowMinWidth(true); setShowWidthHeight(true); }}
                           onAddMax={() => { setShowMaxWidth(true); setShowWidthHeight(true); }}
@@ -855,15 +931,17 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
                           dimension="width"
                           actualSize={Math.round(actualWidth)}
                           parentSize={parentWidth}
+                          onPreferPercent={setWidthPreferPercent}
                           onChange={(v) => { setWidthPending(v ?? 'fit-content'); onChange({ key: 'width', value: v }); }}
                           onAddMin={() => { setShowMinWidth(true); setShowWidthHeight(true); }}
                           onAddMax={() => { setShowMaxWidth(true); setShowWidthHeight(true); }}
                         />
-                      ) : !widthEffective ? (
+                      ) : isWidthDefault ? (
                         <DefaultModeBadge
                           dimension="width"
                           actualSize={Math.round(actualWidth)}
                           parentSize={parentWidth}
+                          onPreferPercent={setWidthPreferPercent}
                           onChange={(v) => { setWidthPending(v ?? undefined); onChange({ key: 'width', value: v }); }}
                           onAddMin={() => { setShowMinWidth(true); setShowWidthHeight(true); }}
                           onAddMax={() => { setShowMaxWidth(true); setShowWidthHeight(true); }}
@@ -884,26 +962,46 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
                 </div>
                 <div ref={heightInputWrapRef} style={{ flex: 1, minWidth: 0, display: 'contents' }}>
                   <InputNumber
-                    key={`${isHeightFill ? `fill-h-${Math.round(actualHeight)}` : (heightEffective === 'fit-content' ? `hug-h-${Math.round(actualHeight)}` : (heightEffective ? getUnitKey(heightEffective) : (actualHeight > 0 ? `dom-h-${Math.round(actualHeight)}` : 'empty')))}-hlk${heightLockKey}`}
+                    key={`${isHeightFill ? `fill-h-${Math.round(actualHeight)}` : (heightEffective === 'fit-content' ? `hug-h-${Math.round(actualHeight)}` : (heightEffective ? getUnitKey(heightEffective) : 'default'))}-hlk${heightLockKey}`}
                     style={{ flex: 1, minWidth: 0, marginLeft: 4 }}
-                    defaultValue={isHeightFill ? `${Math.round(actualHeight)}px` : (heightEffective === 'fit-content' ? (actualHeight > 0 ? `${Math.round(actualHeight)}px` : undefined) : (heightEffective ?? (actualHeight > 0 ? `${Math.round(actualHeight)}px` : undefined)))}
+                    {...(isHeightDefault ? { value: null as any } : {})}
+                    defaultValue={
+                      isHeightDefault
+                        ? undefined
+                        : isHeightFill
+                          ? `${Math.round(actualHeight)}px`
+                          : (heightEffective === 'fit-content'
+                            ? (actualHeight > 0 ? `${Math.round(actualHeight)}px` : undefined)
+                            : heightEffective)
+                    }
                     defaultUnitValue="px"
                     unitOptions={heightUnitOptions}
                     unitDisabledList={UNIT_DISABLED_LIST}
                     unitDisplayLabelMap={UNIT_DISPLAY_LABEL_MAP}
-                    fallbackValue={0}
+                    placeholder={
+                      isHeightDefault
+                        ? (heightDefaultPx != null ? `默认（${heightDefaultPx}）` : '默认')
+                        : '默认'
+                    }
                     onChange={handleHeightChange}
                     onAction={(val) => {
-                      if (val === 'hug') { setHeightPending('fit-content'); onChange({ key: 'height', value: 'fit-content' }); }
-                      else if (val === 'fill') { setHeightPending('100%'); onChange({ key: 'height', value: '100%' }); }
+                      if (val === 'hug') { setHeightPreferPercent(false); setHeightPending('fit-content'); onChange({ key: 'height', value: 'fit-content' }); }
+                      else if (val === 'fill') { setHeightPreferPercent(false); setHeightPending('100%'); onChange({ key: 'height', value: '100%' }); }
                       else if (val === 'addMinHeight') { setShowMinHeight(true); setShowWidthHeight(true); }
                       else if (val === 'addMaxHeight') { setShowMaxHeight(true); setShowWidthHeight(true); }
                     }}
                     showIcon={true}
+                    showIconOnHover
                     unitIconClassName={css.sizeUnitIcon}
                     unitSelectStyle={SIZE_UNIT_SELECT_STYLE}
                     unitHideLabelList={SIZE_UNIT_HIDE_LABEL_LIST}
-                    tip={cfg.disableHeight ? SIZE_DISABLED_TIP : undefined}
+                    tip={
+                      cfg.disableHeight
+                        ? SIZE_DISABLED_TIP
+                        : isHeightDefault && heightDefaultPx != null
+                          ? `当前未配置高度值，${heightDefaultPx}为计算值`
+                          : undefined
+                    }
                     badge={
                       isHeightFill ? (
                         <SizingModeBadge
@@ -911,6 +1009,7 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
                           dimension="height"
                           actualSize={Math.round(actualHeight)}
                           parentSize={parentHeight}
+                          onPreferPercent={setHeightPreferPercent}
                           onChange={(v) => { setHeightPending(v ?? 'auto'); onChange({ key: 'height', value: v }); }}
                           onAddMin={() => { setShowMinHeight(true); setShowWidthHeight(true); }}
                           onAddMax={() => { setShowMaxHeight(true); setShowWidthHeight(true); }}
@@ -921,15 +1020,17 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
                           dimension="height"
                           actualSize={Math.round(actualHeight)}
                           parentSize={parentHeight}
+                          onPreferPercent={setHeightPreferPercent}
                           onChange={(v) => { setHeightPending(v ?? 'fit-content'); onChange({ key: 'height', value: v }); }}
                           onAddMin={() => { setShowMinHeight(true); setShowWidthHeight(true); }}
                           onAddMax={() => { setShowMaxHeight(true); setShowWidthHeight(true); }}
                         />
-                      ) : !heightEffective ? (
+                      ) : isHeightDefault ? (
                         <DefaultModeBadge
                           dimension="height"
                           actualSize={Math.round(actualHeight)}
                           parentSize={parentHeight}
+                          onPreferPercent={setHeightPreferPercent}
                           onChange={(v) => { setHeightPending(v ?? undefined); onChange({ key: 'height', value: v }); }}
                           onAddMin={() => { setShowMinHeight(true); setShowWidthHeight(true); }}
                           onAddMax={() => { setShowMaxHeight(true); setShowWidthHeight(true); }}
@@ -968,6 +1069,7 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
                       onChange={(val) => onChange({key: 'minWidth', value: val})}
                       onAction={() => { onChange({key: 'minWidth', value: null}); setShowMinWidth(false); setMinWidthPending(undefined); }}
                       showIcon={true}
+                      showIconOnHover
                       unitIconClassName={css.sizeUnitIcon}
                       unitSelectStyle={SIZE_UNIT_SELECT_STYLE}
                       unitHideLabelList={SIZE_UNIT_HIDE_LABEL_LIST}
@@ -992,6 +1094,7 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
                       onChange={(val) => onChange({key: 'maxWidth', value: val})}
                       onAction={() => { onChange({key: 'maxWidth', value: null}); setShowMaxWidth(false); setMaxWidthPending(undefined); }}
                       showIcon={true}
+                      showIconOnHover
                       unitIconClassName={css.sizeUnitIcon}
                       unitSelectStyle={SIZE_UNIT_SELECT_STYLE}
                       unitHideLabelList={SIZE_UNIT_HIDE_LABEL_LIST}
@@ -1020,6 +1123,7 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
                       onChange={(val) => onChange({key: 'minHeight', value: val})}
                       onAction={() => { onChange({key: 'minHeight', value: null}); setShowMinHeight(false); setMinHeightPending(undefined); }}
                       showIcon={true}
+                      showIconOnHover
                       unitIconClassName={css.sizeUnitIcon}
                       unitSelectStyle={SIZE_UNIT_SELECT_STYLE}
                       unitHideLabelList={SIZE_UNIT_HIDE_LABEL_LIST}
@@ -1044,6 +1148,7 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
                       onChange={(val) => onChange({key: 'maxHeight', value: val})}
                       onAction={() => { onChange({key: 'maxHeight', value: null}); setShowMaxHeight(false); setMaxHeightPending(undefined); }}
                       showIcon={true}
+                      showIconOnHover
                       unitIconClassName={css.sizeUnitIcon}
                       unitSelectStyle={SIZE_UNIT_SELECT_STYLE}
                       unitHideLabelList={SIZE_UNIT_HIDE_LABEL_LIST}
