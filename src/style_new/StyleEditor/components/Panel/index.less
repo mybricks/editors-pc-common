@@ -7,18 +7,21 @@
   flex-direction: column;
   padding-top: 5px;
   padding-bottom: 5px;
+  border-top: 1px solid transparent;
 
   &:first-child {
     margin-top: 3px;
   }
 
-  &.collapsed {
-    border-bottom: 1px solid @boder-color;
+  // 按分类分割：仅在相邻分类之间画线，避免首项顶部多余线条
+  & + & {
+    border-top-color: @boder-color;
   }
 
-  // &.collapsed + &.collapsed {
-  //   border-top: 1px solid #e6e6e6;
-  // }
+  // 保持 collapsed 状态不额外叠加边框，避免与分类分割线形成双线
+  &.collapsed {
+    border-bottom: 0;
+  }
 
   .header {
     display: flex;
@@ -180,10 +183,6 @@
 
   &:has(input:disabled) {
     background-color: @bg-color-main-secondary;
-
-    .panelItem {
-      background-color: @bg-color-main-secondary;
-    }
   }
 
   // border: 1px solid transparent;
@@ -206,6 +205,26 @@
   }
 
   &.active {
+    outline: none !important;
+    border: 1px solid @color-primary !important;
+  }
+
+  // 嵌套 Input 的内层 Panel.Item：去掉自身铬，高亮提升到外层
+  .panelItem {
+    background-color: transparent;
+    margin-left: 0;
+
+    &:hover {
+      outline: none;
+    }
+
+    &.active {
+      border: 1px solid transparent !important;
+      outline: none !important;
+    }
+  }
+
+  &:has(.panelItem.active) {
     outline: none !important;
     border: 1px solid @color-primary !important;
   }

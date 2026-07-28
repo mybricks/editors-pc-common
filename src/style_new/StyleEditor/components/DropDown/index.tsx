@@ -19,6 +19,8 @@ interface DropdownOption {
   disabled?: boolean;
   /** 列表项样式（如字体预览的 fontFamily） */
   style?: CSSProperties;
+  /** hover 提示（data-mybricks-tip） */
+  tip?: string;
 }
 
 interface DropdownProps {
@@ -193,7 +195,7 @@ const Items = React.forwardRef<HTMLDivElement, ItemsProps>((props, forwardRef) =
   const actionItems = options.filter((o) => o.type === 'action');
 
   const renderItem = (opt: typeof options[number], key: string | number, orderIndex?: number) => {
-    const { label, value, suffix, type, checked, icon, iconSize, disabled: itemDisabled, style: itemStyle } = opt;
+    const { label, value, suffix, type, checked, icon, iconSize, disabled: itemDisabled, style: itemStyle, tip } = opt;
     if (type === 'divider') {
       return <div key={key} className={css.divider} />;
     }
@@ -213,6 +215,7 @@ const Items = React.forwardRef<HTMLDivElement, ItemsProps>((props, forwardRef) =
       <div
         key={key}
         className={`${css.item}${isDraggable ? ` ${css.itemDraggable}` : ''}${itemDisabled ? ` ${css.itemDisabled}` : ''}`}
+        {...(tip ? { 'data-mybricks-tip': tip } : {})}
         onClick={(e) => {
           e.stopPropagation();
           if (itemDisabled) return;

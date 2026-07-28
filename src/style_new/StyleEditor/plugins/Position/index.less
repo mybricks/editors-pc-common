@@ -69,6 +69,10 @@
   padding-left: 6px;
 }
 
+.inputRowDisabled {
+  opacity: 0.6;
+}
+
 .dragLabel {
   font-size: 12px;
   color: @font-color-content;
@@ -76,6 +80,10 @@
   flex-shrink: 0;
   user-select: none;
   cursor: ew-resize;
+}
+
+.dragLabelDisabled {
+  cursor: not-allowed;
 }
 
 .numberInput {
@@ -91,4 +99,8 @@
   box-sizing: border-box;
   cursor: text;
   outline: none;
+}
+
+.numberInputDisabled {
+  cursor: not-allowed;
 }

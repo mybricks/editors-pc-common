@@ -14,19 +14,14 @@
 .layerItemWrapper {
   position: relative;
 
-  &:hover .dragHandle {
-    visibility: visible;
-  }
-
   &.layerDragging {
     opacity: 0.35;
   }
 }
 
-// ── Drag handle (grip dots) — hidden until row is hovered ────────────────────
+// ── Drag handle (grip dots) — always visible ─────────────────────────────────
 
 .dragHandle {
-  visibility: hidden;
   flex-shrink: 0;
   width: 14px;
   height: 14px;

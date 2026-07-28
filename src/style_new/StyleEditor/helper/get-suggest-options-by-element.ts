@@ -480,13 +480,6 @@ function shouldPaddingDisabled(selectDom: HTMLElement) {
 function shouldSizeDisabled(selectDom: HTMLElement) {
   const selectDomStyle = window.getComputedStyle(selectDom);
 
-  if (selectDomStyle.display === 'inline') {
-    return {
-      disableWidth: true,
-      disableHeight: true
-    }
-  }
-
   const parentDom = selectDom.parentElement as HTMLElement;
   if (parentDom) {
     const parentDomStyle = window.getComputedStyle(parentDom);

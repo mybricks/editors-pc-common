@@ -69,6 +69,7 @@ function PositionInput({
   /** DOM 计算出的实际位置，用于无显式 CSS 值时的回显 */
   computedValue: string
 }) {
+  const isLocked = needsActivation
   const hasExplicitValue = rawValue != null && String(rawValue) !== 'auto' && toDisplayValue(rawValue) !== ''
   const displayValue = hasExplicitValue ? toDisplayValue(rawValue) : computedValue
 
@@ -93,9 +94,10 @@ function PositionInput({
   }, [needsActivation])
 
   const handleFocus = useCallback(() => {
+    if (isLocked) return
     // 纯 focus 不开启自由定位，避免一点击输入框就脱离文档流
     isEditingRef.current = true
-  }, [])
+  }, [isLocked])
 
   const ensureActivated = useCallback(() => {
     if (needsActivation && !activatedRef.current) {
@@ -105,6 +107,7 @@ function PositionInput({
   }, [needsActivation, onActivate])
 
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    if (isLocked) return
     const val = e.target.value
     setLocalValue(val)
     const out = toOutputValue(val)
@@ -113,11 +116,12 @@ function PositionInput({
       ensureActivated()
       onChange({ key: cssKey, value: out })
     }
-  }, [cssKey, onChange, ensureActivated])
+  }, [cssKey, onChange, ensureActivated, isLocked])
 
   const handleBlur = useCallback((e: React.FocusEvent<HTMLInputElement>) => {
     isEditingRef.current = false
     isDraggingRef.current = false
+    if (isLocked) return
     const val = e.target.value.trim()
     const out = toOutputValue(val)
     if (out !== null) {
@@ -126,9 +130,9 @@ function PositionInput({
     // 空值 → 清除显式 CSS，回到 DOM 计算值（不自动开启自由定位）
     onChange({ key: cssKey, value: out })
     setLocalValue(out === null ? computedValue : toDisplayValue(out))
-  }, [cssKey, onChange, computedValue, ensureActivated])
+  }, [cssKey, onChange, computedValue, ensureActivated, isLocked])
 
-  const getDragProps = useDragNumber({
+  const dragProps = useDragNumber({
     min: Number.NEGATIVE_INFINITY,
     sensitivity: 1,
     onDragStart: () => {
@@ -154,15 +158,15 @@ function PositionInput({
 
   return (
     <Panel.Item className={css.inputItem}>
-      <div className={css.inputRow}>
+      <div className={`${css.inputRow} ${isLocked ? css.inputRowDisabled : ''}`}>
         <span
-          {...getDragProps(localValue, `拖拽调整 ${label}`)}
-          className={css.dragLabel}
+          {...(!isLocked ? dragProps(localValue, `拖拽调整 ${label}`) : {})}
+          className={`${css.dragLabel} ${isLocked ? css.dragLabelDisabled : ''}`}
         >
           {label}
         </span>
         <input
-          className={css.numberInput}
+          className={`${css.numberInput} ${isLocked ? css.numberInputDisabled : ''}`}
           type="text"
           inputMode="numeric"
           value={localValue}
@@ -170,6 +174,7 @@ function PositionInput({
           onChange={handleChange}
           onFocus={handleFocus}
           onBlur={handleBlur}
+          disabled={isLocked}
         />
       </div>
     </Panel.Item>
@@ -268,26 +273,28 @@ export function Position({ value, onChange, showTitle }: PositionProps) {
           </div>
         </div>
       </div>
-      <Panel.Content>
-        <PositionInput
-          label='X'
-          rawValue={leftVal}
-          cssKey='left'
-          onChange={onChange}
-          needsActivation={needsActivation}
-          onActivate={handleActivate}
-          computedValue={computedX}
-        />
-        <PositionInput
-          label='Y'
-          rawValue={topVal}
-          cssKey='top'
-          onChange={onChange}
-          needsActivation={needsActivation}
-          onActivate={handleActivate}
-          computedValue={computedY}
-        />
-      </Panel.Content>
+      {isFreePosition && (
+        <Panel.Content>
+          <PositionInput
+            label='X'
+            rawValue={leftVal}
+            cssKey='left'
+            onChange={onChange}
+            needsActivation={needsActivation}
+            onActivate={handleActivate}
+            computedValue={computedX}
+          />
+          <PositionInput
+            label='Y'
+            rawValue={topVal}
+            cssKey='top'
+            onChange={onChange}
+            needsActivation={needsActivation}
+            onActivate={handleActivate}
+            computedValue={computedY}
+          />
+        </Panel.Content>
+      )}
     </Panel>
   )
 }

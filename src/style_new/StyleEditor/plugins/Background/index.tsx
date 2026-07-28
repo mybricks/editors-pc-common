@@ -213,7 +213,7 @@ function LayerItem({
     // style={{ marginLeft: 0 }} overrides Panel.Item's :not(:first-child) { margin-left: 4px }
     // which is designed for horizontal flex and would shift rows in a vertical stack
     <Panel.Item className={css.layerRow} style={{ marginLeft: 0 }} activeWhenBlur={false}>
-      {/* Drag handle — visibility toggled via CSS on parent .layerItemWrapper:hover */}
+      {/* Drag handle — always visible */}
       <div className={css.dragHandle} data-drag-handle>
         <GripIcon />
       </div>

@@ -36,6 +36,10 @@ interface InputNumberProps extends InputProps {
   placeholder?: string;
   /** 失焦时输入为空的兜底值，设置后会自动补填并提交，而非显示 placeholder */
   fallbackValue?: number | string;
+  /** 无值时隐藏单位文案（仍保留下拉箭头，便于操作如「移除」） */
+  hideUnitWhenEmpty?: boolean;
+  /** 这些单位不显示文案（仍保留下拉箭头），如 ['px'] */
+  unitHideLabelList?: Array<string>;
 }
 
 export function InputNumber ({
@@ -63,6 +67,8 @@ export function InputNumber ({
   badge,
   placeholder = '默认',
   fallbackValue,
+  hideUnitWhenEmpty = false,
+  unitHideLabelList = ['px'],
 }: InputNumberProps) {
   const [unit, setUnit] = useState<string>(getUnit(value || defaultValue, defaultUnitValue, unitOptions))
   const [number, handleNumberChange] = useInputNumber<string | number | undefined>(value || defaultValue)
@@ -74,6 +80,8 @@ export function InputNumber ({
     }
     return number
   })
+
+  const isEmptyValue = !displayValue && !(value || defaultValue)
 
   const isDisabledUnit = useCallback(() => {
     const isUnitDisabled = (unitDisabledList && unit) ? unitDisabledList.includes(unit) : false;
@@ -162,6 +170,11 @@ export function InputNumber ({
       if (badge) {
         return <>{badge}</>
       }
+      // 无值 / 指定单位（如 px）隐藏文案，仍保留下拉箭头与布局
+      const hideUnitLabel =
+        isDefaultUnit ||
+        (hideUnitWhenEmpty && isEmptyValue) ||
+        unitHideLabelList.includes(unit)
       return (
         <Select
           tip='单位'
@@ -169,7 +182,7 @@ export function InputNumber ({
           defaultValue={unit}
           options={unitOptions}
           showIcon={showIcon}
-          hideLabel={isDefaultUnit}
+          hideLabel={hideUnitLabel}
           iconClassName={unitIconClassName}
           onChange={setUnit}
           onAction={onAction}
@@ -179,7 +192,7 @@ export function InputNumber ({
     }
 
     return null
-  }, [unit, isDefaultUnit, badge, unitOptions, onAction])
+  }, [unit, isDefaultUnit, badge, unitOptions, onAction, hideUnitWhenEmpty, isEmptyValue, unitHideLabelList])
 
   useUpdateEffect(() => {
     if (value == null || value === '') return

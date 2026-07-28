@@ -20,6 +20,15 @@
   flex-direction: column;
 }
 
+/* 单侧约束占位：保持与宽/高列同宽，但不显示背景与边框 */
+.constraintSpacer {
+  visibility: hidden;
+  pointer-events: none;
+  background: transparent !important;
+  outline: none !important;
+  border-color: transparent !important;
+}
+
 .sizeActions {
   display: flex;
   flex-direction: column;
@@ -138,7 +147,8 @@
 }
 
 .hugBadge,
-.fillBadge {
+.fillBadge,
+.defaultBadge {
   position: relative;
   display: inline-flex;
   align-items: center;
