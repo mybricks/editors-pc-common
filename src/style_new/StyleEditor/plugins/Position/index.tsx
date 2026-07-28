@@ -189,7 +189,6 @@ function PositionInput({
           type="text"
           inputMode="numeric"
           value={localValue}
-          placeholder="默认"
           onChange={handleChange}
           onFocus={handleFocus}
           onBlur={handleBlur}

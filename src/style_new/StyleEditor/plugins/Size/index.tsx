@@ -210,9 +210,9 @@ function DefaultModeBadge({
   );
 }
 
-/** 归一化尺寸值：auto / inherit / 未配置 → undefined，让输入框显示为空（默认状态）。fit-content 保留原值，用于区分"显式 Hug"与"未配置" */
+/** 归一化尺寸值：auto / inherit / default / 未配置 → undefined，让输入框显示为空（默认状态）。fit-content 保留原值，用于区分"显式 Hug"与"未配置" */
 function normalizeSizeValue(val: any): string | undefined {
-  if (!val || val === 'auto' || val === 'inherit') return undefined;
+  if (!val || val === 'auto' || val === 'inherit' || val === 'default') return undefined;
   return val as string;
 }
 
@@ -363,12 +363,13 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
   const isDraggingWidth = useRef(false);
   const isDraggingHeight = useRef(false);
 
-  const [widthPending, setWidthPending] = useState<string | undefined>();
-  const [heightPending, setHeightPending] = useState<string | undefined>();
-  const [maxWidthPending, setMaxWidthPending] = useState<string | undefined>();
-  const [minWidthPending, setMinWidthPending] = useState<string | undefined>();
-  const [maxHeightPending, setMaxHeightPending] = useState<string | undefined>();
-  const [minHeightPending, setMinHeightPending] = useState<string | undefined>();
+  /** undefined=无覆盖；null=乐观清空（勿用 ?? 回退到旧 value，否则清空回车无法立即显示默认态） */
+  const [widthPending, setWidthPending] = useState<string | null | undefined>();
+  const [heightPending, setHeightPending] = useState<string | null | undefined>();
+  const [maxWidthPending, setMaxWidthPending] = useState<string | null | undefined>();
+  const [minWidthPending, setMinWidthPending] = useState<string | null | undefined>();
+  const [maxHeightPending, setMaxHeightPending] = useState<string | null | undefined>();
+  const [minHeightPending, setMinHeightPending] = useState<string | null | undefined>();
   // 用户显式选了 % 单位：即使换算结果是 100% 也按百分比展示，不落入「填满」
   const [widthPreferPercent, setWidthPreferPercent] = useState(false);
   const [heightPreferPercent, setHeightPreferPercent] = useState(false);
@@ -397,9 +398,9 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
     if (minHeightPending !== undefined) setMinHeightPending(undefined);
   }, [value.minHeight]);
 
-  const widthEffective = normalizeSizeValue(widthPending ?? value.width);
-  const heightEffective = normalizeSizeValue(heightPending ?? value.height);
-  const maxWidthEffective = normalizeSizeValue(maxWidthPending ?? value.maxWidth);
+  const widthEffective = normalizeSizeValue(widthPending !== undefined ? widthPending : value.width);
+  const heightEffective = normalizeSizeValue(heightPending !== undefined ? heightPending : value.height);
+  const maxWidthEffective = normalizeSizeValue(maxWidthPending !== undefined ? maxWidthPending : value.maxWidth);
 
   // Fill 仅对应「填满父容器」写入的 100%；用户显式选 %（含换算成 100%）走普通 % 单位展示
   const isWidthFill = !!(widthEffective?.includes('%') && parseFloat(widthEffective) === 100 && actualWidth > 0 && !widthPreferPercent);
@@ -431,9 +432,9 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
       ratioRef.current = heightPxVal / widthPxVal;
     }
   }, [locked, widthPxVal, heightPxVal]);
-  const minWidthEffective = normalizeSizeValue(minWidthPending ?? value.minWidth);
-  const maxHeightEffective = normalizeSizeValue(maxHeightPending ?? value.maxHeight);
-  const minHeightEffective = normalizeSizeValue(minHeightPending ?? value.minHeight);
+  const minWidthEffective = normalizeSizeValue(minWidthPending !== undefined ? minWidthPending : value.minWidth);
+  const maxHeightEffective = normalizeSizeValue(maxHeightPending !== undefined ? maxHeightPending : value.maxHeight);
+  const minHeightEffective = normalizeSizeValue(minHeightPending !== undefined ? minHeightPending : value.minHeight);
 
   const getDragPropsWidth = useDragNumber({
     onDragStart: (currentValue, inputEl) => {
@@ -608,10 +609,24 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
 
   const handleWidthChange = useCallback((val: string) => {
     let realVal: string | null = val === 'default' ? null : val;
-    const prevWidth = normalizeSizeValue(widthPending ?? value.width);
+    const prevWidth = normalizeSizeValue(widthPending !== undefined ? widthPending : value.width);
     const parentW = targetDomRef.current?.parentElement?.clientWidth ?? 0;
     if (realVal === null || realVal === 'fit-content' || realVal?.endsWith('px')) {
       setWidthPreferPercent(false);
+    }
+    // 未配置时切到具体单位：数字为 0 则用实测尺寸填充（对齐 Font 行高）；用户输入 >0 原样采用
+    if (!prevWidth && realVal && (realVal.endsWith('px') || realVal.endsWith('%'))) {
+      const num = parseFloat(realVal);
+      if (!isNaN(num) && num === 0) {
+        const actual = actualWidthRef.current;
+        if (realVal.endsWith('%')) {
+          realVal = sizeToPercent(actual, parentW);
+          setWidthPreferPercent(true);
+        } else {
+          realVal = `${Math.max(0, Math.round(actual))}px`;
+        }
+        setWidthLockKey(k => k + 1);
+      }
     }
     // px → %：按相对父级换算（InputNumber 默认会沿用同一数字，如 162px → 162%）
     if (realVal?.endsWith('%') && prevWidth?.endsWith('px')) {
@@ -665,15 +680,30 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
     } else {
       onChange({ key: 'width', value: realVal });
     }
-    if (!isDraggingWidth.current) setWidthPending(realVal ?? undefined);
+    // null 表示乐观清空，保留 pending 覆盖，避免回退到尚未更新的 value.width
+    if (!isDraggingWidth.current) setWidthPending(realVal);
   }, [onChange, cfg.disableWidth, locked, value.width, widthPending]);
 
   const handleHeightChange = useCallback((val: string) => {
     let realVal: string | null = val === 'default' ? null : val;
-    const prevHeight = normalizeSizeValue(heightPending ?? value.height);
+    const prevHeight = normalizeSizeValue(heightPending !== undefined ? heightPending : value.height);
     const parentH = targetDomRef.current?.parentElement?.clientHeight ?? 0;
     if (realVal === null || realVal === 'fit-content' || realVal?.endsWith('px')) {
       setHeightPreferPercent(false);
+    }
+    // 未配置时切到具体单位：数字为 0 则用实测尺寸填充（对齐 Font 行高）；用户输入 >0 原样采用
+    if (!prevHeight && realVal && (realVal.endsWith('px') || realVal.endsWith('%'))) {
+      const num = parseFloat(realVal);
+      if (!isNaN(num) && num === 0) {
+        const actual = actualHeightRef.current;
+        if (realVal.endsWith('%')) {
+          realVal = sizeToPercent(actual, parentH);
+          setHeightPreferPercent(true);
+        } else {
+          realVal = `${Math.max(0, Math.round(actual))}px`;
+        }
+        setHeightLockKey(k => k + 1);
+      }
     }
     // px → %：按相对父级换算
     if (realVal?.endsWith('%') && prevHeight?.endsWith('px')) {
@@ -726,7 +756,8 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
     } else {
       onChange({ key: 'height', value: realVal });
     }
-    if (!isDraggingHeight.current) setHeightPending(realVal ?? undefined);
+    // null 表示乐观清空，保留 pending 覆盖，避免回退到尚未更新的 value.height
+    if (!isDraggingHeight.current) setHeightPending(realVal);
   }, [onChange, cfg.disableHeight, locked, value.height, heightPending]);
 
   const widthUnitOptions = useMemo(() => [
@@ -873,7 +904,7 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
                 </div>
                 <div ref={widthInputWrapRef} style={{ flex: 1, minWidth: 0, display: 'contents' }}>
                   <InputNumber
-                    key={`${isWidthFill ? `fill-w-${Math.round(actualWidth)}` : (widthEffective === 'fit-content' ? `hug-w-${Math.round(actualWidth)}` : (widthEffective ? getUnitKey(widthEffective) : 'default'))}-wlk${widthLockKey}`}
+                    key={`${isWidthFill ? `fill-w-${Math.round(actualWidth)}` : (widthEffective === 'fit-content' ? `hug-w-${Math.round(actualWidth)}` : (isWidthDefault ? 'unset-w' : getUnitKey(widthEffective)))}-wlk${widthLockKey}`}
                     style={{ flex: 1, minWidth: 0, marginLeft: 4 }}
                     {...(isWidthDefault ? { value: null as any } : {})}
                     defaultValue={
@@ -942,7 +973,7 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
                           actualSize={Math.round(actualWidth)}
                           parentSize={parentWidth}
                           onPreferPercent={setWidthPreferPercent}
-                          onChange={(v) => { setWidthPending(v ?? undefined); onChange({ key: 'width', value: v }); }}
+                          onChange={(v) => { setWidthPending(v); onChange({ key: 'width', value: v }); }}
                           onAddMin={() => { setShowMinWidth(true); setShowWidthHeight(true); }}
                           onAddMax={() => { setShowMaxWidth(true); setShowWidthHeight(true); }}
                           showAddMin={!showMinWidth}
@@ -962,7 +993,7 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
                 </div>
                 <div ref={heightInputWrapRef} style={{ flex: 1, minWidth: 0, display: 'contents' }}>
                   <InputNumber
-                    key={`${isHeightFill ? `fill-h-${Math.round(actualHeight)}` : (heightEffective === 'fit-content' ? `hug-h-${Math.round(actualHeight)}` : (heightEffective ? getUnitKey(heightEffective) : 'default'))}-hlk${heightLockKey}`}
+                    key={`${isHeightFill ? `fill-h-${Math.round(actualHeight)}` : (heightEffective === 'fit-content' ? `hug-h-${Math.round(actualHeight)}` : (isHeightDefault ? 'unset-h' : getUnitKey(heightEffective)))}-hlk${heightLockKey}`}
                     style={{ flex: 1, minWidth: 0, marginLeft: 4 }}
                     {...(isHeightDefault ? { value: null as any } : {})}
                     defaultValue={
@@ -1031,7 +1062,7 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
                           actualSize={Math.round(actualHeight)}
                           parentSize={parentHeight}
                           onPreferPercent={setHeightPreferPercent}
-                          onChange={(v) => { setHeightPending(v ?? undefined); onChange({ key: 'height', value: v }); }}
+                          onChange={(v) => { setHeightPending(v); onChange({ key: 'height', value: v }); }}
                           onAddMin={() => { setShowMinHeight(true); setShowWidthHeight(true); }}
                           onAddMax={() => { setShowMaxHeight(true); setShowWidthHeight(true); }}
                           showAddMin={!showMinHeight}
