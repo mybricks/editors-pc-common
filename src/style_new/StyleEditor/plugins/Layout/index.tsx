@@ -344,7 +344,13 @@ function LayoutEditor({ editValue, onChangeValue }: LayoutEditorInternalProps): 
             </svg>
           )}
         </div>
-        <span className={styles.overflowLabel} onClick={toggle}>超出容器不显示</span>
+        <span
+          className={styles.overflowLabel}
+          onClick={toggle}
+          data-mybricks-tip="开启后超出容器大小的内容将会被隐藏"
+        >
+          超出容器不显示
+        </span>
       </div>
     );
   };
