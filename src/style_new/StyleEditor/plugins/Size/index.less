@@ -1,6 +1,9 @@
 @import "../../../../theme";
 
 .tip {
+  // 与「最小宽/最大宽」三字标题同宽，保证输入框左缘对齐
+  display: inline-block;
+  min-width: 3em;
   font-size: 10px;
   color: @font-color-content;
   white-space: nowrap;
@@ -18,6 +21,11 @@
 .sizeRows {
   display: flex;
   flex-direction: column;
+
+  // 覆盖公共 Input 默认 12px
+  input {
+    font-size: 11px;
+  }
 }
 
 /* 单侧约束占位：保持与宽/高列同宽，但不显示背景与边框 */
