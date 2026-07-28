@@ -46,6 +46,17 @@ function computeDomOffset(dom: HTMLElement): { x: number; y: number } {
   }
 }
 
+function computeDomSize(dom: HTMLElement): { width: number; height: number } {
+  return {
+    width: Math.round(dom.offsetWidth),
+    height: Math.round(dom.offsetHeight),
+  }
+}
+
+function isUnconfiguredSize(value: unknown): boolean {
+  return value == null || value === '' || value === 'auto' || value === 'inherit'
+}
+
 function PositionInput({
   label,
   rawValue,
@@ -239,14 +250,22 @@ export function Position({ value, onChange, showTitle }: PositionProps) {
   /** 开启自由定位：锁定当前 DOM 位置（点击瞬间重新计算，避免闭包旧值） */
   const handleActivate = useCallback(() => {
     const offset = targetDom ? computeDomOffset(targetDom) : { x: 0, y: 0 }
-    setDomOffset(offset)
-    setOptimisticFree(true)
-    onChange([
+    const size = targetDom ? computeDomSize(targetDom) : null
+    const changes = [
       { key: 'position', value: 'absolute' },
       { key: 'left', value: `${offset.x}px` },
       { key: 'top', value: `${offset.y}px` },
-    ])
-  }, [onChange, targetDom])
+    ]
+    if (size && isUnconfiguredSize(value.width)) {
+      changes.push({ key: 'width', value: `${size.width}px` })
+    }
+    if (size && isUnconfiguredSize(value.height)) {
+      changes.push({ key: 'height', value: `${size.height}px` })
+    }
+    setDomOffset(offset)
+    setOptimisticFree(true)
+    onChange(changes)
+  }, [onChange, targetDom, value.height, value.width])
 
   /** 取消自由定位：清理 position / left / top */
   const handleDeactivate = useCallback(() => {
