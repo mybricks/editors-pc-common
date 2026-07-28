@@ -1,4 +1,5 @@
 import ColorUtil from 'color';
+import { resolveCssVarColor } from '../../../core/resolve-css-var-color';
 import { splitBackgroundLayers, isSolidColorGradient } from '../../helper/gradient-border';
 
 export type LayerType = 'solid' | 'gradient' | 'image';
@@ -114,20 +115,27 @@ export function parseLayers(
   const isTransparentComputed = (color: string) =>
     /^rgba?\(\s*0\s*,\s*0\s*,\s*0\s*,\s*0\s*\)$/i.test(color.trim()) ||
     /^#00000000$/i.test(color.trim());
-  if (backgroundColor && !SKIP_BG_COLOR.test(backgroundColor.trim()) && !isTransparentComputed(backgroundColor)) {
-    try {
-      new ColorUtil(backgroundColor); // throws for unparseable / computed values
-      layers.push({
-        id: generateLayerId(),
-        type: 'solid',
-        value: backgroundColor,
-        visible: true,
-        size: '',
-        repeat: '',
-        position: '',
-      });
-    } catch {
-      // skip anything ColorUtil can't parse (e.g. CSS custom-property runtime values)
+  if (backgroundColor) {
+    // var(--x) / var(--x, fallback)：先取变量实际色，读不到再降级 fallback
+    let color = backgroundColor.trim();
+    if (color.toLowerCase().startsWith('var(')) {
+      color = resolveCssVarColor(color) ?? '';
+    }
+    if (color && !SKIP_BG_COLOR.test(color) && !isTransparentComputed(color)) {
+      try {
+        new ColorUtil(color); // throws for unparseable / computed values
+        layers.push({
+          id: generateLayerId(),
+          type: 'solid',
+          value: color,
+          visible: true,
+          size: '',
+          repeat: '',
+          position: '',
+        });
+      } catch {
+        // skip anything ColorUtil can't parse
+      }
     }
   }
 
