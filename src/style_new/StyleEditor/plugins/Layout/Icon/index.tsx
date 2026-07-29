@@ -16,6 +16,11 @@ const icons = {
         p-id="17500" fill="#515151"></path>
     </svg>
   ),
+  "inline": (
+    <svg viewBox="0 0 24 24" style={{transform: 'scale(1.6)'}}>
+      <path d="M5 7h4v2H5V7zm6 0h8v2h-8V7zM5 11h8v2H5v-2zm10 0h4v2h-4v-2zM5 15h4v2H5v-2zm6 0h8v2h-8v-2z"></path>
+    </svg>
+  ),
   "row-direction": (
     <svg viewBox="0 0 24 24" style={{transform: 'scale(1.8)'}}>
       <path
