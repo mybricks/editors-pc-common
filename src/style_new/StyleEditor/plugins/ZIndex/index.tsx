@@ -71,7 +71,7 @@ export function ZIndex({ value, onChange, config, showTitle, collapse }: ZIndexP
               height: '100%',
               border: 'none',
               background: 'transparent',
-              fontSize: 12,
+              fontSize: 11,
               fontWeight: 500,
               color: 'var(--mybricks-text-color-main, #888)',
               paddingLeft: 6,
