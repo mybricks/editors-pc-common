@@ -641,12 +641,17 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                             contentBackgroundLayersRef.current = null;
                           }
                           if (!isLengthNineAndEndsWithZeroes(value) && val.borderTopWidth === "0px") {
+                            const autoStyle = !val.borderTopStyle || val.borderTopStyle === "none" ? "solid" : val.borderTopStyle;
                             newValue = {
                               ...newValue,
                               borderTopWidth: "1px",
                               borderRightWidth: "1px",
                               borderBottomWidth: "1px",
                               borderLeftWidth: "1px",
+                              borderTopStyle: autoStyle,
+                              borderRightStyle: autoStyle,
+                              borderBottomStyle: autoStyle,
+                              borderLeftStyle: autoStyle,
                             };
                           }
                           handleChange(newValue);
@@ -655,13 +660,17 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                       } else {
                         // 外部/内部模式：仅支持纯色，输出 outline/boxShadow
                         if (isLengthNineAndEndsWithZeroes(value)) return;
-                        const autoWidth = borderValueRef.current.borderTopWidth === "0px";
+                        const currentVal = borderValueRef.current;
+                        const autoWidth = currentVal.borderTopWidth === "0px";
+                        const autoStyle = !currentVal.borderTopStyle || currentVal.borderTopStyle === "none" ? "solid" : currentVal.borderTopStyle;
                         handleAllModeChange({
                           borderTopColor: value, borderRightColor: value,
                           borderBottomColor: value, borderLeftColor: value,
                           ...(autoWidth ? {
                             borderTopWidth: "1px", borderRightWidth: "1px",
                             borderBottomWidth: "1px", borderLeftWidth: "1px",
+                            borderTopStyle: autoStyle, borderRightStyle: autoStyle,
+                            borderBottomStyle: autoStyle, borderLeftStyle: autoStyle,
                           } : {}),
                         });
                       }
@@ -769,6 +778,9 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                         const newValue: Record<string, any> = { borderLeftColor: value };
                         if (!isLengthNineAndEndsWithZeroes(value) && borderValue.borderLeftWidth === "0px") {
                           newValue.borderLeftWidth = "1px";
+                          if (!borderValue.borderLeftStyle || borderValue.borderLeftStyle === "none") {
+                            newValue.borderLeftStyle = "solid";
+                          }
                         }
                         handleChange(newValue);
                       }}
@@ -820,6 +832,9 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                         const newValue: Record<string, any> = { borderTopColor: value };
                         if (!isLengthNineAndEndsWithZeroes(value) && borderValue.borderTopWidth === "0px") {
                           newValue.borderTopWidth = "1px";
+                          if (!borderValue.borderTopStyle || borderValue.borderTopStyle === "none") {
+                            newValue.borderTopStyle = "solid";
+                          }
                         }
                         handleChange(newValue);
                       }}
@@ -872,6 +887,9 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                         const newValue: Record<string, any> = { borderRightColor: value };
                         if (!isLengthNineAndEndsWithZeroes(value) && borderValue.borderRightWidth === "0px") {
                           newValue.borderRightWidth = "1px";
+                          if (!borderValue.borderRightStyle || borderValue.borderRightStyle === "none") {
+                            newValue.borderRightStyle = "solid";
+                          }
                         }
                         handleChange(newValue);
                       }}
@@ -924,6 +942,9 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                         const newValue: Record<string, any> = { borderBottomColor: value };
                         if (!isLengthNineAndEndsWithZeroes(value) && borderValue.borderBottomWidth === "0px") {
                           newValue.borderBottomWidth = "1px";
+                          if (!borderValue.borderBottomStyle || borderValue.borderBottomStyle === "none") {
+                            newValue.borderBottomStyle = "solid";
+                          }
                         }
                         handleChange(newValue);
                       }}
