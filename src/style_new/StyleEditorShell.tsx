@@ -38,9 +38,9 @@ import { useBatchMeta } from './hooks/useBatchMeta'
 import { useZoneSelectors } from './hooks/useZoneSelectors'
 import {
   buildSoloSelector,
-  getSavedSoloStyleBody,
-  hasSavedSoloStyle,
+  getSavedSoloStyle,
 } from './core/build-solo-selector'
+import type { SavedSoloStyle } from './core/build-solo-selector'
 import { getDocument } from './core/dom'
 import { goBackIcon } from './icon'
 import css from './index.less'
@@ -95,7 +95,7 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
   const [isSoloEdit, setIsSoloEdit] = useState(false)
   const [soloSelector, setSoloSelector] = useState<string | null>(null)
   const skipSoloRehydrateRef = useRef(false)
-  const soloStyleBackupRef = useRef(new Map<string, string>())
+  const soloStyleBackupRef = useRef(new Map<string, SavedSoloStyle>())
   const suggestOptionsCacheRef = useRef<SuggestOptionsCache>(new WeakMap())
   const cssEditorHandleRef = useRef<CssEditorHandle | null>(null)
 
@@ -177,49 +177,78 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
   // 进入单独编辑模式
   const onEnterSoloEdit = useCallback(() => {
     if (!expectedSoloSelector) return
-    const backupStyleBody = soloStyleBackupRef.current.get(expectedSoloSelector)
-    if (backupStyleBody) {
-      const backupStyle = parseToStyleData(
-        buildCssRule(expectedSoloSelector, backupStyleBody),
-        expectedSoloSelector
-      )
-      if (Object.keys(backupStyle).length > 0) {
-        // 清除上次切换遗留的删除信号，确保恢复的单独样式不会被再次删掉。
-        ;(window as any).__mybricks_style_deletions = null
-        editConfig.value.set(backupStyle, { selector: expectedSoloSelector })
+    const savedBackup = soloStyleBackupRef.current.get(expectedSoloSelector)
+    if (savedBackup) {
+      // 清除上次切换遗留的删除信号，确保恢复的单独样式不会被再次删掉。
+      ;(window as any).__mybricks_style_deletions = null
+      let restored = false
+      savedBackup.rules.forEach((savedRule) => {
+        const restoredStyle = parseToStyleData(
+          buildCssRule(savedRule.selector, savedRule.body),
+          savedRule.selector
+        )
+        if (Object.keys(restoredStyle).length > 0) {
+          editConfig.value.set(restoredStyle, { selector: savedRule.selector })
+          restored = true
+        }
+      })
+      if (restored) {
         refreshBatchMeta()
       }
     }
     skipSoloRehydrateRef.current = true
-    setSoloSelector(expectedSoloSelector)
+    setSoloSelector(savedBackup?.selector || expectedSoloSelector)
 
     setIsSoloEdit(true)
     setKey((k) => k + 1)
   }, [editConfig, expectedSoloSelector, refreshBatchMeta])
 
-  // 切回批量时先备份当前单独规则，再从源码移除，使批量规则重新生效。
+  // 切回批量时，完整路径规则会备份并移除；手写短规则保留，仅切换后续编辑的写入目标。
   const onExitSoloEdit = useCallback(() => {
     if (soloSelector && selectedTarget && baseSelector) {
-      const styleBody = getSavedSoloStyleBody(
+      const savedSoloStyle = getSavedSoloStyle(
         selectedTarget,
         baseSelector,
         componentRoot,
         getDocument()
       )
-      if (styleBody) {
-        const soloStyle = parseToStyleData(buildCssRule(soloSelector, styleBody), soloSelector)
-        soloStyleBackupRef.current.set(soloSelector, styleBody)
-        // value.set({}) 只会覆盖空值；删除已有声明需要显式传递删除字段。
-        ;(window as any).__mybricks_style_deletions = Object.keys(soloStyle)
-        editConfig.value.set({}, { selector: soloSelector })
-        refreshBatchMeta()
+      if (savedSoloStyle) {
+        const hasShortSelector =
+          !!expectedSoloSelector &&
+          savedSoloStyle.rules.some((savedRule) => savedRule.selector !== expectedSoloSelector)
+
+        // 手写短 selector 由宿主删除时会误伤同类基础规则；保留它，仅切换后续编辑的写入目标。
+        if (!hasShortSelector) {
+          soloStyleBackupRef.current.set(expectedSoloSelector || soloSelector, savedSoloStyle)
+          let removed = false
+          savedSoloStyle.rules.forEach((savedRule) => {
+            const soloStyle = parseToStyleData(
+              buildCssRule(savedRule.selector, savedRule.body),
+              savedRule.selector
+            )
+            if (Object.keys(soloStyle).length === 0) return
+            // value.set({}) 只会覆盖空值；删除已有声明需要显式传递删除字段。
+            ;(window as any).__mybricks_style_deletions = Object.keys(soloStyle)
+            editConfig.value.set({}, { selector: savedRule.selector })
+            removed = true
+          })
+          if (removed) refreshBatchMeta()
+        }
       }
     }
     skipSoloRehydrateRef.current = true
     setSoloSelector(null)
     setIsSoloEdit(false)
     setKey((k) => k + 1)
-  }, [editConfig, soloSelector, selectedTarget, baseSelector, componentRoot, refreshBatchMeta])
+  }, [
+    editConfig,
+    soloSelector,
+    selectedTarget,
+    baseSelector,
+    componentRoot,
+    expectedSoloSelector,
+    refreshBatchMeta,
+  ])
 
   const refresh = useCallback(() => {
     editConfig.value.set({})
@@ -370,11 +399,11 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
       return
     }
 
-    const nextSoloSelector =
-      selectedTarget && baseSelector &&
-      hasSavedSoloStyle(selectedTarget, baseSelector, componentRoot, getDocument())
-        ? expectedSoloSelector
+    const savedSoloStyle =
+      selectedTarget && baseSelector
+        ? getSavedSoloStyle(selectedTarget, baseSelector, componentRoot, getDocument())
         : null
+    const nextSoloSelector = savedSoloStyle?.selector || null
     const nextIsSoloEdit = !!nextSoloSelector
 
     if (soloSelector !== nextSoloSelector || isSoloEdit !== nextIsSoloEdit) {
@@ -386,7 +415,6 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
     selectedTarget,
     baseSelector,
     componentRoot,
-    expectedSoloSelector,
     soloSelector,
     isSoloEdit,
   ])
