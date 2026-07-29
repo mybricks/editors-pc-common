@@ -127,7 +127,7 @@ export function useZoneSelectors(editConfig: any, targetDom: any, open: boolean)
     // 基础选择器排前面（第 0 位默认激活），伪类变体追加到末尾
     // 去重：pseudoSelectorList 里的条目不再重复加入
     for (const pseudo of scanPseudoSelectors(baseSelectors, comId)) {
-      if (!result.includes(pseudo)) result.push(pseudo)
+      if (!result.includes(pseudo) && !/:nth-child\(\d+\)$/.test(pseudo)) result.push(pseudo)
     }
     return result
   }, [targetDom, comId])
