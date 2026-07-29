@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 import { getDocument } from '../core/dom'
 
@@ -9,7 +9,7 @@ export function useAffectedCount(
 ) {
   const [affectedCount, setAffectedCount] = useState<number | null>(null)
 
-  useEffect(() => {
+  useMemo(() => {
     const root = getDocument()
     // 遍历所有带 data-zone-selector 的元素，比对其中记录的原始选择器列表。
     function countByZoneSelector(sel: string): number {
