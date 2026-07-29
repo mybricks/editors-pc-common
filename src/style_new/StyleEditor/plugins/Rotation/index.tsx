@@ -170,7 +170,7 @@ export function Rotation({ value, onChange, showTitle, collapse }: RotationProps
               height: '100%',
               border: 'none',
               background: 'transparent',
-              fontSize: 12,
+              fontSize: 11,
               fontWeight: 400,
               color: 'var(--mybricks-text-color-main, #888)',
               outline: 'none',

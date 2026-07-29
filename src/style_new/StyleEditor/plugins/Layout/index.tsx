@@ -208,7 +208,8 @@ function LayoutEditor({ editValue, onChangeValue }: LayoutEditorInternalProps): 
     const onSelect = (layout: Layout) => {
       const isAbsolute = layout === "absolute";
       const isDefault = layout === "default";
-      const flexDirection = (isAbsolute || isDefault) ? model.flexDirection : layout;
+      const isInline = layout === "inline";
+      const flexDirection = (isAbsolute || isDefault || isInline) ? model.flexDirection : layout;
 
       let flexWrap = model.flexWrap;
       if (layout === "column" && model.flexDirection === "row") {
@@ -229,6 +230,20 @@ function LayoutEditor({ editValue, onChangeValue }: LayoutEditorInternalProps): 
       if (isAbsolute) {
         setModel(prev => ({ ...prev, flexDirection, display: "block", position: "absolute", flexWrap }));
         emitValue({ display: "block", flexDirection, position: "absolute", flexWrap });
+        return;
+      }
+
+      if (isInline) {
+        setModel(prev => ({ ...prev, display: "inline", flexDirection, position: "inherit" }));
+        emitValue({
+          display: "inline",
+          flexDirection: null,
+          alignItems: null,
+          justifyContent: null,
+          flexWrap: null,
+          rowGap: null,
+          columnGap: null,
+        });
         return;
       }
 
@@ -344,7 +359,13 @@ function LayoutEditor({ editValue, onChangeValue }: LayoutEditorInternalProps): 
             </svg>
           )}
         </div>
-        <span className={styles.overflowLabel} onClick={toggle}>超出容器不显示</span>
+        <span
+          className={styles.overflowLabel}
+          onClick={toggle}
+          data-mybricks-tip="开启后超出容器大小的内容将会被隐藏"
+        >
+          超出容器不显示
+        </span>
       </div>
     );
   };

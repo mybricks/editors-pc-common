@@ -5,7 +5,6 @@ import { elMatchesSelectorTail } from '../core/css-modules-match'
 import { scanPseudoSelectors } from '../core/scan-pseudo-selectors'
 
 export function useZoneSelectors(editConfig: any, targetDom: any, open: boolean) {
-  const [pseudoSelectorList, setPseudoSelectorList] = useState<string[]>([])
   const [activeZoneIdx, setActiveZoneIdx] = useState(0)
   // 用户手动点 tab 后，禁止被「按 DOM class 对齐」立刻打回基础态（:hover / 状态类等）
   const userSelectedRef = useRef(false)
@@ -19,42 +18,6 @@ export function useZoneSelectors(editConfig: any, targetDom: any, open: boolean)
   useEffect(() => {
     userSelectedRef.current = false
   }, [targetDom])
-
-  useEffect(() => {
-    if (!open) return
-
-    // 提取基础选择器列表（不含伪类的条目）
-    const domList =
-      Object.prototype.toString.call(targetDom) === '[object NodeList]'
-        ? Array.from(targetDom as NodeList)
-        : targetDom
-          ? [targetDom as Element]
-          : []
-
-    const baseSelectors: string[] = []
-    for (const dom of domList as Element[]) {
-      const raw = dom?.getAttribute?.('data-zone-selector')
-      if (raw) {
-        try {
-          const parsed: string[] = JSON.parse(raw)
-          if (Array.isArray(parsed)) {
-            parsed.forEach((s) => {
-              // 只取不含伪类的基础选择器
-              if (!s.includes(':') && !baseSelectors.includes(s)) {
-                baseSelectors.push(s)
-              }
-            })
-          }
-        } catch {}
-      }
-    }
-
-    setPseudoSelectorList((prev) => {
-      const next = scanPseudoSelectors(baseSelectors, comId)
-      if (prev.length === next.length && prev.every((v, i) => v === next[i])) return prev
-      return next
-    })
-  }, [open, targetDom, comId])
 
   const zoneSelectorList = useMemo(() => {
     const domList =
@@ -88,6 +51,7 @@ export function useZoneSelectors(editConfig: any, targetDom: any, open: boolean)
       }
     }
 
+    const baseSelectors: string[] = []
     for (const dom of domList as Element[]) {
       const raw = dom?.getAttribute?.('data-zone-selector')
       if (raw) {
@@ -96,6 +60,11 @@ export function useZoneSelectors(editConfig: any, targetDom: any, open: boolean)
           if (Array.isArray(parsed)) {
             parsed.forEach((s: string) => {
               if (!result.includes(s)) result.push(s)
+
+              // 只取不含伪类的基础选择器
+              if (!s.includes(':') && !baseSelectors.includes(s)) {
+                baseSelectors.push(s)
+              }
             })
           }
         } catch {}
@@ -157,11 +126,11 @@ export function useZoneSelectors(editConfig: any, targetDom: any, open: boolean)
 
     // 基础选择器排前面（第 0 位默认激活），伪类变体追加到末尾
     // 去重：pseudoSelectorList 里的条目不再重复加入
-    for (const pseudo of pseudoSelectorList) {
-      if (!result.includes(pseudo)) result.push(pseudo)
+    for (const pseudo of scanPseudoSelectors(baseSelectors, comId)) {
+      if (!result.includes(pseudo) && !/:nth-child\(\d+\)$/.test(pseudo)) result.push(pseudo)
     }
     return result
-  }, [targetDom, pseudoSelectorList, comId])
+  }, [targetDom, comId])
 
   // 按 DOM class 对齐 activeZoneIdx：
   // - 仅在「未手动选 tab」时做初始/列表变化对齐

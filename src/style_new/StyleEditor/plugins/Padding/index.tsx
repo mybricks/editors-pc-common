@@ -156,7 +156,7 @@ export function Padding({value, onChange, config, showTitle, collapse}: PaddingP
               <Panel.Content style={{ padding: 3 }}>
                 <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
                   <div 
-                    className={css.icon} 
+                    className={`${css.icon} ${css.leftPaddingIcon}`}
                     {...getDragProps(paddingValue.paddingRight, '拖拽调整右内边距')}
                   >
                     <PaddingRightOutlined/>

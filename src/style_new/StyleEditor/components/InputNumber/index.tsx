@@ -1,7 +1,8 @@
 import React, {
   useMemo,
   useState,
-  useCallback
+  useCallback,
+  useRef,
 } from 'react'
 
 import { Input, Select } from '..'
@@ -78,10 +79,16 @@ export function InputNumber ({
 }: InputNumberProps) {
   const [unit, setUnit] = useState<string>(getUnit(value || defaultValue, defaultUnitValue, unitOptions))
   const [number, handleNumberChange] = useInputNumber<string | number | undefined>(value || defaultValue)
+  /** 外部清空同步时跳过 [unit,number] 的 onChange，避免回写 'default' 字符串污染上层 */
+  const skipUnitNumberOnChangeRef = useRef(false)
   const [displayValue, setDisplayValue] = useState(() => {
     const initVal = value || defaultValue
     if (!initVal) return ''
+    // default / fit-content 等关键字：输入框留空，用 placeholder 展示（如「默认（xx）」）
     if (typeof unit !== 'undefined' && typeof initVal !== 'undefined' && unit === initVal) {
+      return ''
+    }
+    if (unitDisabledList.includes(String(initVal))) {
       return ''
     }
     return number
@@ -123,13 +130,27 @@ export function InputNumber ({
         }
         return;
       }
-      if (unitDisabledList.includes(unit)) {
+      // 与 onBlur 对齐：合法数字回车时规范化并提交
+      let submitNumber = trimmed;
+      if (!allowNegative) {
+        submitNumber = Number(submitNumber) > 0 ? submitNumber : '0';
+      }
+      const prevNumber = number;
+      const unitWillChange = unitDisabledList.includes(unit);
+      const submitUnit = unitWillChange ? 'px' : unit;
+      if (unitWillChange) {
         setUnit('px');
       }
-      e.target.value = newValue;
-      handleNumberChange(newValue);
+      const finalVal = handleNumberChange(submitNumber);
+      e.target.value = finalVal;
+      setDisplayValue(finalVal);
+      // useUpdateEffect([unit, number]) 只在 unit/number 变化时触发；
+      // 两者均未变时需直接提交，确保回车始终生效
+      if (!unitWillChange && finalVal === prevNumber) {
+        onChange?.(String(parseFloat(finalVal)) + submitUnit);
+      }
     }
-  }, [number, unit, unitDisabledList, fallbackValue, onChange, handleNumberChange]);
+  }, [number, unit, unitDisabledList, fallbackValue, onChange, handleNumberChange, allowNegative]);
 
   const onBlur = useCallback((e: {
     target: any,
@@ -162,6 +183,7 @@ export function InputNumber ({
     const prevNumber = number;
     // 用户明确输入了数字，如果当前是 disabled 单位（默认/Hug）则自动切到 px
     const unitWillChange = unitDisabledList.includes(unit);
+    const submitUnit = unitWillChange ? 'px' : unit;
     if (unitWillChange) {
       setUnit('px');
     }
@@ -174,8 +196,7 @@ export function InputNumber ({
     // 当两者均未变化时（例如 HUG/FILL 模式下用户输入了与预填像素值相同的数字），
     // 需要在此处直接调用 onChange，确保失焦操作始终能提交值。
     if (!unitWillChange && finalVal === prevNumber) {
-      const changeValue = String(parseFloat(finalVal)) + unit;
-      onChange?.(changeValue);
+      onChange?.(String(parseFloat(finalVal)) + submitUnit);
     }
   }, [number, allowNegative, unit, unitDisabledList, onChange, fallbackValue, handleNumberChange]);
 
@@ -222,6 +243,9 @@ export function InputNumber ({
     // 外部清空（删除属性）时同步清空回显，单位回到 default（若有）以便下拉勾选「默认」
     if (value == null || value === '') {
       setDisplayValue('')
+      // 重置内部数字，避免清值后残留旧数字，切单位时拼出 200% 等
+      skipUnitNumberOnChangeRef.current = true
+      handleNumberChange('0')
       const hasDefaultUnit = unitOptions?.some((o) => o.value === 'default')
       if (hasDefaultUnit) {
         setUnit('default')
@@ -235,8 +259,13 @@ export function InputNumber ({
     setUnit(nextUnit)
     const nextNumber = handleNumberChange(String(value))
     if (typeof nextUnit !== 'undefined' && nextUnit === value) {
-      const unitLabel = unitDisplayLabelMap[nextUnit] ?? unitOptions?.find(o => o.value === nextUnit)?.label ?? nextUnit
-      setDisplayValue(unitLabel)
+      // default 等「未配置」单位：留空以展示 placeholder，不要把「默认」写进输入框
+      if (value === 'default' || unitDisabledList.includes(String(value))) {
+        setDisplayValue('')
+      } else {
+        const unitLabel = unitDisplayLabelMap[nextUnit] ?? unitOptions?.find(o => o.value === nextUnit)?.label ?? nextUnit
+        setDisplayValue(unitLabel)
+      }
     } else {
       // 使用 handleNumberChange 的返回值，避免闭包中的旧 number
       setDisplayValue(nextNumber)
@@ -244,8 +273,17 @@ export function InputNumber ({
   }, [value])
 
   useUpdateEffect(() => {
+    if (skipUnitNumberOnChangeRef.current) {
+      skipUnitNumberOnChangeRef.current = false
+      if (unitDisabledList.includes(unit)) {
+        setDisplayValue('')
+      }
+      return
+    }
+
     if (unitDisabledList.includes(unit)) {
       setDisplayValue('')
+      // 用户从下拉选「默认」时需通知上层清空；外部清空同步走 skipRef，不会进到这里
       onChange?.(unit)
       return
     }
@@ -259,10 +297,8 @@ export function InputNumber ({
         handleNumberChange(fallbackStr)
         setDisplayValue(fallbackNum)
         onChange?.(fallbackNum + unit)
-      } else if (value == null || value === '') {
-        // 默认态切到具体单位：带上 0 让上层按计算默认值换算填充
-        onChange?.(`0${unit}`)
       }
+      // 无 fallback 且无有效数字：不伪造 0+unit，由上层在拿到真实提交值后再处理
       return
     }
 
@@ -272,11 +308,7 @@ export function InputNumber ({
     if (value != null && value !== '' && String(value) === changeValue) {
       return
     }
-    // 默认态下 number 可能残留旧值，切单位时仍走 0+unit 交给上层填充
-    if ((value == null || value === '') && unit !== 'default') {
-      onChange?.(`0${unit}`)
-      return
-    }
+    // 默认态也会提交真实 number+unit（清值后内部为 0）；上层按需用实测值替换
     onChange?.(changeValue)
   }, [unit, number])
 

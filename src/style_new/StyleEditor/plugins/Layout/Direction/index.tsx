@@ -19,6 +19,11 @@ const defaultFlexFlow = [
     render: () => <Icon name="smart" />,
   },
   {
+    title: "内联",
+    value: "inline",
+    render: () => <Icon name="inline" />,
+  },
+  {
     title: "纵向排版",
     value: "column",
     render: () => <Icon name="column-direction" />,
@@ -40,12 +45,14 @@ export default ({
   const isAbsolute = position === "absolute";
   const isRow = flexDirection === "row";
   const isColumn = flexDirection === "column";
+  const isInline = display === "inline";
   const isFlexLike = display === "flex" || display === "inline-flex";
 
   // 高亮逻辑只看 display + flexDirection，与容器自身的 position 无关
   const isActive = (value: Layout) => {
     if (value === "absolute") return isAbsolute;
-    if (value === "default") return !isFlexLike;
+    if (value === "inline") return isInline;
+    if (value === "default") return !isFlexLike && !isInline;
     if (value === "row") return isFlexLike && isRow;
     if (value === "column") return isFlexLike && isColumn;
     return false;

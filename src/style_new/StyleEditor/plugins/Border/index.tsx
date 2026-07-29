@@ -591,6 +591,12 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
     }
   }, [onChange]);
 
+  const hasBorderSection = !(disableBorderWidth && disableBorderColor && disableBorderStyle);
+
+  const currentBorderStyle = borderValue.borderTopStyle ?? 'none';
+
+  const popupStyleValue = currentBorderStyle === 'none' ? 'solid' : currentBorderStyle;
+
   const borderConfig = useMemo(() => {
     if (disableBorderWidth && disableBorderColor && disableBorderStyle) {
       return null;
@@ -635,12 +641,17 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                             contentBackgroundLayersRef.current = null;
                           }
                           if (!isLengthNineAndEndsWithZeroes(value) && val.borderTopWidth === "0px") {
+                            const autoStyle = !val.borderTopStyle || val.borderTopStyle === "none" ? "solid" : val.borderTopStyle;
                             newValue = {
                               ...newValue,
                               borderTopWidth: "1px",
                               borderRightWidth: "1px",
                               borderBottomWidth: "1px",
                               borderLeftWidth: "1px",
+                              borderTopStyle: autoStyle,
+                              borderRightStyle: autoStyle,
+                              borderBottomStyle: autoStyle,
+                              borderLeftStyle: autoStyle,
                             };
                           }
                           handleChange(newValue);
@@ -649,13 +660,17 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                       } else {
                         // 外部/内部模式：仅支持纯色，输出 outline/boxShadow
                         if (isLengthNineAndEndsWithZeroes(value)) return;
-                        const autoWidth = borderValueRef.current.borderTopWidth === "0px";
+                        const currentVal = borderValueRef.current;
+                        const autoWidth = currentVal.borderTopWidth === "0px";
+                        const autoStyle = !currentVal.borderTopStyle || currentVal.borderTopStyle === "none" ? "solid" : currentVal.borderTopStyle;
                         handleAllModeChange({
                           borderTopColor: value, borderRightColor: value,
                           borderBottomColor: value, borderLeftColor: value,
                           ...(autoWidth ? {
                             borderTopWidth: "1px", borderRightWidth: "1px",
                             borderBottomWidth: "1px", borderLeftWidth: "1px",
+                            borderTopStyle: autoStyle, borderRightStyle: autoStyle,
+                            borderBottomStyle: autoStyle, borderLeftStyle: autoStyle,
                           } : {}),
                         });
                       }
@@ -666,16 +681,23 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
             </Panel.Content>
           </div>
 
-          {/* 行2：[Position 下拉] [≡ Weight 输入 + 线型] */}
+          {/* 行2：[线条样式下拉] [≡ Weight 输入 + 位置设置] */}
           <div className={css.row}>
             <Panel.Content style={{ padding: 3, flex: 1, minWidth: 0 }}>
               <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
                 <Select
-                  tip="边框位置"
+                  tip="线条样式"
                   style={{ padding: 0, flex: 1 }}
-                  value={borderPosition}
-                  options={BORDER_POSITION_OPTIONS}
-                  onChange={(val) => handlePositionChange(val as BorderPosition)}
+                  value={popupStyleValue}
+                  options={STROKE_STYLE_POPUP_OPTIONS}
+                  onChange={(val) => {
+                    handleAllModeChange({
+                      borderTopStyle: val,
+                      borderRightStyle: val,
+                      borderBottomStyle: val,
+                      borderLeftStyle: val,
+                    });
+                  }}
                 />
               </Panel.Item>
             </Panel.Content>
@@ -718,7 +740,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
               <div
                 ref={styleSettingsBtnRef}
                 className={css.styleSettingsBtn}
-                data-mybricks-tip="线条样式设置"
+                data-mybricks-tip="边框位置设置"
                     onClick={() => setShowStyleSettings(v => !v)}
               >
                     <SettingIcon />
@@ -756,6 +778,9 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                         const newValue: Record<string, any> = { borderLeftColor: value };
                         if (!isLengthNineAndEndsWithZeroes(value) && borderValue.borderLeftWidth === "0px") {
                           newValue.borderLeftWidth = "1px";
+                          if (!borderValue.borderLeftStyle || borderValue.borderLeftStyle === "none") {
+                            newValue.borderLeftStyle = "solid";
+                          }
                         }
                         handleChange(newValue);
                       }}
@@ -807,6 +832,9 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                         const newValue: Record<string, any> = { borderTopColor: value };
                         if (!isLengthNineAndEndsWithZeroes(value) && borderValue.borderTopWidth === "0px") {
                           newValue.borderTopWidth = "1px";
+                          if (!borderValue.borderTopStyle || borderValue.borderTopStyle === "none") {
+                            newValue.borderTopStyle = "solid";
+                          }
                         }
                         handleChange(newValue);
                       }}
@@ -859,6 +887,9 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                         const newValue: Record<string, any> = { borderRightColor: value };
                         if (!isLengthNineAndEndsWithZeroes(value) && borderValue.borderRightWidth === "0px") {
                           newValue.borderRightWidth = "1px";
+                          if (!borderValue.borderRightStyle || borderValue.borderRightStyle === "none") {
+                            newValue.borderRightStyle = "solid";
+                          }
                         }
                         handleChange(newValue);
                       }}
@@ -911,6 +942,9 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                         const newValue: Record<string, any> = { borderBottomColor: value };
                         if (!isLengthNineAndEndsWithZeroes(value) && borderValue.borderBottomWidth === "0px") {
                           newValue.borderBottomWidth = "1px";
+                          if (!borderValue.borderBottomStyle || borderValue.borderBottomStyle === "none") {
+                            newValue.borderBottomStyle = "solid";
+                          }
                         }
                         handleChange(newValue);
                       }}
@@ -947,7 +981,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
         </div>
       );
     }
-  }, [borderToggleValue, borderValue, getDragPropsBorder, borderColorEditorKey, borderPosition, refresh, handleAllModeChange, handlePositionChange]);
+  }, [borderToggleValue, popupStyleValue, borderValue, getDragPropsBorder, borderColorEditorKey, borderPosition, refresh, handleAllModeChange, handlePositionChange]);
 
   const radiusConfig = useMemo(() => {
     if (disableBorderRadius) {
@@ -1136,33 +1170,20 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
     });
   }, [radiusToggleValue]);
 
-  const hasBorderSection = !(disableBorderWidth && disableBorderColor && disableBorderStyle);
-
-  const currentBorderStyle = borderValue.borderTopStyle ?? 'none';
-
-  const popupStyleValue = currentBorderStyle === 'none' ? 'solid' : currentBorderStyle;
-
   const styleSettingsPortal = !disableBorderStyle && showStyleSettings
     ? createPortal(
         <div
           ref={styleSettingsPopoverRef}
           className={css.styleSettingsPopover}
         >
-          <div className={css.strokePopoverTitle}>线条设置</div>
+          <div className={css.strokePopoverTitle}>边框位置</div>
           <div className={css.strokePopoverRow}>
-            <span className={css.strokePopoverLabel}>样式</span>
+            <span className={css.strokePopoverLabel}>位置</span>
             <Select
               style={{ flex: 1, padding: '0 8px' }}
-              value={popupStyleValue}
-              options={STROKE_STYLE_POPUP_OPTIONS}
-              onChange={(val) => {
-                handleAllModeChange({
-                  borderTopStyle: val,
-                  borderRightStyle: val,
-                  borderBottomStyle: val,
-                  borderLeftStyle: val,
-                });
-              }}
+              value={borderPosition}
+              options={BORDER_POSITION_OPTIONS}
+              onChange={(val) => handlePositionChange(val as BorderPosition)}
             />
           </div>
         </div>,

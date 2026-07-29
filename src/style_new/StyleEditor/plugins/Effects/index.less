@@ -11,17 +11,12 @@
 .layerItemWrapper {
   position: relative;
 
-  &:hover .dragHandle {
-    visibility: visible;
-  }
-
   &.layerDragging {
     opacity: 0.35;
   }
 }
 
 .dragHandle {
-  visibility: hidden;
   flex-shrink: 0;
   width: 14px;
   height: 14px;
@@ -129,7 +124,7 @@
 .layerLabel {
   flex: 1;
   min-width: 0;
-  font-size: 12px;
+  font-size: 11px;
   line-height: 26px;
   color: @font-color-content;
   overflow: hidden;
