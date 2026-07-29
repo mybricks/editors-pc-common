@@ -518,7 +518,7 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
         })}
       </div>
     )
-  }, [zoneSelectorList, activeZoneIdx])
+  }, [zoneSelectorList.join(','), activeZoneIdx])
 
   return {
     render: (

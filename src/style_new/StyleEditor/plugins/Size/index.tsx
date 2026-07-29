@@ -243,9 +243,9 @@ const DEFAULT_CONFIG = {
 export function Size({value, onChange: rawOnChange, config, showTitle, collapse}: SizeProps) {
   const [cfg] = useState({...DEFAULT_CONFIG, ...config});
 
-  const hasInitWidthHeight = !!normalizeSizeValue(value.width) || !!normalizeSizeValue(value.height);
+  // const hasInitWidthHeight = !!normalizeSizeValue(value.width) || !!normalizeSizeValue(value.height);
 
-  const [showWidthHeight, setShowWidthHeight] = useState(() => hasInitWidthHeight);
+  const [showWidthHeight, setShowWidthHeight] = useState(true);
   // 最大/最小宽高各自独立显示：只配置了最小高时，不展示空的最小宽
   const [showMaxWidth, setShowMaxWidth] = useState(() => !!normalizeSizeValue(value.maxWidth));
   const [showMinWidth, setShowMinWidth] = useState(() => !!normalizeSizeValue(value.minWidth));
@@ -326,9 +326,9 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
       const h = targetDom.offsetHeight;
       setActualWidth(w);
       setActualHeight(h);
-      if (w > 0 || h > 0) {
-        setShowWidthHeight(true);
-      }
+      // if (w > 0 || h > 0) {
+      //   setShowWidthHeight(true);
+      // }
     };
     measure();
     const observer = new ResizeObserver(measure);
@@ -345,7 +345,7 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
       { key: 'minWidth', value: null },
       { key: 'minHeight', value: null },
     ]);
-    setShowWidthHeight(false);
+    // setShowWidthHeight(false);
     setShowMaxWidth(false);
     setShowMinWidth(false);
     setShowMaxHeight(false);
