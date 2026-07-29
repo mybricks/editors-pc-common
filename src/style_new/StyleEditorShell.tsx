@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 
-import { Button, message, Tooltip } from 'antd'
+import { Button, Checkbox, message, Tooltip } from 'antd'
 import {
   AppstoreOutlined,
   CaretRightOutlined,
@@ -36,6 +36,12 @@ import type { EditorProps } from './type'
 import { useAffectedCount } from './hooks/useAffectedCount'
 import { useBatchMeta } from './hooks/useBatchMeta'
 import { useZoneSelectors } from './hooks/useZoneSelectors'
+import {
+  buildSoloSelector,
+  getSavedSoloStyleBody,
+  hasSavedSoloStyle,
+} from './core/build-solo-selector'
+import { getDocument } from './core/dom'
 import { goBackIcon } from './icon'
 import css from './index.less'
 
@@ -86,6 +92,10 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
 
   const [key, setKey] = useState(0)
   const isResetRef = useRef(false)
+  const [isSoloEdit, setIsSoloEdit] = useState(false)
+  const [soloSelector, setSoloSelector] = useState<string | null>(null)
+  const skipSoloRehydrateRef = useRef(false)
+  const soloStyleBackupRef = useRef(new Map<string, string>())
   const suggestOptionsCacheRef = useRef<SuggestOptionsCache>(new WeakMap())
   const cssEditorHandleRef = useRef<CssEditorHandle | null>(null)
 
@@ -107,23 +117,109 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
   )
   const affectedCount = useAffectedCount(activeZoneIdx, zoneSelectorList, finalSelector)
 
+  const selectedTarget = useMemo(() => {
+    return (
+      Object.prototype.toString.call(targetDom) === '[object NodeList]'
+        ? Array.from(targetDom as NodeList)[0]
+        : targetDom
+    ) as Element | null
+  }, [targetDom])
+
+  const baseSelector = useMemo(() => {
+    return (
+      (zoneSelectorList[activeZoneIdx] as string | undefined) ||
+      (typeof finalSelector === 'string' ? finalSelector : (finalSelector as string[])?.[0]) ||
+      null
+    )
+  }, [zoneSelectorList, activeZoneIdx, finalSelector])
+
+  const componentRoot = useMemo(() => {
+    const comId =
+      !Array.isArray(editConfig.options) && editConfig.options
+        ? (editConfig.options as any).comId
+        : undefined
+    return comId ? getDocument().getElementById(comId) : null
+  }, [editConfig])
+
+  const expectedSoloSelector = useMemo(() => {
+    return selectedTarget && baseSelector
+      ? buildSoloSelector(selectedTarget, baseSelector, componentRoot)
+      : null
+  }, [selectedTarget, baseSelector, componentRoot])
+
   const resolveActiveEditContext = useCallback(() => {
     const originalOptions = editConfig.options
-    const resolvedEditConfig =
+    let resolvedEditConfig =
       zoneSelectorList.length < 1 || !originalOptions || Array.isArray(originalOptions)
         ? editConfig
         : {
             ...editConfig,
             options: { ...originalOptions, selector: zoneSelectorList[activeZoneIdx] },
           }
-    const activeSelector =
+    let activeSelector =
       zoneSelectorList[activeZoneIdx] ||
       (!Array.isArray(resolvedEditConfig.options) && resolvedEditConfig.options
         ? (resolvedEditConfig.options as any).selector
         : undefined) ||
       finalSelector
+
+    if (isSoloEdit && soloSelector && !Array.isArray(resolvedEditConfig.options) && resolvedEditConfig.options) {
+      activeSelector = soloSelector
+      resolvedEditConfig = {
+        ...resolvedEditConfig,
+        options: { ...resolvedEditConfig.options, selector: soloSelector },
+      }
+    }
+
     return { resolvedEditConfig, activeSelector }
-  }, [editConfig, zoneSelectorList, activeZoneIdx, finalSelector])
+  }, [editConfig, zoneSelectorList, activeZoneIdx, finalSelector, isSoloEdit, soloSelector])
+
+  // 进入单独编辑模式
+  const onEnterSoloEdit = useCallback(() => {
+    if (!expectedSoloSelector) return
+    const backupStyleBody = soloStyleBackupRef.current.get(expectedSoloSelector)
+    if (backupStyleBody) {
+      const backupStyle = parseToStyleData(
+        buildCssRule(expectedSoloSelector, backupStyleBody),
+        expectedSoloSelector
+      )
+      if (Object.keys(backupStyle).length > 0) {
+        // 清除上次切换遗留的删除信号，确保恢复的单独样式不会被再次删掉。
+        ;(window as any).__mybricks_style_deletions = null
+        editConfig.value.set(backupStyle, { selector: expectedSoloSelector })
+        refreshBatchMeta()
+      }
+    }
+    skipSoloRehydrateRef.current = true
+    setSoloSelector(expectedSoloSelector)
+
+    setIsSoloEdit(true)
+    setKey((k) => k + 1)
+  }, [editConfig, expectedSoloSelector, refreshBatchMeta])
+
+  // 切回批量时先备份当前单独规则，再从源码移除，使批量规则重新生效。
+  const onExitSoloEdit = useCallback(() => {
+    if (soloSelector && selectedTarget && baseSelector) {
+      const styleBody = getSavedSoloStyleBody(
+        selectedTarget,
+        baseSelector,
+        componentRoot,
+        getDocument()
+      )
+      if (styleBody) {
+        const soloStyle = parseToStyleData(buildCssRule(soloSelector, styleBody), soloSelector)
+        soloStyleBackupRef.current.set(soloSelector, styleBody)
+        // value.set({}) 只会覆盖空值；删除已有声明需要显式传递删除字段。
+        ;(window as any).__mybricks_style_deletions = Object.keys(soloStyle)
+        editConfig.value.set({}, { selector: soloSelector })
+        refreshBatchMeta()
+      }
+    }
+    skipSoloRehydrateRef.current = true
+    setSoloSelector(null)
+    setIsSoloEdit(false)
+    setKey((k) => k + 1)
+  }, [editConfig, soloSelector, selectedTarget, baseSelector, componentRoot, refreshBatchMeta])
 
   const refresh = useCallback(() => {
     editConfig.value.set({})
@@ -267,6 +363,34 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
     setKey((key) => key + 1)
   }, [editConfig.ifRefresh?.()])
 
+  // 有单独规则自动回显，否则默认回到批量编辑。
+  useEffect(() => {
+    if (skipSoloRehydrateRef.current) {
+      skipSoloRehydrateRef.current = false
+      return
+    }
+
+    const nextSoloSelector =
+      selectedTarget && baseSelector &&
+      hasSavedSoloStyle(selectedTarget, baseSelector, componentRoot, getDocument())
+        ? expectedSoloSelector
+        : null
+    const nextIsSoloEdit = !!nextSoloSelector
+
+    if (soloSelector !== nextSoloSelector || isSoloEdit !== nextIsSoloEdit) {
+      setSoloSelector(nextSoloSelector)
+      setIsSoloEdit(nextIsSoloEdit)
+      setKey((k) => k + 1)
+    }
+  }, [
+    selectedTarget,
+    baseSelector,
+    componentRoot,
+    expectedSoloSelector,
+    soloSelector,
+    isSoloEdit,
+  ])
+
   useEffect(() => {
     refreshBatchMeta()
   }, [refreshBatchMeta, key, activeZoneIdx, editMode])
@@ -369,23 +493,9 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
   }, [open, editMode, titleContent, batchMeta, onBatchDiscard, onBatchCommit, onCopyStyle, onPasteStyle])
 
   const editor = useMemo(() => {
-    const resolvedEditConfig = (() => {
-      const originalOptions = editConfig.options
-      if (zoneSelectorList.length < 1 || !originalOptions || Array.isArray(originalOptions)) {
-        return editConfig
-      }
-      return {
-        ...editConfig,
-        options: { ...originalOptions, selector: zoneSelectorList[activeZoneIdx] },
-      }
-    })()
+    const { resolvedEditConfig, activeSelector } = resolveActiveEditContext()
+
     const config = getDefaultConfiguration(resolvedEditConfig, suggestOptionsCacheRef.current)
-    const activeSelector =
-      zoneSelectorList[activeZoneIdx] ||
-      (!Array.isArray(resolvedEditConfig.options) && resolvedEditConfig.options
-        ? (resolvedEditConfig.options as any).selector
-        : undefined) ||
-      finalSelector
 
     if (editMode) {
       const { targetDom: _td, ...activeStyleProps } = config
@@ -418,7 +528,7 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
         editorHandleRef={cssEditorHandleRef}
       />
     )
-  }, [editMode, key, activeZoneIdx, refreshBatchMeta, zoneSelectorList, finalSelector])
+  }, [editMode, key, resolveActiveEditContext, refreshBatchMeta])
 
   function onMouseEnter() {
     try {
@@ -520,6 +630,9 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
     )
   }, [zoneSelectorList.join(','), activeZoneIdx])
 
+  const showEditModeBar = affectedCount !== null && affectedCount > 1
+  const showAffectedHint = zoneSelectorList.length > 0 && affectedCount !== null && affectedCount > 1
+
   return {
     render: (
       <>
@@ -560,12 +673,27 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
           </div>
         )}
         {zoneSelectorList.length > 0 && zoneTabBar}
-        {zoneSelectorList.length > 0 && affectedCount !== null && affectedCount > 1 && (
-          <div
-            className={css.affectedHint}
-            style={{ marginTop: zoneSelectorList.length > 1 ? '10px' : '0' }}
-          >
-            修改当前样式会影响 {affectedCount} 个区域
+        {(showEditModeBar || showAffectedHint) && (
+          <div className={css.editModeControl}>
+            {showEditModeBar && (
+              <Checkbox
+                checked={!isSoloEdit}
+                onChange={(event) => (event.target.checked ? onExitSoloEdit() : onEnterSoloEdit())}
+              >
+                应用至全部
+              </Checkbox>
+            )}
+            {showAffectedHint && (
+              <div
+                className={`${css.affectedHint} ${
+                  isSoloEdit ? css.soloAffectedHint : css.batchAffectedHint
+                }`}
+              >
+                {isSoloEdit
+                  ? '当前仅编辑选中区域'
+                  : `修改会影响 ${affectedCount}个区域`}
+              </div>
+            )}
           </div>
         )}
         <div className={css.styleSection}>

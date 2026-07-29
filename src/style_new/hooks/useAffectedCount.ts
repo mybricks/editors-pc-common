@@ -13,11 +13,12 @@ export function useAffectedCount(
     const root = getDocument()
     // 遍历所有带 data-zone-selector 的元素，比对其中记录的原始选择器列表。
     function countByZoneSelector(sel: string): number {
+      const baseSelector = sel.replace(/:{1,2}[a-zA-Z\-]+(\([^)]*\))?/g, '').trim()
       const zoneEls = (root as any).querySelectorAll?.('[data-zone-selector]') ?? []
       return Array.from(zoneEls).filter((el: any) => {
         try {
           const sels: string[] = JSON.parse(el.getAttribute('data-zone-selector'))
-          return Array.isArray(sels) && sels.includes(sel)
+          return Array.isArray(sels) && (sels.includes(sel) || sels.includes(baseSelector))
         } catch {
           return false
         }
