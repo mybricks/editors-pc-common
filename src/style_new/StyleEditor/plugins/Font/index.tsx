@@ -166,7 +166,7 @@ function getComputedCssLengthPx(
 }
 
 function buildDefaultLengthPlaceholder(px: number | null): string {
-  return px != null ? `默认（${px}）` : '默认';
+  return px != null ? `默认(${px})` : '默认';
 }
 
 function buildDefaultLengthTip(label: string, px: number | null): string {

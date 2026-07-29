@@ -922,7 +922,7 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
                     unitDisplayLabelMap={UNIT_DISPLAY_LABEL_MAP}
                     placeholder={
                       isWidthDefault
-                        ? (widthDefaultPx != null ? `默认（${widthDefaultPx}）` : '默认')
+                        ? (widthDefaultPx != null ? `默认(${widthDefaultPx})` : '默认')
                         : '默认'
                     }
                     onChange={handleWidthChange}
@@ -1011,7 +1011,7 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
                     unitDisplayLabelMap={UNIT_DISPLAY_LABEL_MAP}
                     placeholder={
                       isHeightDefault
-                        ? (heightDefaultPx != null ? `默认（${heightDefaultPx}）` : '默认')
+                        ? (heightDefaultPx != null ? `默认(${heightDefaultPx})` : '默认')
                         : '默认'
                     }
                     onChange={handleHeightChange}
