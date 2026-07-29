@@ -591,6 +591,12 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
     }
   }, [onChange]);
 
+  const hasBorderSection = !(disableBorderWidth && disableBorderColor && disableBorderStyle);
+
+  const currentBorderStyle = borderValue.borderTopStyle ?? 'none';
+
+  const popupStyleValue = currentBorderStyle === 'none' ? 'solid' : currentBorderStyle;
+
   const borderConfig = useMemo(() => {
     if (disableBorderWidth && disableBorderColor && disableBorderStyle) {
       return null;
@@ -666,16 +672,23 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
             </Panel.Content>
           </div>
 
-          {/* 行2：[Position 下拉] [≡ Weight 输入 + 线型] */}
+          {/* 行2：[线条样式下拉] [≡ Weight 输入 + 位置设置] */}
           <div className={css.row}>
             <Panel.Content style={{ padding: 3, flex: 1, minWidth: 0 }}>
               <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
                 <Select
-                  tip="边框位置"
+                  tip="线条样式"
                   style={{ padding: 0, flex: 1 }}
-                  value={borderPosition}
-                  options={BORDER_POSITION_OPTIONS}
-                  onChange={(val) => handlePositionChange(val as BorderPosition)}
+                  value={popupStyleValue}
+                  options={STROKE_STYLE_POPUP_OPTIONS}
+                  onChange={(val) => {
+                    handleAllModeChange({
+                      borderTopStyle: val,
+                      borderRightStyle: val,
+                      borderBottomStyle: val,
+                      borderLeftStyle: val,
+                    });
+                  }}
                 />
               </Panel.Item>
             </Panel.Content>
@@ -718,7 +731,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
               <div
                 ref={styleSettingsBtnRef}
                 className={css.styleSettingsBtn}
-                data-mybricks-tip="线条样式设置"
+                data-mybricks-tip="边框位置设置"
                     onClick={() => setShowStyleSettings(v => !v)}
               >
                     <SettingIcon />
@@ -947,7 +960,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
         </div>
       );
     }
-  }, [borderToggleValue, borderValue, getDragPropsBorder, borderColorEditorKey, borderPosition, refresh, handleAllModeChange, handlePositionChange]);
+  }, [borderToggleValue, popupStyleValue, borderValue, getDragPropsBorder, borderColorEditorKey, borderPosition, refresh, handleAllModeChange, handlePositionChange]);
 
   const radiusConfig = useMemo(() => {
     if (disableBorderRadius) {
@@ -1136,33 +1149,20 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
     });
   }, [radiusToggleValue]);
 
-  const hasBorderSection = !(disableBorderWidth && disableBorderColor && disableBorderStyle);
-
-  const currentBorderStyle = borderValue.borderTopStyle ?? 'none';
-
-  const popupStyleValue = currentBorderStyle === 'none' ? 'solid' : currentBorderStyle;
-
   const styleSettingsPortal = !disableBorderStyle && showStyleSettings
     ? createPortal(
         <div
           ref={styleSettingsPopoverRef}
           className={css.styleSettingsPopover}
         >
-          <div className={css.strokePopoverTitle}>线条设置</div>
+          <div className={css.strokePopoverTitle}>边框位置</div>
           <div className={css.strokePopoverRow}>
-            <span className={css.strokePopoverLabel}>样式</span>
+            <span className={css.strokePopoverLabel}>位置</span>
             <Select
               style={{ flex: 1, padding: '0 8px' }}
-              value={popupStyleValue}
-              options={STROKE_STYLE_POPUP_OPTIONS}
-              onChange={(val) => {
-                handleAllModeChange({
-                  borderTopStyle: val,
-                  borderRightStyle: val,
-                  borderBottomStyle: val,
-                  borderLeftStyle: val,
-                });
-              }}
+              value={borderPosition}
+              options={BORDER_POSITION_OPTIONS}
+              onChange={(val) => handlePositionChange(val as BorderPosition)}
             />
           </div>
         </div>,
