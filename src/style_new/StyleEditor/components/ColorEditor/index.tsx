@@ -483,8 +483,7 @@ export function ColorEditor({
   }, [userInput, state.value, state.nonColorValue, state.finalValue, onPresetClick, handleReset, handleUnbind]);
 
   const handleOpacityChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const value = e.target.value;
+    (value: string) => {
       let finalValue = state.value;
 
       try {
@@ -501,6 +500,20 @@ export function ColorEditor({
     },
     [state.value, emitChange]
   );
+
+  const handleOpacityKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+
+    e.preventDefault();
+    const currentValue = Number(e.currentTarget.value);
+    const currentOpacity = Number.isFinite(currentValue)
+      ? currentValue
+      : Math.round(opacityNumber * 100);
+    const nextOpacity = Math.min(100, Math.max(0, Math.round(currentOpacity) + (e.key === 'ArrowUp' ? 1 : -1)));
+
+    handleOpacityChange(String(nextOpacity));
+    e.currentTarget.select();
+  }, [opacityNumber, handleOpacityChange]);
 
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -519,13 +532,14 @@ export function ColorEditor({
           ref={inputRef}
           type="inputNumber"
           value={Math.round(opacityNumber * 100)}
-          onChange={handleOpacityChange}
+          onChange={(e) => handleOpacityChange(e.target.value)}
           onBlur={handleInputBlur}
+          onKeyDown={handleOpacityKeyDown}
         />
         <div onClick={() => inputRef.current?.focus?.()}>%</div>
       </div>
     );
-  }, [opacityNumber, state.nonColorValue, handleOpacityChange]);
+  }, [opacityNumber, state.nonColorValue, handleOpacityChange, handleOpacityKeyDown]);
 
   const onBindingChange = useCallback((params: any) => {
     const { name, value, resetValue } = params;

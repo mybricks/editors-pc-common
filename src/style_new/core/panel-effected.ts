@@ -194,6 +194,7 @@ export const CSS_TRIVIAL_VALUES = new Set([
 export const CSS_INHERITABLE_PROPS = new Set([
   'color', 'fontSize', 'fontWeight', 'fontFamily', 'fontStyle', 'fontVariant',
   'lineHeight', 'letterSpacing', 'textAlign', 'textIndent', 'textTransform',
+  'textShadow',
   'whiteSpace', 'wordSpacing', 'cursor', 'visibility', 'direction',
   'listStyleType', 'listStylePosition', 'listStyleImage',
   'borderCollapse', 'borderSpacing', 'captionSide', 'emptyCells',

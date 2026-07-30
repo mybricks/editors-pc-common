@@ -209,6 +209,18 @@ export function getDefaultConfiguration ({value, options}: GetDefaultConfigurati
 
   const splitedSetValue = splitCSSProperties(setValue)
 
+  // 历史 CSS 曾将 box-shadow 的四长度格式用于 text-shadow。
+  // 浏览器会将该无效声明的计算值回落为 none，但原始声明仍可由 Effects
+  // 兼容解析（忽略第四个扩散值），避免已有文字阴影在面板中丢失。
+  if (
+    !getDefaultValue &&
+    splitedSetValue.textShadow &&
+    splitedSetValue.textShadow !== 'none' &&
+    (!defaultValue.textShadow || defaultValue.textShadow === 'none')
+  ) {
+    defaultValue.textShadow = splitedSetValue.textShadow
+  }
+
   const setValueEffectedPanels = new Set<string>();
   const setValueBag = splitedSetValue as Record<string, any>
   Object.keys(splitedSetValue).forEach(property => {
@@ -290,7 +302,6 @@ export function getDefaultConfiguration ({value, options}: GetDefaultConfigurati
     const newReadonly = uaFilledPanels.filter(p => !ownEffectedSet.has(p) && !readonlyExpandedOptions.includes(p));
     readonlyExpandedOptions = [...readonlyExpandedOptions, ...newReadonly];
   }
-
   return {
     options: finalOptions,
     collapsedOptions,

@@ -145,6 +145,7 @@ export function buildExportBag(acc: ValuesAcc): Record<string, any> {
     cursor: acc.cursor,
 
     boxShadow: acc.boxShadow,
+    textShadow: acc.textShadow,
 
     filter: acc.filter,
     backdropFilter: acc.backdropFilter,

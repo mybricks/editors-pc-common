@@ -1,15 +1,26 @@
-export type EffectType = 'dropShadow' | 'innerShadow' | 'layerBlur' | 'backgroundBlur'
+export type EffectType = 'dropShadow' | 'innerShadow' | 'textShadow' | 'layerBlur' | 'backgroundBlur'
 
-export type ShadowEffectType = 'dropShadow' | 'innerShadow'
+export type BoxShadowEffectType = 'dropShadow' | 'innerShadow'
+export type TextShadowEffectType = 'textShadow'
+export type ShadowEffectType = BoxShadowEffectType | TextShadowEffectType
 export type BlurEffectType = 'layerBlur' | 'backgroundBlur'
 
 export interface ShadowEffectLayer {
   id: string
-  type: ShadowEffectType
+  type: BoxShadowEffectType
   offsetX: string
   offsetY: string
   blurRadius: string
   spreadRadius: string
+  color: string
+}
+
+export interface TextShadowEffectLayer {
+  id: string
+  type: TextShadowEffectType
+  offsetX: string
+  offsetY: string
+  blurRadius: string
   color: string
 }
 
@@ -19,10 +30,12 @@ export interface BlurEffectLayer {
   blurRadius: string
 }
 
-export type EffectLayer = ShadowEffectLayer | BlurEffectLayer
+export type AnyShadowEffectLayer = ShadowEffectLayer | TextShadowEffectLayer
+export type EffectLayer = AnyShadowEffectLayer | BlurEffectLayer
 
 export type CssEffectsBundle = {
   boxShadow?: string
+  textShadow?: string
   filter?: string
   backdropFilter?: string
   WebkitBackdropFilter?: string
@@ -31,6 +44,7 @@ export type CssEffectsBundle = {
 export const EFFECT_TYPE_LABELS: Record<EffectType, string> = {
   dropShadow: '外阴影',
   innerShadow: '内阴影',
+  textShadow: '文字阴影',
   layerBlur: '图层模糊',
   backgroundBlur: '背景模糊',
 }
@@ -49,6 +63,16 @@ export function createDefaultLayer(type: EffectType): EffectLayer {
       blurRadius: '4px',
     }
   }
+  if (type === 'textShadow') {
+    return {
+      id: generateEffectId(),
+      type,
+      offsetX: '0px',
+      offsetY: '4px',
+      blurRadius: '4px',
+      color: DEFAULT_SHADOW_COLOR,
+    }
+  }
   return {
     id: generateEffectId(),
     type,
@@ -61,15 +85,23 @@ export function createDefaultLayer(type: EffectType): EffectLayer {
 }
 
 export function isShadowType(type: EffectType): type is ShadowEffectType {
-  return type === 'dropShadow' || type === 'innerShadow'
+  return type === 'dropShadow' || type === 'innerShadow' || type === 'textShadow'
 }
 
 export function isBlurType(type: EffectType): type is BlurEffectType {
   return type === 'layerBlur' || type === 'backgroundBlur'
 }
 
-export function isShadowLayer(layer: EffectLayer): layer is ShadowEffectLayer {
+export function isShadowLayer(layer: EffectLayer): layer is AnyShadowEffectLayer {
   return isShadowType(layer.type)
+}
+
+export function isBoxShadowLayer(layer: EffectLayer): layer is ShadowEffectLayer {
+  return layer.type === 'dropShadow' || layer.type === 'innerShadow'
+}
+
+export function isTextShadowLayer(layer: EffectLayer): layer is TextShadowEffectLayer {
+  return layer.type === 'textShadow'
 }
 
 export function isBlurLayer(layer: EffectLayer): layer is BlurEffectLayer {
@@ -213,6 +245,19 @@ function parseSingleBoxShadow(boxShadow: string): ShadowEffectLayer | null {
   return layer
 }
 
+function parseSingleTextShadow(textShadow: string): TextShadowEffectLayer | null {
+  const layer = parseSingleBoxShadowRaw(textShadow)
+  if (!layer || layer.type === 'innerShadow') return null
+  return {
+    id: layer.id,
+    type: 'textShadow',
+    offsetX: layer.offsetX,
+    offsetY: layer.offsetY,
+    blurRadius: layer.blurRadius,
+    color: layer.color,
+  }
+}
+
 export function parseEffects(css: CssEffectsBundle): EffectLayer[] {
   const layers: EffectLayer[] = []
 
@@ -221,6 +266,14 @@ export function parseEffects(css: CssEffectsBundle): EffectLayer[] {
     for (const part of splitCssList(boxShadow)) {
       if (isBorderLikeInsetShadow(part)) continue
       const layer = parseSingleBoxShadow(part)
+      if (layer) layers.push(layer)
+    }
+  }
+
+  const textShadow = css.textShadow
+  if (textShadow && textShadow !== 'none') {
+    for (const part of splitCssList(textShadow)) {
+      const layer = parseSingleTextShadow(part)
       if (layer) layers.push(layer)
     }
   }
@@ -252,6 +305,10 @@ function composeShadow(layer: ShadowEffectLayer): string {
   return `${inset}${layer.offsetX} ${layer.offsetY} ${layer.blurRadius} ${layer.spreadRadius} ${layer.color}`
 }
 
+function composeTextShadow(layer: TextShadowEffectLayer): string {
+  return `${layer.offsetX} ${layer.offsetY} ${layer.blurRadius} ${layer.color}`
+}
+
 export type StyleChangeItem = { key: string; value: string | null }
 
 /**
@@ -264,7 +321,8 @@ export function serializeEffects(
   previous?: CssEffectsBundle
 ): StyleChangeItem[] {
   // 不 normalize：保留列表中阴影的相对顺序（模糊夹在中间时不影响 boxShadow 序）
-  const shadows = layers.filter(isShadowLayer).map(composeShadow)
+  const shadows = layers.filter(isBoxShadowLayer).map(composeShadow)
+  const textShadows = layers.filter(isTextShadowLayer).map(composeTextShadow)
   const borderLike = extractBorderLikeShadows(previous?.boxShadow)
   const allShadows = [...shadows, ...borderLike]
 
@@ -283,6 +341,7 @@ export function serializeEffects(
 
   return [
     { key: 'boxShadow', value: allShadows.length > 0 ? allShadows.join(', ') : null },
+    { key: 'textShadow', value: textShadows.length > 0 ? textShadows.join(', ') : null },
     { key: 'filter', value: filterValue },
     { key: 'backdropFilter', value: backdropValue },
     { key: 'WebkitBackdropFilter', value: backdropValue },
@@ -293,6 +352,7 @@ export function serializeEffects(
 export function fingerprintEffects(css: CssEffectsBundle): string {
   return [
     css.boxShadow || '',
+    css.textShadow || '',
     css.filter || '',
     css.backdropFilter || css.WebkitBackdropFilter || '',
   ].join('||')
@@ -302,6 +362,7 @@ export function fingerprintFromChanges(items: StyleChangeItem[]): string {
   const map = Object.fromEntries(items.map((i) => [i.key, i.value || '']))
   return fingerprintEffects({
     boxShadow: map.boxShadow,
+    textShadow: map.textShadow,
     filter: map.filter,
     backdropFilter: map.backdropFilter,
     WebkitBackdropFilter: map.WebkitBackdropFilter,

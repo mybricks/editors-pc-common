@@ -16,6 +16,7 @@ export const getDefaultValueFunctionMap = {
       textDecoration: (values as any).textDecoration,
       fontStyle: (values as any).fontStyle,
       textTransform: (values as any).textTransform,
+      textShadow: (values as any).textShadow,
       // 文字渐变回显（与 background / border 共用栈，Font 侧需要读到）
       backgroundImage: values.backgroundImage,
       backgroundClip: values.backgroundClip,
@@ -92,6 +93,7 @@ export const getDefaultValueFunctionMap = {
   effects(values: CSSProperties, config: any) {
     return {
       boxShadow: values.boxShadow,
+      textShadow: values.textShadow,
       filter: values.filter,
       backdropFilter: (values as any).backdropFilter,
       WebkitBackdropFilter: (values as any).WebkitBackdropFilter ?? (values as any).webkitBackdropFilter,
@@ -255,6 +257,7 @@ export const getDefaultValueFunctionMap2 = {
   effects() {
     return {
       boxShadow: 'none',
+      textShadow: 'none',
       filter: 'none',
       backdropFilter: 'none',
       WebkitBackdropFilter: 'none',
