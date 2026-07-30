@@ -385,10 +385,10 @@ function LayoutEditor({ editValue, onChangeValue }: LayoutEditorInternalProps): 
           display = 'flex';
         }
       } else {
-        if (model.display === "block" || !model.display) {
-          display = 'inline-block';
-        } else if (model.display === "flex") {
+        if (model.display === "flex") {
           display = 'inline-flex';
+        } else {
+          display = 'inline-block';
         }
       }
 
