@@ -297,7 +297,7 @@ export function Position({ value, onChange, showTitle }: PositionProps) {
             className={`${css.modeOption} ${isFreePosition ? css.modeOptionActive : ''}`}
             onClick={() => { if (!isFreePosition) handleActivate() }}
           >
-            绝对定位
+            自由定位
           </div>
         </div>
       </div>
