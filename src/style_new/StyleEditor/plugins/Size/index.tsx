@@ -83,6 +83,7 @@ const SIZE_PROPERTY_KEYS = new Set([
 
 interface SizingModeBadgeProps {
   mode: 'hug' | 'fill';
+  compactDisplay?: boolean;
   dimension: 'width' | 'height';
   actualSize: number;
   parentSize?: number;
@@ -93,7 +94,7 @@ interface SizingModeBadgeProps {
   onAddMax?: () => void;
 }
 
-function SizingModeBadge({ mode, dimension, actualSize, parentSize = 0, onChange, onPreferPercent, onAddMin, onAddMax }: SizingModeBadgeProps) {
+function SizingModeBadge({ mode, compactDisplay = false, dimension, actualSize, parentSize = 0, onChange, onPreferPercent, onAddMin, onAddMax }: SizingModeBadgeProps) {
   const dim = dimension === 'width' ? 'width' : 'height';
   const options = [
     { label: '默认', value: 'default', tip: dim === 'width' ? DEFAULT_WIDTH_TIP : DEFAULT_HEIGHT_TIP },
@@ -132,9 +133,11 @@ function SizingModeBadge({ mode, dimension, actualSize, parentSize = 0, onChange
 
   return (
     <Dropdown value={mode} options={options} onClick={handleClick} onAction={handleAction}>
-      <span className={mode === 'fill' ? css.fillBadge : css.hugBadge}>
-        <span className={css.badgeLabel}>{mode === 'fill' ? '填满' : '适应'}</span>
-        <span className={css.badgeArrow}><DownOutlined /></span>
+      <span className={compactDisplay ? css.defaultBadgeArrow : (mode === 'fill' ? css.fillBadge : css.hugBadge)} data-mybricks-tip="单位">
+        {compactDisplay ? <DownOutlined /> : <>
+          <span className={css.badgeLabel}>{mode === 'fill' ? '填满' : '适应'}</span>
+          <span className={css.badgeArrow}><DownOutlined /></span>
+        </>}
       </span>
     </Dropdown>
   );
@@ -906,13 +909,11 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
                   <InputNumber
                     key={`${isWidthFill ? `fill-w-${Math.round(actualWidth)}` : (widthEffective === 'fit-content' ? `hug-w-${Math.round(actualWidth)}` : (isWidthDefault ? 'unset-w' : getUnitKey(widthEffective)))}-wlk${widthLockKey}`}
                     style={{ flex: 1, minWidth: 0, marginLeft: 4 }}
-                    {...(isWidthDefault ? { value: null as any } : {})}
+                    {...((isWidthDefault || isWidthFill) ? { value: null as any } : {})}
                     defaultValue={
-                      isWidthDefault
+                      isWidthDefault || isWidthFill
                         ? undefined
-                        : isWidthFill
-                          ? `${Math.round(actualWidth)}px`
-                          : (widthEffective === 'fit-content'
+                        : (widthEffective === 'fit-content'
                             ? (actualWidth > 0 ? `${Math.round(actualWidth)}px` : undefined)
                             : widthEffective)
                     }
@@ -923,7 +924,9 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
                     placeholder={
                       isWidthDefault
                         ? (widthDefaultPx != null ? `默认(${widthDefaultPx})` : '默认')
-                        : '默认'
+                        : isWidthFill
+                          ? (widthDefaultPx != null ? `填满(${widthDefaultPx})` : '填满')
+                          : '默认'
                     }
                     onChange={handleWidthChange}
                     onAction={(val) => {
@@ -940,14 +943,17 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
                     tip={
                       cfg.disableWidth
                         ? SIZE_DISABLED_TIP
-                        : isWidthDefault && widthDefaultPx != null
-                          ? `当前未配置宽度值，${widthDefaultPx}为计算值`
+                        : (isWidthDefault || isWidthFill) && widthDefaultPx != null
+                          ? isWidthFill
+                            ? `当前宽度填满父容器，${widthDefaultPx}为计算值`
+                            : `当前未配置宽度值，${widthDefaultPx}为计算值`
                           : undefined
                     }
                     badge={
                       isWidthFill ? (
                         <SizingModeBadge
                           mode="fill"
+                          compactDisplay
                           dimension="width"
                           actualSize={Math.round(actualWidth)}
                           parentSize={parentWidth}
@@ -995,13 +1001,11 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
                   <InputNumber
                     key={`${isHeightFill ? `fill-h-${Math.round(actualHeight)}` : (heightEffective === 'fit-content' ? `hug-h-${Math.round(actualHeight)}` : (isHeightDefault ? 'unset-h' : getUnitKey(heightEffective)))}-hlk${heightLockKey}`}
                     style={{ flex: 1, minWidth: 0, marginLeft: 4 }}
-                    {...(isHeightDefault ? { value: null as any } : {})}
+                    {...((isHeightDefault || isHeightFill) ? { value: null as any } : {})}
                     defaultValue={
-                      isHeightDefault
+                      isHeightDefault || isHeightFill
                         ? undefined
-                        : isHeightFill
-                          ? `${Math.round(actualHeight)}px`
-                          : (heightEffective === 'fit-content'
+                        : (heightEffective === 'fit-content'
                             ? (actualHeight > 0 ? `${Math.round(actualHeight)}px` : undefined)
                             : heightEffective)
                     }
@@ -1012,7 +1016,9 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
                     placeholder={
                       isHeightDefault
                         ? (heightDefaultPx != null ? `默认(${heightDefaultPx})` : '默认')
-                        : '默认'
+                        : isHeightFill
+                          ? (heightDefaultPx != null ? `填满(${heightDefaultPx})` : '填满')
+                          : '默认'
                     }
                     onChange={handleHeightChange}
                     onAction={(val) => {
@@ -1029,14 +1035,17 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
                     tip={
                       cfg.disableHeight
                         ? SIZE_DISABLED_TIP
-                        : isHeightDefault && heightDefaultPx != null
-                          ? `当前未配置高度值，${heightDefaultPx}为计算值`
+                        : (isHeightDefault || isHeightFill) && heightDefaultPx != null
+                          ? isHeightFill
+                            ? `当前高度填满父容器，${heightDefaultPx}为计算值`
+                            : `当前未配置高度值，${heightDefaultPx}为计算值`
                           : undefined
                     }
                     badge={
                       isHeightFill ? (
                         <SizingModeBadge
                           mode="fill"
+                          compactDisplay
                           dimension="height"
                           actualSize={Math.round(actualHeight)}
                           parentSize={parentHeight}
