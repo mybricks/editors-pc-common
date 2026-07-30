@@ -168,7 +168,9 @@ function LayoutEditor({ editValue, onChangeValue }: LayoutEditorInternalProps): 
     (style: Partial<LayoutModel>) => {
       // 切换到默认：清除所有 flex 布局相关属性；容器自身的 position 不动
       if (style.position === "default") {
-        const resetDisplay = model.display === "inline-flex" ? "inline-block" : null;
+        const resetDisplay = model.display === "inline-flex" || model.display === "inline-block"
+          ? "inline-block"
+          : null;
         onChangeValue({
           display: resetDisplay,
           flexDirection: null,
@@ -201,8 +203,6 @@ function LayoutEditor({ editValue, onChangeValue }: LayoutEditorInternalProps): 
   const isFlexActive =
     isFlexLikeDisplay(model.display) &&
     (model.flexDirection === "row" || model.flexDirection === "column");
-  const hasSelectedDirection = model.position === "default" || model.position === "absolute" || isFlexActive ||
-    isPreservedCssPosition(model.position);
 
   const renderFlexDirection = () => {
     const onSelect = (layout: Layout) => {
@@ -291,7 +291,7 @@ function LayoutEditor({ editValue, onChangeValue }: LayoutEditorInternalProps): 
         setColumnFlexWrap(flexWrap);
       }
     };
-    return hasSelectedDirection && isFlexActive ? (
+    return isFlexActive ? (
       <JustifyContent
         flexDirection={model.flexDirection}
         justifyContent={model.justifyContent}
@@ -314,7 +314,7 @@ function LayoutEditor({ editValue, onChangeValue }: LayoutEditorInternalProps): 
       }));
       emitValue({ justifyContent, alignItems });
     };
-    return hasSelectedDirection && isFlexActive ? (
+    return isFlexActive ? (
       <AlignItems
         flexDirection={model?.flexDirection}
         justifyContent={model.justifyContent}
@@ -332,7 +332,7 @@ function LayoutEditor({ editValue, onChangeValue }: LayoutEditorInternalProps): 
       setModel((pre) => ({ ...pre, ...val }));
       emitValue({ ...val });
     };
-    return hasSelectedDirection && isFlexActive ? (
+    return isFlexActive ? (
       <Gap
         value={{ rowGap: model.rowGap, columnGap: model.columnGap }}
         onChange={onGapChange}
@@ -349,7 +349,6 @@ function LayoutEditor({ editValue, onChangeValue }: LayoutEditorInternalProps): 
       setModel((pre) => ({ ...pre, overflow }));
       emitValue({ overflow });
     };
-    if (!hasSelectedDirection) return null;
     return (
       <div className={styles.overflowRow}>
         <div className={`${styles.checkbox} ${isHidden ? styles.checkboxChecked : ""}`} onClick={toggle}>
@@ -362,11 +361,61 @@ function LayoutEditor({ editValue, onChangeValue }: LayoutEditorInternalProps): 
         <span
           className={styles.overflowLabel}
           onClick={toggle}
+          style={{ marginRight: 12 }}
           data-mybricks-tip="开启后超出容器大小的内容将会被隐藏"
         >
           超出容器不显示
         </span>
+        {renderInlineBlock()}
       </div>
+    );
+  };
+
+  const renderInlineBlock = () => {
+    if (model.display === "inline") return null;
+
+    const isInlineBlock = model.display === "inline-block" || model.display === "inline-flex";
+    const toggle = () => {
+      let display = '';
+
+      if (isInlineBlock) {
+        if (model.display === "inline-block") {
+          display = 'block';
+        } else if (model.display === "inline-flex") {
+          display = 'flex';
+        }
+      } else {
+        if (model.display === "flex") {
+          display = 'inline-flex';
+        } else {
+          display = 'inline-block';
+        }
+      }
+
+      if (!display) {
+        return;
+      }
+      setModel((pre) => ({ ...pre, display }));
+      emitValue({ display });
+    };
+
+    return (
+      <>
+        <div className={`${styles.checkbox} ${isInlineBlock ? styles.checkboxChecked : ""}`} onClick={toggle}>
+          {isInlineBlock && (
+            <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+              <path d="M1 3.5L3.8 6.5L9 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          )}
+        </div>
+        <span
+          className={styles.overflowLabel}
+          onClick={toggle}
+          data-mybricks-tip="开启后，元素会与前后的内容显示在同一行"
+        >
+          内联显示
+        </span>
+      </>
     );
   };
 
@@ -383,7 +432,7 @@ function LayoutEditor({ editValue, onChangeValue }: LayoutEditorInternalProps): 
       setModel((pre) => ({ ...pre, ...val }));
     };
 
-    if (!hasSelectedDirection) return null;
+    if (!isFlexActive) return null;
     return (
       <Padding
         value={{
@@ -404,7 +453,7 @@ function LayoutEditor({ editValue, onChangeValue }: LayoutEditorInternalProps): 
   return (
     <div>
       {renderFlexDirection()}
-      {hasSelectedDirection && (
+      {isFlexActive && (
         <div className={styles.layout}>
           <div className={styles.centerLayout}>
             <div

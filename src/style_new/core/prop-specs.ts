@@ -134,6 +134,7 @@ export const PROP_SPECS: PropSpec[] = [
   // effects / overflow / opacity / z / transform
   // boxShadow：旧实现不从 rule 读取（TODO 注释掉了），只走 computed 兜底
   { camel: 'boxShadow', inherit: false, fallback: 'computed', readFromRule: false },
+  { camel: 'textShadow', inherit: true, fallback: 'computed' },
   { camel: 'filter', inherit: false, fallback: 'computed' },
   { camel: 'backdropFilter', inherit: false, fallback: 'none' },
   { camel: 'overflowX', inherit: false, fallback: 'computed' },

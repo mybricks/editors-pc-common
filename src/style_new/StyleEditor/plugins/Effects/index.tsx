@@ -17,6 +17,7 @@ import {
   BoxShadowOuterOutlined,
   BoxShadowBlurRadiusOutlined,
   BoxShadowSpreadRadiusOutlined,
+  TextShadowOutlined,
   SketchPopup,
   SketchCloseIcon,
 } from '../../components'
@@ -29,7 +30,6 @@ import css from './index.less'
 import {
   EffectLayer,
   EffectType,
-  ShadowEffectLayer,
   EFFECT_TYPE_LABELS,
   createDefaultLayer,
   parseEffects,
@@ -39,7 +39,9 @@ import {
   hasEffectType,
   isShadowType,
   isBlurType,
+  isBoxShadowLayer,
   isShadowLayer,
+  isTextShadowLayer,
   type CssEffectsBundle,
 } from './layers'
 
@@ -64,6 +66,7 @@ function GripIcon() {
 function EffectTypeIcon({ type }: { type: EffectType }) {
   if (type === 'innerShadow') return <BoxShadowInnerOutlined />
   if (type === 'dropShadow') return <BoxShadowOuterOutlined />
+  if (type === 'textShadow') return <TextShadowOutlined />
   if (type === 'backgroundBlur') return <BackgroundBlurIcon />
   return <BlurIcon />
 }
@@ -71,6 +74,7 @@ function EffectTypeIcon({ type }: { type: EffectType }) {
 function readCssBundle(value: CSSProperties): CssEffectsBundle {
   return {
     boxShadow: value.boxShadow as string | undefined,
+    textShadow: value.textShadow as string | undefined,
     filter: value.filter as string | undefined,
     backdropFilter: (value as any).backdropFilter as string | undefined,
     WebkitBackdropFilter: ((value as any).WebkitBackdropFilter ?? (value as any).webkitBackdropFilter) as string | undefined,
@@ -99,7 +103,7 @@ export function Effects({ value, onChange, showTitle, collapse }: EffectsProps) 
     const next = parseEffects(bundle)
     lastEmittedRef.current = fp
     setLayers(next)
-  }, [value.boxShadow, value.filter, (value as any).backdropFilter, (value as any).WebkitBackdropFilter])
+  }, [value.boxShadow, value.textShadow, value.filter, (value as any).backdropFilter, (value as any).WebkitBackdropFilter])
 
   const emitLayers = useCallback((next: EffectLayer[]) => {
     // 会话内保持用户排序，不 normalize（模糊可夹在阴影中间）
@@ -148,7 +152,7 @@ export function Effects({ value, onChange, showTitle, collapse }: EffectsProps) 
     if (!prev) return
 
     if (isShadowType(nextType) && isBlurType(prev.type)) {
-      const next = createDefaultLayer(nextType) as ShadowEffectLayer
+      const next = createDefaultLayer(nextType)
       next.id = prev.id
       emitLayers(current.map((l, i) => (i === index ? next : l)))
       return
@@ -161,6 +165,18 @@ export function Effects({ value, onChange, showTitle, collapse }: EffectsProps) 
       } : l)))
       return
     }
+    if (isShadowType(nextType) && isShadowLayer(prev)) {
+      const next = createDefaultLayer(nextType)
+      if (isShadowLayer(next)) {
+        next.id = prev.id
+        next.offsetX = prev.offsetX
+        next.offsetY = prev.offsetY
+        next.blurRadius = prev.blurRadius
+        next.color = prev.color
+      }
+      emitLayers(current.map((l, i) => (i === index ? next : l)))
+      return
+    }
     emitLayers(current.map((l, i) => (i === index ? { ...l, type: nextType } as EffectLayer : l)))
   }, [emitLayers])
 
@@ -170,6 +186,7 @@ export function Effects({ value, onChange, showTitle, collapse }: EffectsProps) 
     return [
       { label: '外阴影', value: 'dropShadow', icon: <BoxShadowOuterOutlined /> },
       { label: '内阴影', value: 'innerShadow', icon: <BoxShadowInnerOutlined /> },
+      { label: '文字阴影', value: 'textShadow', icon: <TextShadowOutlined /> },
       { label: '图层模糊', value: 'layerBlur', icon: <BlurIcon />, disabled: hasLayer },
       { label: '背景模糊', value: 'backgroundBlur', icon: <BackgroundBlurIcon />, disabled: hasBg },
     ]
@@ -244,13 +261,7 @@ export function Effects({ value, onChange, showTitle, collapse }: EffectsProps) 
         label: EFFECT_TYPE_LABELS[type],
         value: type,
         disabled: occupiedByOther,
-        icon: type === 'innerShadow'
-          ? <BoxShadowInnerOutlined />
-          : type === 'dropShadow'
-            ? <BoxShadowOuterOutlined />
-            : type === 'backgroundBlur'
-              ? <BackgroundBlurIcon />
-              : <BlurIcon />,
+        icon: <EffectTypeIcon type={type} />,
       }
     })
   }, [activeLayer, activeIndex, layers])
@@ -316,7 +327,7 @@ export function Effects({ value, onChange, showTitle, collapse }: EffectsProps) 
                   <span className={css.dragHandle} data-drag-handle onClick={(e) => e.stopPropagation()}>
                     <GripIcon />
                   </span>
-                  <span className={`${css.layerIcon}${isShadowLayer(layer) ? ` ${css.layerIconShadow}` : ''}`}>
+                  <span className={`${css.layerIcon}${isBoxShadowLayer(layer) ? ` ${css.layerIconShadow}` : ''}`}>
                     <EffectTypeIcon type={layer.type} />
                   </span>
                   <span className={css.layerLabel}>{EFFECT_TYPE_LABELS[layer.type]}</span>
@@ -373,6 +384,7 @@ function EffectSketchBody({
   const getDragPropsNegative = useDragNumber({ continuous: true, min: -Infinity })
   const forceKey = `${layer.id}-${layer.type}`
   const shadow = isShadowLayer(layer)
+  const textShadow = isTextShadowLayer(layer)
 
   return (
     <>
@@ -437,22 +449,24 @@ function EffectSketchBody({
                 onChange={(v) => onChange({ blurRadius: v || '0px' })}
               />
             </div>
-            <div className={css.effectRow}>
-              <span className={css.effectLabel}>扩散</span>
-              <InputNumber
-                style={{ flex: 1 }}
-                prefix={
-                  <div {...getDragProps(layer.spreadRadius, '拖拽调整扩散半径')}>
-                    <div className={css.effectLabelIcon}>
-                      <BoxShadowSpreadRadiusOutlined />
+            {!textShadow && (
+              <div className={css.effectRow}>
+                <span className={css.effectLabel}>扩散</span>
+                <InputNumber
+                  style={{ flex: 1 }}
+                  prefix={
+                    <div {...getDragProps(layer.spreadRadius, '拖拽调整扩散半径')}>
+                      <div className={css.effectLabelIcon}>
+                        <BoxShadowSpreadRadiusOutlined />
+                      </div>
                     </div>
-                  </div>
-                }
-                defaultValue={layer.spreadRadius}
-                fallbackValue={0}
-                onChange={(v) => onChange({ spreadRadius: v || '0px' })}
-              />
-            </div>
+                  }
+                  defaultValue={layer.spreadRadius}
+                  fallbackValue={0}
+                  onChange={(v) => onChange({ spreadRadius: v || '0px' })}
+                />
+              </div>
+            )}
             <div className={css.effectRow}>
               <span className={css.effectLabel}>颜色</span>
               <ColorEditor
