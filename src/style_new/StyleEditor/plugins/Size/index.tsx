@@ -969,7 +969,7 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
                           actualSize={Math.round(actualWidth)}
                           parentSize={parentWidth}
                           onPreferPercent={setWidthPreferPercent}
-                          onChange={(v) => { setWidthPending(v ?? 'fit-content'); onChange({ key: 'width', value: v }); }}
+                          onChange={(v) => { setWidthPending(v); onChange({ key: 'width', value: v }); }}
                           onAddMin={() => { setShowMinWidth(true); setShowWidthHeight(true); }}
                           onAddMax={() => { setShowMaxWidth(true); setShowWidthHeight(true); }}
                         />
@@ -1061,7 +1061,7 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
                           actualSize={Math.round(actualHeight)}
                           parentSize={parentHeight}
                           onPreferPercent={setHeightPreferPercent}
-                          onChange={(v) => { setHeightPending(v ?? 'fit-content'); onChange({ key: 'height', value: v }); }}
+                          onChange={(v) => { setHeightPending(v); onChange({ key: 'height', value: v }); }}
                           onAddMin={() => { setShowMinHeight(true); setShowWidthHeight(true); }}
                           onAddMax={() => { setShowMaxHeight(true); setShowWidthHeight(true); }}
                         />
