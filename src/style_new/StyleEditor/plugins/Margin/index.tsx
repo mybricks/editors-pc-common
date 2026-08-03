@@ -178,7 +178,7 @@ export function Margin ({value, onChange, config, showTitle, collapse}: MarginPr
               <Panel.Content style={{ padding: 3 }}>
                 <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
                   <div 
-                    className={css.icon} 
+                    className={`${css.icon} ${css.leftMarginIcon}`} 
                     {...getDragProps(marginValue.marginLeft, '拖拽调整左外边距')}
                   >
                     <PaddingRightOutlined/>
@@ -218,7 +218,7 @@ export function Margin ({value, onChange, config, showTitle, collapse}: MarginPr
               <Panel.Content style={{ padding: 3 }}>
                 <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
                   <div 
-                    className={`${css.icon} ${css.leftMarginIcon}`}
+                    className={css.icon}
                     {...getDragProps(marginValue.marginRight, '拖拽调整右外边距')}
                   >
                     <PaddingLeftOutlined/>
