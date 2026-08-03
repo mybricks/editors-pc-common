@@ -21,7 +21,7 @@ const defaultFlexFlow = [
   {
     title: "内联",
     value: "inline",
-    render: () => <Icon name="inline" />,
+    render: () => <Icon className={styles.inlineIcon} name="inline" />,
   },
   {
     title: "纵向排版",
