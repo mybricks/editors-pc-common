@@ -909,7 +909,7 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
                     placeholder={
                       isWidthFill
                           ? (widthDefaultPx != null ? `填满(${widthDefaultPx})` : '填满')
-                          : undefined
+                          : ''
                     }
                     onChange={handleWidthChange}
                     onAction={(val) => {
@@ -987,7 +987,7 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
                     placeholder={
                       isHeightFill
                           ? (heightDefaultPx != null ? `填满(${heightDefaultPx})` : '填满')
-                          : undefined
+                          : ''
                     }
                     onChange={handleHeightChange}
                     onAction={(val) => {
