@@ -3,6 +3,7 @@ import React, {
   useState,
   useCallback,
   useRef,
+  useLayoutEffect,
 } from 'react'
 
 import { Input, Select } from '..'
@@ -77,12 +78,15 @@ export function InputNumber ({
   hideUnitWhenEmpty = false,
   unitHideLabelList = ['px'],
 }: InputNumberProps) {
-  const [unit, setUnit] = useState<string>(getUnit(value || defaultValue, defaultUnitValue, unitOptions))
-  const [number, handleNumberChange] = useInputNumber<string | number | undefined>(value || defaultValue)
+  // `defaultValue` 是各样式面板的外部回显值；未传受控 value 时也要随选中目标同步。
+  const externalValue = value !== undefined ? value : defaultValue
+  const [unit, setUnit] = useState<string>(getUnit(externalValue, defaultUnitValue, unitOptions))
+  const [number, handleNumberChange] = useInputNumber<string | number | undefined>(externalValue)
   /** 外部清空同步时跳过 [unit,number] 的 onChange，避免回写 'default' 字符串污染上层 */
   const skipUnitNumberOnChangeRef = useRef(false)
+  const isValueSyncInitializedRef = useRef(false)
   const [displayValue, setDisplayValue] = useState(() => {
-    const initVal = value || defaultValue
+    const initVal = externalValue
     if (!initVal) return ''
     // default / fit-content 等关键字：输入框留空，用 placeholder 展示（如「默认（xx）」）
     if (typeof unit !== 'undefined' && typeof initVal !== 'undefined' && unit === initVal) {
@@ -94,7 +98,7 @@ export function InputNumber ({
     return number
   })
 
-  const isEmptyValue = !displayValue && !(value || defaultValue)
+  const isEmptyValue = !displayValue && !externalValue
 
   const isDisabledUnit = useCallback(() => {
     // default 表示未配置：输入框与下拉仍可用，便于继续输入或切换单位
@@ -239,9 +243,15 @@ export function InputNumber ({
     return null
   }, [unit, isDefaultUnit, badge, unitOptions, onAction, hideUnitWhenEmpty, isEmptyValue, unitHideLabelList, showIcon, showIconOnHover])
 
-  useUpdateEffect(() => {
+  // 新选中组件的值在首帧绘制前同步到内部 state，避免旧值短暂闪现。
+  useLayoutEffect(() => {
+    if (!isValueSyncInitializedRef.current) {
+      isValueSyncInitializedRef.current = true
+      return
+    }
+
     // 外部清空（删除属性）时同步清空回显，单位回到 default（若有）以便下拉勾选「默认」
-    if (value == null || value === '') {
+    if (externalValue == null || externalValue === '') {
       setDisplayValue('')
       // 重置内部数字，避免清值后残留旧数字，切单位时拼出 200% 等
       skipUnitNumberOnChangeRef.current = true
@@ -255,12 +265,12 @@ export function InputNumber ({
       return
     }
 
-    const nextUnit = getUnit(value, defaultUnitValue, unitOptions)
+    const nextUnit = getUnit(externalValue, defaultUnitValue, unitOptions)
     setUnit(nextUnit)
-    const nextNumber = handleNumberChange(String(value))
-    if (typeof nextUnit !== 'undefined' && nextUnit === value) {
+    const nextNumber = handleNumberChange(String(externalValue))
+    if (typeof nextUnit !== 'undefined' && nextUnit === externalValue) {
       // default 等「未配置」单位：留空以展示 placeholder，不要把「默认」写进输入框
-      if (value === 'default' || unitDisabledList.includes(String(value))) {
+      if (externalValue === 'default' || unitDisabledList.includes(String(externalValue))) {
         setDisplayValue('')
       } else {
         const unitLabel = unitDisplayLabelMap[nextUnit] ?? unitOptions?.find(o => o.value === nextUnit)?.label ?? nextUnit
@@ -270,7 +280,7 @@ export function InputNumber ({
       // 使用 handleNumberChange 的返回值，避免闭包中的旧 number
       setDisplayValue(nextNumber)
     }
-  }, [value])
+  }, [externalValue])
 
   useUpdateEffect(() => {
     if (skipUnitNumberOnChangeRef.current) {
@@ -305,7 +315,7 @@ export function InputNumber ({
     const changeValue = String(parsed) + unit
     setDisplayValue(number)
     // 外部 value 同步进来的变更不再回写，避免受控回显触发二次 onChange
-    if (value != null && value !== '' && String(value) === changeValue) {
+    if (externalValue != null && externalValue !== '' && String(externalValue) === changeValue) {
       return
     }
     // 默认态也会提交真实 number+unit（清值后内部为 0）；上层按需用实测值替换

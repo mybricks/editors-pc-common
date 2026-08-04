@@ -1,5 +1,6 @@
 import React, {
   useEffect,
+  useLayoutEffect,
   useMemo,
   useState,
   useCallback,
@@ -78,6 +79,15 @@ export function Margin ({value, onChange, config, showTitle, collapse}: MarginPr
   }, [onChange])
 
   const cfg = useMemo(() => ({ ...DEFAULT_CONFIG, ...(config ?? {}) }), [config]);
+
+  // 面板实例会在切换选中组件时复用，需同步新的边距值，避免先显示上一组件的数字。
+  useLayoutEffect(() => {
+    setMarginValue((previous) => {
+      const next = {...value};
+      return MARGIN_KEYS.every((key) => previous[key] === next[key]) ? previous : next;
+    });
+    setToggle(getToggleDefaultValue(value));
+  }, [value.marginTop, value.marginRight, value.marginBottom, value.marginLeft]);
 
   const handleChange = useCallback((value: CSSProperties & Record<string, any>) => {
     setMarginValue((val) => {

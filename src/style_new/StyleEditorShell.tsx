@@ -726,7 +726,7 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
         )}
         <div className={css.styleSection}>
           {title}
-          <div key={`${key}_${activeZoneIdx}`} style={{ display: open ? 'block' : 'none' }}>
+          <div style={{ display: open ? 'block' : 'none' }}>
             {show && editor}
           </div>
         </div>

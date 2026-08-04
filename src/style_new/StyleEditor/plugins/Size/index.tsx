@@ -1,4 +1,4 @@
-import React, {useState, useEffect, useCallback, useMemo, useRef, CSSProperties} from "react";
+import React, {useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef, CSSProperties} from "react";
 
 import {
   Panel,
@@ -304,7 +304,8 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
   actualHeightRef.current = actualHeight;
   targetDomRef.current = targetDom;
 
-  useEffect(() => {
+  // 选中目标切换时先测量，避免首帧沿用上一组件的默认宽高。
+  useLayoutEffect(() => {
     if (!targetDom) {
       setActualWidth(0);
       setActualHeight(0);
@@ -890,7 +891,7 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
                 </div>
                 <div ref={widthInputWrapRef} style={{ flex: 1, minWidth: 0, display: 'contents' }}>
                   <InputNumber
-                    key={`${isWidthFill ? `fill-w-${Math.round(actualWidth)}` : (widthEffective === 'fit-content' ? `hug-w-${Math.round(actualWidth)}` : (isWidthDefault ? `calculated-w-${Math.round(actualWidth)}` : getUnitKey(widthEffective)))}-wlk${widthLockKey}`}
+                    key={`${isWidthFill ? 'fill-w' : (widthEffective === 'fit-content' ? 'hug-w' : (isWidthDefault ? 'default-w' : getUnitKey(widthEffective)))}-wlk${widthLockKey}`}
                     style={{ flex: 1, minWidth: 0, marginLeft: 4 }}
                     {...(isWidthFill ? { value: null as any } : {})}
                     defaultValue={
@@ -968,7 +969,7 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
                 </div>
                 <div ref={heightInputWrapRef} style={{ flex: 1, minWidth: 0, display: 'contents' }}>
                   <InputNumber
-                    key={`${isHeightFill ? `fill-h-${Math.round(actualHeight)}` : (heightEffective === 'fit-content' ? `hug-h-${Math.round(actualHeight)}` : (isHeightDefault ? `calculated-h-${Math.round(actualHeight)}` : getUnitKey(heightEffective)))}-hlk${heightLockKey}`}
+                    key={`${isHeightFill ? 'fill-h' : (heightEffective === 'fit-content' ? 'hug-h' : (isHeightDefault ? 'default-h' : getUnitKey(heightEffective)))}-hlk${heightLockKey}`}
                     style={{ flex: 1, minWidth: 0, marginLeft: 4 }}
                     {...(isHeightFill ? { value: null as any } : {})}
                     defaultValue={
