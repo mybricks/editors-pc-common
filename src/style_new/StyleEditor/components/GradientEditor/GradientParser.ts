@@ -17,9 +17,12 @@ export const ParseGradient = (
     const gradientData = gradient(gradientString)?.[0];
     if (!!gradientData) {
       type = gradientData.type;
-      direction = Array.isArray(gradientData.orientation)
+      const parsedDirection = Array.isArray(gradientData.orientation)
         ? gradientData.orientation[0]?.value
         : gradientData.orientation?.value;
+      if (parsedDirection) {
+        direction = parsedDirection;
+      }
       stops =
         // @ts-ignore
         gradientData?.colorStops?.map((colorStop) => ({
