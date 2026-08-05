@@ -258,7 +258,7 @@ export function GradientEditor({
           stops.map((stop) => {
             const { color, position, id } = stop;
             if (!color) return null;
-            const border = curElementId === id ? "1px solid #FA6400" : "";
+            const border = curElementId === id ? "1px solid var(--mybricks-color-primary)" : "";
             return (
               <Panel.Content
                 key={id}
