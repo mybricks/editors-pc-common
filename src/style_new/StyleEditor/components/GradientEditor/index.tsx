@@ -45,7 +45,7 @@ export function GradientEditor({
       defaultValue !== "none" &&
       ExtractBackground(defaultValue, "gradient")?.length > 0
     ) {
-      const { type, direction, stops } = ParseGradient(
+      const { type, direction, stops: parsedStops } = ParseGradient(
         ExtractBackground(defaultValue, "gradient")?.[0]
       );
       setGradientType(type);
@@ -54,9 +54,16 @@ export function GradientEditor({
       } else if (direction) {
         setShapeType(direction as ShapeType);
       }
-      if (stops.length > 0) {
-        setStops(stopSort(stops));
-        setCurElementId(stops[0]?.id);
+      if (parsedStops.length > 0) {
+        const sortedStops = stopSort(parsedStops);
+        setStops(sortedStops);
+        // 生成新的 stop id，以选中新增的色层
+        const selectedIndex = stops.findIndex(
+          (stop) => stop.id === curElementId
+        );
+        setCurElementId(
+          sortedStops[selectedIndex >= 0 ? selectedIndex : 0]?.id
+        );
         isInitialMount.current = false;
       }
     }
@@ -75,15 +82,17 @@ export function GradientEditor({
   const addColor = useCallback(() => {
     const { color = "rgba(255,255,255,1)", position = 50 } =
       stops[stops.length - 1] || {};
+    const newStop = {
+      // 可以继续对齐figma
+      color: color,
+      position: position + 10 <= 100 ? position + 10 : 100,
+      id: uuid(),
+    };
     changeStops([
       ...stops,
-      {
-        // 可以继续对齐figma
-        color: color,
-        position: position + 10 <= 100 ? position + 10 : 100,
-        id: uuid(),
-      },
+      newStop,
     ]);
+    setCurElementId(newStop.id);
   }, [stops]);
 
   const removeColor = useCallback(
