@@ -1,4 +1,5 @@
 import React, {
+  useLayoutEffect,
   useMemo,
   useState,
   useCallback,
@@ -41,6 +42,16 @@ export function Padding({value, onChange, config, showTitle, collapse}: PaddingP
   const [forceRenderKey, setForceRenderKey] = useState<number>(Math.random())
   const [splitPaddingIcon, setSplitPaddingIcon] = useState(<PaddingTopOutlined/>)
   const getDragProps = useDragNumber({ continuous: true })
+
+  // 面板实例会在切换选中组件时复用，需同步新的内边距值，避免旧值短暂回显。
+  useLayoutEffect(() => {
+    setPaddingValue((previous) => {
+      const next = {...value};
+      return PADDING_KEYS.every((key) => previous[key] === next[key]) ? previous : next;
+    });
+    setToggle(getToggleDefaultValue(value));
+  }, [value.paddingTop, value.paddingRight, value.paddingBottom, value.paddingLeft]);
+
   const handleSwitchToUnified = useCallback(() => {
     onChange(PADDING_KEYS.map((key) => ({ key, value: null })))
     setToggle(true)

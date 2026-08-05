@@ -38,6 +38,8 @@ export function GradientEditor({
   const [shapeType, setShapeType] = useState<ShapeType>("ellipse");
   const [deg, setDeg] = useState(90);
   const [stops, setStops] = useState<GradientStop[]>([]);
+  const [curElementId, setCurElementId] = useState<string | null>(null);
+  const lastEmittedGradientValue = useRef<string>();
 
   useEffect(() => {
     if (
@@ -45,9 +47,11 @@ export function GradientEditor({
       defaultValue !== "none" &&
       ExtractBackground(defaultValue, "gradient")?.length > 0
     ) {
-      const { type, direction, stops } = ParseGradient(
-        ExtractBackground(defaultValue, "gradient")?.[0]
-      );
+      const gradientValue = ExtractBackground(defaultValue, "gradient")?.[0];
+      if (gradientValue === lastEmittedGradientValue.current) {
+        return;
+      }
+      const { type, direction, stops } = ParseGradient(gradientValue);
       setGradientType(type);
       if (type === "linear-gradient" && direction) {
         setDeg(parseInt(direction));
@@ -75,15 +79,16 @@ export function GradientEditor({
   const addColor = useCallback(() => {
     const { color = "rgba(255,255,255,1)", position = 50 } =
       stops[stops.length - 1] || {};
+    const newStop = {
+      color,
+      position: position + 10 <= 100 ? position + 10 : 100,
+      id: uuid(),
+    };
     changeStops([
       ...stops,
-      {
-        // 可以继续对齐figma
-        color: color,
-        position: position + 10 <= 100 ? position + 10 : 100,
-        id: uuid(),
-      },
+      newStop,
     ]);
+    setCurElementId(newStop.id);
   }, [stops]);
 
   const removeColor = useCallback(
@@ -133,6 +138,7 @@ export function GradientEditor({
   const changeFinalValue = useCallback(
     debounce((value: string) => {
       if (defaultValue && isMoveDoneRef.current) {
+        lastEmittedGradientValue.current = value;
         if (ExtractBackground(defaultValue, "image").length > 0) {
           onChange?.(
             `${ExtractBackground(defaultValue, "image")[0]}, ${value}`
@@ -169,8 +175,6 @@ export function GradientEditor({
     },
     [onChange, finalValue, stops]
   );
-
-  const [curElementId, setCurElementId] = useState<string | null>(null);
 
   const onClickAngle = useCallback(() => {
     // 定义四个角度
@@ -258,7 +262,7 @@ export function GradientEditor({
           stops.map((stop) => {
             const { color, position, id } = stop;
             if (!color) return null;
-            const border = curElementId === id ? "1px solid #FA6400" : "";
+            const border = curElementId === id ? "1px solid var(--mybricks-color-primary)" : "";
             return (
               <Panel.Content
                 key={id}
@@ -285,7 +289,7 @@ export function GradientEditor({
                 <ColorEditor
                   defaultValue={color}
                   showSubTabs={false}
-                  key={color}
+                  key={id}
                   style={{ flex: 5, border }}
                   onFocus={() => setCurElementId(id)}
                   onChange={(colorValue) => {

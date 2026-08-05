@@ -166,6 +166,7 @@ export function CssEditor({
         CDN={defaultOptions.CDN}
         onBlur={onBlur}
         language="css"
+        readOnly={true}
       />
     )
   }, [cssValue, onBlur, onChange, onMounted, defaultOptions.CDN])
