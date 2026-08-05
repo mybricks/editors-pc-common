@@ -289,7 +289,7 @@ export function GradientEditor({
                 <ColorEditor
                   defaultValue={color}
                   showSubTabs={false}
-                  key={color}
+                  key={id}
                   style={{ flex: 5, border }}
                   onFocus={() => setCurElementId(id)}
                   onChange={(colorValue) => {
