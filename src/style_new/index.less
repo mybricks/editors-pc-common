@@ -334,6 +334,8 @@
     color: #262626;
     font-size: 12px;
     line-height: 20px;
+    flex-shrink: 0;
+    white-space: nowrap;
   }
 
   :global(.ant-checkbox) {
@@ -381,6 +383,9 @@
   .affectedHint {
     text-align: right;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
   }
 }
 
