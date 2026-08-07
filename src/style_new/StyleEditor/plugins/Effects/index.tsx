@@ -249,7 +249,7 @@ export function Effects({ value, onChange, showTitle, collapse }: EffectsProps) 
     setOverState(null)
   }, [])
 
-  const effectiveCollapse = layers.length === 0 ? true : collapse
+  const effectiveCollapse = layers.length === 0 && collapse !== 'inherited' ? true : collapse
   const activeLayer = activeIndex != null ? layers[activeIndex] : null
 
   const typeOptionsForActive = useMemo(() => {
@@ -275,7 +275,8 @@ export function Effects({ value, onChange, showTitle, collapse }: EffectsProps) 
       addOptions={addOptions}
       onAddOption={handleAddOption}
       rightColumn={
-        layers.length > 0 ? (
+        // 继承/只读回显时不渲染层删除列，避免 rightColumn 绕过 Panel 的减号隐藏
+        layers.length > 0 && collapse !== 'inherited' ? (
           <div className={css.deleteColumn}>
             {layers.map((layer, index) => (
               <div
@@ -287,7 +288,7 @@ export function Effects({ value, onChange, showTitle, collapse }: EffectsProps) 
               </div>
             ))}
           </div>
-        ) : <></>
+        ) : undefined
       }
     >
       {layers.length > 0 && (

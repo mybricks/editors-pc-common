@@ -483,8 +483,9 @@ export function Background({
 
   // ── Render ───────────────────────────────────────────────────────────────
 
-  // 没有背景图层时默认折叠
-  const effectiveCollapse = layers.length === 0 ? true : collapse;
+  // 没有背景图层时默认折叠；inherited（CSSOM/父级回显、非本文件写入）展开且无减号
+  const isInherited = collapse === 'inherited';
+  const effectiveCollapse = layers.length === 0 && !isInherited ? true : collapse;
 
   return (
     <Panel
@@ -496,7 +497,8 @@ export function Background({
       deleteRef={panelDeleteRef}
       resetFunction={handleReset}
       rightColumn={
-        layers.length > 0 ? (
+        // 继承/只读回显时不渲染层删除列，交给 Panel 的 inherited 占位（否则 rightColumn 会绕过减号隐藏）
+        layers.length > 0 && !isInherited ? (
           <div className={css.deleteColumn}>
             {layers.map((layer, index) => (
               <div
@@ -508,7 +510,7 @@ export function Background({
               </div>
             ))}
           </div>
-        ) : <></>
+        ) : undefined
       }
     >
       {layers.length > 0 && (
