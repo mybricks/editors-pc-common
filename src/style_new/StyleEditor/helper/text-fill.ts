@@ -77,6 +77,14 @@ export const buildSolidTextFill = (
   color: string,
   currentStyle: Record<string, any> = {}
 ): Record<string, any> => {
+  // 无文字渐变栈时只写 color，避免误发 background* 删除冲掉容器 background 简写
+  if (!isTextFillActive(currentStyle)) {
+    return {
+      color,
+      WebkitTextFillColor: null,
+    };
+  }
+
   const {
     contentLayers,
     borderLayer,

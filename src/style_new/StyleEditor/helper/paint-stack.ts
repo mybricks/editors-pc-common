@@ -542,6 +542,11 @@ export const preservePaintRoles = (
   if (isTextFillUpdate) {
     const incomingHasText = clipHasText(String(incomingClip || ''));
     if (!incomingHasText) {
+      // 当前也无 text 栈：只清 WebkitTextFillColor，勿 patch 空背景栈
+      // （否则 backgroundImage=null 会经 expandDeletions 误删 background 简写）
+      if (!currentStack.textLayer && !clipHasText(getBackgroundClip(currentSetValue))) {
+        return items;
+      }
       const composed = composeBackgroundStack({
         textLayer: undefined,
         contentLayers: currentStack.contentLayers,
