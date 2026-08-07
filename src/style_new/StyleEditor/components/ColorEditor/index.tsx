@@ -15,8 +15,24 @@ import {
 } from "../../components";
 import { Panel, Colorpicker, UnbindingOutlined, BindingOutlined } from "../";
 import { color2rgba, getRealKey } from "../../utils";
+import { parseCssVar } from "../../../core/resolve-css-var-color";
 
 import css from "./index.less";
+
+const isCssVarRef = (value: unknown): value is string =>
+  typeof value === "string" && value.trim().startsWith("var(");
+
+/** 可提交的完整 CSS 变量：var(--name) / var(--name, fallback) */
+const isCommitableCssVar = (value: string) => !!parseCssVar(value.trim());
+
+/** 纯十六进制数字（3/6/8 位、无 #）时自动补上 #；中间态不强制补，避免干扰输入 */
+const normalizeColorInput = (value: string) => {
+  const trimmed = value.trim();
+  if (/^[0-9a-fA-F]{3}$|^[0-9a-fA-F]{6}$|^[0-9a-fA-F]{8}$/.test(trimmed)) {
+    return `#${trimmed}`;
+  }
+  return trimmed;
+};
 
 const IMAGE_RELATED_KEYS = ['backgroundSize', 'backgroundRepeat', 'backgroundPosition'] as const;
 const ALL_BACKGROUND_KEYS = ['backgroundColor', 'backgroundImage', ...IMAGE_RELATED_KEYS] as const;
@@ -347,31 +363,53 @@ export function ColorEditor({
 
   const handleInputChange = useCallback(
     (value: string) => {
-      let finalValue = state.value;
+      const normalized = normalizeColorInput(value);
+
+      // 完整合法 var(--x) 才提交；半截 var( / 乱写 var(foo) 不落盘
+      if (isCssVarRef(normalized)) {
+        if (!isCommitableCssVar(normalized)) return;
+        emitChange('backgroundColor', normalized);
+        dispatch({
+          nonColorValue: true,
+          value: normalized,
+          finalValue: normalized,
+        });
+        return;
+      }
 
       try {
-        const color = new ColorUtil(value).alpha(opacityNumber);
-        finalValue = fixHex(color.hexa());
-        const rgbaValue = color2rgba(finalValue);
+        const color = new ColorUtil(normalized).alpha(opacityNumber);
+        const next = fixHex(color.hexa());
+        const rgbaValue = color2rgba(next);
         emitChange('backgroundColor', rgbaValue);
         dispatch({
-          value: finalValue,
-          finalValue,
+          nonColorValue: false,
+          value: next,
+          finalValue: next,
         });
-      } catch { }
+      } catch {
+        // 非法色值：只改输入框展示，不写样式
+      }
     },
-    [state.value, opacityNumber, emitChange]
+    [opacityNumber, emitChange]
   );
 
   const handleInputBlur = useCallback(() => {
-    setUserInput(new ColorUtil(state.value).hex());
-    const { value, finalValue } = state;
-    if (value !== finalValue) {
-      dispatch({
-        value: finalValue,
-      });
+    const { value, finalValue, nonColorValue } = state;
+    // 失焦回退到已提交值，乱输入不会残留
+    if (nonColorValue || isCssVarRef(value) || isCssVarRef(finalValue)) {
+      setUserInput(value);
+    } else {
+      try {
+        setUserInput(new ColorUtil(finalValue || value).hex());
+      } catch {
+        setUserInput(finalValue || value || '');
+      }
     }
-  }, [state.value, state.finalValue]);
+    if (value !== finalValue && finalValue) {
+      dispatch({ value: finalValue });
+    }
+  }, [state.value, state.finalValue, state.nonColorValue]);
 
   const [userInput, setUserInput] = useState(colorString);
   const [checkColor, setCheckColor] = useState<string>("");
@@ -383,14 +421,14 @@ export function ColorEditor({
   }, [colorString]);
   const inputColorRef = useRef<HTMLInputElement>(null);
   const handlePaste = (event: React.ClipboardEvent<HTMLInputElement>) => {
-    // 获取粘贴的文本
     const pastedText = event.clipboardData?.getData("text");
-    // 检查文本的第一个字符是否为 '#' 且长度为7
-
-    if (pastedText?.startsWith("#") && pastedText.length === 7) {
+    if (!pastedText) return;
+    const normalized = normalizeColorInput(pastedText);
+    // #RGB / #RRGGBB / 纯十六进制数字
+    if (/^#[0-9a-fA-F]{3}$|^#[0-9a-fA-F]{6}$|^#[0-9a-fA-F]{8}$/.test(normalized)) {
       event.preventDefault();
-      setUserInput(pastedText);
-      handleInputChange(pastedText);
+      setUserInput(normalized);
+      handleInputChange(normalized);
     }
   };
 
@@ -444,7 +482,8 @@ export function ColorEditor({
       );
     }
 
-    if (nonColorValue) {
+    // 主题色标题等仍走绑定展示；var() 回显走下方输入框
+    if (nonColorValue && !isCssVarRef(value)) {
       return (
         <>
           <div className={css.text} onClick={onPresetClick}>
@@ -460,7 +499,7 @@ export function ColorEditor({
     }
     return (
       <input
-        data-mybricks-tip={"支持16进制、RGB、RGBA、HSL、HSLA或颜色名称"}
+        data-mybricks-tip={"支持16进制、RGB、RGBA、HSL、HSLA、var()或颜色名称"}
         ref={inputColorRef}
         value={userInput}
         className={css.input}
@@ -469,18 +508,18 @@ export function ColorEditor({
           onFocus && onFocus?.();
         }}
         onChange={(e) => {
-          handleInputChange(e.target.value);
-          setUserInput(e.target.value);
+          const next = normalizeColorInput(e.target.value);
+          setUserInput(next);
+          handleInputChange(next);
         }}
         onBlur={() => {
           isFocus.current = false;
           handleInputBlur();
         }}
         onPaste={handlePaste}
-        disabled={nonColorValue}
       />
     );
-  }, [userInput, state.value, state.nonColorValue, state.finalValue, onPresetClick, handleReset, handleUnbind]);
+  }, [userInput, state.value, state.nonColorValue, state.finalValue, onPresetClick, handleReset, handleUnbind, handleInputChange, handleInputBlur]);
 
   const handleOpacityChange = useCallback(
     (value: string) => {
