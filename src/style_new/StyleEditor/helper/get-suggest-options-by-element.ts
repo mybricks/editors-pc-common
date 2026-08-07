@@ -337,7 +337,8 @@ function shouldBorderRadiusDisabled(selectDom: HTMLElement) {
 function shouldMarginDisabled(selectDom: HTMLElement) {
   const selectDomStyle = window.getComputedStyle(selectDom);
 
-  if (selectDomStyle.display === 'table-header-group' || selectDomStyle.display === 'table-row' || selectDomStyle.display === 'table-cell' || selectDomStyle.position === 'absolute' || selectDomStyle.position === 'fixed' || selectDomStyle.position === 'sticky') {
+  // absolute/fixed/sticky 的 margin 仍会叠加偏移 top/left，需要保留编辑入口
+  if (selectDomStyle.display === 'table-header-group' || selectDomStyle.display === 'table-row' || selectDomStyle.display === 'table-cell') {
     return {
       disableMarginLeft: true,
       disableMarginRight: true,
