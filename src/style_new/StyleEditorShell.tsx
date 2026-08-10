@@ -43,6 +43,7 @@ import {
 import type { SavedSoloStyle } from './core/build-solo-selector'
 import { getDocument } from './core/dom'
 import { goBackIcon } from './icon'
+import { ZoneTabBar } from './ZoneTabBar'
 import css from './index.less'
 
 async function writeClipboardText(text: string): Promise<boolean> {
@@ -619,45 +620,6 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
     } catch {}
   }
 
-  const zoneTabBar = useMemo(() => {
-    if (zoneSelectorList.length < 2) return null
-    return (
-      <div className={css.zoneTabBar}>
-        {zoneSelectorList.map((sel, idx) => {
-          const parts = sel.trim().split(/\s+/)
-          const lastPart = parts[parts.length - 1]
-          // 含伪类的选择器只显示伪类部分（如 ":hover"），基础态选择器保持原逻辑
-          const pseudoMatch = lastPart.match(/(:{1,2}[a-zA-Z\-]+(?:\([^)]*\))?)$/)
-          const rawLabel = lastPart.replace(/^\./, '')
-          let label: string
-          if (pseudoMatch) {
-            label = pseudoMatch[1]
-          } else {
-            // 若复合类中含有 CSS Modules 哈希类名（形如 "pages_xxx--cyan"），
-            // 只显示哈希类名中 '--' 之后的原始部分（如 "cyan"），避免超长显示
-            const classes = rawLabel.split('.')
-            const hashedClasses = classes.filter((cls) => cls.includes('--'))
-            label =
-              hashedClasses.length > 0
-                ? hashedClasses.map((cls) => cls.slice(cls.lastIndexOf('--') + 2)).join('.')
-                : rawLabel
-          }
-          return (
-            <div
-              key={sel}
-              className={`${css.zoneTab}${idx === activeZoneIdx ? ` ${css.zoneTabActive}` : ''}`}
-              onClick={() => {
-                setActiveZoneIdx(idx)
-              }}
-            >
-              {label}
-            </div>
-          )
-        })}
-      </div>
-    )
-  }, [zoneSelectorList.join(','), activeZoneIdx])
-
   const showEditModeControl = affectedCount !== null && affectedCount > 1
 
   return {
@@ -699,7 +661,13 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
             </div>
           </div>
         )}
-        {zoneSelectorList.length > 0 && zoneTabBar}
+        {zoneSelectorList.length > 1 && (
+          <ZoneTabBar
+            selectors={zoneSelectorList}
+            activeIdx={activeZoneIdx}
+            onSelect={setActiveZoneIdx}
+          />
+        )}
         {showEditModeControl && (
           <div className={css.editModeControl}>
             <Checkbox

@@ -233,21 +233,12 @@
 
 .zoneTabBar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: center;
+  gap: 6px 4px;
   margin: 4px 6px 6px;
   position: relative;
-
-  // &::before {
-  //   content: '';
-  //   position: absolute;
-  //   left: 0;
-  //   right: 0;
-  //   top: 50%;
-  //   height: 1px;
-  //   background-color: rgba(230, 230, 230, 0.63922);
-  //   transform: translateY(-50%);
-  // }
 }
 
 .zoneTab {
@@ -261,22 +252,11 @@
   color: @font-color-content;
   background-color: @bg-color-main;
   border: 1px solid @boder-color;
-  margin-right: -1px;
+  border-radius: 6px;
   white-space: nowrap;
   position: relative;
   z-index: 1;
   transition: background-color 0.15s, color 0.15s, border-color 0.15s;
-
-  &:first-child {
-    border-top-left-radius: 6px;
-    border-bottom-left-radius: 6px;
-  }
-
-  &:last-child {
-    border-top-right-radius: 6px;
-    border-bottom-right-radius: 6px;
-    margin-right: 0;
-  }
 
   &:hover {
     color: @font-color-content;
