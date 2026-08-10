@@ -750,11 +750,12 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
                 }
                 prefix={<FontFamilyOutlined />}
                 style={{ padding: "0 8px", overflow: "hidden" }}
-                labelStyle={
-                  innerFontFamily?.[0] && innerFontFamily[0] !== "inherit"
+                labelStyle={{
+                  textAlign: "left",
+                  ...(innerFontFamily?.[0] && innerFontFamily[0] !== "inherit"
                     ? { fontFamily: quoteIfNeeded(innerFontFamily[0]) }
-                    : undefined
-                }
+                    : {}),
+                }}
                 options={fontFamilyOptions()}
                 multiple={true}
                 value={innerFontFamily}
@@ -794,11 +795,12 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
                 }
                 prefix={<FontFamilyOutlined />}
                 style={{ padding: "0 8px", overflow: "hidden" }}
-                labelStyle={
-                  innerFontFamily?.[0] && innerFontFamily[0] !== "inherit"
+                labelStyle={{
+                  textAlign: "left",
+                  ...(innerFontFamily?.[0] && innerFontFamily[0] !== "inherit"
                     ? { fontFamily: quoteIfNeeded(innerFontFamily[0]) }
-                    : undefined
-                }
+                    : {}),
+                }}
                 options={fontFamilyOptions()}
                 value={innerFontFamily?.[0] && innerFontFamily[0] !== 'inherit' ? innerFontFamily[0] : undefined}
                 clearable={!!(innerFontFamily?.[0] && innerFontFamily[0] !== 'inherit')}

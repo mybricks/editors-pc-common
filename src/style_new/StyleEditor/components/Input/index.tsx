@@ -3,7 +3,7 @@ import React, {
   CSSProperties,
   useState,
   useCallback,
-  useEffect,
+  useLayoutEffect,
 } from "react";
 
 import { Panel } from "../";
@@ -56,7 +56,8 @@ export function Input({
     onChange?.(value);
   }, []);
 
-  useEffect(() => {
+  // 外部值（例如切换选中组件）必须在绘制前同步，避免先显示上一组件的数字。
+  useLayoutEffect(() => {
     if (value !== inputValue) {
       setInputValue(value);
     }
@@ -73,8 +74,7 @@ export function Input({
               </div>
             )}
             <input
-              // value={value || inputValue}
-              defaultValue={inputValue}
+              value={inputValue ?? ''}
               onChange={handleInputChange}
               disabled={disabled}
               placeholder={placeholder}
@@ -92,9 +92,8 @@ export function Input({
           <>
             {suffix && <div className={css.suffix}>{suffix}</div>}
             <input
-              // value={value || inputValue}
+              value={inputValue ?? ''}
               style={{ textAlign: 'right',paddingRight: 3 }}
-              defaultValue={inputValue}
               onChange={handleInputChange}
               disabled={disabled}
               placeholder={placeholder}

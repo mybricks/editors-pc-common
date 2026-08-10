@@ -658,8 +658,7 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
     )
   }, [zoneSelectorList.join(','), activeZoneIdx])
 
-  const showEditModeBar = affectedCount !== null && affectedCount > 1
-  const showAffectedHint = zoneSelectorList.length > 0 && affectedCount !== null && affectedCount > 1
+  const showEditModeControl = affectedCount !== null && affectedCount > 1
 
   return {
     render: (
@@ -701,32 +700,28 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
           </div>
         )}
         {zoneSelectorList.length > 0 && zoneTabBar}
-        {(showEditModeBar || showAffectedHint) && (
+        {showEditModeControl && (
           <div className={css.editModeControl}>
-            {showEditModeBar && (
-              <Checkbox
-                checked={!isSoloEdit}
-                onChange={(event) => (event.target.checked ? onExitSoloEdit() : onEnterSoloEdit())}
-              >
-                应用至全部
-              </Checkbox>
-            )}
-            {showAffectedHint && (
-              <div
-                className={`${css.affectedHint} ${
-                  isSoloEdit ? css.soloAffectedHint : css.batchAffectedHint
-                }`}
-              >
-                {isSoloEdit
-                  ? '当前仅编辑选中区域'
-                  : `修改会影响 ${affectedCount}个区域`}
-              </div>
-            )}
+            <Checkbox
+              checked={!isSoloEdit}
+              onChange={(event) => (event.target.checked ? onExitSoloEdit() : onEnterSoloEdit())}
+            >
+              应用至全部
+            </Checkbox>
+            <div
+              className={`${css.affectedHint} ${
+                isSoloEdit ? css.soloAffectedHint : css.batchAffectedHint
+              }`}
+            >
+              {isSoloEdit
+                ? '当前仅编辑选中区域'
+                : `修改会影响 ${affectedCount}个区域`}
+            </div>
           </div>
         )}
         <div className={css.styleSection}>
           {title}
-          <div key={`${key}_${activeZoneIdx}`} style={{ display: open ? 'block' : 'none' }}>
+          <div style={{ display: open ? 'block' : 'none' }}>
             {show && editor}
           </div>
         </div>

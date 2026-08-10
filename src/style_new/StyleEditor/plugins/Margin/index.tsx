@@ -1,5 +1,6 @@
 import React, {
   useEffect,
+  useLayoutEffect,
   useMemo,
   useState,
   useCallback,
@@ -78,6 +79,15 @@ export function Margin ({value, onChange, config, showTitle, collapse}: MarginPr
   }, [onChange])
 
   const cfg = useMemo(() => ({ ...DEFAULT_CONFIG, ...(config ?? {}) }), [config]);
+
+  // 面板实例会在切换选中组件时复用，需同步新的边距值，避免先显示上一组件的数字。
+  useLayoutEffect(() => {
+    setMarginValue((previous) => {
+      const next = {...value};
+      return MARGIN_KEYS.every((key) => previous[key] === next[key]) ? previous : next;
+    });
+    setToggle(getToggleDefaultValue(value));
+  }, [value.marginTop, value.marginRight, value.marginBottom, value.marginLeft]);
 
   const handleChange = useCallback((value: CSSProperties & Record<string, any>) => {
     setMarginValue((val) => {
@@ -178,10 +188,10 @@ export function Margin ({value, onChange, config, showTitle, collapse}: MarginPr
               <Panel.Content style={{ padding: 3 }}>
                 <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
                   <div 
-                    className={css.icon} 
+                    className={`${css.icon} ${css.leftMarginIcon}`} 
                     {...getDragProps(marginValue.marginLeft, '拖拽调整左外边距')}
                   >
-                    <PaddingLeftOutlined/>
+                    <PaddingRightOutlined/>
                   </div>
                   <InputNumber
                     style={DEFAULT_STYLE}
@@ -190,7 +200,7 @@ export function Margin ({value, onChange, config, showTitle, collapse}: MarginPr
                     allowNegative
                     fallbackValue={0}
                     onChange={(value) => handleChange({marginLeft: value})}
-                    onFocus={() => setSplitMarginIcon(<PaddingLeftOutlined/>)}
+                    onFocus={() => setSplitMarginIcon(<PaddingRightOutlined/>)}
                   />
                 </Panel.Item>
               </Panel.Content>
@@ -200,7 +210,7 @@ export function Margin ({value, onChange, config, showTitle, collapse}: MarginPr
                     className={css.icon} 
                     {...getDragProps(marginValue.marginTop, '拖拽调整上外边距')}
                   >
-                    <PaddingTopOutlined/>
+                    <PaddingBottomOutlined/>
                   </div>
                   <InputNumber
                     style={DEFAULT_STYLE}
@@ -209,7 +219,7 @@ export function Margin ({value, onChange, config, showTitle, collapse}: MarginPr
                     allowNegative
                     fallbackValue={0}
                     onChange={(value) => handleChange({marginTop: value})}
-                    onFocus={() => setSplitMarginIcon(<PaddingTopOutlined/>)}
+                    onFocus={() => setSplitMarginIcon(<PaddingBottomOutlined/>)}
                   />
                 </Panel.Item>
               </Panel.Content>
@@ -218,10 +228,10 @@ export function Margin ({value, onChange, config, showTitle, collapse}: MarginPr
               <Panel.Content style={{ padding: 3 }}>
                 <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
                   <div 
-                    className={`${css.icon} ${css.leftMarginIcon}`}
+                    className={css.icon}
                     {...getDragProps(marginValue.marginRight, '拖拽调整右外边距')}
                   >
-                    <PaddingRightOutlined/>
+                    <PaddingLeftOutlined/>
                   </div>
                   <InputNumber
                     style={DEFAULT_STYLE}
@@ -230,7 +240,7 @@ export function Margin ({value, onChange, config, showTitle, collapse}: MarginPr
                     allowNegative
                     fallbackValue={0}
                     onChange={(value) => handleChange({marginRight: value})}
-                    onFocus={() => setSplitMarginIcon(<PaddingRightOutlined/>)}
+                    onFocus={() => setSplitMarginIcon(<PaddingLeftOutlined/>)}
                   />
                 </Panel.Item>
               </Panel.Content>
@@ -240,7 +250,7 @@ export function Margin ({value, onChange, config, showTitle, collapse}: MarginPr
                     className={css.icon} 
                     {...getDragProps(marginValue.marginBottom, '拖拽调整下外边距')}
                   >
-                    <PaddingBottomOutlined/>
+                    <PaddingTopOutlined/>
                   </div>
                   <InputNumber
                     style={DEFAULT_STYLE}
@@ -249,7 +259,7 @@ export function Margin ({value, onChange, config, showTitle, collapse}: MarginPr
                     allowNegative
                     fallbackValue={0}
                     onChange={(value) => handleChange({marginBottom: value})}
-                    onFocus={() => setSplitMarginIcon(<PaddingBottomOutlined/>)}
+                    onFocus={() => setSplitMarginIcon(<PaddingTopOutlined/>)}
                   />
                 </Panel.Item>
               </Panel.Content>

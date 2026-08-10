@@ -743,7 +743,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                 data-mybricks-tip="边框位置设置"
                     onClick={() => setShowStyleSettings(v => !v)}
               >
-                    <SettingIcon />
+                    <SettingIcon size={22} />
                   </div>
             )}
           </div>

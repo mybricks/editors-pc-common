@@ -254,12 +254,14 @@ const icons = {
 export default ({
                   name,
                   style,
+                  className,
                 }: {
   name: keyof typeof icons;
   style?: CSSProperties;
+  className?: string;
 }) => {
   return (
-    <span style={style} className={styles.anticon}>
+    <span style={style} className={`${styles.anticon} ${className || ''}`}>
       {icons[name]}
     </span>
   );

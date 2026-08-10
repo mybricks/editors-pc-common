@@ -411,7 +411,7 @@ function LayoutEditor({ editValue, onChangeValue }: LayoutEditorInternalProps): 
         <span
           className={styles.overflowLabel}
           onClick={toggle}
-          data-mybricks-tip="开启后，元素会与前后的内容显示在同一行"
+          data-mybricks-tip="与相邻内容同行显示"
         >
           内联显示
         </span>
