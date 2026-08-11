@@ -202,6 +202,8 @@ export function Flex({ value, onChange, showTitle, collapse }: FlexProps) {
   const isEditingGrowRef = useRef(false)
   const isEditingShrinkRef = useRef(false)
   const isEditingBasisRef = useRef(false)
+  // 切回比例时 advanced 输入会卸载并触发 blur；抑制这次 blur 落盘，避免盖掉简写写入
+  const suppressLonghandBlurRef = useRef(false)
 
   useEffect(() => {
     if (!isEditingRef.current) setLocalValue(echo)
@@ -232,6 +234,8 @@ export function Flex({ value, onChange, showTitle, collapse }: FlexProps) {
     isNonEmpty(value?.flexBasis)
 
   const switchToAdvanced = useCallback(() => {
+    // 进入单独配置后允许长写 blur 落盘
+    suppressLonghandBlurRef.current = false
     // 从比例切到单独：把当前简写解析进三字段，便于对照编辑（写入仍等用户改长写）
     if (localValue.trim()) {
       const parsed = parseFlexShorthand(localValue.trim())
@@ -286,6 +290,8 @@ export function Flex({ value, onChange, showTitle, collapse }: FlexProps) {
     // 单独配置切回统一配置时，以增长系数作为比例值。
     // 例：grow:5 / shrink:12 / basis:12% → flex:5，并清空三项长写。
     const ratio = localGrow.trim()
+    // 先抑制：随后 advanced 输入卸载触发的 blur 不得再 commitLonghands
+    suppressLonghandBlurRef.current = true
     if (ratio) {
       commitShorthand(ratio)
       return
@@ -296,6 +302,10 @@ export function Flex({ value, onChange, showTitle, collapse }: FlexProps) {
   /** 写长写三件套，清简写，避免打架 */
   const commitLonghands = useCallback(
     (next: { grow?: string; shrink?: string; basis?: string }) => {
+      if (suppressLonghandBlurRef.current) {
+        return
+      }
+
       const grow = next.grow !== undefined ? next.grow.trim() : localGrow.trim()
       const shrink = next.shrink !== undefined ? next.shrink.trim() : localShrink.trim()
       const basisRaw = next.basis !== undefined ? next.basis : localBasis
