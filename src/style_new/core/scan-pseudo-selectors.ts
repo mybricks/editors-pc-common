@@ -8,6 +8,17 @@ import { forEachSelectorPart } from './selector-utils'
 export const PSEUDO_ORDER = [':hover', ':focus', ':focus-visible', ':focus-within', ':active', ':disabled', ':checked', ':placeholder-shown']
 
 /**
+ * 类选择器匹配模式：精确短名，或 CSS Modules 混淆名（前缀须含 `_`）。
+ * 例：".inputArea" → ".inputArea" | ".pages_Foo_less-inputArea"
+ * 不可写成 `[\w-]*-inputArea`，否则会把 ".aiChat-inputArea" 误当成 ".inputArea"。
+ */
+function classSegmentPattern(lastSegment: string): string {
+  if (!lastSegment.startsWith('.')) return escapeRegExp(lastSegment)
+  const shortName = escapeRegExp(lastSegment.slice(1))
+  return `(?:\\.${shortName}|\\.[\\w-]*_[\\w-]*-${shortName})`
+}
+
+/**
  * 扫描 shadow DOM 里的 <style> 标签，找出指定选择器在当前组件（comId）样式表中
  * 实际存在的伪类变体。
  *
@@ -56,10 +67,8 @@ export function scanPseudoSelectors(baseSelectors: string[], comId: string): str
         // 用完整路径匹配会因为中间层级不一致（LESS嵌套展开后路径与JSX祖先链不同）而失败
         const lastSegment = sel.trim().split(/\s+/).pop() || sel
         // 类选择器（以 . 开头）需同时匹配 CSS Modules 编译后带前缀的形式
-        // 例：lastSegment=".glowBox" → 同时匹配 ".glowBox" 和 "pages_xxx_less-glowBox"
-        const segmentPattern = lastSegment.startsWith('.')
-          ? `(?:${escapeRegExp(lastSegment)}|[\\w\\-]*\\-${escapeRegExp(lastSegment.slice(1))})`
-          : escapeRegExp(lastSegment)
+        // 例：lastSegment=".glowBox" → 同时匹配 ".glowBox" 和 ".pages_xxx_less-glowBox"
+        const segmentPattern = classSegmentPattern(lastSegment)
         const regex = new RegExp(
           escapeRegExp(comId) + '.*' + segmentPattern + '(:{1,2}[a-zA-Z\\-]+(?:\\([^)]*\\))?)$'
         )
@@ -85,9 +94,7 @@ export function scanPseudoSelectors(baseSelectors: string[], comId: string): str
           const segments = sel.trim().split(/\s+/)
           if (segments.length >= 2) {
             const parentLastSeg = segments[segments.length - 2]
-            const parentSegPattern = parentLastSeg.startsWith('.')
-              ? `(?:${escapeRegExp(parentLastSeg)}|[\\w\\-]*\\-${escapeRegExp(parentLastSeg.slice(1))})`
-              : escapeRegExp(parentLastSeg)
+            const parentSegPattern = classSegmentPattern(parentLastSeg)
             const parentPseudoRegex = new RegExp(
               escapeRegExp(comId) + '.*' + parentSegPattern + '(:{1,2}[a-zA-Z\\-]+(?:\\([^)]*\\))?)$'
             )
