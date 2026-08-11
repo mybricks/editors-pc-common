@@ -150,31 +150,33 @@ export function getCssVarColorOptions(scopeEl?: Element | null): CssVarColorOpti
 
   const ownerDocument = scopeEl.ownerDocument || document
   const getStyle = ownerDocument.defaultView?.getComputedStyle || getComputedStyle
-  const pageElement = scopeEl.closest('[data-zone-type="page"]')
-  if (!pageElement) return []
+  const collectOptions = (element: Element): CssVarColorOption[] => {
+    const computed = getStyle(element)
+    const options = new Map<string, CssVarColorOption>()
 
-  const scopeComputed = getStyle(scopeEl)
-  const pageParentComputed = pageElement.parentElement
-    ? getStyle(pageElement.parentElement)
-    : null
-
-  const options = new Map<string, CssVarColorOption>()
-  try {
-    for (let index = 0; index < scopeComputed.length; index++) {
-      const name = scopeComputed[index]
+    for (let index = 0; index < computed.length; index++) {
+      const name = computed[index]
       if (!name?.startsWith('--') || options.has(name)) continue
 
-      const value = scopeComputed.getPropertyValue(name).trim()
-      const inheritedValue = pageParentComputed?.getPropertyValue(name).trim()
-      if (inheritedValue === value || !isParseableColor(value)) continue
-
-      options.set(name, { name, value })
+      const value = computed.getPropertyValue(name).trim()
+      if (isParseableColor(value)) {
+        options.set(name, { name, value })
+      }
     }
-  } catch {
-    // ignore unavailable canvas styles
+
+    return Array.from(options.values())
   }
 
-  return Array.from(options.values())
+  try {
+    const scopeOptions = collectOptions(scopeEl)
+    if (scopeOptions.length) return scopeOptions
+
+    const pageElement = scopeEl.closest('[data-zone-type="page"]')
+    return pageElement && pageElement !== scopeEl ? collectOptions(pageElement) : []
+  } catch {
+    // ignore unavailable canvas styles
+    return []
+  }
 }
 
 /**
