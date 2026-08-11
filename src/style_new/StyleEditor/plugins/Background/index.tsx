@@ -302,29 +302,31 @@ function LayerItem({
       )}
 
       {/* Opacity */}
-      <div className={css.opacity}>
-        {layer.type === "solid" && !isVariableReference ? (
-          <input
-            type="number"
-            min={0}
-            max={100}
-            value={Math.round(opacity)}
-            onChange={handleOpacityChange}
-          />
-        ) : (
-          <span style={{ width: 20, textAlign: "right", fontSize: 10 }}>100</span>
-        )}
-        {layer.type === "solid" && !isVariableReference ? (
-          <div
-            {...getDragProps(Math.round(opacity), "{content:'拖拽调整不透明度',position:'left'}")}
-            className={css.opacityUnit}
-          >
-            %
-          </div>
-        ) : (
-          <div>%</div>
-        )}
-      </div>
+      {!isVariableReference && (
+        <div className={css.opacity}>
+          {layer.type === "solid" ? (
+            <input
+              type="number"
+              min={0}
+              max={100}
+              value={Math.round(opacity)}
+              onChange={handleOpacityChange}
+            />
+          ) : (
+            <span style={{ width: 20, textAlign: "right", fontSize: 10 }}>100</span>
+          )}
+          {layer.type === "solid" ? (
+            <div
+              {...getDragProps(Math.round(opacity), "{content:'拖拽调整不透明度',position:'left'}")}
+              className={css.opacityUnit}
+            >
+              %
+            </div>
+          ) : (
+            <div>%</div>
+          )}
+        </div>
+      )}
     </Panel.Item>
   );
 }
