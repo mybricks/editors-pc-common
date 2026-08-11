@@ -144,37 +144,31 @@ export function lookupCssVarColor(
 
 /** 读取画布节点当前生效、且可用于颜色编辑的 CSS 自定义属性。 */
 export function getCssVarColorOptions(scopeEl?: Element | null): CssVarColorOption[] {
-  if (typeof document === 'undefined' || typeof getComputedStyle !== 'function') {
+  if (typeof document === 'undefined' || typeof getComputedStyle !== 'function' || !scopeEl) {
     return []
   }
 
-  const ownerDocument = scopeEl?.ownerDocument || document
+  const ownerDocument = scopeEl.ownerDocument || document
   const getStyle = ownerDocument.defaultView?.getComputedStyle || getComputedStyle
-  const candidates: Element[] = []
-  let currentElement = scopeEl || null
-  const visitedElements = new Set<Element>()
+  const pageElement = scopeEl.closest('[data-zone-type="page"]')
+  if (!pageElement) return []
 
-  // 仅在当前页面画布内向上收集，页面根节点本身也需要参与读取。
-  while (currentElement && !visitedElements.has(currentElement)) {
-    visitedElements.add(currentElement)
-    candidates.push(currentElement)
-    if (currentElement.getAttribute('data-zone-type') === 'page') break
-    currentElement = currentElement.parentElement
-  }
+  const scopeComputed = getStyle(scopeEl)
+  const pageParentComputed = pageElement.parentElement
+    ? getStyle(pageElement.parentElement)
+    : null
 
   const options = new Map<string, CssVarColorOption>()
   try {
-    for (const element of candidates) {
-      const computed = getStyle(element)
-      for (let index = 0; index < computed.length; index++) {
-        const name = computed[index]
-        if (!name?.startsWith('--') || options.has(name)) continue
+    for (let index = 0; index < scopeComputed.length; index++) {
+      const name = scopeComputed[index]
+      if (!name?.startsWith('--') || options.has(name)) continue
 
-        const value = computed.getPropertyValue(name).trim()
-        if (isParseableColor(value)) {
-          options.set(name, { name, value })
-        }
-      }
+      const value = scopeComputed.getPropertyValue(name).trim()
+      const inheritedValue = pageParentComputed?.getPropertyValue(name).trim()
+      if (inheritedValue === value || !isParseableColor(value)) continue
+
+      options.set(name, { name, value })
     }
   } catch {
     // ignore unavailable canvas styles
