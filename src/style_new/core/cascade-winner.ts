@@ -39,16 +39,22 @@ function extractPropValue(rule: CSSStyleRule, hyphen: string): string {
   return propVal
 }
 
+export type CascadeWinnerDetail = {
+  value: string
+  spec: any
+  important: boolean
+}
+
 /**
- * 扫描 styleSheets，按 CSS 级联（!important → 特指度 → 源码顺序）找出属性胜出值。
+ * 扫描 styleSheets，按 CSS 级联（!important → 特指度 → 源码顺序）找出属性胜出详情。
  * - default：匹配 element，跳过交互伪类规则
  * - hover：仅匹配以 :hover 结尾且 element 匹配基础选择器的规则
  */
-export function findCascadeWinner(
+export function findCascadeWinnerDetail(
   element: HTMLElement,
   hyphen: string,
   mode: CascadeMode = 'default'
-): string | null {
+): CascadeWinnerDetail | null {
   let winnerValue: string | null = null
   let winnerSpec: any = null
   let winnerImportant = false
@@ -110,5 +116,37 @@ export function findCascadeWinner(
       } catch {}
     }
   } catch {}
-  return winnerValue
+  return winnerValue && winnerSpec
+    ? { value: winnerValue, spec: winnerSpec, important: winnerImportant }
+    : null
+}
+
+/**
+ * 扫描 styleSheets，按 CSS 级联（!important → 特指度 → 源码顺序）找出属性胜出值。
+ * - default：匹配 element，跳过交互伪类规则
+ * - hover：仅匹配以 :hover 结尾且 element 匹配基础选择器的规则
+ */
+export function findCascadeWinner(
+  element: HTMLElement,
+  hyphen: string,
+  mode: CascadeMode = 'default'
+): string | null {
+  return findCascadeWinnerDetail(element, hyphen, mode)?.value ?? null
+}
+
+/** 当前 zone 自身规则里，声明了指定属性的最高特指度（用于避免同特指度兄弟 zone 串色） */
+export function getOwnDeclaringMaxSpec(
+  rules: CSSStyleRule[],
+  element: HTMLElement | null,
+  hyphen: string
+): any | null {
+  let best: any = null
+  for (const rule of rules) {
+    const propVal = extractPropValue(rule, hyphen)
+    if (!propVal) continue
+    const spec = calculateSafeSpecificity(rule.selectorText, element)
+    if (!spec) continue
+    if (best === null || compare(spec, best) >= 0) best = spec
+  }
+  return best
 }

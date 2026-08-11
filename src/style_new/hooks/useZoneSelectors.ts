@@ -148,7 +148,12 @@ export function useZoneSelectors(editConfig: any, targetDom: any, open: boolean)
     }
 
     function syncActiveIdx() {
+      // 同一元素可同时命中多个基础选择器（如 .inputArea 与 .aiChat-inputArea）。
+      // 按 zoneSelectorList 顺序取第一个命中的非伪类项，与 ZoneTabBar 第一项对齐；
+      // 不要用「类名更长」启发式，否则会跳过用户刚编辑的第一个 tab。
       const idx = zoneSelectorList.findIndex((sel) => {
+        const lastPart = sel.trim().split(/\s+/).pop() || ''
+        if (/:{1,2}[a-zA-Z\-]+(?:\([^)]*\))?$/.test(lastPart)) return false
         const base = sel.replace(/:{1,2}[a-zA-Z\-]+(\([^)]*\))?/g, '').trim()
         return !!base && elMatchesSelectorTail(el as Element, base)
       })

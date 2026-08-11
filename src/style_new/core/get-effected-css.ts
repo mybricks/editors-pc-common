@@ -4,7 +4,7 @@ import colorUtil from 'color-string'
 import { compare } from 'specificity'
 
 import { refineEffectedPanel } from '../StyleEditor/helper/paint-stack'
-import { findCascadeWinner } from './cascade-winner'
+import { findCascadeWinner, findCascadeWinnerDetail, getOwnDeclaringMaxSpec } from './cascade-winner'
 import { toHump } from './css-code-codec'
 import { elementHasClassOrHashed } from './css-modules-match'
 import { getDocument } from './dom'
@@ -292,13 +292,35 @@ export function getEffectedCssPropertyAndOptions (element: HTMLElement | null, s
       // 场景：antd `.ant-btn-variant-solid { background: #1677ff }` 特指度 (0,2,0) 高于
       // 组件单类 `.headerStockInBtn` (0,1,0)，实际 background-image 被重置为 none，
       // 但 getValues 读到的是 Less 文件里的渐变值，导致回显错误。
+      //
+      // background: transparent 等简写会把 background-image 写成 initial。
+      // 对面板等同于 none；若再跑级联校正，会把同元素上其他 zone 选择器
+      // （如 .inputArea 的渐变）盖进来，导致切换 ZoneTab 后面板不变化。
+      //
+      // 同特指度兄弟 zone（.inputArea vs .aiChat-inputArea）后写者会在级联扫描里胜出，
+      // 但 ZoneTab 应回显「当前选择器自身声明」。仅当胜者特指度严格更高时才覆盖
+      // （保留 antd 高特指度覆盖组件规则的场景）。
+      if ((values as any)['backgroundImage'] === 'initial') {
+        (values as any)['backgroundImage'] = 'none'
+      }
       const bgImageVal = (values as any)['backgroundImage']
       if (bgImageVal && bgImageVal !== 'none' && !_isVarRef(bgImageVal)) {
-        const bgWinner = _findCascadeWinner('background-image')
-        if (bgWinner !== null) {
+        const bgWinnerDetail = findCascadeWinnerDetail(element, 'background-image', 'default')
+        if (bgWinnerDetail) {
           const norm = (s: string) => s.replace(/\s+/g, ' ').trim().toLowerCase()
-          if (norm(bgImageVal) !== norm(bgWinner)) {
-            (values as any)['backgroundImage'] = bgWinner
+          if (norm(bgImageVal) !== norm(bgWinnerDetail.value)) {
+            const ownMaxSpec = getOwnDeclaringMaxSpec(
+              finalRules as CSSStyleRule[],
+              element,
+              'background-image'
+            )
+            if (
+              !ownMaxSpec ||
+              bgWinnerDetail.important ||
+              compare(bgWinnerDetail.spec, ownMaxSpec) > 0
+            ) {
+              (values as any)['backgroundImage'] = bgWinnerDetail.value
+            }
           }
         }
       }

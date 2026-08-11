@@ -526,6 +526,9 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
 
     const config = getDefaultConfiguration(resolvedEditConfig, suggestOptionsCacheRef.current)
 
+    // 插件内部大量用 useState 初始化 value，切 zone tab 时必须 remount，否则面板不刷新
+    const editorRemountKey = `${key}:${activeZoneIdx}:${String(activeSelector ?? '')}`
+
     if (editMode) {
       const { targetDom: _td, ...activeStyleProps } = config
       if (isResetRef.current) {
@@ -537,6 +540,7 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
       }
       return (
         <StyleMount
+          key={editorRemountKey}
           editConfig={resolvedEditConfig}
           onBatchMetaChange={refreshBatchMeta}
           {...activeStyleProps}
@@ -546,6 +550,7 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
 
     return (
       <CssEditor
+        key={editorRemountKey}
         popView={(editConfig as any).popView}
         getDefaultOptions={editConfig.getDefaultOptions}
         editConfig={resolvedEditConfig}
@@ -557,7 +562,7 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
         editorHandleRef={cssEditorHandleRef}
       />
     )
-  }, [editMode, key, resolveActiveEditContext, refreshBatchMeta])
+  }, [editMode, key, activeZoneIdx, resolveActiveEditContext, refreshBatchMeta])
 
   function onMouseEnter() {
     try {

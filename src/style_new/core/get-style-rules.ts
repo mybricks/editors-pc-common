@@ -1,5 +1,5 @@
 import { getDocument } from './dom'
-import { ruleLastClassBelongsToElement } from './css-modules-match'
+import { classMatchesShortName, ruleLastClassBelongsToElement } from './css-modules-match'
 import {
   filterSelectorParts,
   somePartEqualsOrEndsWith,
@@ -7,6 +7,15 @@ import {
 } from './selector-utils'
 
 const HAS_PSEUDO_RE = /:[a-zA-Z\-]/
+
+/**
+ * 默认态过滤用：剥离平台作用域 :where()/:is() 后再判断是否仍含伪类。
+ * 否则 `:where(.u_xxx) .inputArea` 会被 HAS_PSEUDO_RE 整段丢掉，导致写入后无法回显。
+ */
+function hasNonScopePseudo(selectorPart: string): boolean {
+  const stripped = selectorPart.replace(/:(?:where|is)\([^)]*\)/gi, '')
+  return HAS_PSEUDO_RE.test(stripped)
+}
 
 /** 取选择器末尾 class token（如 ".a .b.c" → ".c"；兼容 CSS Modules 哈希比对交给调用方） */
 function getSelectorLastClassToken(selectorPart: string): string {
@@ -21,7 +30,8 @@ function lastClassTokenMatches(rulePart: string, selectorLastToken: string): boo
   if (lastToken === selectorLastToken) return true
   const ruleClass = lastToken.replace(/^\./, '')
   const selClass = selectorLastToken.replace(/^\./, '')
-  return !!selClass && (ruleClass === selClass || ruleClass.endsWith('-' + selClass))
+  // 用 classMatchesShortName：要求 Modules 前缀含 `_`，避免 .aiChat-inputArea 误匹配 .inputArea
+  return !!selClass && classMatchesShortName(ruleClass, selClass)
 }
 
 /** 状态类场景下，单分支是否命中 lastSeg（含 CSS Modules / 复合类） */
@@ -296,7 +306,8 @@ export function getStyleRules (element: HTMLElement | null, selector: string | n
         // 例：selector=".tabItem"，element=<div class="tabItem">
         // 过滤①：只考虑无伪类的分支，防止 :has()、:hover 等混入默认态
         // 逗号合并如 ".resetBtn, .queryBtn:hover" 仍应让 .resetBtn 分支在默认态命中
-        const nonPseudoParts = filterSelectorParts(selectorText, (p) => !HAS_PSEUDO_RE.test(p))
+        // 注意：:where()/:is() 是平台作用域，必须保留（见 hasNonScopePseudo）
+        const nonPseudoParts = filterSelectorParts(selectorText, (p) => !hasNonScopePseudo(p))
         if (nonPseudoParts.length === 0) continue
 
         // 过滤②：element.matches 会命中 DOM 上所有类的规则，
