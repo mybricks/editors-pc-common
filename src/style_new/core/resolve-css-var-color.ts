@@ -151,9 +151,14 @@ export function getCssVarColorOptions(scopeEl?: Element | null): CssVarColorOpti
   const ownerDocument = scopeEl?.ownerDocument || document
   const getStyle = ownerDocument.defaultView?.getComputedStyle || getComputedStyle
   const candidates: Element[] = []
-  if (scopeEl) candidates.push(scopeEl)
-  if (ownerDocument.documentElement) candidates.push(ownerDocument.documentElement)
-  if (ownerDocument.body) candidates.push(ownerDocument.body)
+  let currentElement = scopeEl || null
+
+  // 仅在当前页面画布内向上收集，页面根节点本身也需要参与读取。
+  while (currentElement) {
+    candidates.push(currentElement)
+    if (currentElement.getAttribute('data-zone-type') === 'page') break
+    currentElement = currentElement.parentElement
+  }
 
   const options = new Map<string, CssVarColorOption>()
   try {
