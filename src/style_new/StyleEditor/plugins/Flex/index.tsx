@@ -391,105 +391,98 @@ export function Flex({ value, onChange, showTitle, collapse }: FlexProps) {
       collapse={effectiveCollapse}
       hideTopBorder
     >
-      {!isAdvanced ? (
-        <div className={css.row}>
-          <Panel.Content style={{ flex: 1, minWidth: 0 }}>
-            <Panel.Item style={{ display: 'flex', alignItems: 'center', paddingLeft: 4 }}>
-              <span className={css.tip} data-mybricks-tip={COPY.fieldTip}>
-                {COPY.fieldLabel}
-              </span>
-              <input
-                type="text"
-                value={localValue}
-                onChange={handleChange}
-                onFocus={handleFocus}
-                onBlur={handleBlur}
-                onKeyDown={handleKeyDown}
-                className={css.input}
-                spellCheck={false}
-              />
-            </Panel.Item>
-          </Panel.Content>
-          <div
-            className={css.actionIcon}
-            data-mybricks-tip={COPY.toAdvancedTip}
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={switchToAdvanced}
-          >
-            <SettingIcon size={22} />
-          </div>
-        </div>
-      ) : (
-        <div className={css.independentBox}>
-          <div className={css.independentFields}>
+      {/* 切换按钮槽位固定，避免比例/单独两套结构导致绝对位置抖动 */}
+      <div className={css.body}>
+        <div className={css.fields}>
+          {!isAdvanced ? (
             <Panel.Content>
               <Panel.Item style={{ display: 'flex', alignItems: 'center', paddingLeft: 4 }}>
-                <span className={css.detailTip} data-mybricks-tip={COPY.growTip}>
-                  {COPY.growLabel}
+                <span className={css.tip} data-mybricks-tip={COPY.fieldTip}>
+                  {COPY.fieldLabel}
                 </span>
                 <input
                   type="text"
-                  value={localGrow}
-                  onChange={(e) => setLocalGrow(e.target.value)}
-                  onFocus={() => {
-                    isEditingGrowRef.current = true
-                  }}
-                  onBlur={handleGrowBlur}
+                  value={localValue}
+                  onChange={handleChange}
+                  onFocus={handleFocus}
+                  onBlur={handleBlur}
                   onKeyDown={handleKeyDown}
                   className={css.input}
                   spellCheck={false}
                 />
               </Panel.Item>
             </Panel.Content>
-            <Panel.Content>
-              <Panel.Item style={{ display: 'flex', alignItems: 'center', paddingLeft: 4 }}>
-                <span className={css.detailTip} data-mybricks-tip={COPY.shrinkTip}>
-                  {COPY.shrinkLabel}
-                </span>
-                <input
-                  type="text"
-                  value={localShrink}
-                  onChange={(e) => setLocalShrink(e.target.value)}
-                  onFocus={() => {
-                    isEditingShrinkRef.current = true
-                  }}
-                  onBlur={handleShrinkBlur}
-                  onKeyDown={handleKeyDown}
-                  className={css.input}
-                  spellCheck={false}
-                />
-              </Panel.Item>
-            </Panel.Content>
-            <Panel.Content>
-              <Panel.Item style={{ display: 'flex', alignItems: 'center', paddingLeft: 4 }}>
-                <span className={css.detailTip} data-mybricks-tip={COPY.basisTip}>
-                  {COPY.basisLabel}
-                </span>
-                <InputNumber
-                  style={{ flex: 1, minWidth: 0, marginLeft: 0, padding: 0 }}
-                  defaultValue={localBasis === 'auto' ? undefined : localBasis || undefined}
-                  defaultUnitValue="%"
-                  unitOptions={BASIS_UNIT_OPTIONS}
-                  unitHideLabelList={[]}
-                  placeholder=""
-                  onFocus={() => {
-                    isEditingBasisRef.current = true
-                  }}
-                  onChange={handleBasisChange}
-                />
-              </Panel.Item>
-            </Panel.Content>
-          </div>
-          <div
-            className={css.independentActionIcon}
-            data-mybricks-tip={COPY.toRatioTip}
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={switchToRatio}
-          >
-            <SettingIcon size={22} />
-          </div>
+          ) : (
+            <>
+              <Panel.Content>
+                <Panel.Item style={{ display: 'flex', alignItems: 'center', paddingLeft: 4 }}>
+                  <span className={css.detailTip} data-mybricks-tip={COPY.growTip}>
+                    {COPY.growLabel}
+                  </span>
+                  <input
+                    type="text"
+                    value={localGrow}
+                    onChange={(e) => setLocalGrow(e.target.value)}
+                    onFocus={() => {
+                      isEditingGrowRef.current = true
+                    }}
+                    onBlur={handleGrowBlur}
+                    onKeyDown={handleKeyDown}
+                    className={css.input}
+                    spellCheck={false}
+                  />
+                </Panel.Item>
+              </Panel.Content>
+              <Panel.Content>
+                <Panel.Item style={{ display: 'flex', alignItems: 'center', paddingLeft: 4 }}>
+                  <span className={css.detailTip} data-mybricks-tip={COPY.shrinkTip}>
+                    {COPY.shrinkLabel}
+                  </span>
+                  <input
+                    type="text"
+                    value={localShrink}
+                    onChange={(e) => setLocalShrink(e.target.value)}
+                    onFocus={() => {
+                      isEditingShrinkRef.current = true
+                    }}
+                    onBlur={handleShrinkBlur}
+                    onKeyDown={handleKeyDown}
+                    className={css.input}
+                    spellCheck={false}
+                  />
+                </Panel.Item>
+              </Panel.Content>
+              <Panel.Content>
+                <Panel.Item style={{ display: 'flex', alignItems: 'center', paddingLeft: 4 }}>
+                  <span className={css.detailTip} data-mybricks-tip={COPY.basisTip}>
+                    {COPY.basisLabel}
+                  </span>
+                  <InputNumber
+                    style={{ flex: 1, minWidth: 0, marginLeft: 0, padding: 0 }}
+                    defaultValue={localBasis === 'auto' ? undefined : localBasis || undefined}
+                    defaultUnitValue="%"
+                    unitOptions={BASIS_UNIT_OPTIONS}
+                    unitHideLabelList={[]}
+                    placeholder=""
+                    onFocus={() => {
+                      isEditingBasisRef.current = true
+                    }}
+                    onChange={handleBasisChange}
+                  />
+                </Panel.Item>
+              </Panel.Content>
+            </>
+          )}
         </div>
-      )}
+        <div
+          className={`${css.actionIcon}${isAdvanced ? ` ${css.active}` : ''}`}
+          data-mybricks-tip={isAdvanced ? COPY.toRatioTip : COPY.toAdvancedTip}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={isAdvanced ? switchToRatio : switchToAdvanced}
+        >
+          <SettingIcon size={22} />
+        </div>
+      </div>
     </Panel>
   )
 }

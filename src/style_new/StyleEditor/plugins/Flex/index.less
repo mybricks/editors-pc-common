@@ -38,14 +38,20 @@
   outline: none;
 }
 
-.row {
+// 比例 / 单独配置共用同一外壳，切换时按钮槽位不动
+.body {
   width: 100%;
   display: flex;
-  align-items: center;
-  padding-right: 3px;
-  overflow: hidden;
+  flex-direction: row;
+  align-items: flex-start;
 }
 
+.fields {
+  flex: 1;
+  min-width: 0;
+}
+
+// 与 Panel.deleteBtn 同尺寸、同顶距；选中只改背景，不改盒模型
 .actionIcon {
   width: 22px;
   height: 22px;
@@ -54,36 +60,16 @@
   justify-content: center;
   flex-shrink: 0;
   cursor: pointer;
+  margin-top: 3px;
   color: @font-color-content;
   border-radius: 5px;
+  box-sizing: border-box;
 
   &:hover {
     background-color: rgba(0, 0, 0, 0.05);
   }
-}
 
-.independentBox {
-  display: flex;
-  flex-direction: row;
-  align-items: flex-start;
-  justify-content: flex-start;
-}
-
-.independentFields {
-  flex: 1;
-  min-width: 0;
-}
-
-.independentActionIcon {
-  width: 24px;
-  height: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  cursor: pointer;
-  margin-top: 4px;
-  color: @font-color-content;
-  background-color: @bg-color-active;
-  border-radius: 5px;
+  &.active {
+    background-color: @bg-color-active;
+  }
 }
