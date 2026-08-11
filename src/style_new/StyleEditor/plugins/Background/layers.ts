@@ -1,6 +1,10 @@
 import ColorUtil from 'color';
 import { resolveCssVarColor } from '../../../core/resolve-css-var-color';
-import { splitBackgroundLayers, isSolidColorGradient } from '../../helper/gradient-border';
+import {
+  splitBackgroundLayers,
+  isSolidColorGradient,
+  isGradientValue,
+} from '../../helper/gradient-border';
 
 export type LayerType = 'solid' | 'gradient' | 'image';
 
@@ -24,7 +28,8 @@ export const generateLayerId = () => `bgl-${Date.now()}-${_counter++}`;
 export function detectLayerType(value: string): LayerType {
   if (!value || value === 'none' || value === '') return 'solid';
   if (value.includes('url(')) return 'image';
-  if (value.includes('gradient')) return 'gradient';
+  // 用函数名匹配，避免 var(--color-gradient-*) 被误判为渐变
+  if (isGradientValue(value)) return 'gradient';
   return 'solid';
 }
 

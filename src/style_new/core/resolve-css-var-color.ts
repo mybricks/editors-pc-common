@@ -95,14 +95,31 @@ function lookupDomCssVarColor(
     const ownerDocument = scopeEl?.ownerDocument || document
     const getStyle = ownerDocument.defaultView?.getComputedStyle || getComputedStyle
     const candidates: Element[] = []
-    if (scopeEl) candidates.push(scopeEl)
-    if (ownerDocument.documentElement) candidates.push(ownerDocument.documentElement)
-    if (ownerDocument.body) candidates.push(ownerDocument.body)
-    const rootDiv = ownerDocument.querySelector('#root > div')
-    if (rootDiv) candidates.push(rootDiv)
+    const seen = new Set<Element>()
+    const push = (el?: Element | null) => {
+      if (!el || seen.has(el)) return
+      seen.add(el)
+      candidates.push(el)
+    }
 
-    for (const el of candidates) {
-      const val = getStyle(el).getPropertyValue(varName).trim()
+    // 从画布节点向上走（含 Shadow host）；自定义属性默认继承
+    let el: Element | null = scopeEl || null
+    while (el) {
+      push(el)
+      const parent = el.parentElement
+      if (parent) {
+        el = parent
+        continue
+      }
+      const root = el.getRootNode?.() as ShadowRoot | Document | null
+      el = root && 'host' in root ? root.host : null
+    }
+    push(ownerDocument.documentElement)
+    push(ownerDocument.body)
+    push(ownerDocument.querySelector('#root > div'))
+
+    for (const candidate of candidates) {
+      const val = getStyle(candidate).getPropertyValue(varName).trim()
       if (val && isParseableColor(val)) return val
     }
   } catch {
@@ -188,4 +205,41 @@ export function resolveCssVarColor(
   }
 
   return null
+}
+
+/**
+ * 将 CSS 值中的所有 var(...) 替换为可展示的具体色（用于编辑器色板/渐变预览）。
+ * 解析失败的 var() 原样保留。
+ */
+export function resolveCssVarsInCssValue(
+  value: string,
+  scopeEl?: Element | null
+): string {
+  if (typeof value !== 'string' || !value.includes('var(')) return value
+
+  let result = ''
+  let i = 0
+  while (i < value.length) {
+    if (value.slice(i, i + 4).toLowerCase() === 'var(') {
+      let depth = 0
+      let j = i
+      for (; j < value.length; j++) {
+        if (value[j] === '(') depth++
+        else if (value[j] === ')') {
+          depth--
+          if (depth === 0) {
+            j++
+            break
+          }
+        }
+      }
+      const varExpr = value.slice(i, j)
+      result += resolveCssVarColor(varExpr, scopeEl) ?? varExpr
+      i = j
+    } else {
+      result += value[i]
+      i++
+    }
+  }
+  return result
 }

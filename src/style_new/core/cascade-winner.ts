@@ -15,15 +15,17 @@ function extractPropValue(rule: CSSStyleRule, hyphen: string): string {
   if (!propVal && hyphen.startsWith('background-')) {
     const bgShorthand = rule.style.getPropertyValue('background')
     if (bgShorthand) {
-      const hasGradient = bgShorthand.includes('gradient')
+      // 含 var() 的 background 简写 longhand 为空；gradient/url 视为 image
+      const isImageLike =
+        /gradient\s*\(/i.test(bgShorthand) || /url\s*\(/i.test(bgShorthand)
       if (hyphen === 'background-image') {
-        // background: color → image 隐式为 none；background: gradient → gradient IS image
-        propVal = hasGradient ? bgShorthand : 'none'
+        // background: color → image 隐式为 none；background: gradient/url → IS image
+        propVal = isImageLike ? bgShorthand : 'none'
       } else if (hyphen === 'background-color') {
-        // background: color → this IS the color；background: gradient → no explicit color
+        // background: color → this IS the color；background: gradient/url → no explicit color
         // Chrome 可能以完整 canonical 形式返回 shorthand（如 'rgb(22,119,255) none 0%...'），
         // 尝试用 rgba?\([^)]+\)|#[0-9a-f]{3,8} 提取首个颜色令牌
-        if (!hasGradient) {
+        if (!isImageLike) {
           const colorMatch = bgShorthand.match(/^(rgba?\([^)]+\)|#[0-9a-f]{3,8}|hsla?\([^)]+\))/)
           propVal = colorMatch ? colorMatch[1] : bgShorthand
         }

@@ -2,12 +2,17 @@ import { CSSProperties } from "react";
 import ColorUtil from "color";
 import { uuid } from "../../../../utils";
 import { color2rgba } from "../../utils";
+import type { CssVarColorOption } from "../../../core/resolve-css-var-color";
 export * from "./GradientParser";
 interface GradientEditorProps {
   defaultValue?: string;
   style?: CSSProperties;
   onChange?: (value: any) => void;
   onTypeChange?: (type: string) => void;
+  /** 当前画布可选的 CSS 颜色变量（用于色标回显） */
+  variableOptions?: CssVarColorOption[];
+  /** 画布目标节点：解析 CSS 变量作用域 */
+  scopeEl?: Element | null;
   [k: string]: any;
 }
 

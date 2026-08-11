@@ -1,7 +1,8 @@
 import { uuid } from "../../../../utils";
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useMemo } from "react";
 import { computePercentage, GradientStop, interpolateColor } from "./constants";
 import React from "react";
+import { resolveCssVarsInCssValue } from "../../../core/resolve-css-var-color";
 import css from "./index.less";
 
 const PanelRender = ({
@@ -11,6 +12,7 @@ const PanelRender = ({
   curElementId,
   setCurElementId,
   setIsMoveDone,
+  scopeEl = null,
 }: {
   gradientColor: string;
   stops: GradientStop[];
@@ -18,6 +20,7 @@ const PanelRender = ({
   curElementId: string | null;
   setCurElementId: (value: string | null) => void;
   setIsMoveDone: (value: boolean) => void;
+  scopeEl?: Element | null;
 }) => {
   const [dragStartFlag, setDragStartFlag] = useState(false);
   const [dragStartPosition, setDragStartPosition] = useState(0);
@@ -26,6 +29,15 @@ const PanelRender = ({
   const [moveMarkerEndTime, setMoveMarkerEndTime] = useState(-1);
 
   const previewRef = useRef<HTMLDivElement>(null);
+  // 编辑器面板不在画布作用域，预览时需把 var() 解析成具体色
+  const resolvedGradientColor = useMemo(
+    () => resolveCssVarsInCssValue(gradientColor, scopeEl),
+    [gradientColor, scopeEl]
+  );
+  const resolveStopColor = useCallback(
+    (color: string) => resolveCssVarsInCssValue(color, scopeEl),
+    [scopeEl]
+  );
 
   // 设置渐变停止点位置
   const setGradientStopPosition = (position: number) => {
@@ -165,7 +177,7 @@ const PanelRender = ({
                     id === curElementId ? css.active : ""
                   }`}
                 >
-                  <div style={{ backgroundColor: color }}></div>
+                  <div style={{ backgroundColor: resolveStopColor(color) }}></div>
                 </div>
               </div>
             );
@@ -175,8 +187,9 @@ const PanelRender = ({
       <div
         className={css.preview}
         style={{
-          backgroundImage: gradientColor,
-          backgroundColor: stops?.length === 1 ? stops[0]?.color : "",
+          backgroundImage: resolvedGradientColor,
+          backgroundColor:
+            stops?.length === 1 ? resolveStopColor(stops[0]?.color) : "",
         }}
         onClick={handlePreviewClick}
         ref={previewRef}

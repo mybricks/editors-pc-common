@@ -13,7 +13,7 @@ import Sketch, { ColorResult } from "@mybricks/color-picker";
 import { GradientEditor } from "../GradientEditor"
 import { ImagePanel } from "../ImagePanel"
 
-import { isDefaultWhiteGradientLayer } from "../../helper/gradient-border";
+import { isDefaultWhiteGradientLayer, isGradientValue } from "../../helper/gradient-border";
 import { CssVarColorOption, parseCssVar } from "../../../core/resolve-css-var-color";
 
 import css from "./index.less";
@@ -41,6 +41,8 @@ interface ColorpickerProps {
   defaultTab?: "custom" | "variable";
   /** 当前画布可选的 CSS 颜色变量 */
   canvasVariableOptions?: CssVarColorOption[];
+  /** 画布目标节点：解析渐变色标中的 CSS 变量 */
+  scopeEl?: Element | null;
   /** 当前已绑定的 CSS 变量名 */
   selectedVariableName?: string;
   showSubTabs?: boolean;
@@ -76,6 +78,7 @@ export function Colorpicker(props:ColorpickerProps) {
     disableVariable = false,
     defaultTab = "custom",
     canvasVariableOptions = [],
+    scopeEl = null,
     selectedVariableName,
     upload,
     imageValue,
@@ -143,6 +146,7 @@ export function Colorpicker(props:ColorpickerProps) {
             disableVariable={disableVariable}
             defaultTab={defaultTab}
             canvasVariableOptions={canvasVariableOptions}
+            scopeEl={scopeEl}
             selectedVariableName={selectedVariableName}
             upload={upload}
             imageValue={imageValue}
@@ -166,6 +170,8 @@ interface ColorSketchProps {
   defaultTab?: "custom" | "variable";
   /** 当前画布可选的 CSS 颜色变量 */
   canvasVariableOptions?: CssVarColorOption[];
+  /** 画布目标节点：解析渐变色标中的 CSS 变量 */
+  scopeEl?: Element | null;
   /** 当前已绑定的 CSS 变量名 */
   selectedVariableName?: string;
   positionElement: HTMLDivElement;
@@ -201,6 +207,7 @@ function ColorSketch({
   disableVariable = false,
   defaultTab = "custom",
   canvasVariableOptions = [],
+  scopeEl = null,
   selectedVariableName,
   upload,
   imageValue = {},
@@ -243,7 +250,7 @@ function ColorSketch({
   const getSubTabByValue = useCallback((currentValue?: string) => {
     if (defaultTab === "variable" && hasVariableOptions) return "variable"
     const isImage = currentValue?.includes?.("url(")
-    const isGradient = currentValue?.includes?.("gradient")
+    const isGradient = isGradientValue(currentValue)
     if (showSubTabs && isImage && !disableBackgroundImage) return "image"
     if (showSubTabs && isGradient && !disableGradient) return "gradient"
     if (!disableBackgroundColor) return "background"
@@ -256,13 +263,13 @@ function ColorSketch({
   
   // 保存纯色和渐变值，切换 tab 时使用
   const [colorValue, setColorValue] = useState<string>(() => {
-    if (value?.includes?.("gradient") || value?.includes?.("url(")) {
+    if (isGradientValue(value) || value?.includes?.("url(")) {
       return defaultColor
     }
     return value || defaultColor
   })
   const [gradientValue, setGradientValue] = useState<string>(() => {
-    if (value?.includes?.("gradient") && !value?.includes?.("url(")) {
+    if (isGradientValue(value) && !value?.includes?.("url(")) {
       // 历史双白占位换成默认可见渐变
       return isDefaultWhiteGradientLayer(value) ? defaultGradient : value
     }
@@ -398,7 +405,12 @@ function ColorSketch({
           <div className={css.subContent}>
             {subTab === "background" && <Sketch color={sketchColor()} onChange={handleSolidChange} />}
             {subTab === "gradient" && (
-              <GradientEditor defaultValue={gradientValue} onChange={handleGradientChange} />
+              <GradientEditor
+                defaultValue={gradientValue}
+                onChange={handleGradientChange}
+                variableOptions={variableOptions}
+                scopeEl={scopeEl}
+              />
             )}
             {subTab === "image" && (
               <ImagePanel value={imageValue} onChange={handleImagePanelChange} upload={upload} />

@@ -23,6 +23,11 @@ import {
   interpretPickerChange,
 } from "./layers";
 import { getContentBackgroundMeta } from "../../helper/paint-stack";
+import {
+  CssVarColorOption,
+  getCssVarColorOptions,
+  resolveCssVarsInCssValue,
+} from "../../../core/resolve-css-var-color";
 
 function GripIcon() {
   return (
@@ -59,7 +64,7 @@ const DEFAULT_CONFIG = {
   useImportant: false,
 };
 
-function getSwatchStyle(layer: BgLayer): CSSProperties {
+function getSwatchStyle(layer: BgLayer, scopeEl?: Element | null): CSSProperties {
   if (layer.type === "image") {
     return {
       backgroundImage: layer.value,
@@ -68,22 +73,41 @@ function getSwatchStyle(layer: BgLayer): CSSProperties {
     };
   }
   if (layer.type === "gradient") {
-    return { backgroundImage: layer.value };
+    // 编辑器面板不在画布作用域，需把 var() 解析成具体色才能预览
+    const resolved = resolveCssVarsInCssValue(layer.value, scopeEl);
+    if (!resolved.includes("var(")) {
+      return { backgroundImage: resolved };
+    }
+    // 兜底：直接读画布节点已计算的 backgroundImage（变量已被浏览器解析）
+    try {
+      const computed = scopeEl
+        ? (scopeEl.ownerDocument?.defaultView || window)
+            .getComputedStyle(scopeEl)
+            .backgroundImage
+        : "";
+      if (computed && computed !== "none") {
+        return { backgroundImage: computed };
+      }
+    } catch {
+      // ignore
+    }
+    return { backgroundImage: resolved };
   }
   // Solid color: when partially transparent, split the swatch left=solid /
   // right=actual opacity (Figma style), so the checkered base shows through.
-  const alpha = getColorOpacity(layer.value);
+  const resolvedSolid = resolveCssVarsInCssValue(layer.value, scopeEl);
+  const alpha = getColorOpacity(resolvedSolid);
   if (alpha < 100) {
     try {
-      const solidHex = new ColorUtil(layer.value).alpha(1).hex();
+      const solidHex = new ColorUtil(resolvedSolid).alpha(1).hex();
       return {
-        backgroundImage: `linear-gradient(to right, ${solidHex} 50%, ${layer.value} 50%)`,
+        backgroundImage: `linear-gradient(to right, ${solidHex} 50%, ${resolvedSolid} 50%)`,
       };
     } catch {
       // fall through to plain backgroundColor
     }
   }
-  return { backgroundColor: layer.value || "transparent" };
+  return { backgroundColor: resolvedSolid || "transparent" };
 }
 
 function getLayerLabel(layer: BgLayer): string {
@@ -107,6 +131,8 @@ interface LayerItemProps {
   disableBackgroundColor?: boolean;
   disableBackgroundImage?: boolean;
   disableGradient?: boolean;
+  scopeEl?: Element | null;
+  canvasVariableOptions?: CssVarColorOption[];
 }
 
 function LayerItem({
@@ -116,6 +142,8 @@ function LayerItem({
   disableBackgroundColor,
   disableBackgroundImage,
   disableGradient,
+  scopeEl = null,
+  canvasVariableOptions = [],
 }: LayerItemProps) {
   const [colorPickerCtx] = useState<{ open?: () => void }>({});
   const [editing, setEditing] = useState(false);
@@ -230,8 +258,10 @@ function LayerItem({
         disableBackgroundColor={disableBackgroundColor}
         disableBackgroundImage={disableBackgroundImage}
         disableGradient={disableGradient}
+        canvasVariableOptions={canvasVariableOptions}
+        scopeEl={scopeEl}
       >
-        <div className={css.block} style={getSwatchStyle(layer)} />
+        <div className={css.block} style={getSwatchStyle(layer, scopeEl)} />
         <div className={css.icon}>
           <TransparentColorOutlined />
         </div>
@@ -295,6 +325,11 @@ export function Background({
   collapse,
 }: BackgroundProps) {
   const context = useStyleEditorContext();
+  const targetDom = context?.targetDom ?? null;
+  const canvasVariableOptions = useMemo(
+    () => getCssVarColorOptions(targetDom),
+    [targetDom]
+  );
   const [{ disableBackgroundColor, disableBackgroundImage, disableGradient }] =
     useState({ ...DEFAULT_CONFIG, ...config });
 
@@ -546,6 +581,8 @@ export function Background({
                 disableBackgroundColor={disableBackgroundColor}
                 disableBackgroundImage={disableBackgroundImage}
                 disableGradient={disableGradient}
+                scopeEl={targetDom}
+                canvasVariableOptions={canvasVariableOptions}
               />
               {overState?.index === index && overState.half === "bottom" && dragIndex !== index && (
                 <div className={css.dropIndicator} />

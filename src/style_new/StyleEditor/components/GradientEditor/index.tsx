@@ -27,11 +27,14 @@ import PanelRender from "./PanelRender";
 import { ExtractBackground } from "../Image/ExtractBackground";
 import debounce from "lodash/debounce";
 import { AngleKnob } from "./AngleKnob"; // 导入旋钮组件
+import { resolveCssVarColor } from "../../../core/resolve-css-var-color";
 
 export function GradientEditor({
   defaultValue,
   onChange,
   onTypeChange,
+  variableOptions = [],
+  scopeEl = null,
 }: GradientEditorProps) {
   const [gradientType, setGradientType] =
     useState<GradientType>("linear-gradient");
@@ -211,6 +214,7 @@ export function GradientEditor({
         curElementId={curElementId}
         setCurElementId={setCurElementId}
         setIsMoveDone={setIsMoveDone}
+        scopeEl={scopeEl}
       />
       <div className={css.top}>
         <Select
@@ -291,6 +295,9 @@ export function GradientEditor({
                   showSubTabs={false}
                   key={id}
                   style={{ flex: 5, border }}
+                  variableOptions={variableOptions}
+                  scopeEl={scopeEl}
+                  resolvedColor={resolveCssVarColor(color, scopeEl) ?? undefined}
                   onFocus={() => setCurElementId(id)}
                   onChange={(colorValue) => {
                     changeProperty("color", colorValue as string, id);
