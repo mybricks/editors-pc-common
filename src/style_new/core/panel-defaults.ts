@@ -85,6 +85,16 @@ export const getDefaultValueFunctionMap = {
       minHeight: values.minHeight
     }
   },
+  flex(values: CSSProperties, config: any) {
+    // 只回传已有值，避免 flex: undefined 盖掉 setValue / 其它来源的有效配置
+    const out: Record<string, any> = {}
+    const v = values as any
+    if (v.flex != null && String(v.flex).trim() !== '') out.flex = v.flex
+    if (v.flexGrow != null && String(v.flexGrow).trim() !== '') out.flexGrow = v.flexGrow
+    if (v.flexShrink != null && String(v.flexShrink).trim() !== '') out.flexShrink = v.flexShrink
+    if (v.flexBasis != null && String(v.flexBasis).trim() !== '') out.flexBasis = v.flexBasis
+    return out
+  },
   cursor(values: CSSProperties, config: any) {
     return {
       cursor: values.cursor
@@ -240,13 +250,15 @@ export const getDefaultValueFunctionMap2 = {
       maxHeight: 'auto',
       minWidth: 'auto',
       minHeight: 'auto',
-      // flex/flexGrow/flexBasis 本身不是 Size 面板展示的字段，
-      // 但 Size 插件在改宽高时会尝试清空它们（避免 flex-basis 覆盖 width/height），
-      // 这里注册空白基准值只是为了让它们进入 PANEL_MAP，归属到 size 面板，
-      // 使 handleChange 的删除守卫能正确识别并放行这几个属性的清除请求。
-      flex: 'auto',
-      flexGrow: '0',
-      flexBasis: 'auto',
+    }
+  },
+  flex() {
+    return {
+      // 归属弹性面板；Size 同批清 flex* 时靠 activePanelsInBatch / 已写入值放行删除
+      flex: '',
+      flexGrow: '',
+      flexShrink: '',
+      flexBasis: '',
     }
   },
   cursor() {

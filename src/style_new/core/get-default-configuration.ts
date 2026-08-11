@@ -90,7 +90,7 @@ export function getDefaultConfiguration ({value, options}: GetDefaultConfigurati
   let autoCollapseWhenUnusedProperty = true;
   let defaultValue: CSSProperties = {}
   let finalSelector
-  const setValue = deepCopy(value.get() || {})
+  let setValue: Record<string, any> = deepCopy(value.get() || {})
 
   let getDefaultValue = true
   let dom;
@@ -159,6 +159,21 @@ export function getDefaultConfiguration ({value, options}: GetDefaultConfigurati
 
     const isPseudoSelector = typeof realSelector === 'string' && /:(:)?[a-zA-Z0-9\-\_]+/.test(realSelector);
     const realDom = !!realTargetDom ? realTargetDom : null;
+
+    // 带上选中上下文再取一次 value.get：AI 组件可从 Less 读到原始 flex:1，而不是 CSSOM 的 1 1 0%
+    try {
+      const authored = (value.get as any)?.({
+        selector: realSelector,
+        focusArea: realDom
+          ? { ele: realDom, dataset: (realDom as any).dataset }
+          : undefined,
+        targetDom: realDom,
+      })
+      if (authored && typeof authored === 'object') {
+        setValue = deepCopy({ ...setValue, ...authored })
+      }
+    } catch {}
+
     if (realDom || isPseudoSelector) {
       getDefaultValue = false;
       const [styleValues, options, ownRulesPanels, ancestorPanels] = getEffectedCssPropertyAndOptions(realDom, realSelectors.length > 1 ? realSelectors : (realSelector ?? ''), comId);
@@ -302,14 +317,41 @@ export function getDefaultConfiguration ({value, options}: GetDefaultConfigurati
     const newReadonly = uaFilledPanels.filter(p => !ownEffectedSet.has(p) && !readonlyExpandedOptions.includes(p));
     readonlyExpandedOptions = [...readonlyExpandedOptions, ...newReadonly];
   }
+  // CSSOM 会把 flex:1 / 长写都序列化成 flex: 1 11 0%，无法区分简写与单独配置。
+  // Less/value.get 有源码值时以其为准，并清掉 CSSOM 合成项；长写优先时不带回 flex。
+  const mergeDefaultValue = (): CSSProperties => {
+    const merged: Record<string, any> = getDefaultValue
+      ? Object.assign(defaultValue, splitedSetValue)
+      : Object.assign({}, splitedSetValue, defaultValue)
+    const flexKeys = ['flex', 'flexGrow', 'flexShrink', 'flexBasis'] as const
+    const isPresent = (v: unknown) => v != null && String(v).trim() !== ''
+    const hasAuthoredFlex = flexKeys.some((k) => isPresent(splitedSetValue[k]))
+    if (hasAuthoredFlex) {
+      flexKeys.forEach((k) => {
+        if (isPresent(splitedSetValue[k])) {
+          merged[k] = splitedSetValue[k]
+        } else {
+          delete merged[k]
+        }
+      })
+      // 源码是长写：强制去掉简写，避免 CSSOM 的 flex: 1 11 0% 把面板打回「比例」
+      if (
+        isPresent(splitedSetValue.flexGrow) ||
+        isPresent(splitedSetValue.flexShrink) ||
+        isPresent(splitedSetValue.flexBasis)
+      ) {
+        delete merged.flex
+      }
+    }
+    return merged as CSSProperties
+  }
+
   return {
     options: finalOptions,
     collapsedOptions,
     readonlyExpandedOptions,
     autoCollapseWhenUnusedProperty,
-    defaultValue: getDefaultValue
-      ? Object.assign(defaultValue, splitedSetValue)
-      : Object.assign({}, splitedSetValue, defaultValue),
+    defaultValue: mergeDefaultValue(),
     setValue: Object.assign({}, splitedSetValue),
     finalOpen,
     finalSelector,

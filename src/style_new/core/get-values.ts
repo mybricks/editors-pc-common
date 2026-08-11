@@ -30,9 +30,56 @@ function isUnset(value: any, spec: PropSpec): boolean {
   return !value
 }
 
+function camelToKebab(name: string) {
+  return name.replace(/[A-Z]/g, (m) => `-${m.toLowerCase()}`)
+}
+
+/** cssText 里是否出现独立的 flex: 简写（不含 flex-grow 等） */
+function cssTextHasFlexShorthand(cssText: string): boolean {
+  return /(?:^|;)\s*flex\s*:/.test(cssText)
+}
+
+/** cssText 里是否出现 flex 长写 */
+function cssTextHasFlexLonghand(cssText: string): boolean {
+  return (
+    /(?:^|;)\s*flex-grow\s*:/.test(cssText) ||
+    /(?:^|;)\s*flex-shrink\s*:/.test(cssText) ||
+    /(?:^|;)\s*flex-basis\s*:/.test(cssText)
+  )
+}
+
 function readFromStyle(style: CSSStyleDeclaration, spec: PropSpec): any {
   const key = spec.styleKey ?? spec.camel
-  return (style as any)[key]
+  let cssText = ''
+  try {
+    cssText = style.cssText || ''
+  } catch {}
+
+  const hasShort = cssTextHasFlexShorthand(cssText)
+  const hasLong = cssTextHasFlexLonghand(cssText)
+
+  // 写了长写：忽略 CSSOM 合成的 style.flex，避免单独配置被误判成比例
+  if (spec.camel === 'flex' && (hasLong || !hasShort)) {
+    return ''
+  }
+  // 仅写了 flex 简写：不读浏览器展开出来的长写
+  // 注意：Chrome 会把长写也折叠成 cssText=`flex:…`，此时单靠 CSSOM 无法区分，模式以 Less/value.get 为准
+  if (
+    (spec.camel === 'flexGrow' || spec.camel === 'flexShrink' || spec.camel === 'flexBasis') &&
+    hasShort &&
+    !hasLong
+  ) {
+    return ''
+  }
+
+  const direct = (style as any)[key]
+  if (direct) return direct
+  // 部分浏览器对规则里的 flex 简写只暴露 kebab / 长写，补一次 getPropertyValue
+  try {
+    const fromProp = style.getPropertyValue?.(camelToKebab(key))
+    if (fromProp) return fromProp
+  } catch {}
+  return direct
 }
 
 function applyFallback(

@@ -151,6 +151,11 @@ export const PROP_SPECS: PropSpec[] = [
   { camel: 'flexWrap', inherit: false, fallback: 'computed' },
   { camel: 'rowGap', inherit: false, fallback: 'gap', treatAsUnset: ['normal'] },
   { camel: 'columnGap', inherit: false, fallback: 'gap', treatAsUnset: ['normal'] },
+  // 子项弹性：只从规则/用户写入回显，不用 computed 默认 0 1 auto 污染面板
+  { camel: 'flex', inherit: false, fallback: 'none' },
+  { camel: 'flexGrow', inherit: false, fallback: 'none' },
+  { camel: 'flexShrink', inherit: false, fallback: 'none' },
+  { camel: 'flexBasis', inherit: false, fallback: 'none' },
   { camel: 'position', inherit: false, fallback: 'computed' },
   { camel: 'overflow', inherit: false, fallback: 'computed' },
 

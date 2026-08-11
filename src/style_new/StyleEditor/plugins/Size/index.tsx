@@ -258,6 +258,17 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
   const editorContext = useStyleEditorContext();
   const targetDom = editorContext?.targetDom ?? null;
 
+  // 有「弹性」面板时（父为 flex 子项），尺寸恢复顶部分割线；否则与布局合并视觉分组
+  const hideSizeTopBorder = useMemo(() => {
+    if (!targetDom) return true;
+    const selfPos = window.getComputedStyle(targetDom).position;
+    if (selfPos === 'absolute' || selfPos === 'fixed') return true;
+    const parent = targetDom.parentElement;
+    if (!parent) return true;
+    const display = window.getComputedStyle(parent).display;
+    return !(display === 'flex' || display === 'inline-flex');
+  }, [targetDom]);
+
   // 切换选中元素时，按实际配置重置显示（避免上一元素的空「未配置」残留）
   useEffect(() => {
     setShowMaxWidth(!!normalizeSizeValue(value.maxWidth));
@@ -460,6 +471,7 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
         if (cfg.disableWidth) {
           updates.push({ key: 'flex', value: null });
           updates.push({ key: 'flexGrow', value: null });
+          updates.push({ key: 'flexShrink', value: null });
           updates.push({ key: 'flexBasis', value: null });
         }
         onChange(updates);
@@ -471,6 +483,7 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
           { key: 'width', value: newVal },
           { key: 'flex', value: null },
           { key: 'flexGrow', value: null },
+          { key: 'flexShrink', value: null },
           { key: 'flexBasis', value: null },
         ]);
         setWidthPending(newVal);
@@ -515,6 +528,7 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
         if (cfg.disableHeight) {
           updates.push({ key: 'flex', value: null });
           updates.push({ key: 'flexGrow', value: null });
+          updates.push({ key: 'flexShrink', value: null });
           updates.push({ key: 'flexBasis', value: null });
         }
         onChange(updates);
@@ -526,6 +540,7 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
           { key: 'height', value: newVal },
           { key: 'flex', value: null },
           { key: 'flexGrow', value: null },
+          { key: 'flexShrink', value: null },
           { key: 'flexBasis', value: null },
         ]);
         setHeightPending(newVal);
@@ -645,6 +660,7 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
         if (cfg.disableWidth) {
           updates.push({ key: 'flex', value: null });
           updates.push({ key: 'flexGrow', value: null });
+          updates.push({ key: 'flexShrink', value: null });
           updates.push({ key: 'flexBasis', value: null });
         }
         onChange(updates);
@@ -666,6 +682,7 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
         { key: 'width', value: realVal },
         { key: 'flex', value: null },
         { key: 'flexGrow', value: null },
+        { key: 'flexShrink', value: null },
         { key: 'flexBasis', value: null },
       ]);
     } else {
@@ -722,6 +739,7 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
         if (cfg.disableHeight) {
           updates.push({ key: 'flex', value: null });
           updates.push({ key: 'flexGrow', value: null });
+          updates.push({ key: 'flexShrink', value: null });
           updates.push({ key: 'flexBasis', value: null });
         }
         onChange(updates);
@@ -742,6 +760,7 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
         { key: 'height', value: realVal },
         { key: 'flex', value: null },
         { key: 'flexGrow', value: null },
+        { key: 'flexShrink', value: null },
         { key: 'flexBasis', value: null },
       ]);
     } else {
@@ -834,7 +853,7 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
       resetFunction={refresh}
       collapse={allHidden ? true : false}
       showDelete={false}
-      hideTopBorder
+      hideTopBorder={hideSizeTopBorder}
       addOptions={addOptions.length > 0 ? addOptions : undefined}
       onAddOption={handleAddOption}
       rightColumn={

@@ -133,6 +133,17 @@ export function getSuggestOptionsByElement(selectDom: HTMLElement): { type: stri
 
     const isImgElement = selectDom.tagName.toUpperCase() === 'IMG';
 
+    // 子项弹性：父为 flex/inline-flex 且自身非绝对定位时建议展示
+    const parentDom = selectDom.parentElement;
+    const parentDisplay = parentDom ? window.getComputedStyle(parentDom).display : '';
+    const selfPosition = selectDomStyle.position;
+    const flexOption =
+      (parentDisplay === 'flex' || parentDisplay === 'inline-flex') &&
+      selfPosition !== 'absolute' &&
+      selfPosition !== 'fixed'
+        ? { type: 'flex' }
+        : void 0;
+
     const suggestion = [
       isImgElement ? void 0 : {
         type: 'layout'
@@ -161,6 +172,7 @@ export function getSuggestOptionsByElement(selectDom: HTMLElement): { type: stri
       {
         type: 'position'
       },
+      flexOption,
       sizeOption,
       {
         type: 'csspaste'

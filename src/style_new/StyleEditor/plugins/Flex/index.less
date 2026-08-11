@@ -1,0 +1,89 @@
+@import "../../../../theme";
+
+.tip {
+  flex-shrink: 0;
+  display: inline-block;
+  min-width: 2em;
+  font-size: 10px;
+  color: @font-color-content;
+  margin-right: 8px;
+  white-space: nowrap;
+  cursor: default;
+}
+
+.detailTip {
+  flex-shrink: 0;
+  display: inline-block;
+  min-width: 4em;
+  font-size: 10px;
+  color: @font-color-content;
+  margin-right: 8px;
+  white-space: nowrap;
+  cursor: default;
+}
+
+.input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: none;
+  background: transparent;
+  font-size: 11px;
+  font-weight: 500;
+  color: @font-color-content;
+  padding-left: 2px;
+  padding-right: 2px;
+  box-sizing: border-box;
+  cursor: text;
+  outline: none;
+}
+
+.row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  padding-right: 3px;
+  overflow: hidden;
+}
+
+.actionIcon {
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  cursor: pointer;
+  color: @font-color-content;
+  border-radius: 5px;
+
+  &:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+  }
+}
+
+.independentBox {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: flex-start;
+}
+
+.independentFields {
+  flex: 1;
+  min-width: 0;
+}
+
+.independentActionIcon {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  cursor: pointer;
+  margin-top: 4px;
+  color: @font-color-content;
+  background-color: @bg-color-active;
+  border-radius: 5px;
+}

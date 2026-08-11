@@ -177,6 +177,11 @@ export function buildExportBag(acc: ValuesAcc): Record<string, any> {
     flexWrap: acc.flexWrap,
     rowGap: acc.rowGap,
     columnGap: acc.columnGap,
+    // 子项弹性（弹性面板）：须导出，否则规则里有值也会在 getValues 出口被丢掉
+    flex: acc.flex,
+    flexGrow: acc.flexGrow,
+    flexShrink: acc.flexShrink,
+    flexBasis: acc.flexBasis,
     position: acc.position,
     overflow: acc.overflow,
 
