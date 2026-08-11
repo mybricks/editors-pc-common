@@ -9,6 +9,11 @@ export interface ParsedCssVar {
   fallback: string | null
 }
 
+export interface CssVarColorOption {
+  name: string
+  value: string
+}
+
 /** 括号深度感知拆出 var(--name) / var(--name, fallback) */
 export function parseCssVar(value: string): ParsedCssVar | null {
   if (typeof value !== 'string') return null
@@ -87,15 +92,34 @@ function lookupDomCssVarColor(
     if (typeof document === 'undefined' || typeof getComputedStyle !== 'function') {
       return null
     }
+    const ownerDocument = scopeEl?.ownerDocument || document
+    const getStyle = ownerDocument.defaultView?.getComputedStyle || getComputedStyle
     const candidates: Element[] = []
-    if (scopeEl) candidates.push(scopeEl)
-    if (document.documentElement) candidates.push(document.documentElement)
-    if (document.body) candidates.push(document.body)
-    const rootDiv = document.querySelector('#root > div')
-    if (rootDiv) candidates.push(rootDiv)
+    const seen = new Set<Element>()
+    const push = (el?: Element | null) => {
+      if (!el || seen.has(el)) return
+      seen.add(el)
+      candidates.push(el)
+    }
 
-    for (const el of candidates) {
-      const val = getComputedStyle(el).getPropertyValue(varName).trim()
+    // 从画布节点向上走（含 Shadow host）；自定义属性默认继承
+    let el: Element | null = scopeEl || null
+    while (el) {
+      push(el)
+      const parent = el.parentElement
+      if (parent) {
+        el = parent
+        continue
+      }
+      const root = el.getRootNode?.() as ShadowRoot | Document | null
+      el = root && 'host' in root ? root.host : null
+    }
+    push(ownerDocument.documentElement)
+    push(ownerDocument.body)
+    push(ownerDocument.querySelector('#root > div'))
+
+    for (const candidate of candidates) {
+      const val = getStyle(candidate).getPropertyValue(varName).trim()
       if (val && isParseableColor(val)) return val
     }
   } catch {
@@ -116,6 +140,43 @@ export function lookupCssVarColor(
     lookupThemePackageColor(name) ||
     lookupDomCssVarColor(name, scopeEl)
   )
+}
+
+/** 读取画布节点当前生效、且可用于颜色编辑的 CSS 自定义属性。 */
+export function getCssVarColorOptions(scopeEl?: Element | null): CssVarColorOption[] {
+  if (typeof document === 'undefined' || typeof getComputedStyle !== 'function' || !scopeEl) {
+    return []
+  }
+
+  const ownerDocument = scopeEl.ownerDocument || document
+  const getStyle = ownerDocument.defaultView?.getComputedStyle || getComputedStyle
+  const collectOptions = (element: Element): CssVarColorOption[] => {
+    const computed = getStyle(element)
+    const options = new Map<string, CssVarColorOption>()
+
+    for (let index = 0; index < computed.length; index++) {
+      const name = computed[index]
+      if (!name?.startsWith('--') || options.has(name)) continue
+
+      const value = computed.getPropertyValue(name).trim()
+      if (isParseableColor(value)) {
+        options.set(name, { name, value })
+      }
+    }
+
+    return Array.from(options.values())
+  }
+
+  try {
+    const scopeOptions = collectOptions(scopeEl)
+    if (scopeOptions.length) return scopeOptions
+
+    const pageElement = scopeEl.closest('[data-zone-type="page"]')
+    return pageElement && pageElement !== scopeEl ? collectOptions(pageElement) : []
+  } catch {
+    // ignore unavailable canvas styles
+    return []
+  }
 }
 
 /**
@@ -147,4 +208,41 @@ export function resolveCssVarColor(
   }
 
   return null
+}
+
+/**
+ * 将 CSS 值中的所有 var(...) 替换为可展示的具体色（用于编辑器色板/渐变预览）。
+ * 解析失败的 var() 原样保留。
+ */
+export function resolveCssVarsInCssValue(
+  value: string,
+  scopeEl?: Element | null
+): string {
+  if (typeof value !== 'string' || !value.includes('var(')) return value
+
+  let result = ''
+  let i = 0
+  while (i < value.length) {
+    if (value.slice(i, i + 4).toLowerCase() === 'var(') {
+      let depth = 0
+      let j = i
+      for (; j < value.length; j++) {
+        if (value[j] === '(') depth++
+        else if (value[j] === ')') {
+          depth--
+          if (depth === 0) {
+            j++
+            break
+          }
+        }
+      }
+      const varExpr = value.slice(i, j)
+      result += resolveCssVarColor(varExpr, scopeEl) ?? varExpr
+      i = j
+    } else {
+      result += value[i]
+      i++
+    }
+  }
+  return result
 }

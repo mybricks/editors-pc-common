@@ -54,6 +54,28 @@
       //height: 30px;
       //font-size: 12px;
       //font-weight: 600;
+
+      // 标题文字与问号共用同一个 hover 区域
+      &:has(.titleTip) {
+        cursor: default;
+      }
+
+      &:hover .titleTip {
+        opacity: 1;
+      }
+    }
+
+    .titleTip {
+      display: inline-flex;
+      align-items: center;
+      margin-left: 4px;
+      color: @font-color-content;
+      opacity: 0.45;
+
+      svg {
+        width: 12px;
+        height: 12px;
+      }
     }
 
     .icon {

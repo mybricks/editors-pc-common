@@ -245,6 +245,20 @@ export const mergeCSSProperties = (
     }
   }
 
+  // flex 简写 / 长写互斥：临时 DOM 上 Object.assign 长写后，Chrome 会合成 style.flex，
+  // 但返回值必须保持调用方写入形态，否则会把 `flex: 1 11 0%` 误写入 Less。
+  const hasFlexLonghand =
+    hasDefinedValue(cssProperties.flexGrow) ||
+    hasDefinedValue(cssProperties.flexShrink) ||
+    hasDefinedValue(cssProperties.flexBasis)
+  if (hasFlexLonghand && !hasDefinedValue(cssProperties.flex)) {
+    delete mergedStyles.flex
+  } else if (hasDefinedValue(cssProperties.flex)) {
+    delete mergedStyles.flexGrow
+    delete mergedStyles.flexShrink
+    delete mergedStyles.flexBasis
+  }
+
   return mergedStyles
 }
 

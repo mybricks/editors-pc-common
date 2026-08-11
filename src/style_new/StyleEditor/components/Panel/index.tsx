@@ -1,6 +1,6 @@
 import React, { CSSProperties, ReactNode, useCallback, useEffect, useState } from 'react'
 
-import { PlusOutlined, MinusOutlined } from '../Icon'
+import { PlusOutlined, MinusOutlined, QuestionCircleOutlined } from '../Icon'
 import { Dropdown } from '../DropDown'
 
 import css from './index.less'
@@ -14,6 +14,8 @@ interface AddOption {
 
 interface PanelProps {
   title: string
+  /** 标题右侧问号图标的 tip 内容，格式同 data-mybricks-tip */
+  titleTip?: string
   children: ReactNode
   showReset?: boolean
   showTitle?: boolean;
@@ -45,7 +47,7 @@ interface ItemProps {
   activeWhenBlur?: boolean
 }
 
-export function Panel ({title, children, showReset = false, showTitle = true, showDelete = true, deleteNode, onDelete, rightColumn, deleteRef, resetFunction = () => {}, isActive = false, collapse = false, onAdd, addTip, addOptions, onAddOption, hideTopBorder = false}: PanelProps) {
+export function Panel ({title, titleTip, children, showReset = false, showTitle = true, showDelete = true, deleteNode, onDelete, rightColumn, deleteRef, resetFunction = () => {}, isActive = false, collapse = false, onAdd, addTip, addOptions, onAddOption, hideTopBorder = false}: PanelProps) {
   const isInherited = collapse === 'inherited'
   const [collapsed, setCollapsed] = useState(collapse === true)
 
@@ -73,7 +75,16 @@ export function Panel ({title, children, showReset = false, showTitle = true, sh
   return (
     <div className={`${css.panel} ${collapsed ? css.collapsed : ''} ${hideTopBorder ? css.hideTopBorder : ''}`}>
       <div className={css.header}>
-        {showTitle && <div className={css.title}>{title}</div>}
+        {showTitle && (
+          <div className={css.title} {...(titleTip ? { 'data-mybricks-tip': titleTip } : {})}>
+            {title}
+            {titleTip ? (
+              <span className={css.titleTip}>
+                <QuestionCircleOutlined />
+              </span>
+            ) : null}
+          </div>
+        )}
         {
           collapsed ? (
             addOptions && addOptions.length > 0 ? (

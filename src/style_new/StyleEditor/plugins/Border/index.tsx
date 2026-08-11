@@ -1,5 +1,6 @@
 import React, { useMemo, useState, useCallback, useRef, useEffect, CSSProperties } from "react";
 import { createPortal } from "react-dom";
+import { useStyleEditorContext } from "../..";
 
 import {
   Panel,
@@ -32,6 +33,7 @@ import {
   decomposeBackgroundStack,
 } from "../../helper/paint-stack";
 import { getColorEditorValue } from "../../helper/get-color-editor-value";
+import { getCssVarColorOptions, resolveCssVarColor } from "../../../core/resolve-css-var-color";
 
 import type { ChangeEvent, PanelBaseProps } from "../../type";
 
@@ -234,6 +236,9 @@ const buildClearGradientBorderValue = (
 };
 
 export function Border({ value, onChange, config, showTitle, collapse }: BorderProps) {
+  const context = useStyleEditorContext();
+  const targetDom = context?.targetDom ?? null;
+  const canvasColorVariables = getCssVarColorOptions(targetDom);
   const [
     {
       disableBorderWidth,
@@ -613,6 +618,8 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                     key={borderColorEditorKey}
                     style={{ padding: "0 0 0 1px", flex: 1, minWidth: 26 }}
                     defaultValue={getGradientBorderValue(borderValue) || borderValue.borderTopColor}
+                    resolvedColor={resolveCssVarColor(borderValue.borderTopColor || "", targetDom) ?? undefined}
+                    variableOptions={canvasColorVariables}
                     showSubTabs={borderPosition === 'center'}
                     disableBackgroundImage={true}
                     onChange={(input: any) => {
@@ -771,6 +778,8 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                     <ColorEditor
                       style={{ padding: 0, marginLeft: 2, flex: 1, minWidth: 26 }}
                       defaultValue={borderValue.borderLeftColor}
+                      resolvedColor={resolveCssVarColor(borderValue.borderLeftColor || "", targetDom) ?? undefined}
+                      variableOptions={canvasColorVariables}
                       showSubTabs={false}
                       onChange={(input: any) => {
                         const value = getColorEditorValue(input);
@@ -825,6 +834,8 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                     <ColorEditor
                       style={{ padding: 0, marginLeft: 2, flex: 1, minWidth: 26 }}
                       defaultValue={borderValue.borderTopColor}
+                      resolvedColor={resolveCssVarColor(borderValue.borderTopColor || "", targetDom) ?? undefined}
+                      variableOptions={canvasColorVariables}
                       showSubTabs={false}
                       onChange={(input: any) => {
                         const value = getColorEditorValue(input);
@@ -880,6 +891,8 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                     <ColorEditor
                       style={{ padding: 0, marginLeft: 2, flex: 1, minWidth: 26 }}
                       defaultValue={borderValue.borderRightColor}
+                      resolvedColor={resolveCssVarColor(borderValue.borderRightColor || "", targetDom) ?? undefined}
+                      variableOptions={canvasColorVariables}
                       showSubTabs={false}
                       onChange={(input: any) => {
                         const value = getColorEditorValue(input);
@@ -935,6 +948,8 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                     <ColorEditor
                       style={{ padding: 0, marginLeft: 2, flex: 1, minWidth: 26 }}
                       defaultValue={borderValue.borderBottomColor}
+                      resolvedColor={resolveCssVarColor(borderValue.borderBottomColor || "", targetDom) ?? undefined}
+                      variableOptions={canvasColorVariables}
                       showSubTabs={false}
                       onChange={(input: any) => {
                         const value = getColorEditorValue(input);
@@ -981,7 +996,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
         </div>
       );
     }
-  }, [borderToggleValue, popupStyleValue, borderValue, getDragPropsBorder, borderColorEditorKey, borderPosition, refresh, handleAllModeChange, handlePositionChange]);
+  }, [borderToggleValue, popupStyleValue, borderValue, getDragPropsBorder, borderColorEditorKey, borderPosition, refresh, handleAllModeChange, handlePositionChange, targetDom, canvasColorVariables]);
 
   const radiusConfig = useMemo(() => {
     if (disableBorderRadius) {

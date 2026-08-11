@@ -14,13 +14,33 @@ export function applyRuleHooks(
 
   const { style } = rule
 
-  // AI 代码生成有时使用 background 简写（如 background: var(--xxx)）
-  // Chrome 无法在解析期展开含 var() 的简写，rule.style.backgroundColor 会为空
-  // 这里将整体 background 简写值作为 backgroundColor 处理，确保变量引用能正确回显
-  if (!acc.backgroundColor) {
-    const styleBackground = (style as any).background
-    if (styleBackground && typeof styleBackground === 'string' && styleBackground.startsWith('var(')) {
-      acc.backgroundColor = styleBackground
+  // Chrome 无法在解析期展开「含 var()」的 background 简写，longhand 会为空：
+  //   • background: var(--xxx) → 回填 backgroundColor
+  //   • background: linear-gradient(..., var(--a), var(--b)) → 回填 backgroundImage
+  //   • background: url(...) 且含 var → 同理回填 backgroundImage
+  // 无 var 的渐变简写浏览器会正常展开 longhand，不必走此分支。
+  const bgShorthand = (
+    style.getPropertyValue?.('background') ||
+    (style as any).background ||
+    ''
+  ).trim()
+  if (bgShorthand) {
+    const longhandImage = (
+      style.getPropertyValue?.('background-image') ||
+      (style as any).backgroundImage ||
+      ''
+    ).trim()
+    const isImageLike =
+      /gradient\s*\(/i.test(bgShorthand) || /url\s*\(/i.test(bgShorthand)
+    if (!longhandImage && isImageLike) {
+      // 后写规则覆盖：与 longhand 赋值语义一致
+      acc.backgroundImage = bgShorthand
+    } else if (
+      !acc.backgroundColor &&
+      !isImageLike &&
+      bgShorthand.toLowerCase().startsWith('var(')
+    ) {
+      acc.backgroundColor = bgShorthand
     }
   }
 
@@ -177,6 +197,11 @@ export function buildExportBag(acc: ValuesAcc): Record<string, any> {
     flexWrap: acc.flexWrap,
     rowGap: acc.rowGap,
     columnGap: acc.columnGap,
+    // 子项弹性（弹性面板）：须导出，否则规则里有值也会在 getValues 出口被丢掉
+    flex: acc.flex,
+    flexGrow: acc.flexGrow,
+    flexShrink: acc.flexShrink,
+    flexBasis: acc.flexBasis,
     position: acc.position,
     overflow: acc.overflow,
 

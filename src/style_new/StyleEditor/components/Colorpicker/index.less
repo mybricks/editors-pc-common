@@ -212,31 +212,30 @@
       }
 
       .variableListContainer {
-        padding-bottom: 10px;
+        padding: 8px 0 10px;
         height: 100%;
         font-size: 11px;
         color: @font-color-content;
         display: flex;
         flex-direction: column;
 
-        .search {
-          width: 200px;
-          border-radius: @border-radius;
-          height: 27px;
-          padding: 0 5px 0 11px;
-          display: flex;
-          align-items: center;
-          background: @bg-color-main-secondary;
-
-          svg {
-            width: 13px;
-            fill: @font-color-content;
-          }
+        .variableFilter {
+          padding: 0 8px 8px;
 
           input {
-            height: 100%;
             width: 100%;
-            padding: 0 5px;
+            height: 27px;
+            padding: 0 8px;
+            border: 1px solid @boder-color;
+            border-radius: @border-radius;
+            box-sizing: border-box;
+            color: @font-color-content;
+            background: @bg-color-main-secondary;
+            outline: none;
+
+            &:focus {
+              border-color: @color-primary;
+            }
           }
         }
 
@@ -254,9 +253,13 @@
           }
 
           .value {
-            width: 100%;
+            width: calc(100% - 16px);
             height: 32px;
             padding-left: 16px;
+            margin: 0 8px;
+            border: 1px solid transparent;
+            border-radius: 4px;
+            box-sizing: border-box;
             font-weight: 450;
             display: flex;
             align-items: center;
@@ -265,6 +268,15 @@
 
             &:hover {
               background-color: @bg-color-hover;
+            }
+
+            &[data-selected="true"] {
+              background-color: @bg-color-hover;
+              border-color: @color-primary;
+
+              span {
+                font-weight: 550;
+              }
             }
 
             .block {

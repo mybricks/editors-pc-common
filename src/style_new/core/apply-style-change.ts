@@ -60,6 +60,10 @@ export function applyStyleChange({
       .filter(Boolean)
   )
 
+  // flex* 已归属弹性面板，但 Size 改固定尺寸时仍会同批清空它们；
+  // 允许在 size 面板有真实赋值的批次里放行这些清除。
+  const SIZE_CLEARS_FLEX_KEYS = new Set(['flex', 'flexGrow', 'flexShrink', 'flexBasis'])
+
   changeItems.forEach(({ key, value }) => {
     if (value === null) {
       const hasUserSetValue = key in nextSetValue
@@ -70,7 +74,9 @@ export function applyStyleChange({
       const hasEffectedStyle = panelKey
         ? (!collapsedPanelSet.has(panelKey.toLowerCase()) || activePanelsInBatch.has(panelKey))
         : false
-      const shouldDelete = hasUserSetValue || hasEffectedStyle
+      const sizeClearsFlex =
+        SIZE_CLEARS_FLEX_KEYS.has(panelMapKey) && activePanelsInBatch.has('size')
+      const shouldDelete = hasUserSetValue || hasEffectedStyle || sizeClearsFlex
 
       if (shouldDelete) {
         deletedKeys.push(key)
@@ -87,6 +93,23 @@ export function applyStyleChange({
     }
   })
 
+  // flex 简写与长写必须互斥落盘。否则 Less 里残留 flex:1 再写 flex-shrink:11，
+  // Chrome CSSOM 会合成 flex: 1 11 0%，重聚焦时被误判成「比例」且回显错误。
+  const FLEX_LONGHAND_KEYS = ['flexGrow', 'flexShrink', 'flexBasis'] as const
+  const isPresent = (v: unknown) => v != null && String(v).trim() !== ''
+  const writingFlexLonghand = FLEX_LONGHAND_KEYS.some((k) => isPresent(nextSetValue[k]))
+  const writingFlexShorthand = isPresent(nextSetValue.flex)
+  const forceDelete = (key: string) => {
+    if (key in nextSetValue) delete nextSetValue[key]
+    if (!deletedKeys.includes(key)) deletedKeys.push(key)
+    hasRealChange = true
+  }
+  if (writingFlexLonghand) {
+    forceDelete('flex')
+  } else if (writingFlexShorthand) {
+    FLEX_LONGHAND_KEYS.forEach((k) => forceDelete(k))
+  }
+
   // 没有任何实际变更时直接返回，不触发样式写入（避免展开面板后折叠产生多余版本）
   if (!hasRealChange) {
     return { nextLiveStyle: liveStyle, applied: false }
@@ -102,6 +125,15 @@ export function applyStyleChange({
   }
 
   const mergedCssProperties = mergeCSSProperties(deepCopy(nextSetValue))
+  // merge 内部 Object.assign 到临时 DOM 后，Chrome 可能把长写折叠进 style.flex；
+  // 再次按写入意图收一遍，避免把合成简写写进 Less。
+  if (writingFlexLonghand) {
+    delete (mergedCssProperties as any).flex
+  } else if (writingFlexShorthand) {
+    delete (mergedCssProperties as any).flexGrow
+    delete (mergedCssProperties as any).flexShrink
+    delete (mergedCssProperties as any).flexBasis
+  }
 
   // options?.selector 优先；兜底从 editConfig.options.selector 读取当前激活的 selector
   const selector =

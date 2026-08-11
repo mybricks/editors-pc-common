@@ -15,7 +15,12 @@ import {
 } from "../../components";
 import { Panel, Colorpicker, UnbindingOutlined, BindingOutlined } from "../";
 import { color2rgba, getRealKey } from "../../utils";
-import { parseCssVar } from "../../../core/resolve-css-var-color";
+import {
+  CssVarColorOption,
+  parseCssVar,
+  resolveCssVarColor,
+} from "../../../core/resolve-css-var-color";
+import { isGradientValue } from "../../helper/gradient-border";
 
 import css from "./index.less";
 
@@ -70,6 +75,12 @@ type ColorOptions = Array<ColorOption>;
 interface ColorEditorProps {
   options?: ColorOptions;
   defaultValue: any;
+  /** 变量引用的实际色值，仅用于色块与取色器预览 */
+  resolvedColor?: string;
+  /** 当前画布可用的 CSS 颜色变量 */
+  variableOptions?: CssVarColorOption[];
+  /** 画布目标节点：用于在正确 document/作用域解析 CSS 变量 */
+  scopeEl?: Element | null;
   style?: CSSProperties;
   /** 
    * onChange 回调
@@ -123,8 +134,9 @@ function getInitialState({
   let finalValue = value;
   let nonColorValue = false;
 
-  const isImage = value?.includes?.("url(");
-  const isGradient = value?.includes?.("gradient");
+  const isImage = typeof value === "string" && value.includes("url(");
+  // 必须用函数名匹配，避免 var(--color-gradient-*) 被误判为渐变
+  const isGradient = isGradientValue(value);
 
   if (!isGradient && !isImage) {
     try {
@@ -151,15 +163,18 @@ function getInitialState({
     if (option) {
       result.value = option.name;
       result.finalValue = finalValue;
-    } else if (finalValue.startsWith('var(') && finalValue.endsWith(')')) {
-      // optionsValueToAllMap 构建时 AICOM 变量可能还未就绪，直接兜底查询
-      const propName = finalValue.slice(4, -1);
-      const aicomVar = (window as any).MYBRICKS_AICOM_THEME_VARIABLES?.find(
-        (item: any) => item.propertyName === propName
-      );
+    } else if (isCssVarRef(finalValue)) {
+      // 保留 var() 引用本身，避免 finalValue 被置空后预览/回显丢失
+      result.finalValue = finalValue;
+      const parsed = parseCssVar(finalValue.trim());
+      const propName = parsed?.varName;
+      const aicomVar = propName
+        ? (window as any).MYBRICKS_AICOM_THEME_VARIABLES?.find(
+            (item: any) => item.propertyName === propName
+          )
+        : null;
       if (aicomVar) {
         result.value = aicomVar.title;
-        result.finalValue = finalValue;
         // 同步补充到 map，避免后续操作（如解绑）找不到
         optionsValueToAllMap[finalValue] = {
           key: propName,
@@ -167,6 +182,16 @@ function getInitialState({
           value: aicomVar.value,
           resetValue: aicomVar.value,
         };
+      } else {
+        const resolved = resolveCssVarColor(finalValue);
+        if (resolved && propName) {
+          optionsValueToAllMap[finalValue] = {
+            key: propName,
+            name: finalValue,
+            value: resolved,
+            resetValue: resolved,
+          };
+        }
       }
     }
   }
@@ -205,6 +230,9 @@ const getOptionsValueToAllMap = () => {
 
 export function ColorEditor({
   defaultValue,
+  resolvedColor,
+  variableOptions = [],
+  scopeEl = null,
   style = {},
   onChange,
   options = [],
@@ -219,6 +247,8 @@ export function ColorEditor({
   disableGradient,
 }: ColorEditorProps) {
   const presetRef = useRef<HTMLDivElement>(null);
+  const scopeElRef = useRef(scopeEl);
+  scopeElRef.current = scopeEl;
 
   const [optionsValueToAllMap] = useState(() => getOptionsValueToAllMap())
 
@@ -227,34 +257,61 @@ export function ColorEditor({
     getInitialState({ value: defaultValue, options, optionsValueToAllMap })
   );
 
-  // 处理时序问题：ColorEditor 挂载时 AICOM 变量可能还未就绪，挂载后补尝试解析
+  // 补齐 var() 预览色：AICOM / 画布变量列表 / scopeEl 计算样式
   useEffect(() => {
-    if (
-      state.nonColorValue &&
-      !state.finalValue &&
-      typeof state.value === 'string' &&
-      state.value.startsWith('var(') &&
-      state.value.endsWith(')')
-    ) {
-      const propName = state.value.slice(4, -1);
-      const aicomVar = (window as any).MYBRICKS_AICOM_THEME_VARIABLES?.find(
-        (item: any) => item.propertyName === propName
-      );
-      if (aicomVar) {
-        const freshEntry = {
-          key: propName,
-          name: aicomVar.title,
-          value: aicomVar.value,
-          resetValue: aicomVar.value,
-        };
-        dispatch({
-          value: aicomVar.title,
-          finalValue: state.value,
-          optionsValueToAllMap: { ...state.optionsValueToAllMap, [state.value]: freshEntry },
-        });
-      }
+    const varRef = isCssVarRef(state.finalValue)
+      ? state.finalValue
+      : isCssVarRef(state.value)
+        ? state.value
+        : "";
+    if (!state.nonColorValue || !varRef) return;
+    if (state.optionsValueToAllMap[varRef]?.value) return;
+
+    const parsed = parseCssVar(varRef.trim());
+    if (!parsed) return;
+
+    const aicomVar = (window as any).MYBRICKS_AICOM_THEME_VARIABLES?.find(
+      (item: any) => item.propertyName === parsed.varName
+    );
+    if (aicomVar) {
+      dispatch({
+        value: aicomVar.title,
+        finalValue: varRef,
+        optionsValueToAllMap: {
+          ...state.optionsValueToAllMap,
+          [varRef]: {
+            key: parsed.varName,
+            name: aicomVar.title,
+            value: aicomVar.value,
+            resetValue: aicomVar.value,
+          },
+        },
+      });
+      return;
     }
-  }, []);
+
+    const fromCanvas = variableOptions.find(
+      (item) => item.name === parsed.varName || `var(${item.name})` === varRef
+    )?.value;
+    const resolved =
+      fromCanvas ||
+      resolvedColor ||
+      resolveCssVarColor(varRef, scopeElRef.current);
+    if (!resolved) return;
+
+    dispatch({
+      finalValue: varRef,
+      optionsValueToAllMap: {
+        ...state.optionsValueToAllMap,
+        [varRef]: {
+          key: parsed.varName,
+          name: varRef,
+          value: resolved,
+          resetValue: resolved,
+        },
+      },
+    });
+  }, [variableOptions, resolvedColor, scopeEl, state.nonColorValue, state.finalValue, state.value]);
   const [colorPickerContext] = useState<{ open?: () => void }>({});
 
   const onPresetClick = useCallback(() => {
@@ -464,7 +521,7 @@ export function ColorEditor({
   const input = useMemo(() => {
     const { value, nonColorValue, finalValue } = state;
 
-    const isGradient = finalValue?.includes?.("gradient");
+    const isGradient = isGradientValue(finalValue);
     if (isGradient) {
       return (
           <div className={css.text} style={{ marginLeft: 5 }} onClick={onPresetClick}>
@@ -497,17 +554,24 @@ export function ColorEditor({
         </>
       );
     }
+    const isVariableReference = nonColorValue && isCssVarRef(value);
     return (
       <input
-        data-mybricks-tip={"支持16进制、RGB、RGBA、HSL、HSLA、var()或颜色名称"}
+        data-mybricks-tip={isVariableReference ? "变量引用，点击选择变量" : "支持16进制、RGB、RGBA、HSL、HSLA、var()或颜色名称"}
+        data-variable={isVariableReference || undefined}
         ref={inputColorRef}
         value={userInput}
         className={css.input}
+        readOnly={isVariableReference}
         onFocus={() => {
           isFocus.current = true;
           onFocus && onFocus?.();
         }}
+        onClick={() => {
+          if (isVariableReference) onPresetClick();
+        }}
         onChange={(e) => {
+          if (isVariableReference) return;
           const next = normalizeColorInput(e.target.value);
           setUserInput(next);
           handleInputChange(next);
@@ -582,30 +646,34 @@ export function ColorEditor({
 
   const onBindingChange = useCallback((params: any) => {
     const { name, value, resetValue } = params;
-    const rgbaValue = color2rgba(value);
-    emitChange('backgroundColor', rgbaValue);
+    emitChange('backgroundColor', value);
 
     dispatch({
       nonColorValue: true,
-      value: name,
+      value,
       finalValue: value
-      // value: option.label || value,
-      // finalValue: option.resetValue || "",
     });
 
     setCheckColor(value + name + resetValue);
-  }, [])
+  }, [emitChange])
 
   const block = useMemo(() => {
-    const { finalValue, nonColorValue } = state;
+    const { finalValue, nonColorValue, value } = state;
     const isImage = finalValue?.includes?.("url(");
-    const isGradient = finalValue?.includes?.("gradient");
+    const isGradient = isGradientValue(finalValue);
 
     let style: React.CSSProperties;
     if (nonColorValue) {
-      const resolvedColor = state.optionsValueToAllMap[finalValue]?.value || finalValue;
+      const varRef = isCssVarRef(finalValue) ? finalValue : isCssVarRef(value) ? value : "";
+      const variableOption = variableOptions.find((item) => `var(${item.name})` === varRef);
+      const previewColor =
+        state.optionsValueToAllMap[varRef || finalValue]?.value ||
+        variableOption?.value ||
+        resolvedColor ||
+        (varRef ? resolveCssVarColor(varRef, scopeEl) : null) ||
+        finalValue;
       style = {
-        backgroundColor: resolvedColor || "transparent",
+        backgroundColor: previewColor || "transparent",
       };
     } else if (isImage) {
       style = {
@@ -626,9 +694,17 @@ export function ColorEditor({
     let pickerValue = finalValue;
 
     if (nonColorValue) {
-      const option = state.optionsValueToAllMap[finalValue];
+      const varRef = isCssVarRef(finalValue) ? finalValue : isCssVarRef(value) ? value : "";
+      const option = state.optionsValueToAllMap[varRef || finalValue];
+      const variableOption = variableOptions.find((item) => `var(${item.name})` === varRef);
       if (option?.resetValue) {
         pickerValue = option.resetValue;
+      } else if (variableOption) {
+        pickerValue = variableOption.value;
+      } else if (resolvedColor) {
+        pickerValue = resolvedColor;
+      } else if (varRef) {
+        pickerValue = resolveCssVarColor(varRef, scopeEl) || varRef;
       }
     }
 
@@ -642,6 +718,10 @@ export function ColorEditor({
         // disabled={nonColorValue}
         className={css.colorPickerContainer}
         showSubTabs={showSubTabs}
+        defaultTab={state.nonColorValue && isCssVarRef(state.value) ? "variable" : "custom"}
+        canvasVariableOptions={variableOptions}
+        scopeEl={scopeEl}
+        selectedVariableName={state.finalValue || (isCssVarRef(state.value) ? state.value : undefined)}
         upload={upload}
         imageValue={imageValue}
         disableBackgroundColor={disableBackgroundColor}
@@ -662,7 +742,7 @@ export function ColorEditor({
         </div>
       </Colorpicker>
     );
-  }, [state.finalValue, state.nonColorValue, handleColorpickerChange, showSubTabs, upload, imageValue, disableBackgroundColor, disableBackgroundImage, disableGradient]);
+  }, [state.finalValue, state.value, state.nonColorValue, state.optionsValueToAllMap, resolvedColor, variableOptions, scopeEl, handleColorpickerChange, showSubTabs, upload, imageValue, disableBackgroundColor, disableBackgroundImage, disableGradient]);
 
   const preset = useMemo(() => {
     if (!state.showPreset) {

@@ -5,6 +5,7 @@ export const DEFAULT_OPTIONS = [
   'background',
   'padding',
   'margin',
+  'flex',
   'size',
   'position',
   'appearance',

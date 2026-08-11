@@ -18,6 +18,22 @@ export function cssRuleStyleToBag (style: CSSStyleDeclaration): Record<string, a
     const val = style.getPropertyValue(kebab)
     if (val) bag[camel] = val
   }
+  // Chrome：background 简写含 var() 时 longhand 值为空，但 style.length 仍列出子属性。
+  // 从简写回填，避免「有渐变却不展开背景面板 / 回显丢失」。
+  const bgShorthand = (style.getPropertyValue('background') || '').trim()
+  if (bgShorthand) {
+    const isImageLike =
+      /gradient\s*\(/i.test(bgShorthand) || /url\s*\(/i.test(bgShorthand)
+    if (!bag.backgroundImage && isImageLike) {
+      bag.backgroundImage = bgShorthand
+    } else if (
+      !bag.backgroundColor &&
+      !isImageLike &&
+      bgShorthand.toLowerCase().startsWith('var(')
+    ) {
+      bag.backgroundColor = bgShorthand
+    }
+  }
   const webkitClip = style.getPropertyValue('-webkit-background-clip')
   const webkitFill = style.getPropertyValue('-webkit-text-fill-color')
   if (webkitClip) {
@@ -161,10 +177,13 @@ export function getEffectedPanelsFromCssRules (rules: CSSStyleRule[]) {
     const styleBag = cssRuleStyleToBag(rule.style)
     rule.styleMap.forEach((cssVal, key) => {
       const camel = toHump(key)
-      const rawVal =
+      // styleMap 对「含 var() 的 background 简写」会给出空的 pending 值，
+      // 需回退到 cssRuleStyleToBag 已从简写回填的 bag。
+      const fromMap =
         typeof (cssVal as any)?.toString === 'function'
-          ? (cssVal as any).toString()
-          : styleBag[camel]
+          ? String((cssVal as any).toString()).trim()
+          : ''
+      const rawVal = fromMap || styleBag[camel]
       const mapped = PANEL_MAP[camel]
       if (isMeaninglessStylePropForPanel(camel, rawVal, mapped, styleBag)) {
         return
