@@ -15,7 +15,7 @@ import {
 } from "../../components";
 import { Panel, Colorpicker, UnbindingOutlined, BindingOutlined } from "../";
 import { color2rgba, getRealKey } from "../../utils";
-import { parseCssVar } from "../../../core/resolve-css-var-color";
+import { CssVarColorOption, parseCssVar } from "../../../core/resolve-css-var-color";
 
 import css from "./index.less";
 
@@ -70,6 +70,10 @@ type ColorOptions = Array<ColorOption>;
 interface ColorEditorProps {
   options?: ColorOptions;
   defaultValue: any;
+  /** 变量引用的实际色值，仅用于色块与取色器预览 */
+  resolvedColor?: string;
+  /** 当前画布可用的 CSS 颜色变量 */
+  variableOptions?: CssVarColorOption[];
   style?: CSSProperties;
   /** 
    * onChange 回调
@@ -205,6 +209,8 @@ const getOptionsValueToAllMap = () => {
 
 export function ColorEditor({
   defaultValue,
+  resolvedColor,
+  variableOptions = [],
   style = {},
   onChange,
   options = [],
@@ -497,17 +503,24 @@ export function ColorEditor({
         </>
       );
     }
+    const isVariableReference = nonColorValue && isCssVarRef(value);
     return (
       <input
-        data-mybricks-tip={"支持16进制、RGB、RGBA、HSL、HSLA、var()或颜色名称"}
+        data-mybricks-tip={isVariableReference ? "变量引用，点击选择变量" : "支持16进制、RGB、RGBA、HSL、HSLA、var()或颜色名称"}
+        data-variable={isVariableReference || undefined}
         ref={inputColorRef}
         value={userInput}
         className={css.input}
+        readOnly={isVariableReference}
         onFocus={() => {
           isFocus.current = true;
           onFocus && onFocus?.();
         }}
+        onClick={() => {
+          if (isVariableReference) onPresetClick();
+        }}
         onChange={(e) => {
+          if (isVariableReference) return;
           const next = normalizeColorInput(e.target.value);
           setUserInput(next);
           handleInputChange(next);
@@ -582,19 +595,16 @@ export function ColorEditor({
 
   const onBindingChange = useCallback((params: any) => {
     const { name, value, resetValue } = params;
-    const rgbaValue = color2rgba(value);
-    emitChange('backgroundColor', rgbaValue);
+    emitChange('backgroundColor', value);
 
     dispatch({
       nonColorValue: true,
-      value: name,
+      value,
       finalValue: value
-      // value: option.label || value,
-      // finalValue: option.resetValue || "",
     });
 
     setCheckColor(value + name + resetValue);
-  }, [])
+  }, [emitChange])
 
   const block = useMemo(() => {
     const { finalValue, nonColorValue } = state;
@@ -603,9 +613,10 @@ export function ColorEditor({
 
     let style: React.CSSProperties;
     if (nonColorValue) {
-      const resolvedColor = state.optionsValueToAllMap[finalValue]?.value || finalValue;
+      const variableOption = variableOptions.find((item) => `var(${item.name})` === finalValue);
+      const previewColor = state.optionsValueToAllMap[finalValue]?.value || variableOption?.value || resolvedColor || finalValue;
       style = {
-        backgroundColor: resolvedColor || "transparent",
+        backgroundColor: previewColor || "transparent",
       };
     } else if (isImage) {
       style = {
@@ -627,8 +638,13 @@ export function ColorEditor({
 
     if (nonColorValue) {
       const option = state.optionsValueToAllMap[finalValue];
+      const variableOption = variableOptions.find((item) => `var(${item.name})` === finalValue);
       if (option?.resetValue) {
         pickerValue = option.resetValue;
+      } else if (variableOption) {
+        pickerValue = variableOption.value;
+      } else if (resolvedColor) {
+        pickerValue = resolvedColor;
       }
     }
 
@@ -642,6 +658,9 @@ export function ColorEditor({
         // disabled={nonColorValue}
         className={css.colorPickerContainer}
         showSubTabs={showSubTabs}
+        defaultTab={state.nonColorValue && isCssVarRef(state.value) ? "variable" : "custom"}
+        canvasVariableOptions={variableOptions}
+        selectedVariableName={state.finalValue || (isCssVarRef(state.value) ? state.value : undefined)}
         upload={upload}
         imageValue={imageValue}
         disableBackgroundColor={disableBackgroundColor}
@@ -662,7 +681,7 @@ export function ColorEditor({
         </div>
       </Colorpicker>
     );
-  }, [state.finalValue, state.nonColorValue, handleColorpickerChange, showSubTabs, upload, imageValue, disableBackgroundColor, disableBackgroundImage, disableGradient]);
+  }, [state.finalValue, state.nonColorValue, resolvedColor, variableOptions, handleColorpickerChange, showSubTabs, upload, imageValue, disableBackgroundColor, disableBackgroundImage, disableGradient]);
 
   const preset = useMemo(() => {
     if (!state.showPreset) {

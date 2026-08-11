@@ -10,17 +10,23 @@ import { createPortal } from "react-dom";
 
 import ColorUtil from "color";
 import Sketch, { ColorResult } from "@mybricks/color-picker";
-import { useDebounceFn } from "../../../../hooks"
 import { GradientEditor } from "../GradientEditor"
 import { ImagePanel } from "../ImagePanel"
 
 import { isDefaultWhiteGradientLayer } from "../../helper/gradient-border";
+import { CssVarColorOption, parseCssVar } from "../../../core/resolve-css-var-color";
 
 import css from "./index.less";
 
 const DEFAULT_SOLID = "rgba(0,0,0,1)";
 const DEFAULT_GRADIENT =
   "linear-gradient(90deg, rgba(255,255,255,1) 0%, rgba(0,0,0,1) 100%)";
+
+const getCssVarName = (value?: string): string | undefined => {
+  const normalized = value?.trim().replace(/\s*!important\s*$/i, '');
+  if (!normalized) return undefined;
+  return parseCssVar(normalized)?.varName || (normalized.startsWith('--') ? normalized : undefined);
+};
 
 interface ColorpickerProps {
   context: any;
@@ -31,6 +37,12 @@ interface ColorpickerProps {
   className?: string;
   /** 禁用变量 tab（如主题色编辑入口，不应允许绑定变量） */
   disableVariable?: boolean;
+  /** 弹层打开时优先展示的类型 */
+  defaultTab?: "custom" | "variable";
+  /** 当前画布可选的 CSS 颜色变量 */
+  canvasVariableOptions?: CssVarColorOption[];
+  /** 当前已绑定的 CSS 变量名 */
+  selectedVariableName?: string;
   showSubTabs?: boolean;
   onBindingChange?: (value: any) => void;
   /** 图片上传函数 */
@@ -62,6 +74,9 @@ export function Colorpicker(props:ColorpickerProps) {
     className,
     showSubTabs = true,
     disableVariable = false,
+    defaultTab = "custom",
+    canvasVariableOptions = [],
+    selectedVariableName,
     upload,
     imageValue,
     disableBackgroundColor,
@@ -126,6 +141,9 @@ export function Colorpicker(props:ColorpickerProps) {
             childRef={childRef}
             showSubTabs={showSubTabs}
             disableVariable={disableVariable}
+            defaultTab={defaultTab}
+            canvasVariableOptions={canvasVariableOptions}
+            selectedVariableName={selectedVariableName}
             upload={upload}
             imageValue={imageValue}
             disableBackgroundColor={disableBackgroundColor}
@@ -144,6 +162,12 @@ interface ColorSketchProps {
   showSubTabs?: boolean; //显示纯色/渐变/图片 tab
   /** 禁用变量 tab */
   disableVariable?: boolean;
+  /** 弹层打开时优先展示的类型 */
+  defaultTab?: "custom" | "variable";
+  /** 当前画布可选的 CSS 颜色变量 */
+  canvasVariableOptions?: CssVarColorOption[];
+  /** 当前已绑定的 CSS 变量名 */
+  selectedVariableName?: string;
   positionElement: HTMLDivElement;
   upload?: (files: Array<File>, args: any) => Promise<Array<string>>;
   imageValue?: {
@@ -166,28 +190,6 @@ interface ColorSketchProps {
   disableGradient?: boolean;
 }
 
-const TAB_LIST_DEFAULT = [
-  {
-    key: "custom",
-    title: "自定义"
-  },
-  {
-    key: "variable",
-    title: "变量"
-  }
-]
-
-const TAB_LIST_VIBE = [
-  {
-    key: "variable",
-    title: "变量"
-  },
-  {
-    key: "custom",
-    title: "自定义"
-  }
-]
-
 function ColorSketch({
   open,
   positionElement,
@@ -197,6 +199,9 @@ function ColorSketch({
   childRef,
   showSubTabs = true,
   disableVariable = false,
+  defaultTab = "custom",
+  canvasVariableOptions = [],
+  selectedVariableName,
   upload,
   imageValue = {},
   disableBackgroundColor = false,
@@ -223,26 +228,30 @@ function ColorSketch({
     }
   }, [open]);
 
-  const [selectTab, setSelectTab] = useState(
-    !disableVariable && (window as any).MYBRICKS_AICOM_THEME_VARIABLES?.length ? "variable" : "custom"
-  )
-  const [list, setList] = useState(window.MYBRICKS_THEME_PACKAGE_VARIABLES?.variables || [])
+  const variableOptions = useMemo<CssVarColorOption[]>(() => {
+    if (disableVariable) return [];
+
+    // 仅展示当前画布节点计算样式中实际生效的颜色变量。
+    return canvasVariableOptions;
+  }, [canvasVariableOptions, disableVariable]);
+  const hasVariableOptions = variableOptions.length > 0;
   
   const defaultColor = DEFAULT_SOLID
   const defaultGradient = DEFAULT_GRADIENT
   
   // 根据 value 判断初始 subTab（优先检查图片），同时考虑禁用配置
   const getSubTabByValue = useCallback((currentValue?: string) => {
+    if (defaultTab === "variable" && hasVariableOptions) return "variable"
     const isImage = currentValue?.includes?.("url(")
     const isGradient = currentValue?.includes?.("gradient")
-    if (isImage && !disableBackgroundImage) return "image"
-    if (isGradient && !disableGradient) return "gradient"
+    if (showSubTabs && isImage && !disableBackgroundImage) return "image"
+    if (showSubTabs && isGradient && !disableGradient) return "gradient"
     if (!disableBackgroundColor) return "background"
     // 如果背景色被禁用，选择第一个可用的 tab
-    if (!disableGradient) return "gradient"
-    if (!disableBackgroundImage) return "image"
-    return "background"
-  }, [disableBackgroundColor, disableBackgroundImage, disableGradient])
+    if (showSubTabs && !disableGradient) return "gradient"
+    if (showSubTabs && !disableBackgroundImage) return "image"
+    return hasVariableOptions ? "variable" : "background"
+  }, [defaultTab, disableBackgroundColor, disableBackgroundImage, disableGradient, hasVariableOptions, showSubTabs])
   const [subTab, setSubTab] = useState(() => getSubTabByValue(value))
   
   // 保存纯色和渐变值，切换 tab 时使用
@@ -290,17 +299,17 @@ function ColorSketch({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
   
-  const tabClick = (tab: string) => {
-    setSelectTab(tab)
-  }
-  
   const subTabClick = (tab: string) => {
     setSubTab(tab)
     if (tab === "background") {
-      onChange([
-        { key: 'backgroundColor', value: colorValue },
-        { key: 'backgroundImage', value: 'none' }
-      ])
+      if (showSubTabs) {
+        onChange([
+          { key: 'backgroundColor', value: colorValue },
+          { key: 'backgroundImage', value: 'none' }
+        ])
+      } else {
+        onChange({ key: 'backgroundColor', value: colorValue })
+      }
     } else if (tab === "gradient") {
       let nextGradient = gradientValue
       if (!nextGradient || isDefaultWhiteGradientLayer(nextGradient)) {
@@ -336,284 +345,147 @@ function ColorSketch({
     onChange({ key, value });
   }, [onChange]);
 
-  const search = useDebounceFn((e: any) => {
-    const searchValue = e.target.value
-
-    if (!searchValue) {
-      setList(window.MYBRICKS_THEME_PACKAGE_VARIABLES.variables)
-      return
+  const handleSolidChange = useCallback((colorResult: ColorResult, oldValue: ColorResult) => {
+    if (
+      colorResult.hexa !== "#ffffff00" &&
+      colorResult.hexa?.length === 9 &&
+      colorResult?.hex !== oldValue?.hex &&
+      colorResult.hexa[colorResult.hexa.length - 1] === "0"
+    ) {
+      colorResult.hexa = colorResult.hexa.replace(/00$/, "FF");
     }
 
-    const newList: any = [];
-
-    window.MYBRICKS_THEME_PACKAGE_VARIABLES.variables.forEach((variable: any) => {
-      const configs = variable.configs.filter(({ key, name }: any) => {
-        return key.toLowerCase().indexOf(searchValue) !== -1 || name.toLowerCase().indexOf(searchValue) !== -1
-      })
-
-      if (configs.length) {
-        newList.push({
-          ...variable,
-          configs
-        })
-      }
-    })
-
-    setList(newList);
-  }, 300)
-
-  const aicomSearch = useDebounceFn((e: any) => {
-    const searchValue = e.target.value.toLowerCase();
-    if (!searchValue) {
-      setAicomList(window.MYBRICKS_AICOM_THEME_VARIABLES || []);
-      return;
+    setColorValue(colorResult.hexa);
+    if (showSubTabs) {
+      onChange([
+        { key: 'backgroundColor', value: colorResult.hexa },
+        { key: 'backgroundImage', value: 'none' }
+      ]);
+    } else {
+      onChange({ key: 'backgroundColor', value: colorResult.hexa });
     }
-    setAicomList(
-      (window.MYBRICKS_AICOM_THEME_VARIABLES || []).filter((item: any) =>
-        item.propertyName?.toLowerCase().includes(searchValue) ||
-        item.title?.toLowerCase().includes(searchValue)
-      )
-    );
-  }, 300)
+  }, [onChange, showSubTabs]);
 
-  const hasThemePackage = !!window.MYBRICKS_THEME_PACKAGE_VARIABLES;
-  const hasAicom = !disableVariable && !!(window as any).MYBRICKS_AICOM_THEME_VARIABLES?.length;
-  const tabList = hasAicom ? TAB_LIST_VIBE : TAB_LIST_DEFAULT;
-
-  const [varSubTab, setVarSubTab] = useState<"themePackage" | "aicom">(
-    hasThemePackage ? "themePackage" : "aicom"
-  );
-  const [aicomList, setAicomList] = useState<any[]>(window.MYBRICKS_AICOM_THEME_VARIABLES || []);
 
   return (
     <div ref={childRef} className={css.colorSketch} data-dropdown-portal="true" onFocus={(e) => e.stopPropagation()}>
-      {(hasThemePackage || hasAicom) && (
-        <div className={css.header}>
-          <div className={css.tabs}>
-            {tabList.map(({ key, title }) => {
-              return (
-                <button
-                  data-active={selectTab === key}
-                  onClick={() => {
-                    tabClick(key)
-                  }}
-                >
-                  {title}
-                </button>
-              )
-            })}
-          </div>
-          {selectTab === "variable" && <div className={css.search}>
-            <svg viewBox='0 0 1057 1024' version='1.1' xmlns='http://www.w3.org/2000/svg' p-id='6542' width='16'
-              height='16'>
-              <path
-                d='M835.847314 455.613421c0-212.727502-171.486774-385.271307-383.107696-385.271307C241.135212 70.35863 69.648437 242.869403 69.648437 455.613421c0 212.760534 171.486774 385.271307 383.091181 385.271307 109.666973 0 211.769567-46.525883 283.961486-126.645534a384.891436 384.891436 0 0 0 99.14621-258.625773zM1045.634948 962.757107c33.560736 32.421125-14.583725 83.257712-48.144461 50.853103L763.176429 787.28995a449.79975 449.79975 0 0 1-310.436811 123.953408C202.735255 911.243358 0 707.269395 0 455.613421S202.735255 0 452.739618 0C702.760497 0 905.495752 203.957447 905.495752 455.613421a455.662969 455.662969 0 0 1-95.330989 279.716846l235.486702 227.42684z'
-                p-id='6543'></path>
-            </svg>
-            <input
-              placeholder='搜索'
-              onChange={varSubTab === "aicom" ? aicomSearch : search}
-              autoFocus
-              style={{ border: 'none', background: 'transparent' }}
-            />
-          </div>}
-        </div>
-      )}
       <div className={css.content}>
-        {selectTab === "custom" && showSubTabs && (
-          <div className={css.tabItem}>
+        <div className={css.tabItem}>
+          {(showSubTabs || hasVariableOptions) && (
             <div className={css.subTabs}>
               {!disableBackgroundColor && (
-                <button
-                  data-active={subTab === "background"}
-                  onClick={() => subTabClick("background")}
-                >
+                <button data-active={subTab === "background"} onClick={() => subTabClick("background")}>
                   填充
                 </button>
               )}
-              {!disableGradient && (
-                <button
-                  data-active={subTab === "gradient"}
-                  onClick={() => subTabClick("gradient")}
-                >
+              {showSubTabs && !disableGradient && (
+                <button data-active={subTab === "gradient"} onClick={() => subTabClick("gradient")}>
                   渐变
                 </button>
               )}
-              {!disableBackgroundImage && (
-                <button
-                  data-active={subTab === "image"}
-                  onClick={() => subTabClick("image")}
-                >
+              {showSubTabs && !disableBackgroundImage && (
+                <button data-active={subTab === "image"} onClick={() => subTabClick("image")}>
                   图片
                 </button>
               )}
-            </div>
-            <div className={css.subContent}>
-              {subTab === "background" && (
-                <Sketch color={sketchColor()} onChange={(colorResult: ColorResult, oldValue: ColorResult) => {
-                  if (
-                    colorResult.hexa !== "#ffffff00" &&
-                    colorResult.hexa?.length === 9 &&
-                    colorResult?.hex !== oldValue?.hex
-                  ) {
-                    if (colorResult.hexa[colorResult.hexa.length - 1] === "0") {
-                      colorResult.hexa = colorResult.hexa.replace(/00$/, "FF");
-                    }
-                  }
-                  setColorValue(colorResult.hexa);
-                  onChange([
-                    { key: 'backgroundColor', value: colorResult.hexa },
-                    { key: 'backgroundImage', value: 'none' }
-                  ]);
-                }} />
-              )}
-              {subTab === "gradient" && (
-                <GradientEditor
-                  defaultValue={gradientValue}
-                  onChange={handleGradientChange}
-                />
-              )}
-              {subTab === "image" && (
-                <ImagePanel
-                  value={imageValue}
-                  onChange={handleImagePanelChange}
-                  upload={upload}
-                />
-              )}
-            </div>
-          </div>
-        )}
-
-        {selectTab === "custom" && !showSubTabs && (
-          <div className={css.tabItem}>
-            <div className={css.subContent}>
-            <Sketch color={sketchColor()} onChange={(colorResult: ColorResult, oldValue: ColorResult) => {
-                  if (
-                    colorResult.hexa !== "#ffffff00" &&
-                    colorResult.hexa?.length === 9 &&
-                    colorResult?.hex !== oldValue?.hex
-                  ) {
-                    if (colorResult.hexa[colorResult.hexa.length - 1] === "0") {
-                      colorResult.hexa = colorResult.hexa.replace(/00$/, "FF");
-                    }
-                  }
-                  onChange({ key: 'backgroundColor', value: colorResult.hexa });
-                }} />
-            </div>
-          </div>
-        )}
-        {selectTab === "variable" && Array.isArray(list) && (
-          <div className={css.tabItem}>
-            {hasThemePackage && hasAicom && (
-              <div className={css.subTabs}>
-                <button
-                  data-active={varSubTab === "themePackage"}
-                  onClick={() => setVarSubTab("themePackage")}
-                >
-                  主题包变量
+              {hasVariableOptions && (
+                <button data-active={subTab === "variable"} onClick={() => subTabClick("variable")}>
+                  变量
                 </button>
-                <button
-                  data-active={varSubTab === "aicom"}
-                  onClick={() => setVarSubTab("aicom")}
-                >
-                  AI页面变量
-                </button>
-              </div>
+              )}
+            </div>
+          )}
+          <div className={css.subContent}>
+            {subTab === "background" && <Sketch color={sketchColor()} onChange={handleSolidChange} />}
+            {subTab === "gradient" && (
+              <GradientEditor defaultValue={gradientValue} onChange={handleGradientChange} />
             )}
-            {(hasThemePackage && (!hasAicom || varSubTab === "themePackage")) && (
-              <VariableList list={list} onBindingChange={onBindingChange} />
+            {subTab === "image" && (
+              <ImagePanel value={imageValue} onChange={handleImagePanelChange} upload={upload} />
             )}
-            {(hasAicom && (!hasThemePackage || varSubTab === "aicom")) && (
-              <AicomVariableList list={aicomList} onBindingChange={onBindingChange} />
+            {subTab === "variable" && (
+              <ColorVariableList
+                list={variableOptions}
+                selectedName={selectedVariableName}
+                open={open}
+                onBindingChange={onBindingChange}
+              />
             )}
           </div>
-        )}
+        </div>
       </div>
     </div>
   );
 }
-const VariableList = (props: any) => {
-  return (
-    <div className={css.variableListContainer}>
-      <div className={css.variableList}>
-        {props.list.map((variable: any) => {
-          return (
-            <>
-              <div className={css.title}>
-                {variable.title}
-              </div>
-              {variable.configs.map((config: any) => {
-                return (
-                  <div
-                    className={css.value}
-                    onClick={(e) => {
-                      props.onBindingChange({
-                        name: config.name,
-                        value: `var(${config.key})`,
-                        resetValue: config.value
-                      })
-                    }}
-                  >
-                    <div className={css.block} style={{ backgroundColor: config.value }} />
-                    <span>{config.name}</span>
-                  </div>
-                )
-              })}
-            </>
-          )
-        })}
-      </div>
-    </div>
-  )
-}
+const ColorVariableList = ({
+  list,
+  selectedName,
+  open,
+  onBindingChange,
+}: {
+  list: CssVarColorOption[];
+  selectedName?: string;
+  open: boolean;
+  onBindingChange?: (value: any) => void;
+}) => {
+  const [keyword, setKeyword] = useState('');
+  const listRef = useRef<HTMLDivElement>(null);
+  const normalizedSelectedName = getCssVarName(selectedName);
+  const filteredList = useMemo(
+    () => list.filter((item) => item.name.toLowerCase().includes(keyword.trim().toLowerCase())),
+    [keyword, list]
+  );
 
-const AICOM_TYPE_TITLES: Record<string, string> = {
-  color: '颜色',
-  borderRadius: '圆角',
-  spacing: '间距',
-}
+  useEffect(() => {
+    if (!open || !selectedName) return;
+    let centerFrame: number | undefined;
+    const renderFrame = window.requestAnimationFrame(() => {
+      // 等变量筛选与列表布局完成后，再根据容器实际边界计算居中位置。
+      centerFrame = window.requestAnimationFrame(() => {
+        const container = listRef.current;
+        const selected = container?.querySelector<HTMLElement>('[data-selected="true"]');
+        if (!container || !selected) return;
 
-const AicomVariableList = ({ list, onBindingChange }: any) => {
-  const groups = useMemo(() => {
-    const map: Record<string, any[]> = {};
-    (list || []).filter((item: any) => item.type === 'color').forEach((item: any) => {
-      const type = item.type || 'other';
-      if (!map[type]) map[type] = [];
-      map[type].push(item);
+        const containerRect = container.getBoundingClientRect();
+        const selectedRect = selected.getBoundingClientRect();
+        const nextScrollTop = container.scrollTop + selectedRect.top - containerRect.top
+          - (container.clientHeight - selectedRect.height) / 2;
+        container.scrollTo({ top: Math.max(0, nextScrollTop) });
+      });
     });
-    return Object.entries(map).map(([type, items]) => ({
-      type,
-      title: AICOM_TYPE_TITLES[type] || type,
-      items,
-    }));
-  }, [list]);
+    return () => {
+      window.cancelAnimationFrame(renderFrame);
+      if (centerFrame != null) window.cancelAnimationFrame(centerFrame);
+    };
+  }, [open, selectedName, filteredList]);
 
   return (
     <div className={css.variableListContainer}>
-      <div className={css.variableList}>
-        {groups.map(({ type, title, items }) => (
-          <React.Fragment key={type}>
-            <div className={css.title}>{title}</div>
-            {items.map((item: any) => (
-              <div
-                key={item.propertyName}
-                className={css.value}
-                onClick={() => {
-                  onBindingChange?.({
-                    name: item.title,
-                    value: `var(${item.propertyName})`,
-                    resetValue: item.value,
-                  });
-                }}
-              >
-                <div className={css.block} style={{ backgroundColor: item.value }} />
-                <span>{item.title}</span>
-              </div>
-            ))}
-          </React.Fragment>
+      <div className={css.variableFilter}>
+        <input
+          value={keyword}
+          placeholder="筛选变量"
+          onChange={(event) => setKeyword(event.target.value)}
+          autoFocus
+        />
+      </div>
+      <div ref={listRef} className={css.variableList}>
+        {filteredList.map((item) => (
+          <div
+            key={item.name}
+            className={css.value}
+            data-selected={getCssVarName(item.name) === normalizedSelectedName || undefined}
+            onClick={() => onBindingChange?.({
+              name: item.name,
+              value: `var(${item.name})`,
+              resetValue: item.value,
+            })}
+          >
+            <div className={css.block} style={{ backgroundColor: item.value }} />
+            <span>{item.name}</span>
+          </div>
         ))}
       </div>
     </div>
   )
 }
-

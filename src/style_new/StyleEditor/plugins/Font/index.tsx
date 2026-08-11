@@ -34,6 +34,7 @@ import {
   parseTextFillDisplayValue,
 } from "../../helper/text-fill";
 import { getColorEditorValue } from "../../helper/get-color-editor-value";
+import { getCssVarColorOptions, resolveCssVarColor } from "../../../core/resolve-css-var-color";
 import css from "./index.less";
 
 interface FontProps extends PanelBaseProps {
@@ -281,6 +282,7 @@ function parseTextDecoration(td: string | undefined): 'underline' | 'line-throug
 export function Font({ value, onChange, config, showTitle }: FontProps) {
   const context = useStyleEditorContext();
   const editConfig = context?.editConfig;
+  const targetDom = context?.targetDom ?? null;
   const outterFontFamilyOptions = normalizeFontfaceOptions(editConfig?.fontfaces || []);
   const valueRef = useRef(value);
   valueRef.current = value;
@@ -307,10 +309,12 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
     [onChange]
   );
 
-  const textFillDisplayValue = parseTextFillDisplayValue(value as Record<string, any>);
-  const textFillEditorKey = isTextFillActive(value as Record<string, any>)
+  const textFillValue = parseTextFillDisplayValue(value as Record<string, any>);
+  const textFillResolvedColor = resolveCssVarColor(textFillValue, targetDom);
+  const canvasColorVariables = getCssVarColorOptions(targetDom);
+  const textFillEditorKey = `${isTextFillActive(value as Record<string, any>)
     ? "text-fill-gradient"
-    : "text-fill-solid";
+    : "text-fill-solid"}-${textFillValue}-${textFillResolvedColor ?? ""}`;
 
   const [innerFontFamily, setInnerFontFamily] = useState<string[] | undefined>(
     parseFontFamily(value.fontFamily)
@@ -362,8 +366,6 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
       },
     ];
   }, []);
-
-  const targetDom = context?.targetDom ?? null;
 
   const [fontSize, setFontSize] = useState<string | number | null>(() =>
     isConfiguredCssLength(value.fontSize) ? (value.fontSize as string | number) : null
@@ -830,7 +832,9 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
               overflow: "hidden",
               paddingLeft: 8,
             }}
-            defaultValue={textFillDisplayValue}
+            defaultValue={textFillValue}
+            resolvedColor={textFillResolvedColor ?? undefined}
+            variableOptions={canvasColorVariables}
             showSubTabs={true}
             disableBackgroundImage={true}
             onChange={handleTextFillChange}

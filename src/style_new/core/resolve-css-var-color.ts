@@ -9,6 +9,11 @@ export interface ParsedCssVar {
   fallback: string | null
 }
 
+export interface CssVarColorOption {
+  name: string
+  value: string
+}
+
 /** 括号深度感知拆出 var(--name) / var(--name, fallback) */
 export function parseCssVar(value: string): ParsedCssVar | null {
   if (typeof value !== 'string') return null
@@ -87,15 +92,17 @@ function lookupDomCssVarColor(
     if (typeof document === 'undefined' || typeof getComputedStyle !== 'function') {
       return null
     }
+    const ownerDocument = scopeEl?.ownerDocument || document
+    const getStyle = ownerDocument.defaultView?.getComputedStyle || getComputedStyle
     const candidates: Element[] = []
     if (scopeEl) candidates.push(scopeEl)
-    if (document.documentElement) candidates.push(document.documentElement)
-    if (document.body) candidates.push(document.body)
-    const rootDiv = document.querySelector('#root > div')
+    if (ownerDocument.documentElement) candidates.push(ownerDocument.documentElement)
+    if (ownerDocument.body) candidates.push(ownerDocument.body)
+    const rootDiv = ownerDocument.querySelector('#root > div')
     if (rootDiv) candidates.push(rootDiv)
 
     for (const el of candidates) {
-      const val = getComputedStyle(el).getPropertyValue(varName).trim()
+      const val = getStyle(el).getPropertyValue(varName).trim()
       if (val && isParseableColor(val)) return val
     }
   } catch {
@@ -116,6 +123,40 @@ export function lookupCssVarColor(
     lookupThemePackageColor(name) ||
     lookupDomCssVarColor(name, scopeEl)
   )
+}
+
+/** 读取画布节点当前生效、且可用于颜色编辑的 CSS 自定义属性。 */
+export function getCssVarColorOptions(scopeEl?: Element | null): CssVarColorOption[] {
+  if (typeof document === 'undefined' || typeof getComputedStyle !== 'function') {
+    return []
+  }
+
+  const ownerDocument = scopeEl?.ownerDocument || document
+  const getStyle = ownerDocument.defaultView?.getComputedStyle || getComputedStyle
+  const candidates: Element[] = []
+  if (scopeEl) candidates.push(scopeEl)
+  if (ownerDocument.documentElement) candidates.push(ownerDocument.documentElement)
+  if (ownerDocument.body) candidates.push(ownerDocument.body)
+
+  const options = new Map<string, CssVarColorOption>()
+  try {
+    for (const element of candidates) {
+      const computed = getStyle(element)
+      for (let index = 0; index < computed.length; index++) {
+        const name = computed[index]
+        if (!name?.startsWith('--') || options.has(name)) continue
+
+        const value = computed.getPropertyValue(name).trim()
+        if (isParseableColor(value)) {
+          options.set(name, { name, value })
+        }
+      }
+    }
+  } catch {
+    // ignore unavailable canvas styles
+  }
+
+  return Array.from(options.values())
 }
 
 /**
