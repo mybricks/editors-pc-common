@@ -20,10 +20,14 @@ type FlexMode = 'ratio' | 'advanced'
 /** 面板与字段文案（面向设计） */
 const COPY = {
   panelTitle: '弹性',
+  panelTip: JSON.stringify({
+    content: '自动填充父级的剩余空间，多个元素按比例分配',
+    position: 'left',
+  }),
   fieldLabel: '比例',
   fieldTip: JSON.stringify({
     content:
-      '父级为横向/纵向排列时，决定本元素占多少剩余空间。填 1 表示参与均分；多个子项分别填 1 和 2 时按约 1:2 分配。清空则不弹性拉伸。',
+      '父级为横向/纵向排列时，决定本元素占多少剩余空间。填 1 表示参与均分；多个子项分别填 1 和 2 时按 1:2 分配。清空则不弹性拉伸。',
     position: 'left',
   }),
   toAdvancedTip: JSON.stringify({
@@ -46,7 +50,8 @@ const COPY = {
   }),
   basisLabel: '基础长度',
   basisTip: JSON.stringify({
-    content: '分配剩余空间前的起始尺寸。常用 0（配合比例 1 吃掉剩余空间）；也可填具体长度如 100px、50%。留空时按元素自身尺寸或内容计算。',
+    content:
+      '分配剩余空间前的初始尺寸。填 0 表示尺寸完全由比例决定；也可填具体长度，如 100px、50%。留空时按元素自身尺寸或内容计算。',
     position: 'left',
   }),
 }
@@ -395,6 +400,7 @@ export function Flex({ value, onChange, showTitle, collapse }: FlexProps) {
   return (
     <Panel
       title={COPY.panelTitle}
+      titleTip={COPY.panelTip}
       showTitle={showTitle}
       showReset={true}
       resetFunction={refresh}
