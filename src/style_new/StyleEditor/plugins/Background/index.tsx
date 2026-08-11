@@ -24,10 +24,12 @@ import {
 } from "./layers";
 import { getContentBackgroundMeta } from "../../helper/paint-stack";
 import {
-  CssVarColorOption,
   getCssVarColorOptions,
+  parseCssVar,
+  resolveCssVarColor,
   resolveCssVarsInCssValue,
 } from "../../../core/resolve-css-var-color";
+import type { CssVarColorOption } from "../../../core/resolve-css-var-color";
 
 function GripIcon() {
   return (
@@ -64,7 +66,7 @@ const DEFAULT_CONFIG = {
   useImportant: false,
 };
 
-function getSwatchStyle(layer: BgLayer, scopeEl?: Element | null): CSSProperties {
+function getSwatchStyle(layer: BgLayer, scopeEl?: Element | null, resolvedColor?: string): CSSProperties {
   if (layer.type === "image") {
     return {
       backgroundImage: layer.value,
@@ -107,7 +109,7 @@ function getSwatchStyle(layer: BgLayer, scopeEl?: Element | null): CSSProperties
       // fall through to plain backgroundColor
     }
   }
-  return { backgroundColor: resolvedSolid || "transparent" };
+  return { backgroundColor: resolvedColor || layer.value || "transparent" };
 }
 
 function getLayerLabel(layer: BgLayer): string {
@@ -131,6 +133,8 @@ interface LayerItemProps {
   disableBackgroundColor?: boolean;
   disableBackgroundImage?: boolean;
   disableGradient?: boolean;
+  variableOptions: CssVarColorOption[];
+  resolvedColor?: string;
   scopeEl?: Element | null;
   canvasVariableOptions?: CssVarColorOption[];
 }
@@ -142,6 +146,8 @@ function LayerItem({
   disableBackgroundColor,
   disableBackgroundImage,
   disableGradient,
+  variableOptions,
+  resolvedColor,
   scopeEl = null,
   canvasVariableOptions = [],
 }: LayerItemProps) {
@@ -166,7 +172,11 @@ function LayerItem({
     [layer.value, onLayerChange]
   );
 
-  const opacity = layer.type === "solid" ? getColorOpacity(layer.value) : 100;
+  const isVariableReference = !!parseCssVar(layer.value);
+  const pickerValue = isVariableReference ? resolvedColor || layer.value : layer.value;
+  const opacity = layer.type === "solid" && !isVariableReference
+    ? getColorOpacity(layer.value)
+    : 100;
 
   // ── Opacity drag scrubbing (reuses useDragNumber hook) ──────────────────
   const getDragProps = useDragNumber({
@@ -194,7 +204,7 @@ function LayerItem({
   // ── Inline label editing (solid colors only) ─────────────────────────────
 
   const startEditing = useCallback(() => {
-    if (layer.type !== "solid") {
+    if (layer.type !== "solid" || isVariableReference) {
       colorPickerCtx.open?.();
       return;
     }
@@ -204,7 +214,7 @@ function LayerItem({
     setTimeout(() => {
       labelInputRef.current?.select();
     }, 0);
-  }, [layer, colorPickerCtx]);
+  }, [layer, colorPickerCtx, isVariableReference]);
 
   const commitEdit = useCallback(() => {
     setEditing(false);
@@ -249,8 +259,12 @@ function LayerItem({
       {/* Swatch + Color Picker trigger */}
       <Colorpicker
         context={colorPickerCtx}
-        value={layer.value}
+        value={pickerValue}
         onChange={handlePickerChange}
+        onBindingChange={({ value }) => onLayerChange({ type: "solid", value })}
+        defaultTab={isVariableReference ? "variable" : undefined}
+        canvasVariableOptions={variableOptions}
+        selectedVariableName={isVariableReference ? layer.value : undefined}
         showSubTabs={true}
         upload={upload}
         imageValue={imageValue}
@@ -261,7 +275,7 @@ function LayerItem({
         canvasVariableOptions={canvasVariableOptions}
         scopeEl={scopeEl}
       >
-        <div className={css.block} style={getSwatchStyle(layer, scopeEl)} />
+        <div className={css.block} style={getSwatchStyle(layer, scopeEl, resolvedColor)} />
         <div className={css.icon}>
           <TransparentColorOutlined />
         </div>
@@ -289,7 +303,7 @@ function LayerItem({
 
       {/* Opacity */}
       <div className={css.opacity}>
-        {layer.type === "solid" ? (
+        {layer.type === "solid" && !isVariableReference ? (
           <input
             type="number"
             min={0}
@@ -300,7 +314,7 @@ function LayerItem({
         ) : (
           <span style={{ width: 20, textAlign: "right", fontSize: 10 }}>100</span>
         )}
-        {layer.type === "solid" ? (
+        {layer.type === "solid" && !isVariableReference ? (
           <div
             {...getDragProps(Math.round(opacity), "{content:'拖拽调整不透明度',position:'left'}")}
             className={css.opacityUnit}
@@ -581,6 +595,8 @@ export function Background({
                 disableBackgroundColor={disableBackgroundColor}
                 disableBackgroundImage={disableBackgroundImage}
                 disableGradient={disableGradient}
+                variableOptions={canvasVariableOptions}
+                resolvedColor={resolveCssVarColor(layer.value, targetDom) ?? undefined}
                 scopeEl={targetDom}
                 canvasVariableOptions={canvasVariableOptions}
               />
