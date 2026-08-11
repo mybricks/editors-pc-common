@@ -136,7 +136,6 @@ interface LayerItemProps {
   variableOptions: CssVarColorOption[];
   resolvedColor?: string;
   scopeEl?: Element | null;
-  canvasVariableOptions?: CssVarColorOption[];
 }
 
 function LayerItem({
@@ -149,7 +148,6 @@ function LayerItem({
   variableOptions,
   resolvedColor,
   scopeEl = null,
-  canvasVariableOptions = [],
 }: LayerItemProps) {
   const [colorPickerCtx] = useState<{ open?: () => void }>({});
   const [editing, setEditing] = useState(false);
@@ -272,7 +270,6 @@ function LayerItem({
         disableBackgroundColor={disableBackgroundColor}
         disableBackgroundImage={disableBackgroundImage}
         disableGradient={disableGradient}
-        canvasVariableOptions={canvasVariableOptions}
         scopeEl={scopeEl}
       >
         <div className={css.block} style={getSwatchStyle(layer, scopeEl, resolvedColor)} />
@@ -600,7 +597,6 @@ export function Background({
                 variableOptions={canvasVariableOptions}
                 resolvedColor={resolveCssVarColor(layer.value, targetDom) ?? undefined}
                 scopeEl={targetDom}
-                canvasVariableOptions={canvasVariableOptions}
               />
               {overState?.index === index && overState.half === "bottom" && dragIndex !== index && (
                 <div className={css.dropIndicator} />
