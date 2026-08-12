@@ -1,10 +1,68 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
+import {
+  buildZoneSelectorsFromCssom,
+  fallbackZoneSelectorsFromClassnames,
+} from '../core/build-zone-selectors-from-cssom'
 import { getDocument } from '../core/dom'
 import { elMatchesSelectorTail } from '../core/css-modules-match'
 import { scanPseudoSelectors } from '../core/scan-pseudo-selectors'
 
-export function useZoneSelectors(editConfig: any, targetDom: any, open: boolean) {
+/** 收集组件样式表中出现过的 class，用于过滤动态 class 噪音 */
+function collectClassesInStyleSheet(comId: string): Set<string> {
+  const classesInStyleSheet = new Set<string>()
+  if (!comId) return classesInStyleSheet
+
+  const root = getDocument()
+  const styleEls = Array.from((root as any).querySelectorAll?.('style') || []) as HTMLStyleElement[]
+  for (const styleEl of styleEls) {
+    let rules: CSSRuleList | null = null
+    try {
+      rules = styleEl.sheet?.cssRules ?? null
+    } catch {
+      continue
+    }
+    if (!rules) continue
+    for (const rule of Array.from(rules)) {
+      const selectorText = (rule as CSSStyleRule).selectorText
+      if (!selectorText || !selectorText.includes(comId)) continue
+      const matches = selectorText.match(/\.([a-zA-Z_][a-zA-Z0-9_-]*)/g)
+      if (matches) matches.forEach((m) => classesInStyleSheet.add(m.slice(1)))
+    }
+  }
+  return classesInStyleSheet
+}
+
+function getKnownClassesFromLoc(dom: Element): string[] {
+  try {
+    return JSON.parse(dom?.getAttribute?.('data-loc') ?? '{}')?.cn ?? []
+  } catch {
+    return []
+  }
+}
+
+function getDynamicClasses(
+  dom: Element,
+  comId: string,
+  classesInStyleSheet: Set<string>
+): string[] {
+  if (!comId) return []
+  const knownClasses = getKnownClassesFromLoc(dom)
+  // CSS module 混淆名：以 "-已知短名" 结尾且前缀含 _，视为静态 class
+  const isMangledKnown = (c: string) =>
+    knownClasses.some(
+      (kc) => c.endsWith(`-${kc}`) && c.slice(0, c.length - kc.length - 1).includes('_')
+    )
+
+  return Array.from(dom.classList ?? []).filter(
+    (c) =>
+      !knownClasses.includes(c) &&
+      !isMangledKnown(c) &&
+      classesInStyleSheet.has(c)
+  )
+}
+
+export function useZoneSelectors(editConfig: any, targetDom: any, _open: boolean) {
   const [activeZoneIdx, setActiveZoneIdx] = useState(0)
   // 用户手动点 tab 后，禁止被「按 DOM class 对齐」立刻打回基础态（:hover / 状态类等）
   const userSelectedRef = useRef(false)
@@ -26,108 +84,45 @@ export function useZoneSelectors(editConfig: any, targetDom: any, open: boolean)
         : targetDom
           ? [targetDom as Element]
           : []
+
+    const classesInStyleSheet = collectClassesInStyleSheet(comId)
     const result: string[] = []
-
-    // 预先收集当前组件样式表中所有出现过的 class 名，用于过滤动态 class 噪音
-    const classesInStyleSheet = new Set<string>()
-    if (comId) {
-      const root = getDocument()
-      const styleEls = Array.from((root as any).querySelectorAll?.('style') || [])
-      for (const styleEl of styleEls as HTMLStyleElement[]) {
-        let rules: CSSRuleList | null = null
-        try {
-          rules = (styleEl as HTMLStyleElement).sheet?.cssRules ?? null
-        } catch {
-          continue
-        }
-        if (!rules) continue
-        for (const rule of Array.from(rules)) {
-          const selectorText = (rule as CSSStyleRule).selectorText
-          if (!selectorText || !selectorText.includes(comId)) continue
-          // 提取选择器中所有 .className 片段
-          const matches = selectorText.match(/\.([a-zA-Z_][a-zA-Z0-9_-]*)/g)
-          if (matches) matches.forEach((m) => classesInStyleSheet.add(m.slice(1)))
-        }
-      }
-    }
-
     const baseSelectors: string[] = []
-    for (const dom of domList as Element[]) {
-      const raw = dom?.getAttribute?.('data-zone-selector')
-      if (raw) {
-        try {
-          const parsed = JSON.parse(raw)
-          if (Array.isArray(parsed)) {
-            parsed.forEach((s: string) => {
-              if (!result.includes(s)) result.push(s)
 
-              // 只取不含伪类的基础选择器
-              if (!s.includes(':') && !baseSelectors.includes(s)) {
-                baseSelectors.push(s)
-              }
-            })
-          }
-        } catch {}
+    for (const dom of domList as Element[]) {
+      // 主路径：CSSOM + matches；空则用 classnames / loc 兜底（不读 data-zone-selector）
+      let bases = comId ? buildZoneSelectorsFromCssom(dom, comId) : []
+      if (bases.length === 0) {
+        bases = fallbackZoneSelectorsFromClassnames(dom)
       }
 
-      // 从 data-loc.cn 取编译期已知的静态 class 列表
-      const knownClasses: string[] = (() => {
-        try {
-          return JSON.parse(dom?.getAttribute?.('data-loc') ?? '{}')?.cn ?? []
-        } catch {
-          return []
-        }
-      })()
-      // 运行时实际 class 与静态 class 的差集 = 动态 class（如 iconUser）
-      // comId 为空时跳过，避免无样式表过滤依据时产生噪音
-      // 再过滤：只保留在组件样式表中真实存在的 class，排除平台注入的噪音 class
+      for (const s of bases) {
+        if (!baseSelectors.includes(s)) baseSelectors.push(s)
+        if (!result.includes(s)) result.push(s)
+      }
 
-      // CSS module 会将 class 名混淆为 "<模块路径>-<真实class名>" 的形式（如 pages_Foo_less-text-container-213），
-      // 而 knownClasses（来自 data-loc.cn）只存储短名（如 text-container-213），两者格式不同无法精确匹配。
-      // isMangledKnown 用"带答案找问题"的方式：直接检查 DOM class 是否以 "-已知短名" 结尾，
-      // 且前缀部分含下划线（模块路径特征），是则认定为静态 class 的混淆版本，在 filter 阶段直接排除。
-      const isMangledKnown = (c: string) =>
-        knownClasses.some(
-          (kc) => c.endsWith(`-${kc}`) && c.slice(0, c.length - kc.length - 1).includes('_')
-        )
-
-      const dynamicClasses = comId
-        ? Array.from((dom as Element)?.classList ?? []).filter(
-            (c) =>
-              !knownClasses.includes(c) && // 精确匹配（短名直接挂在 DOM 上时）
-              !isMangledKnown(c) && // 混淆名反向匹配（CSS module 编译后的长名）
-              classesInStyleSheet.has(c)
-          )
-        : []
-
-      // 有动态 class 时，与静态选择器组合成复合选择器（无空格，即同元素上多个 class）
-      // 例：".statCard .statIcon" + "iconUser" → ".statCard .statIcon.iconUser"
-      // 复合选择器插到 result 最前面，使 activeZoneIdx=0 时默认回显实际生效的样式
-      if (dynamicClasses.length > 0 && raw) {
-        try {
-          const staticSelectors: string[] = JSON.parse(raw)
-          const compoundSelectors: string[] = []
-          for (const dc of dynamicClasses) {
-            for (const sel of staticSelectors) {
-              // 若静态选择器末段已包含该 class，则动态 class 与静态重复，跳过
-              // 如动态 class "pageTitle" 已包含在 data-zone-selector 末段 ".pageTitle" 中，则重复，跳过
-              const lastSegment = sel.trim().split(/\s+/).pop() ?? ''
-              if (lastSegment.includes(`.${dc}`)) continue
-              const compound = `${sel}.${dc}`
-              if (!result.includes(compound) && !compoundSelectors.includes(compound)) {
-                compoundSelectors.push(compound)
-              }
+      const dynamicClasses = getDynamicClasses(dom, comId, classesInStyleSheet)
+      // 动态 class 与基础选择器拼复合选择器，插到最前以便默认回显实际生效样式
+      if (dynamicClasses.length > 0 && bases.length > 0) {
+        const compoundSelectors: string[] = []
+        for (const dc of dynamicClasses) {
+          for (const sel of bases) {
+            const lastSegment = sel.trim().split(/\s+/).pop() ?? ''
+            if (lastSegment.includes(`.${dc}`)) continue
+            const compound = `${sel}.${dc}`
+            if (!result.includes(compound) && !compoundSelectors.includes(compound)) {
+              compoundSelectors.push(compound)
             }
           }
-          result.unshift(...compoundSelectors)
-        } catch {}
+        }
+        result.unshift(...compoundSelectors)
       }
     }
 
-    // 基础选择器排前面（第 0 位默认激活），伪类变体追加到末尾
-    // 去重：pseudoSelectorList 里的条目不再重复加入
     for (const pseudo of scanPseudoSelectors(baseSelectors, comId)) {
-      if (!result.includes(pseudo) && !/:nth-child\(\d+\)$/.test(pseudo)) result.push(pseudo)
+      if (!result.includes(pseudo) && !/:nth-child\(\d+\)$/.test(pseudo)) {
+        result.push(pseudo)
+      }
     }
     return result
   }, [targetDom, comId])
@@ -135,7 +130,6 @@ export function useZoneSelectors(editConfig: any, targetDom: any, open: boolean)
   // 按 DOM class 对齐 activeZoneIdx：
   // - 仅在「未手动选 tab」时做初始/列表变化对齐
   // - class 真实变化时（MutationObserver）始终对齐，并清除手动选择标记
-  // 否则点 :hover / 状态类 tab 会被 findIndex 打回第一个基础选择器。
   useEffect(() => {
     const el = (
       Object.prototype.toString.call(targetDom) === '[object NodeList]'
@@ -148,9 +142,6 @@ export function useZoneSelectors(editConfig: any, targetDom: any, open: boolean)
     }
 
     function syncActiveIdx() {
-      // 同一元素可同时命中多个基础选择器（如 .inputArea 与 .aiChat-inputArea）。
-      // 按 zoneSelectorList 顺序取第一个命中的非伪类项，与 ZoneTabBar 第一项对齐；
-      // 不要用「类名更长」启发式，否则会跳过用户刚编辑的第一个 tab。
       const idx = zoneSelectorList.findIndex((sel) => {
         const lastPart = sel.trim().split(/\s+/).pop() || ''
         if (/:{1,2}[a-zA-Z\-]+(?:\([^)]*\))?$/.test(lastPart)) return false
@@ -163,7 +154,6 @@ export function useZoneSelectors(editConfig: any, targetDom: any, open: boolean)
     if (!userSelectedRef.current) {
       syncActiveIdx()
     } else {
-      // 列表变短时仅做边界钳制，不覆盖用户当前选中的 tab
       setActiveZoneIdx((prev) => (prev >= zoneSelectorList.length ? 0 : prev))
     }
 

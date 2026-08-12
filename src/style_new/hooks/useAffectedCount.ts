@@ -1,56 +1,65 @@
-import { useEffect, useLayoutEffect, useMemo, useState } from 'react'
+import { useLayoutEffect, useState } from 'react'
 
+import { elMatchesSelectorTail } from '../core/css-modules-match'
 import { getDocument } from '../core/dom'
+
+function stripPseudos(sel: string): string {
+  return sel.replace(/:{1,2}[a-zA-Z\-]+(\([^)]*\))?/g, '').trim()
+}
+
+/**
+ * 在组件根内统计匹配选择器的元素数。
+ * 优先 querySelectorAll；CSS Modules 短名查不到时，用末段短名 + elMatchesSelectorTail 兜底。
+ */
+function countByCssSelector(sel: string, comId?: string): number {
+  const base = stripPseudos(sel)
+  if (!base) return 0
+
+  const doc = getDocument()
+  const scope: ParentNode =
+    (comId && (doc as Document | ShadowRoot).getElementById?.(comId)) || doc
+
+  try {
+    const nodes = (scope as ParentNode & { querySelectorAll: typeof document.querySelectorAll })
+      .querySelectorAll?.(base)
+    if (nodes && nodes.length > 0) return nodes.length
+  } catch {
+    /* Modules 短名或非法选择器 */
+  }
+
+  const rootEl = scope instanceof Element ? scope : null
+  const descendants = Array.from(
+    (scope as ParentNode & { querySelectorAll: typeof document.querySelectorAll })
+      .querySelectorAll?.('*') ?? []
+  ) as Element[]
+  const candidates = rootEl ? [rootEl, ...descendants] : descendants
+
+  return candidates.filter((el) => elMatchesSelectorTail(el, base)).length
+}
 
 export function useAffectedCount(
   activeZoneIdx: number,
   zoneSelectorList: string[],
-  finalSelector: string | string[] | undefined
+  finalSelector: string | string[] | undefined,
+  comId?: string
 ) {
   const [affectedCount, setAffectedCount] = useState<number | null>(null)
 
   useLayoutEffect(() => {
-    const root = getDocument()
-    // 遍历所有带 data-zone-selector 的元素，比对其中记录的原始选择器列表。
-    function countByZoneSelector(sel: string): number {
-      const baseSelector = sel.replace(/:{1,2}[a-zA-Z\-]+(\([^)]*\))?/g, '').trim()
-      const zoneEls = (root as any).querySelectorAll?.('[data-zone-selector]') ?? []
-      return Array.from(zoneEls).filter((el: any) => {
-        try {
-          const sels: string[] = JSON.parse(el.getAttribute('data-zone-selector'))
-          return Array.isArray(sels) && (sels.includes(sel) || sels.includes(baseSelector))
-        } catch {
-          return false
-        }
-      }).length
-    }
-
-    // 无打标场景（finalSelector fallback）：元素没有 data-zone-selector，直接用 CSS 选择器查找。
-    // 先去掉伪类（::before / :hover 等），避免 querySelectorAll 报错。
-    function countByCssSelector(sel: string): number {
-      const base = sel.replace(/:{1,2}[a-zA-Z\-]+(\([^)]*\))?/g, '').trim()
-      try {
-        return (root as any).querySelectorAll?.(base)?.length ?? 0
-      } catch {
-        return 0
-      }
-    }
-
     const activeSelector = zoneSelectorList[activeZoneIdx]
     if (activeSelector) {
-      setAffectedCount(countByZoneSelector(activeSelector))
+      setAffectedCount(countByCssSelector(activeSelector, comId))
       return
     }
 
-    // zoneSelectorList 为空时降级：用编辑器配置中的 finalSelector 统计受影响元素数。
-    // 连 finalSelector 也没有，则无法计算，置为 null（区别于 0）表示"未知"，提示条静默不展示。
+    // zoneSelectorList 为空时降级：用编辑器配置中的 finalSelector 统计
     if (!finalSelector) {
       setAffectedCount(null)
       return
     }
     const fallbackSelectors = Array.isArray(finalSelector) ? finalSelector : [finalSelector]
-    setAffectedCount(fallbackSelectors.reduce((sum, s) => sum + countByCssSelector(s), 0))
-  }, [activeZoneIdx, zoneSelectorList, finalSelector])
+    setAffectedCount(fallbackSelectors.reduce((sum, s) => sum + countByCssSelector(s, comId), 0))
+  }, [activeZoneIdx, zoneSelectorList, finalSelector, comId])
 
   return affectedCount
 }
