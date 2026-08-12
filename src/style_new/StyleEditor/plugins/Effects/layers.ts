@@ -139,6 +139,30 @@ export function splitCssList(value: string): string[] {
   return parts
 }
 
+/**
+ * 空白拆分单条阴影，忽略括号内空白。
+ * 不能退回 /\s(?![^(]*\))/ 之类的前瞻正则：那只挡得住一层括号，
+ * 遇到 var(--c, rgba(0, 0, 0, .2)) 会在 fallback 处误切。
+ */
+export function splitTopLevelBySpace(value: string): string[] {
+  const parts: string[] = []
+  let depth = 0
+  let current = ''
+  for (let i = 0; i < value.length; i++) {
+    const ch = value[i]
+    if (ch === '(') depth++
+    else if (ch === ')') depth = Math.max(0, depth - 1)
+    if (depth === 0 && /\s/.test(ch)) {
+      if (current) parts.push(current)
+      current = ''
+      continue
+    }
+    current += ch
+  }
+  if (current) parts.push(current)
+  return parts
+}
+
 function isZeroLength(value: string | undefined): boolean {
   if (value == null || value === '') return true
   return parseFloat(value) === 0
@@ -205,7 +229,7 @@ export function mergeBlurIntoFilter(
 }
 
 function parseSingleBoxShadowRaw(boxShadow: string): ShadowEffectLayer | null {
-  const args = boxShadow.trim().split(/\s(?![^(]*\))/)
+  const args = splitTopLevelBySpace(boxShadow.trim())
   if (args.length < 2) return null
 
   let inset = false

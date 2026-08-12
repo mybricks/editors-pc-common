@@ -21,7 +21,8 @@ import {
   SketchPopup,
   SketchCloseIcon,
 } from '../../components'
-import { useDragNumber } from '../../hooks'
+import { useDragNumber, useCanvasColorVariables } from '../../hooks'
+import { resolveCssVarColor } from '../../../core/resolve-css-var-color'
 import { Blur as BlurIcon } from '../../icons/Blur'
 import { BackgroundBlur as BackgroundBlurIcon } from '../../icons/BackgroundBlur'
 
@@ -383,9 +384,20 @@ function EffectSketchBody({
 }: EffectSketchBodyProps) {
   const getDragProps = useDragNumber({ continuous: true })
   const getDragPropsNegative = useDragNumber({ continuous: true, min: -Infinity })
+  // 切层/切类型时重挂非受控子组件。不要把颜色值并进来：ColorEditor 的取色浮层
+  // 是它自己的 portal，颜色一变就重挂会让拖色盘时弹层被反复关掉。
   const forceKey = `${layer.id}-${layer.type}`
   const shadow = isShadowLayer(layer)
   const textShadow = isTextShadowLayer(layer)
+
+  // 变量在弹层内取而非由 Effects 透传：这里才用得到，且只需算当前活跃层。
+  // 拖偏移/模糊会持续重渲染本组件，两处都必须缓存。
+  const { targetDom, variableOptions } = useCanvasColorVariables()
+  const shadowColor = isShadowLayer(layer) ? layer.color : ''
+  const resolvedColor = useMemo(
+    () => resolveCssVarColor(shadowColor, targetDom) ?? undefined,
+    [shadowColor, targetDom]
+  )
 
   return (
     <>
@@ -470,9 +482,13 @@ function EffectSketchBody({
             )}
             <div className={css.effectRow}>
               <span className={css.effectLabel}>颜色</span>
+              {/* showSubTabs=false 只关渐变/图片，变量 tab 由 variableOptions 是否为空决定 */}
               <ColorEditor
                 style={{ flex: 1 }}
                 defaultValue={layer.color}
+                resolvedColor={resolvedColor}
+                variableOptions={variableOptions}
+                scopeEl={targetDom}
                 showSubTabs={false}
                 onChange={(v) => onChange({ color: v as string })}
               />

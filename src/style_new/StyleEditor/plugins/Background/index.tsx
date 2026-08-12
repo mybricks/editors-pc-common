@@ -11,7 +11,7 @@ import { useStyleEditorContext } from "../..";
 import { PanelBaseProps } from "./../../type";
 import { Panel, Colorpicker } from "../../components";
 import { MinusOutlined, TransparentColorOutlined } from "../../components/Icon";
-import { useDragNumber } from "../../hooks";
+import { useDragNumber, useCanvasColorVariables } from "../../hooks";
 import css from "./index.less";
 import {
   BgLayer,
@@ -24,7 +24,6 @@ import {
 } from "./layers";
 import { getContentBackgroundMeta } from "../../helper/paint-stack";
 import {
-  getCssVarColorOptions,
   parseCssVar,
   resolveCssVarColor,
   resolveCssVarsInCssValue,
@@ -338,11 +337,7 @@ export function Background({
   collapse,
 }: BackgroundProps) {
   const context = useStyleEditorContext();
-  const targetDom = context?.targetDom ?? null;
-  const canvasVariableOptions = useMemo(
-    () => getCssVarColorOptions(targetDom),
-    [targetDom]
-  );
+  const { targetDom, variableOptions: canvasVariableOptions } = useCanvasColorVariables();
   const [{ disableBackgroundColor, disableBackgroundImage, disableGradient }] =
     useState({ ...DEFAULT_CONFIG, ...config });
 
