@@ -268,9 +268,8 @@ export function getEffectedCssPropertyAndOptions (element: HTMLElement | null, s
       const _findCascadeWinner = (hyphen: string): string | null => findCascadeWinner(element, hyphen, 'default')
 
       // ── 颜色属性：用 colorUtil 归一化比较（处理 rgb/rgba/hex 格式差异）─────────────
-      // 同特指度兄弟 zone（如 .aiChat-inputArea vs .inputArea）后写者会在级联扫描里胜出，
-      // 但 ZoneTab 应回显「当前选择器自身声明」的颜色。仅当胜者特指度严格更高（或
-      // !important）时才覆盖——与下方 backgroundImage 校正策略一致。
+      // ZoneTab 自身声明优先：finalRules 已声明该属性时永不被元素级联赢家覆盖，
+      // 保证回显与写入同一条 classname。仅当当前 tab 未声明时才用级联校正。
       const colorPropMap: Array<[string, string]> = [
         ['color', 'color'],
         ['backgroundColor', 'background-color'],
@@ -292,27 +291,15 @@ export function getEffectedCssPropertyAndOptions (element: HTMLElement | null, s
           element,
           hyphen
         )
-        if (
-          !ownMaxSpec ||
-          winnerDetail.important ||
-          compare(winnerDetail.spec, ownMaxSpec) > 0
-        ) {
+        // 当前 ZoneTab 已声明 → 不覆盖（回显与写入同一条）
+        if (!ownMaxSpec) {
           (values as any)[camel] = winnerDetail.value
         }
       })
 
       // ── 背景图属性：用字符串比较（linear-gradient 无法被 colorUtil 解析）────────────
-      // 场景：antd `.ant-btn-variant-solid { background: #1677ff }` 特指度 (0,2,0) 高于
-      // 组件单类 `.headerStockInBtn` (0,1,0)，实际 background-image 被重置为 none，
-      // 但 getValues 读到的是 Less 文件里的渐变值，导致回显错误。
-      //
-      // background: transparent 等简写会把 background-image 写成 initial。
-      // 对面板等同于 none；若再跑级联校正，会把同元素上其他 zone 选择器
-      // （如 .inputArea 的渐变）盖进来，导致切换 ZoneTab 后面板不变化。
-      //
-      // 同特指度兄弟 zone（.inputArea vs .aiChat-inputArea）后写者会在级联扫描里胜出，
-      // 但 ZoneTab 应回显「当前选择器自身声明」。仅当胜者特指度严格更高时才覆盖
-      // （保留 antd 高特指度覆盖组件规则的场景）。
+      // background: transparent 等简写会把 background-image 写成 initial，对面板等同于 none。
+      // ZoneTab 自身声明优先：finalRules 已声明时不覆盖；仅未声明时用级联校正。
       if ((values as any)['backgroundImage'] === 'initial') {
         (values as any)['backgroundImage'] = 'none'
       }
@@ -327,11 +314,8 @@ export function getEffectedCssPropertyAndOptions (element: HTMLElement | null, s
               element,
               'background-image'
             )
-            if (
-              !ownMaxSpec ||
-              bgWinnerDetail.important ||
-              compare(bgWinnerDetail.spec, ownMaxSpec) > 0
-            ) {
+            // 当前 ZoneTab 已声明 → 不覆盖（回显与写入同一条）
+            if (!ownMaxSpec) {
               (values as any)['backgroundImage'] = bgWinnerDetail.value
             }
           }
@@ -361,17 +345,14 @@ export function getEffectedCssPropertyAndOptions (element: HTMLElement | null, s
       }
     }
 
-    // ── hover 态级联校正：getValues 按特指度取最后规则，不考虑 !important，
-    // 导致 antd 高特指度 hover 规则覆盖组件自身 hover 规则的值。
-    // 修复：扫描所有以 :hover 结尾且 element（去掉:hover后）匹配的规则，
-    // 按完整 CSS 级联（!important → 特指度 → 源码顺序）找出真正胜出的值并更新 values。
+    // ── hover 态级联校正：同默认态，自身声明优先；仅当前 tab 未声明时用级联补值。
     if (element && _hasPseudo && /^.*:hover\s*$/i.test(primarySelector)) {
       const _isVarRefH = (v: any) => typeof v === 'string' && v.startsWith('var(')
       const HOVER_TAIL_RE = /:hover\s*$/i
 
       const _findHoverCascadeWinner = (hyphen: string): string | null => findCascadeWinner(element, hyphen, 'hover')
 
-      // 颜色属性校正：同默认态，仅当 hover 胜者特指度严格更高（或 !important）时覆盖
+      // 颜色属性校正：同默认态，自身声明优先，回显与写入同一条
       const colorPropMapH: Array<[string, string]> = [
         ['color', 'color'],
         ['backgroundColor', 'background-color'],
@@ -393,16 +374,13 @@ export function getEffectedCssPropertyAndOptions (element: HTMLElement | null, s
           element,
           hyphen
         )
-        if (
-          !ownMaxSpec ||
-          winnerDetail.important ||
-          compare(winnerDetail.spec, ownMaxSpec) > 0
-        ) {
+        // 当前 ZoneTab 已声明 → 不覆盖（回显与写入同一条）
+        if (!ownMaxSpec) {
           (values as any)[camel] = winnerDetail.value
         }
       })
 
-      // 背景图属性校正：与默认态一致，同特指度兄弟 zone 不覆盖
+      // 背景图属性校正：同默认态，自身声明优先
       const bgImageValH = (values as any)['backgroundImage']
       if (bgImageValH && bgImageValH !== 'none' && !_isVarRefH(bgImageValH)) {
         const bgWinnerDetailH = findCascadeWinnerDetail(element, 'background-image', 'hover')
@@ -414,11 +392,8 @@ export function getEffectedCssPropertyAndOptions (element: HTMLElement | null, s
               element,
               'background-image'
             )
-            if (
-              !ownMaxSpecH ||
-              bgWinnerDetailH.important ||
-              compare(bgWinnerDetailH.spec, ownMaxSpecH) > 0
-            ) {
+            // 当前 ZoneTab 已声明 → 不覆盖（回显与写入同一条）
+            if (!ownMaxSpecH) {
               (values as any)['backgroundImage'] = bgWinnerDetailH.value
             }
           }
