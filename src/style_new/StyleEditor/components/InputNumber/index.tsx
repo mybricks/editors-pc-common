@@ -85,6 +85,8 @@ export function InputNumber ({
   /** 外部清空同步时跳过 [unit,number] 的 onChange，避免回写 'default' 字符串污染上层 */
   const skipUnitNumberOnChangeRef = useRef(false)
   const isValueSyncInitializedRef = useRef(false)
+  const focusValueRef = useRef('')
+  const inputChangedSinceFocusRef = useRef(false)
   const [displayValue, setDisplayValue] = useState(() => {
     const initVal = externalValue
     if (!initVal) return ''
@@ -107,6 +109,16 @@ export function InputNumber ({
     return disabled || isUnitDisabled;
   }, [unit, disabled, unitDisabledList])
 
+  const handleFocus = useCallback((e: React.FocusEvent<HTMLInputElement>) => {
+    focusValueRef.current = e.target.value
+    inputChangedSinceFocusRef.current = false
+    onFocus?.()
+  }, [onFocus])
+
+  const handleInputChange = useCallback(() => {
+    inputChangedSinceFocusRef.current = true
+  }, [])
+
   const onKeyDown = useCallback((e: {
     target: any, code: any; preventDefault: () => void
   }) => {
@@ -119,6 +131,16 @@ export function InputNumber ({
     } else if (code === 'Enter') {
       const trimmed = e.target.value.trim();
       if (!trimmed || isNaN(parseFloat(trimmed))) {
+        // placeholder 状态仅聚焦、未编辑时，不应把空值提交为 null。
+        // 例如尺寸为「填满」时，输入框为空并通过 placeholder 展示计算值。
+        if (
+          !trimmed &&
+          typeof fallbackValue === 'undefined' &&
+          !inputChangedSinceFocusRef.current &&
+          !focusValueRef.current.trim()
+        ) {
+          return;
+        }
         // 空值或非法值：有兜底则补填，否则清空并通知上层删除属性
         if (typeof fallbackValue !== 'undefined') {
           const fallbackStr = String(fallbackValue);
@@ -163,6 +185,15 @@ export function InputNumber ({
 
     // 空值或非法值：若有兜底值则补填并提交，否则回到默认状态并删除属性
     if (!trimmed || isNaN(parseFloat(trimmed))) {
+      // 仅查看 placeholder 后直接失焦时保持原状态；只有实际编辑过才提交清空。
+      if (
+        !trimmed &&
+        typeof fallbackValue === 'undefined' &&
+        !inputChangedSinceFocusRef.current &&
+        !focusValueRef.current.trim()
+      ) {
+        return;
+      }
       if (typeof fallbackValue !== 'undefined') {
         const fallbackStr = String(fallbackValue);
         e.target.value = fallbackStr;
@@ -329,10 +360,10 @@ export function InputNumber ({
       prefixTip={prefixTip}
       value={displayValue}
       placeholder={placeholder}
-      // onChange={handleNumberChange}
+      onChange={handleInputChange}
       suffix={suffix}
       disabled={isDisabledUnit()}
-      onFocus={onFocus}
+      onFocus={handleFocus}
       onKeyDown={onKeyDown}
       onBlur={onBlur}
       align={align}
