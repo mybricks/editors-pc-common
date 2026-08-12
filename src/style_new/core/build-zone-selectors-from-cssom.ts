@@ -203,17 +203,6 @@ export function buildZoneSelectorsFromCssom(el: Element, comId: string): string[
   const authoredOnEl = collectElementAuthoredClasses(el)
   const result: string[] = []
   const seen = new Set<string>()
-  // #region agent log
-  const __matchTrace: Array<{
-    styleId: string
-    part: string
-    baseRuntime: string
-    demangled: string
-    kept?: boolean
-    final?: string
-    dropReason?: string
-  }> = []
-  // #endregion
 
   const root = getDocument()
   const styleEls = Array.from((root as any).querySelectorAll?.('style') || []) as HTMLStyleElement[]
@@ -248,75 +237,16 @@ export function buildZoneSelectorsFromCssom(el: Element, comId: string): string[
         // 过滤裸标签 / 通配等噪音，保留带 class 或后代路径的选择器
         if (!demangled || (!demangled.includes('.') && !/\s/.test(demangled))) return
 
-        // #region agent log
-        const __trace: (typeof __matchTrace)[number] = {
-          styleId: (styleEl as HTMLElement).id || '(no-id)',
-          part: part.slice(0, 180),
-          baseRuntime: baseRuntime.slice(0, 180),
-          demangled,
-        }
-        // #endregion
-
         // 丢掉仅命中祖先 CSS Module（如 .rich-input_xxx textarea）的路径
-        if (!isAuthoredZoneSelector(demangled, authoredOnEl)) {
-          // #region agent log
-          __trace.kept = false
-          __trace.dropReason = 'not-authored-on-el'
-          __matchTrace.push(__trace)
-          // #endregion
-          return
-        }
+        if (!isAuthoredZoneSelector(demangled, authoredOnEl)) return
 
         const finalSel = collapseToSubjectIfAuthored(demangled, authoredOnEl)
-        if (seen.has(finalSel)) {
-          // #region agent log
-          __trace.kept = false
-          __trace.final = finalSel
-          __trace.dropReason = 'dup-after-collapse'
-          __matchTrace.push(__trace)
-          // #endregion
-          return
-        }
+        if (seen.has(finalSel)) return
         seen.add(finalSel)
         result.push(finalSel)
-        // #region agent log
-        __trace.kept = true
-        __trace.final = finalSel
-        __matchTrace.push(__trace)
-        // #endregion
       })
     }
   }
-
-  // #region agent log
-  const __parent = el.parentElement
-  fetch('http://127.0.0.1:7661/ingest/56232cca-6b04-41f0-85bf-f22ce073d642', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '74b899' },
-    body: JSON.stringify({
-      sessionId: '74b899',
-      runId: 'post-fix',
-      hypothesisId: 'filter-authored',
-      location: 'build-zone-selectors-from-cssom.ts:buildZoneSelectorsFromCssom',
-      message: 'cssom match after authored filter',
-      data: {
-        comId,
-        tag: el.tagName,
-        classList: Array.from(el.classList || []),
-        zoneClassnames: el.getAttribute('data-zone-classnames'),
-        authoredOnEl: [...authoredOnEl],
-        knownShortNames: [...knownShortNames],
-        result,
-        matchTrace: __matchTrace,
-        droppedRichInput: __matchTrace.filter(
-          (t) => !t.kept && /rich-input|size-large/i.test(t.demangled + t.baseRuntime)
-        ),
-        parentClassList: __parent ? Array.from(__parent.classList || []) : [],
-      },
-      timestamp: Date.now(),
-    }),
-  }).catch(() => {})
-  // #endregion
 
   return result
 }

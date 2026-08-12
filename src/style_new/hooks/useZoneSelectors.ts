@@ -92,14 +92,8 @@ export function useZoneSelectors(editConfig: any, targetDom: any, _open: boolean
     for (const dom of domList as Element[]) {
       // 主路径：CSSOM + matches；空则用 classnames / loc 兜底（不读 data-zone-selector）
       let bases = comId ? buildZoneSelectorsFromCssom(dom, comId) : []
-      // #region agent log
-      let __source: 'cssom' | 'fallback' | 'empty' = bases.length ? 'cssom' : 'empty'
-      // #endregion
       if (bases.length === 0) {
         bases = fallbackZoneSelectorsFromClassnames(dom)
-        // #region agent log
-        if (bases.length) __source = 'fallback'
-        // #endregion
       }
 
       for (const s of bases) {
@@ -109,9 +103,6 @@ export function useZoneSelectors(editConfig: any, targetDom: any, _open: boolean
 
       const dynamicClasses = getDynamicClasses(dom, comId, classesInStyleSheet)
       // 动态 class 与基础选择器拼复合选择器，插到最前以便默认回显实际生效样式
-      // #region agent log
-      const __compounds: string[] = []
-      // #endregion
       if (dynamicClasses.length > 0 && bases.length > 0) {
         const compoundSelectors: string[] = []
         for (const dc of dynamicClasses) {
@@ -124,35 +115,8 @@ export function useZoneSelectors(editConfig: any, targetDom: any, _open: boolean
             }
           }
         }
-        // #region agent log
-        __compounds.push(...compoundSelectors)
-        // #endregion
         result.unshift(...compoundSelectors)
       }
-      // #region agent log
-      fetch('http://127.0.0.1:7661/ingest/56232cca-6b04-41f0-85bf-f22ce073d642', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '74b899' },
-        body: JSON.stringify({
-          sessionId: '74b899',
-          runId: 'rich-input-source',
-          hypothesisId: 'C',
-          location: 'useZoneSelectors.ts:zoneSelectorList',
-          message: 'zone list assembly',
-          data: {
-            comId,
-            tag: (dom as Element).tagName,
-            classList: Array.from((dom as Element).classList || []),
-            source: __source,
-            bases,
-            dynamicClasses,
-            compounds: __compounds,
-            finalBeforePseudo: [...result],
-          },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {})
-      // #endregion
     }
 
     for (const pseudo of scanPseudoSelectors(baseSelectors, comId)) {

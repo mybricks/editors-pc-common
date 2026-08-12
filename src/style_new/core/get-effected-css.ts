@@ -268,6 +268,9 @@ export function getEffectedCssPropertyAndOptions (element: HTMLElement | null, s
       const _findCascadeWinner = (hyphen: string): string | null => findCascadeWinner(element, hyphen, 'default')
 
       // ── 颜色属性：用 colorUtil 归一化比较（处理 rgb/rgba/hex 格式差异）─────────────
+      // 同特指度兄弟 zone（如 .aiChat-inputArea vs .inputArea）后写者会在级联扫描里胜出，
+      // 但 ZoneTab 应回显「当前选择器自身声明」的颜色。仅当胜者特指度严格更高（或
+      // !important）时才覆盖——与下方 backgroundImage 校正策略一致。
       const colorPropMap: Array<[string, string]> = [
         ['color', 'color'],
         ['backgroundColor', 'background-color'],
@@ -279,12 +282,22 @@ export function getEffectedCssPropertyAndOptions (element: HTMLElement | null, s
       colorPropMap.forEach(([camel, hyphen]) => {
         const val = (values as any)[camel]
         if (!val || _isVarRef(val)) return
-        const winnerValue = _findCascadeWinner(hyphen)
-        if (winnerValue === null) return
+        const winnerDetail = findCascadeWinnerDetail(element, hyphen, 'default')
+        if (!winnerDetail) return
         const c1 = colorUtil.get(val)
-        const c2 = colorUtil.get(winnerValue)
-        if (c1 && c2 && c1.value.join(',') !== c2.value.join(',')) {
-          (values as any)[camel] = winnerValue
+        const c2 = colorUtil.get(winnerDetail.value)
+        if (!c1 || !c2 || c1.value.join(',') === c2.value.join(',')) return
+        const ownMaxSpec = getOwnDeclaringMaxSpec(
+          finalRules as CSSStyleRule[],
+          element,
+          hyphen
+        )
+        if (
+          !ownMaxSpec ||
+          winnerDetail.important ||
+          compare(winnerDetail.spec, ownMaxSpec) > 0
+        ) {
+          (values as any)[camel] = winnerDetail.value
         }
       })
 
@@ -358,7 +371,7 @@ export function getEffectedCssPropertyAndOptions (element: HTMLElement | null, s
 
       const _findHoverCascadeWinner = (hyphen: string): string | null => findCascadeWinner(element, hyphen, 'hover')
 
-      // 颜色属性校正
+      // 颜色属性校正：同默认态，仅当 hover 胜者特指度严格更高（或 !important）时覆盖
       const colorPropMapH: Array<[string, string]> = [
         ['color', 'color'],
         ['backgroundColor', 'background-color'],
@@ -370,23 +383,44 @@ export function getEffectedCssPropertyAndOptions (element: HTMLElement | null, s
       colorPropMapH.forEach(([camel, hyphen]) => {
         const val = (values as any)[camel]
         if (!val || _isVarRefH(val)) return
-        const winnerValue = _findHoverCascadeWinner(hyphen)
-        if (winnerValue === null) return
+        const winnerDetail = findCascadeWinnerDetail(element, hyphen, 'hover')
+        if (!winnerDetail) return
         const c1 = colorUtil.get(val)
-        const c2 = colorUtil.get(winnerValue)
-        if (c1 && c2 && c1.value.join(',') !== c2.value.join(',')) {
-          (values as any)[camel] = winnerValue
+        const c2 = colorUtil.get(winnerDetail.value)
+        if (!c1 || !c2 || c1.value.join(',') === c2.value.join(',')) return
+        const ownMaxSpec = getOwnDeclaringMaxSpec(
+          finalRules as CSSStyleRule[],
+          element,
+          hyphen
+        )
+        if (
+          !ownMaxSpec ||
+          winnerDetail.important ||
+          compare(winnerDetail.spec, ownMaxSpec) > 0
+        ) {
+          (values as any)[camel] = winnerDetail.value
         }
       })
 
-      // 背景图属性校正
+      // 背景图属性校正：与默认态一致，同特指度兄弟 zone 不覆盖
       const bgImageValH = (values as any)['backgroundImage']
       if (bgImageValH && bgImageValH !== 'none' && !_isVarRefH(bgImageValH)) {
-        const bgWinnerH = _findHoverCascadeWinner('background-image')
-        if (bgWinnerH !== null) {
+        const bgWinnerDetailH = findCascadeWinnerDetail(element, 'background-image', 'hover')
+        if (bgWinnerDetailH) {
           const norm = (s: string) => s.replace(/\s+/g, ' ').trim().toLowerCase()
-          if (norm(bgImageValH) !== norm(bgWinnerH)) {
-            (values as any)['backgroundImage'] = bgWinnerH
+          if (norm(bgImageValH) !== norm(bgWinnerDetailH.value)) {
+            const ownMaxSpecH = getOwnDeclaringMaxSpec(
+              finalRules as CSSStyleRule[],
+              element,
+              'background-image'
+            )
+            if (
+              !ownMaxSpecH ||
+              bgWinnerDetailH.important ||
+              compare(bgWinnerDetailH.spec, ownMaxSpecH) > 0
+            ) {
+              (values as any)['backgroundImage'] = bgWinnerDetailH.value
+            }
           }
         }
       }
