@@ -44,26 +44,78 @@ function stripTrailingPseudos(sel: string): string {
   return sel.replace(/(:{1,2}[a-zA-Z\-]+(?:\([^)]*\))?)+$/, '').trim()
 }
 
+/** 读取单个元素上的 authored class（data-zone-classnames / data-loc.cn） */
+function readAuthoredClassesOn(el: Element): string[] {
+  const names: string[] = []
+  const zone = el.getAttribute('data-zone-classnames')
+  if (zone) {
+    zone.split(/[,\s]+/).filter(Boolean).forEach((n) => names.push(n))
+  }
+  try {
+    const loc = JSON.parse(el.getAttribute('data-loc') || '{}')
+    if (Array.isArray(loc?.cn)) {
+      loc.cn.forEach((n: string) => names.push(n))
+    }
+  } catch {
+    /* ignore */
+  }
+  return names
+}
+
 /** 从元素及祖先收集源码短 class 名（data-zone-classnames / data-loc.cn） */
 export function collectKnownShortNames(el: Element): Set<string> {
   const names = new Set<string>()
   let cur: Element | null = el
   while (cur) {
-    const zone = cur.getAttribute('data-zone-classnames')
-    if (zone) {
-      zone.split(/[,\s]+/).filter(Boolean).forEach((n) => names.add(n))
-    }
-    try {
-      const loc = JSON.parse(cur.getAttribute('data-loc') || '{}')
-      if (Array.isArray(loc?.cn)) {
-        loc.cn.forEach((n: string) => names.add(n))
-      }
-    } catch {
-      /* ignore */
-    }
+    readAuthoredClassesOn(cur).forEach((n) => names.add(n))
     cur = cur.parentElement
   }
   return names
+}
+
+/** 当前元素自身的 authored class（用于过滤第三方/CSS Module 祖先路径噪音） */
+function collectElementAuthoredClasses(el: Element): Set<string> {
+  return new Set(readAuthoredClassesOn(el))
+}
+
+function extractClassTokens(selectorPart: string): string[] {
+  return (selectorPart.match(/\.([a-zA-Z_][a-zA-Z0-9_-]*)/g) || []).map((s) => s.slice(1))
+}
+
+/**
+ * 是否保留为 Zone Tab：
+ * 选择器中至少有一个 class 属于当前元素的 authored class。
+ * 这样会丢掉 `.rich-input_xxx textarea` 这类只命中祖先模块类的路径。
+ */
+function isAuthoredZoneSelector(demangled: string, authoredOnEl: Set<string>): boolean {
+  if (!authoredOnEl.size) return true
+  const classes = extractClassTokens(demangled)
+  if (!classes.length) return false
+  return classes.some(
+    (c) =>
+      authoredOnEl.has(c) ||
+      [...authoredOnEl].some(
+        (a) => classMatchesShortName(c, a) || c === a || c.startsWith(a + '_')
+      )
+  )
+}
+
+/**
+ * 末段 class 都属于当前元素 authored 时，收成主体选择器。
+ * `.rich-input_xxx .aiChat-inputArea` → `.aiChat-inputArea`
+ */
+function collapseToSubjectIfAuthored(demangled: string, authoredOnEl: Set<string>): string {
+  const parts = demangled.trim().split(/\s+/)
+  if (parts.length < 2) return demangled
+  const last = parts[parts.length - 1]
+  const lastClasses = extractClassTokens(last)
+  if (!lastClasses.length) return demangled
+  const allAuthored = lastClasses.every(
+    (c) =>
+      authoredOnEl.has(c) ||
+      [...authoredOnEl].some((a) => classMatchesShortName(c, a) || c === a)
+  )
+  return allAuthored ? last : demangled
 }
 
 function demangleClassName(runtimeClass: string, knownShortNames: Set<string>): string {
@@ -148,8 +200,20 @@ export function buildZoneSelectorsFromCssom(el: Element, comId: string): string[
   if (!el || !comId) return []
 
   const knownShortNames = collectKnownShortNames(el)
+  const authoredOnEl = collectElementAuthoredClasses(el)
   const result: string[] = []
   const seen = new Set<string>()
+  // #region agent log
+  const __matchTrace: Array<{
+    styleId: string
+    part: string
+    baseRuntime: string
+    demangled: string
+    kept?: boolean
+    final?: string
+    dropReason?: string
+  }> = []
+  // #endregion
 
   const root = getDocument()
   const styleEls = Array.from((root as any).querySelectorAll?.('style') || []) as HTMLStyleElement[]
@@ -183,12 +247,76 @@ export function buildZoneSelectorsFromCssom(el: Element, comId: string): string[
         const demangled = demangleSelector(baseRuntime, knownShortNames).trim()
         // 过滤裸标签 / 通配等噪音，保留带 class 或后代路径的选择器
         if (!demangled || (!demangled.includes('.') && !/\s/.test(demangled))) return
-        if (seen.has(demangled)) return
-        seen.add(demangled)
-        result.push(demangled)
+
+        // #region agent log
+        const __trace: (typeof __matchTrace)[number] = {
+          styleId: (styleEl as HTMLElement).id || '(no-id)',
+          part: part.slice(0, 180),
+          baseRuntime: baseRuntime.slice(0, 180),
+          demangled,
+        }
+        // #endregion
+
+        // 丢掉仅命中祖先 CSS Module（如 .rich-input_xxx textarea）的路径
+        if (!isAuthoredZoneSelector(demangled, authoredOnEl)) {
+          // #region agent log
+          __trace.kept = false
+          __trace.dropReason = 'not-authored-on-el'
+          __matchTrace.push(__trace)
+          // #endregion
+          return
+        }
+
+        const finalSel = collapseToSubjectIfAuthored(demangled, authoredOnEl)
+        if (seen.has(finalSel)) {
+          // #region agent log
+          __trace.kept = false
+          __trace.final = finalSel
+          __trace.dropReason = 'dup-after-collapse'
+          __matchTrace.push(__trace)
+          // #endregion
+          return
+        }
+        seen.add(finalSel)
+        result.push(finalSel)
+        // #region agent log
+        __trace.kept = true
+        __trace.final = finalSel
+        __matchTrace.push(__trace)
+        // #endregion
       })
     }
   }
+
+  // #region agent log
+  const __parent = el.parentElement
+  fetch('http://127.0.0.1:7661/ingest/56232cca-6b04-41f0-85bf-f22ce073d642', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '74b899' },
+    body: JSON.stringify({
+      sessionId: '74b899',
+      runId: 'post-fix',
+      hypothesisId: 'filter-authored',
+      location: 'build-zone-selectors-from-cssom.ts:buildZoneSelectorsFromCssom',
+      message: 'cssom match after authored filter',
+      data: {
+        comId,
+        tag: el.tagName,
+        classList: Array.from(el.classList || []),
+        zoneClassnames: el.getAttribute('data-zone-classnames'),
+        authoredOnEl: [...authoredOnEl],
+        knownShortNames: [...knownShortNames],
+        result,
+        matchTrace: __matchTrace,
+        droppedRichInput: __matchTrace.filter(
+          (t) => !t.kept && /rich-input|size-large/i.test(t.demangled + t.baseRuntime)
+        ),
+        parentClassList: __parent ? Array.from(__parent.classList || []) : [],
+      },
+      timestamp: Date.now(),
+    }),
+  }).catch(() => {})
+  // #endregion
 
   return result
 }
