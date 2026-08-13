@@ -91,7 +91,9 @@ const defaultValue: LayoutModel = {
   columnGap: 0,
 };
 
-export function Layout({ value, onChange, showTitle, collapse }: LayoutEditorProps) {
+export function Layout({ value, onChange, showTitle, collapse, config }: LayoutEditorProps) {
+  /** 替换元素（如 img）：面板只提供 display 切换，不提供 flex 容器能力 */
+  const displayOnly = !!config?.displayOnly;
   const [forceRenderKey, setForceRenderKey] = useState<number>(Math.random());
   const [isReset, setIsReset] = useState(false);
 
@@ -119,6 +121,7 @@ export function Layout({ value, onChange, showTitle, collapse }: LayoutEditorPro
       <React.Fragment key={forceRenderKey}>
         <LayoutEditor
           editValue={editValue}
+          displayOnly={displayOnly}
           onChangeValue={(newVal) => {
             onChange(
               Object.entries(newVal)
@@ -135,9 +138,10 @@ export function Layout({ value, onChange, showTitle, collapse }: LayoutEditorPro
 interface LayoutEditorInternalProps {
   editValue: Record<string, any>;
   onChangeValue: (val: Record<string, any>) => void;
+  displayOnly?: boolean;
 }
 
-function LayoutEditor({ editValue, onChangeValue }: LayoutEditorInternalProps): JSX.Element {
+function LayoutEditor({ editValue, onChangeValue, displayOnly }: LayoutEditorInternalProps): JSX.Element {
   const _value = parsePxValues(editValue || {});
 
   if ((_value as any).alignItems === "normal") (_value as any).alignItems = "flex-start";
@@ -220,6 +224,21 @@ function LayoutEditor({ editValue, onChangeValue }: LayoutEditorInternalProps): 
         flexWrap = rowFlexWrap;
       }
 
+      // 替换元素的 UA 默认 display 就是 inline，清空 display 会与「内联」重合，需显式写 block
+      if (isDefault && displayOnly) {
+        setModel(prev => ({ ...prev, display: "block" }));
+        emitValue({
+          display: "block",
+          flexDirection: null,
+          alignItems: null,
+          justifyContent: null,
+          flexWrap: null,
+          rowGap: null,
+          columnGap: null,
+        });
+        return;
+      }
+
       if (isDefault) {
         // 切换到默认：清空 flex 相关样式，不动容器 position
         setModel(prev => ({ ...prev, flexDirection, display: undefined, position: "default", flexWrap }));
@@ -266,6 +285,7 @@ function LayoutEditor({ editValue, onChangeValue }: LayoutEditorInternalProps): 
     };
     return (
       <Direction
+        defaultDirection={displayOnly ? ["default", "inline"] : undefined}
         position={model.position}
         flexDirection={model.flexDirection}
         display={model.display}
@@ -343,6 +363,9 @@ function LayoutEditor({ editValue, onChangeValue }: LayoutEditorInternalProps): 
   };
 
   const renderOverflow = () => {
+    // 替换元素无内容可裁剪；「内联显示」写的是 inline-block，会与方向上的「内联」语义冲突
+    if (displayOnly) return null;
+
     const isHidden = model.overflow === "hidden";
     const toggle = () => {
       const overflow = isHidden ? "visible" : "hidden";
