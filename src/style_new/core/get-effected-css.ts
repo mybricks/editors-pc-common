@@ -4,7 +4,7 @@ import colorUtil from 'color-string'
 import { compare } from 'specificity'
 
 import { refineEffectedPanel } from '../StyleEditor/helper/paint-stack'
-import { findCascadeWinner, findCascadeWinnerDetail, getOwnDeclaringMaxSpec } from './cascade-winner'
+import { findCascadeWinner, findCascadeWinnerDetail, getOwnDeclaringMaxSpec, getOwnDeclaringValue } from './cascade-winner'
 import { toHump } from './css-code-codec'
 import { elementHasClassOrHashed } from './css-modules-match'
 import { getDocument } from './dom'
@@ -475,6 +475,26 @@ export function getEffectedCssPropertyAndOptions (element: HTMLElement | null, s
       });
     }
     // ────────────────────────────────────────────────────────────────────────
+
+    // ── ZoneTab 自身声明回填（须在级联校正、内联 style 之后）────────────────
+    // color 的 computedIfInvalid、级联赢家、element.style 都会读到「整元素实际生效色」。
+    // 同一节点挂多个 class 时（如 .agent-dropdown-trigger.dataset-selector），切到
+    // .dataset-selector tab 仍会显示兄弟 class 的 #1890FF，而不是本 tab 声明的
+    // rgb(29,33,38)。当前 tab 的 finalRules 已声明该属性时，强制回填自身声明。
+    if (finalRules.length > 0) {
+      const ownEchoProps: Array<[string, string]> = [
+        ['color', 'color'],
+        ['backgroundColor', 'background-color'],
+        ['borderTopColor', 'border-top-color'],
+        ['borderRightColor', 'border-right-color'],
+        ['borderBottomColor', 'border-bottom-color'],
+        ['borderLeftColor', 'border-left-color'],
+      ]
+      ownEchoProps.forEach(([camel, hyphen]) => {
+        const ownVal = getOwnDeclaringValue(finalRules as CSSStyleRule[], element, hyphen)
+        if (ownVal) (values as any)[camel] = ownVal
+      })
+    }
 
     const effectedFromDirectParent = element ? getEffectedPanelsFromDirectParent(element, comId) : [];
     const finalEffectedPanels = Array.from(

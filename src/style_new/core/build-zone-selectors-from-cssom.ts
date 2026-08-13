@@ -44,38 +44,53 @@ function stripTrailingPseudos(sel: string): string {
   return sel.replace(/(:{1,2}[a-zA-Z\-]+(?:\([^)]*\))?)+$/, '').trim()
 }
 
-/** 读取单个元素上的 authored class（data-zone-classnames / data-loc.cn） */
-function readAuthoredClassesOn(el: Element): string[] {
-  const names: string[] = []
-  const zone = el.getAttribute('data-zone-classnames')
-  if (zone) {
-    zone.split(/[,\s]+/).filter(Boolean).forEach((n) => names.push(n))
-  }
-  try {
-    const loc = JSON.parse(el.getAttribute('data-loc') || '{}')
-    if (Array.isArray(loc?.cn)) {
-      loc.cn.forEach((n: string) => names.push(n))
-    }
-  } catch {
-    /* ignore */
-  }
-  return names
+export function isZoneTabNoiseClass(name: string): boolean {
+  if (!name) return true
+  // 平台实例 id、antd / emotion 运行时 class，不应成为 Zone Tab
+  if (/^u_[A-Za-z0-9]+$/.test(name)) return true
+  if (name.startsWith('ant-')) return true
+  if (name.startsWith('css-')) return true
+  return false
 }
 
-/** 从元素及祖先收集源码短 class 名（data-zone-classnames / data-loc.cn） */
+/** CSS Module 运行时名 → 短名（不依赖 Babel 打标） */
+function heuristicShortName(runtimeClass: string): string {
+  const dashIdx = runtimeClass.lastIndexOf('-')
+  if (dashIdx > 0 && runtimeClass.slice(0, dashIdx).includes('_')) {
+    return runtimeClass.slice(dashIdx + 1)
+  }
+  const ddIdx = runtimeClass.lastIndexOf('--')
+  if (ddIdx > 0) {
+    return runtimeClass.slice(ddIdx + 2)
+  }
+  return runtimeClass
+}
+
+/** 从元素及祖先的 classList 收集短 class 名，用于 CSS Module 还原 */
 export function collectKnownShortNames(el: Element): Set<string> {
   const names = new Set<string>()
   let cur: Element | null = el
   while (cur) {
-    readAuthoredClassesOn(cur).forEach((n) => names.add(n))
+    for (const runtime of Array.from(cur.classList || [])) {
+      if (isZoneTabNoiseClass(runtime)) continue
+      names.add(runtime)
+      names.add(heuristicShortName(runtime))
+    }
     cur = cur.parentElement
   }
   return names
 }
 
-/** 当前元素自身的 authored class（用于过滤第三方/CSS Module 祖先路径噪音） */
-function collectElementAuthoredClasses(el: Element): Set<string> {
-  return new Set(readAuthoredClassesOn(el))
+/** 当前元素自身 class（过滤噪音、还原短名），用于过滤祖先 CSS Module 路径 */
+function collectElementSubjectClasses(el: Element, knownShortNames: Set<string>): Set<string> {
+  const names = new Set<string>()
+  for (const runtime of Array.from(el.classList || [])) {
+    if (isZoneTabNoiseClass(runtime)) continue
+    const short = demangleClassName(runtime, knownShortNames)
+    if (isZoneTabNoiseClass(short)) continue
+    names.add(short)
+  }
+  return names
 }
 
 function extractClassTokens(selectorPart: string): string[] {
@@ -84,38 +99,98 @@ function extractClassTokens(selectorPart: string): string[] {
 
 /**
  * 是否保留为 Zone Tab：
- * 选择器中至少有一个 class 属于当前元素的 authored class。
+ * 选择器中至少有一个 class 属于当前元素自身 classList。
  * 这样会丢掉 `.rich-input_xxx textarea` 这类只命中祖先模块类的路径。
  */
-function isAuthoredZoneSelector(demangled: string, authoredOnEl: Set<string>): boolean {
-  if (!authoredOnEl.size) return true
+function isSubjectZoneSelector(demangled: string, subjectOnEl: Set<string>): boolean {
+  if (!subjectOnEl.size) return true
   const classes = extractClassTokens(demangled)
   if (!classes.length) return false
   return classes.some(
     (c) =>
-      authoredOnEl.has(c) ||
-      [...authoredOnEl].some(
+      subjectOnEl.has(c) ||
+      [...subjectOnEl].some(
         (a) => classMatchesShortName(c, a) || c === a || c.startsWith(a + '_')
       )
   )
 }
 
 /**
- * 末段 class 都属于当前元素 authored 时，收成主体选择器。
+ * 末段 class 都属于当前元素自身时，收成主体选择器。
  * `.rich-input_xxx .aiChat-inputArea` → `.aiChat-inputArea`
  */
-function collapseToSubjectIfAuthored(demangled: string, authoredOnEl: Set<string>): string {
+function collapseToSubjectIfOwn(demangled: string, subjectOnEl: Set<string>): string {
   const parts = demangled.trim().split(/\s+/)
   if (parts.length < 2) return demangled
   const last = parts[parts.length - 1]
   const lastClasses = extractClassTokens(last)
   if (!lastClasses.length) return demangled
-  const allAuthored = lastClasses.every(
+  const allOwn = lastClasses.every(
     (c) =>
-      authoredOnEl.has(c) ||
-      [...authoredOnEl].some((a) => classMatchesShortName(c, a) || c === a)
+      subjectOnEl.has(c) ||
+      [...subjectOnEl].some((a) => classMatchesShortName(c, a) || c === a)
   )
-  return allAuthored ? last : demangled
+  return allOwn ? last : demangled
+}
+
+/**
+ * `.agent-dropdown-trigger.dataset-selector` → [`.agent-dropdown-trigger`, `.dataset-selector`]
+ * 同一节点上的多个 class 必须各自成为 Zone Tab，不能收成一个复合选择器。
+ */
+function splitCompoundLastSegment(sel: string): string[] {
+  const parts = sel.trim().split(/\s+/).filter(Boolean)
+  const last = parts[parts.length - 1] || ''
+  if (/:{1,2}[a-zA-Z\-]+(?:\([^)]*\))?$/.test(last)) return [sel]
+  const classes = extractClassTokens(last)
+  if (classes.length <= 1) return [sel]
+  const prefix = parts.slice(0, -1).join(' ')
+  return classes.map((c) => (prefix ? `${prefix} .${c}` : `.${c}`))
+}
+
+function lastSingleClassName(sel: string): string {
+  const last = sel.trim().split(/\s+/).pop() || ''
+  const base = last.replace(/:{1,2}[a-zA-Z\-]+(?:\([^)]*\))?$/g, '')
+  const tokens = extractClassTokens(base.startsWith('.') ? base : `.${base}`)
+  return tokens.length === 1 ? tokens[0] : ''
+}
+
+function pushUniqueSelector(result: string[], seen: Set<string>, sel: string) {
+  for (const item of splitCompoundLastSegment(sel)) {
+    if (seen.has(item)) continue
+    seen.add(item)
+    result.push(item)
+  }
+}
+
+function supplementClassListSelectors(
+  result: string[],
+  seen: Set<string>,
+  el: Element,
+  knownShortNames: Set<string>
+) {
+  for (const runtime of Array.from(el.classList || [])) {
+    if (isZoneTabNoiseClass(runtime)) continue
+    const short = demangleClassName(runtime, knownShortNames)
+    if (isZoneTabNoiseClass(short)) continue
+    const already = result.some(
+      (s) => lastSingleClassName(s) === short || lastSingleClassName(s) === runtime
+    )
+    if (already) continue
+    pushUniqueSelector(result, seen, `.${short}`)
+  }
+}
+
+/**
+ * 当前节点上应各自成为 Zone Tab 的 class 选择器。
+ * 同一 span 写 `className="agent-dropdown-trigger dataset-selector"` 必须得到两条，
+ * 不能依赖 CSSOM 是否命中、也不能拼成复合选择器。
+ */
+export function collectSubjectClassSelectors(el: Element): string[] {
+  if (!el) return []
+  const result: string[] = []
+  const seen = new Set<string>()
+  supplementClassListSelectors(result, seen, el, collectKnownShortNames(el))
+  return result
 }
 
 function demangleClassName(runtimeClass: string, knownShortNames: Set<string>): string {
@@ -129,16 +204,8 @@ function demangleClassName(runtimeClass: string, knownShortNames: Set<string>): 
       return sn
     }
   }
-  // pages_Foo_less-shortName（前缀须含 _，避免 .aiChat-inputArea → inputArea）
-  const dashIdx = runtimeClass.lastIndexOf('-')
-  if (dashIdx > 0 && runtimeClass.slice(0, dashIdx).includes('_')) {
-    return runtimeClass.slice(dashIdx + 1)
-  }
-  const ddIdx = runtimeClass.lastIndexOf('--')
-  if (ddIdx > 0) {
-    return runtimeClass.slice(ddIdx + 2)
-  }
-  return runtimeClass
+  // pages_Foo_less-shortName / foo--bar（前缀须含 _，避免 .aiChat-inputArea → inputArea）
+  return heuristicShortName(runtimeClass)
 }
 
 function demangleSelector(runtimeSel: string, knownShortNames: Set<string>): string {
@@ -148,44 +215,21 @@ function demangleSelector(runtimeSel: string, knownShortNames: Set<string>): str
 }
 
 /**
- * CSSOM 算不出时的兜底：用 data-zone-classnames / data-loc.cn，
- * 纯标签节点则用祖先 class + tagName（如 .textTitle span）。
- * 不读取 data-zone-selector。
+ * CSSOM 算不出时的兜底：当前节点 classList；
+ * 纯标签节点则用祖先 classList + tagName（如 .textTitle span）。
  */
 export function fallbackZoneSelectorsFromClassnames(el: Element): string[] {
-  const selfZone = (el.getAttribute('data-zone-classnames') || '')
-    .split(/[,\s]+/)
-    .filter(Boolean)
-  if (selfZone.length) {
-    return [selfZone.map((c) => `.${c}`).join('')]
-  }
-  try {
-    const cn = JSON.parse(el.getAttribute('data-loc') || '{}')?.cn
-    if (Array.isArray(cn) && cn.length) {
-      return [cn.map((c: string) => `.${c}`).join('')]
-    }
-  } catch {
-    /* ignore */
-  }
+  const self = collectSubjectClassSelectors(el)
+  if (self.length) return self
 
   const tag = el.tagName?.toLowerCase?.()
   if (!tag || tag === 'div') return []
 
   let cur = el.parentElement
   while (cur) {
-    const zone = (cur.getAttribute('data-zone-classnames') || '')
-      .split(/[,\s]+/)
-      .filter(Boolean)
-    if (zone.length) {
-      return [`${zone.map((c) => `.${c}`).join('')} ${tag}`]
-    }
-    try {
-      const cn = JSON.parse(cur.getAttribute('data-loc') || '{}')?.cn
-      if (Array.isArray(cn) && cn.length) {
-        return [`${cn.map((c: string) => `.${c}`).join('')} ${tag}`]
-      }
-    } catch {
-      /* ignore */
+    const parentSels = collectSubjectClassSelectors(cur)
+    if (parentSels.length) {
+      return [`${parentSels.join('')} ${tag}`]
     }
     cur = cur.parentElement
   }
@@ -200,7 +244,7 @@ export function buildZoneSelectorsFromCssom(el: Element, comId: string): string[
   if (!el || !comId) return []
 
   const knownShortNames = collectKnownShortNames(el)
-  const authoredOnEl = collectElementAuthoredClasses(el)
+  const subjectOnEl = collectElementSubjectClasses(el, knownShortNames)
   const result: string[] = []
   const seen = new Set<string>()
 
@@ -238,15 +282,15 @@ export function buildZoneSelectorsFromCssom(el: Element, comId: string): string[
         if (!demangled || (!demangled.includes('.') && !/\s/.test(demangled))) return
 
         // 丢掉仅命中祖先 CSS Module（如 .rich-input_xxx textarea）的路径
-        if (!isAuthoredZoneSelector(demangled, authoredOnEl)) return
+        if (!isSubjectZoneSelector(demangled, subjectOnEl)) return
 
-        const finalSel = collapseToSubjectIfAuthored(demangled, authoredOnEl)
-        if (seen.has(finalSel)) return
-        seen.add(finalSel)
-        result.push(finalSel)
+        const finalSel = collapseToSubjectIfOwn(demangled, subjectOnEl)
+        pushUniqueSelector(result, seen, finalSel)
       })
     }
   }
+
+  supplementClassListSelectors(result, seen, el, knownShortNames)
 
   return result
 }

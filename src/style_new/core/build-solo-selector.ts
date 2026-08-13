@@ -1,4 +1,5 @@
 import { classMatchesShortName } from './css-modules-match'
+import { collectSubjectClassSelectors } from './build-zone-selectors-from-cssom'
 import { splitTopLevelSelectors } from './selector-utils'
 
 function getChildIndex(element: Element): number {
@@ -26,22 +27,20 @@ function omitTopLevelFirstChild(segments: string[]): string[] {
 }
 
 function getZoneClassSelector(element: Element): string | null {
-  const classNames = (element.getAttribute('data-zone-classnames') || '')
-    .split(/\s+/)
-    .filter(Boolean)
-  return classNames.length ? classNames.map((className) => `.${className}`).join('') : null
+  const classNames = collectSubjectClassSelectors(element)
+  return classNames.length ? classNames.join('') : null
 }
 
 function getRuntimeZoneClassSelector(element: Element): string | null {
-  const classNames = (element.getAttribute('data-zone-classnames') || '')
-    .split(/\s+/)
-    .filter(Boolean)
+  const shorts = collectSubjectClassSelectors(element).map((s) => s.replace(/^\./, ''))
+  if (!shorts.length) return null
   const runtimeClasses = Array.from(element.classList)
-  const matchedClasses = classNames
-    .map((className) => runtimeClasses.find((runtimeClass) => classMatchesShortName(runtimeClass, className)))
+  const matched = shorts
+    .map((short) =>
+      runtimeClasses.find((runtimeClass) => classMatchesShortName(runtimeClass, short) || runtimeClass === short)
+    )
     .filter((className): className is string => !!className)
-
-  return matchedClasses.length ? matchedClasses.map((className) => `.${className}`).join('') : null
+  return matched.length ? matched.map((className) => `.${className}`).join('') : null
 }
 
 function getRuntimeSelector(element: Element, sourceSelector: string): string {
@@ -190,7 +189,7 @@ function findTargetTailNthRules(
 }
 
 /**
- * 用源码中的 data-zone-classnames 构造单独编辑选择器。
+ * 用当前节点 classList 构造单独编辑选择器。
  *
  * 不使用编辑器注入的匿名 div：它们不会存在于写回后的页面源码中。
  * 例如：.section:nth-child(8) .cardGrid:nth-child(2)

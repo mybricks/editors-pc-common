@@ -2,65 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import {
   buildZoneSelectorsFromCssom,
+  collectSubjectClassSelectors,
   fallbackZoneSelectorsFromClassnames,
 } from '../core/build-zone-selectors-from-cssom'
-import { getDocument } from '../core/dom'
 import { elMatchesSelectorTail } from '../core/css-modules-match'
 import { scanPseudoSelectors } from '../core/scan-pseudo-selectors'
-
-/** 收集组件样式表中出现过的 class，用于过滤动态 class 噪音 */
-function collectClassesInStyleSheet(comId: string): Set<string> {
-  const classesInStyleSheet = new Set<string>()
-  if (!comId) return classesInStyleSheet
-
-  const root = getDocument()
-  const styleEls = Array.from((root as any).querySelectorAll?.('style') || []) as HTMLStyleElement[]
-  for (const styleEl of styleEls) {
-    let rules: CSSRuleList | null = null
-    try {
-      rules = styleEl.sheet?.cssRules ?? null
-    } catch {
-      continue
-    }
-    if (!rules) continue
-    for (const rule of Array.from(rules)) {
-      const selectorText = (rule as CSSStyleRule).selectorText
-      if (!selectorText || !selectorText.includes(comId)) continue
-      const matches = selectorText.match(/\.([a-zA-Z_][a-zA-Z0-9_-]*)/g)
-      if (matches) matches.forEach((m) => classesInStyleSheet.add(m.slice(1)))
-    }
-  }
-  return classesInStyleSheet
-}
-
-function getKnownClassesFromLoc(dom: Element): string[] {
-  try {
-    return JSON.parse(dom?.getAttribute?.('data-loc') ?? '{}')?.cn ?? []
-  } catch {
-    return []
-  }
-}
-
-function getDynamicClasses(
-  dom: Element,
-  comId: string,
-  classesInStyleSheet: Set<string>
-): string[] {
-  if (!comId) return []
-  const knownClasses = getKnownClassesFromLoc(dom)
-  // CSS module 混淆名：以 "-已知短名" 结尾且前缀含 _，视为静态 class
-  const isMangledKnown = (c: string) =>
-    knownClasses.some(
-      (kc) => c.endsWith(`-${kc}`) && c.slice(0, c.length - kc.length - 1).includes('_')
-    )
-
-  return Array.from(dom.classList ?? []).filter(
-    (c) =>
-      !knownClasses.includes(c) &&
-      !isMangledKnown(c) &&
-      classesInStyleSheet.has(c)
-  )
-}
 
 export function useZoneSelectors(editConfig: any, targetDom: any, _open: boolean) {
   const [activeZoneIdx, setActiveZoneIdx] = useState(0)
@@ -85,37 +31,23 @@ export function useZoneSelectors(editConfig: any, targetDom: any, _open: boolean
           ? [targetDom as Element]
           : []
 
-    const classesInStyleSheet = collectClassesInStyleSheet(comId)
     const result: string[] = []
     const baseSelectors: string[] = []
 
     for (const dom of domList as Element[]) {
-      // 主路径：CSSOM + matches；空则用 classnames / loc 兜底（不读 data-zone-selector）
-      let bases = comId ? buildZoneSelectorsFromCssom(dom, comId) : []
-      if (bases.length === 0) {
+      // CSSOM 先收集组件样式表命中的选择器（含后代路径），内部已用 classList 补自身 class。
+      // 无 comId / CSSOM 为空时直接用 classList；纯标签节点再走祖先+tag 兜底。
+      // :hover 等伪类由 scanPseudoSelectors 另扫 CSSOM，不在这里拼。
+      let bases = comId
+        ? buildZoneSelectorsFromCssom(dom, comId)
+        : collectSubjectClassSelectors(dom)
+      if (!bases.length) {
         bases = fallbackZoneSelectorsFromClassnames(dom)
       }
 
       for (const s of bases) {
         if (!baseSelectors.includes(s)) baseSelectors.push(s)
         if (!result.includes(s)) result.push(s)
-      }
-
-      const dynamicClasses = getDynamicClasses(dom, comId, classesInStyleSheet)
-      // 动态 class 与基础选择器拼复合选择器，插到最前以便默认回显实际生效样式
-      if (dynamicClasses.length > 0 && bases.length > 0) {
-        const compoundSelectors: string[] = []
-        for (const dc of dynamicClasses) {
-          for (const sel of bases) {
-            const lastSegment = sel.trim().split(/\s+/).pop() ?? ''
-            if (lastSegment.includes(`.${dc}`)) continue
-            const compound = `${sel}.${dc}`
-            if (!result.includes(compound) && !compoundSelectors.includes(compound)) {
-              compoundSelectors.push(compound)
-            }
-          }
-        }
-        result.unshift(...compoundSelectors)
       }
     }
 
