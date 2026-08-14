@@ -55,6 +55,7 @@
   flex-shrink: 0;
   cursor: pointer;
   color: @font-color-content;
+  opacity: 0.55;
 
   svg {
     width: 22px;
@@ -62,8 +63,10 @@
   }
 
   &:hover {
+    opacity: 1;
+
     svg {
-      background-color: @bg-color-active;
+      background-color: rgba(0, 0, 0, 0.05);
       border-radius: 5px;
     }
   }
