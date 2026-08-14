@@ -116,7 +116,18 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
     targetDom,
     open
   )
-  const affectedCount = useAffectedCount(activeZoneIdx, zoneSelectorList, finalSelector)
+
+  const shellComId = useMemo(() => {
+    if (!editConfig.options || Array.isArray(editConfig.options)) return ''
+    return (editConfig.options as any).comId ?? ''
+  }, [editConfig])
+
+  const affectedCount = useAffectedCount(
+    activeZoneIdx,
+    zoneSelectorList,
+    finalSelector,
+    shellComId || undefined
+  )
 
   const selectedTarget = useMemo(() => {
     return (
@@ -135,12 +146,8 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
   }, [zoneSelectorList, activeZoneIdx, finalSelector])
 
   const componentRoot = useMemo(() => {
-    const comId =
-      !Array.isArray(editConfig.options) && editConfig.options
-        ? (editConfig.options as any).comId
-        : undefined
-    return comId ? getDocument().getElementById(comId) : null
-  }, [editConfig])
+    return shellComId ? getDocument().getElementById(shellComId) : null
+  }, [shellComId])
 
   const expectedSoloSelector = useMemo(() => {
     return selectedTarget && baseSelector

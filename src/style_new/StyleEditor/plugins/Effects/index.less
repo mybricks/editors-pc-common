@@ -57,6 +57,7 @@
   justify-content: center;
   cursor: pointer;
   color: @font-color-content;
+  opacity: 0.55;
 
   svg {
     width: 22px;
@@ -64,8 +65,13 @@
   }
 
   &:hover {
-    background-color: rgba(0, 0, 0, 0.05);
-    border-radius: 5px;
+    opacity: 1;
+    background-color: transparent;
+
+    svg {
+      background-color: rgba(0, 0, 0, 0.05);
+      border-radius: 5px;
+    }
   }
 }
 

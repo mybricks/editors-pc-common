@@ -4,7 +4,7 @@ import colorUtil from 'color-string'
 import { compare } from 'specificity'
 
 import { refineEffectedPanel } from '../StyleEditor/helper/paint-stack'
-import { findCascadeWinner, findCascadeWinnerDetail, getOwnDeclaringMaxSpec } from './cascade-winner'
+import { findCascadeWinner, findCascadeWinnerDetail, getOwnDeclaringMaxSpec, getOwnDeclaringValue } from './cascade-winner'
 import { toHump } from './css-code-codec'
 import { elementHasClassOrHashed } from './css-modules-match'
 import { getDocument } from './dom'
@@ -268,6 +268,8 @@ export function getEffectedCssPropertyAndOptions (element: HTMLElement | null, s
       const _findCascadeWinner = (hyphen: string): string | null => findCascadeWinner(element, hyphen, 'default')
 
       // ── 颜色属性：用 colorUtil 归一化比较（处理 rgb/rgba/hex 格式差异）─────────────
+      // ZoneTab 自身声明优先：finalRules 已声明该属性时永不被元素级联赢家覆盖，
+      // 保证回显与写入同一条 classname。仅当当前 tab 未声明时才用级联校正。
       const colorPropMap: Array<[string, string]> = [
         ['color', 'color'],
         ['backgroundColor', 'background-color'],
@@ -279,27 +281,25 @@ export function getEffectedCssPropertyAndOptions (element: HTMLElement | null, s
       colorPropMap.forEach(([camel, hyphen]) => {
         const val = (values as any)[camel]
         if (!val || _isVarRef(val)) return
-        const winnerValue = _findCascadeWinner(hyphen)
-        if (winnerValue === null) return
+        const winnerDetail = findCascadeWinnerDetail(element, hyphen, 'default')
+        if (!winnerDetail) return
         const c1 = colorUtil.get(val)
-        const c2 = colorUtil.get(winnerValue)
-        if (c1 && c2 && c1.value.join(',') !== c2.value.join(',')) {
-          (values as any)[camel] = winnerValue
+        const c2 = colorUtil.get(winnerDetail.value)
+        if (!c1 || !c2 || c1.value.join(',') === c2.value.join(',')) return
+        const ownMaxSpec = getOwnDeclaringMaxSpec(
+          finalRules as CSSStyleRule[],
+          element,
+          hyphen
+        )
+        // 当前 ZoneTab 已声明 → 不覆盖（回显与写入同一条）
+        if (!ownMaxSpec) {
+          (values as any)[camel] = winnerDetail.value
         }
       })
 
       // ── 背景图属性：用字符串比较（linear-gradient 无法被 colorUtil 解析）────────────
-      // 场景：antd `.ant-btn-variant-solid { background: #1677ff }` 特指度 (0,2,0) 高于
-      // 组件单类 `.headerStockInBtn` (0,1,0)，实际 background-image 被重置为 none，
-      // 但 getValues 读到的是 Less 文件里的渐变值，导致回显错误。
-      //
-      // background: transparent 等简写会把 background-image 写成 initial。
-      // 对面板等同于 none；若再跑级联校正，会把同元素上其他 zone 选择器
-      // （如 .inputArea 的渐变）盖进来，导致切换 ZoneTab 后面板不变化。
-      //
-      // 同特指度兄弟 zone（.inputArea vs .aiChat-inputArea）后写者会在级联扫描里胜出，
-      // 但 ZoneTab 应回显「当前选择器自身声明」。仅当胜者特指度严格更高时才覆盖
-      // （保留 antd 高特指度覆盖组件规则的场景）。
+      // background: transparent 等简写会把 background-image 写成 initial，对面板等同于 none。
+      // ZoneTab 自身声明优先：finalRules 已声明时不覆盖；仅未声明时用级联校正。
       if ((values as any)['backgroundImage'] === 'initial') {
         (values as any)['backgroundImage'] = 'none'
       }
@@ -314,11 +314,8 @@ export function getEffectedCssPropertyAndOptions (element: HTMLElement | null, s
               element,
               'background-image'
             )
-            if (
-              !ownMaxSpec ||
-              bgWinnerDetail.important ||
-              compare(bgWinnerDetail.spec, ownMaxSpec) > 0
-            ) {
+            // 当前 ZoneTab 已声明 → 不覆盖（回显与写入同一条）
+            if (!ownMaxSpec) {
               (values as any)['backgroundImage'] = bgWinnerDetail.value
             }
           }
@@ -348,17 +345,14 @@ export function getEffectedCssPropertyAndOptions (element: HTMLElement | null, s
       }
     }
 
-    // ── hover 态级联校正：getValues 按特指度取最后规则，不考虑 !important，
-    // 导致 antd 高特指度 hover 规则覆盖组件自身 hover 规则的值。
-    // 修复：扫描所有以 :hover 结尾且 element（去掉:hover后）匹配的规则，
-    // 按完整 CSS 级联（!important → 特指度 → 源码顺序）找出真正胜出的值并更新 values。
+    // ── hover 态级联校正：同默认态，自身声明优先；仅当前 tab 未声明时用级联补值。
     if (element && _hasPseudo && /^.*:hover\s*$/i.test(primarySelector)) {
       const _isVarRefH = (v: any) => typeof v === 'string' && v.startsWith('var(')
       const HOVER_TAIL_RE = /:hover\s*$/i
 
       const _findHoverCascadeWinner = (hyphen: string): string | null => findCascadeWinner(element, hyphen, 'hover')
 
-      // 颜色属性校正
+      // 颜色属性校正：同默认态，自身声明优先，回显与写入同一条
       const colorPropMapH: Array<[string, string]> = [
         ['color', 'color'],
         ['backgroundColor', 'background-color'],
@@ -370,23 +364,38 @@ export function getEffectedCssPropertyAndOptions (element: HTMLElement | null, s
       colorPropMapH.forEach(([camel, hyphen]) => {
         const val = (values as any)[camel]
         if (!val || _isVarRefH(val)) return
-        const winnerValue = _findHoverCascadeWinner(hyphen)
-        if (winnerValue === null) return
+        const winnerDetail = findCascadeWinnerDetail(element, hyphen, 'hover')
+        if (!winnerDetail) return
         const c1 = colorUtil.get(val)
-        const c2 = colorUtil.get(winnerValue)
-        if (c1 && c2 && c1.value.join(',') !== c2.value.join(',')) {
-          (values as any)[camel] = winnerValue
+        const c2 = colorUtil.get(winnerDetail.value)
+        if (!c1 || !c2 || c1.value.join(',') === c2.value.join(',')) return
+        const ownMaxSpec = getOwnDeclaringMaxSpec(
+          finalRules as CSSStyleRule[],
+          element,
+          hyphen
+        )
+        // 当前 ZoneTab 已声明 → 不覆盖（回显与写入同一条）
+        if (!ownMaxSpec) {
+          (values as any)[camel] = winnerDetail.value
         }
       })
 
-      // 背景图属性校正
+      // 背景图属性校正：同默认态，自身声明优先
       const bgImageValH = (values as any)['backgroundImage']
       if (bgImageValH && bgImageValH !== 'none' && !_isVarRefH(bgImageValH)) {
-        const bgWinnerH = _findHoverCascadeWinner('background-image')
-        if (bgWinnerH !== null) {
+        const bgWinnerDetailH = findCascadeWinnerDetail(element, 'background-image', 'hover')
+        if (bgWinnerDetailH) {
           const norm = (s: string) => s.replace(/\s+/g, ' ').trim().toLowerCase()
-          if (norm(bgImageValH) !== norm(bgWinnerH)) {
-            (values as any)['backgroundImage'] = bgWinnerH
+          if (norm(bgImageValH) !== norm(bgWinnerDetailH.value)) {
+            const ownMaxSpecH = getOwnDeclaringMaxSpec(
+              finalRules as CSSStyleRule[],
+              element,
+              'background-image'
+            )
+            // 当前 ZoneTab 已声明 → 不覆盖（回显与写入同一条）
+            if (!ownMaxSpecH) {
+              (values as any)['backgroundImage'] = bgWinnerDetailH.value
+            }
           }
         }
       }
@@ -466,6 +475,26 @@ export function getEffectedCssPropertyAndOptions (element: HTMLElement | null, s
       });
     }
     // ────────────────────────────────────────────────────────────────────────
+
+    // ── ZoneTab 自身声明回填（须在级联校正、内联 style 之后）────────────────
+    // color 的 computedIfInvalid、级联赢家、element.style 都会读到「整元素实际生效色」。
+    // 同一节点挂多个 class 时（如 .agent-dropdown-trigger.dataset-selector），切到
+    // .dataset-selector tab 仍会显示兄弟 class 的 #1890FF，而不是本 tab 声明的
+    // rgb(29,33,38)。当前 tab 的 finalRules 已声明该属性时，强制回填自身声明。
+    if (finalRules.length > 0) {
+      const ownEchoProps: Array<[string, string]> = [
+        ['color', 'color'],
+        ['backgroundColor', 'background-color'],
+        ['borderTopColor', 'border-top-color'],
+        ['borderRightColor', 'border-right-color'],
+        ['borderBottomColor', 'border-bottom-color'],
+        ['borderLeftColor', 'border-left-color'],
+      ]
+      ownEchoProps.forEach(([camel, hyphen]) => {
+        const ownVal = getOwnDeclaringValue(finalRules as CSSStyleRule[], element, hyphen)
+        if (ownVal) (values as any)[camel] = ownVal
+      })
+    }
 
     const effectedFromDirectParent = element ? getEffectedPanelsFromDirectParent(element, comId) : [];
     const finalEffectedPanels = Array.from(

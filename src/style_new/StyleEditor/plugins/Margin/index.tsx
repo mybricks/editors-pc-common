@@ -147,7 +147,7 @@ export function Margin ({value, onChange, config, showTitle, collapse}: MarginPr
       return (
         <div className={css.row}
         >
-          <Panel.Content style={{padding: 3}}>
+          <Panel.Content style={{padding: 2}}>
             <Panel.Item className={css.editArea} style={{padding: '0px 8px'}}>
               <div 
                 className={css.icon}
@@ -185,7 +185,7 @@ export function Margin ({value, onChange, config, showTitle, collapse}: MarginPr
         <div className={css.independentBox}>
           <div style={{ minWidth: "120px", flex: 1 }}>
             <div className={css.row} style={{ paddingRight: 0 }}>
-              <Panel.Content style={{ padding: 3 }}>
+              <Panel.Content style={{ padding: 2 }}>
                 <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
                   <div 
                     className={`${css.icon} ${css.leftMarginIcon}`} 
@@ -204,7 +204,7 @@ export function Margin ({value, onChange, config, showTitle, collapse}: MarginPr
                   />
                 </Panel.Item>
               </Panel.Content>
-              <Panel.Content style={{ padding: 3 }}>
+              <Panel.Content style={{ padding: 2 }}>
                 <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
                   <div 
                     className={css.icon} 
@@ -225,7 +225,7 @@ export function Margin ({value, onChange, config, showTitle, collapse}: MarginPr
               </Panel.Content>
             </div>
             <div className={css.row} style={{ paddingRight: 0 }}>
-              <Panel.Content style={{ padding: 3 }}>
+              <Panel.Content style={{ padding: 2 }}>
                 <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
                   <div 
                     className={css.icon}
@@ -244,7 +244,7 @@ export function Margin ({value, onChange, config, showTitle, collapse}: MarginPr
                   />
                 </Panel.Item>
               </Panel.Content>
-              <Panel.Content style={{ padding: 3 }}>
+              <Panel.Content style={{ padding: 2 }}>
                 <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
                   <div 
                     className={css.icon} 

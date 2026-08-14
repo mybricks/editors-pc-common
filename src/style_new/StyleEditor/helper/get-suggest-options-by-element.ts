@@ -145,9 +145,10 @@ export function getSuggestOptionsByElement(selectDom: HTMLElement): { type: stri
         : void 0;
 
     const suggestion = [
-      isImgElement ? void 0 : {
-        type: 'layout'
-      },
+      // 替换元素没有子节点可排，布局面板降级为 display 切换（默认 / 内联）
+      isImgElement
+        ? { type: 'layout', config: { displayOnly: true } }
+        : { type: 'layout' },
       fontOption,
       marginOption,
       paddingOption,

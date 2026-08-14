@@ -36,6 +36,20 @@ function getDisambiguatedZoneTabLabel(selector: string): string {
   return `${shortenClassLabel(base)}${pseudoMatch[1]}`
 }
 
+/**
+ * 基础选择器末段冲突时带上父段，避免两个不同路径都显示成 "textarea"。
+ * 例：.aiChat-inputArea textarea / .inputArea textarea → "aiChat-inputArea textarea" / "inputArea textarea"
+ */
+function getDisambiguatedBaseLabel(selector: string): string {
+  const parts = selector.trim().split(/\s+/)
+  const lastPart = parts[parts.length - 1] || ''
+  const self = shortenClassLabel(lastPart.replace(/^\./, ''))
+  if (parts.length < 2) return self
+  const parent = shortenClassLabel(parts[parts.length - 2].replace(/^\./, ''))
+  if (!parent) return self
+  return `${parent} ${self}`
+}
+
 function isPseudoSelector(selector: string): boolean {
   const lastPart = selector.trim().split(/\s+/).pop() || ''
   return PSEUDO_TAIL_RE.test(lastPart)
@@ -58,6 +72,10 @@ function getZoneTabLabels(selectors: string[]): string[] {
       (needBasePrefix || (counts.get(labels[idx]) ?? 0) > 1)
     ) {
       return getDisambiguatedZoneTabLabel(sel)
+    }
+    // 基础态末段撞名（如两条路径都以 textarea 结尾）时带上父段消歧
+    if (!isPseudoSelector(sel) && (counts.get(labels[idx]) ?? 0) > 1) {
+      return getDisambiguatedBaseLabel(sel)
     }
     return labels[idx]
   })

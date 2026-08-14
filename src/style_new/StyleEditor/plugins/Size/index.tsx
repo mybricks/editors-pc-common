@@ -43,6 +43,21 @@ function percentToPx(percentVal: string, parentSize: number, fallbackPx: number)
   return `${Math.max(1, Math.round(fallbackPx) || 1)}px`;
 }
 
+const VIEWPORT_UNIT_RE = /^-?[\d.]+(?:vw|vh|vmin|vmax|dvw|dvh|svw|svh|lvw|lvh)$/i;
+
+function isViewportSize(val: string | undefined): boolean {
+  return !!val && VIEWPORT_UNIT_RE.test(val.trim());
+}
+
+/** vw/vh 等视口单位换算为实测 px，避免 InputNumber 把 100vw 显示成 100 */
+function resolveViewportToPx(val: string | undefined, actualSize: number): string | undefined {
+  if (!val || !isViewportSize(val)) return val;
+  if (actualSize > 0) {
+    return `${Math.max(0, Math.round(actualSize))}px`;
+  }
+  return val;
+}
+
 const BASE_UNIT_OPTIONS = [
   {label: "px", value: "px"},
   {label: "%", value: "%"},
@@ -447,6 +462,11 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
 
   const widthEffective = normalizeSizeValue(widthPending !== undefined ? widthPending : value.width);
   const heightEffective = normalizeSizeValue(heightPending !== undefined ? heightPending : value.height);
+  // 首帧同步读 offset，避免等 ResizeObserver 才把 100vw 换成 px
+  const measuredWidth = targetDom?.offsetWidth || actualWidth;
+  const measuredHeight = targetDom?.offsetHeight || actualHeight;
+  const widthResolved = resolveViewportToPx(widthEffective, measuredWidth);
+  const heightResolved = resolveViewportToPx(heightEffective, measuredHeight);
   const maxWidthEffective = normalizeSizeValue(maxWidthPending !== undefined ? maxWidthPending : value.maxWidth);
 
   // Fill 仅对应「填满父容器」写入的 100%；用户显式选 %（含换算成 100%）走普通 % 单位展示
@@ -660,7 +680,8 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
 
   const handleWidthChange = useCallback((val: string | null) => {
     let realVal: string | null = val === 'default' || val == null ? null : val;
-    const prevWidth = normalizeSizeValue(widthPending !== undefined ? widthPending : value.width);
+    const rawPrevWidth = normalizeSizeValue(widthPending !== undefined ? widthPending : value.width);
+    const prevWidth = resolveViewportToPx(rawPrevWidth, targetDomRef.current?.offsetWidth || actualWidthRef.current);
     const parentW = targetDomRef.current?.parentElement?.clientWidth ?? 0;
     if (realVal === null || realVal === 'fit-content' || realVal?.endsWith('px')) {
       setWidthPreferPercent(false);
@@ -744,7 +765,8 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
 
   const handleHeightChange = useCallback((val: string | null) => {
     let realVal: string | null = val === 'default' || val == null ? null : val;
-    const prevHeight = normalizeSizeValue(heightPending !== undefined ? heightPending : value.height);
+    const rawPrevHeight = normalizeSizeValue(heightPending !== undefined ? heightPending : value.height);
+    const prevHeight = resolveViewportToPx(rawPrevHeight, targetDomRef.current?.offsetHeight || actualHeightRef.current);
     const parentH = targetDomRef.current?.parentElement?.clientHeight ?? 0;
     if (realVal === null || realVal === 'fit-content' || realVal?.endsWith('px')) {
       setHeightPreferPercent(false);
@@ -957,14 +979,14 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
             <Panel.Content style={{ position: 'relative' }}>
               <Panel.Item style={{ display: "flex", alignItems: "center", paddingLeft: 4 }}>
                 <div
-                  {...getDragPropsWidth(widthEffective ?? (actualWidth > 0 ? `${Math.round(actualWidth)}px` : undefined), cfg.disableWidth ? '由布局自动控制，修改后将改为固定值' : '拖拽调整宽度')}
+                  {...getDragPropsWidth(widthResolved ?? (actualWidth > 0 ? `${Math.round(actualWidth)}px` : undefined), cfg.disableWidth ? '由布局自动控制，修改后将改为固定值' : '拖拽调整宽度')}
                   style={{ height: "100%", display: "flex", alignItems: "center", cursor: "ew-resize" }}
                 >
                   <span className={css.tip} style={{ flexShrink: 0}}>宽度</span>
                 </div>
                 <div ref={widthInputWrapRef} style={{ flex: 1, minWidth: 0, display: 'contents' }}>
                   <InputNumber
-                    key={`${isWidthFill ? 'fill-w' : (widthEffective === 'fit-content' ? 'hug-w' : (isWidthDefault ? 'default-w' : getUnitKey(widthEffective)))}-wlk${widthLockKey}`}
+                    key={`${isWidthFill ? 'fill-w' : (widthEffective === 'fit-content' ? 'hug-w' : (isWidthDefault ? 'default-w' : getUnitKey(widthResolved)))}-wlk${widthLockKey}`}
                     style={{ flex: 1, minWidth: 0, marginLeft: 4 }}
                     {...(isWidthFill || isWidthDefault ? { value: null as any } : {})}
                     defaultValue={
@@ -972,7 +994,7 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
                         ? undefined
                         : (widthEffective === 'fit-content'
                             ? (actualWidth > 0 ? `${Math.round(actualWidth)}px` : undefined)
-                            : widthEffective)
+                            : widthResolved)
                     }
                     defaultUnitValue="px"
                     unitOptions={widthUnitOptions}
@@ -1049,14 +1071,14 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
               </Panel.Item>
               <Panel.Item style={{ display: "flex", alignItems: "center", paddingLeft: 4 }}>
                 <div
-                  {...getDragPropsHeight(heightEffective ?? (actualHeight > 0 ? `${Math.round(actualHeight)}px` : undefined), cfg.disableHeight ? '由布局自动控制，修改后将改为固定值' : '拖拽调整高度')}
+                  {...getDragPropsHeight(heightResolved ?? (actualHeight > 0 ? `${Math.round(actualHeight)}px` : undefined), cfg.disableHeight ? '由布局自动控制，修改后将改为固定值' : '拖拽调整高度')}
                   style={{ height: "100%", display: "flex", alignItems: "center", cursor: "ew-resize" }}
                 >
                   <span className={css.tip} style={{ flexShrink: 0 }}>高度</span>
                 </div>
                 <div ref={heightInputWrapRef} style={{ flex: 1, minWidth: 0, display: 'contents' }}>
                   <InputNumber
-                    key={`${isHeightFill ? 'fill-h' : (heightEffective === 'fit-content' ? 'hug-h' : (isHeightDefault ? 'default-h' : getUnitKey(heightEffective)))}-hlk${heightLockKey}`}
+                    key={`${isHeightFill ? 'fill-h' : (heightEffective === 'fit-content' ? 'hug-h' : (isHeightDefault ? 'default-h' : getUnitKey(heightResolved)))}-hlk${heightLockKey}`}
                     style={{ flex: 1, minWidth: 0, marginLeft: 4 }}
                     {...(isHeightFill || isHeightDefault ? { value: null as any } : {})}
                     defaultValue={
@@ -1064,7 +1086,7 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
                         ? undefined
                         : (heightEffective === 'fit-content'
                             ? (actualHeight > 0 ? `${Math.round(actualHeight)}px` : undefined)
-                            : heightEffective)
+                            : heightResolved)
                     }
                     defaultUnitValue="px"
                     unitOptions={heightUnitOptions}

@@ -22,7 +22,7 @@ import {
 import { splitValueAndUnit } from "../../utils";
 import { isObject } from "../../../../util/lodash/isObject";
 import { PanelBaseProps } from "../../type";
-import { useDragNumber } from "../../hooks";
+import { useDragNumber, useCanvasColorVariables } from "../../hooks";
 import { FontSetting } from "../../icons/FontSetting";
 import { FontSettingTruncation } from "../../icons/FontSettingTruncation";
 import { isGradientValue } from "../../helper/gradient-border";
@@ -34,7 +34,7 @@ import {
   parseTextFillDisplayValue,
 } from "../../helper/text-fill";
 import { getColorEditorValue } from "../../helper/get-color-editor-value";
-import { getCssVarColorOptions, resolveCssVarColor } from "../../../core/resolve-css-var-color";
+import { resolveCssVarColor } from "../../../core/resolve-css-var-color";
 import css from "./index.less";
 
 interface FontProps extends PanelBaseProps {
@@ -282,7 +282,7 @@ function parseTextDecoration(td: string | undefined): 'underline' | 'line-throug
 export function Font({ value, onChange, config, showTitle }: FontProps) {
   const context = useStyleEditorContext();
   const editConfig = context?.editConfig;
-  const targetDom = context?.targetDom ?? null;
+  const { targetDom, variableOptions: canvasColorVariables } = useCanvasColorVariables();
   const outterFontFamilyOptions = normalizeFontfaceOptions(editConfig?.fontfaces || []);
   const valueRef = useRef(value);
   valueRef.current = value;
@@ -311,7 +311,6 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
 
   const textFillValue = parseTextFillDisplayValue(value as Record<string, any>);
   const textFillResolvedColor = resolveCssVarColor(textFillValue, targetDom);
-  const canvasColorVariables = getCssVarColorOptions(targetDom);
   const textFillEditorKey = `${isTextFillActive(value as Record<string, any>)
     ? "text-fill-gradient"
     : "text-fill-solid"}-${textFillValue}-${textFillResolvedColor ?? ""}`;

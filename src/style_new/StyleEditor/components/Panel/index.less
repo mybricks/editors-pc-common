@@ -5,8 +5,8 @@
   width: 100%;
   display: flex;
   flex-direction: column;
-  padding-top: 5px;
-  padding-bottom: 5px;
+  padding-top: 6px;
+  padding-bottom: 6px;
   border-top: 1px solid transparent;
 
   &:first-child {
@@ -99,8 +99,8 @@
 
     .right {
       svg {
-        width: 15px;
-        height: 15px;
+        width: 14.5px;
+        height: 14.5px;
       }
 
       position: absolute;
@@ -110,6 +110,7 @@
       font-size: 10px;
       cursor: pointer;
       color: @font-color-content;
+      opacity: 0.55;
 
       width: 22px;
       height: 22px;
@@ -118,6 +119,7 @@
       justify-content: center;
 
       &:hover {
+        opacity: 1;
         background-color: rgba(0, 0, 0, 0.05);
         border-radius: 5px;
       }
@@ -126,8 +128,8 @@
 
     .addBtn {
       svg {
-        width: 15px;
-        height: 15px;
+        width: 14.5px;
+        height: 14.5px;
       }
 
       position: absolute;
@@ -143,8 +145,10 @@
       align-items: center;
       justify-content: center;
       color: @font-color-content;
+      opacity: 0.55;
 
       &:hover {
+        opacity: 1;
         background-color: rgba(0, 0, 0, 0.05);
         border-radius: 5px;
       }
@@ -167,6 +171,7 @@
     .deleteBtn {
 
       svg {
+        display: block;
         width: 22px;
         height: 22px;
       }
@@ -179,9 +184,11 @@
       flex-shrink: 0;
       cursor: pointer;
       color: @font-color-content;
-      margin-top: 3px;
+      opacity: 0.55;
+      margin-top: 4px;
 
       &:hover {
+        opacity: 1;
         background-color: rgba(0, 0, 0, 0.05);
         border-radius: 5px;
       }

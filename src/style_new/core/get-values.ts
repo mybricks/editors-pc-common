@@ -105,6 +105,12 @@ function applyFallback(
       return
     case 'computedIfInvalid':
       if (!isVarRef(cur) && (isUnset(cur, spec) || !colorUtil.get(cur || ''))) {
+        // 规则已写颜色函数（含现代 rgb 空格语法），不要用元素 computed 盖掉——
+        // computed 是整元素级联赢家，切 ZoneTab 时会串进兄弟 class 的色值
+        const raw = String(cur || '').trim()
+        if (/^(rgb|rgba|hsl|hsla|hwb|lab|lch|oklab|oklch|color)\(/i.test(raw)) {
+          return
+        }
         acc[spec.camel] = (computedValues as any)[spec.camel]
       }
       return

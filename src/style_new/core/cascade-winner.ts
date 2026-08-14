@@ -10,8 +10,16 @@ const INTERACTIVE_PSEUDO_RE =
   /:(hover|focus-within|focus-visible|focus|active|visited|checked|disabled|indeterminate|placeholder-shown|target|enabled|read-only|read-write)\b/i
 const HOVER_TAIL_RE = /:hover\s*$/i
 
+function hyphenToCamel(hyphen: string): string {
+  return hyphen.replace(/-([a-z])/g, (_, c: string) => c.toUpperCase())
+}
+
 function extractPropValue(rule: CSSStyleRule, hyphen: string): string {
   let propVal = rule.style.getPropertyValue(hyphen)
+  // 部分环境下 getPropertyValue 为空，但 CSSStyleDeclaration 驼峰字段仍有指定值
+  if (!propVal) {
+    propVal = (rule.style as any)[hyphenToCamel(hyphen)] || ''
+  }
   if (!propVal && hyphen.startsWith('background-')) {
     const bgShorthand = rule.style.getPropertyValue('background')
     if (bgShorthand) {
@@ -136,19 +144,38 @@ export function findCascadeWinner(
   return findCascadeWinnerDetail(element, hyphen, mode)?.value ?? null
 }
 
+function getOwnDeclaringBest(
+  rules: CSSStyleRule[],
+  element: HTMLElement | null,
+  hyphen: string
+): { value: string; spec: any } | null {
+  let best: { value: string; spec: any } | null = null
+  for (const rule of rules) {
+    const propVal = extractPropValue(rule, hyphen)
+    if (!propVal) continue
+    const spec = calculateSafeSpecificity(rule.selectorText, element)
+    if (!spec) continue
+    if (!best || compare(spec, best.spec) >= 0) {
+      best = { value: propVal, spec }
+    }
+  }
+  return best
+}
+
 /** 当前 zone 自身规则里，声明了指定属性的最高特指度（用于避免同特指度兄弟 zone 串色） */
 export function getOwnDeclaringMaxSpec(
   rules: CSSStyleRule[],
   element: HTMLElement | null,
   hyphen: string
 ): any | null {
-  let best: any = null
-  for (const rule of rules) {
-    const propVal = extractPropValue(rule, hyphen)
-    if (!propVal) continue
-    const spec = calculateSafeSpecificity(rule.selectorText, element)
-    if (!spec) continue
-    if (best === null || compare(spec, best) >= 0) best = spec
-  }
-  return best
+  return getOwnDeclaringBest(rules, element, hyphen)?.spec ?? null
+}
+
+/** 当前 zone 自身规则里，指定属性的声明值（最高特指度；同特指度取后写） */
+export function getOwnDeclaringValue(
+  rules: CSSStyleRule[],
+  element: HTMLElement | null,
+  hyphen: string
+): string | null {
+  return getOwnDeclaringBest(rules, element, hyphen)?.value ?? null
 }
