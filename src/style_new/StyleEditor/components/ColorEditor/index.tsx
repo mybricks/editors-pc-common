@@ -416,15 +416,8 @@ export function ColorEditor({
     );
   }, [varRef, state.optionsValueToAllMap, variableOptions, resolvedColor, scopeEl]);
 
-  /** 与尺寸编辑器一致：框内展示变量当前的值，解析不到时退回变量名 */
-  const variableDisplayText = useMemo(() => {
-    if (!resolvedVarColor) return varName || varRef;
-    try {
-      return new ColorUtil(resolvedVarColor).hex();
-    } catch {
-      return resolvedVarColor;
-    }
-  }, [resolvedVarColor, varName, varRef]);
+  /** 框内展示变量名：色值已由左侧色块表达，不必重复 */
+  const variableDisplayText = varName || varRef;
 
   /** 胶囊右侧输入中的文本，提交后即替换变量 */
   const [varDraft, setVarDraft] = useState("");

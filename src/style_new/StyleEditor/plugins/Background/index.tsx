@@ -114,6 +114,9 @@ function getSwatchStyle(layer: BgLayer, scopeEl?: Element | null, resolvedColor?
 function getLayerLabel(layer: BgLayer): string {
   if (layer.type === "image") return "图片";
   if (layer.type === "gradient") return "渐变";
+  // 变量引用只显示变量名，var() 包裹在窄面板里都是噪音
+  const varName = parseCssVar(layer.value)?.varName;
+  if (varName) return varName;
   try {
     const c = new ColorUtil(layer.value);
     const hex = c.alpha() === 1 ? c.hex() : c.hexa();
@@ -291,6 +294,7 @@ function LayerItem({
       ) : (
         <div
           className={css.layerLabel}
+          data-mybricks-tip={isVariableReference ? `变量：${getLayerLabel(layer)}` : undefined}
           onClick={startEditing}
         >
           {getLayerLabel(layer)}
