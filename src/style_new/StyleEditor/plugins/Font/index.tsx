@@ -128,6 +128,21 @@ const LETTERSPACING_UNIT_OPTIONS = [
 ];
 const LETTERSPACING_UNIT_DISABLED_LIST = ["normal", "inherit"];
 
+const TEXT_DECORATION_STYLE_OPTIONS = [
+  { label: "实线", value: "solid" },
+  { label: "点状", value: "dotted" },
+  { label: "虚线", value: "dashed" },
+  { label: "双线", value: "double" },
+  { label: "波浪", value: "wavy" },
+];
+
+const TEXT_DECORATION_LENGTH_UNITS = [
+  { label: "px", value: "px" },
+  { label: "%", value: "%" },
+];
+
+const TEXT_DECORATION_STYLE_VALUES = ["solid", "dotted", "dashed", "double", "wavy"] as const;
+
 const DEFAULT_CONFIG = {
   disableTextAlign: false,
   disableFontFamily: false,
@@ -279,6 +294,24 @@ function parseTextDecoration(td: string | undefined): 'underline' | 'line-throug
   return 'none';
 }
 
+function parseTextDecorationStyle(style: string | undefined, shorthand?: string): string {
+  if (style && TEXT_DECORATION_STYLE_VALUES.includes(style as any)) return style;
+  if (shorthand) {
+    const raw = String(shorthand);
+    for (const token of ['wavy', 'double', 'dotted', 'dashed', 'solid'] as const) {
+      if (raw.includes(token)) return token;
+    }
+  }
+  return 'solid';
+}
+
+function parseDecorationLength(value: string | undefined): string | null {
+  if (!value || ['auto', 'from-font', 'inherit', 'initial', 'unset', 'none'].includes(value)) {
+    return null;
+  }
+  return value;
+}
+
 export function Font({ value, onChange, config, showTitle }: FontProps) {
   const context = useStyleEditorContext();
   const editConfig = context?.editConfig;
@@ -424,6 +457,18 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
 
   const [textDecorationValue, setTextDecorationValue] = useState<'none' | 'underline' | 'line-through'>(
     () => parseTextDecoration(value.textDecoration as string)
+  );
+  const [textDecorationStyleValue, setTextDecorationStyleValue] = useState(
+    () => parseTextDecorationStyle(
+      (value as any).textDecorationStyle,
+      value.textDecoration as string
+    )
+  );
+  const [textUnderlineOffsetValue, setTextUnderlineOffsetValue] = useState<string | null>(
+    () => parseDecorationLength((value as any).textUnderlineOffset)
+  );
+  const [textDecorationThicknessValue, setTextDecorationThicknessValue] = useState<string | null>(
+    () => parseDecorationLength((value as any).textDecorationThickness)
   );
 
   const [isFontStyleItalic, setIsFontStyleItalic] = useState<boolean>(
@@ -589,6 +634,11 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
     const timer = setTimeout(positionPopover, 0);
 
     const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      // Select/单位下拉 portal 挂在 body 上，不能当成点到弹层外
+      if (target?.closest?.('[data-dropdown-portal="true"]')) {
+        return;
+      }
       if (
         popoverRef.current && !popoverRef.current.contains(e.target as Node) &&
         popoverBtnRef.current && !popoverBtnRef.current.contains(e.target as Node)
@@ -602,7 +652,7 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
       clearTimeout(timer);
       document.removeEventListener('click', handleClickOutside);
     };
-  }, [popoverOpen]);
+  }, [popoverOpen, textDecorationValue, isTruncated]);
 
   const applyTruncate = useCallback((lines: number) => {
     if (isNaN(lines) || lines < 1) return;
@@ -655,6 +705,9 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
       { key: 'WebkitBoxOrient', value: null },
       { key: 'maxHeight', value: null },
       { key: 'textDecoration', value: null },
+      { key: 'textDecorationStyle', value: null },
+      { key: 'textDecorationThickness', value: null },
+      { key: 'textUnderlineOffset', value: null },
       // 触发 preservePaintRoles 清除文字渐变栈（仅 null color 不会拆 background-clip:text）
       { key: 'WebkitTextFillColor', value: null },
       ...(cfg.textAlignMode === 'flex' ? [{ key: 'justifyContent', value: null }] : []),
@@ -690,7 +743,7 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
       className={`${css.truncateBtn}${popoverOpen ? ` ${css.active}` : ''}`}
       style={{ position: 'absolute', right: -22, top: '50%', transform: 'translateY(-50%)' }}
       onClick={() => setPopoverOpen(v => !v)}
-      data-mybricks-tip="截断文字"
+      data-mybricks-tip={`{content:'文字设置',position:'left'}`}
     >
       <FontSetting />
     </div>
@@ -975,7 +1028,7 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
               className={`${css.truncateBtn}${popoverOpen ? ` ${css.active}` : ''}`}
               style={{ position: 'absolute', right: -22, top: '50%', transform: 'translateY(-50%)' }}
               onClick={() => setPopoverOpen(v => !v)}
-              data-mybricks-tip="截断文字"
+              data-mybricks-tip={`{content:'文字设置',position:'left'}`}
             >
               <FontSetting />
             </div>
@@ -1026,7 +1079,7 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
               className={`${css.truncateBtn}${popoverOpen ? ` ${css.active}` : ''}`}
               style={{ position: 'absolute', right: -22, top: '50%', transform: 'translateY(-50%)' }}
               onClick={() => setPopoverOpen(v => !v)}
-              data-mybricks-tip="截断文字"
+              data-mybricks-tip={`{content:'文字设置',position:'left'}`}
             >
               <FontSetting />
             </div>
@@ -1054,7 +1107,19 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
                   data-mybricks-tip={tip}
                   onClick={() => {
                     setTextDecorationValue(v);
-                    onChange({ key: 'textDecoration', value: v === 'none' ? null : v });
+                    if (v === 'none') {
+                      setTextDecorationStyleValue('solid');
+                      setTextUnderlineOffsetValue(null);
+                      setTextDecorationThicknessValue(null);
+                      onChange([
+                        { key: 'textDecoration', value: null },
+                        { key: 'textDecorationStyle', value: null },
+                        { key: 'textDecorationThickness', value: null },
+                        { key: 'textUnderlineOffset', value: null },
+                      ]);
+                      return;
+                    }
+                    onChange({ key: 'textDecoration', value: v });
                   }}
                 >
                   {label}
@@ -1063,6 +1128,63 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
             </div>
           </Panel.Item>
         </div>
+        {textDecorationValue !== 'none' && (
+          <>
+            <div className={css.popoverInlineRow}>
+              <div className={css.popoverLabel} style={{ marginBottom: 0 }}>样式</div>
+              <Select
+                key={`deco-style-${textDecorationStyleValue}`}
+                tip="装饰线样式"
+                style={{ flex: 1, maxWidth: 120, padding: '0 8px' }}
+                value={textDecorationStyleValue}
+                options={TEXT_DECORATION_STYLE_OPTIONS}
+                onChange={(next) => {
+                  setTextDecorationStyleValue(next);
+                  onChange({ key: 'textDecorationStyle', value: next === 'solid' ? null : next });
+                }}
+              />
+            </div>
+            {textDecorationValue === 'underline' && (
+              <div className={css.popoverInlineRow}>
+                <div className={css.popoverLabel} style={{ marginBottom: 0 }}>偏移</div>
+                <InputNumber
+                  tip="下划线偏移"
+                  type="number"
+                  style={{ flex: 1, maxWidth: 120, padding: '0 8px' }}
+                  defaultUnitValue="px"
+                  unitOptions={TEXT_DECORATION_LENGTH_UNITS}
+                  value={textUnderlineOffsetValue}
+                  placeholder=""
+                  allowNegative
+                  showIcon
+                  showIconOnHover
+                  onChange={(next) => {
+                    setTextUnderlineOffsetValue(next);
+                    onChange({ key: 'textUnderlineOffset', value: next });
+                  }}
+                />
+              </div>
+            )}
+            <div className={css.popoverInlineRow}>
+              <div className={css.popoverLabel} style={{ marginBottom: 0 }}>粗细</div>
+              <InputNumber
+                tip="装饰线粗细"
+                type="number"
+                style={{ flex: 1, maxWidth: 120, padding: '0 8px' }}
+                defaultUnitValue="px"
+                unitOptions={TEXT_DECORATION_LENGTH_UNITS}
+                value={textDecorationThicknessValue}
+                placeholder=""
+                showIcon
+                showIconOnHover
+                onChange={(next) => {
+                  setTextDecorationThicknessValue(next);
+                  onChange({ key: 'textDecorationThickness', value: next });
+                }}
+              />
+            </div>
+          </>
+        )}
         <div className={css.popoverInlineRow}>
           <div className={css.popoverLabel} style={{ marginBottom: 0 }}>斜体</div>
           <Panel.Item style={{ padding: 2 }}>
@@ -1145,7 +1267,7 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
             <InputNumber
               tip="最大行数"
               type="number"
-              style={{ flex: 1, maxWidth: 120 }}
+              style={{ flex: 1, maxWidth: 120, padding: '0 8px' }}
               defaultUnitValue=""
               value={String(truncateLines)}
               fallbackValue={1}

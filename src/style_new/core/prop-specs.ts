@@ -52,6 +52,24 @@ export const PROP_SPECS: PropSpec[] = [
     skipValues: ['none'],
   },
   {
+    camel: 'textDecorationStyle',
+    inherit: false,
+    fallback: 'none',
+    skipValues: ['solid'],
+  },
+  {
+    camel: 'textDecorationThickness',
+    inherit: false,
+    fallback: 'none',
+    skipValues: ['auto', 'from-font'],
+  },
+  {
+    camel: 'textUnderlineOffset',
+    inherit: false,
+    fallback: 'none',
+    skipValues: ['auto'],
+  },
+  {
     camel: 'fontStyle',
     inherit: false,
     fallback: 'none',
