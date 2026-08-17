@@ -24,6 +24,16 @@ export function splitValueAndUnit(value: string | number) {
 }
 
 /**
+ * 长度值的展示文案：px 是编辑器默认单位，24px 显示成 24，
+ * 其他单位与 calc() 等表达式原样保留。
+ */
+export function formatLengthDisplay(value?: string | null): string | undefined {
+  if (!value) return undefined;
+  const trimmed = value.trim();
+  return /^-?[\d.]+px$/i.test(trimmed) ? trimmed.replace(/px$/i, "") : trimmed;
+}
+
+/**
  * 返回键映射对象中的真实键，如果不存在则返回原始键。
  *
  * @param {object} keyMap - 在其中查找键的键映射对象。
