@@ -23,7 +23,7 @@ const NUMBER_WITH_UNIT_RE = /^-?(?:\d+\.?\d*|\.\d+)([a-z%]*)$/i
 interface VariableChipProps {
   /** 当前绑定值，如 var(--spacing-lg) */
   value: string
-  /** 变量解析出的具体值，用于提示与「固定值」文案 */
+  /** 变量解析出的具体值，display 缺省时用作框内文案 */
   resolvedValue?: string | null
   /** 框内展示文案，默认用解析值；如尺寸会省略 px 只显示数字 */
   display?: string
@@ -107,7 +107,7 @@ export function VariableChip({
     <Panel.Item style={style}>
       <div
         className={css.chip}
-        data-mybricks-tip={`${value}${resolvedValue ? ` = ${resolvedValue}` : ''}`}
+        data-mybricks-tip={`变量：${varName || value}`}
       >
         <div className={css.main}>
           {/* 开始输入后隐藏胶囊，避免「旧变量值 + 新输入」同时出现 */}

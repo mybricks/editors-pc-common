@@ -396,6 +396,39 @@ export function ColorEditor({
     }
   }, [state.value, state.nonColorValue]);
 
+  /** 当前绑定的变量引用，如 var(--color-title) */
+  const varRef = isCssVarRef(state.finalValue)
+    ? state.finalValue
+    : isCssVarRef(state.value)
+      ? state.value
+      : "";
+  const varName = varRef ? parseCssVar(varRef.trim())?.varName : undefined;
+
+  /** 变量解析出的色值：优先已收集的选项，再退到外部传入与画布计算样式 */
+  const resolvedVarColor = useMemo(() => {
+    if (!varRef) return null;
+    return (
+      state.optionsValueToAllMap[varRef]?.value ||
+      variableOptions.find((item) => `var(${item.name})` === varRef)?.value ||
+      resolvedColor ||
+      resolveCssVarColor(varRef, scopeEl) ||
+      null
+    );
+  }, [varRef, state.optionsValueToAllMap, variableOptions, resolvedColor, scopeEl]);
+
+  /** 与尺寸编辑器一致：框内展示变量当前的值，解析不到时退回变量名 */
+  const variableDisplayText = useMemo(() => {
+    if (!resolvedVarColor) return varName || varRef;
+    try {
+      return new ColorUtil(resolvedVarColor).hex();
+    } catch {
+      return resolvedVarColor;
+    }
+  }, [resolvedVarColor, varName, varRef]);
+
+  /** 胶囊右侧输入中的文本，提交后即替换变量 */
+  const [varDraft, setVarDraft] = useState("");
+
   useEffect(() => {
     const { options, nonColorValue, finalValue } = state;
     if (nonColorValue && options.length > 0) {
@@ -505,9 +538,10 @@ export function ColorEditor({
 
   const handleUnbind = useCallback(() => {
     const { finalValue } = state;
-    const option = state.optionsValueToAllMap[finalValue];
-    if (!option) return;
-    const hex = getHex(option.value);
+    // 画布上的变量未必进过选项表，退回实时解析出的色值
+    const rawColor = state.optionsValueToAllMap[finalValue]?.value || resolvedVarColor;
+    if (!rawColor) return;
+    const hex = getHex(rawColor);
     const rgbaValue = color2rgba(hex);
 
     dispatch({
@@ -516,7 +550,31 @@ export function ColorEditor({
       finalValue: hex,
     });
     emitChange('backgroundColor', rgbaValue);
-  }, [state.finalValue, state.optionsValueToAllMap, emitChange]);
+  }, [state.finalValue, state.optionsValueToAllMap, resolvedVarColor, emitChange]);
+
+  const commitVarDraft = useCallback(() => {
+    const trimmed = varDraft.trim();
+    setVarDraft("");
+    if (!trimmed) return;
+    handleInputChange(trimmed);
+  }, [varDraft, handleInputChange]);
+
+  const handleVarKeyDown = useCallback((event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Backspace' || event.key === 'Delete') {
+      if (varDraft) return;
+      event.preventDefault();
+      handleUnbind();
+      return;
+    }
+    if (event.key === 'Enter') {
+      commitVarDraft();
+      return;
+    }
+    if (event.key === 'Escape') {
+      setVarDraft("");
+      event.currentTarget.blur();
+    }
+  }, [varDraft, commitVarDraft, handleUnbind]);
 
   const input = useMemo(() => {
     const { value, nonColorValue, finalValue } = state;
@@ -554,24 +612,38 @@ export function ColorEditor({
         </>
       );
     }
-    const isVariableReference = nonColorValue && isCssVarRef(value);
+    // 变量态与尺寸编辑器一致：框内显示解析出的色值并套描边衬底，右侧仍可聚焦输入
+    if (nonColorValue && isCssVarRef(value)) {
+      return (
+        <div className={css.variableMain} data-mybricks-tip={`变量：${varName || varRef}`}>
+          {/* 开始输入后隐藏胶囊，避免「旧变量值 + 新输入」同时出现 */}
+          {!varDraft && (
+            <span className={css.variableValue} onClick={onPresetClick}>
+              {variableDisplayText}
+            </span>
+          )}
+          <input
+            className={css.input}
+            value={varDraft}
+            spellCheck={false}
+            onChange={(e) => setVarDraft(e.target.value)}
+            onKeyDown={handleVarKeyDown}
+            onBlur={commitVarDraft}
+          />
+        </div>
+      );
+    }
     return (
       <input
-        data-mybricks-tip={isVariableReference ? "变量引用，点击选择变量" : "支持16进制、RGB、RGBA、HSL、HSLA、var()或颜色名称"}
-        data-variable={isVariableReference || undefined}
+        data-mybricks-tip="支持16进制、RGB、RGBA、HSL、HSLA、var()或颜色名称"
         ref={inputColorRef}
         value={userInput}
         className={css.input}
-        readOnly={isVariableReference}
         onFocus={() => {
           isFocus.current = true;
           onFocus && onFocus?.();
         }}
-        onClick={() => {
-          if (isVariableReference) onPresetClick();
-        }}
         onChange={(e) => {
-          if (isVariableReference) return;
           const next = normalizeColorInput(e.target.value);
           setUserInput(next);
           handleInputChange(next);
@@ -583,7 +655,7 @@ export function ColorEditor({
         onPaste={handlePaste}
       />
     );
-  }, [userInput, state.value, state.nonColorValue, state.finalValue, onPresetClick, handleReset, handleUnbind, handleInputChange, handleInputBlur]);
+  }, [userInput, state.value, state.nonColorValue, state.finalValue, onPresetClick, handleReset, handleUnbind, handleInputChange, handleInputBlur, varDraft, varName, varRef, variableDisplayText, handleVarKeyDown, commitVarDraft]);
 
   const handleOpacityChange = useCallback(
     (value: string) => {
@@ -664,13 +736,9 @@ export function ColorEditor({
 
     let style: React.CSSProperties;
     if (nonColorValue) {
-      const varRef = isCssVarRef(finalValue) ? finalValue : isCssVarRef(value) ? value : "";
-      const variableOption = variableOptions.find((item) => `var(${item.name})` === varRef);
       const previewColor =
-        state.optionsValueToAllMap[varRef || finalValue]?.value ||
-        variableOption?.value ||
-        resolvedColor ||
-        (varRef ? resolveCssVarColor(varRef, scopeEl) : null) ||
+        resolvedVarColor ||
+        state.optionsValueToAllMap[finalValue]?.value ||
         finalValue;
       style = {
         backgroundColor: previewColor || "transparent",
@@ -694,7 +762,6 @@ export function ColorEditor({
     let pickerValue = finalValue;
 
     if (nonColorValue) {
-      const varRef = isCssVarRef(finalValue) ? finalValue : isCssVarRef(value) ? value : "";
       const option = state.optionsValueToAllMap[varRef || finalValue];
       const variableOption = variableOptions.find((item) => `var(${item.name})` === varRef);
       if (option?.resetValue) {
@@ -742,7 +809,7 @@ export function ColorEditor({
         </div>
       </Colorpicker>
     );
-  }, [state.finalValue, state.value, state.nonColorValue, state.optionsValueToAllMap, resolvedColor, variableOptions, scopeEl, handleColorpickerChange, showSubTabs, upload, imageValue, disableBackgroundColor, disableBackgroundImage, disableGradient]);
+  }, [state.finalValue, state.value, state.nonColorValue, state.optionsValueToAllMap, resolvedColor, resolvedVarColor, varRef, variableOptions, scopeEl, handleColorpickerChange, showSubTabs, upload, imageValue, disableBackgroundColor, disableBackgroundImage, disableGradient]);
 
   const preset = useMemo(() => {
     if (!state.showPreset) {

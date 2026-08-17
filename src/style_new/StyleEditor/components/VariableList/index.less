@@ -88,11 +88,25 @@
         background-color: @bg-color-hover;
       }
 
+      /* 当前已绑定的变量：主题色高亮，与 hover 的中性灰区分开 */
       &[data-selected="true"] {
-        background-color: @bg-color-hover;
+        background-color: color-mix(in srgb, @color-primary 10%, transparent);
+        color: @color-primary;
+
+        &:hover {
+          background-color: color-mix(in srgb, @color-primary 16%, transparent);
+        }
+
+        .itemIcon {
+          opacity: 1;
+        }
 
         .itemName {
           font-weight: 550;
+        }
+
+        .itemValue {
+          opacity: 0.7;
         }
       }
 

@@ -63,9 +63,29 @@
       &:disabled {
         cursor: not-allowed;
       }
+    }
 
-      &[data-variable="true"] {
-        cursor: pointer;
+    /* 变量绑定态：框内是「值胶囊 + 可聚焦输入」，与尺寸编辑器一致 */
+    .variableMain {
+      flex: 1 1 0;
+      min-width: 0;
+      height: 100%;
+      display: flex;
+      align-items: center;
+
+      .variableValue {
+        .variable-value-box();
+        max-width: 100%;
+        min-width: 0;
+        flex-shrink: 1;
+      }
+
+      /* width:0 抹掉 input 的固有宽度，否则会把整行撑宽 */
+      .input {
+        width: 0;
+        min-width: 0;
+        margin-left: 3px;
+        outline: none;
       }
     }
 
