@@ -62,7 +62,7 @@ export function Dropdown({ value, options, children, onClick, onAction, onReorde
   const handleDropDownClick = useCallback(() => {
     if (disabled) return;
     setShow(true);
-    setOpen(true);
+    setOpen((open) => !open);
   }, [disabled]);
 
   const handleItemClick = useCallback((value: any, isAction?: boolean) => {
@@ -75,34 +75,27 @@ export function Dropdown({ value, options, children, onClick, onAction, onReorde
     }
   }, [onClick, onAction]);
 
-  const handleClick = useCallback((event: { target: any; }) => {
-    if (multipleRef.current) {
-      let currentDOM = event.target;
-      while (currentDOM) {
-        if (currentDOM === listRef.current) {
-          return
-        } 
-        currentDOM = currentDOM.parentElement;
-      }
-      setOpen(false);
-    } else {
-      setOpen(false);
+  const handleClick = useCallback((event: MouseEvent) => {
+    const target = event.target as Node | null;
+    // 选项列表与触发器内部的点击各自维护开合状态，交给对应的 onClick 处理
+    if (target && (listRef.current?.contains(target) || positionRef.current?.contains(target))) {
+      return;
     }
+    setOpen(false);
   }, []);
 
   useEffect(() => {
-    if (open) {
-      setTimeout(() => {
-        // TODO
-        document.addEventListener("click", handleClick);
-      });
-    } else {
-      document.removeEventListener("click", handleClick);
-    }
+    if (!open) return;
+    // 捕获阶段监听：弹层（如字体的截断弹层）常在自身根节点 stopPropagation，
+    // 冒泡阶段拿不到点击事件，下拉就只能靠点选项才能收起
+    const timer = setTimeout(() => {
+      document.addEventListener("click", handleClick, true);
+    });
     return () => {
-      document.removeEventListener("click", handleClick);
+      clearTimeout(timer);
+      document.removeEventListener("click", handleClick, true);
     };
-  }, [open]);
+  }, [open, handleClick]);
 
   return (
     <>
