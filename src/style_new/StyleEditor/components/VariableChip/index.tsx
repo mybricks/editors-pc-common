@@ -10,6 +10,7 @@ import css from './index.less'
 export interface VariableChipMenuOption {
   label: string
   value: string
+  /** 不传即普通可选项（如字号档位），点选走 onMenuSelect */
   type?: 'action' | 'divider'
   icon?: ReactNode
   iconSize?: 'sm' | 'md'
@@ -29,9 +30,18 @@ interface VariableChipProps {
   display?: string
   /** 请求打开变量选择弹层（换绑）。弹层由插件统一持有，便于锚定到当前字段 */
   onRequestPicker?: () => void
-  /** 「替换变量...」之前的菜单项，如 固定值 / 适应内容 / 移除 */
+  /** 「替换变量...」之前的菜单项，如 固定值 / 适应内容 / 移除，或字号档位 */
   menuOptions?: VariableChipMenuOption[]
   onMenuAction?: (value: string) => void
+  /** menuOptions 里的普通项被点选，如选中某个字号档位 */
+  onMenuSelect?: (value: string) => void
+  /**
+   * 菜单形态：menu 为操作菜单（默认）；
+   * presetList 对齐 Figma 的档位列表——顶部单列当前变量并勾选，底部换绑入口只留图标
+   */
+  menuLayout?: 'menu' | 'presetList'
+  /** 覆盖菜单容器样式，如档位较多时 maxHeight: 'none' 全展开 */
+  menuStyle?: CSSProperties
   /** 在胶囊右侧直接输入数值：传入已补好单位的 CSS 值，如 24px / 50% */
   onInputValue?: (value: string) => void
   /** 光标处按删除键：变量退化为当前的固定数值 */
@@ -51,6 +61,9 @@ export function VariableChip({
   onRequestPicker,
   menuOptions = [],
   onMenuAction,
+  onMenuSelect,
+  menuLayout = 'menu',
+  menuStyle,
   onInputValue,
   onDetach,
   style,
@@ -62,11 +75,22 @@ export function VariableChip({
   // 面板宽度有限，框内只放值；解析不到时退回变量名
   const displayText = display || resolvedValue || varName?.replace(/^--/, '') || value
 
+  const isPresetList = menuLayout === 'presetList'
+
   const options = useMemo<VariableChipMenuOption[]>(() => ([
+    // 当前绑定的变量单列一行并勾选：与框内一致显示变量的值，变量名放在 hover 提示里
+    ...(isPresetList && varName
+      ? [
+          { label: displayText, value: varName, tip: `变量：${varName}` },
+          { label: '', value: '__currentVariableDivider__', type: 'divider' as const },
+        ]
+      : []),
     ...menuOptions,
     ...(menuOptions.length ? [{ label: '', value: '__chipDivider__', type: 'divider' as const }] : []),
-    { label: '替换变量...', value: REPLACE_ACTION, type: 'action', icon: <Variable /> },
-  ]), [menuOptions])
+    isPresetList
+      ? { label: '', value: REPLACE_ACTION, type: 'action' as const, icon: <Variable />, tip: '替换变量...' }
+      : { label: '替换变量...', value: REPLACE_ACTION, type: 'action' as const, icon: <Variable /> },
+  ]), [menuOptions, isPresetList, varName, displayText])
 
   const handleAction = useCallback((actionValue: string) => {
     if (actionValue === REPLACE_ACTION) {
@@ -75,6 +99,12 @@ export function VariableChip({
     }
     onMenuAction?.(actionValue)
   }, [onRequestPicker, onMenuAction])
+
+  const handleSelect = useCallback((selectedValue: string) => {
+    // 顶部那行就是当前变量，点它不产生改动
+    if (selectedValue === varName) return
+    onMenuSelect?.(selectedValue)
+  }, [varName, onMenuSelect])
 
   const commitDraft = useCallback(() => {
     const trimmed = draft.trim()
@@ -125,7 +155,13 @@ export function VariableChip({
         </div>
         {/* Dropdown 容器是 width:100%，需外层限宽，否则会挤掉左侧的胶囊与输入区 */}
         <div className={css.arrowWrap}>
-          <Dropdown value={varName} options={options} onClick={handleAction} onAction={handleAction}>
+          <Dropdown
+            value={varName}
+            options={options}
+            onClick={handleSelect}
+            onAction={handleAction}
+            menuStyle={menuStyle}
+          >
             <span className={css.arrow}>
               <DownOutlined />
             </span>

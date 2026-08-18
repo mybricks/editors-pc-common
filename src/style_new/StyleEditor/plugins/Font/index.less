@@ -22,6 +22,51 @@
   }
 }
 
+// 字号档位下拉的箭头：常态隐藏，hover 整格时才浮现
+.fontSizeItem {
+  // Dropdown 触发器自带 width: 100%，这里限死宽度，避免把输入框挤窄
+  .fontSizeArrowWrap {
+    width: 16px;
+    flex-shrink: 0;
+  }
+
+  .fontSizeArrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    font-size: 10px;
+    color: @font-color-content;
+    cursor: pointer;
+    user-select: none;
+    opacity: 0;
+  }
+
+  &:hover .fontSizeArrow {
+    opacity: 0.55;
+  }
+
+  .fontSizeArrow:hover {
+    opacity: 1;
+  }
+}
+
+// 变量选择弹层（与尺寸编辑器同规格）
+.variablePopup {
+  z-index: 1000;
+  position: fixed;
+  visibility: hidden;
+  overflow: hidden;
+  width: 240px;
+  height: 300px;
+  border-radius: 13px;
+  color: @font-color-content;
+  background-color: @bg-color-main;
+  box-shadow: @shadow-main;
+  border: 0.3px solid @boder-color !important;
+}
+
 // 装饰行按钮组（I / — / U / S 并排）
 .decoGroup {
   width: 100%;
