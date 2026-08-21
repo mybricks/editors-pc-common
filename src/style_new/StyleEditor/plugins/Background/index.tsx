@@ -220,12 +220,16 @@ function LayerItem({
     setEditing(false);
     const raw = editText.trim();
     if (!raw) return;
+    // 纯十六进制数字（3/6/8 位、无 #）时自动补上 #，与 ColorEditor 一致
+    const normalized = /^[0-9a-fA-F]{3}$|^[0-9a-fA-F]{6}$|^[0-9a-fA-F]{8}$/.test(raw)
+      ? `#${raw}`
+      : raw;
     try {
       // Preserve original opacity if the user typed a hex without alpha
-      const parsed = new ColorUtil(raw);
+      const parsed = new ColorUtil(normalized);
       const currentOpacity = getColorOpacity(layer.value);
       // If user input has no alpha component (6-digit hex), keep existing opacity
-      const hasAlpha = /^#[0-9a-fA-F]{8}$/.test(raw) || raw.toLowerCase().startsWith("rgba");
+      const hasAlpha = /^#[0-9a-fA-F]{8}$/.test(normalized) || normalized.toLowerCase().startsWith("rgba");
       const finalColor = hasAlpha
         ? parsed.hexa().toUpperCase()
         : setColorOpacity(parsed.hex().toUpperCase(), currentOpacity);
