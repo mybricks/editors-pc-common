@@ -106,3 +106,15 @@
     }
   }
 }
+
+/* hideLabel 时没有单位文案可淡出，只把箭头藏到整行 hover */
+.iconHoverOnly {
+  .icon {
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+
+  &:hover .icon {
+    opacity: 0.55;
+  }
+}

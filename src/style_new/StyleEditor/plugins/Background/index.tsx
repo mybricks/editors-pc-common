@@ -114,6 +114,9 @@ function getSwatchStyle(layer: BgLayer, scopeEl?: Element | null, resolvedColor?
 function getLayerLabel(layer: BgLayer): string {
   if (layer.type === "image") return "图片";
   if (layer.type === "gradient") return "渐变";
+  // 变量引用只显示变量名，var() 包裹在窄面板里都是噪音
+  const varName = parseCssVar(layer.value)?.varName;
+  if (varName) return varName;
   try {
     const c = new ColorUtil(layer.value);
     const hex = c.alpha() === 1 ? c.hex() : c.hexa();
@@ -217,12 +220,16 @@ function LayerItem({
     setEditing(false);
     const raw = editText.trim();
     if (!raw) return;
+    // 纯十六进制数字（3/6/8 位、无 #）时自动补上 #，与 ColorEditor 一致
+    const normalized = /^[0-9a-fA-F]{3}$|^[0-9a-fA-F]{6}$|^[0-9a-fA-F]{8}$/.test(raw)
+      ? `#${raw}`
+      : raw;
     try {
       // Preserve original opacity if the user typed a hex without alpha
-      const parsed = new ColorUtil(raw);
+      const parsed = new ColorUtil(normalized);
       const currentOpacity = getColorOpacity(layer.value);
       // If user input has no alpha component (6-digit hex), keep existing opacity
-      const hasAlpha = /^#[0-9a-fA-F]{8}$/.test(raw) || raw.toLowerCase().startsWith("rgba");
+      const hasAlpha = /^#[0-9a-fA-F]{8}$/.test(normalized) || normalized.toLowerCase().startsWith("rgba");
       const finalColor = hasAlpha
         ? parsed.hexa().toUpperCase()
         : setColorOpacity(parsed.hex().toUpperCase(), currentOpacity);
@@ -291,6 +298,7 @@ function LayerItem({
       ) : (
         <div
           className={css.layerLabel}
+          data-mybricks-tip={isVariableReference ? `变量：${getLayerLabel(layer)}` : undefined}
           onClick={startEditing}
         >
           {getLayerLabel(layer)}

@@ -34,6 +34,8 @@ interface DropdownProps {
   onReorder?: (newOrder: any[]) => void;
   className?: string;
   footer?: ReactNode;
+  /** 覆盖菜单容器样式，如 maxHeight: 'none' 全展开、maxWidth 限制过长文案 */
+  menuStyle?: CSSProperties;
 }
 
 function DragHandleIcon() {
@@ -49,7 +51,7 @@ function DragHandleIcon() {
   );
 }
 
-export function Dropdown({ value, options, children, onClick, onAction, onReorder, className, multiple, disabled = false, footer }: DropdownProps) {
+export function Dropdown({ value, options, children, onClick, onAction, onReorder, className, multiple, disabled = false, footer, menuStyle }: DropdownProps) {
   const positionRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const [show, setShow] = useState(false);
@@ -107,7 +109,8 @@ export function Dropdown({ value, options, children, onClick, onAction, onReorde
         {children}
       </div>
       {show &&
-        createPortal(
+        // createPortal 与仓库内 React 类型版本不一致，与 SketchPopup 一样做断言
+        (createPortal(
           <Items
             ref={listRef}
             value={value}
@@ -118,9 +121,10 @@ export function Dropdown({ value, options, children, onClick, onAction, onReorde
             multiple={multiple}
             onReorder={onReorder}
             footer={footer}
+            menuStyle={menuStyle}
           />,
           document.body
-        )}
+        ) as unknown as React.ReactElement)}
     </>
   );
 }
@@ -134,10 +138,11 @@ interface ItemsProps {
   multiple?: boolean;
   onReorder?: (newOrder: any[]) => void;
   footer?: ReactNode;
+  menuStyle?: CSSProperties;
 }
 
 const Items = React.forwardRef<HTMLDivElement, ItemsProps>((props, forwardRef) => {
-  const { open, options, positionElement, onClick, value: currentValue, multiple, onReorder, footer } = props;
+  const { open, options, positionElement, onClick, value: currentValue, multiple, onReorder, footer, menuStyle } = props;
   const ref = useRef<HTMLDivElement>(null);
   const dragValueRef = useRef<any>(null);
 
@@ -155,7 +160,8 @@ const Items = React.forwardRef<HTMLDivElement, ItemsProps>((props, forwardRef) =
       const bottom = top + menusContainerBct.height;
 
       if (bottom > totalHeight) {
-        menusContainer.style.top = positionElementBct.top - menusContainerBct.height + "px";
+        // 向上翻转后仍可能顶出可视区（如全展开的字号列表），至少贴住顶部
+        menusContainer.style.top = Math.max(4, positionElementBct.top - menusContainerBct.height) + "px";
       } else {
         menusContainer.style.top = top + "px";
       }
@@ -196,6 +202,8 @@ const Items = React.forwardRef<HTMLDivElement, ItemsProps>((props, forwardRef) =
       return <div key={key} className={css.sectionHeader}>{label}</div>;
     }
     const isAction = type === 'action';
+    // 只给图标不给文案的 action：不留勾选位与文案位，图标整行居中
+    const isIconOnly = isAction && !!icon && (label === '' || label == null);
     const isChecked = !isAction
       ? value === currentValue || (Array.isArray(currentValue) && currentValue.includes(value))
       : !!checked;
@@ -207,7 +215,7 @@ const Items = React.forwardRef<HTMLDivElement, ItemsProps>((props, forwardRef) =
     return (
       <div
         key={key}
-        className={`${css.item}${isDraggable ? ` ${css.itemDraggable}` : ''}${itemDisabled ? ` ${css.itemDisabled}` : ''}`}
+        className={`${css.item}${isDraggable ? ` ${css.itemDraggable}` : ''}${itemDisabled ? ` ${css.itemDisabled}` : ''}${isIconOnly ? ` ${css.itemIconOnly}` : ''}`}
         {...(tip ? { 'data-mybricks-tip': tip } : {})}
         onClick={(e) => {
           e.stopPropagation();
@@ -239,22 +247,26 @@ const Items = React.forwardRef<HTMLDivElement, ItemsProps>((props, forwardRef) =
           dragValueRef.current = null;
         } : undefined}
       >
-        <span className={css.itemCheck}>
-          {isDraggable && order !== null
-            ? <span className={css.itemOrder}>{order}</span>
-            : isChecked ? <CheckOutlined /> : null}
-        </span>
+        {!isIconOnly && (
+          <span className={css.itemCheck}>
+            {isDraggable && order !== null
+              ? <span className={css.itemOrder}>{order}</span>
+              : isChecked ? <CheckOutlined /> : null}
+          </span>
+        )}
         {icon ? (
           <span className={iconSize === 'sm' ? css.itemIconSm : css.itemIcon}>
             {icon}
           </span>
         ) : (hasAnyIcon ? <span style={{ paddingLeft: 5 }} /> : null)}
-        <span className={css.itemLabel} style={itemStyle}>
-          {label}
-          {suffix != null && suffix !== '' && (
-            <span className={css.itemSuffix}>{suffix}</span>
-          )}
-        </span>
+        {!isIconOnly && (
+          <span className={css.itemLabel} style={itemStyle}>
+            {label}
+            {suffix != null && suffix !== '' && (
+              <span className={css.itemSuffix}>{suffix}</span>
+            )}
+          </span>
+        )}
         {multiple && isChecked && !isAction && (
           <span
             className={css.itemRemove}
@@ -286,6 +298,7 @@ const Items = React.forwardRef<HTMLDivElement, ItemsProps>((props, forwardRef) =
         ref={ref}
         className={css.items}
         data-dropdown-portal="true"
+        style={menuStyle}
         onDragOver={(e) => e.preventDefault()}
       >
         {/* 已选字体区块：固定在顶部，不参与滚动 */}
@@ -328,6 +341,7 @@ const Items = React.forwardRef<HTMLDivElement, ItemsProps>((props, forwardRef) =
       ref={ref}
       className={css.items}
       data-dropdown-portal="true"
+      style={menuStyle}
     >
       <div className={css.scrollBody}>
         {options.map((opt, index) => renderItem(opt, opt.type === 'divider' ? `divider-${index}` : opt.value))}

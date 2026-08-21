@@ -19,10 +19,13 @@ import {
   BorderLeftOutlined,
   BorderRightOutlined,
   MinusOutlined,
+  VariableNumberInput,
+  withApplyVariableOption,
+  APPLY_VARIABLE_ACTION,
 } from "../../components";
 import { Setting as SettingIcon } from "../../icons/Setting";
 import { allEqual } from "../../utils";
-import { useUpdateEffect, useDragNumber } from "../../hooks";
+import { useUpdateEffect, useDragNumber, useLengthVarBinding } from "../../hooks";
 import {
   isGradientValue,
   toSolidBackgroundLayer,
@@ -74,25 +77,32 @@ const DEFAULT_STYLE = {
   marginLeft: 4,
 };
 
-const DEFAULT_STYLE_SMALL = {
-  padding: 0,
-  fontSize: 10,
-  minWidth: 26,
-  maxWidth: 26,
-  marginLeft: 4,
-};
-
-const DEFAULT_STYLE_MINI = {
-  padding: 0,
-  fontSize: 10,
-  minWidth: 18,
-  maxWidth: 18,
-  marginLeft: 2,
-}
-
 const DEFAULT_STYLE__NEW = {
   padding: 0,
   fontSize: 10,
+  marginLeft: 0,
+};
+
+const BORDER_WIDTH_UNIT_OPTIONS = [{ label: 'px', value: 'px' }];
+const CHIP_STYLE = { flex: '1 1 0', minWidth: 0, width: 0, marginLeft: 4 };
+// 独立配置：颜色 flex:1，宽度列必须四边同宽，绑定胶囊和数字输入共用这一列，
+// 否则未绑定 36/44、绑定 68，粗细图标和数值会对不齐。
+const CHIP_STYLE_SPLIT = {
+  flex: 'none',
+  width: 48,
+  minWidth: 48,
+  maxWidth: 48,
+  marginLeft: 0,
+  background: 'transparent',
+  height: '100%',
+};
+const WIDTH_STYLE_SPLIT = {
+  padding: 0,
+  fontSize: 10,
+  flex: 'none',
+  width: 48,
+  minWidth: 48,
+  maxWidth: 48,
   marginLeft: 0,
 };
 
@@ -333,6 +343,97 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
   );
   const getDragPropsRadius = useDragNumber({ continuous: true });
   const getDragPropsBorder = useDragNumber({ continuous: true });
+
+  // ── 边框宽度 CSS 变量绑定 ────────────────────────────────────────────────────
+  const widthAllVar = useLengthVarBinding({
+    value: borderValue.borderTopWidth,
+    onChange: (next) => {
+      const borderStyle = !borderValue.borderTopStyle || borderValue.borderTopStyle === 'none'
+        ? 'solid' : borderValue.borderTopStyle;
+      handleAllModeChange({
+        borderTopWidth: next, borderRightWidth: next,
+        borderBottomWidth: next, borderLeftWidth: next,
+        borderTopStyle: borderStyle, borderRightStyle: borderStyle,
+        borderBottomStyle: borderStyle, borderLeftStyle: borderStyle,
+      });
+    },
+    computedProp: 'borderTopWidth',
+  });
+  const topWidthVar = useLengthVarBinding({
+    value: borderValue.borderTopWidth,
+    onChange: (next) => handleChange({
+      borderTopWidth: next,
+      borderTopStyle: !borderValue.borderTopStyle || borderValue.borderTopStyle === 'none'
+        ? 'solid' : borderValue.borderTopStyle,
+    }),
+    computedProp: 'borderTopWidth',
+  });
+  const rightWidthVar = useLengthVarBinding({
+    value: borderValue.borderRightWidth,
+    onChange: (next) => handleChange({
+      borderRightWidth: next,
+      borderRightStyle: !borderValue.borderRightStyle || borderValue.borderRightStyle === 'none'
+        ? 'solid' : borderValue.borderRightStyle,
+    }),
+    computedProp: 'borderRightWidth',
+  });
+  const bottomWidthVar = useLengthVarBinding({
+    value: borderValue.borderBottomWidth,
+    onChange: (next) => handleChange({
+      borderBottomWidth: next,
+      borderBottomStyle: !borderValue.borderBottomStyle || borderValue.borderBottomStyle === 'none'
+        ? 'solid' : borderValue.borderBottomStyle,
+    }),
+    computedProp: 'borderBottomWidth',
+  });
+  const leftWidthVar = useLengthVarBinding({
+    value: borderValue.borderLeftWidth,
+    onChange: (next) => handleChange({
+      borderLeftWidth: next,
+      borderLeftStyle: !borderValue.borderLeftStyle || borderValue.borderLeftStyle === 'none'
+        ? 'solid' : borderValue.borderLeftStyle,
+    }),
+    computedProp: 'borderLeftWidth',
+  });
+
+  // ── 圆角 CSS 变量绑定 ─────────────────────────────────────────────────────────
+  const radiusAllVar = useLengthVarBinding({
+    value: borderValue.borderTopLeftRadius,
+    onChange: (next) => handleChange({
+      borderTopLeftRadius: next, borderBottomLeftRadius: next,
+      borderBottomRightRadius: next, borderTopRightRadius: next,
+    }),
+    computedProp: 'borderTopLeftRadius',
+  });
+  const topLeftRadiusVar = useLengthVarBinding({
+    value: borderValue.borderTopLeftRadius,
+    onChange: (next) => handleChange({ borderTopLeftRadius: next }),
+    computedProp: 'borderTopLeftRadius',
+  });
+  const topRightRadiusVar = useLengthVarBinding({
+    value: borderValue.borderTopRightRadius,
+    onChange: (next) => handleChange({ borderTopRightRadius: next }),
+    computedProp: 'borderTopRightRadius',
+  });
+  const bottomLeftRadiusVar = useLengthVarBinding({
+    value: borderValue.borderBottomLeftRadius,
+    onChange: (next) => handleChange({ borderBottomLeftRadius: next }),
+    computedProp: 'borderBottomLeftRadius',
+  });
+  const bottomRightRadiusVar = useLengthVarBinding({
+    value: borderValue.borderBottomRightRadius,
+    onChange: (next) => handleChange({ borderBottomRightRadius: next }),
+    computedProp: 'borderBottomRightRadius',
+  });
+
+  const borderWidthUnitOptions = useMemo(
+    () => withApplyVariableOption(BORDER_WIDTH_UNIT_OPTIONS, widthAllVar.hasVariables),
+    [widthAllVar.hasVariables]
+  );
+  const radiusUnitOptions = useMemo(
+    () => withApplyVariableOption(UNIT_OPTIONS, radiusAllVar.hasVariables),
+    [radiusAllVar.hasVariables]
+  );
 
   const [showStyleSettings, setShowStyleSettings] = useState(false);
   const styleSettingsBtnRef = useRef<HTMLDivElement>(null);
@@ -620,6 +721,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                     defaultValue={getGradientBorderValue(borderValue) || borderValue.borderTopColor}
                     resolvedColor={resolveCssVarColor(borderValue.borderTopColor || "", targetDom) ?? undefined}
                     variableOptions={canvasColorVariables}
+                    scopeEl={targetDom}
                     showSubTabs={borderPosition === 'center'}
                     disableBackgroundImage={true}
                     onChange={(input: any) => {
@@ -710,33 +812,50 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
             </Panel.Content>
             <Panel.Content style={{ padding: 3, flex: 1, minWidth: 0 }}>
               <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
-                <div className={css.weightGroup}>
-                  <div className={css.icon} {...getDragPropsBorder(borderValue.borderTopWidth, '拖拽调整边框宽度')}>
+                <div className={css.weightGroup} style={{ flex: 1, minWidth: 0 }}>
+                  <div
+                    className={css.icon}
+                    ref={widthAllVar.anchorRef}
+                    {...(widthAllVar.varRef
+                      ? widthAllVar.dragProps('拖拽调整边框宽度（将解除变量绑定）')
+                      : getDragPropsBorder(borderValue.borderTopWidth, '拖拽调整边框宽度'))}
+                  >
                     <BorderWeightOutlined />
                   </div>
                   {disableBorderWidth ? null : (
-                    <InputNumber
-                      tip="边框宽度"
-                      style={{ ...shouldShowMiniLayout ? DEFAULT_STYLE_MINI : DEFAULT_STYLE_SMALL, flex: 1 }}
-                      defaultValue={borderValue.borderTopWidth}
-                      value={borderValue.borderTopWidth}
-                      defaultUnitValue="px"
-                      fallbackValue={0}
-                      onChange={(value) => {
-                        const borderStyle =
-                          !borderValue.borderTopStyle || borderValue.borderTopStyle === "none"
-                            ? "solid"
-                            : borderValue.borderTopStyle;
-                        handleAllModeChange({
-                          borderTopWidth: value,
-                          borderRightWidth: value,
-                          borderBottomWidth: value,
-                          borderLeftWidth: value,
-                          borderTopStyle: borderStyle,
-                          borderRightStyle: borderStyle,
-                          borderBottomStyle: borderStyle,
-                          borderLeftStyle: borderStyle,
-                        });
+                    <VariableNumberInput
+                      binding={widthAllVar}
+                      chipStyle={CHIP_STYLE}
+                      inputProps={{
+                        tip: '边框宽度',
+                        style: { padding: 0, fontSize: 10, marginLeft: shouldShowMiniLayout ? 2 : 4, flex: 1, minWidth: 0 },
+                        defaultValue: borderValue.borderTopWidth,
+                        value: borderValue.borderTopWidth,
+                        defaultUnitValue: 'px',
+                        unitOptions: borderWidthUnitOptions,
+                        unitHideLabelList: ['px', '%'],
+                        showIcon: true,
+                        showIconOnHover: true,
+                        fallbackValue: 0,
+                        onChange: (value) => {
+                          const borderStyle =
+                            !borderValue.borderTopStyle || borderValue.borderTopStyle === 'none'
+                              ? 'solid'
+                              : borderValue.borderTopStyle;
+                          handleAllModeChange({
+                            borderTopWidth: value,
+                            borderRightWidth: value,
+                            borderBottomWidth: value,
+                            borderLeftWidth: value,
+                            borderTopStyle: borderStyle,
+                            borderRightStyle: borderStyle,
+                            borderBottomStyle: borderStyle,
+                            borderLeftStyle: borderStyle,
+                          });
+                        },
+                        onAction: (action) => {
+                          if (action === APPLY_VARIABLE_ACTION) widthAllVar.openPicker();
+                        },
                       }}
                     />
                   )}
@@ -769,8 +888,8 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
         <div className={css.col}>
           {!disableBorderLeft && (
             <div className={css.row}>
-              <Panel.Content style={{ padding: 3, flex: 1, minWidth: 0 }}>
-                <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
+              <Panel.Content style={{ padding: '3px 0 3px 3px', flex: 1, minWidth: 0 }}>
+                <Panel.Item className={`${css.editArea} ${css.editAreaSplit}`}>
                   <div className={css.icon}>
                     <BorderLeftOutlined />
                   </div>
@@ -780,6 +899,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                       defaultValue={borderValue.borderLeftColor}
                       resolvedColor={resolveCssVarColor(borderValue.borderLeftColor || "", targetDom) ?? undefined}
                       variableOptions={canvasColorVariables}
+                      scopeEl={targetDom}
                       showSubTabs={false}
                       onChange={(input: any) => {
                         const value = getColorEditorValue(input);
@@ -795,27 +915,44 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                       }}
                     />
                   )}
-                  <div className={css.weightGroup}>
-                    <div className={css.icon} {...getDragPropsBorder(borderValue.borderLeftWidth, '拖拽调整左边框宽度')}>
+                  <div className={`${css.weightGroup} ${css.weightGroupSplit}`}>
+                    <div
+                      className={css.icon}
+                      ref={leftWidthVar.anchorRef}
+                      {...(leftWidthVar.varRef
+                        ? leftWidthVar.dragProps('拖拽调整左边框宽度（将解除变量绑定）')
+                        : getDragPropsBorder(borderValue.borderLeftWidth, '拖拽调整左边框宽度'))}
+                    >
                       <BorderWeightOutlined />
                     </div>
                     {disableBorderWidth ? null : (
-                      <InputNumber
-                        tip="左边框宽度"
-                        style={{ ...shouldShowMiniLayout ? DEFAULT_STYLE_MINI : DEFAULT_STYLE_SMALL, flexShrink: 0 }}
-                        defaultValue={borderValue.borderLeftWidth}
-                        value={borderValue.borderLeftWidth}
-                        defaultUnitValue="px"
-                        fallbackValue={0}
-                        onChange={(value) =>
-                          handleChange({
-                            borderLeftWidth: value,
-                            borderLeftStyle:
-                              !borderValue.borderLeftStyle || borderValue.borderLeftStyle === "none"
-                                ? "solid"
-                                : borderValue.borderLeftStyle,
-                          })
-                        }
+                      <VariableNumberInput
+                        binding={leftWidthVar}
+                        chipStyle={CHIP_STYLE_SPLIT}
+                        compact
+                        inputProps={{
+                          tip: '左边框宽度',
+                          style: WIDTH_STYLE_SPLIT,
+                          defaultValue: borderValue.borderLeftWidth,
+                          value: borderValue.borderLeftWidth,
+                          defaultUnitValue: 'px',
+                          unitOptions: borderWidthUnitOptions,
+                          unitHideLabelList: ['px', '%'],
+                          showIcon: true,
+                          showIconOnHover: true,
+                          fallbackValue: 0,
+                          onChange: (value) =>
+                            handleChange({
+                              borderLeftWidth: value,
+                              borderLeftStyle:
+                                !borderValue.borderLeftStyle || borderValue.borderLeftStyle === 'none'
+                                  ? 'solid'
+                                  : borderValue.borderLeftStyle,
+                            }),
+                          onAction: (action) => {
+                            if (action === APPLY_VARIABLE_ACTION) leftWidthVar.openPicker();
+                          },
+                        }}
                       />
                     )}
                   </div>
@@ -825,8 +962,8 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
           )}
           {!disableBorderTop && (
             <div className={css.row}>
-              <Panel.Content style={{ padding: 3, flex: 1, minWidth: 0 }}>
-                <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
+              <Panel.Content style={{ padding: '3px 0 3px 3px', flex: 1, minWidth: 0 }}>
+                <Panel.Item className={`${css.editArea} ${css.editAreaSplit}`}>
                   <div className={css.icon}>
                     <BorderTopOutlined />
                   </div>
@@ -836,6 +973,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                       defaultValue={borderValue.borderTopColor}
                       resolvedColor={resolveCssVarColor(borderValue.borderTopColor || "", targetDom) ?? undefined}
                       variableOptions={canvasColorVariables}
+                      scopeEl={targetDom}
                       showSubTabs={false}
                       onChange={(input: any) => {
                         const value = getColorEditorValue(input);
@@ -851,27 +989,44 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                       }}
                     />
                   )}
-                  <div className={css.weightGroup}>
-                    <div className={css.icon} {...getDragPropsBorder(borderValue.borderTopWidth, '拖拽调整上边框宽度')}>
+                  <div className={`${css.weightGroup} ${css.weightGroupSplit}`}>
+                    <div
+                      className={css.icon}
+                      ref={topWidthVar.anchorRef}
+                      {...(topWidthVar.varRef
+                        ? topWidthVar.dragProps('拖拽调整上边框宽度（将解除变量绑定）')
+                        : getDragPropsBorder(borderValue.borderTopWidth, '拖拽调整上边框宽度'))}
+                    >
                       <BorderWeightOutlined />
                     </div>
                     {disableBorderWidth ? null : (
-                      <InputNumber
-                        tip="上边框宽度"
-                        style={{ ...shouldShowMiniLayout ? DEFAULT_STYLE_MINI : DEFAULT_STYLE_SMALL, flexShrink: 0 }}
-                        defaultValue={borderValue.borderTopWidth}
-                        value={borderValue.borderTopWidth}
-                        defaultUnitValue="px"
-                        fallbackValue={0}
-                        onChange={(value) =>
-                          handleChange({
-                            borderTopWidth: value,
-                            borderTopStyle:
-                              !borderValue.borderTopStyle || borderValue.borderTopStyle === "none"
-                                ? "solid"
-                                : borderValue.borderTopStyle,
-                          })
-                        }
+                      <VariableNumberInput
+                        binding={topWidthVar}
+                        chipStyle={CHIP_STYLE_SPLIT}
+                        compact
+                        inputProps={{
+                          tip: '上边框宽度',
+                          style: WIDTH_STYLE_SPLIT,
+                          defaultValue: borderValue.borderTopWidth,
+                          value: borderValue.borderTopWidth,
+                          defaultUnitValue: 'px',
+                          unitOptions: borderWidthUnitOptions,
+                          unitHideLabelList: ['px', '%'],
+                          showIcon: true,
+                          showIconOnHover: true,
+                          fallbackValue: 0,
+                          onChange: (value) =>
+                            handleChange({
+                              borderTopWidth: value,
+                              borderTopStyle:
+                                !borderValue.borderTopStyle || borderValue.borderTopStyle === 'none'
+                                  ? 'solid'
+                                  : borderValue.borderTopStyle,
+                            }),
+                          onAction: (action) => {
+                            if (action === APPLY_VARIABLE_ACTION) topWidthVar.openPicker();
+                          },
+                        }}
                       />
                     )}
                   </div>
@@ -882,8 +1037,8 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
 
           {!disableBorderRight && (
             <div className={css.row}>
-              <Panel.Content style={{ padding: 3, flex: 1, minWidth: 0 }}>
-                <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
+              <Panel.Content style={{ padding: '3px 0 3px 3px', flex: 1, minWidth: 0 }}>
+                <Panel.Item className={`${css.editArea} ${css.editAreaSplit}`}>
                   <div className={css.icon}>
                     <BorderRightOutlined />
                   </div>
@@ -893,6 +1048,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                       defaultValue={borderValue.borderRightColor}
                       resolvedColor={resolveCssVarColor(borderValue.borderRightColor || "", targetDom) ?? undefined}
                       variableOptions={canvasColorVariables}
+                      scopeEl={targetDom}
                       showSubTabs={false}
                       onChange={(input: any) => {
                         const value = getColorEditorValue(input);
@@ -908,27 +1064,44 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                       }}
                     />
                   )}
-                  <div className={css.weightGroup}>
-                    <div className={css.icon} {...getDragPropsBorder(borderValue.borderRightWidth, '拖拽调整右边框宽度')}>
+                  <div className={`${css.weightGroup} ${css.weightGroupSplit}`}>
+                    <div
+                      className={css.icon}
+                      ref={rightWidthVar.anchorRef}
+                      {...(rightWidthVar.varRef
+                        ? rightWidthVar.dragProps('拖拽调整右边框宽度（将解除变量绑定）')
+                        : getDragPropsBorder(borderValue.borderRightWidth, '拖拽调整右边框宽度'))}
+                    >
                       <BorderWeightOutlined />
                     </div>
                     {disableBorderWidth ? null : (
-                      <InputNumber
-                        tip="右边框宽度"
-                        style={{ ...shouldShowMiniLayout ? DEFAULT_STYLE_MINI : DEFAULT_STYLE_SMALL, flexShrink: 0 }}
-                        defaultValue={borderValue.borderRightWidth}
-                        value={borderValue.borderRightWidth}
-                        defaultUnitValue="px"
-                        fallbackValue={0}
-                        onChange={(value) =>
-                          handleChange({
-                            borderRightWidth: value,
-                            borderRightStyle:
-                              !borderValue.borderRightStyle || borderValue.borderRightStyle === "none"
-                                ? "solid"
-                                : borderValue.borderRightStyle,
-                          })
-                        }
+                      <VariableNumberInput
+                        binding={rightWidthVar}
+                        chipStyle={CHIP_STYLE_SPLIT}
+                        compact
+                        inputProps={{
+                          tip: '右边框宽度',
+                          style: WIDTH_STYLE_SPLIT,
+                          defaultValue: borderValue.borderRightWidth,
+                          value: borderValue.borderRightWidth,
+                          defaultUnitValue: 'px',
+                          unitOptions: borderWidthUnitOptions,
+                          unitHideLabelList: ['px', '%'],
+                          showIcon: true,
+                          showIconOnHover: true,
+                          fallbackValue: 0,
+                          onChange: (value) =>
+                            handleChange({
+                              borderRightWidth: value,
+                              borderRightStyle:
+                                !borderValue.borderRightStyle || borderValue.borderRightStyle === 'none'
+                                  ? 'solid'
+                                  : borderValue.borderRightStyle,
+                            }),
+                          onAction: (action) => {
+                            if (action === APPLY_VARIABLE_ACTION) rightWidthVar.openPicker();
+                          },
+                        }}
                       />
                     )}
                   </div>
@@ -939,8 +1112,8 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
 
           {!disableBorderBottom && (
             <div className={css.row}>
-              <Panel.Content style={{ padding: 3, flex: 1, minWidth: 0 }}>
-                <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
+              <Panel.Content style={{ padding: '3px 0 3px 3px', flex: 1, minWidth: 0 }}>
+                <Panel.Item className={`${css.editArea} ${css.editAreaSplit}`}>
                   <div className={css.icon}>
                     <BorderBottomOutlined />
                   </div>
@@ -950,6 +1123,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                       defaultValue={borderValue.borderBottomColor}
                       resolvedColor={resolveCssVarColor(borderValue.borderBottomColor || "", targetDom) ?? undefined}
                       variableOptions={canvasColorVariables}
+                      scopeEl={targetDom}
                       showSubTabs={false}
                       onChange={(input: any) => {
                         const value = getColorEditorValue(input);
@@ -965,27 +1139,44 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                       }}
                     />
                   )}
-                  <div className={css.weightGroup}>
-                    <div className={css.icon} {...getDragPropsBorder(borderValue.borderBottomWidth, '拖拽调整下边框宽度')}>
+                  <div className={`${css.weightGroup} ${css.weightGroupSplit}`}>
+                    <div
+                      className={css.icon}
+                      ref={bottomWidthVar.anchorRef}
+                      {...(bottomWidthVar.varRef
+                        ? bottomWidthVar.dragProps('拖拽调整下边框宽度（将解除变量绑定）')
+                        : getDragPropsBorder(borderValue.borderBottomWidth, '拖拽调整下边框宽度'))}
+                    >
                       <BorderWeightOutlined />
                     </div>
                     {disableBorderWidth ? null : (
-                      <InputNumber
-                        tip="下边框宽度"
-                        style={{ ...shouldShowMiniLayout ? DEFAULT_STYLE_MINI : DEFAULT_STYLE_SMALL, flexShrink: 0 }}
-                        defaultValue={borderValue.borderBottomWidth}
-                        value={borderValue.borderBottomWidth}
-                        defaultUnitValue="px"
-                        fallbackValue={0}
-                        onChange={(value) =>
-                          handleChange({
-                            borderBottomWidth: value,
-                            borderBottomStyle:
-                              !borderValue.borderBottomStyle || borderValue.borderBottomStyle === "none"
-                                ? "solid"
-                                : borderValue.borderBottomStyle,
-                          })
-                        }
+                      <VariableNumberInput
+                        binding={bottomWidthVar}
+                        chipStyle={CHIP_STYLE_SPLIT}
+                        compact
+                        inputProps={{
+                          tip: '下边框宽度',
+                          style: WIDTH_STYLE_SPLIT,
+                          defaultValue: borderValue.borderBottomWidth,
+                          value: borderValue.borderBottomWidth,
+                          defaultUnitValue: 'px',
+                          unitOptions: borderWidthUnitOptions,
+                          unitHideLabelList: ['px', '%'],
+                          showIcon: true,
+                          showIconOnHover: true,
+                          fallbackValue: 0,
+                          onChange: (value) =>
+                            handleChange({
+                              borderBottomWidth: value,
+                              borderBottomStyle:
+                                !borderValue.borderBottomStyle || borderValue.borderBottomStyle === 'none'
+                                  ? 'solid'
+                                  : borderValue.borderBottomStyle,
+                            }),
+                          onAction: (action) => {
+                            if (action === APPLY_VARIABLE_ACTION) bottomWidthVar.openPicker();
+                          },
+                        }}
                       />
                     )}
                   </div>
@@ -996,7 +1187,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
         </div>
       );
     }
-  }, [borderToggleValue, popupStyleValue, borderValue, getDragPropsBorder, borderColorEditorKey, borderPosition, refresh, handleAllModeChange, handlePositionChange, targetDom, canvasColorVariables]);
+  }, [borderToggleValue, popupStyleValue, borderValue, getDragPropsBorder, borderColorEditorKey, borderPosition, refresh, handleAllModeChange, handlePositionChange, targetDom, canvasColorVariables, widthAllVar, topWidthVar, rightWidthVar, bottomWidthVar, leftWidthVar, borderWidthUnitOptions, shouldShowMiniLayout]);
 
   const radiusConfig = useMemo(() => {
     if (disableBorderRadius) {
@@ -1007,24 +1198,37 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
         <div className={css.row}>
           <Panel.Content style={{ padding: 3 }}>
             <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
-              <div className={css.icon} {...getDragPropsRadius(borderValue.borderTopLeftRadius, '拖拽调整圆角半径')}>
+              <div
+                className={css.icon}
+                ref={radiusAllVar.anchorRef}
+                {...(radiusAllVar.varRef
+                  ? radiusAllVar.dragProps('拖拽调整圆角（将解除变量绑定）')
+                  : getDragPropsRadius(borderValue.borderTopLeftRadius, '拖拽调整圆角半径'))}
+              >
                 <BorderRadiusSplitOutlined />
               </div>
-              <InputNumber
-                tip="圆角半径"
-                style={DEFAULT_STYLE}
-                // suffix={'px'}
-                defaultValue={borderValue.borderTopLeftRadius}
-                unitOptions={UNIT_OPTIONS}
-                fallbackValue={0}
-                onChange={(value) =>
-                  handleChange({
-                    borderTopLeftRadius: value,
-                    borderBottomLeftRadius: value,
-                    borderBottomRightRadius: value,
-                    borderTopRightRadius: value,
-                  })
-                }
+              <VariableNumberInput
+                binding={radiusAllVar}
+                chipStyle={CHIP_STYLE}
+                inputProps={{
+                  tip: '圆角半径',
+                  style: DEFAULT_STYLE,
+                  defaultValue: borderValue.borderTopLeftRadius,
+                  unitOptions: radiusUnitOptions,
+                  showIcon: true,
+                  showIconOnHover: true,
+                  fallbackValue: 0,
+                  onChange: (value) =>
+                    handleChange({
+                      borderTopLeftRadius: value,
+                      borderBottomLeftRadius: value,
+                      borderBottomRightRadius: value,
+                      borderTopRightRadius: value,
+                    }),
+                  onAction: (action) => {
+                    if (action === APPLY_VARIABLE_ACTION) radiusAllVar.openPicker();
+                  },
+                }}
               />
             </Panel.Item>
           </Panel.Content>
@@ -1046,41 +1250,61 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
             <div className={css.row} style={{ paddingRight: 0 }}>
               <Panel.Content style={{ padding: 3 }}>
                 <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
-                  <div className={css.icon} {...getDragPropsRadius(borderValue.borderTopLeftRadius, '拖拽调整左上圆角')}>
+                  <div
+                    className={css.icon}
+                    ref={topLeftRadiusVar.anchorRef}
+                    {...(topLeftRadiusVar.varRef
+                      ? topLeftRadiusVar.dragProps('拖拽调整左上圆角（将解除变量绑定）')
+                      : getDragPropsRadius(borderValue.borderTopLeftRadius, '拖拽调整左上圆角'))}
+                  >
                     <BorderTopLeftRadiusOutlined />
                   </div>
-                  <InputNumber
-                    //tip="左上"
-                    style={DEFAULT_STYLE__NEW}
-                    defaultValue={borderValue.borderTopLeftRadius}
-                    unitOptions={UNIT_OPTIONS}
-                    fallbackValue={0}
-                    onChange={(value) =>
-                      handleChange({ borderTopLeftRadius: value })
-                    }
-                    onFocus={() =>
-                      setSplitRadiusIcon(<BorderTopLeftRadiusOutlined />)
-                    }
+                  <VariableNumberInput
+                    binding={topLeftRadiusVar}
+                    chipStyle={CHIP_STYLE}
+                    inputProps={{
+                      style: DEFAULT_STYLE__NEW,
+                      defaultValue: borderValue.borderTopLeftRadius,
+                      unitOptions: radiusUnitOptions,
+                      showIcon: true,
+                      showIconOnHover: true,
+                      fallbackValue: 0,
+                      onChange: (value) => handleChange({ borderTopLeftRadius: value }),
+                      onAction: (action) => {
+                        if (action === APPLY_VARIABLE_ACTION) topLeftRadiusVar.openPicker();
+                      },
+                      onFocus: () => setSplitRadiusIcon(<BorderTopLeftRadiusOutlined />),
+                    }}
                   />
                 </Panel.Item>
               </Panel.Content>
               <Panel.Content style={{ padding: 3 }}>
                 <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
-                  <InputNumber
-                    //tip="右上角半径"
-                    align="right"
-                    style={DEFAULT_STYLE__NEW}
-                    defaultValue={borderValue.borderTopRightRadius}
-                    unitOptions={UNIT_OPTIONS}
-                    fallbackValue={0}
-                    onChange={(value) =>
-                      handleChange({ borderTopRightRadius: value })
-                    }
-                    onFocus={() =>
-                      setSplitRadiusIcon(<BorderTopRightRadiusOutlined />)
-                    }
+                  <VariableNumberInput
+                    binding={topRightRadiusVar}
+                    chipStyle={CHIP_STYLE}
+                    inputProps={{
+                      align: 'right',
+                      style: DEFAULT_STYLE__NEW,
+                      defaultValue: borderValue.borderTopRightRadius,
+                      unitOptions: radiusUnitOptions,
+                      showIcon: true,
+                      showIconOnHover: true,
+                      fallbackValue: 0,
+                      onChange: (value) => handleChange({ borderTopRightRadius: value }),
+                      onAction: (action) => {
+                        if (action === APPLY_VARIABLE_ACTION) topRightRadiusVar.openPicker();
+                      },
+                      onFocus: () => setSplitRadiusIcon(<BorderTopRightRadiusOutlined />),
+                    }}
                   />
-                  <div className={css.icon} {...getDragPropsRadius(borderValue.borderTopRightRadius, '拖拽调整右上圆角')}>
+                  <div
+                    className={css.icon}
+                    ref={topRightRadiusVar.anchorRef}
+                    {...(topRightRadiusVar.varRef
+                      ? topRightRadiusVar.dragProps('拖拽调整右上圆角（将解除变量绑定）')
+                      : getDragPropsRadius(borderValue.borderTopRightRadius, '拖拽调整右上圆角'))}
+                  >
                     <BorderTopRightRadiusOutlined />
                   </div>
                 </Panel.Item>
@@ -1091,41 +1315,61 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
               <Panel.Content style={{ padding: 3 }}>
 
                 <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
-                  <div className={css.icon} {...getDragPropsRadius(borderValue.borderBottomLeftRadius, '拖拽调整左下圆角')}>
+                  <div
+                    className={css.icon}
+                    ref={bottomLeftRadiusVar.anchorRef}
+                    {...(bottomLeftRadiusVar.varRef
+                      ? bottomLeftRadiusVar.dragProps('拖拽调整左下圆角（将解除变量绑定）')
+                      : getDragPropsRadius(borderValue.borderBottomLeftRadius, '拖拽调整左下圆角'))}
+                  >
                     <BorderBottomLeftRadiusOutlined />
                   </div>
-                  <InputNumber
-                    //tip="左下角半径"
-                    style={DEFAULT_STYLE__NEW}
-                    defaultValue={borderValue.borderBottomLeftRadius}
-                    unitOptions={UNIT_OPTIONS}
-                    fallbackValue={0}
-                    onChange={(value) =>
-                      handleChange({ borderBottomLeftRadius: value })
-                    }
-                    onFocus={() =>
-                      setSplitRadiusIcon(<BorderBottomLeftRadiusOutlined />)
-                    }
+                  <VariableNumberInput
+                    binding={bottomLeftRadiusVar}
+                    chipStyle={CHIP_STYLE}
+                    inputProps={{
+                      style: DEFAULT_STYLE__NEW,
+                      defaultValue: borderValue.borderBottomLeftRadius,
+                      unitOptions: radiusUnitOptions,
+                      showIcon: true,
+                      showIconOnHover: true,
+                      fallbackValue: 0,
+                      onChange: (value) => handleChange({ borderBottomLeftRadius: value }),
+                      onAction: (action) => {
+                        if (action === APPLY_VARIABLE_ACTION) bottomLeftRadiusVar.openPicker();
+                      },
+                      onFocus: () => setSplitRadiusIcon(<BorderBottomLeftRadiusOutlined />),
+                    }}
                   />
                 </Panel.Item>
               </Panel.Content>
               <Panel.Content style={{ padding: 3 }}>
                 <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
-                  <InputNumber
-                    //tip="右下角半径"
-                    align="right"
-                    style={DEFAULT_STYLE__NEW}
-                    defaultValue={borderValue.borderBottomRightRadius}
-                    unitOptions={UNIT_OPTIONS}
-                    fallbackValue={0}
-                    onChange={(value) =>
-                      handleChange({ borderBottomRightRadius: value })
-                    }
-                    onFocus={() =>
-                      setSplitRadiusIcon(<BorderBottomRightRadiusOutlined />)
-                    }
+                  <VariableNumberInput
+                    binding={bottomRightRadiusVar}
+                    chipStyle={CHIP_STYLE}
+                    inputProps={{
+                      align: 'right',
+                      style: DEFAULT_STYLE__NEW,
+                      defaultValue: borderValue.borderBottomRightRadius,
+                      unitOptions: radiusUnitOptions,
+                      showIcon: true,
+                      showIconOnHover: true,
+                      fallbackValue: 0,
+                      onChange: (value) => handleChange({ borderBottomRightRadius: value }),
+                      onAction: (action) => {
+                        if (action === APPLY_VARIABLE_ACTION) bottomRightRadiusVar.openPicker();
+                      },
+                      onFocus: () => setSplitRadiusIcon(<BorderBottomRightRadiusOutlined />),
+                    }}
                   />
-                  <div className={css.icon} {...getDragPropsRadius(borderValue.borderBottomRightRadius, '拖拽调整右下圆角')}>
+                  <div
+                    className={css.icon}
+                    ref={bottomRightRadiusVar.anchorRef}
+                    {...(bottomRightRadiusVar.varRef
+                      ? bottomRightRadiusVar.dragProps('拖拽调整右下圆角（将解除变量绑定）')
+                      : getDragPropsRadius(borderValue.borderBottomRightRadius, '拖拽调整右下圆角'))}
+                  >
                     <BorderBottomRightRadiusOutlined />
                   </div>
                 </Panel.Item>
@@ -1145,7 +1389,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
         </div>
       );
     }
-  }, [radiusToggleValue, splitRadiusIcon, borderValue, getDragPropsRadius]);
+  }, [radiusToggleValue, splitRadiusIcon, borderValue, getDragPropsRadius, radiusAllVar, topLeftRadiusVar, topRightRadiusVar, bottomLeftRadiusVar, bottomRightRadiusVar, radiusUnitOptions]);
 
   const handleToggleChange = useCallback(
     ({ key, value }: { key: string; value: string }) => {

@@ -22,7 +22,7 @@ const tokens = {
   rgbColor: /^rgb/i,
   rgbaColor: /^rgba/i,
   number: /^(([0-9]*\.[0-9]+)|([0-9]+\.?))/,
-  varColor: /^var\((--[a-zA-Z0-9-_]+)\)/, // 匹配 CSS 变量，包括连字符
+  varCall: /^var\(/i,
 };
 
 type GradientType =
@@ -294,15 +294,42 @@ const matchColor = () => {
   );
 };
 
+/**
+ * 按括号深度匹配 var(...)，整段内容原样保留。
+ * 不能用 /^var\((--[\w-]+)\)/：带 fallback 的 var(--c, rgba(0,0,0,.2))
+ * 会匹配失败，色标退化成字面色解析并报错。
+ */
 const matchVarColor = () => {
-  const result = match("var-color", tokens.varColor, 1);
-  if (result) {
-    return {
-      type: "var-color",
-      value: result.value,
-    };
+  const lookaheadCache = input;
+  if (!scan(tokens.varCall)) {
+    return undefined;
   }
-  return undefined;
+
+  let depth = 1;
+  let end = -1;
+  for (let i = 0; i < input.length; i++) {
+    const ch = input[i];
+    if (ch === "(") depth++;
+    else if (ch === ")") {
+      depth--;
+      if (depth === 0) {
+        end = i;
+        break;
+      }
+    }
+  }
+
+  const content = end === -1 ? "" : input.slice(0, end).trim();
+  if (!content.startsWith("--")) {
+    input = lookaheadCache;
+    return undefined;
+  }
+
+  consume(end + 1);
+  return {
+    type: "var-color",
+    value: content,
+  };
 };
 
 const matchLiteralColor = () => {

@@ -168,6 +168,61 @@ function isZeroLength(value: string | undefined): boolean {
   return parseFloat(value) === 0
 }
 
+function isCssVarToken(token: string): boolean {
+  return /^var\(/i.test(token.trim())
+}
+
+/** 长度位候选：数值（含单位）、calc() 等表达式，以及 CSS 变量引用 */
+function isLengthLikeToken(token: string | undefined): boolean {
+  if (!token) return false
+  if (isCssVarToken(token)) return true
+  return !isNaN(parseFloat(token))
+}
+
+/**
+ * 定位 filter 串里的某个函数，返回它的参数与所在区间。
+ *
+ * 不能用 /blur\(([^)]+)\)/：blur(var(--x, 4px)) 会在 fallback 的右括号处截断，
+ * 这里按括号深度找到真正配对的结尾。
+ */
+function findFilterFunction(
+  source: string,
+  fnName: string
+): { start: number; end: number; arg: string } | null {
+  const lower = source.toLowerCase()
+  const name = fnName.toLowerCase()
+  let searchFrom = 0
+
+  while (searchFrom < source.length) {
+    const nameIdx = lower.indexOf(name, searchFrom)
+    if (nameIdx === -1) return null
+
+    // 名称前必须是分隔符，避免命中 backdrop-blur 这类更长的标识符
+    const prevCh = nameIdx > 0 ? source[nameIdx - 1] : ' '
+    let cursor = nameIdx + name.length
+    while (cursor < source.length && /\s/.test(source[cursor])) cursor++
+
+    if (source[cursor] !== '(' || /[a-z0-9-]/i.test(prevCh)) {
+      searchFrom = nameIdx + name.length
+      continue
+    }
+
+    let depth = 0
+    for (let i = cursor; i < source.length; i++) {
+      if (source[i] === '(') depth++
+      else if (source[i] === ')') {
+        depth--
+        if (depth === 0) {
+          return { start: nameIdx, end: i + 1, arg: source.slice(cursor + 1, i).trim() }
+        }
+      }
+    }
+    return null
+  }
+
+  return null
+}
+
 /** Border inside 形：inset + offset/blur 为 0 + spread > 0 */
 function isBorderLikeShadowLayer(layer: ShadowEffectLayer): boolean {
   return (
@@ -195,9 +250,9 @@ export function extractBorderLikeShadows(boxShadow: string | undefined): string[
 
 export function parseBlurRadius(cssFilter: string | undefined): string | null {
   if (!cssFilter || cssFilter === 'none') return null
-  const match = String(cssFilter).match(/blur\(\s*([^)]+)\s*\)/i)
-  if (!match) return null
-  const raw = match[1].trim()
+  const found = findFilterFunction(String(cssFilter), 'blur')
+  if (!found) return null
+  const raw = found.arg
   if (!raw) return null
   return /^-?\d+\.?\d*$/.test(raw) ? `${raw}px` : raw
 }
@@ -215,11 +270,17 @@ export function mergeBlurIntoFilter(
     return blurRadius != null ? `blur(${blurRadius || '0px'})` : null
   }
 
-  if (/blur\s*\(/i.test(prev)) {
+  const found = findFilterFunction(prev, 'blur')
+  if (found) {
     if (blurRadius != null) {
-      return prev.replace(/blur\s*\(\s*[^)]*\s*\)/i, `blur(${blurRadius || '0px'})`).trim()
+      const next = `${prev.slice(0, found.start)}blur(${blurRadius || '0px'})${prev.slice(found.end)}`
+      return next.replace(/\s+/g, ' ').trim()
     }
-    return prev.replace(/\s*blur\s*\(\s*[^)]*\s*\)/gi, '').replace(/\s+/g, ' ').trim() || null
+    let rest = prev
+    for (let hit = findFilterFunction(rest, 'blur'); hit; hit = findFilterFunction(rest, 'blur')) {
+      rest = `${rest.slice(0, hit.start)}${rest.slice(hit.end)}`
+    }
+    return rest.replace(/\s+/g, ' ').trim() || null
   }
 
   if (blurRadius != null) {
@@ -241,13 +302,16 @@ function parseSingleBoxShadowRaw(boxShadow: string): ShadowEffectLayer | null {
     args.pop()
   }
 
+  // 先认末尾颜色：长度分量可能是 var(--x)，从字符串分不清值域，
+  // 而 composeShadow 始终把颜色写在末尾，末尾的非纯数值 token 一律当颜色。
   let color = DEFAULT_SHADOW_COLOR
-  if (args.length && isNaN(parseFloat(args[0]))) {
+  const last = args.at(-1)
+  if (args.length > 2 && (isCssVarToken(last as string) || isNaN(parseFloat(last as string)))) {
+    color = last as string
+    args.pop()
+  } else if (args.length && !isLengthLikeToken(args[0])) {
     color = args[0]
     args.shift()
-  } else if (args.length && isNaN(parseFloat(args.at(-1) as string))) {
-    color = args.at(-1) as string
-    args.pop()
   }
 
   const [offsetX = '0px', offsetY = '0px', blurRadius = '0px', spreadRadius = '0px'] = args

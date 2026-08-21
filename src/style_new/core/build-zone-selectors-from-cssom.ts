@@ -53,15 +53,19 @@ export function isZoneTabNoiseClass(name: string): boolean {
   return false
 }
 
-/** CSS Module 运行时名 → 短名（不依赖 Babel 打标） */
+/**
+ * CSS Module 运行时名 → 短名（不依赖 Babel 打标）。
+ * 前缀须含 `_`（编码后的文件路径），避免把手写的 `block--modifier` / `.aiChat-inputArea` 截断。
+ */
 function heuristicShortName(runtimeClass: string): string {
+  // `--` 优先：pages_Foo__module__less--foo-bar 的源码类名是 foo-bar 而非 bar
+  const ddIdx = runtimeClass.lastIndexOf('--')
+  if (ddIdx > 0 && runtimeClass.slice(0, ddIdx).includes('_')) {
+    return runtimeClass.slice(ddIdx + 2)
+  }
   const dashIdx = runtimeClass.lastIndexOf('-')
   if (dashIdx > 0 && runtimeClass.slice(0, dashIdx).includes('_')) {
     return runtimeClass.slice(dashIdx + 1)
-  }
-  const ddIdx = runtimeClass.lastIndexOf('--')
-  if (ddIdx > 0) {
-    return runtimeClass.slice(ddIdx + 2)
   }
   return runtimeClass
 }
@@ -73,7 +77,7 @@ export function collectKnownShortNames(el: Element): Set<string> {
   while (cur) {
     for (const runtime of Array.from(cur.classList || [])) {
       if (isZoneTabNoiseClass(runtime)) continue
-      names.add(runtime)
+      // 只收短名：把运行时哈希名也放进来会让 demangleClassName 自匹配，还原不掉哈希
       names.add(heuristicShortName(runtime))
     }
     cur = cur.parentElement
@@ -195,6 +199,9 @@ export function collectSubjectClassSelectors(el: Element): string[] {
 
 function demangleClassName(runtimeClass: string, knownShortNames: Set<string>): string {
   for (const sn of knownShortNames) {
+    // 短名集合可能仍含运行时名自身（如 rich-input_u9Ux8 这类还原不掉的形态），
+    // 自匹配会让哈希名原样返回，最终写进 Less 变成永远匹配不到元素的脏规则
+    if (sn === runtimeClass) continue
     if (classMatchesShortName(runtimeClass, sn)) return sn
     // css-loader 常见 shortName_hash（如 rich-input_u9Ux8 → rich-input）
     if (

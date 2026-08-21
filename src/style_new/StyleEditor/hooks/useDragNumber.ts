@@ -8,6 +8,8 @@ interface DragState {
   rafId: number | null
   /** 标记 onDragStart 是否覆盖了起始值（如单位从 auto 切换到 px） */
   useCustomEnd: boolean
+  /** 最近一次拖拽出的值，供没有关联 input 的场景（如变量胶囊）提交 */
+  lastValue: number
 }
 
 interface DragNumberOptions {
@@ -25,6 +27,8 @@ interface DragNumberOptions {
   onDragChange?: (value: number) => void
   /** 拖拽结束时的回调，当 onDragStart 返回了覆盖值时调用（替代 blur 提交） */
   onDragEnd?: (finalValue: number) => void
+  /** 拖拽过程中 input 显示的格式化，默认直接用数字字符串；如 v => `${v}%` */
+  formatDisplay?: (value: number) => string
 }
 
 /**
@@ -42,7 +46,7 @@ interface DragNumberOptions {
  * <InputNumber defaultValue={...} onChange={...} />
  */
 export function useDragNumber(options: DragNumberOptions = {}) {
-  const { min = 0, max = Infinity, sensitivity = 1, continuous = false, onDragStart, onDragChange, onDragEnd } = options
+  const { min = 0, max = Infinity, sensitivity = 1, continuous = false, onDragStart, onDragChange, onDragEnd, formatDisplay } = options
 
   // 用 ref 保存回调，避免 handler 因回调变化而重建
   const onDragStartRef = useRef(onDragStart)
@@ -51,6 +55,8 @@ export function useDragNumber(options: DragNumberOptions = {}) {
   onDragChangeRef.current = onDragChange
   const onDragEndRef = useRef(onDragEnd)
   onDragEndRef.current = onDragEnd
+  const formatDisplayRef = useRef(formatDisplay)
+  formatDisplayRef.current = formatDisplay
 
   const dragStateRef = useRef<DragState>({
     isDragging: false,
@@ -58,7 +64,8 @@ export function useDragNumber(options: DragNumberOptions = {}) {
     startValue: 0,
     inputEl: null,
     rafId: null,
-    useCustomEnd: false
+    useCustomEnd: false,
+    lastValue: 0
   })
 
   const findInputEl = useCallback((iconEl: HTMLElement): HTMLInputElement | null => {
@@ -67,7 +74,8 @@ export function useDragNumber(options: DragNumberOptions = {}) {
     let maxDepth = 5 // 最多向上查找5层
     
     while (current && maxDepth > 0) {
-      const input = current.querySelector('input')
+      // data-drag-ignore：变量胶囊里的受控输入框，直接改它的 value 会被 React 覆盖
+      const input = current.querySelector<HTMLInputElement>('input:not([data-drag-ignore])')
       if (input) return input
       current = current.parentElement
       maxDepth--
@@ -107,7 +115,8 @@ export function useDragNumber(options: DragNumberOptions = {}) {
       startValue,
       inputEl,
       rafId: null,
-      useCustomEnd
+      useCustomEnd,
+      lastValue: startValue
     }
     document.body.style.cursor = 'ew-resize'
     document.body.style.userSelect = 'none'
@@ -119,7 +128,9 @@ export function useDragNumber(options: DragNumberOptions = {}) {
 
     const deltaX = e.clientX - state.startX
     const newValue = Math.min(max, Math.max(min, Math.round(state.startValue + deltaX * sensitivity)))
-    const newValueStr = String(newValue)
+    const fmt = formatDisplayRef.current
+    const newValueStr = fmt ? fmt(newValue) : String(newValue)
+    state.lastValue = newValue
 
     // 直接操作 DOM 更新输入框显示值
     if (state.inputEl) {
@@ -161,7 +172,7 @@ export function useDragNumber(options: DragNumberOptions = {}) {
     if (state.useCustomEnd && onDragEndRef.current) {
       // 当 onDragStart 覆盖了起始值时（如单位从 auto 切到 px），
       // 由外部回调直接提交最终值，绕过 InputNumber 内部可能还未同步的 unit 状态
-      const finalValue = state.inputEl ? (parseFloat(state.inputEl.value) || 0) : state.startValue
+      const finalValue = state.inputEl ? (parseFloat(state.inputEl.value) || 0) : state.lastValue
       onDragEndRef.current(finalValue)
     } else {
       // 触发 input 的 focus -> blur，让 InputNumber 内部走 onBlur 逻辑提交值

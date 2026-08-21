@@ -40,7 +40,8 @@ interface ContentProps {
   className?: string
 }
 interface ItemProps {
-  children: ReactNode
+  /** 约束行的占位项不渲染内容 */
+  children?: ReactNode
   style?: CSSProperties
   onClick?: () => void
   className?: string

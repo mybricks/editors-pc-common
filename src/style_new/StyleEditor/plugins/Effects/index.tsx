@@ -11,7 +11,6 @@ import {
   Panel,
   Select,
   ColorEditor,
-  InputNumber,
   MinusOutlined,
   BoxShadowInnerOutlined,
   BoxShadowOuterOutlined,
@@ -20,8 +19,13 @@ import {
   TextShadowOutlined,
   SketchPopup,
   SketchCloseIcon,
+  VariableNumberInput,
+  withApplyVariableOption,
+  APPLY_VARIABLE_ACTION,
 } from '../../components'
-import { useDragNumber, useCanvasColorVariables } from '../../hooks'
+import { useDragNumber, useCanvasColorVariables, useLengthVarBinding } from '../../hooks'
+import type { UnitOption } from '../../components/InputNumber'
+import type { LengthVarBinding } from '../../hooks'
 import { resolveCssVarColor } from '../../../core/resolve-css-var-color'
 import { Blur as BlurIcon } from '../../icons/Blur'
 import { BackgroundBlur as BackgroundBlurIcon } from '../../icons/BackgroundBlur'
@@ -367,6 +371,77 @@ export function Effects({ value, onChange, showTitle, collapse }: EffectsProps) 
 
 // ── Sketch body ────────────────────────────────────────────────────────────
 
+/** 效果里的长度只用 px，下拉的存在意义是挂「应用变量...」入口 */
+const EFFECT_UNIT_OPTIONS: UnitOption[] = [{ label: 'px', value: 'px' }]
+/** 与未绑定态的输入框同宽，胶囊不把行撑破 */
+const EFFECT_CHIP_STYLE: CSSProperties = { flex: 1, minWidth: 0 }
+
+interface EffectNumberFieldProps {
+  label: string
+  icon: React.ReactNode
+  /** 拖拽手柄的提示文案，绑定态会追加解绑说明 */
+  tip: string
+  value: string
+  binding: LengthVarBinding
+  unitOptions: UnitOption[]
+  /** 未绑定态的拖拽手柄，正负值域各有一份 */
+  getDragProps: ReturnType<typeof useDragNumber>
+  allowNegative?: boolean
+  onChange: (next: string) => void
+}
+
+/** 效果弹层里的一行数值：支持拖拽、直接输入，以及绑定 CSS 长度变量 */
+function EffectNumberField({
+  label,
+  icon,
+  tip,
+  value,
+  binding,
+  unitOptions,
+  getDragProps,
+  allowNegative,
+  onChange,
+}: EffectNumberFieldProps) {
+  // 图标既是拖拽手柄也是变量弹层的锚点，绑定态由胶囊接着渲染它，位置不跳动
+  const handle = (
+    <div
+      ref={binding.anchorRef}
+      {...(binding.varRef
+        ? binding.dragProps(`${tip}（将解除变量绑定）`)
+        : getDragProps(value, tip))}
+    >
+      <div className={css.effectLabelIcon}>{icon}</div>
+    </div>
+  )
+
+  return (
+    <div className={css.effectRow}>
+      <span className={css.effectLabel}>{label}</span>
+      <VariableNumberInput
+        binding={binding}
+        chipStyle={EFFECT_CHIP_STYLE}
+        chipPrefix={handle}
+        nestedPicker
+        inputProps={{
+          style: { flex: 1 },
+          allowNegative,
+          prefix: handle,
+          defaultValue: value,
+          defaultUnitValue: 'px',
+          unitOptions,
+          showIcon: true,
+          showIconOnHover: true,
+          fallbackValue: 0,
+          onChange: (next) => onChange(next || '0px'),
+          onAction: (action) => {
+            if (action === APPLY_VARIABLE_ACTION) binding.openPicker()
+          },
+        }}
+      />
+    </div>
+  )
+}
+
 interface EffectSketchBodyProps {
   layer: EffectLayer
   typeOptions: Array<{ label: string; value: EffectType; disabled?: boolean; icon?: React.ReactNode }>
@@ -389,6 +464,40 @@ function EffectSketchBody({
   const forceKey = `${layer.id}-${layer.type}`
   const shadow = isShadowLayer(layer)
   const textShadow = isTextShadowLayer(layer)
+
+  // ── 长度字段的 CSS 变量绑定 ─────────────────────────────────────────────
+  // 模糊层没有偏移与扩散，这里仍无条件建 binding（hooks 顺序），取值给 0px 占位
+  const offsetXVar = useLengthVarBinding({
+    value: isShadowLayer(layer) ? layer.offsetX : '0px',
+    onChange: (next) => onChange({ offsetX: next }),
+    min: -Infinity,
+  })
+  const offsetYVar = useLengthVarBinding({
+    value: isShadowLayer(layer) ? layer.offsetY : '0px',
+    onChange: (next) => onChange({ offsetY: next }),
+    min: -Infinity,
+  })
+  const blurRadiusVar = useLengthVarBinding({
+    value: layer.blurRadius,
+    onChange: (next) => onChange({ blurRadius: next }),
+  })
+  const spreadRadiusVar = useLengthVarBinding({
+    value: isBoxShadowLayer(layer) ? layer.spreadRadius : '0px',
+    onChange: (next) => onChange({ spreadRadius: next }),
+  })
+
+  const unitOptions = useMemo(
+    () => withApplyVariableOption(EFFECT_UNIT_OPTIONS, blurRadiusVar.hasVariables),
+    [blurRadiusVar.hasVariables]
+  )
+
+  // 切层/切类型后字段会换一批，锚点随之卸载，残留的弹层会停在旧位置
+  useEffect(() => {
+    offsetXVar.closePicker()
+    offsetYVar.closePicker()
+    blurRadiusVar.closePicker()
+    spreadRadiusVar.closePicker()
+  }, [layer.id, layer.type])
 
   // 变量在弹层内取而非由 Effects 透传：这里才用得到，且只需算当前活跃层。
   // 拖偏移/模糊会持续重渲染本组件，两处都必须缓存。
@@ -416,69 +525,49 @@ function EffectSketchBody({
       <React.Fragment key={forceKey}>
         {shadow ? (
           <>
-            <div className={css.effectRow}>
-              <span className={css.effectLabel}>位置</span>
-              <InputNumber
-                style={{ flex: 1 }}
-                allowNegative
-                prefix={
-                  <div {...getDragPropsNegative(layer.offsetX, '拖拽调整x轴偏移')}>
-                    <div className={css.effectLabelIcon}>X</div>
-                  </div>
-                }
-                defaultValue={layer.offsetX}
-                fallbackValue={0}
-                onChange={(v) => onChange({ offsetX: v || '0px' })}
-              />
-            </div>
-            <div className={css.effectRow}>
-              <span className={css.effectLabel}></span>
-              <InputNumber
-                style={{ flex: 1 }}
-                allowNegative
-                prefix={
-                  <div {...getDragPropsNegative(layer.offsetY, '拖拽调整y轴偏移')}>
-                    <div className={css.effectLabelIcon}>Y</div>
-                  </div>
-                }
-                defaultValue={layer.offsetY}
-                fallbackValue={0}
-                onChange={(v) => onChange({ offsetY: v || '0px' })}
-              />
-            </div>
-            <div className={css.effectRow}>
-              <span className={css.effectLabel}>模糊</span>
-              <InputNumber
-                style={{ flex: 1 }}
-                prefix={
-                  <div {...getDragProps(layer.blurRadius, '拖拽调整模糊半径')}>
-                    <div className={css.effectLabelIcon}>
-                      <BoxShadowBlurRadiusOutlined />
-                    </div>
-                  </div>
-                }
-                defaultValue={layer.blurRadius}
-                fallbackValue={0}
-                onChange={(v) => onChange({ blurRadius: v || '0px' })}
-              />
-            </div>
+            <EffectNumberField
+              label='位置'
+              icon='X'
+              tip='拖拽调整x轴偏移'
+              value={layer.offsetX}
+              binding={offsetXVar}
+              unitOptions={unitOptions}
+              getDragProps={getDragPropsNegative}
+              allowNegative
+              onChange={(next) => onChange({ offsetX: next })}
+            />
+            <EffectNumberField
+              label=''
+              icon='Y'
+              tip='拖拽调整y轴偏移'
+              value={layer.offsetY}
+              binding={offsetYVar}
+              unitOptions={unitOptions}
+              getDragProps={getDragPropsNegative}
+              allowNegative
+              onChange={(next) => onChange({ offsetY: next })}
+            />
+            <EffectNumberField
+              label='模糊'
+              icon={<BoxShadowBlurRadiusOutlined />}
+              tip='拖拽调整模糊半径'
+              value={layer.blurRadius}
+              binding={blurRadiusVar}
+              unitOptions={unitOptions}
+              getDragProps={getDragProps}
+              onChange={(next) => onChange({ blurRadius: next })}
+            />
             {!textShadow && (
-              <div className={css.effectRow}>
-                <span className={css.effectLabel}>扩散</span>
-                <InputNumber
-                  style={{ flex: 1 }}
-                  prefix={
-                    <div {...getDragProps(layer.spreadRadius, '拖拽调整扩散半径')}>
-                      <div className={css.effectLabelIcon}>
-                        <BoxShadowSpreadRadiusOutlined />
-                      </div>
-                    </div>
-                  }
-                  defaultValue={layer.spreadRadius}
-                  fallbackValue={0}
-                  onChange={(v) => onChange({ spreadRadius: v || '0px' })}
-                />
-              </div>
+              <EffectNumberField
+                label='扩散'
+                icon={<BoxShadowSpreadRadiusOutlined />}
+                tip='拖拽调整扩散半径'
+                value={layer.spreadRadius}
+                binding={spreadRadiusVar}
+                unitOptions={unitOptions}
+                getDragProps={getDragProps}
+                onChange={(next) => onChange({ spreadRadius: next })}
+              />
             )}
             <div className={css.effectRow}>
               <span className={css.effectLabel}>颜色</span>
@@ -495,22 +584,16 @@ function EffectSketchBody({
             </div>
           </>
         ) : (
-          <div className={css.effectRow}>
-            <span className={css.effectLabel}>模糊</span>
-            <InputNumber
-              style={{ flex: 1 }}
-              prefix={
-                <div {...getDragProps(layer.blurRadius, '拖拽调整模糊半径')}>
-                  <div className={css.effectLabelIcon}>
-                    {layer.type === 'backgroundBlur' ? <BackgroundBlurIcon /> : <BlurIcon />}
-                  </div>
-                </div>
-              }
-              defaultValue={layer.blurRadius}
-              fallbackValue={0}
-              onChange={(v) => onChange({ blurRadius: v || '0px' })}
-            />
-          </div>
+          <EffectNumberField
+            label='模糊'
+            icon={layer.type === 'backgroundBlur' ? <BackgroundBlurIcon /> : <BlurIcon />}
+            tip='拖拽调整模糊半径'
+            value={layer.blurRadius}
+            binding={blurRadiusVar}
+            unitOptions={unitOptions}
+            getDragProps={getDragProps}
+            onChange={(next) => onChange({ blurRadius: next })}
+          />
         )}
       </React.Fragment>
     </>

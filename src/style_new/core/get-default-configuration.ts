@@ -90,7 +90,7 @@ export function getDefaultConfiguration ({value, options}: GetDefaultConfigurati
   let autoCollapseWhenUnusedProperty = true;
   let defaultValue: CSSProperties = {}
   let finalSelector
-  let setValue: Record<string, any> = deepCopy(value.get() || {})
+  let setValue: Record<string, any> = deepCopy(value?.get?.() || {})
 
   let getDefaultValue = true
   let dom;

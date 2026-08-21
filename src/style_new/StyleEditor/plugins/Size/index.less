@@ -23,6 +23,21 @@
   flex-direction: column;
 }
 
+/* 变量选择弹层：与颜色变量弹层同一套视觉 */
+.variablePopup {
+  z-index: 1000;
+  position: fixed;
+  visibility: hidden;
+  overflow: hidden;
+  width: 240px;
+  height: 300px;
+  border-radius: 13px;
+  color: @font-color-content;
+  background-color: @bg-color-main;
+  box-shadow: @shadow-main;
+  border: 0.3px solid @boder-color !important;
+}
+
 /* 单侧约束占位：保持与宽/高列同宽，但不显示背景与边框 */
 .constraintSpacer {
   visibility: hidden;

@@ -25,6 +25,14 @@
     display: flex;
     align-items: center;
     white-space: nowrap;
+    // 单位下拉/徽标不参与压缩，窄字段里优先让输入区收窄而不是把单位挤没
+    flex-shrink: 0;
+  }
+
+  /* px 等 hideLabel 单位：箭头默认隐藏，hover / 聚焦整行再显示 */
+  &:hover .suffix [data-unit-arrow],
+  &:focus-within .suffix [data-unit-arrow] {
+    opacity: 1;
   }
 
   input {

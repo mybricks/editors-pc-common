@@ -14,19 +14,14 @@ import { GradientEditor } from "../GradientEditor"
 import { ImagePanel } from "../ImagePanel"
 
 import { isDefaultWhiteGradientLayer, isGradientValue } from "../../helper/gradient-border";
-import { CssVarColorOption, parseCssVar } from "../../../core/resolve-css-var-color";
+import { CssVarColorOption } from "../../../core/resolve-css-var-color";
+import { VariableColorPreview, VariableList } from "../VariableList";
 
 import css from "./index.less";
 
 const DEFAULT_SOLID = "rgba(0,0,0,1)";
 const DEFAULT_GRADIENT =
   "linear-gradient(90deg, rgba(255,255,255,1) 0%, rgba(0,0,0,1) 100%)";
-
-const getCssVarName = (value?: string): string | undefined => {
-  const normalized = value?.trim().replace(/\s*!important\s*$/i, '');
-  if (!normalized) return undefined;
-  return parseCssVar(normalized)?.varName || (normalized.startsWith('--') ? normalized : undefined);
-};
 
 interface ColorpickerProps {
   context: any;
@@ -440,64 +435,19 @@ const ColorVariableList = ({
   open: boolean;
   onBindingChange?: (value: any) => void;
 }) => {
-  const [keyword, setKeyword] = useState('');
-  const listRef = useRef<HTMLDivElement>(null);
-  const normalizedSelectedName = getCssVarName(selectedName);
-  const filteredList = useMemo(
-    () => list.filter((item) => item.name.toLowerCase().includes(keyword.trim().toLowerCase())),
-    [keyword, list]
-  );
-
-  useEffect(() => {
-    if (!open || !selectedName) return;
-    let centerFrame: number | undefined;
-    const renderFrame = window.requestAnimationFrame(() => {
-      // 等变量筛选与列表布局完成后，再根据容器实际边界计算居中位置。
-      centerFrame = window.requestAnimationFrame(() => {
-        const container = listRef.current;
-        const selected = container?.querySelector<HTMLElement>('[data-selected="true"]');
-        if (!container || !selected) return;
-
-        const containerRect = container.getBoundingClientRect();
-        const selectedRect = selected.getBoundingClientRect();
-        const nextScrollTop = container.scrollTop + selectedRect.top - containerRect.top
-          - (container.clientHeight - selectedRect.height) / 2;
-        container.scrollTo({ top: Math.max(0, nextScrollTop) });
-      });
-    });
-    return () => {
-      window.cancelAnimationFrame(renderFrame);
-      if (centerFrame != null) window.cancelAnimationFrame(centerFrame);
-    };
-  }, [open, selectedName, filteredList]);
-
   return (
-    <div className={css.variableListContainer}>
-      <div className={css.variableFilter}>
-        <input
-          value={keyword}
-          placeholder="筛选变量"
-          onChange={(event) => setKeyword(event.target.value)}
-          autoFocus
-        />
-      </div>
-      <div ref={listRef} className={css.variableList}>
-        {filteredList.map((item) => (
-          <div
-            key={item.name}
-            className={css.value}
-            data-selected={getCssVarName(item.name) === normalizedSelectedName || undefined}
-            onClick={() => onBindingChange?.({
-              name: item.name,
-              value: `var(${item.name})`,
-              resetValue: item.value,
-            })}
-          >
-            <div className={css.block} style={{ backgroundColor: item.value }} />
-            <span>{item.name}</span>
-          </div>
-        ))}
-      </div>
-    </div>
+    <VariableList
+      list={list}
+      selectedName={selectedName}
+      open={open}
+      renderIcon={(item) => <VariableColorPreview color={item.value} />}
+      renderValue={() => null}
+      onSelect={(item) => onBindingChange?.({
+        name: item.name,
+        value: `var(${item.name})`,
+        resetValue: item.value,
+      })}
+      emptyText="当前画布没有可用的颜色变量"
+    />
   )
 }

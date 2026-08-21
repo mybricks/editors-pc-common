@@ -12,11 +12,17 @@ import { useInputNumber, useUpdateEffect } from '../../hooks'
 
 import type { InputProps } from '..'
 
-interface UnitOption {
+export interface UnitOption {
   label: string;
   value: string;
+  /** action 项点击后走 onAction 而不改变单位；divider 仅作分隔 */
+  type?: 'action' | 'divider';
+  icon?: React.ReactNode;
+  iconSize?: 'sm' | 'md';
+  disabled?: boolean;
+  tip?: string;
 }
-interface InputNumberProps extends Omit<InputProps, 'onChange' | 'value'> {
+export interface InputNumberProps extends Omit<InputProps, 'onChange' | 'value'> {
   defaultUnitValue?: string
   unitDisabledList?: Array<string>
   unitOptions?: Array<UnitOption>

@@ -93,6 +93,24 @@
       }
     }
 
+    /* 纯图标项：不留勾选位，图标在整行居中 */
+    &.itemIconOnly {
+      padding: 0;
+      height: 28px;
+      justify-content: center;
+
+      .itemIcon {
+        width: auto;
+        /* 居中行里再留右边距会把图标推向左侧 */
+        margin-right: 0;
+
+        svg {
+          width: 24px;
+          height: 24px;
+        }
+      }
+    }
+
     .itemCheck {
       width: 22px;
       flex-shrink: 0;

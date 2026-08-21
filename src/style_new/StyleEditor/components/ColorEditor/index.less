@@ -63,9 +63,37 @@
       &:disabled {
         cursor: not-allowed;
       }
+    }
 
-      &[data-variable="true"] {
+    /* 变量绑定态：框内是「变量名 + 可聚焦输入」。色块已表达色值，变量名不再加衬底 */
+    .variableMain {
+      flex: 1 1 0;
+      min-width: 0;
+      height: 100%;
+      display: flex;
+      align-items: center;
+
+      .variableValue {
+        max-width: 100%;
+        min-width: 0;
+        flex-shrink: 1;
+        font-size: 11px;
+        font-weight: 500;
+        color: @font-color-content;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
         cursor: pointer;
+      }
+
+      /* 输入区只吃变量名之后的剩余空间：flex-basis 0 保证不与变量名争宽度，
+         width:0 抹掉 input 的固有宽度，否则会把整行撑宽 */
+      .input {
+        flex: 1 1 0;
+        width: 0;
+        min-width: 0;
+        margin-left: 3px;
+        outline: none;
       }
     }
 
