@@ -15,6 +15,8 @@ import {
   SketchPopup,
   VariableChip,
   VariableList,
+  getApplyVariableOption,
+  APPLY_VARIABLE_ACTION,
 } from "../../components";
 import { FixedWidth } from "../../icons/FixedWidth";
 import { HugContents } from "../../icons/HugContents";
@@ -23,8 +25,7 @@ import { AddMin } from "../../icons/AddMin";
 import { AddMax } from "../../icons/AddMax";
 import { AspectRatioLock } from "../../icons/AspectRatioLock";
 import { AspectRatioUnlock } from "../../icons/AspectRatioUnlock";
-import { Variable } from "../../icons/Variable";
-import { useDragNumber, useCanvasLengthVariables } from "../../hooks";
+import { useDragNumber, useCanvasLengthVariables, isCssVarValue } from "../../hooks";
 import { useStyleEditorContext } from "../../context";
 import { resolveCssVarLength } from "../../../core/resolve-css-var-length";
 import { formatLengthDisplay } from "../../utils";
@@ -95,7 +96,6 @@ const SIZE_PROPERTY_KEYS = new Set([
 
 type SizeFieldKey = 'width' | 'height' | 'minWidth' | 'maxWidth' | 'minHeight' | 'maxHeight';
 
-const APPLY_VARIABLE_ACTION = 'applyVariable';
 const DETACH_VARIABLE_ACTION = 'detachVariable';
 
 const CONSTRAINT_REMOVE_LABEL: Record<'minWidth' | 'maxWidth' | 'minHeight' | 'maxHeight', string> = {
@@ -105,26 +105,9 @@ const CONSTRAINT_REMOVE_LABEL: Record<'minWidth' | 'maxWidth' | 'minHeight' | 'm
   maxHeight: '移除最大高',
 };
 
-/** 尺寸已绑定 CSS 变量：此时不做单位换算，输入框换成变量胶囊 */
-function isCssVarValue(val?: string | null): val is string {
-  return !!val && val.trim().toLowerCase().startsWith('var(');
-}
-
 /** 宽向字段取实测宽度兜底，高向字段取实测高度 */
 function isWidthField(field: SizeFieldKey): boolean {
   return field === 'width' || field === 'minWidth' || field === 'maxWidth';
-}
-
-/** 各处单位菜单共用的「应用变量...」项 */
-function getApplyVariableOption(hasVariables: boolean) {
-  return {
-    label: '应用变量...',
-    value: APPLY_VARIABLE_ACTION,
-    type: 'action' as const,
-    icon: <Variable />,
-    disabled: !hasVariables,
-    tip: hasVariables ? undefined : '当前画布没有可用的尺寸变量',
-  };
 }
 
 interface SizingModeBadgeProps {

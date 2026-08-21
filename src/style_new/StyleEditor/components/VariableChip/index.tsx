@@ -44,6 +44,8 @@ interface VariableChipProps {
   menuStyle?: CSSProperties
   /** 在胶囊右侧直接输入数值：传入已补好单位的 CSS 值，如 24px / 50% */
   onInputValue?: (value: string) => void
+  /** 裸数字输入时补的单位，默认 px；如字间距绑定 em 变量时传 em */
+  defaultUnit?: string
   /** 光标处按删除键：变量退化为当前的固定数值 */
   onDetach?: () => void
   style?: CSSProperties
@@ -65,6 +67,7 @@ export function VariableChip({
   menuLayout = 'menu',
   menuStyle,
   onInputValue,
+  defaultUnit = 'px',
   onDetach,
   style,
 }: VariableChipProps) {
@@ -112,9 +115,9 @@ export function VariableChip({
     if (!trimmed) return
     const matched = trimmed.match(NUMBER_WITH_UNIT_RE)
     if (!matched) return
-    // 不带单位时按编辑器默认单位 px 处理
-    onInputValue?.(matched[1] ? trimmed : `${trimmed}px`)
-  }, [draft, onInputValue])
+    // 不带单位时按字段当前单位补全
+    onInputValue?.(matched[1] ? trimmed : `${trimmed}${defaultUnit}`)
+  }, [draft, onInputValue, defaultUnit])
 
   const handleKeyDown = useCallback((event: React.KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'Backspace' || event.key === 'Delete') {

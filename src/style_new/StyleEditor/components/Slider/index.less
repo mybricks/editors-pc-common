@@ -40,3 +40,32 @@
     }
   }
 }
+
+.varBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  margin-left: 4px;
+  color: @font-color-content;
+  opacity: 0;
+  cursor: pointer;
+  border-radius: 3px;
+  transition: opacity 0.15s, background 0.15s;
+
+  svg {
+    width: 13px;
+    height: 13px;
+  }
+
+  &:hover {
+    opacity: 1 !important;
+    background: @bg-color-hover;
+  }
+}
+
+.slider:hover .varBtn {
+  opacity: 0.45;
+}

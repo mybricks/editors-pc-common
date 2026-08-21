@@ -3,6 +3,7 @@ import React, { useCallback, useState } from 'react'
 import type { CSSProperties } from 'react'
 
 import { Panel } from '../'
+import { Variable } from '../../icons/Variable'
 
 import css from './index.less'
 
@@ -10,12 +11,16 @@ interface SliderProps {
   defaultValue: number
   onChange: (value: number) => void
   style?: CSSProperties
+  hasVariables?: boolean
+  onApplyVariable?: () => void
 }
 
 export function Slider ({
   defaultValue,
   onChange,
-  style
+  style,
+  hasVariables,
+  onApplyVariable,
 }: SliderProps) {
   const [value, setValue] = useState(defaultValue)
 
@@ -44,6 +49,15 @@ export function Slider ({
           value={value}
           onChange={onInputChange}
         />
+        {hasVariables && (
+          <span
+            className={css.varBtn}
+            data-mybricks-tip='应用变量...'
+            onClick={onApplyVariable}
+          >
+            <Variable />
+          </span>
+        )}
       </div>
     </Panel.Item>
   )

@@ -20,14 +20,14 @@ import {
   TruncateTextOutlined,
   Dropdown,
   DownOutlined,
-  SketchPopup,
-  VariableChip,
-  VariableList,
+  VariableNumberInput,
+  getApplyVariableOption,
+  APPLY_VARIABLE_ACTION,
 } from "../../components";
-import { splitValueAndUnit, formatLengthDisplay } from "../../utils";
+import { splitValueAndUnit } from "../../utils";
 import { isObject } from "../../../../util/lodash/isObject";
 import { PanelBaseProps } from "../../type";
-import { useDragNumber, useCanvasColorVariables, useCanvasLengthVariables } from "../../hooks";
+import { useDragNumber, useCanvasColorVariables, useLengthVarBinding, isCssVarValue } from "../../hooks";
 import { Variable } from "../../icons/Variable";
 import { FontSetting } from "../../icons/FontSetting";
 import { FontSettingTruncation } from "../../icons/FontSettingTruncation";
@@ -41,21 +41,13 @@ import {
 } from "../../helper/text-fill";
 import { getColorEditorValue } from "../../helper/get-color-editor-value";
 import { resolveCssVarColor } from "../../../core/resolve-css-var-color";
-import { resolveCssVarLength } from "../../../core/resolve-css-var-length";
 import css from "./index.less";
-
-const APPLY_VARIABLE_ACTION = 'applyVariable';
 
 /** 字号预置档位（对齐 Figma 的字号下拉） */
 const FONT_SIZE_PRESETS = [10, 11, 12, 13, 14, 15, 16, 20, 24, 32, 36, 40, 48, 64, 96, 128];
 
 /** 档位全展开，宽度不被长文案撑开（超出走省略号） */
 const FONT_SIZE_MENU_STYLE: CSSProperties = { maxHeight: 'none', maxWidth: 132 };
-
-/** 已绑定 CSS 变量：输入框换成变量胶囊，且不参与数值换算与联动 */
-function isCssVarValue(val?: string | number | null): val is string {
-  return typeof val === 'string' && val.trim().toLowerCase().startsWith('var(');
-}
 
 interface FontProps extends PanelBaseProps {
   value: CSSProperties;
@@ -438,20 +430,7 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
     );
   }, [targetDom]);
 
-  const { variableOptions: lengthVariables } = useCanvasLengthVariables();
-  const hasLengthVariables = lengthVariables.length > 0;
-  const [fontSizePickerOpen, setFontSizePickerOpen] = useState(false);
-  const [fontSizePickerMounted, setFontSizePickerMounted] = useState(false);
-  const fontSizeAnchorRef = useRef<HTMLDivElement>(null);
-
   const defaultFontSizePx = getComputedCssLengthPx(targetDom, 'fontSize');
-  /** 字号绑定的变量引用，及其解析出的具体长度 */
-  const fontSizeVarRef = isCssVarValue(fontSize) ? fontSize : undefined;
-  const resolvedFontSizeVar = useMemo(
-    () => (fontSizeVarRef ? resolveCssVarLength(fontSizeVarRef, targetDom) : null),
-    [fontSizeVarRef, targetDom]
-  );
-  const fontSizeFallback = resolvedFontSizeVar || `${defaultFontSizePx ?? 14}px`;
   const fontSizeUnconfigured = !isConfiguredCssLength(fontSize);
   const fontSizePlaceholder = fontSizeUnconfigured
     ? buildDefaultLengthPlaceholder(defaultFontSizePx)
@@ -529,7 +508,7 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
 
       // 变量值无法参与数值计算，直接落盘并跳过行高联动
       if (isCssVarValue(nextFontSize)) {
-        setFontSize(nextFontSize);
+        setFontSize(nextFontSize as string);
         onChange({ key: "fontSize", value: nextFontSize });
         return;
       }
@@ -540,8 +519,9 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
       const [, lineHeightUnit] = splitValueAndUnit(lineHeight as any);
 
       if (fontSizeUnit === "px") {
-        // 行高已清空时只改字号，避免 Number(null)===0 误写回 lineHeight
-        if (lineHeight == null || lineHeight === '') {
+        // 行高已清空或绑定了变量时只改字号：前者避免 Number(null)===0 误写回，
+        // 后者避免联动把用户绑定的行高变量覆盖成数值
+        if (lineHeight == null || lineHeight === '' || isCssVarValue(lineHeight)) {
           onChange({ key: "fontSize", value: nextFontSize });
           return;
         }
@@ -599,19 +579,25 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
     [lineHeight]
   );
 
+  const fontSizeVar = useLengthVarBinding({
+    value: fontSize,
+    onChange: onFontSizeChange,
+    fallback: `${defaultFontSizePx ?? 14}px`,
+  });
+
   const onLineHeightChange = useCallback(
     (next: string | number | null, nextFontSize?: string | number) => {
       let value = next;
       // 下拉选择「默认」：清除行高，回到未配置态
       if (value === 'default' || value === 'normal') {
         value = null;
-      } else if (value != null && value !== '') {
+      } else if (value != null && value !== '' && !isCssVarValue(value)) {
+        // 变量值不参与单位换算，原样落盘
         const fsSource = String(nextFontSize ?? fontSize ?? '');
-        // 字号绑定变量时用解析出的长度做基准，否则 var(--x) 会让换算退化到兜底值
-        const fsRaw = isCssVarValue(fsSource)
-          ? splitValueAndUnit(String(resolvedFontSizeVar ?? ''))[0]
-          : splitValueAndUnit(fsSource)[0];
-        const fontSizePx = Number(fsRaw || defaultFontSizePx || 14) || 14;
+        // 字号绑定变量时用解析出的数值做基准，否则 var(--x) 会让换算退化到兜底值
+        const fontSizePx = isCssVarValue(fsSource)
+          ? (fontSizeVar.resolvedNumber ?? defaultFontSizePx ?? 14)
+          : Number(splitValueAndUnit(fsSource)[0] || defaultFontSizePx || 14) || 14;
         const defaultPx = defaultLineHeightPx ?? Math.round(fontSizePx + 8);
         const [newNumStr, newUnitRaw] = splitValueAndUnit(String(value));
         const newUnit = newUnitRaw ?? '';
@@ -644,48 +630,15 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
         onChange(res);
       }
     },
-    [lineHeight, fontSize, resolvedFontSizeVar, defaultFontSizePx, defaultLineHeightPx, onChange]
+    [lineHeight, fontSize, fontSizeVar.resolvedNumber, defaultFontSizePx, defaultLineHeightPx, onChange]
   );
-
-  const openFontSizeVariablePicker = useCallback(() => {
-    if (!hasLengthVariables) return;
-    setFontSizePickerMounted(true);
-    setFontSizePickerOpen(true);
-  }, [hasLengthVariables]);
-
-  const closeFontSizeVariablePicker = useCallback(() => setFontSizePickerOpen(false), []);
-
-  /** 解绑变量：落成变量当前解析值，解析不到时退回计算值 */
-  const detachFontSizeVariable = useCallback(() => {
-    onFontSizeChange(fontSizeFallback);
-  }, [onFontSizeChange, fontSizeFallback]);
-
-  /**
-   * 变量态的拖拽：从变量当前值起步，一动就落成 px（即自动解绑），与尺寸编辑器一致。
-   * 只点击不拖动时值没变，保持绑定不动。
-   */
-  const fontSizeVarDragStartRef = useRef(0);
-  const getDragPropsFontSizeVariable = useDragNumber({
-    onDragStart: (currentValue) => {
-      const parsed = parseFloat(currentValue);
-      const startValue = isNaN(parsed) ? (defaultFontSizePx ?? 14) : Math.round(parsed);
-      fontSizeVarDragStartRef.current = startValue;
-      return startValue;
-    },
-    onDragChange: (val) => {
-      if (val !== fontSizeVarDragStartRef.current) onFontSizeChange(`${val}px`);
-    },
-    onDragEnd: (finalValue) => {
-      if (finalValue !== fontSizeVarDragStartRef.current) onFontSizeChange(`${finalValue}px`);
-    },
-  });
 
   const fontSizePresetItems = useMemo(
     () => FONT_SIZE_PRESETS.map((size) => ({ label: String(size), value: String(size) })),
     []
   );
 
-  /** 字号预置列表 + 底部变量入口 */
+  /** 字号预置列表 + 底部变量入口（图标居中、无文案，对齐 Figma） */
   const fontSizePresetOptions = useMemo(() => ([
     ...fontSizePresetItems,
     { label: '', value: '__fontSizeVariableDivider__', type: 'divider' as const },
@@ -694,19 +647,19 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
       value: APPLY_VARIABLE_ACTION,
       type: 'action' as const,
       icon: <Variable />,
-      disabled: !hasLengthVariables,
-      tip: hasLengthVariables ? '应用变量...' : '当前画布没有可用的尺寸变量',
+      disabled: !fontSizeVar.hasVariables,
+      tip: fontSizeVar.hasVariables ? '应用变量...' : '当前画布没有可用的尺寸变量',
     },
-  ]), [fontSizePresetItems, hasLengthVariables]);
+  ]), [fontSizePresetItems, fontSizeVar.hasVariables]);
 
   /** 预置列表的勾选项：取当前字号的 px 数值，不在档位里则不勾 */
   const fontSizePresetValue = useMemo(() => {
-    if (fontSizeVarRef) return '';
+    if (fontSizeVar.varRef) return '';
     const [num, unit] = splitValueAndUnit(String(fontSize ?? ''));
     if (unit && unit !== 'px') return '';
     const parsed = parseFloat(String(num));
     return isNaN(parsed) ? '' : String(parsed);
-  }, [fontSize, fontSizeVarRef]);
+  }, [fontSize, fontSizeVar.varRef]);
 
   const onLetterSpacingChange = useCallback(
     (value: string | number | null) => {
@@ -715,6 +668,32 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
     },
     [onChange]
   );
+
+  const lineHeightVar = useLengthVarBinding({
+    value: lineHeight,
+    onChange: onLineHeightChange,
+    fallback: `${defaultLineHeightPx ?? Math.round((defaultFontSizePx ?? 14) + 8)}px`,
+  });
+
+  const letterSpacingVar = useLengthVarBinding({
+    value: letterSpacing,
+    onChange: onLetterSpacingChange,
+    fallback: `${defaultLetterSpacingPx ?? 0}px`,
+  });
+
+  /** 行高、字间距的单位菜单末尾统一挂「应用变量...」 */
+  const lineHeightUnitOptions = useMemo(() => [
+    ...LINEHEIGHT_UNIT_OPTIONS,
+    { label: '', value: '__variableDivider__', type: 'divider' as const },
+    getApplyVariableOption(lineHeightVar.hasVariables),
+  ], [lineHeightVar.hasVariables]);
+
+  const letterSpacingUnitOptions = useMemo(() => [
+    ...LETTERSPACING_UNIT_OPTIONS,
+    { label: '', value: '__variableDivider__', type: 'divider' as const },
+    getApplyVariableOption(letterSpacingVar.hasVariables),
+  ], [letterSpacingVar.hasVariables]);
+
 
   useEffect(() => {
     if (!popoverOpen) return;
@@ -992,6 +971,7 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
             defaultValue={textFillValue}
             resolvedColor={textFillResolvedColor ?? undefined}
             variableOptions={canvasColorVariables}
+            scopeEl={targetDom}
             showSubTabs={true}
             disableBackgroundImage={true}
             onChange={handleTextFillChange}
@@ -1023,9 +1003,9 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
           {cfg.disableFontSize ? null : (
             <Panel.Item className={css.fontSizeItem} style={{ display: "flex", alignItems: "center", flex: 1, padding: "0 8px", minWidth: 0 }}>
               <div 
-                ref={fontSizeAnchorRef}
-                {...(fontSizeVarRef
-                  ? getDragPropsFontSizeVariable(fontSizeFallback, '拖拽调整字号（将解除变量绑定）')
+                ref={fontSizeVar.anchorRef}
+                {...(fontSizeVar.varRef
+                  ? fontSizeVar.dragProps('拖拽调整字号（将解除变量绑定）')
                   : getDragPropsFontSize(
                       fontSizeUnconfigured
                         ? (defaultFontSizePx != null ? `${defaultFontSizePx}px` : '14px')
@@ -1043,33 +1023,22 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
               >
                 <FontSizeOutlined />
               </div>
-              {fontSizeVarRef ? (
-                <VariableChip
-                  value={fontSizeVarRef}
-                  resolvedValue={resolvedFontSizeVar}
-                  display={formatLengthDisplay(resolvedFontSizeVar)}
-                  onRequestPicker={openFontSizeVariablePicker}
-                  // 绑定态也给出完整档位列表：顶部单列当前变量，点档位即解绑成固定值
-                  menuLayout="presetList"
-                  menuOptions={fontSizePresetItems}
-                  menuStyle={FONT_SIZE_MENU_STYLE}
-                  onMenuSelect={(size) => onFontSizeChange(`${size}px`)}
-                  onInputValue={onFontSizeChange}
-                  onDetach={detachFontSizeVariable}
-                  // flex-basis 显式为 0：胶囊与输入区都不能把列宽撑开
-                  style={{ flex: '1 1 0', minWidth: 0, width: 0, marginLeft: 4 }}
-                />
-              ) : (
-                <InputNumber
-                  tip={fontSizeTip}
-                  type="number"
-                  style={{ flex: 1, minWidth: 0, marginLeft: 4 }}
-                  value={fontSizeUnconfigured ? null : fontSize}
-                  placeholder={fontSizePlaceholder}
-                  unitOptions={FONT_SIZE_OPTIONS}
-                  // unitDisabledList={FONT_SIZE_DISABLED_LIST}
-                  onChange={onFontSizeChange}
-                  suffix={
+              <VariableNumberInput
+                binding={fontSizeVar}
+                // 绑定态也给出完整档位列表：顶部单列当前变量，点档位即解绑成固定值
+                menuLayout="presetList"
+                menuOptions={fontSizePresetItems}
+                menuStyle={FONT_SIZE_MENU_STYLE}
+                onMenuSelect={(size) => onFontSizeChange(`${size}px`)}
+                inputProps={{
+                  tip: fontSizeTip,
+                  type: "number",
+                  style: { flex: 1, minWidth: 0, marginLeft: 4 },
+                  value: fontSizeUnconfigured ? null : fontSize,
+                  placeholder: fontSizePlaceholder,
+                  unitOptions: FONT_SIZE_OPTIONS,
+                  onChange: onFontSizeChange,
+                  suffix: (
                     <Dropdown
                       className={css.fontSizeArrowWrap}
                       // 档位不多，全展开避免底部的变量入口被滚动区藏住
@@ -1078,35 +1047,16 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
                       options={fontSizePresetOptions}
                       onClick={(size) => onFontSizeChange(`${size}px`)}
                       onAction={(action) => {
-                        if (action === APPLY_VARIABLE_ACTION) openFontSizeVariablePicker();
+                        if (action === APPLY_VARIABLE_ACTION) fontSizeVar.openPicker();
                       }}
                     >
                       <span className={css.fontSizeArrow} data-mybricks-tip="字号档位">
                         <DownOutlined />
                       </span>
                     </Dropdown>
-                  }
-                />
-              )}
-              <SketchPopup
-                open={fontSizePickerOpen}
-                mounted={fontSizePickerMounted}
-                anchorRef={fontSizeAnchorRef}
-                onClose={closeFontSizeVariablePicker}
-                className={css.variablePopup}
-              >
-                <VariableList
-                  list={lengthVariables}
-                  open={fontSizePickerOpen}
-                  selectedName={fontSizeVarRef}
-                  onClose={closeFontSizeVariablePicker}
-                  onSelect={(item) => {
-                    onFontSizeChange(`var(${item.name})`);
-                    closeFontSizeVariablePicker();
-                  }}
-                  emptyText="当前画布没有可用的尺寸变量"
-                />
-              </SketchPopup>
+                  ),
+                }}
+              />
             </Panel.Item>
           )}
           {truncateBtnInWeightRow ? truncateBtnNode : null}
@@ -1117,12 +1067,15 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
           {cfg.disableLineHeight ? null : (
             <Panel.Item style={{ display: "flex", alignItems: "center", flex: 1, padding: "0 8px" }}>
               <div 
-                {...getDragPropsLineHeight(
-                  lineHeight == null || lineHeight === '' || ['unset', 'normal', 'inherit'].includes(lineHeight as string)
-                    ? '1'
-                    : lineHeight,
-                  '拖拽调整行高'
-                )}
+                ref={lineHeightVar.anchorRef}
+                {...(lineHeightVar.varRef
+                  ? lineHeightVar.dragProps('拖拽调整行高（将解除变量绑定）')
+                  : getDragPropsLineHeight(
+                      lineHeight == null || lineHeight === '' || ['unset', 'normal', 'inherit'].includes(lineHeight as string)
+                        ? '1'
+                        : lineHeight,
+                      '拖拽调整行高'
+                    ))}
                 style={{ 
                   height: "100%", 
                   display: "flex", 
@@ -1134,32 +1087,41 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
               >
                 <LineHeightOutlined />
               </div>
-              <InputNumber
-                key={`lineHeight-${getLineHeightUnitKey(lineHeight)}`}
-                tip={lineHeightTip}
-                type="number"
-                style={{ flex: 1, marginLeft: 4 }}
-                value={lineHeightUnconfigured ? null : lineHeight}
-                placeholder={lineHeightPlaceholder}
-                defaultUnitValue="default"
-                unitOptions={LINEHEIGHT_UNIT_OPTIONS}
-                unitDisabledList={LINEHEIGHT_UNIT_DISABLED_LIST}
-                hideUnitWhenEmpty
-                showIcon
-                showIconOnHover
-                onChange={onLineHeightChange}
+              <VariableNumberInput
+                binding={lineHeightVar}
+                inputKey={`lineHeight-${getLineHeightUnitKey(lineHeight)}`}
+                inputProps={{
+                  tip: lineHeightTip,
+                  type: "number",
+                  style: { flex: 1, minWidth: 0, marginLeft: 4 },
+                  value: lineHeightUnconfigured ? null : lineHeight,
+                  placeholder: lineHeightPlaceholder,
+                  defaultUnitValue: "default",
+                  unitOptions: lineHeightUnitOptions,
+                  unitDisabledList: LINEHEIGHT_UNIT_DISABLED_LIST,
+                  hideUnitWhenEmpty: true,
+                  showIcon: true,
+                  showIconOnHover: true,
+                  onChange: onLineHeightChange,
+                  onAction: (action) => {
+                    if (action === APPLY_VARIABLE_ACTION) lineHeightVar.openPicker();
+                  },
+                }}
               />
             </Panel.Item>
           )}
           {cfg.disableLetterSpacing ? null : (
             <Panel.Item style={{ display: "flex", alignItems: "center", flex: 1, padding: "0 8px" }}>
               <div 
-                {...getDragPropsLetterSpacing(
-                  letterSpacingUnconfigured
-                    ? `${defaultLetterSpacingPx ?? 0}px`
-                    : letterSpacing,
-                  '拖拽调整字间距'
-                )}
+                ref={letterSpacingVar.anchorRef}
+                {...(letterSpacingVar.varRef
+                  ? letterSpacingVar.dragProps('拖拽调整字间距（将解除变量绑定）')
+                  : getDragPropsLetterSpacing(
+                      letterSpacingUnconfigured
+                        ? `${defaultLetterSpacingPx ?? 0}px`
+                        : letterSpacing,
+                      '拖拽调整字间距'
+                    ))}
                 style={{ 
                   height: "100%", 
                   display: "flex", 
@@ -1171,16 +1133,23 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
               >
                 <LetterSpacingOutlined />
               </div>
-              <InputNumber
-                tip={letterSpacingTip}
-                type="number"
-                style={{ flex: 1, marginLeft: 4 }}
-                value={letterSpacingUnconfigured ? null : letterSpacing}
-                placeholder={letterSpacingPlaceholder}
-                defaultUnitValue="px"
-                unitOptions={LETTERSPACING_UNIT_OPTIONS}
-                // unitDisabledList={LETTERSPACING_UNIT_DISABLED_LIST}
-                onChange={onLetterSpacingChange}
+              <VariableNumberInput
+                binding={letterSpacingVar}
+                inputProps={{
+                  tip: letterSpacingTip,
+                  type: "number",
+                  style: { flex: 1, minWidth: 0, marginLeft: 4 },
+                  value: letterSpacingUnconfigured ? null : letterSpacing,
+                  placeholder: letterSpacingPlaceholder,
+                  defaultUnitValue: "px",
+                  unitOptions: letterSpacingUnitOptions,
+                  showIcon: true,
+                  showIconOnHover: true,
+                  onChange: onLetterSpacingChange,
+                  onAction: (action) => {
+                    if (action === APPLY_VARIABLE_ACTION) letterSpacingVar.openPicker();
+                  },
+                }}
               />
             </Panel.Item>
           )}

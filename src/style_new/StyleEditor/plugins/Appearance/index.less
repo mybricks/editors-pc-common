@@ -57,20 +57,32 @@
   text-align: left;
   padding: 0 2px;
   margin-left: 2px;
-  width: 100%;
+}
 
-  &::-webkit-inner-spin-button,
-  &::-webkit-outer-spin-button {
-    -webkit-appearance: none;
-    appearance: none;
-    margin: 0;
+.varBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  color: @font-color-content;
+  opacity: 0;
+  cursor: pointer;
+  border-radius: 3px;
+  transition: opacity 0.15s, background 0.15s;
+
+  svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  &:hover {
+    opacity: 1 !important;
+    background: @bg-color-hover;
   }
 }
 
-.percentSuffix {
-  font-size: 11px;
-  color: @font-color-content;
-  opacity: 0.6;
-  flex-shrink: 0;
-  margin-right: 2px;
+.inputItem:hover .varBtn {
+  opacity: 0.55;
 }

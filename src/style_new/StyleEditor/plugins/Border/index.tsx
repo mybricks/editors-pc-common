@@ -620,6 +620,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                     defaultValue={getGradientBorderValue(borderValue) || borderValue.borderTopColor}
                     resolvedColor={resolveCssVarColor(borderValue.borderTopColor || "", targetDom) ?? undefined}
                     variableOptions={canvasColorVariables}
+                    scopeEl={targetDom}
                     showSubTabs={borderPosition === 'center'}
                     disableBackgroundImage={true}
                     onChange={(input: any) => {
@@ -780,6 +781,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                       defaultValue={borderValue.borderLeftColor}
                       resolvedColor={resolveCssVarColor(borderValue.borderLeftColor || "", targetDom) ?? undefined}
                       variableOptions={canvasColorVariables}
+                      scopeEl={targetDom}
                       showSubTabs={false}
                       onChange={(input: any) => {
                         const value = getColorEditorValue(input);
@@ -836,6 +838,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                       defaultValue={borderValue.borderTopColor}
                       resolvedColor={resolveCssVarColor(borderValue.borderTopColor || "", targetDom) ?? undefined}
                       variableOptions={canvasColorVariables}
+                      scopeEl={targetDom}
                       showSubTabs={false}
                       onChange={(input: any) => {
                         const value = getColorEditorValue(input);
@@ -893,6 +896,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                       defaultValue={borderValue.borderRightColor}
                       resolvedColor={resolveCssVarColor(borderValue.borderRightColor || "", targetDom) ?? undefined}
                       variableOptions={canvasColorVariables}
+                      scopeEl={targetDom}
                       showSubTabs={false}
                       onChange={(input: any) => {
                         const value = getColorEditorValue(input);
@@ -950,6 +954,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                       defaultValue={borderValue.borderBottomColor}
                       resolvedColor={resolveCssVarColor(borderValue.borderBottomColor || "", targetDom) ?? undefined}
                       variableOptions={canvasColorVariables}
+                      scopeEl={targetDom}
                       showSubTabs={false}
                       onChange={(input: any) => {
                         const value = getColorEditorValue(input);

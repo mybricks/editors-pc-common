@@ -1,4 +1,11 @@
-import React, { useMemo, useState, useCallback, CSSProperties } from "react";
+import React, {
+  useMemo,
+  useState,
+  useCallback,
+  useLayoutEffect,
+  useRef,
+  CSSProperties,
+} from "react";
 
 import {
   Panel,
@@ -42,6 +49,24 @@ const DEFAULT_CONFIG = {
   useImportant: false,
 };
 
+const RADIUS_KEYS = [
+  "borderTopLeftRadius",
+  "borderTopRightRadius",
+  "borderBottomRightRadius",
+  "borderBottomLeftRadius",
+] as const;
+
+/** 面板内部只处理纯值，!important 由写值时按 config 追加 */
+function stripImportant(value: CSSProperties) {
+  const next: Record<string, any> = Object.assign({}, value);
+  Object.entries(next).forEach(([key, val]) => {
+    if (typeof val === "string") {
+      next[key] = val.replace(/!.*$/, "");
+    }
+  });
+  return next as CSSProperties & Record<string, any>;
+}
+
 export function Radius({ value, onChange, config, showTitle, collapse }: BorderProps) {
   const [{ useImportant }] = useState({
     ...DEFAULT_CONFIG,
@@ -50,17 +75,27 @@ export function Radius({ value, onChange, config, showTitle, collapse }: BorderP
   const [{ radiusToggleValue }, setToggleValue] = useState(
     getToggleDefaultValue(value)
   );
-  const defaultValue = useMemo(() => {
-    const defaultValue = Object.assign({}, value);
-    Object.entries(defaultValue).forEach(([key, value]) => {
-      if (typeof value === "string") {
-        // @ts-ignore
-        defaultValue[key] = value.replace(/!.*$/, "");
-      }
-    });
-    return defaultValue;
-  }, []);
-  const [borderValue, setBorderValue] = useState(defaultValue);
+  const [borderValue, setBorderValue] = useState(() => stripImportant(value));
+  /** 由外部值同步引起的模式切换不应回写四角，否则切换组件会覆盖真实圆角 */
+  const isExternalSyncRef = useRef(false);
+
+  // 面板实例在切换选中组件时复用，需同步新的圆角值，避免旧值回显
+  useLayoutEffect(() => {
+    const next = stripImportant(value);
+    setBorderValue((previous: Record<string, any>) =>
+      RADIUS_KEYS.every((key) => previous[key] === next[key]) ? previous : next
+    );
+    const nextToggle = getToggleDefaultValue(value).radiusToggleValue;
+    if (nextToggle !== radiusToggleValue) {
+      isExternalSyncRef.current = true;
+      setToggleValue({ radiusToggleValue: nextToggle });
+    }
+  }, [
+    value.borderTopLeftRadius,
+    value.borderTopRightRadius,
+    value.borderBottomRightRadius,
+    value.borderBottomLeftRadius,
+  ]);
 
   const handleChange = useCallback(
     (value: CSSProperties & Record<string, any>) => {
@@ -190,7 +225,7 @@ export function Radius({ value, onChange, config, showTitle, collapse }: BorderP
         </div>
       );
     }
-  }, [radiusToggleValue]);
+  }, [radiusToggleValue, borderValue]);
 
   const handleToggleChange = useCallback(
     ({ key, value }: { key: string; value: string }) => {
@@ -205,6 +240,10 @@ export function Radius({ value, onChange, config, showTitle, collapse }: BorderP
   );
 
   useUpdateEffect(() => {
+    if (isExternalSyncRef.current) {
+      isExternalSyncRef.current = false;
+      return;
+    }
     handleChange({
       borderTopLeftRadius: borderValue.borderTopLeftRadius,
       borderTopRightRadius: borderValue.borderTopLeftRadius,
