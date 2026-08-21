@@ -68,6 +68,18 @@ export function applyRuleHooks(
     }
   }
 
+  // boxShadow 默认不从规则读（见 PROP_SPECS 的注释），只走 computed 兜底，
+  // 而 computed 会把 var() 解析成具体值，效果面板里绑定的变量就回显不出来。
+  // 仅在规则值含 var() 时以规则原值为准，其余场景维持旧行为。
+  const ruleBoxShadow = (
+    style.getPropertyValue?.('box-shadow') ||
+    (style as any).boxShadow ||
+    ''
+  ).trim()
+  if (ruleBoxShadow.includes('var(')) {
+    acc.boxShadow = ruleBoxShadow
+  }
+
   // webkit backdrop-filter
   const styleWebkitBackdropFilter = style.getPropertyValue?.('-webkit-backdrop-filter')
   if (styleWebkitBackdropFilter) {

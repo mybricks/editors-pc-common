@@ -8,6 +8,20 @@
   align-items: center;
   overflow: hidden;
 
+  /* 与 Input 的 prefix 对齐，绑定前后图标位置不跳动 */
+  .prefix {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-left: 2px;
+    margin-right: 2px;
+
+    svg {
+      max-width: 14px;
+    }
+  }
+
   .main {
     flex: 1 1 0;
     min-width: 0;
@@ -36,9 +50,9 @@
 
   /* 绑定变量的标识：值外面套一层描边衬底。列窄时允许收缩并省略号，不撑破列宽 */
   .valueBox {
-    max-width: 100%;
+    max-width: 72px;
     min-width: 0;
-    flex-shrink: 1;
+    flex: 0 1 auto;
     cursor: pointer;
     height: 18px;
     padding: 0 6px;
@@ -77,6 +91,34 @@
 
     &:hover {
       opacity: 1;
+    }
+  }
+
+  &.iconOnHover {
+    .arrow {
+      opacity: 0;
+      transition: opacity 0.15s;
+    }
+
+    &:hover .arrow,
+    &:focus-within .arrow {
+      opacity: 0.55;
+    }
+
+    &:hover .arrow:hover {
+      opacity: 1;
+    }
+  }
+
+  &.compact {
+    .valueBox {
+      padding: 0 5px;
+      max-width: 32px;
+    }
+
+    .arrowWrap {
+      width: 16px;
+      margin-right: 0;
     }
   }
 }

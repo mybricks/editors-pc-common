@@ -149,7 +149,7 @@ export function Appearance({ value, onChange, showTitle, collapse }: AppearanceP
       resetFunction={handleReset}
       collapse={effectiveCollapse}
     >
-      <Panel.Content style={{ paddingTop: 0 }}>
+      <Panel.Content>
         <Panel.Item className={css.inputItem}>
           <span
             className={`${css.inputIcon} ${css.opacityIcon}`}

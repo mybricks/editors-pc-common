@@ -153,7 +153,7 @@ export function Select({
       >
         <div
           data-mybricks-tip={clearable && hovered ? undefined : tip}
-          className={`${css.select}${disabled ? ` ${css.disabled}` : ''}${showIconOnHover && !hideLabel ? ` ${css.iconOnHover}` : ''}`}
+          className={`${css.select}${disabled ? ` ${css.disabled}` : ''}${showIconOnHover && !hideLabel ? ` ${css.iconOnHover}` : ''}${showIconOnHover && hideLabel ? ` ${css.iconHoverOnly}` : ''}`}
           style={showIcon ? {} : { padding: 0 }}
           onMouseEnter={() => setHovered(true)}
           onMouseLeave={() => setHovered(false)}
@@ -188,7 +188,10 @@ export function Select({
                 </span>
               )
               : (
-                <span className={`${css.icon}${iconClassName ? ` ${iconClassName}` : ''}`}>
+                <span
+                  className={`${css.icon}${iconClassName ? ` ${iconClassName}` : ''}`}
+                  {...(showIconOnHover && hideLabel ? { 'data-unit-arrow': '' } : {})}
+                >
                   <DownOutlined />
                 </span>
               )

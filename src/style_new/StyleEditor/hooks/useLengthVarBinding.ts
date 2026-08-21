@@ -21,6 +21,8 @@ export interface LengthVarBindingOptions {
   fallback?: string
   /** 未传 fallback 时，按此 CSS 属性读画布节点的计算值兜底，如 paddingTop */
   computedProp?: string
+  /** 绑定态拖拽的下限，负值域字段（如阴影偏移）需传 -Infinity */
+  min?: number
 }
 
 export interface LengthVarBinding {
@@ -71,6 +73,7 @@ export function useLengthVarBinding({
   onChange,
   fallback,
   computedProp,
+  min,
 }: LengthVarBindingOptions): LengthVarBinding {
   const context = useStyleEditorContext()
   const targetDom = context?.targetDom ?? null
@@ -95,12 +98,23 @@ export function useLengthVarBinding({
     return isNaN(parsed) ? '' : `${Math.round(parsed)}px`
   }, [computedProp, targetDom, value])
 
-  const fallbackValue = resolvedValue || fallback || computedFallback || '0px'
+  // calc() 等表达式 parseFloat 拿不到数字，解绑/拖拽改用计算后的 px，避免胶囊里塞整段公式
+  const resolvedNumericPart = resolvedValue
+    ? splitValueAndUnit(resolvedValue)[0]
+    : null
+  const fallbackValue = (
+    resolvedNumericPart != null
+      ? resolvedValue
+      : (computedFallback || fallback || resolvedValue)
+  ) || '0px'
   const resolvedNumber = useMemo(() => {
-    if (!resolvedValue) return null
-    const parsed = parseFloat(String(splitValueAndUnit(resolvedValue)[0]))
-    return isNaN(parsed) ? null : parsed
-  }, [resolvedValue])
+    if (resolvedNumericPart != null) {
+      const parsed = parseFloat(String(resolvedNumericPart))
+      if (!isNaN(parsed)) return parsed
+    }
+    const fromComputed = parseFloat(String(computedFallback || fallback || ''))
+    return isNaN(fromComputed) ? null : fromComputed
+  }, [resolvedNumericPart, computedFallback, fallback])
 
   const defaultUnit = useMemo(() => {
     const [, unit] = splitValueAndUnit(fallbackValue)
@@ -129,6 +143,7 @@ export function useLengthVarBinding({
   const unitRef = useRef(defaultUnit)
   unitRef.current = defaultUnit
   const getDragProps = useDragNumber({
+    min,
     onDragStart: (currentValue) => {
       const parsed = parseFloat(currentValue)
       const startValue = isNaN(parsed) ? 0 : Math.round(parsed)
@@ -152,7 +167,7 @@ export function useLengthVarBinding({
     varRef,
     resolvedValue,
     resolvedNumber,
-    displayText: formatLengthDisplay(resolvedValue),
+    displayText: formatLengthDisplay(resolvedValue, computedFallback || fallback),
     fallbackValue,
     defaultUnit,
     variables: variableOptions,

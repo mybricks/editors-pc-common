@@ -65,7 +65,13 @@ interface VariableNumberInputProps {
   onMenuAction?: (value: string) => void
   /** 绑定态胶囊的外层样式，默认与相邻字段等分且可收缩 */
   chipStyle?: CSSProperties
+  /** 绑定态胶囊左侧的图标，字段标识只画在输入框里时（如效果的 X/Y）需一并传入 */
+  chipPrefix?: React.ReactNode
+  /** 变量弹层开在另一个弹层里，点它不应关掉外层 */
+  nestedPicker?: boolean
   emptyText?: string
+  /** 窄列收紧绑定胶囊，与旁边的紧凑 InputNumber 对齐 */
+  compact?: boolean
 }
 
 /**
@@ -82,7 +88,10 @@ export function VariableNumberInput({
   onMenuSelect,
   onMenuAction,
   chipStyle = DEFAULT_FIELD_STYLE,
+  chipPrefix,
+  nestedPicker = false,
   emptyText = '当前画布没有可用的尺寸变量',
+  compact = false,
 }: VariableNumberInputProps) {
   // 「固定值」是所有字段共有的解绑出口，调用方不传菜单时兜底给它
   const chipMenuOptions = menuOptions ?? buildDetachMenuOptions(binding.fallbackValue)
@@ -111,7 +120,10 @@ export function VariableNumberInput({
           onMenuAction={handleMenuAction}
           onInputValue={inputProps.onChange as (value: string) => void}
           onDetach={binding.detach}
+          prefix={chipPrefix}
           style={chipStyle}
+          compact={compact}
+          showIconOnHover={inputProps.showIconOnHover}
         />
       ) : (
         <InputNumber key={inputKey} {...inputProps} />
@@ -122,6 +134,7 @@ export function VariableNumberInput({
         anchorRef={binding.anchorRef}
         onClose={binding.closePicker}
         className={css.variablePopup}
+        nested={nestedPicker}
       >
         <VariableList
           list={binding.variables}

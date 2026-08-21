@@ -13,6 +13,11 @@ export interface SketchPopupProps {
   children: ReactNode
   /** 依赖变化时重新定位（如内容高度变化） */
   repositionKey?: string | number
+  /**
+   * 弹层开在另一个弹层里时置 true：标记成下拉浮层，
+   * 点它不会被外层当作「点击外部」而把外层关掉（与 Colorpicker 取色浮层同一机制）。
+   */
+  nested?: boolean
 }
 
 /**
@@ -27,6 +32,7 @@ export function SketchPopup({
   className,
   children,
   repositionKey,
+  nested = false,
 }: SketchPopupProps): React.ReactElement | null {
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -73,6 +79,7 @@ export function SketchPopup({
     <div
       ref={containerRef}
       className={className}
+      data-dropdown-portal={nested ? 'true' : undefined}
       onFocus={(e) => e.stopPropagation()}
     >
       {children}

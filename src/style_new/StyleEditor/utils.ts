@@ -23,14 +23,39 @@ export function splitValueAndUnit(value: string | number) {
   return [num, value.replace(num, "")];
 }
 
+const LENGTH_EXPR_RE = /^(?:calc|min|max|clamp)\(/i
+
+function toCompactPx(computed?: string | null): string | undefined {
+  if (!computed) return undefined
+  const n = parseFloat(String(computed))
+  return isNaN(n) ? undefined : String(Math.round(n))
+}
+
 /**
- * 长度值的展示文案：px 是编辑器默认单位，24px 显示成 24，
- * 其他单位与 calc() 等表达式原样保留。
+ * 长度值的胶囊文案：px 省略单位（24px → 24）。
+ * calc/min/max/clamp 或过长表达式优先显示计算后的 px，避免胶囊被撑破；
+ * 没有计算值时只露函数名。完整表达式应放在 hover tip 里。
  */
-export function formatLengthDisplay(value?: string | null): string | undefined {
-  if (!value) return undefined;
-  const trimmed = value.trim();
-  return /^-?[\d.]+px$/i.test(trimmed) ? trimmed.replace(/px$/i, "") : trimmed;
+export function formatLengthDisplay(
+  value?: string | null,
+  computedPx?: string | null
+): string | undefined {
+  if (!value && !computedPx) return undefined
+  const trimmed = (value || '').trim()
+
+  if (/^-?[\d.]+px$/i.test(trimmed)) {
+    return trimmed.replace(/px$/i, '')
+  }
+
+  const isExpr = LENGTH_EXPR_RE.test(trimmed)
+  const tooLong = trimmed.length > 8
+  if (isExpr || tooLong) {
+    const compact = toCompactPx(computedPx)
+    if (compact) return compact
+    if (isExpr) return trimmed.match(/^(calc|min|max|clamp)/i)?.[1] || 'calc'
+  }
+
+  return trimmed || toCompactPx(computedPx)
 }
 
 /**

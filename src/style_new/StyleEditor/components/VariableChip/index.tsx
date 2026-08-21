@@ -48,7 +48,13 @@ interface VariableChipProps {
   defaultUnit?: string
   /** 光标处按删除键：变量退化为当前的固定数值 */
   onDetach?: () => void
+  /** 胶囊左侧的图标，用于保留未绑定态输入框里的字段标识（如 X / Y） */
+  prefix?: ReactNode
   style?: CSSProperties
+  /** 窄列（如边框四边宽度）收紧胶囊内边距和箭头，避免数字和箭头之间空一截 */
+  compact?: boolean
+  /** 与 InputNumber 对齐：默认隐藏下拉箭头，hover / 聚焦时再显示 */
+  showIconOnHover?: boolean
 }
 
 /**
@@ -69,7 +75,10 @@ export function VariableChip({
   onInputValue,
   defaultUnit = 'px',
   onDetach,
+  prefix,
   style,
+  compact = false,
+  showIconOnHover = false,
 }: VariableChipProps) {
   /** 胶囊右侧输入中的文本，提交后即替换变量 */
   const [draft, setDraft] = useState('')
@@ -139,9 +148,14 @@ export function VariableChip({
   return (
     <Panel.Item style={style}>
       <div
-        className={css.chip}
-        data-mybricks-tip={`变量：${varName || value}`}
+        className={`${css.chip}${compact ? ` ${css.compact}` : ''}${showIconOnHover ? ` ${css.iconOnHover}` : ''}`}
+        data-mybricks-tip={
+          resolvedValue && resolvedValue !== displayText
+            ? `变量：${varName || value}\n${resolvedValue}`
+            : `变量：${varName || value}`
+        }
       >
+        {prefix && <div className={css.prefix}>{prefix}</div>}
         <div className={css.main}>
           {/* 开始输入后隐藏胶囊，避免「旧变量值 + 新输入」同时出现 */}
           {!draft && <span className={css.valueBox} onClick={onRequestPicker}>{displayText}</span>}
