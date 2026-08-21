@@ -1002,7 +1002,7 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
 
           {cfg.disableFontSize ? null : (
             <Panel.Item className={css.fontSizeItem} style={{ display: "flex", alignItems: "center", flex: 1, padding: "0 8px", minWidth: 0 }}>
-              <div 
+              <div
                 ref={fontSizeVar.anchorRef}
                 {...(fontSizeVar.varRef
                   ? fontSizeVar.dragProps('拖拽调整字号（将解除变量绑定）')
@@ -1012,11 +1012,11 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
                         : fontSize,
                       '拖拽调整字号'
                     ))}
-                style={{ 
-                  height: "100%", 
-                  display: "flex", 
-                  alignItems: "center", 
-                  justifyContent: "center", 
+                style={{
+                  height: "100%",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
                   minWidth: 15,
                   cursor: "ew-resize"
                 }}
