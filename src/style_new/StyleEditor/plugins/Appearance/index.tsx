@@ -92,6 +92,7 @@ export function Appearance({ value, onChange, showTitle, collapse }: AppearanceP
     min: 0,
     max: 100,
     // 不 return → useCustomEnd=false → mouseup 时 hook 触发 blur → onBlur 里补回 %
+    formatDisplay: v => `${v}%`,
     onDragChange: value => {
       handleOpacityChange(String(value))
     },
@@ -185,6 +186,7 @@ export function Appearance({ value, onChange, showTitle, collapse }: AppearanceP
                 mounted={pickerMounted}
                 anchorRef={anchorRef}
                 onClose={closePicker}
+                className={css.variablePopup}
               >
                 <VariableList
                   list={variableOptions}
@@ -236,6 +238,7 @@ export function Appearance({ value, onChange, showTitle, collapse }: AppearanceP
                   open={pickerOpen}
                   mounted={pickerMounted}
                   anchorRef={anchorRef}
+                  className={css.variablePopup}
                   onClose={closePicker}
                 >
                   <VariableList

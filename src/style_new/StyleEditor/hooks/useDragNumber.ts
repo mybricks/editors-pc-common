@@ -27,6 +27,8 @@ interface DragNumberOptions {
   onDragChange?: (value: number) => void
   /** 拖拽结束时的回调，当 onDragStart 返回了覆盖值时调用（替代 blur 提交） */
   onDragEnd?: (finalValue: number) => void
+  /** 拖拽过程中 input 显示的格式化，默认直接用数字字符串；如 v => `${v}%` */
+  formatDisplay?: (value: number) => string
 }
 
 /**
@@ -44,7 +46,7 @@ interface DragNumberOptions {
  * <InputNumber defaultValue={...} onChange={...} />
  */
 export function useDragNumber(options: DragNumberOptions = {}) {
-  const { min = 0, max = Infinity, sensitivity = 1, continuous = false, onDragStart, onDragChange, onDragEnd } = options
+  const { min = 0, max = Infinity, sensitivity = 1, continuous = false, onDragStart, onDragChange, onDragEnd, formatDisplay } = options
 
   // 用 ref 保存回调，避免 handler 因回调变化而重建
   const onDragStartRef = useRef(onDragStart)
@@ -53,6 +55,8 @@ export function useDragNumber(options: DragNumberOptions = {}) {
   onDragChangeRef.current = onDragChange
   const onDragEndRef = useRef(onDragEnd)
   onDragEndRef.current = onDragEnd
+  const formatDisplayRef = useRef(formatDisplay)
+  formatDisplayRef.current = formatDisplay
 
   const dragStateRef = useRef<DragState>({
     isDragging: false,
@@ -124,7 +128,8 @@ export function useDragNumber(options: DragNumberOptions = {}) {
 
     const deltaX = e.clientX - state.startX
     const newValue = Math.min(max, Math.max(min, Math.round(state.startValue + deltaX * sensitivity)))
-    const newValueStr = String(newValue)
+    const fmt = formatDisplayRef.current
+    const newValueStr = fmt ? fmt(newValue) : String(newValue)
     state.lastValue = newValue
 
     // 直接操作 DOM 更新输入框显示值

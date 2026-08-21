@@ -10,6 +10,8 @@ import type { VariableChipMenuOption } from '../../components/VariableChip'
 
 import type { ChangeEvent, PanelBaseProps } from '../../type'
 
+import css from './index.less'
+
 interface OpacityProps extends PanelBaseProps {
   value: CSSProperties
   onChange: ChangeEvent
@@ -137,6 +139,7 @@ export function Opacity ({ value, onChange, config, showTitle, collapse }: Opaci
             mounted={pickerMounted}
             anchorRef={anchorRef}
             onClose={closePicker}
+            className={css.variablePopup}
           >
             <VariableList
               list={variableOptions}
