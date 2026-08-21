@@ -112,6 +112,8 @@
   .icon {
     opacity: 0;
     transition: opacity 0.15s;
+    // 仅箭头时贴右，避免默认 margin-right: 3px 在窄字段里显得离右缘太远
+    margin-right: 0;
   }
 
   &:hover .icon {
