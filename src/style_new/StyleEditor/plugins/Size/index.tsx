@@ -1171,6 +1171,7 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
       collapse={allHidden ? true : false}
       showDelete={false}
       hideTopBorder={hideSizeTopBorder}
+      keepTopBorder={!showMinRow && !showMaxRow}
       addOptions={addOptions.length > 0 ? addOptions : undefined}
       onAddOption={handleAddOption}
       rightColumn={

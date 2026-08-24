@@ -13,19 +13,18 @@
     margin-top: 3px;
   }
 
-  // 按分类分割：仅在相邻分类之间画线，避免首项顶部多余线条
+  // 相邻编辑器默认有上边框；收起或内容为空时保留
   & + & {
     border-top-color: @boder-color;
   }
 
-  // 与上一 Panel 合并视觉分组（如布局 + 尺寸）
-  &.hideTopBorder {
+  // 点 + 展开后才藏上边框；keepTopBorder 用于默认露出内容、并非点 + 展开的面板
+  &:not(.collapsed):not(.empty):not(.keepTopBorder) {
     border-top-color: transparent;
   }
 
-  // 保持 collapsed 状态不额外叠加边框，避免与分类分割线形成双线
-  &.collapsed {
-    border-bottom: 0;
+  &.keepTopBorder:not(:first-child) {
+    border-top-color: @boder-color;
   }
 
   .header {

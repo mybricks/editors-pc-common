@@ -1,4 +1,4 @@
-import React, { CSSProperties, ReactNode, useCallback, useEffect, useState } from 'react'
+import React, { CSSProperties, ReactNode, useCallback, useEffect, useMemo, useState } from 'react'
 
 import { PlusOutlined, MinusOutlined, QuestionCircleOutlined } from '../Icon'
 import { Dropdown } from '../DropDown'
@@ -33,6 +33,8 @@ interface PanelProps {
   onAddOption?: (value: string) => void
   /** 隐藏与上一个 Panel 之间的顶部分割线（如布局与尺寸合并视觉分组） */
   hideTopBorder?: boolean
+  /** 即使内容可见也保留上边框（如尺寸默认展示宽高，并非点 + 展开） */
+  keepTopBorder?: boolean
 }
 interface ContentProps {
   style?: CSSProperties
@@ -48,9 +50,16 @@ interface ItemProps {
   activeWhenBlur?: boolean
 }
 
-export function Panel ({title, titleTip, children, showReset = false, showTitle = true, showDelete = true, deleteNode, onDelete, rightColumn, deleteRef, resetFunction = () => {}, isActive = false, collapse = false, onAdd, addTip, addOptions, onAddOption, hideTopBorder = false}: PanelProps) {
+function isEmptyChildren(children: ReactNode): boolean {
+  if (children == null || children === false) return true
+  if (Array.isArray(children)) return children.length === 0 || children.every(isEmptyChildren)
+  return false
+}
+
+export function Panel ({title, titleTip, children, showReset = false, showTitle = true, showDelete = true, deleteNode, onDelete, rightColumn, deleteRef, resetFunction = () => {}, isActive = false, collapse = false, onAdd, addTip, addOptions, onAddOption, hideTopBorder = false, keepTopBorder = false}: PanelProps) {
   const isInherited = collapse === 'inherited'
   const [collapsed, setCollapsed] = useState(collapse === true)
+  const isEmpty = useMemo(() => !collapsed && isEmptyChildren(children), [collapsed, children])
 
   const handleDelete = useCallback(() => {
     resetFunction()
@@ -74,7 +83,7 @@ export function Panel ({title, titleTip, children, showReset = false, showTitle 
     setCollapsed(collapse === true)
   }, [collapse])
   return (
-    <div className={`${css.panel} ${collapsed ? css.collapsed : ''} ${hideTopBorder ? css.hideTopBorder : ''}`}>
+    <div className={`${css.panel} ${collapsed ? css.collapsed : ''} ${isEmpty ? css.empty : ''} ${hideTopBorder ? css.hideTopBorder : ''} ${keepTopBorder ? css.keepTopBorder : ''}`}>
       <div className={css.header}>
         {showTitle && (
           <div className={css.title} {...(titleTip ? { 'data-mybricks-tip': titleTip } : {})}>
