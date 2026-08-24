@@ -64,7 +64,6 @@ export function GradientEditor({
       if (stops.length > 0) {
         setStops(stopSort(stops));
         setCurElementId(stops[0]?.id);
-        isInitialMount.current = false;
       }
     }
   }, [defaultValue]);

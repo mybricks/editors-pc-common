@@ -303,49 +303,29 @@ function ColorSketch({
   
   const subTabClick = (tab: string) => {
     setSubTab(tab)
-    if (tab === "background") {
-      if (showSubTabs) {
-        onChange([
-          { key: 'backgroundColor', value: colorValue },
-          { key: 'backgroundImage', value: 'none' }
-        ])
-      } else {
-        onChange({ key: 'backgroundColor', value: colorValue })
-      }
-    } else if (tab === "gradient") {
-      let nextGradient = gradientValue
-      if (!nextGradient || isDefaultWhiteGradientLayer(nextGradient)) {
-        nextGradient = defaultGradient
-        setGradientValue(nextGradient)
-      }
-      onChange({ key: 'backgroundImage', value: nextGradient })
-    } else if (tab === "image") {
-      const bgImage = imageValue.backgroundImage
-      if (bgImage && bgImage !== 'none') {
-        onChange([
-          { key: 'backgroundColor', value: '' },
-          { key: 'backgroundImage', value: bgImage },
-          { key: 'backgroundSize', value: imageValue.backgroundSize || 'auto' },
-          { key: 'backgroundRepeat', value: imageValue.backgroundRepeat || 'no-repeat' },
-          { key: 'backgroundPosition', value: imageValue.backgroundPosition || 'center center' }
-        ])
-      } else {
-        onChange([
-          { key: 'backgroundColor', value: '' },
-          { key: 'backgroundImage', value: 'none' },
-        ])
-      }
-    }
   }
 
   const handleGradientChange = useCallback((newGradientValue: string) => {
-    setGradientValue(newGradientValue);
-    onChange({ key: 'backgroundImage', value: newGradientValue });
+    const nextGradient = !newGradientValue || isDefaultWhiteGradientLayer(newGradientValue)
+      ? defaultGradient
+      : newGradientValue;
+    setGradientValue(nextGradient);
+    onChange({ key: 'backgroundImage', value: nextGradient });
   }, [onChange]);
 
   const handleImagePanelChange = useCallback((key: string, value: string) => {
+    if (key === 'backgroundImage') {
+      onChange([
+        { key: 'backgroundColor', value: '' },
+        { key: 'backgroundImage', value },
+        { key: 'backgroundSize', value: imageValue.backgroundSize || 'auto' },
+        { key: 'backgroundRepeat', value: imageValue.backgroundRepeat || 'no-repeat' },
+        { key: 'backgroundPosition', value: imageValue.backgroundPosition || 'center center' }
+      ]);
+      return;
+    }
     onChange({ key, value });
-  }, [onChange]);
+  }, [imageValue, onChange]);
 
   const handleSolidChange = useCallback((colorResult: ColorResult, oldValue: ColorResult) => {
     if (
