@@ -128,13 +128,13 @@ interface SizingModeBadgeProps {
 function SizingModeBadge({ mode, compactDisplay = false, dimension, actualSize, parentSize = 0, onChange, onPreferPercent, onAddMin, onAddMax, hasVariables = false, onApplyVariable }: SizingModeBadgeProps) {
   const dim = dimension === 'width' ? 'width' : 'height';
   const options = [
-    { label: `固定${dim === 'width' ? '宽度' : '高度'} (${actualSize}px)`, value: 'fixed', icon: <FixedWidth /> },
+    { label: `固定${dim === 'width' ? '宽' : '高'} (${actualSize}px)`, value: 'fixed', icon: <FixedWidth /> },
     { label: '%', value: '%' },
     { label: '适应内容',                          value: 'hug',   icon: <HugContents /> },
     { label: '填满父容器',                          value: 'fill',  icon: <FillContainer /> },
     { label: '', value: '__divider__', type: 'divider' as const },
-    { label: `添加最小${dim === 'width' ? '宽度' : '高度'}...`, value: 'addMin', type: 'action' as const, icon: <AddMin />, iconSize: 'sm' as const },
-    { label: `添加最大${dim === 'width' ? '宽度' : '高度'}...`, value: 'addMax', type: 'action' as const, icon: <AddMax />, iconSize: 'sm' as const },
+    { label: `添加最小${dim === 'width' ? '宽' : '高'}...`, value: 'addMin', type: 'action' as const, icon: <AddMin />, iconSize: 'sm' as const },
+    { label: `添加最大${dim === 'width' ? '宽' : '高'}...`, value: 'addMax', type: 'action' as const, icon: <AddMax />, iconSize: 'sm' as const },
     { label: '', value: '__variableDivider__', type: 'divider' as const },
     getApplyVariableOption(hasVariables),
   ];
@@ -202,7 +202,7 @@ function DefaultModeBadge({
   hasVariables = false,
   onApplyVariable,
 }: DefaultModeBadgeProps) {
-  const dimLabel = dimension === 'width' ? '宽度' : '高度';
+  const dimLabel = dimension === 'width' ? '宽' : '高';
   const options = useMemo(() => [
     { label: 'px', value: 'px' },
     { label: '%', value: '%' },
@@ -1069,8 +1069,8 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
     { label: '适应内容', value: 'hug', type: 'action' as const, icon: <HugContents /> },
     { label: '填满父容器', value: 'fill', type: 'action' as const, icon: <FillContainer /> },
     ...(!showMinWidth || !showMaxWidth ? [{ label: '', value: '__divider__', type: 'divider' as const }] : []),
-    ...(!showMinWidth ? [{ label: '添加最小宽度...', value: 'addMinWidth', type: 'action' as const, icon: <AddMin />, iconSize: 'sm' as const }] : []),
-    ...(!showMaxWidth ? [{ label: '添加最大宽度...', value: 'addMaxWidth', type: 'action' as const, icon: <AddMax />, iconSize: 'sm' as const }] : []),
+    ...(!showMinWidth ? [{ label: '添加最小宽...', value: 'addMinWidth', type: 'action' as const, icon: <AddMin />, iconSize: 'sm' as const }] : []),
+    ...(!showMaxWidth ? [{ label: '添加最大宽...', value: 'addMaxWidth', type: 'action' as const, icon: <AddMax />, iconSize: 'sm' as const }] : []),
     { label: '', value: '__variableDivider__', type: 'divider' as const },
     getApplyVariableOption(hasLengthVariables),
   ], [showMinWidth, showMaxWidth, hasLengthVariables]);
@@ -1080,8 +1080,8 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
     { label: '适应内容', value: 'hug', type: 'action' as const, icon: <HugContents /> },
     { label: '填满父容器', value: 'fill', type: 'action' as const, icon: <FillContainer /> },
     ...(!showMinHeight || !showMaxHeight ? [{ label: '', value: '__divider__', type: 'divider' as const }] : []),
-    ...(!showMinHeight ? [{ label: '添加最小高度...', value: 'addMinHeight', type: 'action' as const, icon: <AddMin />, iconSize: 'sm' as const }] : []),
-    ...(!showMaxHeight ? [{ label: '添加最大高度...', value: 'addMaxHeight', type: 'action' as const, icon: <AddMax />, iconSize: 'sm' as const }] : []),
+    ...(!showMinHeight ? [{ label: '添加最小高...', value: 'addMinHeight', type: 'action' as const, icon: <AddMin />, iconSize: 'sm' as const }] : []),
+    ...(!showMaxHeight ? [{ label: '添加最大高...', value: 'addMaxHeight', type: 'action' as const, icon: <AddMax />, iconSize: 'sm' as const }] : []),
     { label: '', value: '__variableDivider__', type: 'divider' as const },
     getApplyVariableOption(hasLengthVariables),
   ], [showMinHeight, showMaxHeight, hasLengthVariables]);
@@ -1220,11 +1220,11 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
                 <div
                   ref={setFieldAnchor('width')}
                   {...(widthVarRef
-                    ? getVariableDragProps('width', '拖拽调整宽度（将解除变量绑定）')
-                    : getDragPropsWidth(widthResolved ?? (actualWidth > 0 ? `${Math.round(actualWidth)}px` : undefined), cfg.disableWidth ? '由布局自动控制，修改后将改为固定值' : '拖拽调整宽度'))}
+                    ? getVariableDragProps('width', '拖拽调整宽（将解除变量绑定）')
+                    : getDragPropsWidth(widthResolved ?? (actualWidth > 0 ? `${Math.round(actualWidth)}px` : undefined), cfg.disableWidth ? '由布局自动控制，修改后将改为固定值' : '拖拽调整宽'))}
                   style={{ height: "100%", display: "flex", alignItems: "center", cursor: "ew-resize" }}
                 >
-                  <span className={css.tip} style={{ flexShrink: 0}}>宽度</span>
+                  <span className={css.tip} style={{ flexShrink: 0}}>宽</span>
                 </div>
                 <div ref={widthInputWrapRef} style={{ flex: 1, minWidth: 0, display: 'contents' }}>
                   {widthVarRef ? renderVariableChip('width', widthVarRef) : (
@@ -1266,9 +1266,9 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
                       cfg.disableWidth
                         ? SIZE_DISABLED_TIP
                         : isWidthFill && widthDefaultPx != null
-                          ? `当前宽度填满父容器，${widthDefaultPx}为计算值`
+                          ? `当前宽填满父容器，${widthDefaultPx}为计算值`
                           : isWidthDefault && widthDefaultPx != null
-                            ? `未配置宽度，${widthDefaultPx}为计算值`
+                            ? `未配置宽，${widthDefaultPx}为计算值`
                             : undefined
                     }
                     badge={
@@ -1323,11 +1323,11 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
                 <div
                   ref={setFieldAnchor('height')}
                   {...(heightVarRef
-                    ? getVariableDragProps('height', '拖拽调整高度（将解除变量绑定）')
-                    : getDragPropsHeight(heightResolved ?? (actualHeight > 0 ? `${Math.round(actualHeight)}px` : undefined), cfg.disableHeight ? '由布局自动控制，修改后将改为固定值' : '拖拽调整高度'))}
+                    ? getVariableDragProps('height', '拖拽调整高（将解除变量绑定）')
+                    : getDragPropsHeight(heightResolved ?? (actualHeight > 0 ? `${Math.round(actualHeight)}px` : undefined), cfg.disableHeight ? '由布局自动控制，修改后将改为固定值' : '拖拽调整高'))}
                   style={{ height: "100%", display: "flex", alignItems: "center", cursor: "ew-resize" }}
                 >
-                  <span className={css.tip} style={{ flexShrink: 0 }}>高度</span>
+                  <span className={css.tip} style={{ flexShrink: 0 }}>高</span>
                 </div>
                 <div ref={heightInputWrapRef} style={{ flex: 1, minWidth: 0, display: 'contents' }}>
                   {heightVarRef ? renderVariableChip('height', heightVarRef) : (
@@ -1369,9 +1369,9 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
                       cfg.disableHeight
                         ? SIZE_DISABLED_TIP
                         : isHeightFill && heightDefaultPx != null
-                          ? `当前高度填满父容器，${heightDefaultPx}为计算值`
+                          ? `当前高填满父容器，${heightDefaultPx}为计算值`
                           : isHeightDefault && heightDefaultPx != null
-                            ? `未配置高度，${heightDefaultPx}为计算值`
+                            ? `未配置高，${heightDefaultPx}为计算值`
                             : undefined
                     }
                     badge={
@@ -1435,8 +1435,8 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
                     <div
                       ref={setFieldAnchor('minWidth')}
                       {...(minWidthVarRef
-                        ? getVariableDragProps('minWidth', '拖拽调整最小宽度（将解除变量绑定）')
-                        : getDragPropsMinWidth(minWidthEffective, '拖拽调整最小宽度'))}
+                        ? getVariableDragProps('minWidth', '拖拽调整最小宽（将解除变量绑定）')
+                        : getDragPropsMinWidth(minWidthEffective, '拖拽调整最小宽'))}
                       style={{ height: "100%", display: "flex", alignItems: "center", cursor: "ew-resize" }}
                     >
                       <span className={css.tip} style={{ flexShrink: 0 }}>最小宽</span>
@@ -1468,8 +1468,8 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
                     <div
                       ref={setFieldAnchor('maxWidth')}
                       {...(maxWidthVarRef
-                        ? getVariableDragProps('maxWidth', '拖拽调整最大宽度（将解除变量绑定）')
-                        : getDragPropsMaxWidth(maxWidthEffective, '拖拽调整最大宽度'))}
+                        ? getVariableDragProps('maxWidth', '拖拽调整最大宽（将解除变量绑定）')
+                        : getDragPropsMaxWidth(maxWidthEffective, '拖拽调整最大宽'))}
                       style={{ height: "100%", display: "flex", alignItems: "center", cursor: "ew-resize" }}
                     >
                       <span className={css.tip} style={{ flexShrink: 0 }}>最大宽</span>
@@ -1505,8 +1505,8 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
                     <div
                       ref={setFieldAnchor('minHeight')}
                       {...(minHeightVarRef
-                        ? getVariableDragProps('minHeight', '拖拽调整最小高度（将解除变量绑定）')
-                        : getDragPropsMinHeight(minHeightEffective, '拖拽调整最小高度'))}
+                        ? getVariableDragProps('minHeight', '拖拽调整最小高（将解除变量绑定）')
+                        : getDragPropsMinHeight(minHeightEffective, '拖拽调整最小高'))}
                       style={{ height: "100%", display: "flex", alignItems: "center", cursor: "ew-resize" }}
                     >
                       <span className={css.tip} style={{ flexShrink: 0 }}>最小高</span>
@@ -1538,8 +1538,8 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
                     <div
                       ref={setFieldAnchor('maxHeight')}
                       {...(maxHeightVarRef
-                        ? getVariableDragProps('maxHeight', '拖拽调整最大高度（将解除变量绑定）')
-                        : getDragPropsMaxHeight(maxHeightEffective, '拖拽调整最大高度'))}
+                        ? getVariableDragProps('maxHeight', '拖拽调整最大高（将解除变量绑定）')
+                        : getDragPropsMaxHeight(maxHeightEffective, '拖拽调整最大高'))}
                       style={{ height: "100%", display: "flex", alignItems: "center", cursor: "ew-resize" }}
                     >
                       <span className={css.tip} style={{ flexShrink: 0 }}>最大高</span>
