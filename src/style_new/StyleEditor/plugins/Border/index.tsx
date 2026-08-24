@@ -713,11 +713,11 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
           {/* 行1：颜色 + 删除按钮 */}
           <div className={css.row}>
             <Panel.Content style={{ padding: 3, flex: 1, minWidth: 0 }}>
-              <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
+              <Panel.Item className={css.editArea} style={{ padding: 0 }}>
                 {disableBorderColor ? null : (
                   <ColorEditor
                     key={borderColorEditorKey}
-                    style={{ padding: "0 0 0 1px", flex: 1, minWidth: 26 }}
+                    style={{ padding: 0, flex: 1, minWidth: 26 }}
                     defaultValue={getGradientBorderValue(borderValue) || borderValue.borderTopColor}
                     resolvedColor={resolveCssVarColor(borderValue.borderTopColor || "", targetDom) ?? undefined}
                     variableOptions={canvasColorVariables}

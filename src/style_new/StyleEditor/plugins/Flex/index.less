@@ -36,6 +36,12 @@
   box-sizing: border-box;
   cursor: text;
   outline: none;
+
+  &::placeholder {
+    color: @font-color-content;
+    opacity: 0.35;
+    font-weight: 400;
+  }
 }
 
 // 比例 / 单独配置共用同一外壳，切换时按钮槽位不动

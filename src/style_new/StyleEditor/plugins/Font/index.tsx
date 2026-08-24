@@ -179,7 +179,7 @@ function isConfiguredCssLength(value: unknown): boolean {
   return !CSS_LENGTH_UNSET_KEYWORDS.includes(String(value));
 }
 
-/** 读取 DOM 计算值（px），用于未配置时的 placeholder / tip */
+/** 读取 DOM 计算值（px），用于未配置时的 tip / 单位切换回填 */
 function getComputedCssLengthPx(
   dom: HTMLElement | null | undefined,
   prop: 'fontSize' | 'lineHeight' | 'letterSpacing'
@@ -191,10 +191,6 @@ function getComputedCssLengthPx(
   const n = parseFloat(raw);
   if (isNaN(n)) return null;
   return Math.round(n);
-}
-
-function buildDefaultLengthPlaceholder(px: number | null): string {
-  return px != null ? `默认(${px})` : '默认';
 }
 
 function buildDefaultLengthTip(label: string, px: number | null): string {
@@ -432,27 +428,21 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
 
   const defaultFontSizePx = getComputedCssLengthPx(targetDom, 'fontSize');
   const fontSizeUnconfigured = !isConfiguredCssLength(fontSize);
-  const fontSizePlaceholder = fontSizeUnconfigured
-    ? buildDefaultLengthPlaceholder(defaultFontSizePx)
-    : '默认';
+  const fontSizePlaceholder = '默认';
   const fontSizeTip = fontSizeUnconfigured
     ? buildDefaultLengthTip('字号', defaultFontSizePx)
     : '字号';
 
   const defaultLineHeightPx = getComputedCssLengthPx(targetDom, 'lineHeight');
   const lineHeightUnconfigured = !isConfiguredCssLength(lineHeight);
-  const lineHeightPlaceholder = lineHeightUnconfigured
-    ? buildDefaultLengthPlaceholder(defaultLineHeightPx)
-    : '默认';
+  const lineHeightPlaceholder = '默认';
   const lineHeightTip = lineHeightUnconfigured
     ? buildDefaultLengthTip('行高', defaultLineHeightPx)
     : '行高';
 
   const defaultLetterSpacingPx = getComputedCssLengthPx(targetDom, 'letterSpacing');
   const letterSpacingUnconfigured = !isConfiguredCssLength(letterSpacing);
-  const letterSpacingPlaceholder = letterSpacingUnconfigured
-    ? buildDefaultLengthPlaceholder(defaultLetterSpacingPx)
-    : '默认';
+  const letterSpacingPlaceholder = '默认';
   const letterSpacingTip = letterSpacingUnconfigured
     ? buildDefaultLengthTip('字间距', defaultLetterSpacingPx)
     : '字间距';
@@ -964,9 +954,8 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
             key={textFillEditorKey}
             style={{
               flex: 2,
-              padding: 6,
+              padding: "6px 0",
               overflow: "hidden",
-              paddingLeft: 8,
             }}
             defaultValue={textFillValue}
             resolvedColor={textFillResolvedColor ?? undefined}

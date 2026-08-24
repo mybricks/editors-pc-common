@@ -374,7 +374,9 @@ export function Effects({ value, onChange, showTitle, collapse }: EffectsProps) 
 /** 效果里的长度只用 px，下拉的存在意义是挂「应用变量...」入口 */
 const EFFECT_UNIT_OPTIONS: UnitOption[] = [{ label: 'px', value: 'px' }]
 /** 与未绑定态的输入框同宽，胶囊不把行撑破 */
-const EFFECT_CHIP_STYLE: CSSProperties = { flex: 1, minWidth: 0 }
+const EFFECT_CHIP_STYLE: CSSProperties = { flex: 1, minWidth: 0, paddingLeft: 6 }
+/** 输入框图标左距对齐 ColorEditor 色块（内部 8px − prefix 的 2px） */
+const EFFECT_INPUT_STYLE: CSSProperties = { flex: 1, paddingLeft: 6 }
 
 interface EffectNumberFieldProps {
   label: string
@@ -423,7 +425,7 @@ function EffectNumberField({
         chipPrefix={handle}
         nestedPicker
         inputProps={{
-          style: { flex: 1 },
+          style: EFFECT_INPUT_STYLE,
           allowNegative,
           prefix: handle,
           defaultValue: value,

@@ -61,6 +61,8 @@ const BASIS_UNIT_OPTIONS = [
   { label: '%', value: '%' },
 ]
 
+const DEFAULT_PLACEHOLDER = '默认'
+
 function isFlexChildVisible(targetDom: HTMLElement | null | undefined): boolean {
   if (!targetDom) return false
   const selfPos = window.getComputedStyle(targetDom).position
@@ -291,6 +293,11 @@ export function Flex({ value, onChange, showTitle, collapse }: FlexProps) {
     [onChange]
   )
 
+  /** 点 + 展开时立刻写入 flex:1，避免空输入框看起来像“点了没反应” */
+  const handleAdd = useCallback(() => {
+    commitShorthand('1')
+  }, [commitShorthand])
+
   const switchToRatio = useCallback(() => {
     // 单独配置切回统一配置时，以增长系数作为比例值。
     // 例：grow:5 / shrink:12 / basis:12% → flex:5，并清空三项长写。
@@ -405,6 +412,7 @@ export function Flex({ value, onChange, showTitle, collapse }: FlexProps) {
       showReset={true}
       resetFunction={refresh}
       collapse={effectiveCollapse}
+      onAdd={!hasFlexValue ? handleAdd : undefined}
       hideTopBorder
     >
       {/* 切换按钮槽位固定，避免比例/单独两套结构导致绝对位置抖动 */}
@@ -419,6 +427,7 @@ export function Flex({ value, onChange, showTitle, collapse }: FlexProps) {
                 <input
                   type="text"
                   value={localValue}
+                  placeholder={DEFAULT_PLACEHOLDER}
                   onChange={handleChange}
                   onFocus={handleFocus}
                   onBlur={handleBlur}
@@ -438,6 +447,7 @@ export function Flex({ value, onChange, showTitle, collapse }: FlexProps) {
                   <input
                     type="text"
                     value={localGrow}
+                    placeholder={DEFAULT_PLACEHOLDER}
                     onChange={(e) => setLocalGrow(e.target.value)}
                     onFocus={() => {
                       isEditingGrowRef.current = true
@@ -457,6 +467,7 @@ export function Flex({ value, onChange, showTitle, collapse }: FlexProps) {
                   <input
                     type="text"
                     value={localShrink}
+                    placeholder={DEFAULT_PLACEHOLDER}
                     onChange={(e) => setLocalShrink(e.target.value)}
                     onFocus={() => {
                       isEditingShrinkRef.current = true
@@ -479,7 +490,7 @@ export function Flex({ value, onChange, showTitle, collapse }: FlexProps) {
                     defaultUnitValue="%"
                     unitOptions={BASIS_UNIT_OPTIONS}
                     unitHideLabelList={[]}
-                    placeholder=""
+                    placeholder={DEFAULT_PLACEHOLDER}
                     onFocus={() => {
                       isEditingBasisRef.current = true
                     }}

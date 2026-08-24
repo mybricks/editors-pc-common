@@ -188,7 +188,7 @@ interface DefaultModeBadgeProps {
   onApplyVariable?: () => void;
 }
 
-/** 未配置宽/高：placeholder 显示「默认（N）」，右侧只保留下拉箭头 */
+/** 未配置宽/高：placeholder 显示「默认」，右侧只保留下拉箭头 */
 function DefaultModeBadge({
   dimension,
   actualSize,
@@ -503,8 +503,10 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
   // Fill 仅对应「填满父容器」写入的 100%；用户显式选 %（含换算成 100%）走普通 % 单位展示
   const isWidthFill = !!(widthEffective?.includes('%') && parseFloat(widthEffective) === 100 && actualWidth > 0 && !widthPreferPercent);
   const isHeightFill = !!(heightEffective?.includes('%') && parseFloat(heightEffective) === 100 && actualHeight > 0 && !heightPreferPercent);
-  const isWidthDefault = !isWidthFill && widthEffective !== 'fit-content' && !widthEffective;
-  const isHeightDefault = !isHeightFill && heightEffective !== 'fit-content' && !heightEffective;
+  const isWidthHug = widthEffective === 'fit-content';
+  const isHeightHug = heightEffective === 'fit-content';
+  const isWidthDefault = !isWidthFill && !isWidthHug && !widthEffective;
+  const isHeightDefault = !isHeightFill && !isHeightHug && !heightEffective;
   const widthDefaultPx = actualWidth > 0 ? Math.round(actualWidth) : null;
   const heightDefaultPx = actualHeight > 0 ? Math.round(actualHeight) : null;
 
@@ -1229,27 +1231,19 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
                 <div ref={widthInputWrapRef} style={{ flex: 1, minWidth: 0, display: 'contents' }}>
                   {widthVarRef ? renderVariableChip('width', widthVarRef) : (
                   <InputNumber
-                    key={`${isWidthFill ? 'fill-w' : (widthEffective === 'fit-content' ? 'hug-w' : (isWidthDefault ? 'default-w' : getUnitKey(widthResolved)))}-wlk${widthLockKey}`}
+                    key={`${isWidthFill ? 'fill-w' : (isWidthHug ? 'hug-w' : (isWidthDefault ? 'default-w' : getUnitKey(widthResolved)))}-wlk${widthLockKey}`}
                     style={{ flex: 1, minWidth: 0, marginLeft: 4 }}
-                    {...(isWidthFill || isWidthDefault ? { value: null as any } : {})}
+                    {...(isWidthFill || isWidthHug || isWidthDefault ? { value: null as any } : {})}
                     defaultValue={
-                      isWidthFill || isWidthDefault
+                      isWidthFill || isWidthHug || isWidthDefault
                         ? undefined
-                        : (widthEffective === 'fit-content'
-                            ? (actualWidth > 0 ? `${Math.round(actualWidth)}px` : undefined)
-                            : widthResolved)
+                        : widthResolved
                     }
                     defaultUnitValue="px"
                     unitOptions={widthUnitOptions}
                     unitDisabledList={UNIT_DISABLED_LIST}
                     unitDisplayLabelMap={UNIT_DISPLAY_LABEL_MAP}
-                    placeholder={
-                      isWidthFill
-                        ? (widthDefaultPx != null ? `填满(${widthDefaultPx})` : '填满')
-                        : isWidthDefault
-                          ? (widthDefaultPx != null ? `默认(${widthDefaultPx})` : '默认')
-                          : ''
-                    }
+                    placeholder={isWidthFill ? '填满' : isWidthHug ? '适应' : isWidthDefault ? '默认' : ''}
                     onChange={handleWidthChange}
                     onAction={(val) => {
                       if (val === 'hug' || val === 'fill') applySizingMode('width', val);
@@ -1267,6 +1261,8 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
                         ? SIZE_DISABLED_TIP
                         : isWidthFill && widthDefaultPx != null
                           ? `当前宽填满父容器，${widthDefaultPx}为计算值`
+                          : isWidthHug && widthDefaultPx != null
+                            ? `当前宽适应内容，${widthDefaultPx}为计算值`
                           : isWidthDefault && widthDefaultPx != null
                             ? `未配置宽，${widthDefaultPx}为计算值`
                             : undefined
@@ -1286,9 +1282,10 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
                           hasVariables={hasLengthVariables}
                           onApplyVariable={() => openVariablePicker('width')}
                         />
-                      ) : (widthEffective === 'fit-content') ? (
+                      ) : isWidthHug ? (
                         <SizingModeBadge
                           mode="hug"
+                          compactDisplay
                           dimension="width"
                           actualSize={Math.round(actualWidth)}
                           parentSize={parentWidth}
@@ -1332,27 +1329,19 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
                 <div ref={heightInputWrapRef} style={{ flex: 1, minWidth: 0, display: 'contents' }}>
                   {heightVarRef ? renderVariableChip('height', heightVarRef) : (
                   <InputNumber
-                    key={`${isHeightFill ? 'fill-h' : (heightEffective === 'fit-content' ? 'hug-h' : (isHeightDefault ? 'default-h' : getUnitKey(heightResolved)))}-hlk${heightLockKey}`}
+                    key={`${isHeightFill ? 'fill-h' : (isHeightHug ? 'hug-h' : (isHeightDefault ? 'default-h' : getUnitKey(heightResolved)))}-hlk${heightLockKey}`}
                     style={{ flex: 1, minWidth: 0, marginLeft: 4 }}
-                    {...(isHeightFill || isHeightDefault ? { value: null as any } : {})}
+                    {...(isHeightFill || isHeightHug || isHeightDefault ? { value: null as any } : {})}
                     defaultValue={
-                      isHeightFill || isHeightDefault
+                      isHeightFill || isHeightHug || isHeightDefault
                         ? undefined
-                        : (heightEffective === 'fit-content'
-                            ? (actualHeight > 0 ? `${Math.round(actualHeight)}px` : undefined)
-                            : heightResolved)
+                        : heightResolved
                     }
                     defaultUnitValue="px"
                     unitOptions={heightUnitOptions}
                     unitDisabledList={UNIT_DISABLED_LIST}
                     unitDisplayLabelMap={UNIT_DISPLAY_LABEL_MAP}
-                    placeholder={
-                      isHeightFill
-                        ? (heightDefaultPx != null ? `填满(${heightDefaultPx})` : '填满')
-                        : isHeightDefault
-                          ? (heightDefaultPx != null ? `默认(${heightDefaultPx})` : '默认')
-                          : ''
-                    }
+                    placeholder={isHeightFill ? '填满' : isHeightHug ? '适应' : isHeightDefault ? '默认' : ''}
                     onChange={handleHeightChange}
                     onAction={(val) => {
                       if (val === 'hug' || val === 'fill') applySizingMode('height', val);
@@ -1370,6 +1359,8 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
                         ? SIZE_DISABLED_TIP
                         : isHeightFill && heightDefaultPx != null
                           ? `当前高填满父容器，${heightDefaultPx}为计算值`
+                          : isHeightHug && heightDefaultPx != null
+                            ? `当前高适应内容，${heightDefaultPx}为计算值`
                           : isHeightDefault && heightDefaultPx != null
                             ? `未配置高，${heightDefaultPx}为计算值`
                             : undefined
@@ -1389,9 +1380,10 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
                           hasVariables={hasLengthVariables}
                           onApplyVariable={() => openVariablePicker('height')}
                         />
-                      ) : (heightEffective === 'fit-content') ? (
+                      ) : isHeightHug ? (
                         <SizingModeBadge
                           mode="hug"
+                          compactDisplay
                           dimension="height"
                           actualSize={Math.round(actualHeight)}
                           parentSize={parentHeight}
@@ -1439,7 +1431,7 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
                         : getDragPropsMinWidth(minWidthEffective, '拖拽调整最小宽'))}
                       style={{ height: "100%", display: "flex", alignItems: "center", cursor: "ew-resize" }}
                     >
-                      <span className={css.tip} style={{ flexShrink: 0 }}>最小宽</span>
+                      <span className={css.tip} style={{ flexShrink: 0 }}>最小</span>
                     </div>
                     {minWidthVarRef ? renderVariableChip('minWidth', minWidthVarRef) : (
                     <InputNumber
@@ -1472,7 +1464,7 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
                         : getDragPropsMaxWidth(maxWidthEffective, '拖拽调整最大宽'))}
                       style={{ height: "100%", display: "flex", alignItems: "center", cursor: "ew-resize" }}
                     >
-                      <span className={css.tip} style={{ flexShrink: 0 }}>最大宽</span>
+                      <span className={css.tip} style={{ flexShrink: 0 }}>最大</span>
                     </div>
                     {maxWidthVarRef ? renderVariableChip('maxWidth', maxWidthVarRef) : (
                     <InputNumber
@@ -1509,7 +1501,7 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
                         : getDragPropsMinHeight(minHeightEffective, '拖拽调整最小高'))}
                       style={{ height: "100%", display: "flex", alignItems: "center", cursor: "ew-resize" }}
                     >
-                      <span className={css.tip} style={{ flexShrink: 0 }}>最小高</span>
+                      <span className={css.tip} style={{ flexShrink: 0 }}>最小</span>
                     </div>
                     {minHeightVarRef ? renderVariableChip('minHeight', minHeightVarRef) : (
                     <InputNumber
@@ -1542,7 +1534,7 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
                         : getDragPropsMaxHeight(maxHeightEffective, '拖拽调整最大高'))}
                       style={{ height: "100%", display: "flex", alignItems: "center", cursor: "ew-resize" }}
                     >
-                      <span className={css.tip} style={{ flexShrink: 0 }}>最大高</span>
+                      <span className={css.tip} style={{ flexShrink: 0 }}>最大</span>
                     </div>
                     {maxHeightVarRef ? renderVariableChip('maxHeight', maxHeightVarRef) : (
                     <InputNumber
