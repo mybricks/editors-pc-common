@@ -15,6 +15,7 @@ import type { GetDefaultConfigurationProps } from '../type'
 import type { Options } from '../StyleEditor/type'
 import { mapEffectedPanels, normalizeEffectOptions } from './effects-alias'
 import { getEffectedCssPropertyAndOptions } from './get-effected-css'
+import { toElementArray } from './dom'
 import {
   getDefaultValueFunctionMap,
   getDefaultValueFunctionMap2,
@@ -120,11 +121,7 @@ export function getDefaultConfiguration ({value, options}: GetDefaultConfigurati
 
     let realTargetDom: HTMLElement | undefined
 
-    if (Object.prototype.toString.call(targetDom) === '[object NodeList]' && targetDom?.length) {
-      realTargetDom = targetDom[0]
-    } else if (Object.prototype.toString.call(targetDom).indexOf('HTML') > -1) {
-      realTargetDom = targetDom as any
-    }
+    realTargetDom = toElementArray(targetDom)[0] as HTMLElement | undefined
 
     /** 用户是否配置options */
     const userNoConfig = finalOptions === DEFAULT_OPTIONS

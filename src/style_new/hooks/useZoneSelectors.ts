@@ -6,6 +6,7 @@ import {
   fallbackZoneSelectorsFromClassnames,
 } from '../core/build-zone-selectors-from-cssom'
 import { elMatchesSelectorTail } from '../core/css-modules-match'
+import { toElementArray } from '../core/dom'
 import { scanPseudoSelectors } from '../core/scan-pseudo-selectors'
 
 export function useZoneSelectors(editConfig: any, targetDom: any, _open: boolean) {
@@ -24,17 +25,12 @@ export function useZoneSelectors(editConfig: any, targetDom: any, _open: boolean
   }, [targetDom])
 
   const zoneSelectorList = useMemo(() => {
-    const domList =
-      Object.prototype.toString.call(targetDom) === '[object NodeList]'
-        ? Array.from(targetDom as NodeList)
-        : targetDom
-          ? [targetDom as Element]
-          : []
+    const domList = toElementArray(targetDom)
 
     const result: string[] = []
     const baseSelectors: string[] = []
 
-    for (const dom of domList as Element[]) {
+    for (const dom of domList) {
       // CSSOM 先收集组件样式表命中的选择器（含后代路径），内部已用 classList 补自身 class。
       // 无 comId / CSSOM 为空时直接用 classList；纯标签节点再走祖先+tag 兜底。
       // :hover 等伪类由 scanPseudoSelectors 另扫 CSSOM，不在这里拼。
@@ -63,11 +59,7 @@ export function useZoneSelectors(editConfig: any, targetDom: any, _open: boolean
   // - 仅在「未手动选 tab」时做初始/列表变化对齐
   // - class 真实变化时（MutationObserver）始终对齐，并清除手动选择标记
   useEffect(() => {
-    const el = (
-      Object.prototype.toString.call(targetDom) === '[object NodeList]'
-        ? Array.from(targetDom as NodeList)[0]
-        : targetDom
-    ) as Element | null
+    const el = toElementArray(targetDom)[0] ?? null
     if (!el || zoneSelectorList.length === 0) {
       setActiveZoneIdx(0)
       return

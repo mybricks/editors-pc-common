@@ -2,6 +2,7 @@ import { deepCopy } from '../../utils'
 import { mergeCSSProperties } from '../StyleEditor/helper'
 import { preservePaintRoles } from '../StyleEditor/helper/paint-stack'
 import { PANEL_MAP } from './panel-defaults'
+import { toElementArray } from './dom'
 
 export type StyleChangeItem = { key: string; value: any }
 
@@ -148,11 +149,7 @@ export function applyStyleChange({
     !Array.isArray(editConfig.options) && editConfig.options
       ? (editConfig.options as any).targetDom ?? null
       : null
-  const realTargetDom = (
-    Object.prototype.toString.call(targetDom) === '[object NodeList]' && targetDom?.length
-      ? targetDom[0]
-      : targetDom
-  ) as HTMLElement | null
+  const realTargetDom = (toElementArray(targetDom)[0] ?? null) as HTMLElement | null
   const isThirdPartyFocus = !!realTargetDom && !realTargetDom.getAttribute('data-zone-selector')
   if ((batchMeta?.enabled || isThirdPartyFocus) && editConfig.value.previewBatch) {
     editConfig.value.previewBatch(mergedCssProperties, setOptions)

@@ -6,6 +6,7 @@ import { initLiveStyle } from './StyleEditor/helper/gradient-border'
 import type { ChangeEvent } from './StyleEditor/type'
 import type { EditorProps } from './type'
 import { applyStyleChange } from './core/apply-style-change'
+import { toElementArray } from './core/dom'
 
 interface StyleProps extends EditorProps {
   [key: string]: any
@@ -55,11 +56,7 @@ export function StyleMount({
       !editConfig.options || Array.isArray(editConfig.options)
         ? null
         : (editConfig.options as any).targetDom ?? null
-    const realDom = (
-      Object.prototype.toString.call(dom) === '[object NodeList]' && dom?.length
-        ? dom[0]
-        : dom
-    ) as HTMLElement | null
+    const realDom = (toElementArray(dom)[0] ?? null) as HTMLElement | null
     const CDN = (editConfig as any).getDefaultOptions?.('stylenew')?.CDN
     return {
       editConfig: {

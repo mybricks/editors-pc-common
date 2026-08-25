@@ -41,7 +41,7 @@ import {
   getSavedSoloStyle,
 } from './core/build-solo-selector'
 import type { SavedSoloStyle } from './core/build-solo-selector'
-import { getDocument } from './core/dom'
+import { getDocument, toElementArray } from './core/dom'
 import { goBackIcon } from './icon'
 import { ZoneTabBar } from './ZoneTabBar'
 import css from './index.less'
@@ -122,20 +122,17 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
     return (editConfig.options as any).comId ?? ''
   }, [editConfig])
 
+  const selectedTarget = useMemo(() => {
+    return toElementArray(targetDom)[0] ?? null
+  }, [targetDom])
+
   const affectedCount = useAffectedCount(
     activeZoneIdx,
     zoneSelectorList,
     finalSelector,
-    shellComId || undefined
+    shellComId || undefined,
+    selectedTarget
   )
-
-  const selectedTarget = useMemo(() => {
-    return (
-      Object.prototype.toString.call(targetDom) === '[object NodeList]'
-        ? Array.from(targetDom as NodeList)[0]
-        : targetDom
-    ) as Element | null
-  }, [targetDom])
 
   const baseSelector = useMemo(() => {
     return (
