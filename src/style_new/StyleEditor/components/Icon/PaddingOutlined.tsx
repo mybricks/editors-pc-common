@@ -23,8 +23,8 @@ export function PaddingAllOutlined() {
 export function PaddingBottomOutlined() {
   return (
     <svg
-      width="24"
-      height="24"
+      width="23"
+      height="23"
       viewBox="0 0 24 24"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
@@ -55,8 +55,8 @@ export function PaddingControlsToggleOutlined() {
 export function PaddingLeftOutlined({ style }: any) {
   return (
     <svg
-      width="24"
-      height="24"
+      width="23"
+      height="23"
       viewBox="0 0 24 24"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
@@ -93,8 +93,8 @@ export function PaddingLeftRightOutlined() {
 export function PaddingRightOutlined() {
   return (
     <svg
-      width="24"
-      height="24"
+      width="23"
+      height="23"
       viewBox="0 0 24 24"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
@@ -130,8 +130,8 @@ export function PaddingTopBottomOutlined() {
 export function PaddingTopOutlined() {
   return (
     <svg
-      width="24"
-      height="24"
+      width="23"
+      height="23"
       viewBox="0 0 24 24"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
