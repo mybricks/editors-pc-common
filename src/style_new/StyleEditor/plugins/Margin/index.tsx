@@ -11,10 +11,10 @@ import React, {
 import {
   Panel,
   PaddingAllOutlined,
-  PaddingTopOutlined,
-  PaddingLeftOutlined,
-  PaddingRightOutlined,
-  PaddingBottomOutlined,
+  MarginTopOutlined,
+  MarginLeftOutlined,
+  MarginRightOutlined,
+  MarginBottomOutlined,
   VariableNumberInput,
   withApplyVariableOption,
   APPLY_VARIABLE_ACTION
@@ -83,7 +83,7 @@ export function Margin ({value, onChange, config, showTitle, collapse}: MarginPr
   const [toggle, setToggle] = useState(getToggleDefaultValue(value))
   const [marginValue, setMarginValue] = useState({...value})
   const [forceRenderKey, setForceRenderKey] = useState<number>(Math.random())
-  const [splitMarginIcon, setSplitMarginIcon] = useState(<PaddingTopOutlined />)
+  const [splitMarginIcon, setSplitMarginIcon] = useState(<MarginTopOutlined />)
   const getDragProps = useDragNumber({ continuous: true, min: -Infinity })
   const [isReset, setIsReset] = useState(false)
   const context = useStyleEditorContext()
@@ -268,7 +268,7 @@ export function Margin ({value, onChange, config, showTitle, collapse}: MarginPr
                       ? leftVar.dragProps('拖拽调整左外边距（将解除变量绑定）')
                       : getDragProps(marginValue.marginLeft, '拖拽调整左外边距'))}
                   >
-                    <PaddingRightOutlined/>
+                    <MarginLeftOutlined/>
                   </div>
                   <VariableNumberInput
                     binding={leftVar}
@@ -286,7 +286,7 @@ export function Margin ({value, onChange, config, showTitle, collapse}: MarginPr
                       onAction: (action) => {
                         if (action === APPLY_VARIABLE_ACTION) leftVar.openPicker()
                       },
-                      onFocus: () => setSplitMarginIcon(<PaddingRightOutlined/>)
+                      onFocus: () => setSplitMarginIcon(<MarginLeftOutlined/>)
                     }}
                   />
                 </Panel.Item>
@@ -300,7 +300,7 @@ export function Margin ({value, onChange, config, showTitle, collapse}: MarginPr
                       ? topVar.dragProps('拖拽调整上外边距（将解除变量绑定）')
                       : getDragProps(marginValue.marginTop, '拖拽调整上外边距'))}
                   >
-                    <PaddingBottomOutlined/>
+                    <MarginTopOutlined/>
                   </div>
                   <VariableNumberInput
                     binding={topVar}
@@ -318,7 +318,7 @@ export function Margin ({value, onChange, config, showTitle, collapse}: MarginPr
                       onAction: (action) => {
                         if (action === APPLY_VARIABLE_ACTION) topVar.openPicker()
                       },
-                      onFocus: () => setSplitMarginIcon(<PaddingBottomOutlined/>)
+                      onFocus: () => setSplitMarginIcon(<MarginTopOutlined/>)
                     }}
                   />
                 </Panel.Item>
@@ -334,7 +334,7 @@ export function Margin ({value, onChange, config, showTitle, collapse}: MarginPr
                       ? rightVar.dragProps('拖拽调整右外边距（将解除变量绑定）')
                       : getDragProps(marginValue.marginRight, '拖拽调整右外边距'))}
                   >
-                    <PaddingLeftOutlined/>
+                    <MarginRightOutlined/>
                   </div>
                   <VariableNumberInput
                     binding={rightVar}
@@ -352,7 +352,7 @@ export function Margin ({value, onChange, config, showTitle, collapse}: MarginPr
                       onAction: (action) => {
                         if (action === APPLY_VARIABLE_ACTION) rightVar.openPicker()
                       },
-                      onFocus: () => setSplitMarginIcon(<PaddingLeftOutlined/>)
+                      onFocus: () => setSplitMarginIcon(<MarginRightOutlined/>)
                     }}
                   />
                 </Panel.Item>
@@ -366,7 +366,7 @@ export function Margin ({value, onChange, config, showTitle, collapse}: MarginPr
                       ? bottomVar.dragProps('拖拽调整下外边距（将解除变量绑定）')
                       : getDragProps(marginValue.marginBottom, '拖拽调整下外边距'))}
                   >
-                    <PaddingTopOutlined/>
+                    <MarginBottomOutlined/>
                   </div>
                   <VariableNumberInput
                     binding={bottomVar}
@@ -384,7 +384,7 @@ export function Margin ({value, onChange, config, showTitle, collapse}: MarginPr
                       onAction: (action) => {
                         if (action === APPLY_VARIABLE_ACTION) bottomVar.openPicker()
                       },
-                      onFocus: () => setSplitMarginIcon(<PaddingTopOutlined/>)
+                      onFocus: () => setSplitMarginIcon(<MarginBottomOutlined/>)
                     }}
                   />
                 </Panel.Item>

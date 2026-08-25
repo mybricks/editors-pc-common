@@ -23,18 +23,16 @@ export function PaddingAllOutlined() {
 export function PaddingBottomOutlined() {
   return (
     <svg
-      width="15"
-      height="15"
+      width="24"
+      height="24"
       viewBox="0 0 24 24"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
-      style={{ transform: "scale(2.0)" }}
     >
       <path
         fill="currentColor"
         fillRule="evenodd"
-        d="M11 11h2v2h-2zm-1 0a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1zm-2.5 5a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1z"
-        clipRule="evenodd"
+        d="M16.5 6A1.5 1.5 0 0 1 18 7.5v9a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 6 16.5v-9A1.5 1.5 0 0 1 7.5 6zm-9 1a.5.5 0 0 0-.5.5v9a.5.5 0 0 0 .5.5h9a.5.5 0 0 0 .5-.5v-9a.5.5 0 0 0-.5-.5zm8 8a.5.5 0 0 1 0 1h-7a.5.5 0 0 1 0-1z"
       />
     </svg>
   );
@@ -57,18 +55,17 @@ export function PaddingControlsToggleOutlined() {
 export function PaddingLeftOutlined({ style }: any) {
   return (
     <svg
-      width="15"
-      height="15"
+      width="24"
+      height="24"
       viewBox="0 0 24 24"
-      style={{ transform: "scale(2.0)", ...style }}
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
+      style={style}
     >
       <path
         fill="currentColor"
         fillRule="evenodd"
-        d="M8 7.5a.5.5 0 0 0-1 0v9a.5.5 0 0 0 1 0zm5 3.5v2h-2v-2zm0-1a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1z"
-        clipRule="evenodd"
+        d="M16.5 6A1.5 1.5 0 0 1 18 7.5v9a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 6 16.5v-9A1.5 1.5 0 0 1 7.5 6zm-9 1a.5.5 0 0 0-.5.5v9a.5.5 0 0 0 .5.5h9a.5.5 0 0 0 .5-.5v-9a.5.5 0 0 0-.5-.5zm1 1a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-1 0v-7a.5.5 0 0 1 .5-.5"
       />
     </svg>
   );
@@ -96,18 +93,16 @@ export function PaddingLeftRightOutlined() {
 export function PaddingRightOutlined() {
   return (
     <svg
-      width="15"
-      height="15"
+      width="24"
+      height="24"
       viewBox="0 0 24 24"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
-      style={{ transform: "scale(2.0)" }}
     >
       <path
         fill="currentColor"
         fillRule="evenodd"
-        d="M17 7.5a.5.5 0 0 0-1 0v9a.5.5 0 0 0 1 0zM13 11v2h-2v-2zm0-1a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1z"
-        clipRule="evenodd"
+        d="M16.5 6A1.5 1.5 0 0 1 18 7.5v9a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 6 16.5v-9A1.5 1.5 0 0 1 7.5 6zm-9 1a.5.5 0 0 0-.5.5v9a.5.5 0 0 0 .5.5h9a.5.5 0 0 0 .5-.5v-9a.5.5 0 0 0-.5-.5zm8 1a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-1 0v-7a.5.5 0 0 1 .5-.5"
       />
     </svg>
   );
@@ -135,18 +130,16 @@ export function PaddingTopBottomOutlined() {
 export function PaddingTopOutlined() {
   return (
     <svg
-      width="15"
-      height="15"
+      width="24"
+      height="24"
       viewBox="0 0 24 24"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
-      style={{ transform: "scale(2.0)" }}
     >
       <path
         fill="currentColor"
         fillRule="evenodd"
-        d="M7.5 7a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1zm3.5 4h2v2h-2zm-1 0a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1z"
-        clipRule="evenodd"
+        d="M6 7.5A1.5 1.5 0 0 1 7.5 6h9A1.5 1.5 0 0 1 18 7.5v9a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 6 16.5zm1 9a.5.5 0 0 0 .5.5h9a.5.5 0 0 0 .5-.5v-9a.5.5 0 0 0-.5-.5h-9a.5.5 0 0 0-.5.5zm1-8a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5"
       />
     </svg>
   );

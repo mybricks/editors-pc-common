@@ -4,12 +4,19 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 15px;
   min-width: 15px;
+  flex: 0 0 15px;
   color: @font-color-content;
+  opacity: 0.8;
+
+  svg {
+    flex-shrink: 0;
+  }
 }
 
 .leftMarginIcon {
-  transform: translateX(-3px);
+  transform: translateX(-2px);
 }
 
 .editArea {

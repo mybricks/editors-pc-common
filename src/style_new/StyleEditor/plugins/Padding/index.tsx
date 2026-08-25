@@ -261,7 +261,7 @@ export function Padding({value, onChange, config, showTitle, collapse}: PaddingP
               <Panel.Content style={{ padding: 3 }}>
                 <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
                   <div 
-                    className={`${css.icon} ${css.leftPaddingIcon}`}
+                    className={`${css.icon}`}
                     ref={rightVar.anchorRef}
                     {...(rightVar.varRef
                       ? rightVar.dragProps('拖拽调整右内边距（将解除变量绑定）')
