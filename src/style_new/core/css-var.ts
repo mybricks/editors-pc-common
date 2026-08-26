@@ -6,6 +6,8 @@
  * 这些逻辑统一放在这里，由调用方传入 isValid 谓词。
  */
 
+import { findCssClosingParenthesis, findCssFunctionCalls } from './css-functions'
+
 export interface ParsedCssVar {
   varName: string
   fallback: string | null
@@ -14,6 +16,12 @@ export interface ParsedCssVar {
 export interface CssVarOption {
   name: string
   value: string
+}
+
+export interface CssVarReference extends ParsedCssVar {
+  expression: string
+  start: number
+  end: number
 }
 
 /** 值合法性校验，如「能解析成颜色」「是带单位的长度」 */
@@ -25,18 +33,13 @@ export function parseCssVar(value: string): ParsedCssVar | null {
   const trimmed = value.trim()
   if (!/^var\(\s*--/i.test(trimmed)) return null
 
-  const contentStart = trimmed.indexOf('(') + 1
-  let depth = 1
-  let end = contentStart
-  for (; end < trimmed.length && depth > 0; end++) {
-    if (trimmed[end] === '(') depth++
-    else if (trimmed[end] === ')') depth--
-  }
-  if (depth !== 0) return null
+  const openIndex = trimmed.indexOf('(')
+  const closeIndex = findCssClosingParenthesis(trimmed, openIndex)
+  if (closeIndex === -1) return null
   // 允许尾部空白，但不接受 var() 后再拼其它内容（整段必须是单个 var）
-  if (trimmed.slice(end).trim() !== '') return null
+  if (trimmed.slice(closeIndex + 1).trim() !== '') return null
 
-  const content = trimmed.slice(contentStart, end - 1)
+  const content = trimmed.slice(openIndex + 1, closeIndex)
   let commaIndex = -1
   let contentDepth = 0
   for (let i = 0; i < content.length; i++) {
@@ -54,6 +57,27 @@ export function parseCssVar(value: string): ParsedCssVar | null {
     commaIndex === -1 ? null : content.slice(commaIndex + 1).trim() || null
 
   return { varName, fallback }
+}
+
+/** 提取复合 CSS 值中的完整 var(...) 引用，支持嵌套 fallback。 */
+export function findCssVarReferences(value: string): CssVarReference[] {
+  return findCssFunctionCalls(value, ['var']).reduce<CssVarReference[]>((result, call) => {
+    const parsed = parseCssVar(call.value)
+    if (parsed) {
+      result.push({
+        ...parsed,
+        expression: call.value,
+        start: call.start,
+        end: call.end,
+      })
+    }
+    return result
+  }, [])
+}
+
+/** 判断纯变量或渐变、阴影等复合值中是否包含合法 CSS 变量引用。 */
+export function hasCssVarReference(value: unknown): value is string {
+  return typeof value === 'string' && findCssVarReferences(value).length > 0
 }
 
 function lookupAicomVar(varName: string, isValid: CssVarValueValidator): string | null {
@@ -223,29 +247,16 @@ export function resolveCssVarsInValue(
 ): string {
   if (typeof value !== 'string' || !value.includes('var(')) return value
 
+  const references = findCssVarReferences(value)
+  if (references.length === 0) return value
+
   let result = ''
-  let i = 0
-  while (i < value.length) {
-    if (value.slice(i, i + 4).toLowerCase() === 'var(') {
-      let depth = 0
-      let j = i
-      for (; j < value.length; j++) {
-        if (value[j] === '(') depth++
-        else if (value[j] === ')') {
-          depth--
-          if (depth === 0) {
-            j++
-            break
-          }
-        }
-      }
-      const varExpr = value.slice(i, j)
-      result += resolveCssVar(varExpr, scopeEl, isValid) ?? varExpr
-      i = j
-    } else {
-      result += value[i]
-      i++
-    }
+  let cursor = 0
+  for (const reference of references) {
+    result += value.slice(cursor, reference.start)
+    result += resolveCssVar(reference.expression, scopeEl, isValid) ?? reference.expression
+    cursor = reference.end
   }
+  result += value.slice(cursor)
   return result
 }

@@ -12,6 +12,7 @@ import { getStyleRules } from './get-style-rules'
 import { getValues } from './get-values'
 import { PANEL_MAP } from './panel-defaults'
 import { calculateSafeSpecificity, someSelectorPart } from './selector-utils'
+import { hasCssVarReference } from './css-var'
 import {
   getEffectedPanelsFromCssRules,
   getEffectedPanelsFromDirectParent,
@@ -257,7 +258,6 @@ export function getEffectedCssPropertyAndOptions (element: HTMLElement | null, s
     // 仅在默认态（primarySelector 无伪类后缀）且有真实 DOM 时执行。
     const _hasPseudo = /:{1,2}[a-zA-Z\-]+(?:\([^)]*\))?$/.test(primarySelector)
     if (element && !_hasPseudo) {
-      const _isVarRef = (v: any) => typeof v === 'string' && v.startsWith('var(')
       // ── 公共级联扫描：找到所有匹配 element 的规则中，按 CSS 级联（!important → 特指度 → 源码顺序）
       // 取最终胜出的属性值。注意：点击元素时 element.matches(':hover') 可能返回 true，
       // 因此需在规则循环内显式过滤交互伪类选择器（:hover/:focus/:active 等）。
@@ -280,7 +280,7 @@ export function getEffectedCssPropertyAndOptions (element: HTMLElement | null, s
       ]
       colorPropMap.forEach(([camel, hyphen]) => {
         const val = (values as any)[camel]
-        if (!val || _isVarRef(val)) return
+        if (!val || hasCssVarReference(val)) return
         const winnerDetail = findCascadeWinnerDetail(element, hyphen, 'default')
         if (!winnerDetail) return
         const c1 = colorUtil.get(val)
@@ -304,7 +304,7 @@ export function getEffectedCssPropertyAndOptions (element: HTMLElement | null, s
         (values as any)['backgroundImage'] = 'none'
       }
       const bgImageVal = (values as any)['backgroundImage']
-      if (bgImageVal && bgImageVal !== 'none' && !_isVarRef(bgImageVal)) {
+      if (bgImageVal && bgImageVal !== 'none' && !hasCssVarReference(bgImageVal)) {
         const bgWinnerDetail = findCascadeWinnerDetail(element, 'background-image', 'default')
         if (bgWinnerDetail) {
           const norm = (s: string) => s.replace(/\s+/g, ' ').trim().toLowerCase()
@@ -347,7 +347,6 @@ export function getEffectedCssPropertyAndOptions (element: HTMLElement | null, s
 
     // ── hover 态级联校正：同默认态，自身声明优先；仅当前 tab 未声明时用级联补值。
     if (element && _hasPseudo && /^.*:hover\s*$/i.test(primarySelector)) {
-      const _isVarRefH = (v: any) => typeof v === 'string' && v.startsWith('var(')
       const HOVER_TAIL_RE = /:hover\s*$/i
 
       const _findHoverCascadeWinner = (hyphen: string): string | null => findCascadeWinner(element, hyphen, 'hover')
@@ -363,7 +362,7 @@ export function getEffectedCssPropertyAndOptions (element: HTMLElement | null, s
       ]
       colorPropMapH.forEach(([camel, hyphen]) => {
         const val = (values as any)[camel]
-        if (!val || _isVarRefH(val)) return
+        if (!val || hasCssVarReference(val)) return
         const winnerDetail = findCascadeWinnerDetail(element, hyphen, 'hover')
         if (!winnerDetail) return
         const c1 = colorUtil.get(val)
@@ -382,7 +381,7 @@ export function getEffectedCssPropertyAndOptions (element: HTMLElement | null, s
 
       // 背景图属性校正：同默认态，自身声明优先
       const bgImageValH = (values as any)['backgroundImage']
-      if (bgImageValH && bgImageValH !== 'none' && !_isVarRefH(bgImageValH)) {
+      if (bgImageValH && bgImageValH !== 'none' && !hasCssVarReference(bgImageValH)) {
         const bgWinnerDetailH = findCascadeWinnerDetail(element, 'background-image', 'hover')
         if (bgWinnerDetailH) {
           const norm = (s: string) => s.replace(/\s+/g, ' ').trim().toLowerCase()
@@ -573,11 +572,10 @@ export function getEffectedCssPropertyAndOptions (element: HTMLElement | null, s
             const { rules: baseRules } = getStyleRules(element, baseSelector)
             if (baseRules.length > 0) {
               const baseValues = getValues(baseRules, computedValues, new Set<CSSStyleRule>())
-              const _isVarRef = (v: any) => typeof v === 'string' && v.startsWith('var(')
               Object.keys(baseValues as object).forEach(key => {
                 const baseVal = (baseValues as any)[key]
                 const curVal = (values as any)[key]
-                if (_isVarRef(baseVal) && !_isVarRef(curVal)) {
+                if (hasCssVarReference(baseVal) && !hasCssVarReference(curVal)) {
                   (values as any)[key] = baseVal
                   const panel = PANEL_MAP[key]
                   if (panel && !baseStateVarPanels.includes(panel)) {

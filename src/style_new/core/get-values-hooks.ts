@@ -2,6 +2,8 @@
  * getValues 特例：从原命令式实现剪切，语义保持不变。
  */
 
+import { findCssVarReferences } from './css-var'
+
 export type ValuesAcc = Record<string, any>
 
 /** rule 遍历阶段：background / border 的 var() 简写、webkit 读写 */
@@ -58,9 +60,9 @@ export function applyRuleHooks(
   // rule.style 的所有 border longhand 均为空，需从 border 简写中提取颜色部分兜底
   const styleBorderShorthand = style.getPropertyValue('border')
   if (styleBorderShorthand && styleBorderShorthand.includes('var(')) {
-    const varMatch = styleBorderShorthand.match(/var\(--[^)]+\)/)
-    if (varMatch) {
-      const varColor = varMatch[0]
+    const varReference = findCssVarReferences(styleBorderShorthand)[0]
+    if (varReference) {
+      const varColor = varReference.expression
       if (!acc.borderTopColor) acc.borderTopColor = varColor
       if (!acc.borderRightColor) acc.borderRightColor = varColor
       if (!acc.borderBottomColor) acc.borderBottomColor = varColor

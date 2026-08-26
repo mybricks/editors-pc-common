@@ -1,10 +1,11 @@
 import React from 'react'
+import { findCssVarReferences } from '../../core/css-var'
 import { clipHasText, getBackgroundClip } from './paint-stack'
 
 const hasCSSVariable = (value: string | any) => {
   if (typeof value !== 'string') return false;
   value = value.trim();
-  return /var\(--[a-zA-Z0-9-_]+\)|--[a-zA-Z0-9-_]+/.test(value);
+  return findCssVarReferences(value).length > 0 || /^--[a-zA-Z0-9-_]+$/.test(value);
 }
 
 const hasLayeredBorderBackground = (cssProperties: React.CSSProperties) => {
@@ -318,11 +319,11 @@ export const splitCSSProperties = (
   // computedStyle.borderTopWidth 会返回 "0px"。
   if (hasCSSVariable(cssProperties.border)) {
     const borderStr = String(cssProperties.border).trim()
-    const varMatch = borderStr.match(/var\(--[^)]+\)/)
-    if (varMatch) {
-      const varColor = varMatch[0]
+    const varReference = findCssVarReferences(borderStr)[0]
+    if (varReference) {
+      const varColor = varReference.expression
       // 去掉 var() 部分后剩余的 width 和 style
-      const rest = borderStr.replace(/var\(--[^)]+\)/, '').trim()
+      const rest = `${borderStr.slice(0, varReference.start)}${borderStr.slice(varReference.end)}`.trim()
       const widthMatch = rest.match(/(\d+(?:\.\d+)?\s*(?:px|em|rem|%|vh|vw|pt|cm|mm)\b)/)
       const styleKeywords = /\b(solid|dashed|dotted|double|groove|ridge|inset|outset|none|hidden)\b/
       const styleMatch = rest.match(styleKeywords)

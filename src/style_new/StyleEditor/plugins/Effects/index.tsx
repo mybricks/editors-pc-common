@@ -27,6 +27,8 @@ import { useDragNumber, useCanvasColorVariables, useLengthVarBinding } from '../
 import type { UnitOption } from '../../components/InputNumber'
 import type { LengthVarBinding } from '../../hooks'
 import { resolveCssVarColor } from '../../../core/resolve-css-var-color'
+import type { CssVarColorOption } from '../../../core/resolve-css-var-color'
+import { resolveCssVarLength } from '../../../core/resolve-css-var-length'
 import { Blur as BlurIcon } from '../../icons/Blur'
 import { BackgroundBlur as BackgroundBlurIcon } from '../../icons/BackgroundBlur'
 
@@ -47,8 +49,8 @@ import {
   isBoxShadowLayer,
   isShadowLayer,
   isTextShadowLayer,
-  type CssEffectsBundle,
 } from './layers'
+import type { CssEffectsBundle } from './layers'
 
 interface EffectsProps extends PanelBaseProps {
   value: CSSProperties
@@ -87,10 +89,22 @@ function readCssBundle(value: CSSProperties): CssEffectsBundle {
 }
 
 export function Effects({ value, onChange, showTitle, collapse }: EffectsProps) {
-  const [layers, setLayers] = useState<EffectLayer[]>(() => parseEffects(readCssBundle(value)))
+  const { targetDom, variableOptions } = useCanvasColorVariables()
+  const parseBundle = useCallback(
+    (bundle: CssEffectsBundle) => parseEffects(bundle, {
+      classifyColorToken: (token) => {
+        if (resolveCssVarColor(token, targetDom) != null) return true
+        if (resolveCssVarLength(token, targetDom) != null) return false
+        return undefined
+      },
+    }),
+    [targetDom]
+  )
+  const [layers, setLayers] = useState<EffectLayer[]>(() => parseBundle(readCssBundle(value)))
   const layersRef = useRef(layers)
   layersRef.current = layers
   const lastEmittedRef = useRef(fingerprintEffects(readCssBundle(value)))
+  const lastParsedTargetRef = useRef(targetDom)
   const valueRef = useRef(value)
   valueRef.current = value
 
@@ -104,11 +118,13 @@ export function Effects({ value, onChange, showTitle, collapse }: EffectsProps) 
   useEffect(() => {
     const bundle = readCssBundle(value)
     const fp = fingerprintEffects(bundle)
-    if (fp === lastEmittedRef.current) return
-    const next = parseEffects(bundle)
+    const targetChanged = lastParsedTargetRef.current !== targetDom
+    if (!targetChanged && fp === lastEmittedRef.current) return
+    const next = parseBundle(bundle)
+    lastParsedTargetRef.current = targetDom
     lastEmittedRef.current = fp
     setLayers(next)
-  }, [value.boxShadow, value.textShadow, value.filter, (value as any).backdropFilter, (value as any).WebkitBackdropFilter])
+  }, [value.boxShadow, value.textShadow, value.filter, (value as any).backdropFilter, (value as any).WebkitBackdropFilter, targetDom, parseBundle])
 
   const emitLayers = useCallback((next: EffectLayer[]) => {
     // 会话内保持用户排序，不 normalize（模糊可夹在阴影中间）
@@ -358,6 +374,8 @@ export function Effects({ value, onChange, showTitle, collapse }: EffectsProps) 
         {activeLayer && activeIndex != null && (
           <EffectSketchBody
             layer={activeLayer}
+            targetDom={targetDom}
+            variableOptions={variableOptions}
             typeOptions={typeOptionsForActive}
             onTypeChange={(type) => handleTypeChange(activeIndex, type)}
             onChange={(partial) => handleLayerChange(activeIndex, partial)}
@@ -446,6 +464,8 @@ function EffectNumberField({
 
 interface EffectSketchBodyProps {
   layer: EffectLayer
+  targetDom: HTMLElement | null
+  variableOptions: CssVarColorOption[]
   typeOptions: Array<{ label: string; value: EffectType; disabled?: boolean; icon?: React.ReactNode }>
   onTypeChange: (type: EffectType) => void
   onChange: (partial: Partial<EffectLayer>) => void
@@ -454,6 +474,8 @@ interface EffectSketchBodyProps {
 
 function EffectSketchBody({
   layer,
+  targetDom,
+  variableOptions,
   typeOptions,
   onTypeChange,
   onChange,
@@ -501,9 +523,7 @@ function EffectSketchBody({
     spreadRadiusVar.closePicker()
   }, [layer.id, layer.type])
 
-  // 变量在弹层内取而非由 Effects 透传：这里才用得到，且只需算当前活跃层。
-  // 拖偏移/模糊会持续重渲染本组件，两处都必须缓存。
-  const { targetDom, variableOptions } = useCanvasColorVariables()
+  // 变量列表与作用域由 Effects 统一获取，解析层和当前弹层共享同一份上下文。
   const shadowColor = isShadowLayer(layer) ? layer.color : ''
   const resolvedColor = useMemo(
     () => resolveCssVarColor(shadowColor, targetDom) ?? undefined,

@@ -167,7 +167,7 @@ function figmaTransform(key: string, value: string): TransformResult {
   return [{ key, value }]
 }
 
-function parseCSS(cssText: string): Array<{ key: string; value: string }> {
+function parseCSS(cssText: string, scopeEl?: Element | null): Array<{ key: string; value: string }> {
   const result: Array<{ key: string; value: string }> = []
   for (const line of cssText.split('\n')) {
     const trimmed = line.trim()
@@ -182,7 +182,7 @@ function parseCSS(cssText: string): Array<{ key: string; value: string }> {
     if (!valueRaw) continue
     for (const entry of expandShorthands(kebabToCamel(propRaw), valueRaw)) {
       // 灵创已有变量则保留 var()；否则只留 fallback
-      const value = resolvePasteCssVarValue(entry.value)
+      const value = resolvePasteCssVarValue(entry.value, scopeEl)
       if (value === null) continue
       const transformed = figmaTransform(entry.key, value)
       if (transformed) result.push(...transformed)
@@ -203,6 +203,7 @@ function useEditorTheme(): 'light' | 'vs-dark' {
 export function CSSPaste({ onChange, showTitle, collapse }: CSSPasteProps) {
   const context = useStyleEditorContext()
   const CDN = context?.editConfig?.CDN
+  const targetDom = context?.targetDom ?? null
   const editorRef = useRef<any>(null)
   const [lastCount, setLastCount] = useState(0)
   const [editorHeight, setEditorHeight] = useState(DEFAULT_HEIGHT)
@@ -229,14 +230,14 @@ export function CSSPaste({ onChange, showTitle, collapse }: CSSPasteProps) {
     if (lastCount > 0) return
     const val = editorRef.current?.getValue?.() ?? ''
     if (!val.trim()) return
-    const changes = expandPasteConflictClears(parseCSS(val))
+    const changes = expandPasteConflictClears(parseCSS(val, targetDom))
     if (changes.length > 0) {
       onChange(changes)
       setLastCount(changes.length)
       editorRef.current?.setValue?.('')
       setTimeout(() => setLastCount(0), 2000)
     }
-  }, [onChange, lastCount])
+  }, [onChange, lastCount, targetDom])
 
   // 拖拽调节高度
   const handleDragMouseDown = useCallback(() => {

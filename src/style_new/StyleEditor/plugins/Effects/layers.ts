@@ -1,3 +1,6 @@
+import ColorUtil from 'color'
+import { parseCssVar } from '../../../core/css-var'
+
 export type EffectType = 'dropShadow' | 'innerShadow' | 'textShadow' | 'layerBlur' | 'backgroundBlur'
 
 export type BoxShadowEffectType = 'dropShadow' | 'innerShadow'
@@ -39,6 +42,11 @@ export type CssEffectsBundle = {
   filter?: string
   backdropFilter?: string
   WebkitBackdropFilter?: string
+}
+
+export type ParseEffectsOptions = {
+  /** var() 同时可能表示长度或颜色，由调用方按目标 DOM 作用域判定。 */
+  classifyColorToken?: (token: string) => boolean | undefined
 }
 
 export const EFFECT_TYPE_LABELS: Record<EffectType, string> = {
@@ -169,14 +177,66 @@ function isZeroLength(value: string | undefined): boolean {
 }
 
 function isCssVarToken(token: string): boolean {
-  return /^var\(/i.test(token.trim())
+  return !!parseCssVar(token.trim())
 }
 
 /** 长度位候选：数值（含单位）、calc() 等表达式，以及 CSS 变量引用 */
 function isLengthLikeToken(token: string | undefined): boolean {
   if (!token) return false
   if (isCssVarToken(token)) return true
+  if (/^(?:calc|min|max|clamp)\(/i.test(token.trim())) return true
   return !isNaN(parseFloat(token))
+}
+
+function isConcreteColorToken(token: string): boolean {
+  try {
+    new ColorUtil(token)
+    return true
+  } catch {
+    return false
+  }
+}
+
+function findShadowColorIndex(args: string[], options?: ParseEffectsOptions): number {
+  // 非变量颜色不存在值域歧义，CSS 允许它出现在长度序列前后任意位置。
+  const concreteIndex = args.findIndex((token) => !isCssVarToken(token) && isConcreteColorToken(token))
+  if (concreteIndex !== -1) return concreteIndex
+
+  const variableIndexes = args
+    .map((token, index) => (isCssVarToken(token) ? index : -1))
+    .filter((index) => index !== -1)
+
+  // 有目标作用域时优先按变量实际值区分颜色变量与长度变量。
+  const classifications = new Map<number, boolean | undefined>()
+  variableIndexes.forEach((index) => {
+    classifications.set(index, options?.classifyColorToken?.(args[index]))
+  })
+  const resolvedVariableIndex = variableIndexes.find((index) => classifications.get(index) === true)
+  if (resolvedVariableIndex !== undefined) return resolvedVariableIndex
+
+  // 变量未定义时无法从 token 本身判断值域；按 box-shadow 颜色常见的首/尾位置兜底。
+  // 已明确解析为长度的变量不参与兜底。
+  const lastIndex = variableIndexes[variableIndexes.length - 1]
+  if (
+    lastIndex === args.length - 1 &&
+    classifications.get(lastIndex) !== false &&
+    args.length >= 3 &&
+    args.slice(0, -1).every(isLengthLikeToken)
+  ) {
+    return lastIndex
+  }
+  const firstIndex = variableIndexes[0]
+  if (
+    firstIndex === 0 &&
+    classifications.get(firstIndex) !== false &&
+    args.length >= 3 &&
+    args.slice(1).every(isLengthLikeToken)
+  ) {
+    return firstIndex
+  }
+
+  // 保留对 currentColor、现代颜色函数等 ColorUtil 未识别颜色的兼容。
+  return args.findIndex((token) => !isCssVarToken(token) && !isLengthLikeToken(token))
 }
 
 /**
@@ -289,7 +349,10 @@ export function mergeBlurIntoFilter(
   return prev
 }
 
-function parseSingleBoxShadowRaw(boxShadow: string): ShadowEffectLayer | null {
+function parseSingleBoxShadowRaw(
+  boxShadow: string,
+  options?: ParseEffectsOptions
+): ShadowEffectLayer | null {
   const args = splitTopLevelBySpace(boxShadow.trim())
   if (args.length < 2) return null
 
@@ -302,16 +365,11 @@ function parseSingleBoxShadowRaw(boxShadow: string): ShadowEffectLayer | null {
     args.pop()
   }
 
-  // 先认末尾颜色：长度分量可能是 var(--x)，从字符串分不清值域，
-  // 而 composeShadow 始终把颜色写在末尾，末尾的非纯数值 token 一律当颜色。
   let color = DEFAULT_SHADOW_COLOR
-  const last = args.at(-1)
-  if (args.length > 2 && (isCssVarToken(last as string) || isNaN(parseFloat(last as string)))) {
-    color = last as string
-    args.pop()
-  } else if (args.length && !isLengthLikeToken(args[0])) {
-    color = args[0]
-    args.shift()
+  const colorIndex = findShadowColorIndex(args, options)
+  if (colorIndex !== -1) {
+    color = args[colorIndex]
+    args.splice(colorIndex, 1)
   }
 
   const [offsetX = '0px', offsetY = '0px', blurRadius = '0px', spreadRadius = '0px'] = args
@@ -327,14 +385,20 @@ function parseSingleBoxShadowRaw(boxShadow: string): ShadowEffectLayer | null {
   }
 }
 
-function parseSingleBoxShadow(boxShadow: string): ShadowEffectLayer | null {
-  const layer = parseSingleBoxShadowRaw(boxShadow)
+function parseSingleBoxShadow(
+  boxShadow: string,
+  options?: ParseEffectsOptions
+): ShadowEffectLayer | null {
+  const layer = parseSingleBoxShadowRaw(boxShadow, options)
   if (!layer || isBorderLikeShadowLayer(layer)) return null
   return layer
 }
 
-function parseSingleTextShadow(textShadow: string): TextShadowEffectLayer | null {
-  const layer = parseSingleBoxShadowRaw(textShadow)
+function parseSingleTextShadow(
+  textShadow: string,
+  options?: ParseEffectsOptions
+): TextShadowEffectLayer | null {
+  const layer = parseSingleBoxShadowRaw(textShadow, options)
   if (!layer || layer.type === 'innerShadow') return null
   return {
     id: layer.id,
@@ -346,14 +410,17 @@ function parseSingleTextShadow(textShadow: string): TextShadowEffectLayer | null
   }
 }
 
-export function parseEffects(css: CssEffectsBundle): EffectLayer[] {
+export function parseEffects(
+  css: CssEffectsBundle,
+  options?: ParseEffectsOptions
+): EffectLayer[] {
   const layers: EffectLayer[] = []
 
   const boxShadow = css.boxShadow
   if (boxShadow && boxShadow !== 'none') {
     for (const part of splitCssList(boxShadow)) {
       if (isBorderLikeInsetShadow(part)) continue
-      const layer = parseSingleBoxShadow(part)
+      const layer = parseSingleBoxShadow(part, options)
       if (layer) layers.push(layer)
     }
   }
@@ -361,7 +428,7 @@ export function parseEffects(css: CssEffectsBundle): EffectLayer[] {
   const textShadow = css.textShadow
   if (textShadow && textShadow !== 'none') {
     for (const part of splitCssList(textShadow)) {
-      const layer = parseSingleTextShadow(part)
+      const layer = parseSingleTextShadow(part, options)
       if (layer) layers.push(layer)
     }
   }
