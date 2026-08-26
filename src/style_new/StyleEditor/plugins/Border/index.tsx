@@ -1450,10 +1450,13 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                 ? `{content:'切换为单独配置',position:'left'}`
                 : `{content:'切换为统一配置',position:'left'}`}
               className={`${css.rightColumnBtn} ${css.rightColumnBtnSmall}`}
-              onClick={() => handleToggleChange({
-                key: "borderToggleValue",
-                value: borderToggleValue === 'all' ? "split" : "all",
-              })}
+              onClick={() => {
+                setShowStyleSettings(false);
+                handleToggleChange({
+                  key: "borderToggleValue",
+                  value: borderToggleValue === 'all' ? "split" : "all",
+                });
+              }}
             >
               <BorderSplitOutlined />
             </div>
