@@ -48,6 +48,7 @@ const PADDING_KEYS = ['paddingTop', 'paddingRight', 'paddingBottom', 'paddingLef
 export function Padding({value, onChange, config, showTitle, collapse}: PaddingProps) {
   const [toggle, setToggle] = useState(getToggleDefaultValue(value))
   const [paddingValue, setPaddingValue] = useState({...value})
+  const paddingValueRef = useRef({...value})
   const [forceRenderKey, setForceRenderKey] = useState<number>(Math.random())
   const [splitPaddingIcon, setSplitPaddingIcon] = useState(<PaddingTopOutlined/>)
   const getDragProps = useDragNumber({ continuous: true })
@@ -57,8 +58,9 @@ export function Padding({value, onChange, config, showTitle, collapse}: PaddingP
 
   // 面板实例会在切换选中组件时复用，需同步新的内边距值，避免旧值短暂回显。
   useLayoutEffect(() => {
+    const next = {...value};
+    paddingValueRef.current = next
     setPaddingValue((previous) => {
-      const next = {...value};
       return PADDING_KEYS.every((key) => previous[key] === next[key]) ? previous : next;
     });
     const nextToggle = getToggleDefaultValue(value);
@@ -74,19 +76,27 @@ export function Padding({value, onChange, config, showTitle, collapse}: PaddingP
   }, [onChange])
 
   const handleChange = useCallback((value: any) => {
-    setPaddingValue((val) => {
-      return {
-        ...val,
-        ...value
-      }
-    })
-    onChange(Object.keys(value).map((key) => {
-      return {
-        key,
-        value: value[key]
-      }
-    }))
-  }, [])
+    const next = {
+      ...paddingValueRef.current,
+      ...value
+    }
+    paddingValueRef.current = next
+    setPaddingValue(next)
+
+    // 始终用当前四边生成简写，并清掉旧 longhand，避免声明顺序导致单边修改被覆盖。
+    const hasCompletePadding = PADDING_KEYS.every(
+      (key) => next[key] !== null && typeof next[key] !== 'undefined' && next[key] !== ''
+    )
+    if (hasCompletePadding) {
+      onChange([
+        {key: 'padding', value: PADDING_KEYS.map((key) => next[key]).join(' ')},
+        ...PADDING_KEYS.map((key) => ({key, value: null}))
+      ])
+      return
+    }
+
+    onChange(Object.keys(value).map((key) => ({key, value: value[key]})))
+  }, [onChange])
 
   const handleUnifiedChange = useCallback((next: string | null) => {
     handleChange({
@@ -336,8 +346,11 @@ export function Padding({value, onChange, config, showTitle, collapse}: PaddingP
   })()
 
   const refresh = useCallback(() => {
-    const paddingKeys = ['paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft']
-    onChange(paddingKeys.map(key => ({ key, value: null })))
+    onChange([
+      {key: 'padding', value: null},
+      ...PADDING_KEYS.map((key) => ({key, value: null}))
+    ])
+    paddingValueRef.current = {}
     setPaddingValue({} as any)
     setForceRenderKey(prev => prev + 1)
   }, [onChange])
