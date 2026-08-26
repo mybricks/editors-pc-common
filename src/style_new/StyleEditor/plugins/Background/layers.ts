@@ -1,5 +1,5 @@
 import ColorUtil from 'color';
-import { resolveCssVarColor } from '../../../core/resolve-css-var-color';
+import { parseCssVar } from '../../../core/css-var';
 import {
   splitBackgroundLayers,
   isSolidColorGradient,
@@ -48,6 +48,20 @@ export function setColorOpacity(color: string, opacity: number): string {
     return new ColorUtil(color).alpha(Math.max(0, Math.min(100, opacity)) / 100).hexa().toLowerCase();
   } catch {
     return color;
+  }
+}
+
+/**
+ * 图层解析只判断值能否由颜色编辑器承载，不在这里解析变量的实际色值。
+ * 变量求值依赖目标 DOM 作用域，应留给渲染层处理，避免丢失原始绑定引用。
+ */
+function isEditableSolidColor(value: string): boolean {
+  if (parseCssVar(value)) return true;
+  try {
+    new ColorUtil(value);
+    return true;
+  } catch {
+    return false;
   }
 }
 
@@ -110,37 +124,30 @@ export function parseLayers(
     });
   }
 
-  // Backward compatibility: if old-format data has an explicit background-color
-  // (before the multi-layer rewrite), parse it as the bottom-most solid layer.
-  // DOM hover-state contamination is safe here because the component's useEffect
-  // guard only triggers a re-parse when backgroundImage changes — hover states
-  // only mutate backgroundColor, so the guard blocks those spurious re-parses.
+  // CSS 规则中的 background-color，以及 background: var(...) 的上游兼容回填，
+  // 都会从 backgroundColor 进入；统一解析为最底部纯色层。
   const SKIP_BG_COLOR = /^(transparent|initial|inherit|unset|revert|none)$/i;
   // rgba(0,0,0,0) 是浏览器 computedStyle 中 transparent 的等价形式，统一跳过，避免误建图层
   const isTransparentComputed = (color: string) =>
     /^rgba?\(\s*0\s*,\s*0\s*,\s*0\s*,\s*0\s*\)$/i.test(color.trim()) ||
     /^#00000000$/i.test(color.trim());
   if (backgroundColor) {
-    // var(--x) / var(--x, fallback)：先取变量实际色，读不到再降级 fallback
-    let color = backgroundColor.trim();
-    if (color.toLowerCase().startsWith('var(')) {
-      color = resolveCssVarColor(color) ?? '';
-    }
-    if (color && !SKIP_BG_COLOR.test(color) && !isTransparentComputed(color)) {
-      try {
-        new ColorUtil(color); // throws for unparseable / computed values
-        layers.push({
-          id: generateLayerId(),
-          type: 'solid',
-          value: color,
-          visible: true,
-          size: '',
-          repeat: '',
-          position: '',
-        });
-      } catch {
-        // skip anything ColorUtil can't parse
-      }
+    const color = backgroundColor.trim();
+    if (
+      color &&
+      !SKIP_BG_COLOR.test(color) &&
+      !isTransparentComputed(color) &&
+      isEditableSolidColor(color)
+    ) {
+      layers.push({
+        id: generateLayerId(),
+        type: 'solid',
+        value: color,
+        visible: true,
+        size: '',
+        repeat: '',
+        position: '',
+      });
     }
   }
 
