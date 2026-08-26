@@ -923,7 +923,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                         ? leftWidthVar.dragProps('拖拽调整左边框宽度（将解除变量绑定）')
                         : getDragPropsBorder(borderValue.borderLeftWidth, '拖拽调整左边框宽度'))}
                     >
-                      <BorderWeightOutlined />
+                      {/* <BorderWeightOutlined /> */}
                     </div>
                     {disableBorderWidth ? null : (
                       <VariableNumberInput
@@ -997,7 +997,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                         ? topWidthVar.dragProps('拖拽调整上边框宽度（将解除变量绑定）')
                         : getDragPropsBorder(borderValue.borderTopWidth, '拖拽调整上边框宽度'))}
                     >
-                      <BorderWeightOutlined />
+                      {/* <BorderWeightOutlined /> */}
                     </div>
                     {disableBorderWidth ? null : (
                       <VariableNumberInput
@@ -1072,7 +1072,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                         ? rightWidthVar.dragProps('拖拽调整右边框宽度（将解除变量绑定）')
                         : getDragPropsBorder(borderValue.borderRightWidth, '拖拽调整右边框宽度'))}
                     >
-                      <BorderWeightOutlined />
+                      {/* <BorderWeightOutlined /> */}
                     </div>
                     {disableBorderWidth ? null : (
                       <VariableNumberInput
@@ -1147,7 +1147,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                         ? bottomWidthVar.dragProps('拖拽调整下边框宽度（将解除变量绑定）')
                         : getDragPropsBorder(borderValue.borderBottomWidth, '拖拽调整下边框宽度'))}
                     >
-                      <BorderWeightOutlined />
+                      {/* <BorderWeightOutlined /> */}
                     </div>
                     {disableBorderWidth ? null : (
                       <VariableNumberInput
