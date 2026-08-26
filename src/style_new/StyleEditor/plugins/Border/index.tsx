@@ -89,9 +89,9 @@ const CHIP_STYLE = { flex: '1 1 0', minWidth: 0, width: 0, marginLeft: 4 };
 // 否则未绑定 36/44、绑定 68，粗细图标和数值会对不齐。
 const CHIP_STYLE_SPLIT = {
   flex: 'none',
-  width: 48,
-  minWidth: 48,
-  maxWidth: 48,
+  width: 40,
+  minWidth: 40,
+  maxWidth: 40,
   marginLeft: 0,
   background: 'transparent',
   height: '100%',
@@ -100,9 +100,9 @@ const WIDTH_STYLE_SPLIT = {
   padding: 0,
   fontSize: 10,
   flex: 'none',
-  width: 48,
-  minWidth: 48,
-  maxWidth: 48,
+  width: 40,
+  minWidth: 40,
+  maxWidth: 40,
   marginLeft: 0,
 };
 
@@ -915,16 +915,10 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                       }}
                     />
                   )}
-                  <div className={`${css.weightGroup} ${css.weightGroupSplit}`}>
-                    <div
-                      className={css.icon}
-                      ref={leftWidthVar.anchorRef}
-                      {...(leftWidthVar.varRef
-                        ? leftWidthVar.dragProps('拖拽调整左边框宽度（将解除变量绑定）')
-                        : getDragPropsBorder(borderValue.borderLeftWidth, '拖拽调整左边框宽度'))}
-                    >
-                      {/* <BorderWeightOutlined /> */}
-                    </div>
+                  <div
+                    className={`${css.weightGroup} ${css.weightGroupSplit}`}
+                    ref={leftWidthVar.anchorRef}
+                  >
                     {disableBorderWidth ? null : (
                       <VariableNumberInput
                         binding={leftWidthVar}
@@ -989,16 +983,10 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                       }}
                     />
                   )}
-                  <div className={`${css.weightGroup} ${css.weightGroupSplit}`}>
-                    <div
-                      className={css.icon}
-                      ref={topWidthVar.anchorRef}
-                      {...(topWidthVar.varRef
-                        ? topWidthVar.dragProps('拖拽调整上边框宽度（将解除变量绑定）')
-                        : getDragPropsBorder(borderValue.borderTopWidth, '拖拽调整上边框宽度'))}
-                    >
-                      {/* <BorderWeightOutlined /> */}
-                    </div>
+                  <div
+                    className={`${css.weightGroup} ${css.weightGroupSplit}`}
+                    ref={topWidthVar.anchorRef}
+                  >
                     {disableBorderWidth ? null : (
                       <VariableNumberInput
                         binding={topWidthVar}
@@ -1064,16 +1052,10 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                       }}
                     />
                   )}
-                  <div className={`${css.weightGroup} ${css.weightGroupSplit}`}>
-                    <div
-                      className={css.icon}
-                      ref={rightWidthVar.anchorRef}
-                      {...(rightWidthVar.varRef
-                        ? rightWidthVar.dragProps('拖拽调整右边框宽度（将解除变量绑定）')
-                        : getDragPropsBorder(borderValue.borderRightWidth, '拖拽调整右边框宽度'))}
-                    >
-                      {/* <BorderWeightOutlined /> */}
-                    </div>
+                  <div
+                    className={`${css.weightGroup} ${css.weightGroupSplit}`}
+                    ref={rightWidthVar.anchorRef}
+                  >
                     {disableBorderWidth ? null : (
                       <VariableNumberInput
                         binding={rightWidthVar}
@@ -1139,16 +1121,10 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                       }}
                     />
                   )}
-                  <div className={`${css.weightGroup} ${css.weightGroupSplit}`}>
-                    <div
-                      className={css.icon}
-                      ref={bottomWidthVar.anchorRef}
-                      {...(bottomWidthVar.varRef
-                        ? bottomWidthVar.dragProps('拖拽调整下边框宽度（将解除变量绑定）')
-                        : getDragPropsBorder(borderValue.borderBottomWidth, '拖拽调整下边框宽度'))}
-                    >
-                      {/* <BorderWeightOutlined /> */}
-                    </div>
+                  <div
+                    className={`${css.weightGroup} ${css.weightGroupSplit}`}
+                    ref={bottomWidthVar.anchorRef}
+                  >
                     {disableBorderWidth ? null : (
                       <VariableNumberInput
                         binding={bottomWidthVar}

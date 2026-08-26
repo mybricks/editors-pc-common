@@ -137,6 +137,7 @@ export function InputNumber ({
     } else if (code === 'Enter') {
       const trimmed = e.target.value.trim();
       if (!trimmed || isNaN(parseFloat(trimmed))) {
+        e.preventDefault();
         // placeholder 状态仅聚焦、未编辑时，不应把空值提交为 null。
         // 例如尺寸为「填满」时，输入框为空并通过 placeholder 展示计算值。
         if (
@@ -160,6 +161,8 @@ export function InputNumber ({
           e.target.value = '';
           onChange?.(null);
         }
+        // 空值回车也要完成一次提交，行为与修改数值后失焦保持一致。
+        e.target.blur();
         return;
       }
       // 与 onBlur 对齐：合法数字回车时规范化并提交
