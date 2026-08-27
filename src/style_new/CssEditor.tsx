@@ -17,6 +17,7 @@ import {
   parseToStyleData,
   resolveDisplaySelector,
   toLine,
+  validateCssRuleSyntax,
 } from './core/css-code-codec'
 import { registerCSSPropertiesLanguage } from './css-properties-language'
 import { fullScreenIcon } from './icon'
@@ -48,6 +49,7 @@ export function CssEditor({
   })
   const [cssValue, setCssValue] = useState(() => parseToCssCode(baselineStyle, displaySelector))
   const editorRef = useRef<MonacoEditor>(null)
+  const monacoRef = useRef<any>(null)
   const baselineRef = useRef<Record<string, any>>(baselineStyle)
   const liveStyleRef = useRef<Record<string, any>>({})
   const defaultOptions = useMemo(() => getDefaultOptions?.('stylenew') ?? {}, [])
@@ -79,6 +81,7 @@ export function CssEditor({
 
   const onMounted = useCallback((editor: any, monaco: any) => {
     editorRef.current = editor
+    monacoRef.current = monaco
     registerCSSPropertiesLanguage(monaco)
     const model = editor.getModel?.()
     if (model) monaco.editor.setModelLanguage(model, 'css-properties')
@@ -90,6 +93,23 @@ export function CssEditor({
   }, [])
 
   const commitCssValue = useCallback((nextCss: string) => {
+    const syntaxIssue = validateCssRuleSyntax(nextCss)
+    const model = (editorRef.current as any)?.getModel?.()
+    if (syntaxIssue) {
+      if (model) {
+        monacoRef.current?.editor?.setModelMarkers(model, 'style-css-syntax', [{
+          severity: monacoRef.current?.MarkerSeverity?.Error ?? 8,
+          message: syntaxIssue.message,
+          startLineNumber: syntaxIssue.line,
+          startColumn: syntaxIssue.column,
+          endLineNumber: syntaxIssue.line,
+          endColumn: syntaxIssue.column + 1,
+        }])
+      }
+      return
+    }
+    if (model) monacoRef.current?.editor?.setModelMarkers(model, 'style-css-syntax', [])
+
     const nextStyle = parseToStyleData(nextCss, displaySelector)
     const changes = diffStyleData(baselineRef.current, nextStyle)
     if (changes.length === 0) return
@@ -100,7 +120,7 @@ export function CssEditor({
       if (value === null) return false
       const prop = toLine(key)
       const strVal = String(value).replace(/\s*!important\s*$/, '').trim()
-      if (prop.startsWith('--') || strVal.includes('var(')) return false
+      if (prop.startsWith('--')) return false
       if (typeof CSS === 'undefined') return false
       return !CSS.supports(prop, strVal)
     }
