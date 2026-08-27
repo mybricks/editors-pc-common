@@ -1,5 +1,4 @@
 import React, {
-  useEffect,
   useLayoutEffect,
   useMemo,
   useState,
@@ -82,10 +81,10 @@ const DEFAULT_CONFIG = {
 export function Margin ({value, onChange, config, showTitle, collapse}: MarginProps) {
   const [toggle, setToggle] = useState(getToggleDefaultValue(value))
   const [marginValue, setMarginValue] = useState({...value})
+  const marginValueRef = useRef({...value})
   const [forceRenderKey, setForceRenderKey] = useState<number>(Math.random())
   const [splitMarginIcon, setSplitMarginIcon] = useState(<MarginTopOutlined />)
   const getDragProps = useDragNumber({ continuous: true, min: -Infinity })
-  const [isReset, setIsReset] = useState(false)
   const context = useStyleEditorContext()
   const handleSwitchToUnified = useCallback(() => {
     onChange(MARGIN_KEYS.map((key) => ({ key, value: null })))
@@ -99,8 +98,9 @@ export function Margin ({value, onChange, config, showTitle, collapse}: MarginPr
 
   // 面板实例会在切换选中组件时复用，需同步新的边距值，避免先显示上一组件的数字。
   useLayoutEffect(() => {
+    const next = {...value};
+    marginValueRef.current = next
     setMarginValue((previous) => {
-      const next = {...value};
       return MARGIN_KEYS.every((key) => previous[key] === next[key]) ? previous : next;
     });
     const nextToggle = getToggleDefaultValue(value);
@@ -111,14 +111,19 @@ export function Margin ({value, onChange, config, showTitle, collapse}: MarginPr
   }, [value.marginTop, value.marginRight, value.marginBottom, value.marginLeft]);
 
   const handleChange = useCallback((value: CSSProperties & Record<string, any>) => {
-    setMarginValue((val) => {
-      return {
-        ...val,
-        ...value
-      }
+    const current: Record<string, any> = {...marginValueRef.current}
+    MARGIN_KEYS.forEach((key) => {
+      if (current[key] == null || current[key] === '') current[key] = '0px'
     })
+    const next = {...current, ...value}
+    marginValueRef.current = next
+    setMarginValue(next)
 
-    const changeList = Object.keys(value).map((key) => ({ key, value: value[key] }))
+    const hasCompleteMargin = MARGIN_KEYS.every(
+      (key) => next[key] !== null && typeof next[key] !== 'undefined' && next[key] !== ''
+    )
+    const keys = hasCompleteMargin ? MARGIN_KEYS : Object.keys(value)
+    const changeList = keys.map((key) => ({key, value: next[key]}))
 
     // 检测父容器 flex 对齐冲突，自动追加 align-self 修复
     const conflict = getAlignConflict(context?.targetDom)
@@ -404,23 +409,15 @@ export function Margin ({value, onChange, config, showTitle, collapse}: MarginPr
     }
   })()
 
-  const marginKeySet = new Set(MARGIN_KEYS)
-
   const refresh = useCallback(() => {
-    const keys = Object.keys(value ?? {}).filter(key => marginKeySet.has(key as any))
-    console.log("margin refresh", keys);
-    onChange(keys.map(key => ({ key, value: null })))
-    setIsReset(true)
+    onChange([
+      {key: 'margin', value: null},
+      ...MARGIN_KEYS.map((key) => ({key, value: null}))
+    ])
+    marginValueRef.current = {}
     setMarginValue({} as any)
     setForceRenderKey(prev => prev + 1)
-  }, [value, onChange])
-
-  useEffect(() => {
-    const currentValue = value as Record<string, any> | undefined
-    if (isReset && currentValue && Object.keys(currentValue).some(k => currentValue[k] != null)) {
-      setIsReset(false)
-    }
-  }, [value, isReset])
+  }, [onChange])
 
   return (
     <Panel title='外边距' showTitle={showTitle} showReset={true} resetFunction={refresh} collapse={collapse}>

@@ -5,6 +5,10 @@ import MonacoEditor from '@mybricks/code-editor'
 import { deepCopy } from '../utils'
 import { applyStyleChange } from './core/apply-style-change'
 import {
+  expandShorthandSnapshotChanges,
+  normalizeStyleShorthands,
+} from './core/shorthand-normalizer'
+import {
   buildCssRule,
   diffStyleData,
   extractCssRuleBody,
@@ -38,7 +42,10 @@ export function CssEditor({
   const displaySelector = resolveDisplaySelector(selector)
   // baseline：编辑器回显快照，用于 blur 时 diff（含 CSSOM 回显值）
   // liveStyle：与可视化一致，只累积真正写入过的属性，避免把计算样式整包写进 less
-  const [baselineStyle] = useState(() => filterStyleForCssCode(deepCopy(initialStyle || {})))
+  const [baselineStyle] = useState(() => {
+    const normalized = normalizeStyleShorthands(deepCopy(initialStyle || {})).style
+    return filterStyleForCssCode(normalized)
+  })
   const [cssValue, setCssValue] = useState(() => parseToCssCode(baselineStyle, displaySelector))
   const editorRef = useRef<MonacoEditor>(null)
   const baselineRef = useRef<Record<string, any>>(baselineStyle)
@@ -104,10 +111,16 @@ export function CssEditor({
       return !isInvalidChange({ key, value })
     })
 
-    if (validChanges.length === 0) return
+    const snapshotChanges = expandShorthandSnapshotChanges(
+      nextStyle,
+      validChanges,
+      (item) => !isInvalidChange(item)
+    )
+
+    if (snapshotChanges.length === 0) return
 
     const { nextLiveStyle, applied } = applyStyleChange({
-      value: validChanges,
+      value: snapshotChanges,
       liveStyle: liveStyleRef.current,
       collapsedOptions,
       editConfig,

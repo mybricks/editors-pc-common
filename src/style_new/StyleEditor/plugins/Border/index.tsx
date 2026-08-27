@@ -126,6 +126,21 @@ const BORDER_LOGICAL_KEYS = [
   'borderTopStyle', 'borderRightStyle', 'borderBottomStyle', 'borderLeftStyle',
 ];
 
+const NEW_BORDER_EDITOR_VALUE: CSSProperties & Record<string, any> = {
+  borderTopWidth: '1px',
+  borderRightWidth: '1px',
+  borderBottomWidth: '1px',
+  borderLeftWidth: '1px',
+  borderTopColor: '#000000',
+  borderRightColor: '#000000',
+  borderBottomColor: '#000000',
+  borderLeftColor: '#000000',
+  borderTopStyle: 'solid',
+  borderRightStyle: 'solid',
+  borderBottomStyle: 'solid',
+  borderLeftStyle: 'solid',
+};
+
 const detectPositionFromCSS = (cssValue: CSSProperties & Record<string, any>): BorderPosition => {
   const outline = String(cssValue.outline || '');
   const boxShadow = String(cssValue.boxShadow || '');
@@ -265,6 +280,8 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
   const [{ borderToggleValue, radiusToggleValue }, setToggleValue] = useState(
     getToggleDefaultValue(value)
   );
+  const suppressBorderToggleWriteRef = useRef(false);
+  const suppressRadiusToggleWriteRef = useRef(false);
   const defaultBorderValue = useMemo(() => {
     const defaultValue = Object.assign({}, value) as CSSProperties & Record<string, any>;
     Object.entries(defaultValue).forEach(([key, val]) => {
@@ -565,45 +582,22 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
   );
 
   const refresh = useCallback(() => {
-    const pos = borderPositionRef.current;
-    const items: Array<{ key: string; value: any }> = [];
-
-    // 显式写入 'none'/'0px'，确保覆盖组件自身 CSS 中定义的 border（无法通过 null 删除）
-    if (pos === 'outside') {
-      items.push({ key: 'outline', value: 'none' });
-      items.push({ key: 'outlineOffset', value: '0px' });
-    } else if (pos === 'inside') {
-      items.push({ key: 'boxShadow', value: 'none' });
-    } else {
-      // center（默认）：逐侧显式清零
-      items.push(
-        { key: 'borderTopStyle', value: 'none' },
-        { key: 'borderRightStyle', value: 'none' },
-        { key: 'borderBottomStyle', value: 'none' },
-        { key: 'borderLeftStyle', value: 'none' },
-        { key: 'borderTopWidth', value: '0px' },
-        { key: 'borderRightWidth', value: '0px' },
-        { key: 'borderBottomWidth', value: '0px' },
-        { key: 'borderLeftWidth', value: '0px' },
-      );
-    }
-
-    // 其余属性以 null 删除（走 handleChange 正常删除流程）
-    // 非 null 项已使 activePanelsInBatch 包含 'border'，绕过删除守卫
     // 仅在确实存在渐变边框层时清 background*，避免误删文字渐变占用的栈
     const styleForStack = (value || borderValueRef.current) as Record<string, any>;
     const hasBorderGradientLayer = !!decomposeBackgroundStack(styleForStack).borderLayer;
-    const nullKeys = [
-      'borderTopColor', 'borderRightColor', 'borderBottomColor', 'borderLeftColor',
+    const pos = borderPositionRef.current;
+    const keys = [
+      ...BORDER_LOGICAL_KEYS,
       'borderTopLeftRadius', 'borderTopRightRadius', 'borderBottomLeftRadius', 'borderBottomRightRadius',
       'border', 'borderTop', 'borderRight', 'borderBottom', 'borderLeft',
       'borderRadius', 'borderWidth', 'borderStyle', 'borderColor',
-      'outline', 'outlineOffset', 'boxShadow',
+      ...(pos === 'outside' ? ['outline', 'outlineOffset'] : []),
+      ...(pos === 'inside' ? ['boxShadow'] : []),
       ...(hasBorderGradientLayer ? GRADIENT_BORDER_KEYS : []),
     ];
-    items.push(...nullKeys.map(key => ({ key, value: null })));
 
-    onChange(items);
+    onChange(Array.from(new Set(keys)).map(key => ({ key, value: null })));
+    setShowStyleSettings(false);
     setBorderValue({} as any);
     setBorderPosition('center');
     setForceRenderKey(prev => prev + 1);
@@ -614,6 +608,25 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
 
   const borderValueRef = useRef(borderValue);
   borderValueRef.current = borderValue;
+
+  const handleExpand = useCallback(() => {
+    const next = {...NEW_BORDER_EDITOR_VALUE};
+    borderValueRef.current = next;
+    contentBackgroundLayersRef.current = null;
+    borderGradientRef.current = undefined;
+    hasUserEditedRef.current = true;
+    setShowStyleSettings(false);
+    if (borderToggleValue !== 'all') suppressBorderToggleWriteRef.current = true;
+    if (radiusToggleValue !== 'all') suppressRadiusToggleWriteRef.current = true;
+    setBorderValue(next);
+    onChange(BORDER_LOGICAL_KEYS.map(key => ({
+      key,
+      value: `${next[key]}${useImportant ? '!important' : ''}`,
+    })));
+    setToggleValue({borderToggleValue: 'all', radiusToggleValue: 'all'});
+    setBorderPosition('center');
+    setForceRenderKey(prev => prev + 1);
+  }, [borderToggleValue, radiusToggleValue, onChange, useImportant]);
 
   // 构建 outside/inside 模式的 CSS 输出
   const emitPositionCSS = useCallback((
@@ -1380,6 +1393,10 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
   );
 
   useUpdateEffect(() => {
+    if (suppressBorderToggleWriteRef.current) {
+      suppressBorderToggleWriteRef.current = false;
+      return;
+    }
     handleChange({
       borderTopColor: borderValue.borderTopColor,
       borderRightColor: borderValue.borderTopColor,
@@ -1397,6 +1414,10 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
   }, [borderToggleValue]);
 
   useUpdateEffect(() => {
+    if (suppressRadiusToggleWriteRef.current) {
+      suppressRadiusToggleWriteRef.current = false;
+      return;
+    }
     handleChange({
       borderTopLeftRadius: borderValue.borderTopLeftRadius,
       borderTopRightRadius: borderValue.borderTopLeftRadius,
@@ -1433,6 +1454,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
       title="边框"
       showTitle={showTitle}
       collapse={collapse}
+      onExpand={handleExpand}
       resetFunction={refresh}
       deleteRef={panelDeleteRef}
       rightColumn={

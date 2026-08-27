@@ -1,6 +1,6 @@
-import React, { CSSProperties, useCallback, useEffect, useMemo, useState } from 'react';
+import React, { CSSProperties, useCallback, useLayoutEffect, useRef, useState } from 'react';
 
-import {Panel, Select, WidthOutlined, HeightOutlined} from '../../components';
+import {Panel, Select} from '../../components';
 
 import type {ChangeEvent, PanelBaseProps} from '../../type';
 import css from './index.less'
@@ -24,73 +24,74 @@ const VALUE_OPTIONS = [
 ];
 
 export const OverFlow = ({ value, onChange, showTitle, collapse }: OverFlowProps) => {
-  const [isReset, setIsReset] = useState(false)
   const [overflowX, setOverflowX] = useState(value.overflowX)
   const [overflowY, setOverflowY] = useState(value.overflowY)
+  const overflowValueRef = useRef<OverFlowValueType>({...value})
   const [forceRenderKey, setForceRenderKey] = useState<number>(Math.random())
 
-  const overflowXChange = (val: string) => {
-    onChange({ key: 'overflowX', value: val })
+  useLayoutEffect(() => {
+    overflowValueRef.current = {...value}
+    setOverflowX(value.overflowX)
+    setOverflowY(value.overflowY)
+  }, [value.overflowX, value.overflowY])
+
+  const emitOverflow = (next: OverFlowValueType) => {
+    overflowValueRef.current = next
+    setOverflowX(next.overflowX)
+    setOverflowY(next.overflowY)
+    const keys = ['overflowX', 'overflowY'] as const
+    onChange(keys.map((key) => ({key, value: next[key]})))
+  }
+
+  const overflowXChange = (val: CSSProperties['overflowX']) => {
+    const next: OverFlowValueType = {
+      overflowY: overflowValueRef.current.overflowY ?? 'visible',
+      overflowX: val,
+    }
 
     //显示和隐藏需要x、y轴同时联动生效
     if (val === 'visible') {
-      setOverflowY('visible')
-      onChange({ key: 'overflowY', value: 'visible' })
-      return
+      next.overflowY = 'visible'
     }
 
     if (val === 'hidden') {
-      setOverflowY('hidden')
-      onChange({ key: 'overflowY', value: 'hidden' })
-      return
+      next.overflowY = 'hidden'
     }
 
-
-    if (val === 'scroll' && overflowY === 'visible') {
-      setOverflowY('auto')
-      onChange({ key: 'overflowY', value: 'auto' })
-      return
+    if (val === 'scroll' && next.overflowY === 'visible') {
+      next.overflowY = 'auto'
     }
-
+    emitOverflow(next)
   }
 
-  const overflowYChange = (val: string) => {
-    onChange({ key: 'overflowY', value: val })
+  const overflowYChange = (val: CSSProperties['overflowY']) => {
+    const next: OverFlowValueType = {
+      overflowX: overflowValueRef.current.overflowX ?? 'visible',
+      overflowY: val,
+    }
 
     //显示和隐藏需要x、y轴同时联动生效
     if (val === 'visible') {
-      setOverflowX('visible')
-      onChange({ key: 'overflowX', value: 'visible' })
-      return
+      next.overflowX = 'visible'
     }
 
     if (val === 'hidden') {
-      setOverflowX('hidden')
-      onChange({ key: 'overflowX', value: 'hidden' })
-      return
+      next.overflowX = 'hidden'
     }
 
-    if (val === 'scroll' && overflowX === 'visible') {
-      setOverflowX('auto')
-      onChange({ key: 'overflowX', value: 'auto' })
-      return
+    if (val === 'scroll' && next.overflowX === 'visible') {
+      next.overflowX = 'auto'
     }
+    emitOverflow(next)
   }
-
-  useEffect(() => {
-    if (isReset && (value.overflowX != null || value.overflowY != null)) {
-      setIsReset(false)
-      setOverflowX(value.overflowX)
-      setOverflowY(value.overflowY)
-    }
-  }, [value, isReset])
 
   const refresh = useCallback(() => {
     onChange([
+      { key: 'overflow', value: null },
       { key: 'overflowX', value: null },
       { key: 'overflowY', value: null },
     ])
-    setIsReset(true)
+    overflowValueRef.current = {}
     setOverflowX(undefined)
     setOverflowY(undefined)
     setForceRenderKey(prev => prev + 1)

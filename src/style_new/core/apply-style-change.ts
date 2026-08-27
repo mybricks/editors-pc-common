@@ -3,6 +3,10 @@ import { mergeCSSProperties } from '../StyleEditor/helper'
 import { preservePaintRoles } from '../StyleEditor/helper/paint-stack'
 import { PANEL_MAP } from './panel-defaults'
 import { toElementArray } from './dom'
+import {
+  normalizeStyleShorthands,
+  overlayNormalizedShorthands,
+} from './shorthand-normalizer'
 
 export type StyleChangeItem = { key: string; value: any }
 
@@ -105,10 +109,22 @@ export function applyStyleChange({
     if (!deletedKeys.includes(key)) deletedKeys.push(key)
     hasRealChange = true
   }
+
   if (writingFlexLonghand) {
     forceDelete('flex')
   } else if (writingFlexShorthand) {
     FLEX_LONGHAND_KEYS.forEach((k) => forceDelete(k))
+  }
+
+  const normalized = normalizeStyleShorthands(nextSetValue, changeItems)
+  normalized.deletions.forEach((key) => {
+    if (!deletedKeys.includes(key)) deletedKeys.push(key)
+  })
+  if (
+    Object.keys(normalized.style).length !== Object.keys(nextSetValue).length ||
+    Object.keys(normalized.style).some((key) => normalized.style[key] !== nextSetValue[key])
+  ) {
+    hasRealChange = true
   }
 
   // 没有任何实际变更时直接返回，不触发样式写入（避免展开面板后折叠产生多余版本）
@@ -116,24 +132,27 @@ export function applyStyleChange({
     return { nextLiveStyle: liveStyle, applied: false }
   }
 
-  // 删除信号通过 window 侧通道传递给 valueProxy.set，
-  // 不污染 editConfig.value（代码编辑器不会看到 null 值）。
-  // 同批又被赋了新值的 key 必须排除：styleProxy 会先写 value 再按 deletions 删除，
-  // 重叠 key 会被清掉（表现为粘贴/批量替换后样式变空）。
-  const effectiveDeletions = deletedKeys.filter((key) => !(key in nextSetValue))
-  if (effectiveDeletions.length > 0) {
-    ;(window as any).__mybricks_style_deletions = effectiveDeletions
-  }
+  const mergedCssProperties = mergeCSSProperties(deepCopy(normalized.style))
+  const finalCssProperties = overlayNormalizedShorthands(
+    mergedCssProperties as Record<string, any>,
+    normalized.style
+  )
 
-  const mergedCssProperties = mergeCSSProperties(deepCopy(nextSetValue))
   // merge 内部 Object.assign 到临时 DOM 后，Chrome 可能把长写折叠进 style.flex；
   // 再次按写入意图收一遍，避免把合成简写写进 Less。
   if (writingFlexLonghand) {
-    delete (mergedCssProperties as any).flex
+    delete finalCssProperties.flex
   } else if (writingFlexShorthand) {
-    delete (mergedCssProperties as any).flexGrow
-    delete (mergedCssProperties as any).flexShrink
-    delete (mergedCssProperties as any).flexBasis
+    delete finalCssProperties.flexGrow
+    delete finalCssProperties.flexShrink
+    delete finalCssProperties.flexBasis
+  }
+
+  // 删除信号通过 window 侧通道传递给 valueProxy.set，不污染 editConfig.value。
+  // 以最终写入对象过滤，确保同批重新生成的 key 不会被 valueProxy 再删除。
+  const effectiveDeletions = deletedKeys.filter((key) => !(key in finalCssProperties))
+  if (effectiveDeletions.length > 0) {
+    ;(window as any).__mybricks_style_deletions = effectiveDeletions
   }
 
   // options?.selector 优先；兜底从 editConfig.options.selector 读取当前激活的 selector
@@ -152,12 +171,12 @@ export function applyStyleChange({
   const realTargetDom = (toElementArray(targetDom)[0] ?? null) as HTMLElement | null
   const isThirdPartyFocus = !!realTargetDom && !realTargetDom.getAttribute('data-zone-selector')
   if ((batchMeta?.enabled || isThirdPartyFocus) && editConfig.value.previewBatch) {
-    editConfig.value.previewBatch(mergedCssProperties, setOptions)
+    editConfig.value.previewBatch(finalCssProperties, setOptions)
     onBatchMetaChange?.()
-    return { nextLiveStyle: nextSetValue, applied: true }
+    return { nextLiveStyle: finalCssProperties, applied: true }
   }
 
-  editConfig.value.set(mergedCssProperties, setOptions)
+  editConfig.value.set(finalCssProperties, setOptions)
   onBatchMetaChange?.()
-  return { nextLiveStyle: nextSetValue, applied: true }
+  return { nextLiveStyle: finalCssProperties, applied: true }
 }

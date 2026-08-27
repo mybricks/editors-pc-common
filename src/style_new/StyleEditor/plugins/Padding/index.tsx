@@ -76,26 +76,19 @@ export function Padding({value, onChange, config, showTitle, collapse}: PaddingP
   }, [onChange])
 
   const handleChange = useCallback((value: any) => {
-    const next = {
-      ...paddingValueRef.current,
-      ...value
-    }
+    const current: Record<string, any> = {...paddingValueRef.current}
+    PADDING_KEYS.forEach((key) => {
+      if (current[key] == null || current[key] === '') current[key] = '0px'
+    })
+    const next = {...current, ...value}
     paddingValueRef.current = next
     setPaddingValue(next)
 
-    // 始终用当前四边生成简写，并清掉旧 longhand，避免声明顺序导致单边修改被覆盖。
     const hasCompletePadding = PADDING_KEYS.every(
       (key) => next[key] !== null && typeof next[key] !== 'undefined' && next[key] !== ''
     )
-    if (hasCompletePadding) {
-      onChange([
-        {key: 'padding', value: PADDING_KEYS.map((key) => next[key]).join(' ')},
-        ...PADDING_KEYS.map((key) => ({key, value: null}))
-      ])
-      return
-    }
-
-    onChange(Object.keys(value).map((key) => ({key, value: value[key]})))
+    const keys = hasCompletePadding ? PADDING_KEYS : Object.keys(value)
+    onChange(keys.map((key) => ({key, value: next[key]})))
   }, [onChange])
 
   const handleUnifiedChange = useCallback((next: string | null) => {

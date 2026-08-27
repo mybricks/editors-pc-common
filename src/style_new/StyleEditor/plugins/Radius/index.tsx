@@ -76,12 +76,14 @@ export function Radius({ value, onChange, config, showTitle, collapse }: BorderP
     getToggleDefaultValue(value)
   );
   const [borderValue, setBorderValue] = useState(() => stripImportant(value));
+  const borderValueRef = useRef(stripImportant(value));
   /** 由外部值同步引起的模式切换不应回写四角，否则切换组件会覆盖真实圆角 */
   const isExternalSyncRef = useRef(false);
 
   // 面板实例在切换选中组件时复用，需同步新的圆角值，避免旧值回显
   useLayoutEffect(() => {
     const next = stripImportant(value);
+    borderValueRef.current = next;
     setBorderValue((previous: Record<string, any>) =>
       RADIUS_KEYS.every((key) => previous[key] === next[key]) ? previous : next
     );
@@ -99,22 +101,29 @@ export function Radius({ value, onChange, config, showTitle, collapse }: BorderP
 
   const handleChange = useCallback(
     (value: CSSProperties & Record<string, any>) => {
-      setBorderValue((val) => {
-        return {
-          ...val,
-          ...value,
-        };
+      const current: Record<string, any> = {...borderValueRef.current};
+      RADIUS_KEYS.forEach((key) => {
+        if (current[key] == null || current[key] === '') current[key] = '0px';
       });
+      const next = {...current, ...value};
+      borderValueRef.current = next;
+      setBorderValue(next);
+      const hasCompleteRadius = RADIUS_KEYS.every(
+        (key) => next[key] !== null && typeof next[key] !== 'undefined' && next[key] !== ''
+      );
+      const keys = hasCompleteRadius ? RADIUS_KEYS : Object.keys(value);
       onChange(
-        Object.keys(value).map((key) => {
+        keys.map((key) => {
           return {
             key,
-            value: `${value[key]}${useImportant ? "!important" : ""}`,
+            value: next[key] == null
+              ? null
+              : `${next[key]}${useImportant ? "!important" : ""}`,
           };
         })
       );
     },
-    []
+    [onChange, useImportant]
   );
 
   const radiusConfig = useMemo(() => {

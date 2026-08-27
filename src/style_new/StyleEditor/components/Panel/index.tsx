@@ -27,6 +27,8 @@ interface PanelProps {
   resetFunction?: () => void
   isActive?: boolean
   collapse?: boolean | 'inherited'
+  /** 仅在折叠态点击 + 展开时触发，不在展开态渲染额外新增按钮 */
+  onExpand?: () => void
   onAdd?: () => void
   addTip?: string
   addOptions?: AddOption[]
@@ -56,7 +58,7 @@ function isEmptyChildren(children: ReactNode): boolean {
   return false
 }
 
-export function Panel ({title, titleTip, children, showReset = false, showTitle = true, showDelete = true, deleteNode, onDelete, rightColumn, deleteRef, resetFunction = () => {}, isActive = false, collapse = false, onAdd, addTip, addOptions, onAddOption, hideTopBorder = false, keepTopBorder = false}: PanelProps) {
+export function Panel ({title, titleTip, children, showReset = false, showTitle = true, showDelete = true, deleteNode, onDelete, rightColumn, deleteRef, resetFunction = () => {}, isActive = false, collapse = false, onExpand, onAdd, addTip, addOptions, onAddOption, hideTopBorder = false, keepTopBorder = false}: PanelProps) {
   const isInherited = collapse === 'inherited'
   const [collapsed, setCollapsed] = useState(collapse === true)
   const isEmpty = useMemo(() => !collapsed && isEmptyChildren(children), [collapsed, children])
@@ -107,7 +109,7 @@ export function Panel ({title, titleTip, children, showReset = false, showTitle 
                 <PlusOutlined />
               </Dropdown>
             ) : (
-              <div className={css.right} onClick={() => { setCollapsed(false); onAdd?.(); }}>
+              <div className={css.right} onClick={() => { setCollapsed(false); onExpand?.(); onAdd?.(); }}>
                 <PlusOutlined />
               </div>
             )
