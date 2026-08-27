@@ -150,8 +150,8 @@ function extractColorsFromLine(line: string): Array<{ startCol: number; endCol: 
 }
 
 /**
- * 注册专门用于 CSS 属性声明（无选择器/花括号）的 Monaco 语言；
- * 不高亮主题，复用全局 vs / vs-dark。包含颜色预览装饰器。
+ * 注册 Style Editor 共用的 CSS Monaco 语言，兼容完整规则和纯属性声明。
+ * 不定义主题，复用全局 vs / vs-dark。包含颜色预览装饰器。
  */
 export function registerCSSPropertiesLanguage(monaco: any) {
   if (languageRegistered) return
@@ -167,18 +167,24 @@ export function registerCSSPropertiesLanguage(monaco: any) {
         [/\/\/.*$/, 'comment'],
         // CSS 属性名（紧接 :）
         [/[\w-]+(?=\s*:)/, 'attribute.name'],
+        // 十六进制颜色（需先于 #id 选择器）
+        [/#[0-9a-fA-F]{3,8}\b/, 'number.hex'],
+        // 完整规则中的选择器
+        [/(?:\.-?[_a-zA-Z][\w-]*|#[\w-]+)/, 'tag'],
+        [/::?[\w-]+/, 'keyword'],
+        [/[>+~]/, 'operator'],
+        [/[{}\[\]]/, 'delimiter.bracket'],
         // 冒号分隔
         [/:/, 'delimiter'],
-        // 十六进制颜色
-        [/#[0-9a-fA-F]{3,8}\b/, 'number.hex'],
         // CSS 变量 var(--xxx) 或 var(--xxx, fallback)
         [/var\(--[\w-]+[^)]*\)/, 'variable.css'],
         // 数值 + 单位
         [
-          /-?\d+\.?\d*(%|px|em|rem|vh|vw|vmin|vmax|dvh|dvw|svh|svw|pt|cm|mm|in|ex|ch|fr|deg|rad|turn|grad|s|ms)\b/,
+          /-?(?:\d+\.?\d*|\.\d+)(%|px|em|rem|vh|vw|vmin|vmax|dvh|dvw|svh|svw|pt|cm|mm|in|ex|ch|fr|deg|rad|turn|grad|s|ms)\b/,
           'number',
         ],
-        [/-?\d+\.?\d*\b/, 'number'],
+        [/-?(?:\d+\.?\d*|\.\d+)\b/, 'number'],
+        [/!important\b/, 'keyword'],
         // 字符串
         [/"[^"]*"/, 'string'],
         [/'[^']*'/, 'string'],

@@ -80,6 +80,8 @@ export function CssEditor({
   const onMounted = useCallback((editor: any, monaco: any) => {
     editorRef.current = editor
     registerCSSPropertiesLanguage(monaco)
+    const model = editor.getModel?.()
+    if (model) monaco.editor.setModelLanguage(model, 'css-properties')
   }, [])
 
   const onChange = useCallback((value: any) => {
@@ -178,8 +180,7 @@ export function CssEditor({
         onChange={onChange}
         CDN={defaultOptions.CDN}
         onBlur={onBlur}
-        language="css"
-        readOnly={true}
+        language="css-properties"
       />
     )
   }, [cssValue, onBlur, onChange, onMounted, defaultOptions.CDN])
