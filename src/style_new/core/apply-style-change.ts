@@ -2,6 +2,8 @@ import { deepCopy } from '../../utils'
 import { mergeCSSProperties } from '../StyleEditor/helper'
 import { preservePaintRoles } from '../StyleEditor/helper/paint-stack'
 import { PANEL_MAP } from './panel-defaults'
+import { findCascadeWinnerDetail } from './cascade-winner'
+import { toLine } from './css-code-codec'
 import { toElementArray } from './dom'
 import {
   normalizeStyleShorthands,
@@ -10,12 +12,50 @@ import {
 
 export type StyleChangeItem = { key: string; value: any }
 
+const IMPORTANT_SUFFIX_RE = /!important\s*$/i
+const HOVER_SELECTOR_RE = /:hover\s*$/
+
+const preserveCascadePriority = (
+  items: StyleChangeItem[],
+  targetDom: HTMLElement | null,
+  selector: unknown,
+  enabled: boolean,
+  priorityCache?: Map<string, boolean>
+): StyleChangeItem[] => {
+  if (!enabled || !targetDom) return items
+
+  const cascadeMode = typeof selector === 'string' && HOVER_SELECTOR_RE.test(selector)
+    ? 'hover'
+    : 'default'
+
+  return items.map((item) => {
+    if (
+      item.value === null ||
+      (typeof item.value !== 'string' && typeof item.value !== 'number') ||
+      IMPORTANT_SUFFIX_RE.test(String(item.value))
+    ) {
+      return item
+    }
+    const property = toLine(item.key)
+    const cacheKey = `${cascadeMode}:${property}`
+    let shouldPreservePriority = priorityCache?.get(cacheKey)
+    if (shouldPreservePriority === undefined) {
+      shouldPreservePriority = !!findCascadeWinnerDetail(targetDom, property, cascadeMode)?.important
+      priorityCache?.set(cacheKey, shouldPreservePriority)
+    }
+    if (!shouldPreservePriority) return item
+    return { ...item, value: `${item.value}!important` }
+  })
+}
+
 export type ApplyStyleChangeParams = {
   value: StyleChangeItem | StyleChangeItem[]
   liveStyle: Record<string, any>
   collapsedOptions?: string[]
   editConfig: any
   options?: any
+  preserveImportantPriority?: boolean
+  importantPriorityCache?: Map<string, boolean>
   onBatchMetaChange?: () => void
 }
 
@@ -34,6 +74,8 @@ export function applyStyleChange({
   collapsedOptions,
   editConfig,
   options,
+  preserveImportantPriority = false,
+  importantPriorityCache,
   onBatchMetaChange,
 }: ApplyStyleChangeParams): ApplyStyleChangeResult {
   // 每次操作开始前清空上次可能残留的删除信号，防止普通组件的删除操作污染 AI 组件
@@ -41,7 +83,24 @@ export function applyStyleChange({
   const deletedKeys: string[] = []
   const nextSetValue: Record<string, any> = deepCopy(liveStyle || {})
   const rawItems = Array.isArray(value) ? value : [value]
-  const changeItems = preservePaintRoles(rawItems, nextSetValue)
+  const selector =
+    options?.selector ??
+    (!Array.isArray(editConfig.options) && editConfig.options
+      ? (editConfig.options as any).selector
+      : undefined)
+  const targetDom =
+    !Array.isArray(editConfig.options) && editConfig.options
+      ? (editConfig.options as any).targetDom ?? null
+      : null
+  const realTargetDom = (toElementArray(targetDom)[0] ?? null) as HTMLElement | null
+  const priorityAwareItems = preserveCascadePriority(
+    rawItems,
+    realTargetDom,
+    selector,
+    preserveImportantPriority,
+    importantPriorityCache
+  )
+  const changeItems = preservePaintRoles(priorityAwareItems, nextSetValue)
 
   let hasRealChange = false
   const collapsedPanelSet = new Set(
@@ -155,20 +214,8 @@ export function applyStyleChange({
     ;(window as any).__mybricks_style_deletions = effectiveDeletions
   }
 
-  // options?.selector 优先；兜底从 editConfig.options.selector 读取当前激活的 selector
-  const selector =
-    options?.selector ??
-    (!Array.isArray(editConfig.options) && editConfig.options
-      ? (editConfig.options as any).selector
-      : undefined)
-
   const setOptions = selector ? { selector } : undefined
   const batchMeta = editConfig.value.getBatchMeta?.()
-  const targetDom =
-    !Array.isArray(editConfig.options) && editConfig.options
-      ? (editConfig.options as any).targetDom ?? null
-      : null
-  const realTargetDom = (toElementArray(targetDom)[0] ?? null) as HTMLElement | null
   const isThirdPartyFocus = !!realTargetDom && !realTargetDom.getAttribute('data-zone-selector')
   if ((batchMeta?.enabled || isThirdPartyFocus) && editConfig.value.previewBatch) {
     editConfig.value.previewBatch(finalCssProperties, setOptions)

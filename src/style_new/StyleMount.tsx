@@ -21,10 +21,12 @@ export function StyleMount({
   autoCollapseWhenUnusedProperty,
   finnalExcludeOptions,
   defaultValue,
+  preserveImportantPriority,
   onBatchMetaChange,
 }: StyleProps) {
   // 追踪每次 handleChange 实际写入后的完整样式快照，
   // 替代 stale 的 setValue prop，作为渐变边框保护逻辑的数据源。
+  const importantPriorityCacheRef = useRef(new Map<string, boolean>())
   const liveStyleRef = useRef<Record<string, any>>(
     initLiveStyle(deepCopy(setValue || {}), (defaultValue as any) || {})
   )
@@ -42,13 +44,15 @@ export function StyleMount({
         collapsedOptions,
         editConfig,
         options,
+        preserveImportantPriority,
+        importantPriorityCache: importantPriorityCacheRef.current,
         onBatchMetaChange,
       })
       if (applied) {
         liveStyleRef.current = nextLiveStyle
       }
     },
-    [editConfig, options, collapsedOptions, onBatchMetaChange]
+    [editConfig, options, collapsedOptions, preserveImportantPriority, onBatchMetaChange]
   )
 
   const editorContext = useMemo(() => {
