@@ -42,7 +42,7 @@ import {
 } from './core/build-solo-selector'
 import type { SavedSoloStyle } from './core/build-solo-selector'
 import { getDocument, toElementArray } from './core/dom'
-import { goBackIcon } from './icon'
+import { backToVisualIcon } from './icon'
 import { ZoneTabBar } from './ZoneTabBar'
 import css from './index.less'
 
@@ -505,11 +505,11 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
                   <Paste />
                 </div>
                 <div
-                  className={css.icon}
+                  className={`${css.icon} ${css.codeIcon}`}
                   data-mybricks-tip={`{content:'返回可视化编辑',position:'left'}`}
                   onClick={onEditModeClick}
                 >
-                  {goBackIcon}
+                  {backToVisualIcon}
                 </div>
               </div>
               {/* <div className={css.icon} data-mybricks-tip={'复制selector'} onClick={copy}>

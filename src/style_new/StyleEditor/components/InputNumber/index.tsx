@@ -12,6 +12,8 @@ import { useInputNumber, useUpdateEffect } from '../../hooks'
 
 import type { InputProps } from '..'
 
+import css from './index.less'
+
 export interface UnitOption {
   label: string;
   value: string;
@@ -53,6 +55,9 @@ export interface InputNumberProps extends Omit<InputProps, 'onChange' | 'value'>
   value?: string | number | null;
   /** 空值回车/失焦且无 fallbackValue 时传 null，供上层删除对应 CSS 属性 */
   onChange?: (value: string | null) => void;
+  /** 在单位选择器左侧显示清空按钮 */
+  clearable?: boolean;
+  onClear?: () => void;
 }
 
 export function InputNumber ({
@@ -83,6 +88,8 @@ export function InputNumber ({
   fallbackValue,
   hideUnitWhenEmpty = false,
   unitHideLabelList = ['px'],
+  clearable = false,
+  onClear,
 }: InputNumberProps) {
   // `defaultValue` 是各样式面板的外部回显值；未传受控 value 时也要随选中目标同步。
   const externalValue = value !== undefined ? value : defaultValue
@@ -121,8 +128,9 @@ export function InputNumber ({
     onFocus?.()
   }, [onFocus])
 
-  const handleInputChange = useCallback(() => {
+  const handleInputChange = useCallback((nextValue: string) => {
     inputChangedSinceFocusRef.current = true
+    setDisplayValue(nextValue)
   }, [])
 
   const onKeyDown = useCallback((e: {
@@ -245,6 +253,10 @@ export function InputNumber ({
   }, [number, allowNegative, unit, unitDisabledList, onChange, fallbackValue, handleNumberChange]);
 
   const isDefaultUnit = unitDisabledList.includes(unit)
+  const hasNumericDisplayValue =
+    displayValue !== '' &&
+    displayValue != null &&
+    !isNaN(parseFloat(String(displayValue)))
 
   const suffix = useMemo(() => {
     if (customSuffix) {
@@ -264,24 +276,53 @@ export function InputNumber ({
         (hideUnitWhenEmpty && isEmptyValue) ||
         unitHideLabelList.includes(unit)
       return (
-        <Select
-          tip='单位'
-          style={{ padding: 0, fontSize: 10, ...unitSelectStyle }}
-          value={unit}
-          options={unitOptions}
-          showIcon={showIcon}
-          showIconOnHover={showIconOnHover}
-          hideLabel={hideUnitLabel}
-          iconClassName={unitIconClassName}
-          onChange={setUnit}
-          onAction={onAction}
-          disabled={isDisabledUnit()}
-        />
+        <>
+          {clearable && hasNumericDisplayValue && (
+            <button
+              type="button"
+              className={css.clearButton}
+              aria-label="清空"
+              data-input-clear="true"
+              data-mybricks-tip="清空"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={(e) => {
+                e.stopPropagation()
+                onClear?.()
+              }}
+            >
+              <svg
+                fillRule="evenodd"
+                viewBox="64 64 896 896"
+                focusable="false"
+                data-icon="close-circle"
+                width="1em"
+                height="1em"
+                fill="currentColor"
+                aria-hidden="true"
+              >
+                <path d="M512 64c247.4 0 448 200.6 448 448S759.4 960 512 960 64 759.4 64 512 264.6 64 512 64zm127.98 274.82h-.04l-.08.06L512 466.75 384.14 338.88c-.04-.05-.06-.06-.08-.06a.12.12 0 00-.07 0c-.03 0-.05.01-.09.05l-45.02 45.02a.2.2 0 00-.05.09.12.12 0 000 .07v.02a.27.27 0 00.06.06L466.75 512 338.88 639.86c-.05.04-.06.06-.06.08a.12.12 0 000 .07c0 .03.01.05.05.09l45.02 45.02a.2.2 0 00.09.05.12.12 0 00.07 0c.02 0 .04-.01.08-.05L512 557.25l127.86 127.87c.04.04.06.05.08.05a.12.12 0 00.07 0c.03 0 .05-.01.09-.05l45.02-45.02a.2.2 0 00.05-.09.12.12 0 000-.07v-.02a.27.27 0 00-.05-.06L557.25 512l127.87-127.86c.04-.04.05-.06.05-.08a.12.12 0 000-.07c0-.03-.01-.05-.05-.09l-45.02-45.02a.2.2 0 00-.09-.05.12.12 0 00-.07 0z" />
+              </svg>
+            </button>
+          )}
+          <Select
+            tip='单位'
+            style={{ padding: 0, fontSize: 10, marginLeft: clearable ? 0 : undefined, ...unitSelectStyle }}
+            value={unit}
+            options={unitOptions}
+            showIcon={showIcon}
+            showIconOnHover={showIconOnHover}
+            hideLabel={hideUnitLabel}
+            iconClassName={unitIconClassName}
+            onChange={setUnit}
+            onAction={onAction}
+            disabled={isDisabledUnit()}
+          />
+        </>
       )
     }
 
     return null
-  }, [unit, isDefaultUnit, badge, unitOptions, onAction, hideUnitWhenEmpty, isEmptyValue, unitHideLabelList, showIcon, showIconOnHover])
+  }, [unit, isDefaultUnit, badge, unitOptions, onAction, hideUnitWhenEmpty, isEmptyValue, unitHideLabelList, showIcon, showIconOnHover, clearable, hasNumericDisplayValue, onClear, unitSelectStyle, unitIconClassName])
 
   // 新选中组件的值在首帧绘制前同步到内部 state，避免旧值短暂闪现。
   useLayoutEffect(() => {

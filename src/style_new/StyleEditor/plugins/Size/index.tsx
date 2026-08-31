@@ -1257,6 +1257,8 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
                     unitIconClassName={css.sizeUnitIcon}
                     unitSelectStyle={SIZE_UNIT_SELECT_STYLE}
                     unitHideLabelList={SIZE_UNIT_HIDE_LABEL_LIST}
+                    clearable={!isWidthFill && !widthVarRef}
+                    onClear={() => handleWidthChange(null)}
                     tip={
                       cfg.disableWidth
                         ? SIZE_DISABLED_TIP
@@ -1355,6 +1357,8 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
                     unitIconClassName={css.sizeUnitIcon}
                     unitSelectStyle={SIZE_UNIT_SELECT_STYLE}
                     unitHideLabelList={SIZE_UNIT_HIDE_LABEL_LIST}
+                    clearable={!isHeightFill && !heightVarRef}
+                    onClear={() => handleHeightChange(null)}
                     tip={
                       cfg.disableHeight
                         ? SIZE_DISABLED_TIP

@@ -35,6 +35,13 @@
     opacity: 1;
   }
 
+  /* 可清空数值：与单位箭头并排，输入行 hover / focus 时显示 */
+  &:hover .suffix [data-input-clear],
+  &:focus-within .suffix [data-input-clear] {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
   input {
     width: 100%;
     height: 100%;

@@ -1,0 +1,41 @@
+@import "../../../../theme";
+
+.clearButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 18px;
+  flex-shrink: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: rgba(0, 0, 0, 0.2) !important;
+  opacity: 0;
+  pointer-events: none;
+  cursor: pointer;
+
+  svg {
+    display: block;
+    width: 10px;
+    height: 10px;
+
+    // 确保路径始终跟随按钮的浅色主题
+    path {
+      fill: currentColor !important;
+    }
+  }
+
+  &:hover {
+    opacity: 1 !important;
+    pointer-events: auto;
+    color: rgba(0, 0, 0, 0.32) !important;
+  }
+
+  &:focus-visible {
+    opacity: 1 !important;
+    pointer-events: auto;
+    outline: 1px solid @color-primary;
+  }
+}
