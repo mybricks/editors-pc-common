@@ -546,6 +546,7 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
         <StyleMount
           key={editorRemountKey}
           editConfig={resolvedEditConfig}
+          preserveImportantPriority={isSoloEdit}
           onBatchMetaChange={refreshBatchMeta}
           {...activeStyleProps}
         />
@@ -566,7 +567,7 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
         editorHandleRef={cssEditorHandleRef}
       />
     )
-  }, [editMode, key, activeZoneIdx, resolveActiveEditContext, refreshBatchMeta])
+  }, [editMode, key, activeZoneIdx, resolveActiveEditContext, refreshBatchMeta, isSoloEdit])
 
   function onMouseEnter() {
     try {

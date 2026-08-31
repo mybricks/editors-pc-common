@@ -1,5 +1,4 @@
 import { classMatchesShortName } from './css-modules-match'
-import { collectSubjectClassSelectors } from './build-zone-selectors-from-cssom'
 import { splitTopLevelSelectors } from './selector-utils'
 
 function getChildIndex(element: Element): number {
@@ -26,21 +25,30 @@ function omitTopLevelFirstChild(segments: string[]): string[] {
   return segments[0]?.includes(':nth-child(1)') ? segments.slice(1) : segments
 }
 
-function getZoneClassSelector(element: Element): string | null {
-  const classNames = collectSubjectClassSelectors(element)
-  return classNames.length ? classNames.join('') : null
+function getSourceZoneClassName(element: Element): string | null {
+  const classNames = (element.getAttribute('data-zone-classnames') || '')
+    .split(/[\s,]+/)
+    .filter(Boolean)
+  return classNames[0] || null
 }
 
+/**
+ * 单独编辑规则会写回源码，因此只使用 data-zone-classnames 提供的源码类名。
+ * 只取第一个类，避免把 visible 等运行时状态类写入稳定定位路径。
+ */
+function getZoneClassSelector(element: Element): string | null {
+  const className = getSourceZoneClassName(element)
+  return className ? `.${className}` : null
+}
+
+/** 将源码类名映射到当前 DOM 上经过 CSS Modules 编译的运行时类名。 */
 function getRuntimeZoneClassSelector(element: Element): string | null {
-  const shorts = collectSubjectClassSelectors(element).map((s) => s.replace(/^\./, ''))
-  if (!shorts.length) return null
-  const runtimeClasses = Array.from(element.classList)
-  const matched = shorts
-    .map((short) =>
-      runtimeClasses.find((runtimeClass) => classMatchesShortName(runtimeClass, short) || runtimeClass === short)
-    )
-    .filter((className): className is string => !!className)
-  return matched.length ? matched.map((className) => `.${className}`).join('') : null
+  const sourceClassName = getSourceZoneClassName(element)
+  if (!sourceClassName) return null
+  const runtimeClass = Array.from(element.classList).find(
+    (className) => classMatchesShortName(className, sourceClassName) || className === sourceClassName
+  )
+  return runtimeClass ? `.${runtimeClass}` : null
 }
 
 function getRuntimeSelector(element: Element, sourceSelector: string): string {
