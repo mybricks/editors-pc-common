@@ -711,6 +711,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
   }, [onChange]);
 
   const hasBorderSection = !(disableBorderWidth && disableBorderColor && disableBorderStyle);
+  const isInherited = collapse === 'inherited';
 
   const currentBorderStyle = borderValue.borderTopStyle ?? 'none';
 
@@ -1459,13 +1460,15 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
       deleteRef={panelDeleteRef}
       rightColumn={
         <div className={css.rightColumn}>
-          <div
-            data-mybricks-tip={`{content:'删除边框',position:'left'}`}
-            className={css.rightColumnBtn}
-            onClick={() => panelDeleteRef.current?.()}
-          >
-            <MinusOutlined />
-          </div>
+          {!isInherited && (
+            <div
+              data-mybricks-tip={`{content:'删除边框',position:'left'}`}
+              className={css.rightColumnBtn}
+              onClick={() => panelDeleteRef.current?.()}
+            >
+              <MinusOutlined />
+            </div>
+          )}
           {hasBorderSection && (
             <div
               data-mybricks-tip={borderToggleValue === 'all'
