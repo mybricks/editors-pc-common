@@ -53,6 +53,8 @@ export type CascadeWinnerDetail = {
   value: string
   spec: any
   important: boolean
+  /** 产生当前级联值的规则；没有 CSS 规则时（例如 UA 默认值）为空 */
+  rule?: CSSStyleRule
 }
 
 /**
@@ -68,6 +70,7 @@ export function findCascadeWinnerDetail(
   let winnerValue: string | null = null
   let winnerSpec: any = null
   let winnerImportant = false
+  let winnerRule: CSSStyleRule | undefined
   try {
     const root = getDocument()
     for (const sheet of Array.from(root.styleSheets)) {
@@ -111,23 +114,26 @@ export function findCascadeWinnerDetail(
             winnerSpec = ruleSpec
             winnerValue = propVal
             winnerImportant = isImportant
+            winnerRule = rule
           } else if (winnerImportant && !isImportant) {
             // 当前胜者是 !important，新规则不是 → 保持
           } else if (!winnerImportant && isImportant) {
             winnerSpec = ruleSpec
             winnerValue = propVal
             winnerImportant = true
+            winnerRule = rule
           } else if (compare(ruleSpec, winnerSpec) >= 0) {
             winnerSpec = ruleSpec
             winnerValue = propVal
             winnerImportant = isImportant
+            winnerRule = rule
           }
         }
       } catch {}
     }
   } catch {}
   return winnerValue && winnerSpec
-    ? { value: winnerValue, spec: winnerSpec, important: winnerImportant }
+    ? { value: winnerValue, spec: winnerSpec, important: winnerImportant, rule: winnerRule }
     : null
 }
 

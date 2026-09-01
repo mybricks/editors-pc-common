@@ -10,7 +10,7 @@ import { elementHasClassOrHashed } from './css-modules-match'
 import { getDocument } from './dom'
 import { getStyleRules } from './get-style-rules'
 import { getValues } from './get-values'
-import { PANEL_MAP } from './panel-defaults'
+import { getDefaultValueFunctionMap2, PANEL_MAP } from './panel-defaults'
 import { calculateSafeSpecificity, someSelectorPart } from './selector-utils'
 import { hasCssVarReference } from './css-var'
 import {
@@ -245,6 +245,53 @@ export function getEffectedCssPropertyAndOptions (element: HTMLElement | null, s
 
     const values = getValues(finalRules, computedValues, allInheritOnlyRules);
 
+    /**
+     * computedStyle 是整個元素的级联结果，同一节点挂多个 classname 时，
+     * 没有当前 tab 声明的边框字段可能来自兄弟 classname。只在确实找到一个
+     * CSS 规则且该规则不属于当前 tab 时清掉回退值；没有规则的 UA 默认边框仍保留。
+     */
+    const sanitizeBorderFallback = (mode: 'default' | 'hover') => {
+      if (!element) return
+
+      const ownRules = finalRules.filter((rule) => !allInheritOnlyRules.has(rule))
+      const emptyValues = getDefaultValueFunctionMap2.border() as Record<string, any>
+      const borderProps: Array<[string, string]> = [
+        ['borderTopColor', 'border-top-color'],
+        ['borderRightColor', 'border-right-color'],
+        ['borderBottomColor', 'border-bottom-color'],
+        ['borderLeftColor', 'border-left-color'],
+        ['borderTopLeftRadius', 'border-top-left-radius'],
+        ['borderTopRightRadius', 'border-top-right-radius'],
+        ['borderBottomRightRadius', 'border-bottom-right-radius'],
+        ['borderBottomLeftRadius', 'border-bottom-left-radius'],
+        ['borderTopStyle', 'border-top-style'],
+        ['borderRightStyle', 'border-right-style'],
+        ['borderBottomStyle', 'border-bottom-style'],
+        ['borderLeftStyle', 'border-left-style'],
+        ['borderTopWidth', 'border-top-width'],
+        ['borderRightWidth', 'border-right-width'],
+        ['borderBottomWidth', 'border-bottom-width'],
+        ['borderLeftWidth', 'border-left-width'],
+      ]
+
+      borderProps.forEach(([camel, hyphen]) => {
+        // CSSOM 中单条规则异常不应中断其他属性的回显。
+        try {
+          const ownValue = getOwnDeclaringValue(ownRules, element, hyphen)
+          if (ownValue) {
+            // 当前 tab 自身声明优先于整元素 computedStyle（包括更高优先级兄弟规则）。
+            ;(values as any)[camel] = ownValue
+            return
+          }
+
+          const winner = findCascadeWinnerDetail(element, hyphen, mode)
+          if (winner?.rule && !ownRules.includes(winner.rule)) {
+            ;(values as any)[camel] = emptyValues[camel]
+          }
+        } catch {}
+      })
+    }
+
 
     // ── 高优先级竞争规则覆盖校正 ──────────────────────────────────────────────
     // 默认态下，CSS 规则里的颜色值可能被更高特指度规则（如 .tableHeadRow th { color: #555 }，
@@ -343,6 +390,8 @@ export function getEffectedCssPropertyAndOptions (element: HTMLElement | null, s
           }
         }
       }
+
+      sanitizeBorderFallback('default')
     }
 
     // ── hover 态级联校正：同默认态，自身声明优先；仅当前 tab 未声明时用级联补值。
@@ -425,6 +474,8 @@ export function getEffectedCssPropertyAndOptions (element: HTMLElement | null, s
           }
         }
       }
+
+      sanitizeBorderFallback('hover')
     }
     // ────────────────────────────────────────────────────────────────────────
 
@@ -527,7 +578,9 @@ export function getEffectedCssPropertyAndOptions (element: HTMLElement | null, s
             someSelectorPart(st, (part) => {
               // 对于单段（无空格）的 tail，用末尾精确匹配
               // 对于包含空格的 tail（不应出现，做兜底），直接 endsWith
-              if (ruleMatchesTailSegment(part, tail) || part.includes(tail)) return true;
+              // 必须按选择器边界匹配；`part.includes(tail)` 会把 `.bubbleSales`
+              // 错当成 `.bubble`，从而把兄弟 classname 的面板标为当前 tab 自有。
+              if (ruleMatchesTailSegment(part, tail)) return true;
               // CSS Modules 哈希类名兜底：tail=".myClass" 对应编译后 "pages_xxx_less-myClass"
               // 规则选择器末尾段中，若某个类以 "-{原始类名}" 结尾则视为命中
               if (tail.startsWith('.') && element) {
