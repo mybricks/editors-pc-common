@@ -7,6 +7,7 @@ import React, {
 } from "react";
 
 import { Panel } from "../";
+import { ClearButton } from "../ClearButton";
 
 import css from "./index.less";
 
@@ -27,6 +28,8 @@ export interface InputProps {
   tip?: string;
   numberTip?: string;
   type?: string;
+  clearable?: boolean;
+  onClear?: () => void;
 }
 
 export function Input({
@@ -46,6 +49,8 @@ export function Input({
   align = 'left',
   numberTip,
   type = void 0,
+  clearable = false,
+  onClear,
 }: InputProps) {
   const [inputValue, setInputValue] = useState(defaultValue);
 
@@ -84,6 +89,7 @@ export function Input({
               data-mybricks-tip={numberTip}
               type={type}
             />
+            {clearable && inputValue !== '' && inputValue != null && <ClearButton onClick={() => { setInputValue(''); if (onClear) onClear(); else onChange?.('') }} />}
             {suffix && <div className={css.suffix}>{suffix}</div>}
           </>
         )}
@@ -108,6 +114,7 @@ export function Input({
                 {prefix}
               </div>
             )}
+            {clearable && inputValue !== '' && inputValue != null && <ClearButton onClick={() => { setInputValue(''); if (onClear) onClear(); else onChange?.('') }} />}
           </>
         )}
       </div>

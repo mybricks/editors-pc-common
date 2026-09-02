@@ -1,6 +1,6 @@
 import React, { CSSProperties, useCallback, useMemo, useRef, useState } from 'react'
 
-import { Panel, SketchPopup, VariableChip, VariableList } from '../../components'
+import { Panel, SketchPopup, VariableChip, VariableList, ClearButton } from '../../components'
 import { Opacity as OpacityIcon } from '../../icons/Opacity'
 import { Variable } from '../../icons/Variable'
 import { FixedWidth } from '../../icons/FixedWidth'
@@ -36,6 +36,7 @@ const DETACH_VARIABLE_ACTION = 'detachVariable'
 
 export function Appearance({ value, onChange, showTitle, collapse }: AppearanceProps) {
   const [opacityForceKey, setOpacityForceKey] = useState(0)
+  const [opacityDraft, setOpacityDraft] = useState<string | null>(null)
 
   const context = useStyleEditorContext()
   const targetDom = context?.targetDom ?? null
@@ -206,8 +207,10 @@ export function Appearance({ value, onChange, showTitle, collapse }: AppearanceP
                 type='text'
                 className={css.opacityInput}
                 defaultValue={`${opacityPercent}%`}
-                onFocus={e => e.target.select()}
+                onFocus={e => { setOpacityDraft(e.currentTarget.value); e.target.select() }}
+                onChange={e => setOpacityDraft(e.currentTarget.value)}
                 onBlur={e => {
+                  setOpacityDraft(null)
                   const raw = e.target.value.trim().replace(/%$/, '')
                   if (!raw || isNaN(parseFloat(raw))) {
                     handleOpacityChange('0')
@@ -224,6 +227,7 @@ export function Appearance({ value, onChange, showTitle, collapse }: AppearanceP
                   }
                 }}
               />
+              {(opacityPercent !== 100 || (opacityDraft != null && opacityDraft !== `${opacityPercent}%`)) && <ClearButton onClick={handleReset} />}
               {hasVariables && (
                 <span
                   className={css.varBtn}

@@ -88,7 +88,7 @@ export function InputNumber ({
   fallbackValue,
   hideUnitWhenEmpty = false,
   unitHideLabelList = ['px'],
-  clearable = false,
+  clearable = true,
   onClear,
 }: InputNumberProps) {
   // `defaultValue` 是各样式面板的外部回显值；未传受控 value 时也要随选中目标同步。
@@ -100,6 +100,7 @@ export function InputNumber ({
   const isValueSyncInitializedRef = useRef(false)
   const focusValueRef = useRef('')
   const inputChangedSinceFocusRef = useRef(false)
+  const skipClearBlurRef = useRef(false)
   const [displayValue, setDisplayValue] = useState(() => {
     const initVal = externalValue
     if (!initVal) return ''
@@ -200,6 +201,11 @@ export function InputNumber ({
   }) => {
     const trimmed = e.target.value.trim();
 
+    if (skipClearBlurRef.current) {
+      skipClearBlurRef.current = false
+      return
+    }
+
     // 空值或非法值：若有兜底值则补填并提交，否则回到默认状态并删除属性
     if (!trimmed || isNaN(parseFloat(trimmed))) {
       // 仅查看 placeholder 后直接失焦时保持原状态；只有实际编辑过才提交清空。
@@ -258,53 +264,72 @@ export function InputNumber ({
     displayValue != null &&
     !isNaN(parseFloat(String(displayValue)))
 
+  const handleClear = useCallback(() => {
+    // 先清空当前输入实例，避免等待上层 CSS 值回传时继续显示旧数值。
+    setDisplayValue('')
+    // 自定义清空回调（尺寸约束等）已经完成提交；没有兜底值的普通字段也直接删除。
+    // 有 fallbackValue 的字段则保留原有“删除后失焦补回兜底值”语义。
+    skipClearBlurRef.current = !!onClear || typeof fallbackValue === 'undefined'
+    skipUnitNumberOnChangeRef.current = true
+    handleNumberChange('0')
+    if (onClear) onClear()
+    else if (typeof fallbackValue === 'undefined') onChange?.(null)
+  }, [handleNumberChange, onClear, onChange, fallbackValue])
+
+  const renderClearButton = useCallback(() => {
+    if (!clearable || !hasNumericDisplayValue) return null
+    return (
+      <button
+        type="button"
+        className={css.clearButton}
+        aria-label="清空"
+        data-input-clear="true"
+        data-mybricks-tip="清空"
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={(e) => {
+          e.stopPropagation()
+          const button = e.currentTarget
+          handleClear()
+          requestAnimationFrame(() => {
+            const input = button.parentElement?.parentElement?.querySelector('input') as HTMLInputElement | null
+            input?.blur()
+            if (document.activeElement !== input) skipClearBlurRef.current = false
+          })
+        }}
+      >
+        <svg
+          fillRule="evenodd"
+          viewBox="64 64 896 896"
+          focusable="false"
+          data-icon="close-circle"
+          width="1em"
+          height="1em"
+          fill="currentColor"
+          aria-hidden="true"
+        >
+          <path d="M512 64c247.4 0 448 200.6 448 448S759.4 960 512 960 64 759.4 64 512 264.6 64 512 64zm127.98 274.82h-.04l-.08.06L512 466.75 384.14 338.88c-.04-.05-.06-.06-.08-.06a.12.12 0 00-.07 0c-.03 0-.05.01-.09.05l-45.02 45.02a.2.2 0 00-.05.09.12.12 0 000 .07v.02a.27.27 0 00.06.06L466.75 512 338.88 639.86c-.05.04-.06.06-.06.08a.12.12 0 000 .07c0 .03.01.05.05.09l45.02 45.02a.2.2 0 00.09.05.12.12 0 00.07 0c.02 0 .04-.01.08-.05L512 557.25l127.86 127.87c.04.04.06.05.08.05a.12.12 0 00.07 0c.03 0 .05-.01.09-.05l45.02-45.02a.2.2 0 00.05-.09.12.12 0 000-.07v-.02a.27.27 0 00-.05-.06L557.25 512l127.87-127.86c.04-.04.05-.06.05-.08a.12.12 0 000-.07c0-.03-.01-.05-.05-.09l-45.02-45.02a.2.2 0 00-.09-.05.12.12 0 00-.07 0z" />
+        </svg>
+      </button>
+    )
+  }, [clearable, handleClear, hasNumericDisplayValue])
+
   const suffix = useMemo(() => {
     if (customSuffix) {
-      return customSuffix
+      return <>{renderClearButton()}{customSuffix}</>
     } else if (Array.isArray(unitOptions)) {
       // Hug badge 时直接替代单位选择器，不再显示下拉
       if (badge) {
-        return <>{badge}</>
+        return <>{renderClearButton()}{badge}</>
       }
       // 仅一个单位选项时无切换必要，不展示下拉（如只有 px）
-      if (unitOptions.length <= 1) {
-        return null
-      }
+      if (unitOptions.length <= 1) return renderClearButton()
       // 无值 / 指定单位（如 px）隐藏文案，仍保留下拉箭头与布局
       const hideUnitLabel =
         isDefaultUnit ||
         (hideUnitWhenEmpty && isEmptyValue) ||
         unitHideLabelList.includes(unit)
-      return (
-        <>
-          {clearable && hasNumericDisplayValue && (
-            <button
-              type="button"
-              className={css.clearButton}
-              aria-label="清空"
-              data-input-clear="true"
-              data-mybricks-tip="清空"
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={(e) => {
-                e.stopPropagation()
-                onClear?.()
-              }}
-            >
-              <svg
-                fillRule="evenodd"
-                viewBox="64 64 896 896"
-                focusable="false"
-                data-icon="close-circle"
-                width="1em"
-                height="1em"
-                fill="currentColor"
-                aria-hidden="true"
-              >
-                <path d="M512 64c247.4 0 448 200.6 448 448S759.4 960 512 960 64 759.4 64 512 264.6 64 512 64zm127.98 274.82h-.04l-.08.06L512 466.75 384.14 338.88c-.04-.05-.06-.06-.08-.06a.12.12 0 00-.07 0c-.03 0-.05.01-.09.05l-45.02 45.02a.2.2 0 00-.05.09.12.12 0 000 .07v.02a.27.27 0 00.06.06L466.75 512 338.88 639.86c-.05.04-.06.06-.06.08a.12.12 0 000 .07c0 .03.01.05.05.09l45.02 45.02a.2.2 0 00.09.05.12.12 0 00.07 0c.02 0 .04-.01.08-.05L512 557.25l127.86 127.87c.04.04.06.05.08.05a.12.12 0 00.07 0c.03 0 .05-.01.09-.05l45.02-45.02a.2.2 0 00.05-.09.12.12 0 000-.07v-.02a.27.27 0 00-.05-.06L557.25 512l127.87-127.86c.04-.04.05-.06.05-.08a.12.12 0 000-.07c0-.03-.01-.05-.05-.09l-45.02-45.02a.2.2 0 00-.09-.05.12.12 0 00-.07 0z" />
-              </svg>
-            </button>
-          )}
-          <Select
+      const unitSelect = (
+        <Select
             tip='单位'
             style={{ padding: 0, fontSize: 10, marginLeft: clearable ? 0 : undefined, ...unitSelectStyle }}
             value={unit}
@@ -316,13 +341,15 @@ export function InputNumber ({
             onChange={setUnit}
             onAction={onAction}
             disabled={isDisabledUnit()}
-          />
-        </>
+        />
       )
+      return align === 'right'
+        ? <>{unitSelect}{renderClearButton()}</>
+        : <>{renderClearButton()}{unitSelect}</>
     }
 
-    return null
-  }, [unit, isDefaultUnit, badge, unitOptions, onAction, hideUnitWhenEmpty, isEmptyValue, unitHideLabelList, showIcon, showIconOnHover, clearable, hasNumericDisplayValue, onClear, unitSelectStyle, unitIconClassName])
+    return renderClearButton()
+  }, [unit, isDefaultUnit, badge, renderClearButton, unitOptions, onAction, hideUnitWhenEmpty, isEmptyValue, unitHideLabelList, showIcon, showIconOnHover, unitSelectStyle, unitIconClassName, align])
 
   // 新选中组件的值在首帧绘制前同步到内部 state，避免旧值短暂闪现。
   useLayoutEffect(() => {

@@ -88,6 +88,12 @@
   opacity: 0.55;
 }
 
+.inputItem:hover [data-input-clear],
+.inputItem:focus-within [data-input-clear] {
+  opacity: 1;
+  pointer-events: auto;
+}
+
 .variablePopup {
   z-index: 1000;
   position: fixed;

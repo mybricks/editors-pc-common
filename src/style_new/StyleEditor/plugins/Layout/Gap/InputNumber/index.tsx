@@ -1,5 +1,6 @@
 import React, {useState} from "react";
 import styles from "./index.less";
+import { ClearButton } from "../../../../components";
 export type InputNumberProps = Partial<{
   addonBefore: React.ReactNode | string;
   addonAfter: React.ReactNode | string;
@@ -66,6 +67,7 @@ export default ({
         disabled={disabled}
         style={{marginLeft: '20px'}}
       />
+      {value !== '' && value != null && <ClearButton onClick={() => { onChange?.('' as any); onBlur?.(0) }} />}
     </div>
   );
 };

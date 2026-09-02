@@ -1,8 +1,9 @@
 import React, { CSSProperties, useCallback, useEffect, useRef, useState } from 'react'
 
-import { Panel } from '../../components'
+import { Panel, ClearButton } from '../../components'
 
 import type { ChangeEvent, PanelBaseProps } from '../../type'
+import css from './index.less'
 
 interface ZIndexProps extends PanelBaseProps {
   value: CSSProperties
@@ -58,7 +59,7 @@ export function ZIndex({ value, onChange, config, showTitle, collapse }: ZIndexP
   return (
     <Panel title='层级' showTitle={showTitle} showReset={true} resetFunction={refresh} collapse={effectiveCollapse}>
       <Panel.Content>
-        <Panel.Item>
+        <Panel.Item className={css.clearRow}>
           <input
             type="number"
             value={localValue}
@@ -81,6 +82,7 @@ export function ZIndex({ value, onChange, config, showTitle, collapse }: ZIndexP
               outline: 'none',
             }}
           />
+          {localValue !== '' && <ClearButton onClick={refresh} />}
         </Panel.Item>
       </Panel.Content>
     </Panel>

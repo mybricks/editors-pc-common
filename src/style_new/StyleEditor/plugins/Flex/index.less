@@ -44,6 +44,16 @@
   }
 }
 
+.fields [data-input-clear] {
+  flex: 0 0 16px;
+}
+
+.fields:hover [data-input-clear],
+.fields:focus-within [data-input-clear] {
+  opacity: 1;
+  pointer-events: auto;
+}
+
 // 比例 / 单独配置共用同一外壳，切换时按钮槽位不动
 .body {
   width: 100%;

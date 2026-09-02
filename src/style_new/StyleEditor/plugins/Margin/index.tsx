@@ -26,26 +26,6 @@ import { useStyleEditorContext } from '../../context'
 
 import css from './index.less'
 
-/**
- * 检测当前元素与父容器 flex 对齐的冲突情况。
- * 返回 { isRow, alignItems } 表示父容器是行方向以及其对齐值，
- * 或返回 null（无 flex 父容器 / 元素已设置 align-self）。
- */
-function getAlignConflict(targetDom: HTMLElement | null | undefined) {
-  const parent = targetDom?.parentElement
-  if (!parent) return null
-
-  const ps = window.getComputedStyle(parent)
-  if (ps.display !== 'flex' && ps.display !== 'inline-flex') return null
-
-  // 元素自身已有明确的 align-self 时跳过（用户已主动控制对齐）
-  const selfAlign = targetDom ? window.getComputedStyle(targetDom).alignSelf : 'auto'
-  if (selfAlign !== 'auto' && selfAlign !== 'normal') return null
-
-  const isRow = !ps.flexDirection || ps.flexDirection.startsWith('row')
-  return { isRow, alignItems: ps.alignItems }
-}
-
 interface MarginProps extends PanelBaseProps {
   value: CSSProperties
   onChange: ChangeEvent
@@ -65,6 +45,26 @@ const UNIT_OPTIONS = [
   { label: '%', value: '%' }
 ]
 const MARGIN_KEYS = ['marginTop', 'marginRight', 'marginBottom', 'marginLeft'] as const
+
+/**
+ * 检测当前元素与父容器 flex 对齐的冲突情况。
+ * 返回 { isRow, alignItems } 表示父容器是行方向以及其对齐值，
+ * 或返回 null（无 flex 父容器 / 元素已设置 align-self）。
+ */
+function getAlignConflict(targetDom: HTMLElement | null | undefined) {
+  const parent = targetDom?.parentElement
+  if (!parent) return null
+
+  const ps = window.getComputedStyle(parent)
+  if (ps.display !== 'flex' && ps.display !== 'inline-flex') return null
+
+  // 元素自身已有明确的 align-self 时跳过（用户已主动控制对齐）
+  const selfAlign = targetDom ? window.getComputedStyle(targetDom).alignSelf : 'auto'
+  if (selfAlign !== 'auto' && selfAlign !== 'normal') return null
+
+  const isRow = !ps.flexDirection || ps.flexDirection.startsWith('row')
+  return { isRow, alignItems: ps.alignItems }
+}
 
 /** 绑定变量本身不该改动对齐，只有落成具体数值才参与 flex 冲突修复 */
 function isFixedMargin(val: unknown): boolean {

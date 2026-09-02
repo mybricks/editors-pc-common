@@ -1,6 +1,6 @@
 import React, { CSSProperties, useCallback, useEffect, useRef, useState } from 'react'
 
-import { Panel } from '../../components'
+import { Panel, ClearButton } from '../../components'
 import { useDragNumber } from '../../hooks'
 import { Ratation } from '../../icons/Rotation'
 import { Rotation90R } from '../../icons/Rotation90R'
@@ -59,6 +59,7 @@ export function Rotation({ value, onChange, showTitle, collapse }: RotationProps
 
   const [localAngle, setLocalAngle] = useState(String(parsedAngle))
   const isEditingRef = useRef(false)
+  const skipClearBlurRef = useRef(false)
 
   useEffect(() => {
     if (!isEditingRef.current) {
@@ -76,6 +77,10 @@ export function Rotation({ value, onChange, showTitle, collapse }: RotationProps
 
   const handleBlur = useCallback((e: React.FocusEvent<HTMLInputElement>) => {
     isEditingRef.current = false
+    if (skipClearBlurRef.current) {
+      skipClearBlurRef.current = false
+      return
+    }
     const raw = e.target.value.trim()
     const num = raw === '' ? 0 : parseFloat(raw)
     const finalAngle = isNaN(num) ? 0 : num
@@ -131,6 +136,11 @@ export function Rotation({ value, onChange, showTitle, collapse }: RotationProps
     setLocalAngle('0')
   }, [onChange])
 
+  const handleClear = useCallback(() => {
+    skipClearBlurRef.current = true
+    handleReset()
+  }, [handleReset])
+
   return (
     <Panel
       title="旋转"
@@ -177,6 +187,7 @@ export function Rotation({ value, onChange, showTitle, collapse }: RotationProps
               cursor: 'text',
             }}
           />
+          {localAngle !== '' && (localAngle !== String(parsedAngle) || (!!transformStr && transformStr !== 'none')) && <ClearButton onClick={handleClear} />}
           <span className={css.degUnit}>°</span>
         </Panel.Item>
 

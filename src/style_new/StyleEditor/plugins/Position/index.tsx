@@ -1,6 +1,6 @@
 import React, { CSSProperties, useCallback, useEffect, useRef, useState } from 'react'
 
-import { Panel } from '../../components'
+import { Panel, ClearButton } from '../../components'
 import { useStyleEditorContext } from '../../context'
 import { useDragNumber } from '../../hooks'
 
@@ -195,6 +195,7 @@ function PositionInput({
           onKeyDown={handleKeyDown}
           disabled={isLocked}
         />
+        {!isLocked && localValue !== '' && <ClearButton onClick={() => { setLocalValue(''); commitValue('') }} />}
       </div>
     </Panel.Item>
   )

@@ -1,0 +1,21 @@
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 18px;
+  flex: 0 0 16px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: rgba(0, 0, 0, .2) !important;
+  opacity: 0;
+  pointer-events: none;
+  cursor: pointer;
+
+  svg { width: 11px; height: 11px; display: block; }
+  &:hover, &.visible { opacity: 1 !important; pointer-events: auto; }
+  &:hover { color: rgba(0, 0, 0, .32) !important; }
+}
+
+.visible { opacity: 1 !important; pointer-events: auto; }

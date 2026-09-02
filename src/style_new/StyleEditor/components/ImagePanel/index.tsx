@@ -122,7 +122,7 @@ export function ImagePanel({
         />
       </div>
       <div className={css.imageItem}>
-        <Input 
+        <Input clearable onClear={() => handleUrlInputChange('')}
           onChange={handleUrlInputChange} 
           value={getBackgroundImage(localImageValue.backgroundImage || '', '')}
         />

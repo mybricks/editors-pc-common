@@ -9,7 +9,7 @@ import React, {
 
 import { useUpdateEffect } from "../../hooks";
 import { Panel, Dropdown, DownOutlined } from "../";
-import { CleanFont } from "../../icons/CleanFont";
+import { ClearButton } from "../ClearButton";
 
 import css from "./index.less";
 
@@ -176,16 +176,7 @@ export function Select({
           {showIcon && (
             clearable && hovered
               ? (
-                <span
-                  className={`${css.icon}${iconClassName ? ` ${iconClassName}` : ''} ${css.clearIcon}`}
-                  data-mybricks-tip="清空"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onClear?.();
-                  }}
-                >
-                  <CleanFont />
-                </span>
+                <ClearButton visible className={css.icon} onClick={() => onClear?.()} />
               )
               : (
                 <span

@@ -949,6 +949,12 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
     else setShowMaxHeight(false);
   }, [onChange, constraintPendingSetters]);
 
+  // 清空输入框只删除值，保留约束行并回显「未配置」；下拉菜单的「移除」才会收起整行。
+  const clearConstraint = useCallback((field: 'minWidth' | 'maxWidth' | 'minHeight' | 'maxHeight') => {
+    constraintPendingSetters[field](null);
+    onChange({ key: field, value: null });
+  }, [onChange, constraintPendingSetters]);
+
   /** 统一写入尺寸：宽/高复用带单位换算的处理函数，约束字段直写 */
   const writeSizeValue = useCallback((field: SizeFieldKey, val: string) => {
     if (field === 'width') {
@@ -1257,7 +1263,7 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
                     unitIconClassName={css.sizeUnitIcon}
                     unitSelectStyle={SIZE_UNIT_SELECT_STYLE}
                     unitHideLabelList={SIZE_UNIT_HIDE_LABEL_LIST}
-                    clearable={!isWidthFill && !widthVarRef}
+                    clearable={!widthVarRef}
                     onClear={() => handleWidthChange(null)}
                     tip={
                       cfg.disableWidth
@@ -1357,7 +1363,7 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
                     unitIconClassName={css.sizeUnitIcon}
                     unitSelectStyle={SIZE_UNIT_SELECT_STYLE}
                     unitHideLabelList={SIZE_UNIT_HIDE_LABEL_LIST}
-                    clearable={!isHeightFill && !heightVarRef}
+                    clearable={!heightVarRef}
                     onClear={() => handleHeightChange(null)}
                     tip={
                       cfg.disableHeight
@@ -1457,6 +1463,8 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
                       unitIconClassName={css.sizeUnitIcon}
                       unitSelectStyle={SIZE_UNIT_SELECT_STYLE}
                       unitHideLabelList={SIZE_UNIT_HIDE_LABEL_LIST}
+                      clearable={!minWidthVarRef}
+                      onClear={() => clearConstraint('minWidth')}
                     />
                     )}
                   </Panel.Item>
@@ -1490,6 +1498,8 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
                       unitIconClassName={css.sizeUnitIcon}
                       unitSelectStyle={SIZE_UNIT_SELECT_STYLE}
                       unitHideLabelList={SIZE_UNIT_HIDE_LABEL_LIST}
+                      clearable={!maxWidthVarRef}
+                      onClear={() => clearConstraint('maxWidth')}
                     />
                     )}
                   </Panel.Item>
@@ -1527,6 +1537,8 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
                       unitIconClassName={css.sizeUnitIcon}
                       unitSelectStyle={SIZE_UNIT_SELECT_STYLE}
                       unitHideLabelList={SIZE_UNIT_HIDE_LABEL_LIST}
+                      clearable={!minHeightVarRef}
+                      onClear={() => clearConstraint('minHeight')}
                     />
                     )}
                   </Panel.Item>
@@ -1560,6 +1572,8 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
                       unitIconClassName={css.sizeUnitIcon}
                       unitSelectStyle={SIZE_UNIT_SELECT_STYLE}
                       unitHideLabelList={SIZE_UNIT_HIDE_LABEL_LIST}
+                      clearable={!maxHeightVarRef}
+                      onClear={() => clearConstraint('maxHeight')}
                     />
                     )}
                   </Panel.Item>

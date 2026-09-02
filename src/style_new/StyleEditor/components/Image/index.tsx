@@ -258,7 +258,7 @@ function Popup({
         />
       </div>
       <div className={css.item}>
-        <Input onChange={handleUrlInputChange} value={getBackgroundImage(value.backgroundImage, DEFAULT_IMAGE)}/>
+        <Input clearable onClear={() => handleUrlInputChange('')} onChange={handleUrlInputChange} value={getBackgroundImage(value.backgroundImage, DEFAULT_IMAGE)}/>
       </div>
       <div className={css.item}>
         <div className={css.label}>

@@ -73,6 +73,12 @@
   opacity: 0.6;
 }
 
+.inputRow:hover [data-input-clear],
+.inputRow:focus-within [data-input-clear] {
+  opacity: 1;
+  pointer-events: auto;
+}
+
 .dragLabel {
   font-size: 12px;
   color: @font-color-content;

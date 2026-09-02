@@ -1,6 +1,6 @@
 import React, { CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
-import { Panel, InputNumber } from '../../components'
+import { Panel, InputNumber, ClearButton } from '../../components'
 import { Setting as SettingIcon } from '../../icons/Setting'
 import { useStyleEditorContext } from '../../context'
 
@@ -435,6 +435,7 @@ export function Flex({ value, onChange, showTitle, collapse }: FlexProps) {
                   className={css.input}
                   spellCheck={false}
                 />
+                {localValue !== '' && <ClearButton onClick={() => commitShorthand('')} />}
               </Panel.Item>
             </Panel.Content>
           ) : (
@@ -457,6 +458,7 @@ export function Flex({ value, onChange, showTitle, collapse }: FlexProps) {
                     className={css.input}
                     spellCheck={false}
                   />
+                  {localGrow !== '' && <ClearButton onClick={() => { setLocalGrow(''); commitLonghands({ grow: '' }) }} />}
                 </Panel.Item>
               </Panel.Content>
               <Panel.Content>
@@ -477,6 +479,7 @@ export function Flex({ value, onChange, showTitle, collapse }: FlexProps) {
                     className={css.input}
                     spellCheck={false}
                   />
+                  {localShrink !== '' && <ClearButton onClick={() => { setLocalShrink(''); commitLonghands({ shrink: '' }) }} />}
                 </Panel.Item>
               </Panel.Content>
               <Panel.Content>
