@@ -57,6 +57,105 @@ export type CascadeWinnerDetail = {
   rule?: CSSStyleRule
 }
 
+type MatchedCascadeRule = {
+  rule: CSSStyleRule
+  spec: any
+}
+
+export type CascadeResolver = (
+  hyphen: string,
+  mode?: CascadeMode
+) => CascadeWinnerDetail | null
+
+/**
+ * Build a resolver that shares the matched-rule scan across all properties.
+ * Cascade correction asks for many properties on the same element; scanning
+ * every stylesheet once per property was the dominant cost of tab switching.
+ */
+export function createCascadeResolver(element: HTMLElement): CascadeResolver {
+  const matchedRulesByMode = new Map<CascadeMode, MatchedCascadeRule[]>()
+
+  const collectMatchedRules = (mode: CascadeMode): MatchedCascadeRule[] => {
+    const cached = matchedRulesByMode.get(mode)
+    if (cached) return cached
+
+    const matchedRules: MatchedCascadeRule[] = []
+    try {
+      const root = getDocument()
+      for (const sheet of Array.from(root.styleSheets)) {
+        try {
+          for (const rule of Array.from(sheet.cssRules || [])) {
+            if (!(rule instanceof CSSStyleRule)) continue
+
+            if (mode === 'hover') {
+              if (!HOVER_TAIL_RE.test(rule.selectorText)) continue
+              const ruleBase = rule.selectorText.replace(HOVER_TAIL_RE, '').trim()
+              try {
+                if (!ruleBase || !element.matches(ruleBase)) continue
+              } catch {
+                continue
+              }
+            } else {
+              let matches = false
+              try {
+                matches = element.matches(rule.selectorText)
+              } catch {
+                continue
+              }
+              if (!matches || INTERACTIVE_PSEUDO_RE.test(rule.selectorText)) continue
+            }
+
+            const spec = calculateSafeSpecificity(rule.selectorText, element)
+            if (spec) matchedRules.push({ rule, spec })
+          }
+        } catch {}
+      }
+    } catch {}
+
+    matchedRulesByMode.set(mode, matchedRules)
+    return matchedRules
+  }
+
+  return (hyphen: string, mode: CascadeMode = 'default'): CascadeWinnerDetail | null => {
+    let winnerValue: string | null = null
+    let winnerSpec: any = null
+    let winnerImportant = false
+    let winnerRule: CSSStyleRule | undefined
+
+    for (const { rule, spec } of collectMatchedRules(mode)) {
+      const propVal = extractPropValue(rule, hyphen)
+      if (!propVal) continue
+
+      const isImportant =
+        rule.style.getPropertyPriority(hyphen) === 'important' ||
+        rule.style.getPropertyPriority('background') === 'important'
+
+      if (winnerSpec === null) {
+        winnerSpec = spec
+        winnerValue = propVal
+        winnerImportant = isImportant
+        winnerRule = rule
+      } else if (winnerImportant && !isImportant) {
+        // 当前胜者是 !important，新规则不是 → 保持
+      } else if (!winnerImportant && isImportant) {
+        winnerSpec = spec
+        winnerValue = propVal
+        winnerImportant = true
+        winnerRule = rule
+      } else if (compare(spec, winnerSpec) >= 0) {
+        winnerSpec = spec
+        winnerValue = propVal
+        winnerImportant = isImportant
+        winnerRule = rule
+      }
+    }
+
+    return winnerValue && winnerSpec
+      ? { value: winnerValue, spec: winnerSpec, important: winnerImportant, rule: winnerRule }
+      : null
+  }
+}
+
 /**
  * 扫描 styleSheets，按 CSS 级联（!important → 特指度 → 源码顺序）找出属性胜出详情。
  * - default：匹配 element，跳过交互伪类规则

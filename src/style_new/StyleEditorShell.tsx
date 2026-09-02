@@ -46,6 +46,20 @@ import { backToVisualIcon } from './icon'
 import { ZoneTabBar } from './ZoneTabBar'
 import css from './index.less'
 
+const STYLE_EDITOR_CACHE_LIMIT = 5
+
+type StyleEditorCacheScope = {
+  key: number
+  editMode: boolean
+  selectedTarget: Element | null
+  zoneSelectorSignature: string
+}
+
+type CachedStyleEditor = {
+  element: React.ReactElement
+  stale: boolean
+}
+
 async function writeClipboardText(text: string): Promise<boolean> {
   try {
     if (navigator.clipboard?.writeText) {
@@ -99,6 +113,11 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
   const soloStyleBackupRef = useRef(new Map<string, SavedSoloStyle>())
   const suggestOptionsCacheRef = useRef<SuggestOptionsCache>(new WeakMap())
   const cssEditorHandleRef = useRef<CssEditorHandle | null>(null)
+  const activeStyleEditorCacheKeyRef = useRef<string | null>(null)
+  const styleEditorCacheRef = useRef(new Map<string, CachedStyleEditor>())
+  const styleEditorCacheScopeRef = useRef<StyleEditorCacheScope | null>(null)
+  const styleEditorCacheGenerationRef = useRef(0)
+  const styleEditorMountRevisionRef = useRef(0)
 
   useEffect(() => {
     suggestOptionsCacheRef.current = new WeakMap()
@@ -134,6 +153,41 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
     selectedTarget
   )
 
+  // 保留已经访问过的 StyleMount，避免每次 zone tab 切换都卸载并重建 15 个插件。
+  // 外部刷新、编辑模式变化、目标元素或 selector 列表变化时必须丢弃旧实例，
+  // 防止插件内部的 useState 继续持有上一轮样式快照。
+  const styleEditorCacheScope: StyleEditorCacheScope = {
+    key,
+    editMode,
+    selectedTarget,
+    zoneSelectorSignature: zoneSelectorList.join('\u0001'),
+  }
+  const previousStyleEditorCacheScope = styleEditorCacheScopeRef.current
+  if (
+    previousStyleEditorCacheScope &&
+    (
+      previousStyleEditorCacheScope.key !== styleEditorCacheScope.key ||
+      previousStyleEditorCacheScope.editMode !== styleEditorCacheScope.editMode ||
+      previousStyleEditorCacheScope.selectedTarget !== styleEditorCacheScope.selectedTarget ||
+      previousStyleEditorCacheScope.zoneSelectorSignature !== styleEditorCacheScope.zoneSelectorSignature
+    )
+  ) {
+    styleEditorCacheRef.current.clear()
+    styleEditorCacheGenerationRef.current += 1
+  }
+  styleEditorCacheScopeRef.current = styleEditorCacheScope
+  const styleEditorCacheGeneration = styleEditorCacheGenerationRef.current
+
+  const invalidateInactiveStyleEditors = useCallback(() => {
+    const activeCacheKey = activeStyleEditorCacheKeyRef.current
+    for (const [cachedKey, cachedEditor] of styleEditorCacheRef.current.entries()) {
+      if (cachedKey !== activeCacheKey) {
+        cachedEditor.stale = true
+      }
+    }
+    refreshBatchMeta()
+  }, [refreshBatchMeta])
+
   const baseSelector = useMemo(() => {
     return (
       (zoneSelectorList[activeZoneIdx] as string | undefined) ||
@@ -151,6 +205,34 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
       ? buildSoloSelector(selectedTarget, baseSelector, componentRoot)
       : null
   }, [selectedTarget, baseSelector, componentRoot])
+
+  const onZoneTabSelect = useCallback(
+    (idx: number) => {
+      if (idx === activeZoneIdx) return
+
+      // Solo 模式下同步更新写入目标，避免先用旧 soloSelector 构建一遍，
+      // 再由 rehydrate effect 根据新 tab selector 触发第二次构建。
+      if (isSoloEdit) {
+        skipSoloRehydrateRef.current = true
+        const nextSoloSelector = selectedTarget
+          ? buildSoloSelector(selectedTarget, zoneSelectorList[idx], componentRoot)
+          : null
+        if (nextSoloSelector) {
+          setSoloSelector(nextSoloSelector)
+        }
+      }
+
+      setActiveZoneIdx(idx)
+    },
+    [
+      activeZoneIdx,
+      componentRoot,
+      isSoloEdit,
+      selectedTarget,
+      setActiveZoneIdx,
+      zoneSelectorList,
+    ]
+  )
 
   const resolveActiveEditContext = useCallback(() => {
     const originalOptions = editConfig.options
@@ -530,7 +612,7 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
 
     const config = getDefaultConfiguration(resolvedEditConfig, suggestOptionsCacheRef.current)
 
-    // 插件内部大量用 useState 初始化 value，切 zone tab 时必须 remount，否则面板不刷新
+    // CssEditor 仍然按 zone 强制 remount；它的 initialStyle 不是受控值。
     const editorRemountKey = `${key}:${activeZoneIdx}:${String(activeSelector ?? '')}`
 
     if (editMode) {
@@ -542,14 +624,50 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
         )
         activeStyleProps.collapsedOptions = allOptionKeys
       }
+      // 同一个 selector 只挂载一次。切走的实例保留在树中并隐藏，切回时复用
+      // 原有插件状态；key 变化（刷新/单独编辑切换）会在上面清空整个缓存。
+      const styleEditorCacheKey = `${key}:${String(activeSelector ?? '')}`
+      activeStyleEditorCacheKeyRef.current = styleEditorCacheKey
+      const styleEditorCache = styleEditorCacheRef.current
+      const cachedEditor = styleEditorCache.get(styleEditorCacheKey)
+      const cacheHit = !!cachedEditor && !cachedEditor.stale
+      if (!cacheHit) {
+        styleEditorCache.set(
+          styleEditorCacheKey,
+          {
+            stale: false,
+            element: (
+              <StyleMount
+                key={`${styleEditorCacheKey}:${styleEditorCacheGeneration}:${++styleEditorMountRevisionRef.current}`}
+                editConfig={resolvedEditConfig}
+                preserveImportantPriority={isSoloEdit}
+                onBatchMetaChange={invalidateInactiveStyleEditors}
+                {...activeStyleProps}
+              />
+            ),
+          }
+        )
+      }
+
+      if (!cacheHit && styleEditorCache.size > STYLE_EDITOR_CACHE_LIMIT) {
+        const oldestKey = styleEditorCache.keys().next().value
+        if (oldestKey && oldestKey !== styleEditorCacheKey) {
+          styleEditorCache.delete(oldestKey)
+        }
+      }
+
       return (
-        <StyleMount
-          key={editorRemountKey}
-          editConfig={resolvedEditConfig}
-          preserveImportantPriority={isSoloEdit}
-          onBatchMetaChange={refreshBatchMeta}
-          {...activeStyleProps}
-        />
+        <>
+          {Array.from(styleEditorCache.entries()).map(([cachedKey, cachedEntry]) => (
+            <div
+              key={cachedKey}
+              aria-hidden={cachedKey !== styleEditorCacheKey}
+              style={{ display: cachedKey === styleEditorCacheKey ? 'block' : 'none' }}
+            >
+              {cachedEntry.element}
+            </div>
+          ))}
+        </>
       )
     }
 
@@ -567,7 +685,16 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
         editorHandleRef={cssEditorHandleRef}
       />
     )
-  }, [editMode, key, activeZoneIdx, resolveActiveEditContext, refreshBatchMeta, isSoloEdit])
+  }, [
+    editMode,
+    key,
+    activeZoneIdx,
+    resolveActiveEditContext,
+    refreshBatchMeta,
+    invalidateInactiveStyleEditors,
+    isSoloEdit,
+    styleEditorCacheGeneration,
+  ])
 
   function onMouseEnter() {
     try {
@@ -675,7 +802,7 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
           <ZoneTabBar
             selectors={zoneSelectorList}
             activeIdx={activeZoneIdx}
-            onSelect={setActiveZoneIdx}
+            onSelect={onZoneTabSelect}
           />
         )}
         {showEditModeControl && (

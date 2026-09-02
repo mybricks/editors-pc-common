@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 
 export type BatchMeta = {
   enabled: boolean
@@ -7,6 +7,8 @@ export type BatchMeta = {
 }
 
 export function useBatchMeta(editConfig: any) {
+  const editConfigRef = useRef(editConfig)
+  editConfigRef.current = editConfig
   const [batchMeta, setBatchMeta] = useState<BatchMeta>({
     enabled: false,
     dirtyCount: 0,
@@ -14,7 +16,8 @@ export function useBatchMeta(editConfig: any) {
   })
 
   const refreshBatchMeta = useCallback(() => {
-    const localMeta = editConfig.value.getBatchMeta?.()
+    const currentEditConfig = editConfigRef.current
+    const localMeta = currentEditConfig.value.getBatchMeta?.()
     const bridgeMeta = (window as any).__mybricks_style_batch_bridge?.getMeta?.()
     const localDirty = Number(localMeta?.dirtyCount || 0)
     const bridgeDirty = Number(bridgeMeta?.dirtyCount || 0)
@@ -31,25 +34,27 @@ export function useBatchMeta(editConfig: any) {
       }
       return { enabled, dirtyCount, submitting }
     })
-  }, [editConfig])
+  }, [])
 
   const onBatchDiscard = useCallback(() => {
-    if (editConfig.value.discardBatch) {
-      editConfig.value.discardBatch()
+    const currentEditConfig = editConfigRef.current
+    if (currentEditConfig.value.discardBatch) {
+      currentEditConfig.value.discardBatch()
     } else {
       ;(window as any).__mybricks_style_batch_bridge?.discard?.()
     }
     refreshBatchMeta()
-  }, [editConfig, refreshBatchMeta])
+  }, [refreshBatchMeta])
 
   const onBatchCommit = useCallback(() => {
-    if (editConfig.value.commitBatch) {
-      editConfig.value.commitBatch()
+    const currentEditConfig = editConfigRef.current
+    if (currentEditConfig.value.commitBatch) {
+      currentEditConfig.value.commitBatch()
     } else {
       ;(window as any).__mybricks_style_batch_bridge?.commit?.()
     }
     refreshBatchMeta()
-  }, [editConfig, refreshBatchMeta])
+  }, [refreshBatchMeta])
 
   return { batchMeta, refreshBatchMeta, onBatchDiscard, onBatchCommit }
 }

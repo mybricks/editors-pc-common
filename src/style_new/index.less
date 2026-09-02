@@ -233,53 +233,12 @@
 
 .zoneTabBar {
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   align-items: center;
-  justify-content: flex-start;
-  gap: 0;
+  justify-content: center;
+  gap: 6px 4px;
   margin: 4px 6px 6px;
   position: relative;
-  overflow-x: auto;
-  overflow-y: hidden;
-  overscroll-behavior-x: contain;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-
-  &::-webkit-scrollbar {
-    display: none;
-  }
-}
-
-.zoneTabBarCentered {
-  justify-content: center;
-}
-
-.zoneTabBarFadeLeft {
-  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 20px, #000 100%);
-  mask-image: linear-gradient(to right, transparent 0, #000 30px, #000 100%);
-}
-
-.zoneTabBarFadeRight {
-  -webkit-mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 20px), transparent 100%);
-  mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 30px), transparent 100%);
-}
-
-.zoneTabBarFadeBoth {
-  -webkit-mask-image: linear-gradient(
-    to right,
-    transparent 0,
-    #000 20px,
-    #000 calc(100% - 20px),
-    transparent 100%
-  );
-  mask-image: linear-gradient(
-    to right,
-    transparent 0,
-    #000 20px,
-    #000 calc(100% - 20px),
-    transparent 100%
-  );
 }
 
 .zoneTab {
@@ -293,28 +252,11 @@
   color: @font-color-content;
   background-color: @bg-color-main;
   border: 1px solid @boder-color;
-  border-radius: 0;
+  border-radius: 6px;
   white-space: nowrap;
   position: relative;
-  z-index: 0;
-  flex-shrink: 0;
+  z-index: 1;
   transition: background-color 0.15s, color 0.15s, border-color 0.15s;
-
-  & + & {
-    margin-left: -1px;
-  }
-
-  &:first-child {
-    border-radius: 6px 0 0 6px;
-  }
-
-  &:last-child {
-    border-radius: 0 6px 6px 0;
-  }
-
-  &:only-child {
-    border-radius: 6px;
-  }
 
   &:hover {
     color: @font-color-content;

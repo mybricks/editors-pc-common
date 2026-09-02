@@ -55,19 +55,22 @@ export function useAffectedCount(
   useLayoutEffect(() => {
     const activeSelector = zoneSelectorList[activeZoneIdx]
     if (activeSelector) {
-      setAffectedCount(countByCssSelector(activeSelector, comId, anchor))
+      const count = countByCssSelector(activeSelector, comId, anchor)
+      setAffectedCount((prev) => (prev === count ? prev : count))
       return
     }
 
     // zoneSelectorList 为空时降级：用编辑器配置中的 finalSelector 统计
     if (!finalSelector) {
-      setAffectedCount(null)
+      setAffectedCount((prev) => (prev === null ? prev : null))
       return
     }
     const fallbackSelectors = Array.isArray(finalSelector) ? finalSelector : [finalSelector]
-    setAffectedCount(
-      fallbackSelectors.reduce((sum, s) => sum + countByCssSelector(s, comId, anchor), 0)
+    const count = fallbackSelectors.reduce(
+      (sum, s) => sum + countByCssSelector(s, comId, anchor),
+      0
     )
+    setAffectedCount((prev) => (prev === count ? prev : count))
   }, [activeZoneIdx, zoneSelectorList, finalSelector, comId, anchor])
 
   return affectedCount

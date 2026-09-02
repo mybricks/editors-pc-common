@@ -4,11 +4,18 @@ import colorUtil from 'color-string'
 import { compare } from 'specificity'
 
 import { refineEffectedPanel } from '../StyleEditor/helper/paint-stack'
-import { findCascadeWinner, findCascadeWinnerDetail, getOwnDeclaringMaxSpec, getOwnDeclaringValue } from './cascade-winner'
+import {
+  createCascadeResolver,
+  findCascadeWinner,
+  findCascadeWinnerDetail,
+  getOwnDeclaringMaxSpec,
+  getOwnDeclaringValue,
+} from './cascade-winner'
 import { toHump } from './css-code-codec'
 import { elementHasClassOrHashed } from './css-modules-match'
 import { getDocument } from './dom'
 import { getStyleRules } from './get-style-rules'
+import type { StyleRulesScanCache } from './get-style-rules'
 import { getValues } from './get-values'
 import { getDefaultValueFunctionMap2, PANEL_MAP } from './panel-defaults'
 import { calculateSafeSpecificity, someSelectorPart } from './selector-utils'
@@ -121,6 +128,11 @@ export function getEffectedCssPropertyAndOptions (element: HTMLElement | null, s
   const selectorArray = Array.isArray(selector) ? selector : [selector];
   const primarySelector = selectorArray[selectorArray.length - 1] ?? '';
   const _selectorStr = Array.isArray(selector) ? selector.join(',') : (selector ?? '');
+  // 伪类回填基础态变量时会再次查 CSSOM；同一次计算复用规则快照，避免重复读取所有 stylesheet。
+  // 默认态单 selector 只有一次规则查询，不额外创建缓存。
+  const styleRulesScanCache: StyleRulesScanCache | undefined = element && (
+    selectorArray.length > 1 || /:{1,2}[a-zA-Z\-]+(?:\([^)]*\))?$/.test(primarySelector)
+  ) ? {} : undefined
   try {
     let finalRules: CSSStyleRule[];
     let computedValues;
@@ -160,7 +172,7 @@ export function getEffectedCssPropertyAndOptions (element: HTMLElement | null, s
           }
         }
 
-        const { rules, inheritOnlyRules } = getStyleRules(queryEl, sel);
+        const { rules, inheritOnlyRules } = getStyleRules(queryEl, sel, styleRulesScanCache);
 
         rules.forEach((rule: any) => {
           if (!rulesMap.has(rule.selectorText)) {
@@ -200,7 +212,7 @@ export function getEffectedCssPropertyAndOptions (element: HTMLElement | null, s
     } else if (primarySelector) {
 
       // 无真实 DOM（伪类如 :hover、:disabled 等，或 span 等无 class 的子标签）
-      const { rules: rawRules, inheritOnlyRules } = getStyleRules(null, primarySelector)
+      const { rules: rawRules, inheritOnlyRules } = getStyleRules(null, primarySelector, styleRulesScanCache)
       inheritOnlyRules.forEach(r => allInheritOnlyRules.add(r))
       finalRules = rawRules.filter((finalRule: any) => {
         // calculate 不支持逗号合并选择器，需走 calculateSafeSpecificity
@@ -245,6 +257,9 @@ export function getEffectedCssPropertyAndOptions (element: HTMLElement | null, s
 
     const values = getValues(finalRules, computedValues, allInheritOnlyRules);
 
+    const _hasPseudo = /:{1,2}[a-zA-Z\-]+(?:\([^)]*\))?$/.test(primarySelector)
+    const cascadeResolver = element ? createCascadeResolver(element) : null
+
     /**
      * computedStyle 是整個元素的级联结果，同一节点挂多个 classname 时，
      * 没有当前 tab 声明的边框字段可能来自兄弟 classname。只在确实找到一个
@@ -252,6 +267,8 @@ export function getEffectedCssPropertyAndOptions (element: HTMLElement | null, s
      */
     const sanitizeBorderFallback = (mode: 'default' | 'hover') => {
       if (!element) return
+
+      const cascadeWinner = cascadeResolver
 
       const ownRules = finalRules.filter((rule) => !allInheritOnlyRules.has(rule))
       const emptyValues = getDefaultValueFunctionMap2.border() as Record<string, any>
@@ -284,7 +301,9 @@ export function getEffectedCssPropertyAndOptions (element: HTMLElement | null, s
             return
           }
 
-          const winner = findCascadeWinnerDetail(element, hyphen, mode)
+          const winner = cascadeWinner
+            ? cascadeWinner(hyphen, mode)
+            : findCascadeWinnerDetail(element, hyphen, mode)
           if (winner?.rule && !ownRules.includes(winner.rule)) {
             ;(values as any)[camel] = emptyValues[camel]
           }
@@ -303,7 +322,6 @@ export function getEffectedCssPropertyAndOptions (element: HTMLElement | null, s
     // element.matches() 天然过滤伪类规则（:hover/:disabled 等非激活态不会匹配），
     // 因此无需担心点击选中时 hover 状态的干扰。
     // 仅在默认态（primarySelector 无伪类后缀）且有真实 DOM 时执行。
-    const _hasPseudo = /:{1,2}[a-zA-Z\-]+(?:\([^)]*\))?$/.test(primarySelector)
     if (element && !_hasPseudo) {
       // ── 公共级联扫描：找到所有匹配 element 的规则中，按 CSS 级联（!important → 特指度 → 源码顺序）
       // 取最终胜出的属性值。注意：点击元素时 element.matches(':hover') 可能返回 true，
@@ -312,7 +330,10 @@ export function getEffectedCssPropertyAndOptions (element: HTMLElement | null, s
       // background shorthand 语义处理：
       //   • `background: #1677ff` 不含 gradient → background-image 隐式变为 'none'，background-color = '#1677ff'
       //   • `background: linear-gradient(...)` 含 gradient → background-image = gradient，background-color = ''
-      const _findCascadeWinner = (hyphen: string): string | null => findCascadeWinner(element, hyphen, 'default')
+      const _findCascadeWinner = (hyphen: string): string | null =>
+        cascadeResolver
+          ? cascadeResolver(hyphen, 'default')?.value ?? null
+          : findCascadeWinner(element, hyphen, 'default')
 
       // ── 颜色属性：用 colorUtil 归一化比较（处理 rgb/rgba/hex 格式差异）─────────────
       // ZoneTab 自身声明优先：finalRules 已声明该属性时永不被元素级联赢家覆盖，
@@ -328,7 +349,10 @@ export function getEffectedCssPropertyAndOptions (element: HTMLElement | null, s
       colorPropMap.forEach(([camel, hyphen]) => {
         const val = (values as any)[camel]
         if (!val || hasCssVarReference(val)) return
-        const winnerDetail = findCascadeWinnerDetail(element, hyphen, 'default')
+        const winnerDetail =
+          cascadeResolver
+            ? cascadeResolver(hyphen, 'default')
+            : findCascadeWinnerDetail(element, hyphen, 'default')
         if (!winnerDetail) return
         const c1 = colorUtil.get(val)
         const c2 = colorUtil.get(winnerDetail.value)
@@ -352,7 +376,10 @@ export function getEffectedCssPropertyAndOptions (element: HTMLElement | null, s
       }
       const bgImageVal = (values as any)['backgroundImage']
       if (bgImageVal && bgImageVal !== 'none' && !hasCssVarReference(bgImageVal)) {
-        const bgWinnerDetail = findCascadeWinnerDetail(element, 'background-image', 'default')
+        const bgWinnerDetail =
+          cascadeResolver
+            ? cascadeResolver('background-image', 'default')
+            : findCascadeWinnerDetail(element, 'background-image', 'default')
         if (bgWinnerDetail) {
           const norm = (s: string) => s.replace(/\s+/g, ' ').trim().toLowerCase()
           if (norm(bgImageVal) !== norm(bgWinnerDetail.value)) {
@@ -398,7 +425,10 @@ export function getEffectedCssPropertyAndOptions (element: HTMLElement | null, s
     if (element && _hasPseudo && /^.*:hover\s*$/i.test(primarySelector)) {
       const HOVER_TAIL_RE = /:hover\s*$/i
 
-      const _findHoverCascadeWinner = (hyphen: string): string | null => findCascadeWinner(element, hyphen, 'hover')
+      const _findHoverCascadeWinner = (hyphen: string): string | null =>
+        cascadeResolver
+          ? cascadeResolver(hyphen, 'hover')?.value ?? null
+          : findCascadeWinner(element, hyphen, 'hover')
 
       // 颜色属性校正：同默认态，自身声明优先，回显与写入同一条
       const colorPropMapH: Array<[string, string]> = [
@@ -412,7 +442,10 @@ export function getEffectedCssPropertyAndOptions (element: HTMLElement | null, s
       colorPropMapH.forEach(([camel, hyphen]) => {
         const val = (values as any)[camel]
         if (!val || hasCssVarReference(val)) return
-        const winnerDetail = findCascadeWinnerDetail(element, hyphen, 'hover')
+        const winnerDetail =
+          cascadeResolver
+            ? cascadeResolver(hyphen, 'hover')
+            : findCascadeWinnerDetail(element, hyphen, 'hover')
         if (!winnerDetail) return
         const c1 = colorUtil.get(val)
         const c2 = colorUtil.get(winnerDetail.value)
@@ -431,7 +464,10 @@ export function getEffectedCssPropertyAndOptions (element: HTMLElement | null, s
       // 背景图属性校正：同默认态，自身声明优先
       const bgImageValH = (values as any)['backgroundImage']
       if (bgImageValH && bgImageValH !== 'none' && !hasCssVarReference(bgImageValH)) {
-        const bgWinnerDetailH = findCascadeWinnerDetail(element, 'background-image', 'hover')
+        const bgWinnerDetailH =
+          cascadeResolver
+            ? cascadeResolver('background-image', 'hover')
+            : findCascadeWinnerDetail(element, 'background-image', 'hover')
         if (bgWinnerDetailH) {
           const norm = (s: string) => s.replace(/\s+/g, ' ').trim().toLowerCase()
           if (norm(bgImageValH) !== norm(bgWinnerDetailH.value)) {
@@ -622,7 +658,7 @@ export function getEffectedCssPropertyAndOptions (element: HTMLElement | null, s
         const baseSelector = primarySelector.replace(pseudoMatch[0], '').trim()
         if (baseSelector) {
           try {
-            const { rules: baseRules } = getStyleRules(element, baseSelector)
+            const { rules: baseRules } = getStyleRules(element, baseSelector, styleRulesScanCache)
             if (baseRules.length > 0) {
               const baseValues = getValues(baseRules, computedValues, new Set<CSSStyleRule>())
               Object.keys(baseValues as object).forEach(key => {

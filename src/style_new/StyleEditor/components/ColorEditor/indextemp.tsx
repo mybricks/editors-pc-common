@@ -54,9 +54,7 @@ export function ColorEditor({
       const hex = getHex(value);
       setFinalValue(hex);
       onChange(hex);
-    } catch (e) {
-      console.log(e);
-    }
+    } catch {}
   }, []);
 
   //手动input完成输入后，如果输入的值与最终值不一致，则将最终值（finalValue）赋给输入框

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { useMemo } from 'react'
 
 import css from './index.less'
 
@@ -87,95 +87,13 @@ export function ZoneTabBar(props: {
   onSelect: (idx: number) => void
 }) {
   const { selectors, activeIdx, onSelect } = props
-  const barRef = useRef<HTMLDivElement>(null)
-  const tabRefs = useRef<(HTMLDivElement | null)[]>([])
-  const [fadeLeft, setFadeLeft] = useState(false)
-  const [fadeRight, setFadeRight] = useState(false)
-  const [centered, setCentered] = useState(true)
   const labels = useMemo(() => getZoneTabLabels(selectors), [selectors])
 
-  const updateFades = useCallback(() => {
-    const barEl = barRef.current
-    if (!barEl) return
-    const { scrollLeft, scrollWidth, clientWidth } = barEl
-    const maxScroll = scrollWidth - clientWidth
-    const overflow = maxScroll > 1
-    setCentered(!overflow)
-    setFadeLeft(overflow && scrollLeft > 1)
-    setFadeRight(overflow && scrollLeft < maxScroll - 1)
-  }, [])
-
-  useEffect(() => {
-    const barEl = barRef.current
-    const activeEl = tabRefs.current[activeIdx]
-    if (!barEl || !activeEl) return
-
-    // 选中项滚到可视区水平居中，而不是仅保证露全
-    const targetLeft =
-      activeEl.offsetLeft - (barEl.clientWidth - activeEl.offsetWidth) / 2
-    const maxScroll = Math.max(0, barEl.scrollWidth - barEl.clientWidth)
-    const nextLeft = Math.min(maxScroll, Math.max(0, targetLeft))
-    if (typeof barEl.scrollTo === 'function') {
-      barEl.scrollTo({ left: nextLeft, behavior: 'smooth' })
-    } else {
-      barEl.scrollLeft = nextLeft
-    }
-    requestAnimationFrame(updateFades)
-  }, [activeIdx, selectors, updateFades])
-
-  useEffect(() => {
-    const barEl = barRef.current
-    if (!barEl) return
-
-    updateFades()
-    barEl.addEventListener('scroll', updateFades, { passive: true })
-
-    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(updateFades) : null
-    ro?.observe(barEl)
-
-    const onWheel = (e: WheelEvent) => {
-      if (barEl.scrollWidth <= barEl.clientWidth) return
-      const delta =
-        Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY
-      if (delta === 0) return
-      const maxScroll = barEl.scrollWidth - barEl.clientWidth
-      const next = Math.min(maxScroll, Math.max(0, barEl.scrollLeft + delta))
-      if (next !== barEl.scrollLeft) {
-        e.preventDefault()
-        barEl.scrollLeft = next
-      }
-    }
-
-    barEl.addEventListener('wheel', onWheel, { passive: false })
-    return () => {
-      barEl.removeEventListener('scroll', updateFades)
-      barEl.removeEventListener('wheel', onWheel)
-      ro?.disconnect()
-    }
-  }, [selectors.length, updateFades])
-
-  const classNames = [
-    css.zoneTabBar,
-    centered ? css.zoneTabBarCentered : '',
-    fadeLeft && fadeRight
-      ? css.zoneTabBarFadeBoth
-      : fadeLeft
-        ? css.zoneTabBarFadeLeft
-        : fadeRight
-          ? css.zoneTabBarFadeRight
-          : '',
-  ]
-    .filter(Boolean)
-    .join(' ')
-
   return (
-    <div className={classNames} ref={barRef}>
+    <div className={css.zoneTabBar}>
       {selectors.map((sel, idx) => (
         <div
           key={sel}
-          ref={(el) => {
-            tabRefs.current[idx] = el
-          }}
           className={`${css.zoneTab}${idx === activeIdx ? ` ${css.zoneTabActive}` : ''}`}
           onClick={() => onSelect(idx)}
         >

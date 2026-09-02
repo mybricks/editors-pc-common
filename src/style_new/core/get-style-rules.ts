@@ -6,6 +6,50 @@ import {
   someSelectorPart,
 } from './selector-utils'
 
+export type StyleRulesScanCache = {
+  rules?: CSSRule[]
+  candidatesByKey?: Map<string, CSSRule[]>
+  candidateKeys?: string[]
+}
+
+function getSelectorClassNames(selector: string | null): string[] {
+  if (!selector) return []
+  const lastSegment = selector.trim().split(/\s+/).pop() || selector
+  const withoutPseudo = lastSegment.replace(/:{1,2}[a-zA-Z\-]+(?:\([^)]*\))?$/, '')
+  return (withoutPseudo.match(/\.([a-zA-Z_][a-zA-Z0-9_-]*)/g) || [])
+    .map((token) => token.slice(1))
+}
+
+function addRuleCandidate(cache: StyleRulesScanCache, rule: CSSStyleRule): void {
+  if (!cache.candidatesByKey) cache.candidatesByKey = new Map()
+  const wantedKeys = cache.candidateKeys || []
+  if (wantedKeys.length === 0) return
+  // 这里只做廉价的字符串预筛选；候选规则仍会经过原有完整匹配逻辑，
+  // 因此误收的同名片段不会改变结果，只会增加极少量候选处理。
+  const selectorText = rule.selectorText
+  const matchedKeys = wantedKeys.filter((key) => selectorText.includes(key))
+  matchedKeys.forEach((key) => {
+    const list = cache.candidatesByKey!.get(key)
+    if (list) list.push(rule)
+    else cache.candidatesByKey!.set(key, [rule])
+  })
+}
+
+function getRuleCandidates(cache: StyleRulesScanCache, selector: string | null): CSSRule[] | null {
+  if (!selector || !cache.candidatesByKey) return null
+  const result: CSSRule[] = []
+  const seen = new Set<CSSRule>()
+  for (const key of getSelectorClassNames(selector)) {
+    for (const rule of cache.candidatesByKey.get(key) || []) {
+      if (!seen.has(rule)) {
+        seen.add(rule)
+        result.push(rule)
+      }
+    }
+  }
+  return result.length > 0 ? result : null
+}
+
 const HAS_PSEUDO_RE = /:[a-zA-Z\-]/
 
 /**
@@ -72,7 +116,11 @@ function statePartMatchesLastSeg(
   return isGlobalRule || isScopedRule || isScopedRuleByLastToken || isHashedModuleMatch
 }
 
-export function getStyleRules (element: HTMLElement | null, selector: string | null): { rules: CSSStyleRule[], inheritOnlyRules: Set<CSSStyleRule> } {
+export function getStyleRules (
+  element: HTMLElement | null,
+  selector: string | null,
+  scanCache?: StyleRulesScanCache,
+): { rules: CSSStyleRule[], inheritOnlyRules: Set<CSSStyleRule> } {
   const finalRules: CSSStyleRule[] = [] // 最终返回的规则
   // 标记哪些规则是"父级继承来源"——这些规则命中的原因是子元素（如 span）继承了父级样式，
   // getValues 中对这些规则只读可继承属性（color/font 系列），跳过 display/padding 等非继承属性。
@@ -99,13 +147,17 @@ export function getStyleRules (element: HTMLElement | null, selector: string | n
     return classesInSel.length >= 1 && classesInSel.some(c => !element!.classList.contains(c))
   })()
 
-  for (let i = 0; i < root.styleSheets.length; i++) {
-    try {
-      const sheet = root.styleSheets[i]
-      const rules = sheet.cssRules ? sheet.cssRules : sheet.rules
-
-      for (let j = 0; j < rules.length; j++) {
+  const processRules = (
+    rules: CSSRuleList | CSSRule[] | undefined | null,
+    collectRules = false,
+  ): void => {
+    if (!rules) return
+    for (let j = 0; j < rules.length; j++) {
         const rule = rules[j]
+        if (collectRules && scanCache?.rules) {
+          scanCache.rules.push(rule)
+          if (rule instanceof CSSStyleRule) addRuleCandidate(scanCache, rule)
+        }
         if (!(rule instanceof CSSStyleRule)) continue
         const { selectorText } = rule
 
@@ -328,8 +380,35 @@ export function getStyleRules (element: HTMLElement | null, selector: string | n
             finalRules.push(rule)
           }
         } catch {}
+    }
+  }
+
+  if (scanCache) {
+    scanCache.candidateKeys = Array.from(new Set([
+      ...(scanCache.candidateKeys || []),
+      ...getSelectorClassNames(selector),
+    ]))
+    if (scanCache.rules) {
+      try {
+        processRules(getRuleCandidates(scanCache, selector) || scanCache.rules)
+      } catch {}
+    } else {
+      // 首次扫描直接完成匹配并顺手缓存 CSSRule，避免为建立缓存多遍历一次 CSSOM。
+      scanCache.rules = []
+      for (let i = 0; i < root.styleSheets.length; i++) {
+        try {
+          const sheet = root.styleSheets[i]
+          processRules(sheet.cssRules ? sheet.cssRules : sheet.rules, true)
+        } catch {}
       }
-    } catch {}
+    }
+  } else {
+    for (let i = 0; i < root.styleSheets.length; i++) {
+      try {
+        const sheet = root.styleSheets[i]
+        processRules(sheet.cssRules ? sheet.cssRules : sheet.rules)
+      } catch {}
+    }
   }
   return { rules: finalRules, inheritOnlyRules }
 }

@@ -22,8 +22,6 @@ export function getSuggestOptionsByElement(selectDom: HTMLElement): { type: stri
   }
 
   try {
-    // const startTime = new Date().getTime();
-
     const { getMatchedCssRules } = getMatchedCssRulesWithCache
 
     // 处理字体相关
@@ -179,8 +177,6 @@ export function getSuggestOptionsByElement(selectDom: HTMLElement): { type: stri
         type: 'csspaste'
       }
     ].filter(t => !!t)
-
-    // console.log('result', ...suggestion, new Date().getTime() - startTime)
 
     return suggestion
   } catch (error) {
