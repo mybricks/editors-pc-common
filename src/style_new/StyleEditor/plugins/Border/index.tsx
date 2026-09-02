@@ -948,6 +948,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                           unitHideLabelList: ['px', '%'],
                           showIcon: true,
                           showIconOnHover: true,
+                          clearable: false,
                           fallbackValue: 0,
                           onChange: (value) =>
                             handleChange({
@@ -1016,6 +1017,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                           unitHideLabelList: ['px', '%'],
                           showIcon: true,
                           showIconOnHover: true,
+                          clearable: false,
                           fallbackValue: 0,
                           onChange: (value) =>
                             handleChange({
@@ -1085,6 +1087,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                           unitHideLabelList: ['px', '%'],
                           showIcon: true,
                           showIconOnHover: true,
+                          clearable: false,
                           fallbackValue: 0,
                           onChange: (value) =>
                             handleChange({
@@ -1154,6 +1157,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                           unitHideLabelList: ['px', '%'],
                           showIcon: true,
                           showIconOnHover: true,
+                          clearable: false,
                           fallbackValue: 0,
                           onChange: (value) =>
                             handleChange({
