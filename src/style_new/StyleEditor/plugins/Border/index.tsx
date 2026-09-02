@@ -1469,6 +1469,9 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
               <MinusOutlined />
             </div>
           )}
+          {isInherited && hasBorderSection && (
+            <div className={css.rightColumnPlaceholder} aria-hidden="true" />
+          )}
           {hasBorderSection && (
             <div
               data-mybricks-tip={borderToggleValue === 'all'
