@@ -68,7 +68,9 @@ export function ZIndex({ value, onChange, config, showTitle, collapse }: ZIndexP
             onFocus={handleFocus}
             onBlur={handleBlur}
             style={{
-              width: '100%',
+              flex: '1 1 auto',
+              width: 'auto',
+              minWidth: 0,
               height: '100%',
               border: 'none',
               background: 'transparent',
