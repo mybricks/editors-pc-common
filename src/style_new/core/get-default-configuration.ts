@@ -23,6 +23,7 @@ import {
 } from './panel-defaults'
 import {
   CSS_TRIVIAL_VALUES,
+  hasAuthoredBoxModelDeclaration,
   isBorderPanelMeaningfullyUsed,
   isMeaninglessStylePropForPanel,
 } from './panel-effected'
@@ -234,10 +235,25 @@ export function getDefaultConfiguration ({value, options}: GetDefaultConfigurati
   }
 
   const setValueEffectedPanels = new Set<string>();
+  // splitCSSProperties 会把 margin/padding shorthand 展开成四个 computed 长写，
+  // 先基于原始 setValue 记录用户是否明确写入了 box-model 声明，避免 0px 信息丢失。
+  (['padding', 'margin'] as const).forEach((panel) => {
+    if (hasAuthoredBoxModelDeclaration(setValue, panel)) {
+      setValueEffectedPanels.add(panel)
+    }
+  })
   const setValueBag = splitedSetValue as Record<string, any>
   Object.keys(splitedSetValue).forEach(property => {
     const mapped = PANEL_MAP[property]
-    if (isMeaninglessStylePropForPanel(property, setValueBag[property], mapped, setValueBag)) {
+    if (
+      isMeaninglessStylePropForPanel(
+        property,
+        setValueBag[property],
+        mapped,
+        setValueBag,
+        setValue
+      )
+    ) {
       return
     }
     const panel = refineEffectedPanel(property, mapped, setValueBag)

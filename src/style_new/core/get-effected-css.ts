@@ -545,7 +545,8 @@ export function getEffectedCssPropertyAndOptions (element: HTMLElement | null, s
             camelProp,
             inlineBag[camelProp],
             mapped,
-            inlineStyleBag
+            inlineStyleBag,
+            element.style
           )
         ) {
           return;
@@ -589,7 +590,8 @@ export function getEffectedCssPropertyAndOptions (element: HTMLElement | null, s
 
     const effectedFromRules = getEffectedPanelsFromCssRules(
       finalRules,
-      values as Record<string, any>
+      values as Record<string, any>,
+      allInheritOnlyRules
     );
 
     const effectedFromDirectParent = element ? getEffectedPanelsFromDirectParent(element, comId) : [];
@@ -649,7 +651,8 @@ export function getEffectedCssPropertyAndOptions (element: HTMLElement | null, s
     const ownRulesPanels = Array.from(new Set([
       ...(getEffectedPanelsFromCssRules(
         ownSelectorRules,
-        values as Record<string, any>
+        values as Record<string, any>,
+        allInheritOnlyRules
       ) as string[]),
       ...inlineEffectedPanels,
     ]));
@@ -659,7 +662,8 @@ export function getEffectedCssPropertyAndOptions (element: HTMLElement | null, s
     const otherRules = finalRules.filter((rule: any) => !ownSelectorRules.includes(rule));
     const otherRulesPanels = getEffectedPanelsFromCssRules(
       otherRules,
-      values as Record<string, any>
+      values as Record<string, any>,
+      allInheritOnlyRules
     ) as string[];
 
     // ── 伪类（hover/focus 等）状态下，回填默认态的 var() 引用 ────────────────

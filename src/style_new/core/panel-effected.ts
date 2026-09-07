@@ -110,12 +110,62 @@ export function isBorderPanelMeaningfullyUsed (styleBag: Record<string, any> = {
   return false
 }
 
+type BoxModelPanel = 'padding' | 'margin'
+type AuthoredDeclarationSource = CSSStyleDeclaration | Record<string, any>
+
+/**
+ * 判断 box-model 面板是否存在用户明确写入的声明。
+ *
+ * 这里只检查声明列表/原始对象的字段，不读取 computedStyle；否则浏览器补出的
+ * 0px 会和用户写入的 0px 无法区分。CSSStyleDeclaration 的 length 列表只包含
+ * 规则中直接写入的属性，因此可以保留 shorthand 信息。
+ */
+export function hasAuthoredBoxModelDeclaration (
+  source: AuthoredDeclarationSource | null | undefined,
+  panel: BoxModelPanel
+): boolean {
+  if (!source) return false
+
+  const declarations = panel === 'padding'
+    ? ['padding', 'padding-top', 'padding-right', 'padding-bottom', 'padding-left']
+    : ['margin', 'margin-top', 'margin-right', 'margin-bottom', 'margin-left']
+
+  if (typeof (source as any).getPropertyValue === 'function') {
+    const style = source as CSSStyleDeclaration
+    for (let i = 0; i < style.length; i++) {
+      if (declarations.includes(style[i])) return true
+    }
+    // CSSOM 实现或测试桩可能无法枚举 length，但 cssText 仍保留原始声明。
+    const cssText = String((style as any).cssText || '')
+    if (cssText) {
+      return declarations.some((property) =>
+        new RegExp(`(?:^|;)\\s*${property}\\s*:`, 'i').test(cssText)
+      )
+    }
+    return false
+  }
+
+  const record = source as Record<string, any>
+  return declarations.some((property) => {
+    const camel = toHump(property)
+    const key = Object.prototype.hasOwnProperty.call(record, camel)
+      ? camel
+      : Object.prototype.hasOwnProperty.call(record, property)
+        ? property
+        : null
+    if (!key) return false
+    const value = record[key]
+    return value !== null && value !== undefined && value !== ''
+  })
+}
+
 /** 属性值是否等价于该面板空白基准（或对边框面板无视觉意义） */
 export function isMeaninglessStylePropForPanel (
   property: string,
   value: any,
   mappedPanel: string | undefined,
-  styleBag: Record<string, any>
+  styleBag: Record<string, any>,
+  authoredSource?: AuthoredDeclarationSource | null
 ): boolean {
   if (value === null || value === undefined || value === '') return true
   const str = String(value).replace(/!important/gi, '').trim()
@@ -131,7 +181,17 @@ export function isMeaninglessStylePropForPanel (
       if (v === 'rgba(0, 0, 0, 0)' || v === 'rgba(0,0,0,0)') return null
       return String(v).replace(/\s+/g, '').toLowerCase()
     }
-    if (normalize(str) === normalize(emptyVal)) return true
+    if (normalize(str) === normalize(emptyVal)) {
+      // 用户明确写入的 padding/margin: 0px 仍属于有效面板内容；只有
+      // 没有原始声明、仅由 computed/default 补出的 0px 才应被折叠。
+      if (
+        (mappedPanel === 'padding' || mappedPanel === 'margin') &&
+        hasAuthoredBoxModelDeclaration(authoredSource, mappedPanel)
+      ) {
+        return false
+      }
+      return true
+    }
   }
 
   if (mappedPanel === 'border') {
@@ -168,7 +228,8 @@ export function isMeaninglessStylePropForPanel (
 
 export function getEffectedPanelsFromCssRules (
   rules: CSSStyleRule[],
-  effectiveStyleBag?: Record<string, any>
+  effectiveStyleBag?: Record<string, any>,
+  ignoredRules?: Set<CSSStyleRule>
 ) {
   let effectedPanels = new Set<string>();
   rules.filter(rule => {
@@ -203,7 +264,20 @@ export function getEffectedPanelsFromCssRules (
           ? effectiveStyleBag.backgroundColor
           : rawVal
       const mapped = PANEL_MAP[camel]
-      if (isMeaninglessStylePropForPanel(camel, valueForMeaning, mapped, classificationBag)) {
+      // inheritOnly 规则只应贡献 CSS 继承属性；祖先的 margin/padding、尺寸等
+      // 非继承声明不能算作当前元素自己的生效面板。
+      if (ignoredRules?.has(rule) && !CSS_INHERITABLE_PROPS.has(camel)) {
+        return
+      }
+      if (
+        isMeaninglessStylePropForPanel(
+          camel,
+          valueForMeaning,
+          mapped,
+          classificationBag,
+          rule.style
+        )
+      ) {
         return
       }
       const panel = refineEffectedPanel(camel, mapped, classificationBag)

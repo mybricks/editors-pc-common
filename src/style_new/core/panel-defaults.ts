@@ -353,8 +353,14 @@ Object.keys(getDefaultValueFunctionMap2).forEach(panelType => {
 })
 
 // Layout 的历史字段也包含四边内边距，但实际由独立 Padding 面板编辑。
-// 显式覆盖归属并补上简写，避免源码中的 padding 被误判为只读回显而隐藏删除按钮。
+// 显式覆盖归属并补上 shorthand，避免源码中的 box-model 声明被误判为
+// 只读回显而隐藏删除按钮。
 const paddingPanelProperties = ['padding', 'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft']
 paddingPanelProperties.forEach(property => {
   PANEL_MAP[property] = 'padding'
+})
+
+const marginPanelProperties = ['margin', 'marginTop', 'marginRight', 'marginBottom', 'marginLeft']
+marginPanelProperties.forEach(property => {
+  PANEL_MAP[property] = 'margin'
 })
