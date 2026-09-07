@@ -17,6 +17,7 @@ import { getDocument } from './dom'
 import { getStyleRules } from './get-style-rules'
 import type { StyleRulesScanCache } from './get-style-rules'
 import { getValues } from './get-values'
+import { reconcileEffectiveTextFill } from './effective-text-fill'
 import { getDefaultValueFunctionMap2, PANEL_MAP } from './panel-defaults'
 import { calculateSafeSpecificity, someSelectorPart } from './selector-utils'
 import { hasCssVarReference } from './css-var'
@@ -252,8 +253,6 @@ export function getEffectedCssPropertyAndOptions (element: HTMLElement | null, s
     } else {
       return [{}, []]
     }
-
-    const effectedFromRules = getEffectedPanelsFromCssRules(finalRules);
 
     const values = getValues(finalRules, computedValues, allInheritOnlyRules);
 
@@ -582,6 +581,17 @@ export function getEffectedCssPropertyAndOptions (element: HTMLElement | null, s
       })
     }
 
+    // 文字渐变可能由多个 classname 共同组成。规则扫描保持 Zone 所有权边界，
+    // 仅在面板消费前用 computedStyle 补齐实际绘制角色。
+    if (element && !_hasPseudo) {
+      reconcileEffectiveTextFill(values as Record<string, any>, computedValues, finalRules)
+    }
+
+    const effectedFromRules = getEffectedPanelsFromCssRules(
+      finalRules,
+      values as Record<string, any>
+    );
+
     const effectedFromDirectParent = element ? getEffectedPanelsFromDirectParent(element, comId) : [];
     const finalEffectedPanels = Array.from(
       new Set([...(effectedFromRules as string[]), ...effectedFromDirectParent, ...inlineEffectedPanels])
@@ -637,14 +647,20 @@ export function getEffectedCssPropertyAndOptions (element: HTMLElement | null, s
     // 加入 ownRulesPanels 后会进入 ownEffectedSet，使对应面板显示 - 删除按钮，
     // 而不是作为只读继承（'inherited'）展示。
     const ownRulesPanels = Array.from(new Set([
-      ...(getEffectedPanelsFromCssRules(ownSelectorRules) as string[]),
+      ...(getEffectedPanelsFromCssRules(
+        ownSelectorRules,
+        values as Record<string, any>
+      ) as string[]),
       ...inlineEffectedPanels,
     ]));
 
     // 其他命中当前 DOM 但不属于当前编辑选择器的规则（如 .actionBtn 当编辑 .actionBtn.primary 时），
     // 产生的面板需要展开回显但不能有减号，单独返回供外层计算 readonlyExpandedOptions。
     const otherRules = finalRules.filter((rule: any) => !ownSelectorRules.includes(rule));
-    const otherRulesPanels = getEffectedPanelsFromCssRules(otherRules) as string[];
+    const otherRulesPanels = getEffectedPanelsFromCssRules(
+      otherRules,
+      values as Record<string, any>
+    ) as string[];
 
     // ── 伪类（hover/focus 等）状态下，回填默认态的 var() 引用 ────────────────
     // hover 规则通常只定义覆盖属性（box-shadow、transform 等），未覆盖的属性

@@ -18,6 +18,7 @@ import { color2rgba, getRealKey } from "../../utils";
 import {
   CssVarColorOption,
   parseCssVar,
+  resolveCssPaintPreview,
   resolveCssVarColor,
 } from "../../../core/resolve-css-var-color";
 import { isGradientValue } from "../../helper/gradient-border";
@@ -416,6 +417,11 @@ export function ColorEditor({
     );
   }, [varRef, state.optionsValueToAllMap, variableOptions, resolvedColor, scopeEl]);
 
+  const paintPreviewValue = useMemo(
+    () => resolveCssPaintPreview(state.finalValue || state.value, scopeEl),
+    [state.finalValue, state.value, scopeEl]
+  );
+
   /** 框内展示变量名：色值已由左侧色块表达，不必重复 */
   const variableDisplayText = varName || varRef;
 
@@ -572,7 +578,7 @@ export function ColorEditor({
   const input = useMemo(() => {
     const { value, nonColorValue, finalValue } = state;
 
-    const isGradient = isGradientValue(finalValue);
+    const isGradient = isGradientValue(paintPreviewValue);
     if (isGradient) {
       return (
           <div className={css.text} style={{ marginLeft: 5 }} onClick={onPresetClick}>
@@ -581,7 +587,7 @@ export function ColorEditor({
       );
     }
 
-    const isImage = finalValue?.includes?.("url(");
+    const isImage = paintPreviewValue?.includes?.("url(");
     if (isImage) {
       return (
           <div className={css.text} style={{ marginLeft: 5 }} onClick={onPresetClick}>
@@ -648,7 +654,7 @@ export function ColorEditor({
         onPaste={handlePaste}
       />
     );
-  }, [userInput, state.value, state.nonColorValue, state.finalValue, onPresetClick, handleReset, handleUnbind, handleInputChange, handleInputBlur, varDraft, varName, varRef, variableDisplayText, handleVarKeyDown, commitVarDraft]);
+  }, [userInput, state.value, state.nonColorValue, state.finalValue, paintPreviewValue, onPresetClick, handleReset, handleUnbind, handleInputChange, handleInputBlur, varDraft, varName, varRef, variableDisplayText, handleVarKeyDown, commitVarDraft]);
 
   const handleOpacityChange = useCallback(
     (value: string) => {
@@ -724,11 +730,21 @@ export function ColorEditor({
 
   const block = useMemo(() => {
     const { finalValue, nonColorValue, value } = state;
-    const isImage = finalValue?.includes?.("url(");
-    const isGradient = isGradientValue(finalValue);
+    const isImage = paintPreviewValue?.includes?.("url(");
+    const isGradient = isGradientValue(paintPreviewValue);
 
     let style: React.CSSProperties;
-    if (nonColorValue) {
+    if (isImage) {
+      style = {
+        backgroundImage: paintPreviewValue,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+      };
+    } else if (isGradient) {
+      style = {
+        backgroundImage: paintPreviewValue,
+      };
+    } else if (nonColorValue) {
       const previewColor =
         resolvedVarColor ||
         state.optionsValueToAllMap[finalValue]?.value ||
@@ -736,25 +752,15 @@ export function ColorEditor({
       style = {
         backgroundColor: previewColor || "transparent",
       };
-    } else if (isImage) {
-      style = {
-        backgroundImage: finalValue,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-      };
-    } else if (isGradient) {
-      style = {
-        backgroundImage: finalValue,
-      };
     } else {
       style = {
         backgroundColor: finalValue,
       };
     }
 
-    let pickerValue = finalValue;
+    let pickerValue = isGradient || isImage ? paintPreviewValue : finalValue;
 
-    if (nonColorValue) {
+    if (nonColorValue && !isGradient && !isImage) {
       const option = state.optionsValueToAllMap[varRef || finalValue];
       const variableOption = variableOptions.find((item) => `var(${item.name})` === varRef);
       if (option?.resetValue) {
@@ -778,7 +784,7 @@ export function ColorEditor({
         // disabled={nonColorValue}
         className={css.colorPickerContainer}
         showSubTabs={showSubTabs}
-        defaultTab={state.nonColorValue && isCssVarRef(state.value) ? "variable" : "custom"}
+        defaultTab={state.nonColorValue && isCssVarRef(state.value) && !isGradient && !isImage ? "variable" : "custom"}
         canvasVariableOptions={variableOptions}
         scopeEl={scopeEl}
         selectedVariableName={state.finalValue || (isCssVarRef(state.value) ? state.value : undefined)}
@@ -802,7 +808,7 @@ export function ColorEditor({
         </div>
       </Colorpicker>
     );
-  }, [state.finalValue, state.value, state.nonColorValue, state.optionsValueToAllMap, resolvedColor, resolvedVarColor, varRef, variableOptions, scopeEl, handleColorpickerChange, showSubTabs, upload, imageValue, disableBackgroundColor, disableBackgroundImage, disableGradient]);
+  }, [state.finalValue, state.value, state.nonColorValue, state.optionsValueToAllMap, paintPreviewValue, resolvedColor, resolvedVarColor, varRef, variableOptions, scopeEl, handleColorpickerChange, showSubTabs, upload, imageValue, disableBackgroundColor, disableBackgroundImage, disableGradient]);
 
   const preset = useMemo(() => {
     if (!state.showPreset) {

@@ -166,7 +166,10 @@ export function isMeaninglessStylePropForPanel (
   return false
 }
 
-export function getEffectedPanelsFromCssRules (rules: CSSStyleRule[]) {
+export function getEffectedPanelsFromCssRules (
+  rules: CSSStyleRule[],
+  effectiveStyleBag?: Record<string, any>
+) {
   let effectedPanels = new Set<string>();
   rules.filter(rule => {
     if (rule.selectorText.indexOf('.desn-') === 0 && rule.selectorText.indexOf('*') > -1) {
@@ -175,6 +178,11 @@ export function getEffectedPanelsFromCssRules (rules: CSSStyleRule[]) {
     return true
   }).forEach(rule => {
     const styleBag = cssRuleStyleToBag(rule.style)
+    // 属性是否属于文字 / 内容 / 边框，取决于元素最终形成的完整 paint stack，
+    // 不能只看当前单条规则（文字渐变经常被拆在多个 classname 中）。
+    const classificationBag = effectiveStyleBag
+      ? { ...styleBag, ...effectiveStyleBag }
+      : styleBag
     rule.styleMap.forEach((cssVal, key) => {
       const camel = toHump(key)
       // styleMap 对「含 var() 的 background 简写」会给出空的 pending 值，
@@ -183,15 +191,25 @@ export function getEffectedPanelsFromCssRules (rules: CSSStyleRule[]) {
         typeof (cssVal as any)?.toString === 'function'
           ? String((cssVal as any).toString()).trim()
           : ''
-      const rawVal = fromMap || styleBag[camel]
+      // 当前规则确实列出该属性，但 CSSOM 因 background:var(...) 给出空 pending 值时，
+      // 允许使用 DOM 校正后、仍属于当前 Zone 的原始值。
+      const rawVal = fromMap || styleBag[camel] || effectiveStyleBag?.[camel]
+      // reconcileEffectiveTextFill 只会清掉被误放进 backgroundColor 的
+      // `background: var(...)`。面板归属也必须使用这个校正结果。
+      const valueForMeaning =
+        camel === 'backgroundColor' &&
+        effectiveStyleBag &&
+        !effectiveStyleBag.backgroundColor
+          ? effectiveStyleBag.backgroundColor
+          : rawVal
       const mapped = PANEL_MAP[camel]
-      if (isMeaninglessStylePropForPanel(camel, rawVal, mapped, styleBag)) {
+      if (isMeaninglessStylePropForPanel(camel, valueForMeaning, mapped, classificationBag)) {
         return
       }
-      const panel = refineEffectedPanel(camel, mapped, styleBag)
+      const panel = refineEffectedPanel(camel, mapped, classificationBag)
       if (panel) {
         // 边框面板额外总检：全是 0/none 残留时不展开
-        if (panel === 'border' && !isBorderPanelMeaningfullyUsed(styleBag)) {
+        if (panel === 'border' && !isBorderPanelMeaningfullyUsed(classificationBag)) {
           return
         }
         effectedPanels.add(panel)

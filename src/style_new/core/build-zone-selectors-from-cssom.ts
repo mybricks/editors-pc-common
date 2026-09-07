@@ -222,6 +222,24 @@ function demangleSelector(runtimeSel: string, knownShortNames: Set<string>): str
 }
 
 /**
+ * 将组件 CSSOM 中的单个选择器分支还原成可用于 Less 写回的源码选择器。
+ * 与 Zone Tab 不同，这里保留完整祖先路径，避免 `.hero .title` 被折叠成
+ * `.title` 后写到同名顶层规则。
+ */
+export function resolveCssomSourceSelector(
+  selectorPart: string,
+  el: Element,
+  comId: string
+): string {
+  const withoutScope = stripComIdScope(selectorPart, comId)
+  if (!withoutScope) return ''
+  return demangleSelector(
+    withoutScope,
+    collectKnownShortNames(el)
+  ).trim()
+}
+
+/**
  * CSSOM 算不出时的兜底：当前节点 classList；
  * 纯标签节点则用祖先 classList + tagName（如 .textTitle span）。
  */

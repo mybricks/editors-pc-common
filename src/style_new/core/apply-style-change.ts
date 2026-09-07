@@ -5,10 +5,12 @@ import { PANEL_MAP } from './panel-defaults'
 import { findCascadeWinnerDetail } from './cascade-winner'
 import { toLine } from './css-code-codec'
 import { toElementArray } from './dom'
+import { collectTextFillCleanupTargets } from './effective-text-fill'
 import {
   normalizeStyleShorthands,
   overlayNormalizedShorthands,
 } from './shorthand-normalizer'
+import { isTextFillActive } from '../StyleEditor/helper/text-fill'
 
 export type StyleChangeItem = { key: string; value: any }
 
@@ -93,6 +95,20 @@ export function applyStyleChange({
       ? (editConfig.options as any).targetDom ?? null
       : null
   const realTargetDom = (toElementArray(targetDom)[0] ?? null) as HTMLElement | null
+  const isSolidTextFillTransition =
+    isTextFillActive(liveStyle) &&
+    rawItems.some(
+      (item) =>
+        item.key === 'color' &&
+        typeof item.value === 'string' &&
+        item.value.trim() !== '' &&
+        item.value.trim().toLowerCase() !== 'transparent'
+    ) &&
+    rawItems.some(
+      (item) =>
+        (item.key === 'WebkitTextFillColor' || item.key === 'webkitTextFillColor') &&
+        item.value == null
+    )
   const priorityAwareItems = preserveCascadePriority(
     rawItems,
     realTargetDom,
@@ -217,6 +233,22 @@ export function applyStyleChange({
   const setOptions = selector ? { selector } : undefined
   const batchMeta = editConfig.value.getBatchMeta?.()
   const isThirdPartyFocus = !!realTargetDom && !realTargetDom.getAttribute('data-zone-selector')
+
+  if (isSolidTextFillTransition && !isThirdPartyFocus) {
+    const comId =
+      !Array.isArray(editConfig.options) && editConfig.options
+        ? String((editConfig.options as any).comId || '')
+        : ''
+    const cleanupTargets = collectTextFillCleanupTargets(realTargetDom, comId)
+    cleanupTargets.forEach((target) => {
+      ;(window as any).__mybricks_style_deletions = target.properties
+      editConfig.value.set({}, { selector: target.selector })
+    })
+  }
+
+  // 多目标文字渐变清理会暂时改写删除侧通道；主写入前恢复本次常规删除集合。
+  ;(window as any).__mybricks_style_deletions =
+    effectiveDeletions.length > 0 ? effectiveDeletions : null
   if ((batchMeta?.enabled || isThirdPartyFocus) && editConfig.value.previewBatch) {
     editConfig.value.previewBatch(finalCssProperties, setOptions)
     onBatchMetaChange?.()

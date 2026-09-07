@@ -26,6 +26,14 @@ function isParseableColor(value: string): boolean {
   }
 }
 
+function isPaintValue(value: string): boolean {
+  return (
+    isParseableColor(value) ||
+    /\b(?:linear|radial|conic|repeating-linear|repeating-radial)-gradient\s*\(/i.test(value) ||
+    /\burl\s*\(/i.test(value)
+  )
+}
+
 /** 按 AICOM → 主题包 → DOM 查找变量对应色值 */
 export function lookupCssVarColor(
   varName: string,
@@ -61,4 +69,16 @@ export function resolveCssVarsInCssValue(
   scopeEl?: Element | null
 ): string {
   return resolveCssVarsInValue(value, scopeEl, isParseableColor)
+}
+
+/**
+ * 解析颜色编辑器中的 paint 预览值：支持整段 var(--gradient)，也支持
+ * linear-gradient(...var(--stop)...)。仅用于预览，不改变原始绑定值。
+ */
+export function resolveCssPaintPreview(
+  value: string,
+  scopeEl?: Element | null
+): string {
+  const resolvedPaint = resolveCssVar(value, scopeEl, isPaintValue) || value
+  return resolveCssVarsInValue(resolvedPaint, scopeEl, isParseableColor)
 }
