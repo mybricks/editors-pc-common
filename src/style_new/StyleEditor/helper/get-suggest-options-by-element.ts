@@ -1,15 +1,3 @@
-const COSNT = {
-  /** 当前页面的文档节点，用于获取样式表 */
-  get DOCUMENT_ELEMENT() {
-    return (document.getElementById('_mybricks-geo-webview_')?.shadowRoot || document) as Document;
-  },
-  /** 当前页面的根节点 */
-  get ROOT_ELEMENT() {
-    const shaodwnRoot = document.getElementById('_mybricks-geo-webview_')?.shadowRoot;
-    return (shaodwnRoot?.querySelector('#_geoview-wrapper_') || shaodwnRoot || document.body) as HTMLElement;
-  }
-}
-
 /**
  * @description 根据Dom元素，获取哪些样式可以配置，可用于Style编辑器
  * @param selectDom 
@@ -22,8 +10,6 @@ export function getSuggestOptionsByElement(selectDom: HTMLElement): { type: stri
   }
 
   try {
-    const { getMatchedCssRules } = getMatchedCssRulesWithCache
-
     // 处理字体相关
     let fontOption: any = {
       type: 'font',
@@ -35,26 +21,7 @@ export function getSuggestOptionsByElement(selectDom: HTMLElement): { type: stri
     const selectDomStyle = window.getComputedStyle(selectDom);
     const selectDomDisplay = selectDomStyle.display;
     const isFlexLike = ['flex', 'inline-flex', 'grid', 'inline-grid'].includes(selectDomDisplay);
-    if (Array.isArray(textElemnts) && textElemnts.length) { // 有多个文本元素
-      // 有文本子元素，判断这些元素中，是否存在所有含文本元素及其父元素都没配置的属性，这些是可以配置的
-      const isMoreThanOne = textElemnts.length > 1;
-      // 下面默认设置true的为特殊规则
-      // 1.fontFamily 和 letterSpacing 虽然可以继承，但是，同时配置多个子元素的情况太少了，直接不允许配置
-      // 2. whiteSpace 和 lineHeight 继承规则比较复杂，在多个子元素时同时配置的情况也很少，直接不允许配置
-      // text-align / 对齐始终展示，不走宽度/子元素数量等禁用判断
-      const inheritDisabledConfig = getInheritedDisabledConfig(selectDom, textElemnts, getMatchedCssRules, isMoreThanOne);
-      fontOption.config = {
-        disableFontFamily: inheritDisabledConfig.disableFontFamily,
-        disableColor: inheritDisabledConfig.disableColor,
-        disableFontSize: inheritDisabledConfig.disableFontSize,
-        disableFontWeight: inheritDisabledConfig.disableFontWeight,
-        disableLetterSpacing: inheritDisabledConfig.disableLetterSpacing,
-        disableLineHeight: inheritDisabledConfig.disableLineHeight,
-        disableWhiteSpace: inheritDisabledConfig.disableWhiteSpace,
-        disableTextAlign: false,
-        ...(isFlexLike ? { textAlignMode: 'flex' } : {}),
-      }
-    } else if (Array.isArray(textElemnts) && textElemnts.length === 0) { // 未找到文本元素，隐藏字体配置
+    if (Array.isArray(textElemnts) && textElemnts.length === 0) { // 未找到文本元素，隐藏字体配置
       const hasIconChild = !!selectDom.querySelector('svg, .anticon, [role="img"]');
       if (hasIconChild) {
         fontOption.config = {
@@ -71,22 +38,10 @@ export function getSuggestOptionsByElement(selectDom: HTMLElement): { type: stri
       } else {
         fontOption = void 0;
       }
-    } else { // 本身就是含文本的元素，开启字体配置
+    } else { // 自身或后代包含文本时，稳定展示全部通用字体配置
       fontOption.config = {
-        disableFontFamily: false,
-        disableColor: false,
-        disableFontSize: false,
-        disableFontWeight: false,
-        disableLetterSpacing: false,
-        disableLineHeight: false,
-        disableWhiteSpace: false,
-        disableTextAlign: false,
         ...(isFlexLike ? { textAlignMode: 'flex' } : {}),
       }
-    }
-    // 全部都disabled的话，直接隐藏
-    if (fontOption?.config && Object.keys(fontOption.config).every(c => !!fontOption.config[c])) {
-      fontOption = void 0;
     }
 
     // 处理size
@@ -225,99 +180,6 @@ export function getEditableCssPropertiesByElement(selectDom: HTMLElement): Sugge
   return result
 }
 
-
-type GetMatchedCssRulesFunctionType = (dom: HTMLElement | Element) => CSSStyleRule[]
-
-const INHERIT_DISABLE_PROPERTY_MAP = {
-  disableFontFamily: 'fontFamily',
-  disableColor: 'color',
-  disableFontSize: 'fontSize',
-  disableFontWeight: 'fontWeight',
-  disableLetterSpacing: 'letterSpaceing',
-  disableLineHeight: 'lineHeight',
-  disableWhiteSpace: 'whiteSpace',
-} as const;
-
-type InheritDisableKey = keyof typeof INHERIT_DISABLE_PROPERTY_MAP;
-
-function createInheritDisableConfig(isMoreThanOne: boolean) {
-  return {
-    disableFontFamily: isMoreThanOne,
-    disableColor: false,
-    disableFontSize: false,
-    disableFontWeight: false,
-    disableLetterSpacing: isMoreThanOne,
-    disableLineHeight: isMoreThanOne,
-    disableWhiteSpace: isMoreThanOne,
-  };
-}
-
-function getInheritedDisabledConfig(
-  selectDom: HTMLElement,
-  textElemnts: Element[],
-  getMatchedCssRules: GetMatchedCssRulesFunctionType,
-  isMoreThanOne: boolean
-) {
-  const disableConfig = createInheritDisableConfig(isMoreThanOne);
-  const unresolvedKeys = (Object.keys(INHERIT_DISABLE_PROPERTY_MAP) as InheritDisableKey[]).filter((key) => !disableConfig[key]);
-
-  if (!unresolvedKeys.length) {
-    return disableConfig;
-  }
-
-  let hasAnyHiddenPath = false;
-
-  for (const element of textElemnts) {
-    const doms = getChildDomPath(selectDom, element);
-
-    for (const dom of doms) {
-      const domStyle = window.getComputedStyle(dom);
-      if (domStyle.visibility === 'hidden' && domStyle.pointerEvents === 'none') {
-        hasAnyHiddenPath = true;
-        break;
-      }
-
-      const cssRules = getMatchedCssRules(dom);
-      for (const cssRule of cssRules) {
-        let isMatchedBySelectDom = false;
-        try {
-          isMatchedBySelectDom = selectDom.matches(cssRule.selectorText);
-        } catch {
-          isMatchedBySelectDom = false;
-        }
-        if (isMatchedBySelectDom) {
-          continue;
-        }
-
-        for (const key of unresolvedKeys) {
-          if (disableConfig[key]) {
-            continue;
-          }
-          const property = INHERIT_DISABLE_PROPERTY_MAP[key];
-          if (cssRule.style[property as any]) {
-            disableConfig[key] = true;
-          }
-        }
-
-        if (unresolvedKeys.every((key) => disableConfig[key])) {
-          return disableConfig;
-        }
-      }
-    }
-
-    if (hasAnyHiddenPath) {
-      break;
-    }
-  }
-
-  if (hasAnyHiddenPath) {
-    unresolvedKeys.forEach((key) => {
-      disableConfig[key] = true;
-    });
-  }
-
-  return disableConfig;
-}
 
 function shouldBorderDisabled(selectDom: HTMLElement) {
   return false
@@ -523,132 +385,3 @@ function findElementsWithDirectTextChildren(element: HTMLElement) {
     ) || el.tagName === 'INPUT' || el.tagName === 'TEXTAREA'
   );
 }
-
-function getChildDomPath(currentDOM: HTMLElement, childElement: Element) {
-  const res: Element[] = []
-  let current: Element | null = childElement;
-
-  // 当还没到达当前DOM节点，且仍有父节点时继续向上查找
-  while (current && current !== currentDOM) {
-    res.push(current)
-    current = current.parentElement;
-  }
-
-  return res
-}
-
-// 定义类型
-interface CacheItem {
-  rules: CSSStyleRule[];
-  timestamp: number;
-}
-
-interface StyleSheetCache {
-  rules: CSSStyleRule[];
-  timestamp: number;
-}
-
-/**
- * @description 通过缓存优化创建匹配Dom的CSS规则方法
- * @param cacheTimeout 
- * @param styleSheetCacheTimeout 
- * @returns 
- */
-function createGetMatchedCssRulesWithCache(cacheTimeout = 5000, styleSheetCacheTimeout = 30000) {
-  // 使用 WeakMap 存储元素规则缓存
-  let rulesCache = new WeakMap<Element, CacheItem>();
-
-  // 样式表缓存
-  let styleSheetCache: StyleSheetCache | null = null;
-
-  // 获取所有样式表（带缓存）
-  const getAllCssRules = (): CSSStyleRule[] => {
-    const now = Date.now();
-
-    // 如果缓存存在且未过期，返回缓存的样式表
-    if (styleSheetCache && (now - styleSheetCache.timestamp) < styleSheetCacheTimeout) {
-      return styleSheetCache.rules;
-    }
-
-    const sheets = Array.from(COSNT.DOCUMENT_ELEMENT.styleSheets);
-    const mergedRules: CSSStyleRule[] = [];
-    sheets.forEach((sheet) => {
-      try {
-        const rules = Array.from(sheet.cssRules || sheet.rules);
-        rules.forEach((rule) => {
-          if (rule instanceof CSSStyleRule) {
-            mergedRules.push(rule);
-          }
-        });
-      } catch {}
-    });
-
-    // 更新缓存
-    styleSheetCache = {
-      rules: mergedRules,
-      timestamp: now
-    };
-
-    return mergedRules;
-  };
-
-
-  /**
-   * @description 获取Dom匹配的CSS规则
-   * @param target 
-   * @returns 
-   */
-  const getMatchedCssRules = (target: Element | string): CSSStyleRule[] => {
-    // 如果传入的是选择器字符串，先获取元素
-    const element = typeof target === 'string'
-      ? document.querySelector(target)
-      : target;
-
-    if (!element) {
-      return [];
-    }
-
-    // 检查规则缓存是否存在且未过期
-    const now = Date.now();
-    const cacheItem = rulesCache.get(element);
-
-    if (cacheItem && (now - cacheItem.timestamp) < cacheTimeout) {
-      return cacheItem.rules;
-    }
-
-    // 获取所有样式规则（使用缓存）
-    const cssRules = getAllCssRules();
-    // 查找匹配的规则
-    const matchedRules: CSSStyleRule[] = [];
-    cssRules.forEach((rule) => {
-      try {
-        if (element.matches(rule.selectorText)) {
-          matchedRules.push(rule);
-        }
-      } catch {
-        // 过滤非法 selectorText
-      }
-    });
-
-    // 更新规则缓存
-    rulesCache.set(element, {
-      rules: matchedRules,
-      timestamp: now
-    });
-
-    return matchedRules;
-  };
-
-  // 清理缓存的函数
-  const cleanCache = () => {
-    rulesCache = new WeakMap<Element, CacheItem>();
-    styleSheetCache = null;
-  };
-
-  return {
-    getMatchedCssRules,
-    cleanCache
-  };
-}
-
-const getMatchedCssRulesWithCache = createGetMatchedCssRulesWithCache();
