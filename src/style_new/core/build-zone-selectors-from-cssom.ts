@@ -97,6 +97,16 @@ function collectElementSubjectClasses(el: Element, knownShortNames: Set<string>)
   return names
 }
 
+/**
+ * 区分真正的无 class 节点与只有运行时噪音 class 的节点。
+ * 前者仍需要依赖 CSSOM 识别 `.container span` 这类结构选择器；
+ * 后者（如 antd 节点）不能放行组件样式表中的所有规则。
+ */
+function hasOnlyNoiseClasses(el: Element): boolean {
+  const classes = Array.from(el.classList || [])
+  return classes.length > 0 && classes.every(isZoneTabNoiseClass)
+}
+
 function extractClassTokens(selectorPart: string): string[] {
   return (selectorPart.match(/\.([a-zA-Z_][a-zA-Z0-9_-]*)/g) || []).map((s) => s.slice(1))
 }
@@ -106,8 +116,16 @@ function extractClassTokens(selectorPart: string): string[] {
  * 选择器中至少有一个 class 属于当前元素自身 classList。
  * 这样会丢掉 `.rich-input_xxx textarea` 这类只命中祖先模块类的路径。
  */
-function isSubjectZoneSelector(demangled: string, subjectOnEl: Set<string>): boolean {
-  if (!subjectOnEl.size) return true
+function isSubjectZoneSelector(
+  demangled: string,
+  subjectOnEl: Set<string>,
+  onlyNoiseClasses: boolean
+): boolean {
+  // 只有运行时噪音 class 时，不能把所有命中 CSSOM 的规则都当成当前节点的
+  // Zone Tab。典型情况是 antd 节点只带 `ant-*` / `css-*` class：这些 class
+  // 被过滤后，若这里放行，就会把同一组件样式表中的所有内部规则都展示出来。
+  // 真正没有任何 class 的节点仍保留 CSSOM 结构选择器能力（如 `.title span`）。
+  if (!subjectOnEl.size) return !onlyNoiseClasses
   const classes = extractClassTokens(demangled)
   if (!classes.length) return false
   return classes.some(
@@ -270,6 +288,7 @@ export function buildZoneSelectorsFromCssom(el: Element, comId: string): string[
 
   const knownShortNames = collectKnownShortNames(el)
   const subjectOnEl = collectElementSubjectClasses(el, knownShortNames)
+  const onlyNoiseClasses = hasOnlyNoiseClasses(el)
   const result: string[] = []
   const seen = new Set<string>()
 
@@ -307,7 +326,7 @@ export function buildZoneSelectorsFromCssom(el: Element, comId: string): string[
         if (!demangled || (!demangled.includes('.') && !/\s/.test(demangled))) return
 
         // 丢掉仅命中祖先 CSS Module（如 .rich-input_xxx textarea）的路径
-        if (!isSubjectZoneSelector(demangled, subjectOnEl)) return
+        if (!isSubjectZoneSelector(demangled, subjectOnEl, onlyNoiseClasses)) return
 
         const finalSel = collapseToSubjectIfOwn(demangled, subjectOnEl)
         pushUniqueSelector(result, seen, finalSel)
