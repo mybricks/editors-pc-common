@@ -46,7 +46,8 @@ function stripTrailingPseudos(sel: string): string {
 
 export function isZoneTabNoiseClass(name: string): boolean {
   if (!name) return true
-  // 平台实例 id、antd / emotion 运行时 class，不应成为 Zone Tab
+  // 默认排除平台实例 id、antd / emotion 运行时 class。
+  // 当前节点自身的 ant-* 可由组件 CSSOM 命中规则确认为可编辑主体。
   if (/^u_[A-Za-z0-9]+$/.test(name)) return true
   if (name.startsWith('ant-')) return true
   if (name.startsWith('css-')) return true
@@ -85,13 +86,13 @@ export function collectKnownShortNames(el: Element): Set<string> {
   return names
 }
 
-/** 当前元素自身 class（过滤噪音、还原短名），用于过滤祖先 CSS Module 路径 */
+/** 当前元素自身 class（还原短名），用于过滤祖先路径；ant-* 需由 CSSOM 命中确认。 */
 function collectElementSubjectClasses(el: Element, knownShortNames: Set<string>): Set<string> {
   const names = new Set<string>()
   for (const runtime of Array.from(el.classList || [])) {
-    if (isZoneTabNoiseClass(runtime)) continue
+    if (isZoneTabNoiseClass(runtime) && !runtime.startsWith('ant-')) continue
     const short = demangleClassName(runtime, knownShortNames)
-    if (isZoneTabNoiseClass(short)) continue
+    if (isZoneTabNoiseClass(short) && !short.startsWith('ant-')) continue
     names.add(short)
   }
   return names
@@ -100,7 +101,7 @@ function collectElementSubjectClasses(el: Element, knownShortNames: Set<string>)
 /**
  * 区分真正的无 class 节点与只有运行时噪音 class 的节点。
  * 前者仍需要依赖 CSSOM 识别 `.container span` 这类结构选择器；
- * 后者（如 antd 节点）不能放行组件样式表中的所有规则。
+ * 后者在没有可确认的主体 class 时，不能放行组件样式表中的所有规则。
  */
 function hasOnlyNoiseClasses(el: Element): boolean {
   const classes = Array.from(el.classList || [])
@@ -113,7 +114,7 @@ function extractClassTokens(selectorPart: string): string[] {
 
 /**
  * 是否保留为 Zone Tab：
- * 选择器中至少有一个 class 属于当前元素自身 classList。
+ * 选择器末段至少有一个 class 属于当前元素自身 classList。
  * 这样会丢掉 `.rich-input_xxx textarea` 这类只命中祖先模块类的路径。
  */
 function isSubjectZoneSelector(
@@ -121,12 +122,11 @@ function isSubjectZoneSelector(
   subjectOnEl: Set<string>,
   onlyNoiseClasses: boolean
 ): boolean {
-  // 只有运行时噪音 class 时，不能把所有命中 CSSOM 的规则都当成当前节点的
-  // Zone Tab。典型情况是 antd 节点只带 `ant-*` / `css-*` class：这些 class
-  // 被过滤后，若这里放行，就会把同一组件样式表中的所有内部规则都展示出来。
+  // 没有可用主体 class 时，仍拦截只带噪音 class 的节点，避免放行所有祖先规则。
   // 真正没有任何 class 的节点仍保留 CSSOM 结构选择器能力（如 `.title span`）。
   if (!subjectOnEl.size) return !onlyNoiseClasses
-  const classes = extractClassTokens(demangled)
+  const lastSegment = demangled.trim().split(/\s+/).pop() || ''
+  const classes = extractClassTokens(lastSegment)
   if (!classes.length) return false
   return classes.some(
     (c) =>
@@ -286,11 +286,22 @@ export function fallbackZoneSelectorsFromClassnames(el: Element): string[] {
 export function buildZoneSelectorsFromCssom(el: Element, comId: string): string[] {
   if (!el || !comId) return []
 
+  const classNames = Array.from(el.classList || [])
   const knownShortNames = collectKnownShortNames(el)
   const subjectOnEl = collectElementSubjectClasses(el, knownShortNames)
   const onlyNoiseClasses = hasOnlyNoiseClasses(el)
   const result: string[] = []
   const seen = new Set<string>()
+  const matchedRules: {
+    classNames: string[]
+    sourceClassNames: string[]
+    originalSelector: string
+    matchedSelector: string
+    sourceSelector: string
+    styleEl: HTMLStyleElement
+    styleAttributes: { name: string; value: string }[]
+    cssText: string
+  }[] = []
 
   const root = getDocument()
   const styleEls = Array.from((root as any).querySelectorAll?.('style') || []) as HTMLStyleElement[]
@@ -315,13 +326,33 @@ export function buildZoneSelectorsFromCssom(el: Element, comId: string): string[
         const baseRuntime = stripTrailingPseudos(withoutScope)
         if (!baseRuntime) return
 
+        const scopedBaseRuntime = stripTrailingPseudos(part)
         try {
-          if (!el.matches(baseRuntime)) return
+          // 匹配时保留组件 / 页面作用域，避免把其他页面的同名规则也收进来。
+          if (!el.matches(scopedBaseRuntime)) return
         } catch {
           return
         }
 
         const demangled = demangleSelector(baseRuntime, knownShortNames).trim()
+        // 日志按当前节点自身 class 归组：完整选择器先通过 DOM 匹配，
+        // 再取规则 class 与原始 classList 的交集；不把祖先 / 条件 class 列为自身 class。
+        // 保留原始选择器中的 :hover 等状态，记录位置仍在 tab 去噪过滤前。
+        const ruleClasses = extractClassTokens(baseRuntime)
+        const matchedClassNames = classNames.filter((className) => ruleClasses.includes(className))
+        if (matchedClassNames.length) {
+          matchedRules.push({
+            classNames: matchedClassNames,
+            sourceClassNames: matchedClassNames.map((className) => demangleClassName(className, knownShortNames)),
+            originalSelector: part,
+            matchedSelector: scopedBaseRuntime,
+            sourceSelector: demangled,
+            styleEl,
+            styleAttributes: Array.from(styleEl.attributes).map(({ name, value }) => ({ name, value })),
+            cssText: rule.cssText,
+          })
+        }
+
         // 过滤裸标签 / 通配等噪音，保留带 class 或后代路径的选择器
         if (!demangled || (!demangled.includes('.') && !/\s/.test(demangled))) return
 
@@ -335,6 +366,17 @@ export function buildZoneSelectorsFromCssom(el: Element, comId: string): string[
   }
 
   supplementClassListSelectors(result, seen, el, knownShortNames)
+
+  console.log('[ZoneTab] 当前选中元素自身 className 及命中规则（tab 过滤前）', {
+    targetDom: el,
+    comId,
+    classNames,
+    rulesByClassName: classNames.map((className) => ({
+      className,
+      sourceClassName: demangleClassName(className, knownShortNames),
+      matchedRules: matchedRules.filter((rule) => rule.classNames.includes(className)),
+    })),
+  })
 
   return result
 }

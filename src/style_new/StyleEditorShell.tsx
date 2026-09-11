@@ -53,6 +53,7 @@ type StyleEditorCacheScope = {
   editMode: boolean
   selectedTarget: Element | null
   zoneSelectorSignature: string
+  zoneTabSourceSignature: string
 }
 
 type CachedStyleEditor = {
@@ -130,7 +131,7 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
   }, [editConfig])
 
   const { batchMeta, refreshBatchMeta, onBatchDiscard, onBatchCommit } = useBatchMeta(editConfig)
-  const { zoneSelectorList, activeZoneIdx, setActiveZoneIdx } = useZoneSelectors(
+  const { zoneSelectorList, zoneTabs, activeZoneIdx, setActiveZoneIdx } = useZoneSelectors(
     editConfig,
     targetDom,
     open
@@ -161,6 +162,9 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
     editMode,
     selectedTarget,
     zoneSelectorSignature: zoneSelectorList.join('\u0001'),
+    zoneTabSourceSignature: zoneTabs.map((tab) =>
+      `${tab.selector}:${tab.sourceRules.map((item) => `${item.sourceOrder}:${item.selectorPart}`).join('|')}`
+    ).join('\u0002'),
   }
   const previousStyleEditorCacheScope = styleEditorCacheScopeRef.current
   if (
@@ -170,6 +174,7 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
       previousStyleEditorCacheScope.editMode !== styleEditorCacheScope.editMode ||
       previousStyleEditorCacheScope.selectedTarget !== styleEditorCacheScope.selectedTarget ||
       previousStyleEditorCacheScope.zoneSelectorSignature !== styleEditorCacheScope.zoneSelectorSignature
+      || previousStyleEditorCacheScope.zoneTabSourceSignature !== styleEditorCacheScope.zoneTabSourceSignature
     )
   ) {
     styleEditorCacheRef.current.clear()
@@ -195,6 +200,8 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
       null
     )
   }, [zoneSelectorList, activeZoneIdx, finalSelector])
+
+  const activeZoneTab = zoneTabs[activeZoneIdx] ?? null
 
   const componentRoot = useMemo(() => {
     return shellComId ? getDocument().getElementById(shellComId) : null
@@ -241,7 +248,11 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
         ? editConfig
         : {
             ...editConfig,
-            options: { ...originalOptions, selector: zoneSelectorList[activeZoneIdx] },
+            options: {
+              ...originalOptions,
+              selector: zoneSelectorList[activeZoneIdx],
+              zoneTab: activeZoneTab,
+            },
           }
     let activeSelector =
       zoneSelectorList[activeZoneIdx] ||
@@ -259,7 +270,7 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
     }
 
     return { resolvedEditConfig, activeSelector }
-  }, [editConfig, zoneSelectorList, activeZoneIdx, finalSelector, isSoloEdit, soloSelector])
+  }, [editConfig, zoneSelectorList, zoneTabs, activeZoneIdx, activeZoneTab, finalSelector, isSoloEdit, soloSelector])
 
   // 进入单独编辑模式
   const onEnterSoloEdit = useCallback(() => {

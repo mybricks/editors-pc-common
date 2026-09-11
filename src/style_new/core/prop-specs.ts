@@ -140,6 +140,8 @@ export const PROP_SPECS: PropSpec[] = [
     fallback: 'computed',
     treatAsUnset: ['initial'],
   },
+  { camel: 'outline', inherit: false, fallback: 'none' },
+  { camel: 'outlineOffset', inherit: false, fallback: 'none' },
 
   // size
   { camel: 'width', inherit: false, fallback: 'static', staticValue: 'auto' },
@@ -180,4 +182,6 @@ export const PROP_SPECS: PropSpec[] = [
   // position offset (left / top)
   { camel: 'left', inherit: false, fallback: 'none' },
   { camel: 'top', inherit: false, fallback: 'none' },
+  { camel: 'right', inherit: false, fallback: 'none' },
+  { camel: 'bottom', inherit: false, fallback: 'none' },
 ]

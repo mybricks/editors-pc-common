@@ -224,5 +224,9 @@ export function buildExportBag(acc: ValuesAcc): Record<string, any> {
 
     left: acc.left,
     top: acc.top,
+    right: acc.right,
+    bottom: acc.bottom,
+    outline: acc.outline,
+    outlineOffset: acc.outlineOffset,
   }
 }

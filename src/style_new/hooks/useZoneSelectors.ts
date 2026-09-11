@@ -8,6 +8,8 @@ import {
 import { elMatchesSelectorTail } from '../core/css-modules-match'
 import { toElementArray } from '../core/dom'
 import { scanPseudoSelectors } from '../core/scan-pseudo-selectors'
+import { collectZoneTabs } from '../core/zone-tab'
+import type { ZoneTab } from '../core/zone-tab'
 
 export function useZoneSelectors(editConfig: any, targetDom: any, _open: boolean) {
   const [activeZoneIdx, setActiveZoneIdx] = useState(0)
@@ -24,7 +26,7 @@ export function useZoneSelectors(editConfig: any, targetDom: any, _open: boolean
     userSelectedRef.current = false
   }, [targetDom])
 
-  const zoneSelectorList = useMemo(() => {
+  const zoneTabs = useMemo<ZoneTab[]>(() => {
     const domList = toElementArray(targetDom)
 
     const result: string[] = []
@@ -47,13 +49,27 @@ export function useZoneSelectors(editConfig: any, targetDom: any, _open: boolean
       }
     }
 
-    for (const pseudo of scanPseudoSelectors(baseSelectors, comId)) {
-      if (!result.includes(pseudo) && !/:nth-child\(\d+\)$/.test(pseudo)) {
-        result.push(pseudo)
+    const tabs = collectZoneTabs(domList, baseSelectors, comId)
+    const tabKeys = new Set(tabs.map((tab) => tab.selector))
+    for (const pseudo of scanPseudoSelectors(baseSelectors, comId, domList)) {
+      if (!tabKeys.has(pseudo) && !/:nth-child\(\d+\)$/.test(pseudo)) {
+        const baseSelector = baseSelectors.find((base) => pseudo.startsWith(base)) || pseudo
+        tabs.push({
+          selector: pseudo,
+          baseSelector,
+          pseudo: pseudo.slice(baseSelector.length) || null,
+          sourceRules: [],
+          baseRules: [],
+        })
       }
     }
-    return result
+    // 保持 CSSOM 命中顺序，同时把没有可读 sourceRule 的兼容 fallback 放在末尾。
+    const ordered = result.map((selector) => tabs.find((tab) => tab.selector === selector)).filter(Boolean) as ZoneTab[]
+    tabs.filter((tab) => !result.includes(tab.selector)).forEach((tab) => ordered.push(tab))
+    return ordered
   }, [targetDom, comId])
+
+  const zoneSelectorList = useMemo(() => zoneTabs.map((tab) => tab.selector), [zoneTabs])
 
   // 按 DOM class 对齐 activeZoneIdx：
   // - 仅在「未手动选 tab」时做初始/列表变化对齐
@@ -96,6 +112,7 @@ export function useZoneSelectors(editConfig: any, targetDom: any, _open: boolean
 
   return {
     zoneSelectorList,
+    zoneTabs,
     activeZoneIdx,
     setActiveZoneIdx: setActiveZoneIdxByUser,
   }

@@ -27,6 +27,7 @@ import {
   isBorderPanelMeaningfullyUsed,
   isMeaninglessStylePropForPanel,
 } from './panel-effected'
+import type { ZoneTab } from './zone-tab'
 
 /** 穿透 shadowRoot 取真正的 activeElement（画布常在 webview shadow 内） */
 function getDeepActiveElement(): HTMLElement | null {
@@ -124,7 +125,12 @@ export function findElementInState(
 }
 
 /** 获取当前 CSS 规则下生效的样式及面板配置 */
-export function getEffectedCssPropertyAndOptions (element: HTMLElement | null, selector: string | string[], comId?: string) {
+export function getEffectedCssPropertyAndOptions (
+  element: HTMLElement | null,
+  selector: string | string[],
+  comId?: string,
+  zoneTab?: ZoneTab | null,
+) {
   // 多类名时传数组，对每个 selector 分别查规则后去重合并；单个 selector 行为不变
   const selectorArray = Array.isArray(selector) ? selector : [selector];
   const primarySelector = selectorArray[selectorArray.length - 1] ?? '';
@@ -147,8 +153,32 @@ export function getEffectedCssPropertyAndOptions (element: HTMLElement | null, s
       // 若目标 selector 是"状态类"（当前元素不处于该状态），会替换为 DOM 中真正处于该状态的元素
       let computedElement: HTMLElement = element
 
-      // 按 selectorText 去重，避免多次查询返回重复规则
-      const rulesMap = new Map<string, any>();
+      // 有 tab 元数据时按 CSSRule 身份 + 原始分支去重；不能按 selectorText 去重，
+      // 因为 antd/emotion 常会连续注入同名规则，后写规则仍然参与级联。
+      const metadataRules = zoneTab
+        ? [...(zoneTab.baseRules || []), ...(zoneTab.pseudo ? zoneTab.sourceRules : [])]
+        : []
+      if (metadataRules.length) {
+        finalRules = metadataRules
+          .filter((item, index, all) => all.findIndex((candidate) =>
+            candidate.rule === item.rule && candidate.selectorPart === item.selectorPart
+          ) === index)
+          .sort((a, b) => {
+            const aImportant = a.rule.style.cssText.includes('!important') ? 1 : 0
+            const bImportant = b.rule.style.cssText.includes('!important') ? 1 : 0
+            if (aImportant !== bImportant) return aImportant - bImportant
+            const aSpec = calculateSafeSpecificity(a.selectorPart, a.target)
+            const bSpec = calculateSafeSpecificity(b.selectorPart, b.target)
+            if (aSpec && bSpec) {
+              const bySpec = compare(aSpec, bSpec)
+              if (bySpec !== 0) return bySpec
+            }
+            return a.sourceOrder - b.sourceOrder
+          })
+          .map((item) => item.rule)
+      }
+
+      const rulesMap = new Map<CSSStyleRule, CSSStyleRule>();
       for (const sel of selectorArray) {
         // 判断当前元素是否真正持有 sel 对应的 class（兼容 CSS Modules hash 后缀）
         // 例：sel=".pageBtnActive"，rawClass="pageBtnActive"，
@@ -175,15 +205,11 @@ export function getEffectedCssPropertyAndOptions (element: HTMLElement | null, s
 
         const { rules, inheritOnlyRules } = getStyleRules(queryEl, sel, styleRulesScanCache);
 
-        rules.forEach((rule: any) => {
-          if (!rulesMap.has(rule.selectorText)) {
-            rulesMap.set(rule.selectorText, rule);
-          }
-        });
+        rules.forEach((rule: any) => rulesMap.set(rule, rule));
         inheritOnlyRules.forEach(r => allInheritOnlyRules.add(r))
       }
 
-      finalRules = Array.from(rulesMap.values()).filter((finalRule: any) => {
+      if (!metadataRules.length) finalRules = Array.from(rulesMap.values()).filter((finalRule: any) => {
         // calculate 不支持逗号合并选择器，需走 calculateSafeSpecificity
         const tempCompare = calculateSafeSpecificity(finalRule.selectorText, computedElement)
 
@@ -197,12 +223,11 @@ export function getEffectedCssPropertyAndOptions (element: HTMLElement | null, s
         // @ts-ignore
         return compare(a.tempCompare, b.tempCompare)
       })
-
       const isPseudoElement = primarySelector.includes('::') || primarySelector.includes(':before') || primarySelector.includes(':after')
       const selectorHasPseudo = /:{1,2}[a-zA-Z\-]+(?:\([^)]*\))?$/.test(primarySelector)
       if (isPseudoElement) {
-        const pseudoSelector = primarySelector.split(':')[1]
-        computedValues = window.getComputedStyle(computedElement, pseudoSelector)
+        const pseudoMatch = primarySelector.match(/::?(before|after|first-line|first-letter)\s*$/i)
+        computedValues = window.getComputedStyle(computedElement, pseudoMatch ? `::${pseudoMatch[1]}` : '::after')
       } else if (!selectorHasPseudo) {
         // 默认 tab：点击后元素常处于 :focus，必须先中和焦点再快照 computed，
         // 否则 getValues 的 color/background 等 fallback 会回显 :focus 样式。

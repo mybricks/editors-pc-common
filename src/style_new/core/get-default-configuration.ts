@@ -109,6 +109,7 @@ export function getDefaultConfiguration ({value, options}: GetDefaultConfigurati
     finalOptions = options
   } else {
     const { plugins, selector, targetDom, defaultOpen = false, autoOptions = false, exclude, comId } = options
+    const zoneTab = (options as any).zoneTab
     dom = targetDom
     finalSelector = selector
     finalOpen = defaultOpen
@@ -174,7 +175,12 @@ export function getDefaultConfiguration ({value, options}: GetDefaultConfigurati
 
     if (realDom || isPseudoSelector) {
       getDefaultValue = false;
-      const [styleValues, options, ownRulesPanels, ancestorPanels] = getEffectedCssPropertyAndOptions(realDom, realSelectors.length > 1 ? realSelectors : (realSelector ?? ''), comId);
+      const [styleValues, options, ownRulesPanels, ancestorPanels] = getEffectedCssPropertyAndOptions(
+        realDom,
+        realSelectors.length > 1 ? realSelectors : (realSelector ?? ''),
+        comId,
+        zoneTab,
+      );
 
       effctedOptions = options == null ? options : mapEffectedPanels(options as string[]);
       effectedFromRulesOnly = mapEffectedPanels(ownRulesPanels as string[]);
