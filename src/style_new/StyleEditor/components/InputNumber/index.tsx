@@ -46,7 +46,7 @@ export interface InputNumberProps extends Omit<InputProps, 'onChange' | 'value'>
   badge?: React.ReactNode;
   /** 输入框占位文案，默认“默认” */
   placeholder?: string;
-  /** 失焦时输入为空的兜底值，设置后会自动补填并提交，而非显示 placeholder */
+  /** 输入为空时的兜底值；回车、失焦或点击清空按钮时自动补填并提交 */
   fallbackValue?: number | string;
   /** 无值时隐藏单位文案（仍保留下拉箭头，便于操作如「移除」） */
   hideUnitWhenEmpty?: boolean;
@@ -267,14 +267,26 @@ export function InputNumber ({
   const handleClear = useCallback(() => {
     // 先清空当前输入实例，避免等待上层 CSS 值回传时继续显示旧数值。
     setDisplayValue('')
-    // 自定义清空回调（尺寸约束等）已经完成提交；没有兜底值的普通字段也直接删除。
-    // 有 fallbackValue 的字段则保留原有“删除后失焦补回兜底值”语义。
-    skipClearBlurRef.current = !!onClear || typeof fallbackValue === 'undefined'
+    // 清空按钮会主动提交，后续仅用 blur 收起输入态，避免重复提交。
+    // 不能把兜底值的提交寄托在 blur 上：输入框未聚焦时调用 blur() 不会触发事件。
+    skipClearBlurRef.current = true
     skipUnitNumberOnChangeRef.current = true
+    if (onClear) {
+      handleNumberChange('0')
+      onClear()
+      return
+    }
+    if (typeof fallbackValue !== 'undefined') {
+      const fallbackStr = String(fallbackValue)
+      const fallbackNum = String(parseFloat(fallbackStr))
+      handleNumberChange(fallbackStr)
+      setDisplayValue(fallbackNum)
+      onChange?.(fallbackNum + unit)
+      return
+    }
     handleNumberChange('0')
-    if (onClear) onClear()
-    else if (typeof fallbackValue === 'undefined') onChange?.(null)
-  }, [handleNumberChange, onClear, onChange, fallbackValue])
+    onChange?.(null)
+  }, [handleNumberChange, onClear, onChange, fallbackValue, unit])
 
   const renderClearButton = useCallback(() => {
     if (!clearable || !hasNumericDisplayValue) return null
