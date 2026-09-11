@@ -12,12 +12,9 @@ function getRenderPrdView(): RenderPrdView | undefined {
 }
 
 /**
- * 只读 Markdown 预览。
- *
- * 渲染逻辑和样式由 plugin-ai 提供，因此这里不引入 markdown-it，也不复制
- * PRD / Mermaid 的实现。AI 插件未初始化时给出可识别的占位提示。
+ * 必须多封装一层，否则在组件编辑器渲染会有问题
  */
-export default function MarkdownView({ editConfig }: EditorProps): JSX.Element {
+function RealRender ({ editConfig }: any): JSX.Element {
   const darkMode = useDarkMode();
   const renderPrdView = getRenderPrdView();
   const rawContent = editConfig.value?.get?.();
@@ -32,4 +29,14 @@ export default function MarkdownView({ editConfig }: EditorProps): JSX.Element {
   }
 
   return renderPrdView({ content, darkMode });
+}
+
+/**
+ * 只读 Markdown 预览。
+ *
+ * 渲染逻辑和样式由 plugin-ai 提供，因此这里不引入 markdown-it，也不复制
+ * PRD / Mermaid 的实现。AI 插件未初始化时给出可识别的占位提示。
+ */
+export default function MarkdownView({ editConfig }: EditorProps): JSX.Element {
+  return <RealRender editConfig={editConfig} />;
 }
