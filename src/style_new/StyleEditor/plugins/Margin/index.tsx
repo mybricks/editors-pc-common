@@ -242,6 +242,7 @@ export function Margin ({value, onChange, config, showTitle, collapse}: MarginPr
                   allowNegative: true,
                   fallbackValue: 0,
                   onChange: handleUnifiedChange,
+                  onClear: () => handleUnifiedChange(null),
                   onAction: (action) => {
                     if (action === APPLY_VARIABLE_ACTION) unifiedVar.openPicker()
                   },
@@ -288,6 +289,7 @@ export function Margin ({value, onChange, config, showTitle, collapse}: MarginPr
                       allowNegative: true,
                       fallbackValue: 0,
                       onChange: (value) => handleChange({marginLeft: value}),
+                      onClear: () => handleChange({marginLeft: null}),
                       onAction: (action) => {
                         if (action === APPLY_VARIABLE_ACTION) leftVar.openPicker()
                       },
@@ -320,6 +322,7 @@ export function Margin ({value, onChange, config, showTitle, collapse}: MarginPr
                       allowNegative: true,
                       fallbackValue: 0,
                       onChange: (value) => handleChange({marginTop: value}),
+                      onClear: () => handleChange({marginTop: null}),
                       onAction: (action) => {
                         if (action === APPLY_VARIABLE_ACTION) topVar.openPicker()
                       },
@@ -354,6 +357,7 @@ export function Margin ({value, onChange, config, showTitle, collapse}: MarginPr
                       allowNegative: true,
                       fallbackValue: 0,
                       onChange: (value) => handleChange({marginRight: value}),
+                      onClear: () => handleChange({marginRight: null}),
                       onAction: (action) => {
                         if (action === APPLY_VARIABLE_ACTION) rightVar.openPicker()
                       },
@@ -386,6 +390,7 @@ export function Margin ({value, onChange, config, showTitle, collapse}: MarginPr
                       allowNegative: true,
                       fallbackValue: 0,
                       onChange: (value) => handleChange({marginBottom: value}),
+                      onClear: () => handleChange({marginBottom: null}),
                       onAction: (action) => {
                         if (action === APPLY_VARIABLE_ACTION) bottomVar.openPicker()
                       },
