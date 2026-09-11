@@ -40,6 +40,7 @@ import Code from "./code";
 import EditorJSON from "./json";
 import Tree from "./tree";
 import EditorLine from "./line";
+import MarkdownView from "./markdownView";
 import "./index.less";
 import StyleNew from "./style_new";
 import Themes from "./themes";
@@ -92,6 +93,7 @@ const PcEditorMap: any = {
   SCENECOMSELECTOR: EditorSceneComSelector,
   TREE: Tree,
   LINE: EditorLine,
+  MARKDOWNVIEW: MarkdownView,
   THEMES: Themes,
   FIGMA: Figma,
 }
