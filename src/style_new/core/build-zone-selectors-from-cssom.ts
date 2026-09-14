@@ -286,22 +286,11 @@ export function fallbackZoneSelectorsFromClassnames(el: Element): string[] {
 export function buildZoneSelectorsFromCssom(el: Element, comId: string): string[] {
   if (!el || !comId) return []
 
-  const classNames = Array.from(el.classList || [])
   const knownShortNames = collectKnownShortNames(el)
   const subjectOnEl = collectElementSubjectClasses(el, knownShortNames)
   const onlyNoiseClasses = hasOnlyNoiseClasses(el)
   const result: string[] = []
   const seen = new Set<string>()
-  const matchedRules: {
-    classNames: string[]
-    sourceClassNames: string[]
-    originalSelector: string
-    matchedSelector: string
-    sourceSelector: string
-    styleEl: HTMLStyleElement
-    styleAttributes: { name: string; value: string }[]
-    cssText: string
-  }[] = []
 
   const root = getDocument()
   const styleEls = Array.from((root as any).querySelectorAll?.('style') || []) as HTMLStyleElement[]
@@ -335,23 +324,6 @@ export function buildZoneSelectorsFromCssom(el: Element, comId: string): string[
         }
 
         const demangled = demangleSelector(baseRuntime, knownShortNames).trim()
-        // 日志按当前节点自身 class 归组：完整选择器先通过 DOM 匹配，
-        // 再取规则 class 与原始 classList 的交集；不把祖先 / 条件 class 列为自身 class。
-        // 保留原始选择器中的 :hover 等状态，记录位置仍在 tab 去噪过滤前。
-        const ruleClasses = extractClassTokens(baseRuntime)
-        const matchedClassNames = classNames.filter((className) => ruleClasses.includes(className))
-        if (matchedClassNames.length) {
-          matchedRules.push({
-            classNames: matchedClassNames,
-            sourceClassNames: matchedClassNames.map((className) => demangleClassName(className, knownShortNames)),
-            originalSelector: part,
-            matchedSelector: scopedBaseRuntime,
-            sourceSelector: demangled,
-            styleEl,
-            styleAttributes: Array.from(styleEl.attributes).map(({ name, value }) => ({ name, value })),
-            cssText: rule.cssText,
-          })
-        }
 
         // 过滤裸标签 / 通配等噪音，保留带 class 或后代路径的选择器
         if (!demangled || (!demangled.includes('.') && !/\s/.test(demangled))) return
@@ -366,17 +338,6 @@ export function buildZoneSelectorsFromCssom(el: Element, comId: string): string[
   }
 
   supplementClassListSelectors(result, seen, el, knownShortNames)
-
-  console.log('[ZoneTab] 当前选中元素自身 className 及命中规则（tab 过滤前）', {
-    targetDom: el,
-    comId,
-    classNames,
-    rulesByClassName: classNames.map((className) => ({
-      className,
-      sourceClassName: demangleClassName(className, knownShortNames),
-      matchedRules: matchedRules.filter((rule) => rule.classNames.includes(className)),
-    })),
-  })
 
   return result
 }

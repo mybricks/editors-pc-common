@@ -1,5 +1,9 @@
+// @ts-ignore
+import { compare } from 'specificity'
+
+import { toLine } from './css-code-codec'
 import { getDocument } from './dom'
-import { splitTopLevelSelectors } from './selector-utils'
+import { calculateSafeSpecificity, splitTopLevelSelectors } from './selector-utils'
 
 export type ZoneSourceRule = {
   rule: CSSStyleRule
@@ -14,6 +18,97 @@ export type ZoneTab = {
   pseudo: string | null
   sourceRules: ZoneSourceRule[]
   baseRules: ZoneSourceRule[]
+}
+
+/**
+ * 返回与 ZoneTab 回显一致的来源规则顺序。
+ *
+ * 伪类 tab 需要把基础态和状态态规则合在一起；普通 tab 只使用自己的
+ * sourceRules。这里保留 selectorPart 而不是只返回 CSSStyleRule，后续写回
+ * 或排查日志都可以定位到原始完整 selector。
+ */
+export function getOrderedZoneSourceRules(tab: ZoneTab): ZoneSourceRule[] {
+  const candidates = tab.pseudo
+    ? [...tab.baseRules, ...tab.sourceRules]
+    : tab.sourceRules
+
+  return candidates
+    .filter((item, index, all) => all.findIndex((candidate) =>
+      candidate.rule === item.rule && candidate.selectorPart === item.selectorPart
+    ) === index)
+    .sort((a, b) => {
+      const aImportant = a.rule.style.cssText.includes('!important') ? 1 : 0
+      const bImportant = b.rule.style.cssText.includes('!important') ? 1 : 0
+      if (aImportant !== bImportant) return aImportant - bImportant
+
+      const aSpec = calculateSafeSpecificity(a.selectorPart, a.target as HTMLElement)
+      const bSpec = calculateSafeSpecificity(b.selectorPart, b.target as HTMLElement)
+      if (aSpec && bSpec) {
+        const bySpec = compare(aSpec, bSpec)
+        if (bySpec !== 0) return bySpec
+      }
+      return a.sourceOrder - b.sourceOrder
+    })
+}
+
+const PROPERTY_FALLBACKS: Record<string, string[]> = {
+  backgroundColor: ['background'],
+  backgroundImage: ['background'],
+  fontSize: ['font'],
+  borderRadius: [
+    'border-top-left-radius',
+    'border-top-right-radius',
+    'border-bottom-right-radius',
+    'border-bottom-left-radius',
+  ],
+}
+
+function readSourceProperty(source: ZoneSourceRule, cssProperty: string): string {
+  try {
+    return source.rule.style.getPropertyValue(cssProperty) || ''
+  } catch {
+    return ''
+  }
+}
+
+function sourceDeclaresProperty(source: ZoneSourceRule, cssProperties: string[]): boolean {
+  return cssProperties.some((property) => !!readSourceProperty(source, property).trim())
+}
+
+/**
+ * 找到当前 ZoneTab 中最终声明某个样式属性的原始完整 selector。
+ * 直接属性优先；只有没有直接声明时才使用少量简写兜底映射。
+ */
+export function resolveZonePropertySelector(
+  tab: ZoneTab,
+  styleKey: string
+): string | undefined {
+  const cssProperty = toLine(styleKey)
+  const orderedRules = getOrderedZoneSourceRules(tab)
+  const fallbackProperties = PROPERTY_FALLBACKS[styleKey] || []
+  const findLastDeclaringRule = (properties: string[]) => {
+    let winner: ZoneSourceRule | undefined
+    for (const source of orderedRules) {
+      if (sourceDeclaresProperty(source, properties)) winner = source
+    }
+    return winner
+  }
+
+  const directWinner = findLastDeclaringRule([cssProperty])
+  const fallbackWinner = directWinner
+    ? undefined
+    : findLastDeclaringRule(fallbackProperties)
+
+  return (directWinner || fallbackWinner)?.selectorPart
+}
+
+/**
+ * 属性没有现有声明时，返回当前 tab 最适合新增样式的原始 selector。
+ * sourceRules 已按回显级联顺序排序，因此最后一条是优先级最高的来源。
+ */
+export function resolveZoneFallbackSelector(tab: ZoneTab): string {
+  const orderedRules = getOrderedZoneSourceRules(tab)
+  return orderedRules[orderedRules.length - 1]?.selectorPart || tab.selector
 }
 
 const EDITABLE_STATES = new Set([
@@ -116,11 +211,14 @@ export function collectZoneStyleRules(): Array<{ rule: CSSStyleRule; sourceOrder
   const root = getDocument()
   const result: Array<{ rule: CSSStyleRule; sourceOrder: number }> = []
   const sheets = new Set<CSSStyleSheet>()
-  root.querySelectorAll('style, link[rel="stylesheet"]').forEach(node => {
+  const styleNodes = Array.from(root.querySelectorAll('style, link[rel="stylesheet"]'))
+  styleNodes.forEach((node) => {
     const sheet = (node as HTMLStyleElement).sheet
     if (sheet) sheets.add(sheet as CSSStyleSheet)
   })
-  Array.from(root.adoptedStyleSheets || []).forEach(sheet => sheets.add(sheet))
+  const adoptedStyleSheets = Array.from((root as any).adoptedStyleSheets || []) as CSSStyleSheet[]
+  adoptedStyleSheets.forEach(sheet => sheets.add(sheet))
+  const sheetsToScan = Array.from(sheets)
   const visit = (rules: CSSRuleList) => {
     for (const rule of Array.from(rules)) {
       if ((rule as CSSStyleRule).selectorText) {
@@ -134,9 +232,13 @@ export function collectZoneStyleRules(): Array<{ rule: CSSStyleRule; sourceOrder
       }
     }
   }
-  for (const sheet of sheets) {
+  for (const sheet of sheetsToScan) {
     try {
-      if (sheet.disabled || (sheet.media?.mediaText && !window.matchMedia(sheet.media.mediaText).matches)) continue
+      const mediaText = sheet.media?.mediaText || ''
+      const mediaMatches = !mediaText || window.matchMedia(mediaText).matches
+      if (sheet.disabled || !mediaMatches) {
+        continue
+      }
       visit(sheet.cssRules)
     } catch { /* 跨域样式表不可读取。 */ }
   }
@@ -177,16 +279,21 @@ export function collectZoneTabs(
   }
   if (!elements.length || !baseSelectors.length) return Array.from(tabs.values())
 
-  for (const { rule, sourceOrder } of collectZoneStyleRules()) {
-    if (comId && !rule.selectorText.includes(comId)) continue
+  const cssomRules = collectZoneStyleRules()
+
+  for (const { rule, sourceOrder } of cssomRules) {
+    // 不能要求 selectorText 必须包含 comId：组件样式编译后可能只保留
+    // CSS Modules class（如 .siderContent___hash .ant-menu-item:hover）。
+    // 后面的 Element.matches(state.matchSelector) 已经用当前目标 DOM 做了
+    // 完整祖先路径校验，可以同时避免把不适用于当前元素的规则收进来。
     for (const part of splitTopLevelSelectors(rule.selectorText)) {
       const state = splitZoneSelectorState(part)
-      const target = elements.find((el) => {
+      const targetIndex = elements.findIndex((el) => {
         try { return el.matches(state.matchSelector) } catch { return false }
       })
-      if (!target) continue
       const tab = baseSelectors.find((base) => belongsToBase(part, base))
-      if (!tab) continue
+      if (targetIndex < 0 || !tab) continue
+      const target = elements[targetIndex]
       const entry = tabs.get(tab)
       if (!entry) continue
       const source = { rule, selectorPart: part, sourceOrder, target }
@@ -220,5 +327,6 @@ export function collectZoneTabs(
     const base = tabs.get(tab.baseSelector)
     if (base) tab.baseRules = base.baseRules.slice()
   }
+
   return Array.from(tabs.values()).filter((tab) => !tab.pseudo || tab.sourceRules.length > 0)
 }

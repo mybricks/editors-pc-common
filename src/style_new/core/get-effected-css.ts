@@ -27,6 +27,7 @@ import {
   isBorderPanelMeaningfullyUsed,
   isMeaninglessStylePropForPanel,
 } from './panel-effected'
+import { getOrderedZoneSourceRules } from './zone-tab'
 import type { ZoneTab } from './zone-tab'
 
 /** 穿透 shadowRoot 取真正的 activeElement（画布常在 webview shadow 内） */
@@ -155,27 +156,9 @@ export function getEffectedCssPropertyAndOptions (
 
       // 有 tab 元数据时按 CSSRule 身份 + 原始分支去重；不能按 selectorText 去重，
       // 因为 antd/emotion 常会连续注入同名规则，后写规则仍然参与级联。
-      const metadataRules = zoneTab
-        ? [...(zoneTab.baseRules || []), ...(zoneTab.pseudo ? zoneTab.sourceRules : [])]
-        : []
+      const metadataRules = zoneTab ? getOrderedZoneSourceRules(zoneTab) : []
       if (metadataRules.length) {
-        finalRules = metadataRules
-          .filter((item, index, all) => all.findIndex((candidate) =>
-            candidate.rule === item.rule && candidate.selectorPart === item.selectorPart
-          ) === index)
-          .sort((a, b) => {
-            const aImportant = a.rule.style.cssText.includes('!important') ? 1 : 0
-            const bImportant = b.rule.style.cssText.includes('!important') ? 1 : 0
-            if (aImportant !== bImportant) return aImportant - bImportant
-            const aSpec = calculateSafeSpecificity(a.selectorPart, a.target)
-            const bSpec = calculateSafeSpecificity(b.selectorPart, b.target)
-            if (aSpec && bSpec) {
-              const bySpec = compare(aSpec, bSpec)
-              if (bySpec !== 0) return bySpec
-            }
-            return a.sourceOrder - b.sourceOrder
-          })
-          .map((item) => item.rule)
+        finalRules = metadataRules.map((item) => item.rule)
       }
 
       const rulesMap = new Map<CSSStyleRule, CSSStyleRule>();
