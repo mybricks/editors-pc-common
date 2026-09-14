@@ -303,12 +303,14 @@ export function GradientEditor({
                     setCurElementId(id);
                   }}
                 />
-                <Panel.Item
-                  style={{ width: 30, padding: 0, border }}
-                  onClick={() => removeColor(id)}
-                >
-                  <MinusButton />
-                </Panel.Item>
+                <div onClick={(event) => event.stopPropagation()}>
+                  <Panel.Item
+                    style={{ width: 30, padding: 0, border }}
+                    onClick={() => removeColor(id)}
+                  >
+                    <MinusButton />
+                  </Panel.Item>
+                </div>
               </Panel.Content>
             );
           })}

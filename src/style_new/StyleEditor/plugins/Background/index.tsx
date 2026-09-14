@@ -233,6 +233,8 @@ function LayerItem({
       const finalColor = hasAlpha
         ? parsed.hexa().toUpperCase()
         : setColorOpacity(parsed.hex().toUpperCase(), currentOpacity);
+      // 值未变化时不触发 onChange
+      if (finalColor === layer.value) return;
       onLayerChange({ value: finalColor });
     } catch {
       // Invalid color — revert silently
@@ -440,6 +442,19 @@ export function Background({
 
   const handleLayerChange = useCallback(
     (index: number, partial: Partial<BgLayer>) => {
+      const currentLayer = layersRef.current[index];
+      // 颜色格式归一化比较：currentLayer.value 可能是 rgb() 格式，
+      // partial.value 可能是 #rrggbbaa 格式（来自颜色拾取器），需统一转成 hexa 再比较，
+
+      if (partial && Object.keys(partial).length === 1 && 'value' in partial && partial.value != null && currentLayer) {
+        try {
+          const normalizedCurrent = new ColorUtil(currentLayer.value).hexa().toLowerCase();
+          const normalizedNext = new ColorUtil(partial.value).hexa().toLowerCase();
+          if (normalizedCurrent === normalizedNext) return;
+        } catch {
+          // 颜色解析失败（如渐变/图片/CSS 变量），跳过比较，正常提交
+        }
+      }
       emitLayers(layersRef.current.map((l, i) => (i === index ? { ...l, ...partial } : l)));
     },
     [emitLayers]

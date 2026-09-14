@@ -189,10 +189,6 @@ export function InputNumber ({
       e.target.value = finalVal;
       setDisplayValue(finalVal);
       // useUpdateEffect([unit, number]) 只在 unit/number 变化时触发；
-      // 两者均未变时需直接提交，确保回车始终生效
-      if (!unitWillChange && finalVal === prevNumber) {
-        onChange?.(String(parseFloat(finalVal)) + submitUnit);
-      }
     }
   }, [number, unit, unitDisabledList, fallbackValue, onChange, handleNumberChange, allowNegative]);
 
@@ -251,11 +247,6 @@ export function InputNumber ({
     setDisplayValue(finalVal);
 
     // useUpdateEffect([unit, number]) 只在 unit 或 number 发生变化时才触发 onChange。
-    // 当两者均未变化时（例如 HUG/FILL 模式下用户输入了与预填像素值相同的数字），
-    // 需要在此处直接调用 onChange，确保失焦操作始终能提交值。
-    if (!unitWillChange && finalVal === prevNumber) {
-      onChange?.(String(parseFloat(finalVal)) + submitUnit);
-    }
   }, [number, allowNegative, unit, unitDisabledList, onChange, fallbackValue, handleNumberChange]);
 
   const isDefaultUnit = unitDisabledList.includes(unit)
