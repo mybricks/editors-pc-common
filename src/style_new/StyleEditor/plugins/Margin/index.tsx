@@ -14,6 +14,9 @@ import {
   MarginLeftOutlined,
   MarginRightOutlined,
   MarginBottomOutlined,
+  Dropdown,
+  DownOutlined,
+  ClearButton,
   VariableNumberInput,
   withApplyVariableOption,
   APPLY_VARIABLE_ACTION
@@ -23,6 +26,8 @@ import { useUpdateEffect, useDragNumber, useLengthVarBinding, isCssVarValue } fr
 
 import type { ChangeEvent, PanelBaseProps } from '../../type'
 import { useStyleEditorContext } from '../../context'
+import type { LengthVarBinding } from '../../hooks/useLengthVarBinding'
+import type { InputNumberProps } from '../../components/InputNumber'
 
 import css from './index.less'
 
@@ -42,9 +47,99 @@ const DEFAULT_STYLE = {
 const CHIP_STYLE = {flex: '1 1 0', minWidth: 0, width: 0}
 const UNIT_OPTIONS = [
   { label: 'px', value: 'px' },
+  { label: 'auto', value: 'auto' },
   { label: '%', value: '%' }
 ]
 const MARGIN_KEYS = ['marginTop', 'marginRight', 'marginBottom', 'marginLeft'] as const
+
+type MarginValue = CSSProperties & Record<string, any>
+
+/** 将 margin 简写展开，保留 auto 关键字供编辑器回显。 */
+function expandMarginShorthand(value: CSSProperties): MarginValue {
+  const next: MarginValue = {...value}
+  MARGIN_KEYS.forEach((key) => {
+    if (String(next[key] ?? '').trim().toLowerCase() === '0auto') next[key] = 'auto'
+  })
+  if (typeof next.margin !== 'string' || !next.margin.trim()) return next
+
+  const parts = next.margin.replace(/\s*!important\s*$/i, '').trim().split(/\s+/)
+  if (parts.length < 1 || parts.length > 4) return next
+
+  const [top, right = top, bottom = top, left = right] = parts
+  const expanded = parts.length === 1
+    ? [top, top, top, top]
+    : parts.length === 2
+      ? [top, right, top, right]
+      : parts.length === 3
+        ? [top, right, bottom, right]
+        : [top, right, bottom, left]
+
+  MARGIN_KEYS.forEach((key, index) => {
+    if (next[key] == null || next[key] === '') next[key] = expanded[index]
+  })
+  return next
+}
+
+interface MarginValueInputProps {
+  binding: LengthVarBinding
+  value: string | number | null | undefined
+  label: string
+  inputProps: InputNumberProps
+}
+
+function AutoMarginBadge({inputProps}: {inputProps: InputNumberProps}) {
+  const options = inputProps.unitOptions ?? UNIT_OPTIONS
+  return (
+    <Dropdown
+      value="auto"
+      options={options}
+      onAction={inputProps.onAction}
+      onClick={(unit) => {
+        if (unit === 'auto') {
+          inputProps.onChange?.('auto')
+        } else if (unit === 'px' || unit === '%') {
+          inputProps.onChange?.(`0${unit}`)
+        }
+      }}
+    >
+      <>
+        <ClearButton onClick={() => inputProps.onClear?.()} />
+        <span className={css.autoBadgeArrow} data-mybricks-tip="单位">
+          <DownOutlined />
+        </span>
+      </>
+    </Dropdown>
+  )
+}
+
+function MarginValueInput({binding, value, label, inputProps}: MarginValueInputProps) {
+  const normalizedInputProps = {
+    ...inputProps,
+    // InputNumber 对禁用单位会直接回写关键字，避免把数字和 auto 拼成 0auto。
+    unitDisabledList: Array.from(new Set([...(inputProps.unitDisabledList ?? []), 'auto']))
+  }
+
+  if (!binding.varRef && value === 'auto') {
+    return (
+      <VariableNumberInput
+        binding={binding}
+        chipStyle={CHIP_STYLE}
+        inputKey="auto"
+        inputProps={{
+          ...normalizedInputProps,
+          value: null,
+          defaultValue: undefined,
+          placeholder: '自动',
+          clearable: true,
+          tip: `当前${label}为 auto，自动占用剩余空间；${binding.fallbackValue}为计算值`,
+          badge: <AutoMarginBadge inputProps={normalizedInputProps} />
+        }}
+      />
+    )
+  }
+
+  return <VariableNumberInput binding={binding} inputProps={normalizedInputProps} chipStyle={CHIP_STYLE} />
+}
 
 /**
  * 检测当前元素与父容器 flex 对齐的冲突情况。
@@ -79,9 +174,10 @@ const DEFAULT_CONFIG = {
 }
 
 export function Margin ({value, onChange, config, showTitle, collapse}: MarginProps) {
-  const [toggle, setToggle] = useState(getToggleDefaultValue(value))
-  const [marginValue, setMarginValue] = useState({...value})
-  const marginValueRef = useRef({...value})
+  const initialValue = expandMarginShorthand(value)
+  const [toggle, setToggle] = useState(getToggleDefaultValue(initialValue))
+  const [marginValue, setMarginValue] = useState(initialValue)
+  const marginValueRef = useRef(initialValue)
   const [forceRenderKey, setForceRenderKey] = useState<number>(Math.random())
   const [splitMarginIcon, setSplitMarginIcon] = useState(<MarginTopOutlined />)
   const getDragProps = useDragNumber({ continuous: true, min: -Infinity })
@@ -98,17 +194,17 @@ export function Margin ({value, onChange, config, showTitle, collapse}: MarginPr
 
   // 面板实例会在切换选中组件时复用，需同步新的边距值，避免先显示上一组件的数字。
   useLayoutEffect(() => {
-    const next = {...value};
+    const next = expandMarginShorthand(value);
     marginValueRef.current = next
     setMarginValue((previous) => {
       return MARGIN_KEYS.every((key) => previous[key] === next[key]) ? previous : next;
     });
-    const nextToggle = getToggleDefaultValue(value);
+    const nextToggle = getToggleDefaultValue(next);
     if (nextToggle !== toggle) {
       isExternalSyncRef.current = true;
       setToggle(nextToggle);
     }
-  }, [value.marginTop, value.marginRight, value.marginBottom, value.marginLeft]);
+  }, [value.margin, value.marginTop, value.marginRight, value.marginBottom, value.marginLeft]);
 
   const handleChange = useCallback((value: CSSProperties & Record<string, any>) => {
     const current: Record<string, any> = {...marginValueRef.current}
@@ -229,9 +325,10 @@ export function Margin ({value, onChange, config, showTitle, collapse}: MarginPr
               >
                 <PaddingAllOutlined />
               </div>
-              <VariableNumberInput
+              <MarginValueInput
                 binding={unifiedVar}
-                chipStyle={CHIP_STYLE}
+                value={marginValue.marginTop}
+                label="外边距"
                 inputProps={{
                   style: DEFAULT_STYLE,
                   defaultValue: marginValue.marginTop,
@@ -276,9 +373,10 @@ export function Margin ({value, onChange, config, showTitle, collapse}: MarginPr
                   >
                     <MarginLeftOutlined/>
                   </div>
-                  <VariableNumberInput
+                  <MarginValueInput
                     binding={leftVar}
-                    chipStyle={CHIP_STYLE}
+                    value={marginValue.marginLeft}
+                    label="左外边距"
                     inputProps={{
                       style: DEFAULT_STYLE,
                       defaultValue: marginValue.marginLeft,
@@ -309,9 +407,10 @@ export function Margin ({value, onChange, config, showTitle, collapse}: MarginPr
                   >
                     <MarginTopOutlined/>
                   </div>
-                  <VariableNumberInput
+                  <MarginValueInput
                     binding={topVar}
-                    chipStyle={CHIP_STYLE}
+                    value={marginValue.marginTop}
+                    label="上外边距"
                     inputProps={{
                       style: DEFAULT_STYLE,
                       defaultValue: marginValue.marginTop,
@@ -344,9 +443,10 @@ export function Margin ({value, onChange, config, showTitle, collapse}: MarginPr
                   >
                     <MarginRightOutlined/>
                   </div>
-                  <VariableNumberInput
+                  <MarginValueInput
                     binding={rightVar}
-                    chipStyle={CHIP_STYLE}
+                    value={marginValue.marginRight}
+                    label="右外边距"
                     inputProps={{
                       style: DEFAULT_STYLE,
                       defaultValue: marginValue.marginRight,
@@ -377,9 +477,10 @@ export function Margin ({value, onChange, config, showTitle, collapse}: MarginPr
                   >
                     <MarginBottomOutlined/>
                   </div>
-                  <VariableNumberInput
+                  <MarginValueInput
                     binding={bottomVar}
-                    chipStyle={CHIP_STYLE}
+                    value={marginValue.marginBottom}
+                    label="下外边距"
                     inputProps={{
                       style: DEFAULT_STYLE,
                       defaultValue: marginValue.marginBottom,
