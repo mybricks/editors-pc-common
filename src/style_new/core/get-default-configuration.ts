@@ -99,6 +99,7 @@ export function getDefaultConfiguration ({value, options}: GetDefaultConfigurati
   let effctedOptions: string[] | null = null;
   let effectedFromRulesOnly: string[] = [];
   let effectedFromAncestorsOnly: string[] = [];
+  let ownAuthoredStyle: Record<string, any> = {};
   let finnalExcludeOptions: string[] | null = null;
 
   if (!options) {
@@ -175,7 +176,7 @@ export function getDefaultConfiguration ({value, options}: GetDefaultConfigurati
 
     if (realDom || isPseudoSelector) {
       getDefaultValue = false;
-      const [styleValues, options, ownRulesPanels, ancestorPanels] = getEffectedCssPropertyAndOptions(
+      const [styleValues, options, ownRulesPanels, ancestorPanels, authoredStyle] = getEffectedCssPropertyAndOptions(
         realDom,
         realSelectors.length > 1 ? realSelectors : (realSelector ?? ''),
         comId,
@@ -185,6 +186,7 @@ export function getDefaultConfiguration ({value, options}: GetDefaultConfigurati
       effctedOptions = options == null ? options : mapEffectedPanels(options as string[]);
       effectedFromRulesOnly = mapEffectedPanels(ownRulesPanels as string[]);
       effectedFromAncestorsOnly = mapEffectedPanels(ancestorPanels as string[]);
+      ownAuthoredStyle = authoredStyle || {};
       finalOptions = normalizeEffectOptions(finalOptions)
       finalOptions.forEach((option) => {
         let type, config;
@@ -372,6 +374,7 @@ export function getDefaultConfiguration ({value, options}: GetDefaultConfigurati
     autoCollapseWhenUnusedProperty,
     defaultValue: mergeDefaultValue(),
     setValue: Object.assign({}, splitedSetValue),
+    authoredStyle: Object.assign({}, ownAuthoredStyle),
     finalOpen,
     finalSelector,
     finnalExcludeOptions,
@@ -383,6 +386,7 @@ export function getDefaultConfiguration ({value, options}: GetDefaultConfigurati
     autoCollapseWhenUnusedProperty: boolean,
     defaultValue: CSSProperties,
     setValue: CSSProperties & Record<string, any>,
+    authoredStyle: CSSProperties & Record<string, any>,
     finalOpen: boolean,
     finalSelector: string,
     finnalExcludeOptions: any,

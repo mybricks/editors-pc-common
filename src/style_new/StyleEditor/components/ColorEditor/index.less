@@ -13,6 +13,12 @@
     justify-content: space-between;
     padding: 0px 6px 0 8px;
 
+    &:hover [data-input-clear],
+    &:focus-within [data-input-clear] {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
     &.disabled {
       opacity: 0.6;
       cursor: not-allowed;
@@ -25,6 +31,19 @@
       text-wrap: nowrap;
       text-overflow: ellipsis;
       cursor: pointer;
+    }
+
+    .inheritedText {
+      margin-left: 6px;
+      color: @font-color-content;
+      opacity: 0.35;
+      font-weight: 400;
+    }
+
+    .emptyText {
+      color: @font-color-content;
+      opacity: 0.35;
+      font-weight: 400;
     }
 
     .unbind {
@@ -62,6 +81,16 @@
 
       &:disabled {
         cursor: not-allowed;
+      }
+    }
+
+    .inheritedInput {
+      margin-left: 6px;
+      font-weight: 400;
+
+      &::placeholder {
+        color: @font-color-content;
+        opacity: 0.35;
       }
     }
 

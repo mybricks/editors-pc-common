@@ -54,9 +54,41 @@ const BORDER_STYLE_OPTIONS = [
 ];
 
 const STROKE_STYLE_POPUP_OPTIONS = [
+  { value: 'none', label: '无' },
   { value: 'solid', label: '实线' },
   { value: 'dashed', label: '虚线' },
 ];
+
+const BORDER_WIDTH_KEYWORD_VALUES: Record<string, string> = {
+  thin: '1px',
+  medium: '3px',
+  thick: '5px',
+};
+
+const isZeroBorderWidth = (value: unknown) => {
+  const normalized = String(value ?? '').trim().toLowerCase();
+  return normalized === '' || normalized === '0' || normalized === '0px' || normalized === '0%';
+};
+
+const isDefaultBorderColor = (value: unknown) => {
+  const normalized = String(value ?? '').trim().toLowerCase();
+  return normalized === '' || normalized === 'currentcolor';
+};
+
+const hasNoVisibleBorderLine = (style: unknown, width: unknown) => {
+  const normalizedStyle = String(style ?? '').trim().toLowerCase();
+  return normalizedStyle === 'none' || normalizedStyle === 'hidden' || isZeroBorderWidth(width);
+};
+
+const shouldShowDefaultBorderColor = (color: unknown, style: unknown, width: unknown) =>
+  hasNoVisibleBorderLine(style, width) || isDefaultBorderColor(color);
+
+const normalizeBorderWidthValue = (value: unknown, style: unknown) => {
+  const normalizedStyle = String(style ?? '').trim().toLowerCase();
+  if (normalizedStyle === 'none' || normalizedStyle === 'hidden') return '0px';
+  const normalizedWidth = String(value ?? '').trim().toLowerCase();
+  return BORDER_WIDTH_KEYWORD_VALUES[normalizedWidth] ?? value;
+};
 
 type BorderPosition = "outside" | "center" | "inside";
 
@@ -289,6 +321,14 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
         // @ts-ignore
         defaultValue[key] = val.replace(/!.*$/, "");
       }
+    });
+    (['Top', 'Right', 'Bottom', 'Left'] as const).forEach((side) => {
+      const widthKey = `border${side}Width`;
+      const styleKey = `border${side}Style`;
+      defaultValue[widthKey] = normalizeBorderWidthValue(
+        defaultValue[widthKey],
+        defaultValue[styleKey],
+      );
     });
     // 对于 outside/inside 模式，从 outline/boxShadow 还原虚拟 border* 值供编辑器显示
     const pos = detectPositionFromCSS(defaultValue);
@@ -714,8 +754,14 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
   const isInherited = collapse === 'inherited';
 
   const currentBorderStyle = borderValue.borderTopStyle ?? 'none';
+  const borderHasNoVisibleLine = hasNoVisibleBorderLine(currentBorderStyle, borderValue.borderTopWidth);
 
-  const popupStyleValue = currentBorderStyle === 'none' ? 'solid' : currentBorderStyle;
+  const popupStyleValue = borderHasNoVisibleLine ? 'none' : currentBorderStyle;
+  const borderGradientValue = getGradientBorderValue(borderValue);
+  const borderColorIsDefault = borderHasNoVisibleLine || (!borderGradientValue && isDefaultBorderColor(borderValue.borderTopColor));
+  const borderColorValue = borderColorIsDefault
+    ? ''
+    : borderGradientValue || borderValue.borderTopColor;
 
   const borderConfig = useMemo(() => {
     if (disableBorderWidth && disableBorderColor && disableBorderStyle) {
@@ -732,7 +778,8 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                   <ColorEditor
                     key={borderColorEditorKey}
                     style={{ padding: 0, flex: 1, minWidth: 26 }}
-                    defaultValue={getGradientBorderValue(borderValue) || borderValue.borderTopColor}
+                    defaultValue={borderColorValue}
+                    emptyValueLabel="默认"
                     resolvedColor={resolveCssVarColor(borderValue.borderTopColor || "", targetDom) ?? undefined}
                     variableOptions={canvasColorVariables}
                     scopeEl={targetDom}
@@ -763,7 +810,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                             borderGradientRef.current = undefined;
                             contentBackgroundLayersRef.current = null;
                           }
-                          if (!isLengthNineAndEndsWithZeroes(value) && val.borderTopWidth === "0px") {
+                          if (!isLengthNineAndEndsWithZeroes(value) && isZeroBorderWidth(val.borderTopWidth)) {
                             const autoStyle = !val.borderTopStyle || val.borderTopStyle === "none" ? "solid" : val.borderTopStyle;
                             newValue = {
                               ...newValue,
@@ -784,7 +831,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                         // 外部/内部模式：仅支持纯色，输出 outline/boxShadow
                         if (isLengthNineAndEndsWithZeroes(value)) return;
                         const currentVal = borderValueRef.current;
-                        const autoWidth = currentVal.borderTopWidth === "0px";
+                        const autoWidth = isZeroBorderWidth(currentVal.borderTopWidth);
                         const autoStyle = !currentVal.borderTopStyle || currentVal.borderTopStyle === "none" ? "solid" : currentVal.borderTopStyle;
                         handleAllModeChange({
                           borderTopColor: value, borderRightColor: value,
@@ -814,11 +861,24 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                   value={popupStyleValue}
                   options={STROKE_STYLE_POPUP_OPTIONS}
                   onChange={(val) => {
+                    const nextStyle = String(val);
+                    const currentWidth = borderValue.borderTopWidth || '0px';
+                    const nextWidth = nextStyle === 'none'
+                      ? '0px'
+                      : currentBorderStyle === 'none' || isZeroBorderWidth(currentWidth)
+                        ? '1px'
+                        : currentWidth;
                     handleAllModeChange({
                       borderTopStyle: val,
                       borderRightStyle: val,
                       borderBottomStyle: val,
                       borderLeftStyle: val,
+                      ...(nextWidth !== borderValue.borderTopWidth ? {
+                        borderTopWidth: nextWidth,
+                        borderRightWidth: nextWidth,
+                        borderBottomWidth: nextWidth,
+                        borderLeftWidth: nextWidth,
+                      } : {}),
                     });
                   }}
                 />
@@ -910,7 +970,8 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                   {disableBorderColor ? null : (
                     <ColorEditor
                       style={{ padding: 0, marginLeft: 2, flex: 1, minWidth: 26 }}
-                      defaultValue={borderValue.borderLeftColor}
+                      defaultValue={shouldShowDefaultBorderColor(borderValue.borderLeftColor, borderValue.borderLeftStyle, borderValue.borderLeftWidth) ? '' : borderValue.borderLeftColor}
+                      emptyValueLabel="默认"
                       resolvedColor={resolveCssVarColor(borderValue.borderLeftColor || "", targetDom) ?? undefined}
                       variableOptions={canvasColorVariables}
                       scopeEl={targetDom}
@@ -919,7 +980,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                         const value = getColorEditorValue(input);
                         if (!value) return;
                         const newValue: Record<string, any> = { borderLeftColor: value };
-                        if (!isLengthNineAndEndsWithZeroes(value) && borderValue.borderLeftWidth === "0px") {
+                        if (!isLengthNineAndEndsWithZeroes(value) && isZeroBorderWidth(borderValue.borderLeftWidth)) {
                           newValue.borderLeftWidth = "1px";
                           if (!borderValue.borderLeftStyle || borderValue.borderLeftStyle === "none") {
                             newValue.borderLeftStyle = "solid";
@@ -979,7 +1040,8 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                   {disableBorderColor ? null : (
                     <ColorEditor
                       style={{ padding: 0, marginLeft: 2, flex: 1, minWidth: 26 }}
-                      defaultValue={borderValue.borderTopColor}
+                      defaultValue={shouldShowDefaultBorderColor(borderValue.borderTopColor, borderValue.borderTopStyle, borderValue.borderTopWidth) ? '' : borderValue.borderTopColor}
+                      emptyValueLabel="默认"
                       resolvedColor={resolveCssVarColor(borderValue.borderTopColor || "", targetDom) ?? undefined}
                       variableOptions={canvasColorVariables}
                       scopeEl={targetDom}
@@ -988,7 +1050,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                         const value = getColorEditorValue(input);
                         if (!value) return;
                         const newValue: Record<string, any> = { borderTopColor: value };
-                        if (!isLengthNineAndEndsWithZeroes(value) && borderValue.borderTopWidth === "0px") {
+                        if (!isLengthNineAndEndsWithZeroes(value) && isZeroBorderWidth(borderValue.borderTopWidth)) {
                           newValue.borderTopWidth = "1px";
                           if (!borderValue.borderTopStyle || borderValue.borderTopStyle === "none") {
                             newValue.borderTopStyle = "solid";
@@ -1049,7 +1111,8 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                   {disableBorderColor ? null : (
                     <ColorEditor
                       style={{ padding: 0, marginLeft: 2, flex: 1, minWidth: 26 }}
-                      defaultValue={borderValue.borderRightColor}
+                      defaultValue={shouldShowDefaultBorderColor(borderValue.borderRightColor, borderValue.borderRightStyle, borderValue.borderRightWidth) ? '' : borderValue.borderRightColor}
+                      emptyValueLabel="默认"
                       resolvedColor={resolveCssVarColor(borderValue.borderRightColor || "", targetDom) ?? undefined}
                       variableOptions={canvasColorVariables}
                       scopeEl={targetDom}
@@ -1058,7 +1121,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                         const value = getColorEditorValue(input);
                         if (!value) return;
                         const newValue: Record<string, any> = { borderRightColor: value };
-                        if (!isLengthNineAndEndsWithZeroes(value) && borderValue.borderRightWidth === "0px") {
+                        if (!isLengthNineAndEndsWithZeroes(value) && isZeroBorderWidth(borderValue.borderRightWidth)) {
                           newValue.borderRightWidth = "1px";
                           if (!borderValue.borderRightStyle || borderValue.borderRightStyle === "none") {
                             newValue.borderRightStyle = "solid";
@@ -1119,7 +1182,8 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                   {disableBorderColor ? null : (
                     <ColorEditor
                       style={{ padding: 0, marginLeft: 2, flex: 1, minWidth: 26 }}
-                      defaultValue={borderValue.borderBottomColor}
+                      defaultValue={shouldShowDefaultBorderColor(borderValue.borderBottomColor, borderValue.borderBottomStyle, borderValue.borderBottomWidth) ? '' : borderValue.borderBottomColor}
+                      emptyValueLabel="默认"
                       resolvedColor={resolveCssVarColor(borderValue.borderBottomColor || "", targetDom) ?? undefined}
                       variableOptions={canvasColorVariables}
                       scopeEl={targetDom}
@@ -1128,7 +1192,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                         const value = getColorEditorValue(input);
                         if (!value) return;
                         const newValue: Record<string, any> = { borderBottomColor: value };
-                        if (!isLengthNineAndEndsWithZeroes(value) && borderValue.borderBottomWidth === "0px") {
+                        if (!isLengthNineAndEndsWithZeroes(value) && isZeroBorderWidth(borderValue.borderBottomWidth)) {
                           newValue.borderBottomWidth = "1px";
                           if (!borderValue.borderBottomStyle || borderValue.borderBottomStyle === "none") {
                             newValue.borderBottomStyle = "solid";

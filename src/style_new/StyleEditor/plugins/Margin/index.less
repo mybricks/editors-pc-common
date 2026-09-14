@@ -24,6 +24,24 @@
   align-items: center;
 }
 
+.autoBadgeArrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 16px;
+  font-size: 10px;
+  color: @font-color-content;
+  cursor: pointer;
+  user-select: none;
+  flex-shrink: 0;
+  opacity: 0.55;
+
+  &:hover {
+    opacity: 1;
+  }
+}
+
 .row {
   width: 100%;
   display: flex;

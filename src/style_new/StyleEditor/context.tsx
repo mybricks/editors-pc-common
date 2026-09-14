@@ -25,6 +25,8 @@ interface StyleEditorContextValue {
   autoCollapseWhenUnusedProperty: boolean
   /** 当前选中的目标 DOM 元素，用于读取实际渲染尺寸等信息 */
   targetDom?: HTMLElement | null
+  /** 当前编辑规则显式写入的样式，不包含继承/计算值 */
+  authoredStyle?: Record<string, any>
 }
 
 const StyleEditorContext = createContext<StyleEditorContextValue | undefined>(undefined)

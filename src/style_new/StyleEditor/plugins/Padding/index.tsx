@@ -175,6 +175,7 @@ export function Padding({value, onChange, config, showTitle, collapse}: PaddingP
                   showIconOnHover: true,
                   fallbackValue: 0,
                   onChange: handleUnifiedChange,
+                  onClear: () => handleUnifiedChange(null),
                   onAction: (action) => {
                     if (action === APPLY_VARIABLE_ACTION) unifiedVar.openPicker()
                   },
@@ -220,6 +221,7 @@ export function Padding({value, onChange, config, showTitle, collapse}: PaddingP
                       showIconOnHover: true,
                       fallbackValue: 0,
                       onChange: (value) => handleChange({paddingLeft: value}),
+                      onClear: () => handleChange({paddingLeft: null}),
                       onAction: (action) => {
                         if (action === APPLY_VARIABLE_ACTION) leftVar.openPicker()
                       },
@@ -251,6 +253,7 @@ export function Padding({value, onChange, config, showTitle, collapse}: PaddingP
                       showIconOnHover: true,
                       fallbackValue: 0,
                       onChange: (value) => handleChange({paddingTop: value}),
+                      onClear: () => handleChange({paddingTop: null}),
                       onAction: (action) => {
                         if (action === APPLY_VARIABLE_ACTION) topVar.openPicker()
                       },
@@ -284,6 +287,7 @@ export function Padding({value, onChange, config, showTitle, collapse}: PaddingP
                       showIconOnHover: true,
                       fallbackValue: 0,
                       onChange: (value) => handleChange({paddingRight: value}),
+                      onClear: () => handleChange({paddingRight: null}),
                       onAction: (action) => {
                         if (action === APPLY_VARIABLE_ACTION) rightVar.openPicker()
                       },
@@ -315,6 +319,7 @@ export function Padding({value, onChange, config, showTitle, collapse}: PaddingP
                       showIconOnHover: true,
                       fallbackValue: 0,
                       onChange: (value) => handleChange({paddingBottom: value}),
+                      onClear: () => handleChange({paddingBottom: null}),
                       onAction: (action) => {
                         if (action === APPLY_VARIABLE_ACTION) bottomVar.openPicker()
                       },

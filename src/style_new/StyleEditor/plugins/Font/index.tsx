@@ -172,6 +172,28 @@ const DEFAULT_CONFIG = {
 };
 
 const CSS_LENGTH_UNSET_KEYWORDS = ['unset', 'normal', 'inherit', 'initial'];
+const CSS_COLOR_INHERIT_KEYWORDS = ['', 'inherit', 'unset', 'revert', 'revert-layer'];
+
+function hasAuthoredTextFill(style: Record<string, any> = {}): boolean {
+  const hasExplicitColor = [
+    style.color,
+    style.WebkitTextFillColor,
+    style.webkitTextFillColor,
+  ].some((color) => {
+    if (color == null) return false;
+    return !CSS_COLOR_INHERIT_KEYWORDS.includes(String(color).trim().toLowerCase());
+  });
+
+  return hasExplicitColor || isTextFillActive(style);
+}
+
+/** 清除当前规则后，color 会从父元素继承；提前读取用于立即回显。 */
+function getInheritedTextColor(dom: HTMLElement | null | undefined): string {
+  const parent = dom?.parentElement;
+  if (!parent) return '';
+  const computed = window.getComputedStyle(parent);
+  return computed.getPropertyValue('-webkit-text-fill-color').trim() || computed.color || '';
+}
 
 /** 是否为用户显式配置的长度类样式（非空、非关键字） */
 function isConfiguredCssLength(value: unknown): boolean {
@@ -325,8 +347,13 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
   const editConfig = context?.editConfig;
   const { targetDom, variableOptions: canvasColorVariables } = useCanvasColorVariables();
   const outterFontFamilyOptions = normalizeFontfaceOptions(editConfig?.fontfaces || []);
-  const valueRef = useRef(value);
-  valueRef.current = value;
+  const textFillStyleRef = useRef<Record<string, any>>(value as Record<string, any>);
+  const [textFillAuthored, setTextFillAuthored] = useState(() =>
+    hasAuthoredTextFill(context?.authoredStyle) ||
+    isTextFillActive(value as Record<string, any>)
+  );
+  const [textFillDisplayOverride, setTextFillDisplayOverride] = useState<string | null>(null);
+  const [textFillEditorRevision, setTextFillEditorRevision] = useState(0);
 
   // 重置脏数据
   if (isObject(value.fontFamily)) {
@@ -340,21 +367,46 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
     (input: any) => {
       const next = getColorEditorValue(input);
       if (!next) return;
-      const current = valueRef.current as Record<string, any>;
-      if (isGradientValue(next)) {
-        onChange(toStyleChangeItems(buildGradientTextFill(next, current)));
-      } else {
-        onChange(toStyleChangeItems(buildSolidTextFill(next, current)));
-      }
+      setTextFillAuthored(true);
+      const current = textFillStyleRef.current;
+      const nextStyle = isGradientValue(next)
+        ? buildGradientTextFill(next, current)
+        : buildSolidTextFill(next, current);
+      textFillStyleRef.current = { ...current, ...nextStyle };
+      onChange(toStyleChangeItems(nextStyle));
     },
     [onChange]
   );
 
-  const textFillValue = parseTextFillDisplayValue(value as Record<string, any>);
+  const handleTextFillClear = useCallback(() => {
+    const cleared = {
+      ...buildSolidTextFill('', textFillStyleRef.current),
+      color: null,
+      WebkitTextFillColor: null,
+    };
+    textFillStyleRef.current = { ...textFillStyleRef.current, ...cleared };
+    onChange(toStyleChangeItems(cleared));
+    setTextFillAuthored(false);
+    setTextFillDisplayOverride(getInheritedTextColor(targetDom));
+    setTextFillEditorRevision((revision) => revision + 1);
+  }, [onChange, targetDom]);
+
+  const sourceTextFillValue = parseTextFillDisplayValue(value as Record<string, any>);
+  const textFillValue = textFillDisplayOverride ?? sourceTextFillValue;
   const textFillResolvedColor = resolveCssVarColor(textFillValue, targetDom);
-  const textFillEditorKey = `${isTextFillActive(value as Record<string, any>)
+  const textFillEditorKey = `${textFillDisplayOverride == null && isTextFillActive(value as Record<string, any>)
     ? "text-fill-gradient"
-    : "text-fill-solid"}-${textFillValue}-${textFillResolvedColor ?? ""}`;
+    : "text-fill-solid"}-${textFillValue}-${textFillResolvedColor ?? ""}-${textFillEditorRevision}`;
+
+  useEffect(() => {
+    textFillStyleRef.current = value as Record<string, any>;
+    setTextFillAuthored(
+      hasAuthoredTextFill(context?.authoredStyle) ||
+      isTextFillActive(value as Record<string, any>)
+    );
+    setTextFillDisplayOverride(null);
+    setTextFillEditorRevision((revision) => revision + 1);
+  }, [targetDom]);
 
   const [innerFontFamily, setInnerFontFamily] = useState<string[] | undefined>(
     parseFontFamily(value.fontFamily)
@@ -788,8 +840,8 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
     ];
 
     // 主动拆掉 text 层，保留 content / border，避免只靠拦截器猜意图
-    if (isTextFillActive(valueRef.current as Record<string, any>)) {
-      const cleared = buildSolidTextFill('', valueRef.current as Record<string, any>);
+    if (isTextFillActive(textFillStyleRef.current)) {
+      const cleared = buildSolidTextFill('', textFillStyleRef.current);
       items.push(
         ...toStyleChangeItems({
           ...cleared,
@@ -963,6 +1015,9 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
             scopeEl={targetDom}
             showSubTabs={true}
             disableBackgroundImage={true}
+            clearable={textFillAuthored}
+            onClear={handleTextFillClear}
+            inherited={!textFillAuthored}
             onChange={handleTextFillChange}
           />
         </Panel.Content>

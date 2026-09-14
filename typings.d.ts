@@ -22,4 +22,14 @@ declare interface Window {
   MYBRICKS_AICOM_THEME_VARIABLES?: any;
   CodeEditor?: any;
   __editorAppender__?: any;
+  _sandbox_?: {
+    helpers?: {
+      renders?: {
+        renderPrdView?: (props?: {
+          content: string;
+          darkMode?: boolean;
+        }) => React.ReactElement;
+      };
+    };
+  };
 }
