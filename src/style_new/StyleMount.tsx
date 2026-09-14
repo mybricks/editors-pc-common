@@ -16,6 +16,7 @@ export function StyleMount({
   editConfig,
   options,
   setValue,
+  authoredStyle,
   collapsedOptions,
   readonlyExpandedOptions,
   autoCollapseWhenUnusedProperty,
@@ -69,8 +70,9 @@ export function StyleMount({
       },
       autoCollapseWhenUnusedProperty,
       targetDom: realDom,
+      authoredStyle,
     }
-  }, [editConfig, autoCollapseWhenUnusedProperty])
+  }, [editConfig, autoCollapseWhenUnusedProperty, authoredStyle])
 
   return (
     <StyleEditorProvider value={editorContext}>

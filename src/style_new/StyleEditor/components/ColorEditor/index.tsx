@@ -14,6 +14,7 @@ import {
   TransparentColorOutlined,
 } from "../../components";
 import { Panel, Colorpicker, UnbindingOutlined, BindingOutlined } from "../";
+import { ClearButton } from "../ClearButton";
 import { color2rgba, getRealKey } from "../../utils";
 import {
   CssVarColorOption,
@@ -106,6 +107,14 @@ interface ColorEditorProps {
   disableBackgroundImage?: boolean;
   /** 禁用渐变 tab */
   disableGradient?: boolean;
+  /** 当前颜色有值时允许清空 */
+  clearable?: boolean;
+  /** 清空回调；具体需要删除的样式属性由使用方决定 */
+  onClear?: () => void;
+  /** 当前值来自继承：保留真实色值预览，但输入区显示“继承” */
+  inherited?: boolean;
+  /** 空值时的占位文案；配合透明色图标展示未配置状态 */
+  emptyValueLabel?: string;
 }
 
 interface State {
@@ -246,6 +255,10 @@ export function ColorEditor({
   disableBackgroundColor,
   disableBackgroundImage,
   disableGradient,
+  clearable = false,
+  onClear,
+  inherited = false,
+  emptyValueLabel,
 }: ColorEditorProps) {
   const presetRef = useRef<HTMLDivElement>(null);
   const scopeElRef = useRef(scopeEl);
@@ -397,6 +410,8 @@ export function ColorEditor({
     }
   }, [state.value, state.nonColorValue]);
 
+  const [userInput, setUserInput] = useState(inherited ? "" : colorString);
+
   /** 当前绑定的变量引用，如 var(--color-title) */
   const varRef = isCssVarRef(state.finalValue)
     ? state.finalValue
@@ -424,6 +439,15 @@ export function ColorEditor({
 
   /** 框内展示变量名：色值已由左侧色块表达，不必重复 */
   const variableDisplayText = varName || varRef;
+  const inheritedTipColor = useMemo(() => {
+    const candidate = resolvedVarColor || resolvedColor || state.finalValue || state.value;
+    try {
+      const color = new ColorUtil(candidate);
+      return (color.alpha() === 1 ? color.hex() : color.hexa()).toUpperCase();
+    } catch {
+      return String(candidate || '');
+    }
+  }, [resolvedVarColor, resolvedColor, state.finalValue, state.value]);
 
   /** 胶囊右侧输入中的文本，提交后即替换变量 */
   const [varDraft, setVarDraft] = useState("");
@@ -485,6 +509,18 @@ export function ColorEditor({
 
   const handleInputBlur = useCallback(() => {
     const { value, finalValue, nonColorValue } = state;
+
+    if (inherited) {
+      const committedColor = getHex(String(finalValue || value || '')).toLowerCase();
+      const inputColor = getHex(userInput).toLowerCase();
+      // 继承态的空输入继续显示占位词；非法输入也回退到继承态。
+      setUserInput(inputColor && inputColor === committedColor ? inputColor : '');
+      if (value !== finalValue && finalValue) {
+        dispatch({ value: finalValue });
+      }
+      return;
+    }
+
     // 失焦回退到已提交值，乱输入不会残留
     if (nonColorValue || isCssVarRef(value) || isCssVarRef(finalValue)) {
       setUserInput(value);
@@ -498,16 +534,25 @@ export function ColorEditor({
     if (value !== finalValue && finalValue) {
       dispatch({ value: finalValue });
     }
-  }, [state.value, state.finalValue, state.nonColorValue]);
+  }, [state.value, state.finalValue, state.nonColorValue, inherited, userInput]);
 
-  const [userInput, setUserInput] = useState(colorString);
   const [checkColor, setCheckColor] = useState<string>("");
+  const handleClear = useCallback(() => {
+    dispatch({
+      value: "",
+      finalValue: "",
+      nonColorValue: true,
+    });
+    setUserInput("");
+    setVarDraft("");
+    onClear?.();
+  }, [onClear]);
   const isFocus = useRef(false);
   useEffect(() => {
     if (!isFocus.current) {
-      setUserInput(colorString);
+      setUserInput(inherited ? "" : colorString);
     }
-  }, [colorString]);
+  }, [colorString, inherited]);
   const inputColorRef = useRef<HTMLInputElement>(null);
   const handlePaste = (event: React.ClipboardEvent<HTMLInputElement>) => {
     const pastedText = event.clipboardData?.getData("text");
@@ -578,6 +623,36 @@ export function ColorEditor({
   const input = useMemo(() => {
     const { value, nonColorValue, finalValue } = state;
 
+    if (inherited) {
+      const tip = inheritedTipColor
+        ? `未配置颜色，${inheritedTipColor}为继承值`
+        : '未配置颜色';
+      return (
+        <input
+          data-mybricks-tip={`${tip}；支持16进制、RGB、RGBA、HSL、HSLA、var()或颜色名称`}
+          ref={inputColorRef}
+          value={userInput}
+          placeholder="继承"
+          spellCheck={false}
+          className={`${css.input} ${css.inheritedInput}`}
+          onFocus={() => {
+            isFocus.current = true;
+            onFocus && onFocus?.();
+          }}
+          onChange={(e) => {
+            const next = normalizeColorInput(e.target.value);
+            setUserInput(next);
+            handleInputChange(next);
+          }}
+          onBlur={() => {
+            isFocus.current = false;
+            handleInputBlur();
+          }}
+          onPaste={handlePaste}
+        />
+      );
+    }
+
     const isGradient = isGradientValue(paintPreviewValue);
     if (isGradient) {
       return (
@@ -598,6 +673,13 @@ export function ColorEditor({
 
     // 主题色标题等仍走绑定展示；var() 回显走下方输入框
     if (nonColorValue && !isCssVarRef(value)) {
+      if (!finalValue && emptyValueLabel) {
+        return (
+          <div className={`${css.text} ${css.emptyText}`} onClick={onPresetClick}>
+            {emptyValueLabel}
+          </div>
+        );
+      }
       return (
         <>
           <div className={css.text} onClick={onPresetClick}>
@@ -654,7 +736,7 @@ export function ColorEditor({
         onPaste={handlePaste}
       />
     );
-  }, [userInput, state.value, state.nonColorValue, state.finalValue, paintPreviewValue, onPresetClick, handleReset, handleUnbind, handleInputChange, handleInputBlur, varDraft, varName, varRef, variableDisplayText, handleVarKeyDown, commitVarDraft]);
+  }, [userInput, state.value, state.nonColorValue, state.finalValue, inherited, inheritedTipColor, emptyValueLabel, paintPreviewValue, onPresetClick, handleReset, handleUnbind, handleInputChange, handleInputBlur, varDraft, varName, varRef, variableDisplayText, handleVarKeyDown, commitVarDraft]);
 
   const handleOpacityChange = useCallback(
     (value: string) => {
@@ -800,7 +882,7 @@ export function ColorEditor({
             finalValue ? (
               <></>
             ) : (
-              <QuestionCircleOutlined />
+              emptyValueLabel ? <TransparentColorOutlined /> : <QuestionCircleOutlined />
             )
           ) : (
             <TransparentColorOutlined />
@@ -808,7 +890,7 @@ export function ColorEditor({
         </div>
       </Colorpicker>
     );
-  }, [state.finalValue, state.value, state.nonColorValue, state.optionsValueToAllMap, paintPreviewValue, resolvedColor, resolvedVarColor, varRef, variableOptions, scopeEl, handleColorpickerChange, showSubTabs, upload, imageValue, disableBackgroundColor, disableBackgroundImage, disableGradient]);
+  }, [state.finalValue, state.value, state.nonColorValue, state.optionsValueToAllMap, paintPreviewValue, resolvedColor, resolvedVarColor, varRef, variableOptions, scopeEl, handleColorpickerChange, showSubTabs, upload, imageValue, disableBackgroundColor, disableBackgroundImage, disableGradient, emptyValueLabel]);
 
   const preset = useMemo(() => {
     if (!state.showPreset) {
@@ -831,6 +913,9 @@ export function ColorEditor({
         {block}
         {input}
         {opacityInput}
+        {clearable && !!(state.finalValue || state.value) && (
+          <ClearButton onClick={handleClear} />
+        )}
       </div>
       {preset}
     </Panel.Item>

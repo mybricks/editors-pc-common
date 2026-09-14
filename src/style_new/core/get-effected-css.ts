@@ -22,6 +22,7 @@ import { getDefaultValueFunctionMap2, PANEL_MAP } from './panel-defaults'
 import { calculateSafeSpecificity, someSelectorPart } from './selector-utils'
 import { hasCssVarReference } from './css-var'
 import {
+  cssRuleStyleToBag,
   getEffectedPanelsFromCssRules,
   getEffectedPanelsFromDirectParent,
   isBorderPanelMeaningfullyUsed,
@@ -520,6 +521,7 @@ export function getEffectedCssPropertyAndOptions (element: HTMLElement | null, s
     //       同时 getValues 对 width/height 等属性使用静态 'auto' 兜底，
     //       会丢失内联 style 的真实值。
     const inlineEffectedPanels: string[] = [];
+    const inlineAuthoredStyle: Record<string, any> = {};
     if (element && element.style.length > 0) {
       const inlineBag: Record<string, any> = {};
       for (let i = 0; i < element.style.length; i++) {
@@ -529,6 +531,7 @@ export function getEffectedCssPropertyAndOptions (element: HTMLElement | null, s
         if (inlineVal) {
           (values as any)[camelProp] = inlineVal;
           inlineBag[camelProp] = inlineVal;
+          inlineAuthoredStyle[camelProp] = inlineVal;
         }
       }
       // 补齐 webkit 读法，供文字渐变面板归属判断
@@ -536,6 +539,13 @@ export function getEffectedCssPropertyAndOptions (element: HTMLElement | null, s
       const webkitFill = element.style.getPropertyValue('-webkit-text-fill-color');
       if (webkitClip) inlineBag.WebkitBackgroundClip = webkitClip;
       if (webkitFill) inlineBag.WebkitTextFillColor = webkitFill;
+      if (webkitClip) {
+        inlineAuthoredStyle.WebkitBackgroundClip = webkitClip;
+        if (!inlineAuthoredStyle.backgroundClip) {
+          inlineAuthoredStyle.backgroundClip = webkitClip;
+        }
+      }
+      if (webkitFill) inlineAuthoredStyle.WebkitTextFillColor = webkitFill;
 
       const inlineStyleBag = { ...values, ...inlineBag };
       Object.keys(inlineBag).forEach((camelProp) => {
@@ -656,6 +666,10 @@ export function getEffectedCssPropertyAndOptions (element: HTMLElement | null, s
       ) as string[]),
       ...inlineEffectedPanels,
     ]));
+    const ownAuthoredStyle = ownSelectorRules.reduce<Record<string, any>>(
+      (result, rule) => Object.assign(result, cssRuleStyleToBag(rule.style)),
+      { ...inlineAuthoredStyle }
+    );
 
     // 其他命中当前 DOM 但不属于当前编辑选择器的规则（如 .actionBtn 当编辑 .actionBtn.primary 时），
     // 产生的面板需要展开回显但不能有减号，单独返回供外层计算 readonlyExpandedOptions。
@@ -699,7 +713,13 @@ export function getEffectedCssPropertyAndOptions (element: HTMLElement | null, s
     }
     // ────────────────────────────────────────────────────────────────────────
 
-    return [values, finalEffectedPanels, ownRulesPanels, [...effectedFromDirectParent, ...otherRulesPanels, ...baseStateVarPanels, ...inlineEffectedPanels]]
+    return [
+      values,
+      finalEffectedPanels,
+      ownRulesPanels,
+      [...effectedFromDirectParent, ...otherRulesPanels, ...baseStateVarPanels, ...inlineEffectedPanels],
+      ownAuthoredStyle,
+    ]
   } catch (e) {
     console.warn('[getEffectedCssPropertyAndOptions] 异常:', e)
     return [{}, []]
