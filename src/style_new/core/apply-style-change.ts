@@ -302,7 +302,7 @@ export function applyStyleChange({
     : (style: Record<string, any>, options?: { selector?: string }) =>
       editConfig.value.set(style, options)
 
-  // Zone Tab 的 sourceRules 保存了 CSSOM 中真正声明属性的完整 selector。
+  // Zone Tab 的 sourceRules 同时保存 CSSOM 运行时 selector 和可写回 Less 的源码 selector。
   // 只有这里才拆分本次变更；普通组件继续沿用原来的完整状态写回逻辑。
   if (activeZoneTab?.sourceRules?.length) {
     const writeStyle = getStyleDiff(liveStyle || {}, finalCssProperties, effectiveDeletions)

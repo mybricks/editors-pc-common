@@ -1,13 +1,17 @@
 // @ts-ignore
 import { compare } from 'specificity'
 
+import { resolveCssomSourceSelector } from './build-zone-selectors-from-cssom'
 import { toLine } from './css-code-codec'
 import { getDocument } from './dom'
 import { calculateSafeSpecificity, splitTopLevelSelectors } from './selector-utils'
 
 export type ZoneSourceRule = {
   rule: CSSStyleRule
+  /** CSSOM 中的运行时 selector，用于 matches 和特指度计算。 */
   selectorPart: string
+  /** 剥除平台作用域并还原 CSS Modules 后的 selector，用于 Less 写回。 */
+  sourceSelector: string
   sourceOrder: number
   target: Element
 }
@@ -24,8 +28,8 @@ export type ZoneTab = {
  * 返回与 ZoneTab 回显一致的来源规则顺序。
  *
  * 伪类 tab 需要把基础态和状态态规则合在一起；普通 tab 只使用自己的
- * sourceRules。这里保留 selectorPart 而不是只返回 CSSStyleRule，后续写回
- * 或排查日志都可以定位到原始完整 selector。
+ * sourceRules。这里保留 selectorPart 而不是只返回 CSSStyleRule，供回显侧
+ * 按运行时完整 selector 计算特指度；Less 写回使用单独的 sourceSelector。
  */
 export function getOrderedZoneSourceRules(tab: ZoneTab): ZoneSourceRule[] {
   const candidates = tab.pseudo
@@ -76,7 +80,7 @@ function sourceDeclaresProperty(source: ZoneSourceRule, cssProperties: string[])
 }
 
 /**
- * 找到当前 ZoneTab 中最终声明某个样式属性的原始完整 selector。
+ * 找到当前 ZoneTab 中最终声明某个样式属性的 Less 源码 selector。
  * 直接属性优先；只有没有直接声明时才使用少量简写兜底映射。
  */
 export function resolveZonePropertySelector(
@@ -99,16 +103,17 @@ export function resolveZonePropertySelector(
     ? undefined
     : findLastDeclaringRule(fallbackProperties)
 
-  return (directWinner || fallbackWinner)?.selectorPart
+  const winner = directWinner || fallbackWinner
+  return winner ? (winner.sourceSelector || tab.selector) : undefined
 }
 
 /**
- * 属性没有现有声明时，返回当前 tab 最适合新增样式的原始 selector。
+ * 属性没有现有声明时，返回当前 tab 最适合新增样式的 Less 源码 selector。
  * sourceRules 已按回显级联顺序排序，因此最后一条是优先级最高的来源。
  */
 export function resolveZoneFallbackSelector(tab: ZoneTab): string {
   const orderedRules = getOrderedZoneSourceRules(tab)
-  return orderedRules[orderedRules.length - 1]?.selectorPart || tab.selector
+  return orderedRules[orderedRules.length - 1]?.sourceSelector || tab.selector
 }
 
 const EDITABLE_STATES = new Set([
@@ -296,7 +301,13 @@ export function collectZoneTabs(
       const target = elements[targetIndex]
       const entry = tabs.get(tab)
       if (!entry) continue
-      const source = { rule, selectorPart: part, sourceOrder, target }
+      const source = {
+        rule,
+        selectorPart: part,
+        sourceSelector: resolveCssomSourceSelector(part, target, comId || ''),
+        sourceOrder,
+        target,
+      }
       if (state.pseudo) {
         const pseudoSelector = `${tab}${state.pseudo}`
         const pseudoKey = `${tab}\u0000${state.pseudo}`
