@@ -7,6 +7,9 @@ import { forEachSelectorPart } from './selector-utils'
  */
 export const PSEUDO_ORDER = [':hover', ':focus', ':focus-visible', ':focus-within', ':active', ':disabled', ':checked', ':placeholder-shown']
 
+// .item:not(.selected):not(.disabled):hover 归为 .item:hover，:not 本身不生成 tab。
+const PSEUDO_SUFFIX_PATTERN = '(?::not\\([^)]*\\))*(:{1,2}(?!not\\()[a-zA-Z\\-]+(?:\\([^)]*\\))?)$'
+
 /**
  * 类选择器匹配模式：精确短名，或 CSS Modules 混淆名（前缀须含 `_`）。
  * 例：".inputArea" → ".inputArea" | ".pages_Foo_less-inputArea"
@@ -31,9 +34,27 @@ function classSegmentPattern(lastSegment: string): string {
  *
  * @param baseSelectors - 基础选择器列表（不含伪类，不含 comId 前缀）
  * @param comId         - 组件 ID，用于隔离不同组件的同名选择器
+ * @param targetElements - 用完整规则验证当前 DOM 上下文，保留页面作用域和 :not 条件
  */
-export function scanPseudoSelectors(baseSelectors: string[], comId: string): string[] {
+export function scanPseudoSelectors(
+  baseSelectors: string[],
+  comId: string,
+  targetElements: Element[] = []
+): string[] {
   if (!baseSelectors.length || !comId) return []
+
+  const matchesTarget = (part: string, pseudo: string, fromParent = false): boolean => {
+    if (!targetElements.length) return true
+    // 只去掉待编辑的末尾状态，保留 :not 等条件；无需当前真的处于 hover / focus。
+    const base = part.slice(0, part.length - pseudo.length).trim()
+    return targetElements.some((el) => {
+      try {
+        return fromParent ? !!el.parentElement?.closest(base) : el.matches(base)
+      } catch {
+        return false
+      }
+    })
+  }
 
   // 收集每个基础选择器对应的伪类集合
   const pseudoMap = new Map<string, Set<string>>()
@@ -70,13 +91,13 @@ export function scanPseudoSelectors(baseSelectors: string[], comId: string): str
         // 例：lastSegment=".glowBox" → 同时匹配 ".glowBox" 和 ".pages_xxx_less-glowBox"
         const segmentPattern = classSegmentPattern(lastSegment)
         const regex = new RegExp(
-          escapeRegExp(comId) + '.*' + segmentPattern + '(:{1,2}[a-zA-Z\\-]+(?:\\([^)]*\\))?)$'
+          escapeRegExp(comId) + '.*' + segmentPattern + PSEUDO_SUFFIX_PATTERN
         )
         // 逗号合并选择器由 forEachSelectorPart 统一拆分；否则 $ 锚定只会命中末段伪类
         let matchedSelf = false
         forEachSelectorPart(selectorText, (part) => {
           const match = part.match(regex)
-          if (match) {
+          if (match && matchesTarget(part, match[1])) {
             pseudoMap.get(sel)!.add(match[1])
             matchedSelf = true
           }
@@ -96,11 +117,11 @@ export function scanPseudoSelectors(baseSelectors: string[], comId: string): str
             const parentLastSeg = segments[segments.length - 2]
             const parentSegPattern = classSegmentPattern(parentLastSeg)
             const parentPseudoRegex = new RegExp(
-              escapeRegExp(comId) + '.*' + parentSegPattern + '(:{1,2}[a-zA-Z\\-]+(?:\\([^)]*\\))?)$'
+              escapeRegExp(comId) + '.*' + parentSegPattern + PSEUDO_SUFFIX_PATTERN
             )
             forEachSelectorPart(selectorText, (part) => {
               const parentMatch = part.match(parentPseudoRegex)
-              if (parentMatch) {
+              if (parentMatch && matchesTarget(part, parentMatch[1], true)) {
                 pseudoMap.get(sel)!.add(parentMatch[1])
               }
             })

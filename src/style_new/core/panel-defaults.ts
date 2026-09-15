@@ -47,6 +47,8 @@ export const getDefaultValueFunctionMap = {
       borderBottomWidth: values.borderBottomWidth,
       borderLeftWidth: values.borderLeftWidth,
       borderRightWidth: values.borderRightWidth,
+      outline: values.outline,
+      outlineOffset: values.outlineOffset,
       backgroundColor: values.backgroundColor,
       backgroundImage: values.backgroundImage,
       backgroundOrigin: values.backgroundOrigin,
@@ -149,6 +151,8 @@ export const getDefaultValueFunctionMap = {
     return {
       left: values.left,
       top: values.top,
+      right: values.right,
+      bottom: values.bottom,
       // 自由定位切换按钮依赖 position 回显（高亮 / 取消）
       position: values.position,
     }
@@ -216,6 +220,8 @@ export const getDefaultValueFunctionMap2 = {
       borderBottomWidth: '0px',
       borderLeftWidth: '0px',
       borderRightWidth: '0px',
+      outline: '',
+      outlineOffset: '',
       backgroundImage: 'none',
       backgroundOrigin: '',
       backgroundClip: ''
@@ -318,6 +324,8 @@ export const getDefaultValueFunctionMap2 = {
     return {
       left: 'auto',
       top: 'auto',
+      right: 'auto',
+      bottom: 'auto',
       position: 'static',
     }
   },

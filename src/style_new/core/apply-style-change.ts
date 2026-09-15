@@ -11,11 +11,56 @@ import {
   overlayNormalizedShorthands,
 } from './shorthand-normalizer'
 import { isTextFillActive } from '../StyleEditor/helper/text-fill'
+import {
+  resolveZoneFallbackSelector,
+  resolveZonePropertySelector,
+} from './zone-tab'
+import type { ZoneTab } from './zone-tab'
 
 export type StyleChangeItem = { key: string; value: any }
 
+type StyleWriteGroup = {
+  style: Record<string, any>
+  deletions: string[]
+}
+
 const IMPORTANT_SUFFIX_RE = /!important\s*$/i
 const HOVER_SELECTOR_RE = /:hover\s*$/
+
+function getStyleDiff(
+  beforeStyle: Record<string, any>,
+  afterStyle: Record<string, any>,
+  deletions: string[]
+): Record<string, any> {
+  const changedStyle: Record<string, any> = {}
+  const changedKeys = new Set([
+    ...Object.keys(beforeStyle || {}),
+    ...Object.keys(afterStyle || {}),
+    ...deletions,
+  ])
+
+  changedKeys.forEach((key) => {
+    const hadBefore = Object.prototype.hasOwnProperty.call(beforeStyle || {}, key)
+    const hasAfter = Object.prototype.hasOwnProperty.call(afterStyle || {}, key)
+    if (hadBefore !== hasAfter || beforeStyle?.[key] !== afterStyle?.[key]) {
+      changedStyle[key] = hasAfter ? deepCopy(afterStyle[key]) : null
+    }
+  })
+
+  return changedStyle
+}
+
+function addStyleWriteGroup(
+  groups: Map<string, StyleWriteGroup>,
+  selector: string
+): StyleWriteGroup {
+  let group = groups.get(selector)
+  if (!group) {
+    group = { style: {}, deletions: [] }
+    groups.set(selector, group)
+  }
+  return group
+}
 
 const preserveCascadePriority = (
   items: StyleChangeItem[],
@@ -226,13 +271,14 @@ export function applyStyleChange({
   // 删除信号通过 window 侧通道传递给 valueProxy.set，不污染 editConfig.value。
   // 以最终写入对象过滤，确保同批重新生成的 key 不会被 valueProxy 再删除。
   const effectiveDeletions = deletedKeys.filter((key) => !(key in finalCssProperties))
-  if (effectiveDeletions.length > 0) {
-    ;(window as any).__mybricks_style_deletions = effectiveDeletions
-  }
 
   const setOptions = selector ? { selector } : undefined
   const batchMeta = editConfig.value.getBatchMeta?.()
   const isThirdPartyFocus = !!realTargetDom && !realTargetDom.getAttribute('data-zone-selector')
+  const activeZoneTab: ZoneTab | null =
+    !Array.isArray(editConfig.options) && editConfig.options
+      ? (editConfig.options as any).zoneTab ?? null
+      : null
 
   if (isSolidTextFillTransition && !isThirdPartyFocus) {
     const comId =
@@ -242,20 +288,62 @@ export function applyStyleChange({
     const cleanupTargets = collectTextFillCleanupTargets(realTargetDom, comId)
     cleanupTargets.forEach((target) => {
       ;(window as any).__mybricks_style_deletions = target.properties
-      editConfig.value.set({}, { selector: target.selector })
+      const cleanupOptions = { selector: target.selector }
+      editConfig.value.set({}, cleanupOptions)
     })
   }
 
   // 多目标文字渐变清理会暂时改写删除侧通道；主写入前恢复本次常规删除集合。
-  ;(window as any).__mybricks_style_deletions =
-    effectiveDeletions.length > 0 ? effectiveDeletions : null
-  if ((batchMeta?.enabled || isThirdPartyFocus) && editConfig.value.previewBatch) {
-    editConfig.value.previewBatch(finalCssProperties, setOptions)
+  const usePreviewBatch =
+    (batchMeta?.enabled || isThirdPartyFocus) && !!editConfig.value.previewBatch
+  const write = usePreviewBatch
+    ? (style: Record<string, any>, options?: { selector?: string }) =>
+      editConfig.value.previewBatch!(style, options)
+    : (style: Record<string, any>, options?: { selector?: string }) =>
+      editConfig.value.set(style, options)
+
+  // Zone Tab 的 sourceRules 保存了 CSSOM 中真正声明属性的完整 selector。
+  // 只有这里才拆分本次变更；普通组件继续沿用原来的完整状态写回逻辑。
+  if (activeZoneTab?.sourceRules?.length) {
+    const writeStyle = getStyleDiff(liveStyle || {}, finalCssProperties, effectiveDeletions)
+    const groups = new Map<string, StyleWriteGroup>()
+
+    Object.entries(writeStyle).forEach(([key, value]) => {
+      // getStyleDiff 用 null 表示删除；删除必须通过专用 side-channel 传递，
+      // 不能把 null 当作本次要写入的样式值。
+      if (!Object.prototype.hasOwnProperty.call(finalCssProperties, key)) return
+      const sourceSelector =
+        resolveZonePropertySelector(activeZoneTab, key) ||
+        resolveZoneFallbackSelector(activeZoneTab)
+      const group = addStyleWriteGroup(groups, sourceSelector)
+      group.style[key] = deepCopy(value)
+    })
+
+    effectiveDeletions.forEach((key) => {
+      const sourceSelector = resolveZonePropertySelector(activeZoneTab, key)
+      if (!sourceSelector) return
+      const group = addStyleWriteGroup(groups, sourceSelector)
+      if (!group.deletions.includes(key)) group.deletions.push(key)
+    })
+
+    try {
+      groups.forEach((group, sourceSelector) => {
+        ;(window as any).__mybricks_style_deletions =
+          group.deletions.length > 0 ? group.deletions : null
+        const groupOptions = { selector: sourceSelector }
+        write(group.style, groupOptions)
+      })
+    } finally {
+      ;(window as any).__mybricks_style_deletions = null
+    }
     onBatchMetaChange?.()
     return { nextLiveStyle: finalCssProperties, applied: true }
   }
 
-  editConfig.value.set(finalCssProperties, setOptions)
+  ;(window as any).__mybricks_style_deletions =
+    effectiveDeletions.length > 0 ? effectiveDeletions : null
+  write(finalCssProperties, setOptions)
+  ;(window as any).__mybricks_style_deletions = null
   onBatchMetaChange?.()
   return { nextLiveStyle: finalCssProperties, applied: true }
 }
