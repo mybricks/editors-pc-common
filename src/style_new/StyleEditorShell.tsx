@@ -163,7 +163,9 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
     selectedTarget,
     zoneSelectorSignature: zoneSelectorList.join('\u0001'),
     zoneTabSourceSignature: zoneTabs.map((tab) =>
-      `${tab.selector}:${tab.sourceRules.map((item) => `${item.sourceOrder}:${item.selectorPart}`).join('|')}`
+      `${tab.selector}:${tab.sourceRules.map((item) =>
+        `${item.sourceOrder}:${item.selectorPart}:${item.sourceSelector}`
+      ).join('|')}`
     ).join('\u0002'),
   }
   const previousStyleEditorCacheScope = styleEditorCacheScopeRef.current
