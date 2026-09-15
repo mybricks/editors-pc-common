@@ -621,7 +621,13 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
   const editor = useMemo(() => {
     const { resolvedEditConfig, activeSelector } = resolveActiveEditContext()
 
-    const config = getDefaultConfiguration(resolvedEditConfig, suggestOptionsCacheRef.current)
+    const hasSavedSoloRule = isSoloEdit && selectedTarget && baseSelector
+      ? !!getSavedSoloStyle(selectedTarget, baseSelector, componentRoot, getDocument())
+      : false
+    const configEditConfig = isSoloEdit && !hasSavedSoloRule && baseSelector && !Array.isArray(resolvedEditConfig.options)
+      ? { ...resolvedEditConfig, options: { ...(resolvedEditConfig.options as any), selector: baseSelector } }
+      : resolvedEditConfig
+    const config = getDefaultConfiguration(configEditConfig, suggestOptionsCacheRef.current)
 
     // CssEditor 仍然按 zone 强制 remount；它的 initialStyle 不是受控值。
     const editorRemountKey = `${key}:${activeZoneIdx}:${String(activeSelector ?? '')}`
@@ -704,6 +710,10 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
     refreshBatchMeta,
     invalidateInactiveStyleEditors,
     isSoloEdit,
+    soloSelector,
+    baseSelector,
+    selectedTarget,
+    componentRoot,
     styleEditorCacheGeneration,
   ])
 
