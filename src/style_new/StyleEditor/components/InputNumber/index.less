@@ -1,7 +1,7 @@
 @import "../../../../theme";
 
 .clearButton {
-  display: inline-flex;
+  display: none;
   align-items: center;
   justify-content: center;
   width: 16px;
@@ -26,15 +26,23 @@
       fill: currentColor !important;
     }
   }
+}
 
-  &:hover {
-    opacity: 1 !important;
+.inputNumber {
+  &:hover .clearButton {
+    display: inline-flex !important;
     pointer-events: auto;
     color: rgba(0, 0, 0, 0.32) !important;
   }
 
-  &:focus-visible {
-    opacity: 1 !important;
+  &:focus .clearButton {
+    display: inline-flex !important;
+    pointer-events: auto;
+    outline: 1px solid @color-primary;
+  }
+
+  &:focus-visible .clearButton {
+    display: inline-flex !important;
     pointer-events: auto;
     outline: 1px solid @color-primary;
   }

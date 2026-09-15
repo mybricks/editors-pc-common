@@ -12,6 +12,7 @@ import { ClearButton } from "../ClearButton";
 import css from "./index.less";
 
 export interface InputProps {
+  className?: string;
   prefix?: ReactNode;
   prefixTip?: string;
   suffix?: ReactNode;
@@ -51,6 +52,7 @@ export function Input({
   type = void 0,
   clearable = false,
   onClear,
+  className = '',
 }: InputProps) {
   const [inputValue, setInputValue] = useState(defaultValue);
 
@@ -70,7 +72,7 @@ export function Input({
 
   return (
     <Panel.Item style={style}>
-      <div className={css.input} data-mybricks-tip={tip}>
+      <div className={`${css.input} ${className}`} data-mybricks-tip={tip}>
         {align == 'left' && (
           <>
             {prefix && (

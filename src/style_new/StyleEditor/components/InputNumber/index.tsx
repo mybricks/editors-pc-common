@@ -437,6 +437,7 @@ export function InputNumber ({
 
   return (
     <Input
+      className={css.inputNumber}
       style={style}
       prefix={prefix}
       prefixTip={prefixTip}
