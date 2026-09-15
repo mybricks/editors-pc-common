@@ -1,14 +1,13 @@
 import React, { CSSProperties } from "react";
-import InputNumber from "./InputNumber";
-import PaddingInput from "./PaddingInput";
+import { InputNumber } from "../../../components";
 import Icon from "../Icon";
 import styles from "./index.less";
 
 type Value = Partial<{
-  paddingTop: CSSProperties["paddingTop"];
-  paddingRight: CSSProperties["paddingRight"];
-  paddingBottom: CSSProperties["paddingBottom"];
-  paddingLeft: CSSProperties["paddingLeft"];
+  paddingTop: CSSProperties["paddingTop"] | null;
+  paddingRight: CSSProperties["paddingRight"] | null;
+  paddingBottom: CSSProperties["paddingBottom"] | null;
+  paddingLeft: CSSProperties["paddingLeft"] | null;
 }>;
 
 export interface PaddingProps {
@@ -16,10 +15,16 @@ export interface PaddingProps {
   onPaddingToggle: (padding: 'independentPadding' | 'dependentPadding') => void;
   value: Value,
   onChange: (value: Value) => void;
-  onBlur: (value: Value) => void;
-  model: any;
 }
-export default ({paddingType, onPaddingToggle, value, onChange, onBlur, model  }: PaddingProps) => {
+const PX_UNIT_OPTIONS = [{ label: "px", value: "px" }];
+
+function toInputValue(value: CSSProperties["paddingTop"] | null): string | undefined {
+  // 清空后传入 undefined，让公共 InputNumber 回到“默认”占位态。
+  if (value == null || value === "") return undefined;
+  return typeof value === "number" ? `${value}px` : value;
+}
+
+export default ({paddingType, onPaddingToggle, value, onChange  }: PaddingProps) => {
 
   const defaultPadding = [
     {
@@ -106,15 +111,24 @@ export default ({paddingType, onPaddingToggle, value, onChange, onBlur, model  }
 
     <div className={styles.gap}>
       {defaultPadding.map(({ title, name, render }) => (
-        <div style={{width: '52px', marginRight: '10px'}}>
+        <div className={styles.input} style={{width: '52px', marginRight: '10px'}}>
           <InputNumber
-            addonBefore={render()}
-            tooltip={title}
-            className={styles.input}
-            value={value[name]}
-            onChange={(v) => onChange({ ...value, [name]: v })}
-            onBlur={(v) => onBlur({ ...value, [name]: v })}
-            model={model}
+            prefix={render()}
+            tip={title}
+            style={{ padding: "0 8px" }}
+            type="number"
+            value={toInputValue(value[name])}
+            defaultValue={toInputValue(value[name])}
+            defaultUnitValue="px"
+            unitOptions={PX_UNIT_OPTIONS}
+            // 0 也是有效回显值，需要保留清除按钮；空值时公共组件会自动隐藏按钮。
+            clearable
+            onChange={(next) =>
+              onChange({
+                ...value,
+                [name]: next == null ? null : next,
+              })
+            }
           />
         </div>
       ))}

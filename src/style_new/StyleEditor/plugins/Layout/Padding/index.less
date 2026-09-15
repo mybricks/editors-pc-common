@@ -8,8 +8,18 @@
   flex-flow: wrap;
   padding-right: 14px;
   .input {
+    // 公共 InputNumber 内部默认居中，布局面板需保持原有的左侧紧凑排列。
+    > div > div {
+      justify-content: flex-start;
+    }
+
     &:not(:last-child) {
       margin-bottom: 4px;
+    }
+
+    input[type="number"] {
+      width: 22px;
+      margin-left: 0;
     }
   }
 }

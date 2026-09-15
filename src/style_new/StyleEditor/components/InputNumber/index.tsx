@@ -168,6 +168,8 @@ export function InputNumber ({
         } else {
           setDisplayValue('');
           e.target.value = '';
+          // 回车清空会主动触发 blur；清空已经在 keydown 提交，避免 blur 再重复提交一次。
+          skipClearBlurRef.current = true;
           onChange?.(null);
         }
         // 空值回车也要完成一次提交，行为与修改数值后失焦保持一致。

@@ -24,6 +24,12 @@ export type ZoneTab = {
   baseRules: ZoneSourceRule[]
 }
 
+export type ZoneDeletionTarget = {
+  selector: string
+  /** 传给删除 side-channel 的样式 key；gap 简写时为 gap。 */
+  property: string
+}
+
 /**
  * 返回与 ZoneTab 回显一致的来源规则顺序。
  *
@@ -105,6 +111,45 @@ export function resolveZonePropertySelector(
 
   const winner = directWinner || fallbackWinner
   return winner ? (winner.sourceSelector || tab.selector) : undefined
+}
+
+/**
+ * 找到删除某个样式时真正需要操作的源码 selector 和属性。
+ * 删除不能使用新增样式的 fallback selector；Gap 还需要识别 gap 简写来源。
+ */
+export function resolveZoneDeletionTarget(
+  tab: ZoneTab,
+  styleKey: string
+): ZoneDeletionTarget | undefined {
+  const cssProperty = toLine(styleKey)
+  const orderedRules = getOrderedZoneSourceRules(tab)
+  const findLastDeclaringRule = (properties: string[]) => {
+    let winner: ZoneSourceRule | undefined
+    for (const source of orderedRules) {
+      if (sourceDeclaresProperty(source, properties)) winner = source
+    }
+    return winner
+  }
+
+  const directWinner = findLastDeclaringRule([cssProperty])
+  if (directWinner) {
+    return {
+      selector: directWinner.sourceSelector || tab.selector,
+      property: styleKey,
+    }
+  }
+
+  if (styleKey === 'rowGap' || styleKey === 'columnGap') {
+    const shorthandWinner = findLastDeclaringRule(['gap'])
+    if (shorthandWinner) {
+      return {
+        selector: shorthandWinner.sourceSelector || tab.selector,
+        property: 'gap',
+      }
+    }
+  }
+
+  return undefined
 }
 
 /**

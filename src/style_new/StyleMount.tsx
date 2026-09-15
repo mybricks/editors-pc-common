@@ -6,6 +6,7 @@ import { initLiveStyle } from './StyleEditor/helper/gradient-border'
 import type { ChangeEvent } from './StyleEditor/type'
 import type { EditorProps } from './type'
 import { applyStyleChange } from './core/apply-style-change'
+import type { ZoneWriteTarget } from './core/apply-style-change'
 import { toElementArray } from './core/dom'
 
 interface StyleProps extends EditorProps {
@@ -28,6 +29,7 @@ export function StyleMount({
   // 追踪每次 handleChange 实际写入后的完整样式快照，
   // 替代 stale 的 setValue prop，作为渐变边框保护逻辑的数据源。
   const importantPriorityCacheRef = useRef(new Map<string, boolean>())
+  const zoneWriteTargetsRef = useRef(new Map<string, ZoneWriteTarget>())
   const liveStyleRef = useRef<Record<string, any>>(
     initLiveStyle(deepCopy(setValue || {}), (defaultValue as any) || {})
   )
@@ -47,6 +49,7 @@ export function StyleMount({
         options,
         preserveImportantPriority,
         importantPriorityCache: importantPriorityCacheRef.current,
+        zoneWriteTargets: zoneWriteTargetsRef.current,
         onBatchMetaChange,
       })
       if (applied) {

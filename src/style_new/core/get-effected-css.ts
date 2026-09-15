@@ -528,8 +528,23 @@ export function getEffectedCssPropertyAndOptions (
     //       getEffectedPanelsFromCssRules 无法感知，对应面板会保持折叠。
     //       同时 getValues 对 width/height 等属性使用静态 'auto' 兜底，
     //       会丢失内联 style 的真实值。
+    // 注意：inline 普通声明并不一定是最终生效值。外部 author 规则里的
+    // `!important` 可以覆盖它（例如 inline padding-left:24px 被 padding:0 16px
+    // !important 覆盖）。此时原始 inline 值仍需保留用于 authored/面板归属判断，
+    // 但回显 values 必须使用 computedValues 中的实际值。
     const inlineEffectedPanels: string[] = [];
     const inlineAuthoredStyle: Record<string, any> = {};
+    const inlineCascadeMode = _hasPseudo && /^.*:hover\s*$/i.test(primarySelector)
+      ? 'hover'
+      : 'default';
+    const isInlineDeclarationOverridden = (kebabProp: string): boolean => {
+      if (!element) return false;
+      if (element.style.getPropertyPriority(kebabProp) === 'important') return false;
+      const winner = cascadeResolver
+        ? cascadeResolver(kebabProp, inlineCascadeMode)
+        : findCascadeWinnerDetail(element, kebabProp, inlineCascadeMode);
+      return !!winner?.important;
+    };
     if (element && element.style.length > 0) {
       const inlineBag: Record<string, any> = {};
       for (let i = 0; i < element.style.length; i++) {
@@ -537,7 +552,15 @@ export function getEffectedCssPropertyAndOptions (
         const camelProp = toHump(kebabProp);
         const inlineVal = element.style.getPropertyValue(kebabProp);
         if (inlineVal) {
-          (values as any)[camelProp] = inlineVal;
+          if (isInlineDeclarationOverridden(kebabProp)) {
+            const computedVal =
+              (computedValues as any)?.[camelProp] ||
+              computedValues?.getPropertyValue?.(kebabProp) ||
+              '';
+            if (computedVal) (values as any)[camelProp] = computedVal;
+          } else {
+            (values as any)[camelProp] = inlineVal;
+          }
           inlineBag[camelProp] = inlineVal;
           inlineAuthoredStyle[camelProp] = inlineVal;
         }

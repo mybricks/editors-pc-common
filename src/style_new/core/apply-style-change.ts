@@ -13,6 +13,7 @@ import {
 import { isTextFillActive } from '../StyleEditor/helper/text-fill'
 import {
   resolveZoneFallbackSelector,
+  resolveZoneDeletionTarget,
   resolveZonePropertySelector,
 } from './zone-tab'
 import type { ZoneTab } from './zone-tab'
@@ -22,6 +23,11 @@ export type StyleChangeItem = { key: string; value: any }
 type StyleWriteGroup = {
   style: Record<string, any>
   deletions: string[]
+}
+
+export type ZoneWriteTarget = {
+  selector: string
+  property: string
 }
 
 const IMPORTANT_SUFFIX_RE = /!important\s*$/i
@@ -60,6 +66,20 @@ function addStyleWriteGroup(
     groups.set(selector, group)
   }
   return group
+}
+
+function logStyleWrite(
+  style: Record<string, any>,
+  targetSelector: string | undefined
+) {
+  Object.entries(style).forEach(([key, value]) => {
+    // 排查样式写入目标时可取消下一行注释
+    // console.log('[style_new][style-write]', {
+    //   key,
+    //   value,
+    //   className: targetSelector || '(宿主默认目标)',
+    // })
+  })
 }
 
 const preserveCascadePriority = (
@@ -103,6 +123,7 @@ export type ApplyStyleChangeParams = {
   options?: any
   preserveImportantPriority?: boolean
   importantPriorityCache?: Map<string, boolean>
+  zoneWriteTargets?: Map<string, ZoneWriteTarget>
   onBatchMetaChange?: () => void
 }
 
@@ -123,6 +144,7 @@ export function applyStyleChange({
   options,
   preserveImportantPriority = false,
   importantPriorityCache,
+  zoneWriteTargets,
   onBatchMetaChange,
 }: ApplyStyleChangeParams): ApplyStyleChangeResult {
   // 每次操作开始前清空上次可能残留的删除信号，防止普通组件的删除操作污染 AI 组件
@@ -301,7 +323,6 @@ export function applyStyleChange({
       editConfig.value.previewBatch!(style, options)
     : (style: Record<string, any>, options?: { selector?: string }) =>
       editConfig.value.set(style, options)
-
   // Zone Tab 的 sourceRules 同时保存 CSSOM 运行时 selector 和可写回 Less 的源码 selector。
   // 只有这里才拆分本次变更；普通组件继续沿用原来的完整状态写回逻辑。
   if (activeZoneTab?.sourceRules?.length) {
@@ -317,20 +338,38 @@ export function applyStyleChange({
         resolveZoneFallbackSelector(activeZoneTab)
       const group = addStyleWriteGroup(groups, sourceSelector)
       group.style[key] = deepCopy(value)
+      zoneWriteTargets?.set(key, {
+        selector: sourceSelector,
+        property: key,
+      })
     })
 
     effectiveDeletions.forEach((key) => {
-      const sourceSelector = resolveZonePropertySelector(activeZoneTab, key)
-      if (!sourceSelector) return
-      const group = addStyleWriteGroup(groups, sourceSelector)
-      if (!group.deletions.includes(key)) group.deletions.push(key)
+      const rememberedTarget = zoneWriteTargets?.get(key)
+      const deletionTarget =
+        rememberedTarget ||
+        resolveZoneDeletionTarget(activeZoneTab, key)
+      if (!deletionTarget) return
+      const group = addStyleWriteGroup(groups, deletionTarget.selector)
+      if (!group.deletions.includes(deletionTarget.property)) {
+        group.deletions.push(deletionTarget.property)
+      }
     })
+
+    if (groups.size === 0) {
+      return { nextLiveStyle: liveStyle, applied: false }
+    }
 
     try {
       groups.forEach((group, sourceSelector) => {
         ;(window as any).__mybricks_style_deletions =
           group.deletions.length > 0 ? group.deletions : null
         const groupOptions = { selector: sourceSelector }
+        logStyleWrite(group.style, sourceSelector)
+        logStyleWrite(
+          Object.fromEntries(group.deletions.map((key) => [key, null])),
+          sourceSelector
+        )
         write(group.style, groupOptions)
       })
     } finally {
@@ -342,6 +381,10 @@ export function applyStyleChange({
 
   ;(window as any).__mybricks_style_deletions =
     effectiveDeletions.length > 0 ? effectiveDeletions : null
+  logStyleWrite(
+    getStyleDiff(liveStyle || {}, finalCssProperties, effectiveDeletions),
+    selector
+  )
   write(finalCssProperties, setOptions)
   ;(window as any).__mybricks_style_deletions = null
   onBatchMetaChange?.()

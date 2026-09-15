@@ -14,11 +14,29 @@ function hyphenToCamel(hyphen: string): string {
   return hyphen.replace(/-([a-z])/g, (_, c: string) => c.toUpperCase())
 }
 
+const BOX_MODEL_LONGHAND_RE = /^(padding|margin)-(top|right|bottom|left)$/
+
+/**
+ * CSSStyleDeclaration 在不同浏览器/测试环境中对 shorthand 的展开不完全一致。
+ * 例如 `padding: 0 16px !important` 有时能通过 padding-left 读到，有时只能读到
+ * padding 本身。级联判断不能漏掉 shorthand，否则 inline 的普通声明会被误认为胜出。
+ */
+function getBoxModelShorthand(hyphen: string): string | null {
+  const match = hyphen.match(BOX_MODEL_LONGHAND_RE)
+  return match ? match[1] : null
+}
+
 function extractPropValue(rule: CSSStyleRule, hyphen: string): string {
   let propVal = rule.style.getPropertyValue(hyphen)
   // 部分环境下 getPropertyValue 为空，但 CSSStyleDeclaration 驼峰字段仍有指定值
   if (!propVal) {
     propVal = (rule.style as any)[hyphenToCamel(hyphen)] || ''
+  }
+  if (!propVal) {
+    const shorthand = getBoxModelShorthand(hyphen)
+    if (shorthand) {
+      propVal = rule.style.getPropertyValue(shorthand) || (rule.style as any)[shorthand] || ''
+    }
   }
   if (!propVal && hyphen.startsWith('background-')) {
     const bgShorthand = rule.style.getPropertyValue('background')
@@ -47,6 +65,19 @@ function extractPropValue(rule: CSSStyleRule, hyphen: string): string {
     propVal = 'none'
   }
   return propVal
+}
+
+function getPropPriority(style: CSSStyleDeclaration, hyphen: string): string {
+  const directPriority = style.getPropertyPriority(hyphen)
+  const shorthand = getBoxModelShorthand(hyphen)
+  const shorthandPriority = shorthand ? style.getPropertyPriority(shorthand) : ''
+
+  // shorthand 的 !important 会同时作用于四个 longhand；即使 CSSOM 同时暴露了
+  // 一个普通 longhand 值，也不能因此把该边误判成普通声明。
+  if (directPriority === 'important' || shorthandPriority === 'important') {
+    return 'important'
+  }
+  return directPriority || shorthandPriority
 }
 
 export type CascadeWinnerDetail = {
@@ -127,7 +158,7 @@ export function createCascadeResolver(element: HTMLElement): CascadeResolver {
       if (!propVal) continue
 
       const isImportant =
-        rule.style.getPropertyPriority(hyphen) === 'important' ||
+        getPropPriority(rule.style, hyphen) === 'important' ||
         rule.style.getPropertyPriority('background') === 'important'
 
       if (winnerSpec === null) {
@@ -203,7 +234,7 @@ export function findCascadeWinnerDetail(
           if (!propVal) continue
 
           const isImportant =
-            rule.style.getPropertyPriority(hyphen) === 'important' ||
+            getPropPriority(rule.style, hyphen) === 'important' ||
             rule.style.getPropertyPriority('background') === 'important'
           // calculate 不支持逗号合并选择器，需走 calculateSafeSpecificity
           const ruleSpec = calculateSafeSpecificity(rule.selectorText, element)

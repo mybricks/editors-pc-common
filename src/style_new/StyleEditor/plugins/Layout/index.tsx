@@ -7,6 +7,7 @@ import Gap, { GapProps } from "./Gap";
 import type { Layout } from "./types";
 import { Panel } from "../../components";
 import type { ChangeEvent, PanelBaseProps } from "../../type";
+import { useStyleEditorContext } from "../../context";
 import styles from "./index.less";
 
 interface LayoutEditorProps extends PanelBaseProps {
@@ -21,15 +22,16 @@ interface LayoutModel {
   alignItems: CSSProperties["alignItems"];
   justifyContent: CSSProperties["justifyContent"];
   flexWrap: CSSProperties["flexWrap"];
-  rowGap: CSSProperties["rowGap"];
-  columnGap: CSSProperties["columnGap"];
+  gap?: CSSProperties["gap"] | null;
+  rowGap: CSSProperties["rowGap"] | null;
+  columnGap: CSSProperties["columnGap"] | null;
   overflow?: CSSProperties["overflow"] | "visible" | "hidden";
   paddingType?: "independentPadding" | "dependentPadding";
   padding?: CSSProperties["padding"];
-  paddingTop?: CSSProperties["paddingTop"];
-  paddingRight?: CSSProperties["paddingRight"];
-  paddingBottom?: CSSProperties["paddingBottom"];
-  paddingLeft?: CSSProperties["paddingLeft"];
+  paddingTop?: CSSProperties["paddingTop"] | null;
+  paddingRight?: CSSProperties["paddingRight"] | null;
+  paddingBottom?: CSSProperties["paddingBottom"] | null;
+  paddingLeft?: CSSProperties["paddingLeft"] | null;
 }
 
 function isFlexLikeDisplay(display?: CSSProperties["display"]) {
@@ -45,11 +47,24 @@ function getDisplayWhenEnableFlex(display?: CSSProperties["display"]) {
 
 const LAYOUT_KEYS = new Set([
   'display', 'position', 'flexDirection', 'alignItems', 'justifyContent',
-  'flexWrap', 'rowGap', 'columnGap', 'overflow',
+  'flexWrap', 'gap', 'rowGap', 'columnGap', 'overflow',
   'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft',
 ]);
 
 const NON_CSS_KEYS = new Set(['paddingType']);
+const GAP_KEYS = ['rowGap', 'columnGap'] as const;
+type GapKey = typeof GAP_KEYS[number];
+
+function hasPresentValue(value: unknown): boolean {
+  return value !== null && value !== undefined && String(value).trim() !== '';
+}
+
+/** 判断当前选择器的原始样式是否声明过 gap，避免把 computed 的 0px 当成显式配置。 */
+function hasAuthoredGap(style: Record<string, any> | undefined, key: GapKey): boolean {
+  if (!style) return false;
+  const kebabKey = key === 'rowGap' ? 'row-gap' : 'column-gap';
+  return hasPresentValue(style[key]) || hasPresentValue(style[kebabKey]) || hasPresentValue(style.gap);
+}
 
 /** 编辑器内置的 position 语义；其余为真实 CSS 值（fixed/relative 等），读入时需原样保留，避免被当成 inherit 后写出为 null 而丢失 */
 function isPreservedCssPosition(pos: unknown): pos is CSSProperties['position'] {
@@ -94,6 +109,13 @@ const defaultValue: LayoutModel = {
 export function Layout({ value, onChange, showTitle, collapse, config }: LayoutEditorProps) {
   /** 替换元素（如 img）：面板只提供 display 切换，不提供 flex 容器能力 */
   const displayOnly = !!config?.displayOnly;
+  const context = useStyleEditorContext();
+  const authoredStyle = context?.authoredStyle;
+  const canInspectAuthoredGap = !!context?.targetDom;
+  const [clearedGapKeys, setClearedGapKeys] = useState<Record<GapKey, boolean>>(() => ({
+    rowGap: canInspectAuthoredGap && !hasAuthoredGap(authoredStyle, 'rowGap'),
+    columnGap: canInspectAuthoredGap && !hasAuthoredGap(authoredStyle, 'columnGap'),
+  }));
   const [forceRenderKey, setForceRenderKey] = useState<number>(Math.random());
   const [isReset, setIsReset] = useState(false);
 
@@ -106,6 +128,7 @@ export function Layout({ value, onChange, showTitle, collapse, config }: LayoutE
   const refresh = useCallback(() => {
     const keys = Object.keys(value ?? {}).filter(key => LAYOUT_KEYS.has(key));
     onChange(keys.map(key => ({ key, value: null })));
+    setClearedGapKeys({rowGap: true, columnGap: true});
     setIsReset(true);
     setForceRenderKey(prev => prev + 1);
   }, [value, onChange]);
@@ -121,8 +144,22 @@ export function Layout({ value, onChange, showTitle, collapse, config }: LayoutE
       <React.Fragment key={forceRenderKey}>
         <LayoutEditor
           editValue={editValue}
+          clearedGapKeys={clearedGapKeys}
           displayOnly={displayOnly}
           onChangeValue={(newVal) => {
+            setClearedGapKeys((previous) => {
+              const next = {...previous};
+              let changed = false;
+              GAP_KEYS.forEach((key) => {
+                if (!Object.prototype.hasOwnProperty.call(newVal, key)) return;
+                const nextCleared = !hasPresentValue(newVal[key]);
+                if (next[key] !== nextCleared) {
+                  next[key] = nextCleared;
+                  changed = true;
+                }
+              });
+              return changed ? next : previous;
+            });
             onChange(
               Object.entries(newVal)
                 .filter(([key]) => !NON_CSS_KEYS.has(key))
@@ -137,11 +174,12 @@ export function Layout({ value, onChange, showTitle, collapse, config }: LayoutE
 
 interface LayoutEditorInternalProps {
   editValue: Record<string, any>;
+  clearedGapKeys: Record<GapKey, boolean>;
   onChangeValue: (val: Record<string, any>) => void;
   displayOnly?: boolean;
 }
 
-function LayoutEditor({ editValue, onChangeValue, displayOnly }: LayoutEditorInternalProps): JSX.Element {
+function LayoutEditor({ editValue, clearedGapKeys, onChangeValue, displayOnly }: LayoutEditorInternalProps): JSX.Element {
   const _value = parsePxValues(editValue || {});
 
   if ((_value as any).alignItems === "normal") (_value as any).alignItems = "flex-start";
@@ -153,12 +191,16 @@ function LayoutEditor({ editValue, onChangeValue, displayOnly }: LayoutEditorInt
       ? (_value.position as string)
       : (isFlexLikeDisplay(_value.display as CSSProperties["display"]) ? "inherit" : "default");
 
-  const [model, setModel] = useState<LayoutModel>({
+  const initialModel: LayoutModel = {
     ...defaultValue,
     ..._value,
     flexDirection: ((_value as any).flexDirection ?? defaultValue.flexDirection) as CSSProperties["flexDirection"],
     position: _position as any,
-  });
+  };
+  if (clearedGapKeys.rowGap) initialModel.rowGap = null;
+  if (clearedGapKeys.columnGap) initialModel.columnGap = null;
+
+  const [model, setModel] = useState<LayoutModel>(initialModel);
 
   const initialFlexDirection = ((_value as any).flexDirection ?? defaultValue.flexDirection) as string;
   const [rowFlexWrap, setRowFlexWrap] = useState<CSSProperties["flexWrap"]>(
@@ -347,16 +389,13 @@ function LayoutEditor({ editValue, onChangeValue, displayOnly }: LayoutEditorInt
   const renderGap = () => {
     const onGapChange = (val: GapProps["value"]) => {
       setModel((pre) => ({ ...pre, ...val }));
-    };
-    const onGapBlur = (val: GapProps["value"]) => {
-      setModel((pre) => ({ ...pre, ...val }));
       emitValue({ ...val });
     };
     return isFlexActive ? (
       <Gap
         value={{ rowGap: model.rowGap, columnGap: model.columnGap }}
+        cleared={clearedGapKeys}
         onChange={onGapChange}
-        onBlur={onGapBlur}
         flexDirection={model.flexDirection}
       />
     ) : null;
@@ -447,12 +486,9 @@ function LayoutEditor({ editValue, onChangeValue, displayOnly }: LayoutEditorInt
       setModel((pre) => ({ ...pre, paddingType }));
       emitValue({ paddingType });
     };
-    const onPaddingBlur = (val: PaddingProps["value"]) => {
-      setModel((pre) => ({ ...pre, ...val }));
-      emitValue({ ...val });
-    };
     const onPaddingChange = (val: PaddingProps["value"]) => {
       setModel((pre) => ({ ...pre, ...val }));
+      emitValue({ ...val });
     };
 
     if (!isFlexActive) return null;
@@ -467,8 +503,6 @@ function LayoutEditor({ editValue, onChangeValue, displayOnly }: LayoutEditorInt
         paddingType={model.paddingType ?? "dependentPadding"}
         onPaddingToggle={onPaddingToggle}
         onChange={onPaddingChange}
-        onBlur={onPaddingBlur}
-        model={model}
       />
     );
   };
