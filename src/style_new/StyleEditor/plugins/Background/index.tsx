@@ -475,7 +475,7 @@ export function Background({
     const newLayer: BgLayer = {
       id: generateLayerId(),
       type: "solid",
-      value: "#00000033", // black at ~20% — avoids fully opaque default that hides layers below
+      value: "#FFFFFF",
       visible: true,
       size: "",
       repeat: "",
