@@ -90,6 +90,7 @@ export function InputNumber ({
   unitHideLabelList = ['px'],
   clearable = true,
   onClear,
+  className,
 }: InputNumberProps) {
   // `defaultValue` 是各样式面板的外部回显值；未传受控 value 时也要随选中目标同步。
   const externalValue = value !== undefined ? value : defaultValue
@@ -451,6 +452,7 @@ export function InputNumber ({
       onBlur={onBlur}
       align={align}
       tip={tip}
+      className={`${css.inputNumber}${className ? ` ${className}` : ''}`}
       // numberTip={"光标键可增减"}
       type={type} // TODO 后续调整 现在因为面板宽度不够只给小部分加 type = 'number'
     />

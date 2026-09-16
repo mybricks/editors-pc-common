@@ -31,6 +31,7 @@ export interface InputProps {
   type?: string;
   clearable?: boolean;
   onClear?: () => void;
+  className?: string;
 }
 
 export function Input({
