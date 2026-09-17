@@ -165,6 +165,7 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
     zoneTabSourceSignature: zoneTabs.map((tab) =>
       `${tab.selector}:${tab.sourceRules.map((item) =>
         `${item.sourceOrder}:${item.selectorPart}:${item.sourceSelector}`
+          + `:${item.isPageStyle ? 'page' : 'external'}`
       ).join('|')}`
     ).join('\u0002'),
   }

@@ -73,8 +73,8 @@ export default ({ value, cleared, onChange, flexDirection }: GapProps) => {
     iconName: "column-gap" | "row-gap",
     title: string,
   ) => {
-    const isDefault = !!cleared?.[name] || inputValue == null || inputValue === "";
-    const computedValue = getComputedGapValue(targetDom, name, inputValue);
+    // const isDefault = !!cleared?.[name] || inputValue == null || inputValue === "";
+    // const computedValue = getComputedGapValue(targetDom, name, inputValue);
 
     return (
       <div className={styles.input}>
@@ -85,7 +85,7 @@ export default ({ value, cleared, onChange, flexDirection }: GapProps) => {
               <Icon name={iconName} />
             </div>
           }
-          tip={isDefault ? `未配置${title}，${computedValue}为计算值` : title}
+          tip={title}
           style={{ padding: "0 8px" }}
           value={toInputValue(cleared?.[name] ? null : inputValue)}
           defaultValue={toInputValue(cleared?.[name] ? null : inputValue)}

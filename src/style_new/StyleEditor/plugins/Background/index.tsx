@@ -20,6 +20,7 @@ import {
   setColorOpacity,
   parseLayers,
   serializeLayers,
+  getLayerRemovalChanges,
   interpretPickerChange,
 } from "./layers";
 import { getContentBackgroundMeta } from "../../helper/paint-stack";
@@ -29,6 +30,7 @@ import {
   resolveCssVarsInCssValue,
 } from "../../../core/resolve-css-var-color";
 import type { CssVarColorOption } from "../../../core/resolve-css-var-color";
+import { getBackgroundLayerOwnership } from "../../../core/background-layer-ownership";
 
 function GripIcon() {
   return (
@@ -353,6 +355,17 @@ export function Background({
 
   // ── Layer state ──────────────────────────────────────────────────────────
 
+  const editOptions = context?.editConfig?.options;
+  const ownership = getBackgroundLayerOwnership(
+    value,
+    editOptions && !Array.isArray(editOptions) ? editOptions : undefined,
+  ) ?? {
+    backgroundImage: collapse !== 'inherited',
+    backgroundColor: collapse !== 'inherited',
+  };
+  const ownershipFingerprint = `${ownership.backgroundImage}:${ownership.backgroundColor}`;
+  const lastOwnershipRef = useRef(ownershipFingerprint);
+
   const buildContentFingerprint = (style: Record<string, any>) => {
     const meta = getContentBackgroundMeta(style);
     const bgColor = (style?.backgroundColor as string) ?? "";
@@ -372,7 +385,8 @@ export function Background({
       value?.backgroundColor as string,
       meta.backgroundSize,
       meta.backgroundRepeat,
-      meta.backgroundPosition
+      meta.backgroundPosition,
+      ownership,
     );
   });
 
@@ -390,8 +404,9 @@ export function Background({
   useEffect(() => {
     const style = value as Record<string, any>;
     const fingerprint = buildContentFingerprint(style);
-    if (fingerprint === lastEmittedRef.current) return;
+    if (fingerprint === lastEmittedRef.current && ownershipFingerprint === lastOwnershipRef.current) return;
     lastEmittedRef.current = fingerprint;
+    lastOwnershipRef.current = ownershipFingerprint;
     const meta = getContentBackgroundMeta(style);
     setLayers(
       parseLayers(
@@ -399,7 +414,8 @@ export function Background({
         (style?.backgroundColor as string) ?? "",
         meta.backgroundSize,
         meta.backgroundRepeat,
-        meta.backgroundPosition
+        meta.backgroundPosition,
+        ownership,
       )
     );
   }, [
@@ -411,15 +427,17 @@ export function Background({
     value?.backgroundClip,
     value?.WebkitBackgroundClip,
     value?.backgroundOrigin,
+    ownershipFingerprint,
   ]);
 
   // ── Emit helper ──────────────────────────────────────────────────────────
 
   const emitLayers = useCallback(
-    (newLayers: BgLayer[]) => {
-      const changes = serializeLayers(newLayers);
+    (newLayers: BgLayer[], changes = serializeLayers(newLayers)) => {
       const get = (key: string) =>
-        changes.find((c) => c.key === key)?.value ?? "";
+        changes.some((c) => c.key === key)
+          ? changes.find((c) => c.key === key)?.value ?? ""
+          : value?.[key] ?? "";
       lastEmittedRef.current = [
         get("backgroundImage") || "none",
         get("backgroundColor") || "",
@@ -427,10 +445,17 @@ export function Background({
         get("backgroundRepeat") || "",
         get("backgroundPosition") || "",
       ].join("|");
-      setLayers(newLayers);
+      // 普通编辑会把纯色写成 image 层；按实际写出的属性更新来源，保证后续删除目标正确。
+      const nextLayers = changes.some(c => c.key === 'backgroundImage' && c.value != null)
+        ? newLayers.map(layer => layer.sourceProperty === 'backgroundColor' && layer.canRemove === false
+          ? layer
+          : { ...layer, sourceProperty: 'backgroundImage' as const })
+        : newLayers;
+      layersRef.current = nextLayers;
+      setLayers(nextLayers);
       (onChange as any)(changes);
     },
-    [onChange]
+    [onChange, value]
   );
 
   // ── Layer handlers ───────────────────────────────────────────────────────
@@ -455,18 +480,28 @@ export function Background({
           // 颜色解析失败（如渐变/图片/CSS 变量），跳过比较，正常提交
         }
       }
-      emitLayers(layersRef.current.map((l, i) => (i === index ? { ...l, ...partial } : l)));
+      const nextLayers = layersRef.current.map((l, i) => (i === index ? { ...l, ...partial } : l));
+      // 外部 background-color 不参与普通图层序列化，但颜色本身仍可编辑；
+      // 只在这次确实编辑该层时把它作为单独属性写出。
+      const changes = serializeLayers(nextLayers);
+      if (
+        currentLayer?.sourceProperty === 'backgroundColor' &&
+        currentLayer.canRemove === false &&
+        partial.value !== undefined
+      ) {
+        changes.push({ key: 'backgroundColor', value: nextLayers[index].value });
+      }
+      emitLayers(nextLayers, changes);
     },
     [emitLayers]
   );
 
   const handleLayerRemove = useCallback(
     (index: number) => {
-      if (layersRef.current.length === 1) {
-        panelDeleteRef.current?.();
-        return;
-      }
-      emitLayers(layersRef.current.filter((_, i) => i !== index));
+      const currentLayers = layersRef.current;
+      const changes = getLayerRemovalChanges(currentLayers, index);
+      if (!changes.length) return;
+      emitLayers(currentLayers.filter((_, i) => i !== index), changes);
     },
     [emitLayers]
   );
@@ -480,6 +515,8 @@ export function Background({
       size: "",
       repeat: "",
       position: "",
+      sourceProperty: 'backgroundImage',
+      canRemove: true,
     };
     emitLayers([newLayer, ...layersRef.current]);
   }, [emitLayers]);
@@ -563,10 +600,10 @@ export function Background({
       deleteRef={panelDeleteRef}
       resetFunction={handleReset}
       rightColumn={
-        // 继承/只读回显时不渲染层删除列，交给 Panel 的 inherited 占位（否则 rightColumn 会绕过减号隐藏）
-        layers.length > 0 && !isInherited ? (
+        // 每层独立判断来源；外部层保留等高占位，避免下面的减号错位。
+        layers.length > 0 ? (
           <div className={css.deleteColumn}>
-            {layers.map((layer, index) => (
+            {layers.map((layer, index) => layer.canRemove !== false ? (
               <div
                 key={layer.id}
                 className={css.deleteBtn}
@@ -574,7 +611,7 @@ export function Background({
               >
                 <MinusOutlined />
               </div>
-            ))}
+            ) : <div key={layer.id} style={{ width: 22, height: 26 }} />)}
           </div>
         ) : undefined
       }

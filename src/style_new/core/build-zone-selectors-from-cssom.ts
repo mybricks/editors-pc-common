@@ -39,6 +39,17 @@ function stripComIdScope(part: string, comId: string): string {
   return s.trim()
 }
 
+/** 页面编译样式带组件作用域；不能把仅命中元素的壳/第三方规则当作页面源码。 */
+export function isComponentScopedSelector(part: string, comId: string): boolean {
+  return !!comId && stripComIdScope(part, comId) !== part.trim()
+}
+
+/** AI 页面样式由运行时注入到 data-desn-page 作用域；壳应用样式通常没有该作用域。 */
+export function isPageScopedSelector(part: string): boolean {
+  // 页面路径可能是 `/`、`/home` 或空字符串；这里判断属性存在即可，不能绑定具体路径值。
+  return /\[\s*data-desn-page\s*=\s*(?:"[^"]*"|'[^']*'|[^\]\s]+)\s*\]/i.test(part)
+}
+
 /** 剥末尾交互/结构伪类，供 matches 使用（保留中间的 :not 等由浏览器处理） */
 function stripTrailingPseudos(sel: string): string {
   return sel.replace(/(:{1,2}[a-zA-Z\-]+(?:\([^)]*\))?)+$/, '').trim()
