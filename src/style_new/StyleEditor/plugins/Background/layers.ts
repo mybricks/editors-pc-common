@@ -1,5 +1,6 @@
 import ColorUtil from 'color';
 import { parseCssVar } from '../../../core/css-var';
+import type { BackgroundLayerOwnership } from '../../../core/background-layer-ownership';
 import {
   splitBackgroundLayers,
   isSolidColorGradient,
@@ -20,6 +21,9 @@ export interface BgLayer {
   repeat: string;
   /** image-only: background-position */
   position: string;
+  /** 保留 CSS 属性来源，纯色也可能来自 background-image 的同色渐变。 */
+  sourceProperty?: 'backgroundImage' | 'backgroundColor';
+  canRemove?: boolean;
 }
 
 let _counter = 0;
@@ -72,6 +76,7 @@ export function parseLayers(
   backgroundSize?: string,
   backgroundRepeat?: string,
   backgroundPosition?: string,
+  ownership?: BackgroundLayerOwnership,
 ): BgLayer[] {
   const layers: BgLayer[] = [];
 
@@ -107,6 +112,8 @@ export function parseLayers(
           size: '',
           repeat: '',
           position: '',
+          sourceProperty: 'backgroundImage',
+          canRemove: ownership?.backgroundImage ?? true,
         });
         return;
       }
@@ -120,6 +127,8 @@ export function parseLayers(
         size: sizes[i]?.trim() || (type === 'image' ? 'auto' : ''),
         repeat: repeats[i]?.trim() || (type === 'image' ? 'no-repeat' : ''),
         position: positions[i]?.trim() || (type === 'image' ? 'center center' : ''),
+        sourceProperty: 'backgroundImage',
+        canRemove: ownership?.backgroundImage ?? true,
       });
     });
   }
@@ -147,6 +156,8 @@ export function parseLayers(
         size: '',
         repeat: '',
         position: '',
+        sourceProperty: 'backgroundColor',
+        canRemove: ownership?.backgroundColor ?? true,
       });
     }
   }
@@ -175,11 +186,13 @@ function quoteUrlIfNeeded(value: string): string {
 export function serializeLayers(
   layers: BgLayer[],
 ): Array<{ key: string; value: any }> {
-  const visibleLayers = layers.filter(l => l.visible);
+  // 外部 background-color 保留在原属性上，不能在编辑其他层时复制进页面的 image 栈。
+  const externalColor = layers.find(l => l.sourceProperty === 'backgroundColor' && l.canRemove === false);
+  const visibleLayers = layers.filter(l => l.visible && l !== externalColor);
 
   if (visibleLayers.length === 0) {
     return [
-      { key: 'backgroundColor', value: null },
+      ...(!externalColor ? [{ key: 'backgroundColor', value: null }] : []),
       { key: 'backgroundImage', value: null },
       { key: 'backgroundSize', value: null },
       { key: 'backgroundRepeat', value: null },
@@ -207,12 +220,28 @@ export function serializeLayers(
   });
 
   return [
-    { key: 'backgroundColor', value: null },
+    ...(!externalColor ? [{ key: 'backgroundColor', value: null }] : []),
     { key: 'backgroundImage', value: bgImages.join(', ') },
     { key: 'backgroundSize', value: bgSizes.join(', ') },
     { key: 'backgroundRepeat', value: bgRepeats.join(', ') },
     { key: 'backgroundPosition', value: bgPositions.join(', ') },
   ];
+}
+
+/** 只删除目标层所属的属性，不把其余来源的图层整体序列化后写回。 */
+export function getLayerRemovalChanges(
+  layers: BgLayer[],
+  index: number,
+): Array<{ key: string; value: any }> {
+  const removed = layers[index];
+  if (!removed || removed.canRemove === false) return [];
+  if (removed.sourceProperty === 'backgroundColor') {
+    return [{ key: 'backgroundColor', value: null }];
+  }
+  const remainingImages = layers.filter((layer, i) =>
+    i !== index && !(layer.sourceProperty === 'backgroundColor' && layer.canRemove === false)
+  );
+  return serializeLayers(remainingImages).filter(item => item.key !== 'backgroundColor');
 }
 
 /** Interpret a Colorpicker onChange payload for a specific layer */

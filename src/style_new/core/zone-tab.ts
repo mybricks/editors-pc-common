@@ -1,7 +1,7 @@
 // @ts-ignore
 import { compare } from 'specificity'
 
-import { resolveCssomSourceSelector } from './build-zone-selectors-from-cssom'
+import { isPageScopedSelector, resolveCssomSourceSelector } from './build-zone-selectors-from-cssom'
 import { toLine } from './css-code-codec'
 import { getDocument } from './dom'
 import { calculateSafeSpecificity, splitTopLevelSelectors } from './selector-utils'
@@ -14,6 +14,8 @@ export type ZoneSourceRule = {
   sourceSelector: string
   sourceOrder: number
   target: Element
+  /** 是否来自 data-desn-page 页面源码作用域（AI 页面 Less）。 */
+  isPageStyle: boolean
 }
 
 export type ZoneTab = {
@@ -352,6 +354,7 @@ export function collectZoneTabs(
         sourceSelector: resolveCssomSourceSelector(part, target, comId || ''),
         sourceOrder,
         target,
+        isPageStyle: isPageScopedSelector(part),
       }
       if (state.pseudo) {
         const pseudoSelector = `${tab}${state.pseudo}`

@@ -1,7 +1,10 @@
 import React, { useContext, createContext } from 'react'
+import type { EditorProps } from '../type'
+import type { ZoneTab } from '../core/zone-tab'
 
 interface StyleEditorContextValue {
   editConfig: {
+    options?: EditorProps['editConfig']['options'] | { comId?: string; zoneTab?: ZoneTab }
     /** 文件上传 */
     upload?: (files: Array<File>) => Array<string>
     /** 外部字体列表（仅支持 label/value） */
