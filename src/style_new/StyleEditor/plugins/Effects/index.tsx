@@ -289,7 +289,7 @@ export function Effects({ value, onChange, showTitle, collapse }: EffectsProps) 
 
   return (
     <Panel
-      title='效果'
+      title='阴影与模糊'
       showTitle={showTitle}
       collapse={effectiveCollapse}
       showDelete={false}
