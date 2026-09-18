@@ -247,6 +247,49 @@ function replaceGroup(
   Object.assign(style, output)
 }
 
+function expandFourShorthand(raw: unknown): string[] | null {
+  const {value, important} = parsePriority(raw)
+  const parts = splitTopLevelComponents(value)
+  if (!parts || parts.length < 1 || parts.length > 4) return null
+
+  const [top, right = top, bottom = top, left = right] = parts
+  const values = parts.length === 1
+    ? [top, top, top, top]
+    : parts.length === 2
+      ? [top, right, top, right]
+      : parts.length === 3
+        ? [top, right, bottom, right]
+        : [top, right, bottom, left]
+
+  return values.map((item) => `${item}${important ? '!important' : ''}`)
+}
+
+function expandShorthandForLonghandChange(
+  style: Record<string, any>,
+  shorthand: string,
+  longhands: string[],
+  changedKeys: Set<string>,
+  deletions: string[]
+) {
+  if (
+    longhands.length !== 4 ||
+    !hasValue(style, shorthand) ||
+    !longhands.some((key) => changedKeys.has(key))
+  ) return
+
+  const expanded = expandFourShorthand(style[shorthand])
+  if (!expanded || expanded.length !== longhands.length) return
+
+  longhands.forEach((key, index) => {
+    // 本次直接修改的方向以新值（或删除）为准，其他方向由旧 shorthand 展开保留。
+    if (!changedKeys.has(key) && !hasValue(style, key)) {
+      style[key] = expanded[index]
+    }
+  })
+  delete style[shorthand]
+  addDeletion(deletions, shorthand)
+}
+
 function normalizeSimpleGroup(
   style: Record<string, any>,
   group: SimpleGroup,
@@ -256,6 +299,9 @@ function normalizeSimpleGroup(
   const { shorthand, longhands, serialize } = group
   const allKeys = [shorthand, ...longhands]
   const touched = allKeys.some((key) => changedKeys.has(key))
+  // 编辑单一方向时，先将已有 shorthand 展开。否则删除一个 longhand 会直接移除
+  // shorthand，导致未编辑方向的 margin/padding 也一并丢失。
+  expandShorthandForLonghandChange(style, shorthand, longhands, changedKeys, deletions)
   if (touched) {
     allKeys.forEach((key) => {
       if (!Object.prototype.hasOwnProperty.call(style, key) || hasValue(style, key)) return
