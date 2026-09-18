@@ -1,6 +1,6 @@
 import React, { CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
-import { Panel, InputNumber, Select } from '../../components'
+import { Panel, InputNumber, ClearButton } from '../../components'
 import { Setting as SettingIcon } from '../../icons/Setting'
 import { useStyleEditorContext } from '../../context'
 
@@ -62,23 +62,6 @@ const BASIS_UNIT_OPTIONS = [
 ]
 
 const DEFAULT_PLACEHOLDER = '默认'
-const FLEX_DEFAULT_ACTION = '__flex_default__'
-const FLEX_DEFAULT_OPTIONS = [{ label: DEFAULT_PLACEHOLDER, value: FLEX_DEFAULT_ACTION, type: 'action' as const }]
-
-function DefaultValueSelect({ onClear }: { onClear: () => void }) {
-  return (
-    <Select
-      tip="设置"
-      style={{ width: 16, padding: 0, fontSize: 10 }}
-      value={FLEX_DEFAULT_ACTION}
-      options={FLEX_DEFAULT_OPTIONS}
-      showIcon
-      hideLabel
-      onChange={() => {}}
-      onAction={onClear}
-    />
-  )
-}
 
 function isFlexChildVisible(targetDom: HTMLElement | null | undefined): boolean {
   if (!targetDom) return false
@@ -452,7 +435,6 @@ export function Flex({ value, onChange, showTitle, collapse }: FlexProps) {
                   className={`${css.input} ${css.darkPlaceholder}`}
                   spellCheck={false}
                 />
-                {localValue !== '' && <DefaultValueSelect onClear={() => commitShorthand('')} />}
               </Panel.Item>
             </Panel.Content>
           ) : (
@@ -475,7 +457,7 @@ export function Flex({ value, onChange, showTitle, collapse }: FlexProps) {
                     className={`${css.input} ${css.darkPlaceholder}`}
                     spellCheck={false}
                   />
-                  {localGrow !== '' && <DefaultValueSelect onClear={() => { setLocalGrow(''); commitLonghands({ grow: '' }) }} />}
+                  {localGrow !== '' && <ClearButton onClick={() => { setLocalGrow(''); commitLonghands({ grow: '' }) }} />}
                 </Panel.Item>
               </Panel.Content>
               <Panel.Content>
@@ -496,7 +478,6 @@ export function Flex({ value, onChange, showTitle, collapse }: FlexProps) {
                     className={`${css.input} ${css.darkPlaceholder}`}
                     spellCheck={false}
                   />
-                  {localShrink !== '' && <DefaultValueSelect onClear={() => { setLocalShrink(''); commitLonghands({ shrink: '' }) }} />}
                 </Panel.Item>
               </Panel.Content>
               <Panel.Content>
@@ -511,8 +492,6 @@ export function Flex({ value, onChange, showTitle, collapse }: FlexProps) {
                     unitOptions={BASIS_UNIT_OPTIONS}
                     unitHideLabelList={[]}
                     placeholder={DEFAULT_PLACEHOLDER}
-                    clearable
-                    onClear={() => handleBasisChange(null)}
                     onFocus={() => {
                       isEditingBasisRef.current = true
                     }}
