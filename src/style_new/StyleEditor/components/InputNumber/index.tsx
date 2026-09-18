@@ -24,6 +24,19 @@ export interface UnitOption {
   disabled?: boolean;
   tip?: string;
 }
+
+const DEFAULT_ACTION_VALUE = '__input_number_default__'
+const DEFAULT_ACTION_OPTION: UnitOption = {
+  label: '默认',
+  value: DEFAULT_ACTION_VALUE,
+  type: 'action',
+}
+const DEFAULT_ACTION_DIVIDER: UnitOption = {
+  label: '',
+  value: '__input_number_default_divider__',
+  type: 'divider',
+}
+
 export interface InputNumberProps extends Omit<InputProps, 'onChange' | 'value'> {
   defaultUnitValue?: string
   unitDisabledList?: Array<string>
@@ -46,7 +59,7 @@ export interface InputNumberProps extends Omit<InputProps, 'onChange' | 'value'>
   badge?: React.ReactNode;
   /** 输入框占位文案，默认“默认” */
   placeholder?: string;
-  /** 输入为空时的兜底值；回车、失焦或点击清空按钮时自动补填并提交 */
+  /** 输入为空时的兜底值；回车、失焦或选择“默认”时自动补填并提交 */
   fallbackValue?: number | string;
   /** 无值时隐藏单位文案（仍保留下拉箭头，便于操作如「移除」） */
   hideUnitWhenEmpty?: boolean;
@@ -55,7 +68,7 @@ export interface InputNumberProps extends Omit<InputProps, 'onChange' | 'value'>
   value?: string | number | null;
   /** 空值回车/失焦且无 fallbackValue 时传 null，供上层删除对应 CSS 属性 */
   onChange?: (value: string | null) => void;
-  /** 在单位选择器左侧显示清空按钮 */
+  /** 在下拉菜单中提供“默认”选项 */
   clearable?: boolean;
   onClear?: () => void;
 }
@@ -261,7 +274,7 @@ export function InputNumber ({
   const handleClear = useCallback(() => {
     // 先清空当前输入实例，避免等待上层 CSS 值回传时继续显示旧数值。
     setDisplayValue('')
-    // 清空按钮会主动提交，后续仅用 blur 收起输入态，避免重复提交。
+    // “默认”选项会主动提交，后续仅用 blur 收起输入态，避免重复提交。
     // 不能把兜底值的提交寄托在 blur 上：输入框未聚焦时调用 blur() 不会触发事件。
     skipClearBlurRef.current = true
     skipUnitNumberOnChangeRef.current = true
@@ -282,55 +295,65 @@ export function InputNumber ({
     onChange?.(null)
   }, [handleNumberChange, onClear, onChange, fallbackValue, unit])
 
-  const renderClearButton = useCallback(() => {
-    if (!clearable || !hasNumericDisplayValue) return null
+  const hasBuiltInDefaultOption = unitOptions?.some((option) => option.value === 'default') ?? false
+  const showDefaultAction = clearable && hasNumericDisplayValue && !hasBuiltInDefaultOption
+
+  const menuOptions = useMemo(() => {
+    const options = unitOptions ?? []
+    if (!showDefaultAction) return options
+    // 固定单位无需在菜单中重复展示（例如布局间距固定为 px），只保留“默认”。
+    if (options.length <= 1) return [DEFAULT_ACTION_OPTION]
+    return [DEFAULT_ACTION_OPTION, DEFAULT_ACTION_DIVIDER, ...options]
+  }, [showDefaultAction, unitOptions])
+
+  const handleMenuAction = useCallback((action: any) => {
+    if (action !== DEFAULT_ACTION_VALUE) {
+      onAction?.(action)
+      return
+    }
+
+    handleClear()
+    // 下拉触发器本身不可聚焦；若输入框仍保持焦点，主动失焦并避免重复提交。
+    if (typeof document !== 'undefined' && document.activeElement instanceof HTMLInputElement) {
+      document.activeElement.blur()
+    }
+    requestAnimationFrame(() => {
+      skipClearBlurRef.current = false
+    })
+  }, [handleClear, onAction])
+
+  const renderDefaultSelect = useCallback(() => {
+    if (!showDefaultAction) return null
     return (
-      <button
-        type="button"
-        className={css.clearButton}
-        aria-label="清空"
-        data-input-clear="true"
-        data-mybricks-tip="清空"
-        onMouseDown={(e) => e.preventDefault()}
-        onClick={(e) => {
-          e.stopPropagation()
-          const button = e.currentTarget
-          handleClear()
-          requestAnimationFrame(() => {
-            const input = button.parentElement?.parentElement?.querySelector('input') as HTMLInputElement | null
-            input?.blur()
-            if (document.activeElement !== input) skipClearBlurRef.current = false
-          })
-        }}
-      >
-        <svg
-          fillRule="evenodd"
-          viewBox="64 64 896 896"
-          focusable="false"
-          data-icon="close-circle"
-          width="1em"
-          height="1em"
-          fill="currentColor"
-          aria-hidden="true"
-        >
-          <path d="M512 64c247.4 0 448 200.6 448 448S759.4 960 512 960 64 759.4 64 512 264.6 64 512 64zm127.98 274.82h-.04l-.08.06L512 466.75 384.14 338.88c-.04-.05-.06-.06-.08-.06a.12.12 0 00-.07 0c-.03 0-.05.01-.09.05l-45.02 45.02a.2.2 0 00-.05.09.12.12 0 000 .07v.02a.27.27 0 00.06.06L466.75 512 338.88 639.86c-.05.04-.06.06-.06.08a.12.12 0 000 .07c0 .03.01.05.05.09l45.02 45.02a.2.2 0 00.09.05.12.12 0 00.07 0c.02 0 .04-.01.08-.05L512 557.25l127.86 127.87c.04.04.06.05.08.05a.12.12 0 00.07 0c.03 0 .05-.01.09-.05l45.02-45.02a.2.2 0 00.05-.09.12.12 0 000-.07v-.02a.27.27 0 00-.05-.06L557.25 512l127.87-127.86c.04-.04.05-.06.05-.08a.12.12 0 000-.07c0-.03-.01-.05-.05-.09l-45.02-45.02a.2.2 0 00-.09-.05.12.12 0 00-.07 0z" />
-        </svg>
-      </button>
+      <Select
+        tip="设置"
+        style={{ width: 16, padding: 0, fontSize: 10 }}
+        value={unit}
+        options={[DEFAULT_ACTION_OPTION]}
+        showIcon
+        hideLabel
+        onChange={() => {}}
+        onAction={handleMenuAction}
+        disabled={isDisabledUnit()}
+      />
     )
-  }, [clearable, handleClear, hasNumericDisplayValue])
+  }, [handleMenuAction, isDisabledUnit, showDefaultAction, unit])
 
   const suffix = useMemo(() => {
     if (customSuffix) {
-      return <>{renderClearButton()}{customSuffix}</>
+      return <>{renderDefaultSelect()}{customSuffix}</>
     } else if (Array.isArray(unitOptions)) {
       // Hug badge 时直接替代单位选择器，不再显示下拉
       if (badge) {
-        return <>{renderClearButton()}{badge}</>
+        // 默认 / 填满 / 适应态本身已有菜单；输入中的临时数值不能再追加第二个箭头。
+        return badge
       }
-      // 仅一个单位选项时无切换必要，不展示下拉（如只有 px）
-      if (unitOptions.length <= 1) return renderClearButton()
+      // 仅一个固定单位且没有“默认”操作时，无切换必要，不展示下拉。
+      if (menuOptions.length <= 1 && !showDefaultAction) return null
+      const defaultOnly = showDefaultAction && unitOptions.length <= 1
       // 无值 / 指定单位（如 px）隐藏文案，仍保留下拉箭头与布局
       const hideUnitLabel =
+        defaultOnly ||
         isDefaultUnit ||
         (hideUnitWhenEmpty && isEmptyValue) ||
         unitHideLabelList.includes(unit)
@@ -339,23 +362,21 @@ export function InputNumber ({
             tip='单位'
             style={{ padding: 0, fontSize: 10, marginLeft: clearable ? 0 : undefined, ...unitSelectStyle }}
             value={unit}
-            options={unitOptions}
-            showIcon={showIcon}
+            options={menuOptions}
+            showIcon={showIcon || showDefaultAction}
             showIconOnHover={showIconOnHover}
             hideLabel={hideUnitLabel}
             iconClassName={unitIconClassName}
             onChange={setUnit}
-            onAction={onAction}
+            onAction={handleMenuAction}
             disabled={isDisabledUnit()}
         />
       )
-      return align === 'right'
-        ? <>{unitSelect}{renderClearButton()}</>
-        : <>{renderClearButton()}{unitSelect}</>
+      return unitSelect
     }
 
-    return renderClearButton()
-  }, [unit, isDefaultUnit, badge, renderClearButton, unitOptions, onAction, hideUnitWhenEmpty, isEmptyValue, unitHideLabelList, showIcon, showIconOnHover, unitSelectStyle, unitIconClassName, align])
+    return renderDefaultSelect()
+  }, [unit, isDefaultUnit, badge, renderDefaultSelect, unitOptions, menuOptions, handleMenuAction, hideUnitWhenEmpty, isEmptyValue, unitHideLabelList, showIcon, showIconOnHover, showDefaultAction, unitSelectStyle, unitIconClassName])
 
   // 新选中组件的值在首帧绘制前同步到内部 state，避免旧值短暂闪现。
   useLayoutEffect(() => {

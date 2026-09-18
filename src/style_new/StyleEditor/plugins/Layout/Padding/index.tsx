@@ -121,7 +121,7 @@ export default ({paddingType, onPaddingToggle, value, onChange  }: PaddingProps)
             defaultValue={toInputValue(value[name])}
             defaultUnitValue="px"
             unitOptions={PX_UNIT_OPTIONS}
-            // 0 也是有效回显值，需要保留清除按钮；空值时公共组件会自动隐藏按钮。
+            // 0 也是有效回显值，需要保留“默认”入口；空值时公共组件会自动隐藏入口。
             clearable
             onChange={(next) =>
               onChange({
