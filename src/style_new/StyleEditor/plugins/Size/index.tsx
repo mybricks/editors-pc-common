@@ -254,13 +254,13 @@ function DefaultModeBadge({
 
 /** 归一化尺寸值：auto / inherit / default / 未配置 → undefined。fit-content 保留原值，用于区分"显式 Hug"与"未配置" */
 function normalizeSizeValue(val: any): string | undefined {
-  if (!val || val === 'auto' || val === 'inherit' || val === 'default') return undefined;
-  return val as string;
+  if (val == null || val === '' || val === 'auto' || val === 'inherit' || val === 'default') return undefined;
+  return typeof val === 'number' ? `${val}px` : String(val);
 }
 
 /** 从值中提取单位，用作 InputNumber 的 key，单位变化时强制重新挂载 */
 function getUnitKey(val: any): string {
-  if (!val) return 'empty';
+  if (val == null || val === '') return 'empty';
   const str = String(val);
   if (str === 'max-content') return str;
   const num = parseFloat(str);

@@ -52,6 +52,8 @@ export interface InputNumberProps extends Omit<InputProps, 'onChange' | 'value'>
   type?: string
   align?: 'left' | 'right'
   onFocus?: () => void;
+  /** 输入过程中的原始展示值变化；不代表已经通过回车或失焦提交。 */
+  onInputValueChange?: (value: string) => void;
   onAction?: (value: any) => void;
   unitIconClassName?: string;
   unitSelectStyle?: React.CSSProperties;
@@ -88,6 +90,7 @@ export function InputNumber ({
   unitDisplayLabelMap = {},
   defaultUnitValue,
   onFocus,
+  onInputValueChange,
   tip,
   allowNegative = false,
   showIcon = false,
@@ -117,7 +120,7 @@ export function InputNumber ({
   const skipClearBlurRef = useRef(false)
   const [displayValue, setDisplayValue] = useState(() => {
     const initVal = externalValue
-    if (!initVal) return ''
+    if (initVal == null || initVal === '') return ''
     // default / fit-content 等关键字：输入框留空，用 placeholder 展示（如「默认（xx）」）
     if (typeof unit !== 'undefined' && typeof initVal !== 'undefined' && unit === initVal) {
       return ''
@@ -128,7 +131,9 @@ export function InputNumber ({
     return number
   })
 
-  const isEmptyValue = !displayValue && !externalValue
+  const isEmptyValue =
+    (displayValue == null || displayValue === '') &&
+    (externalValue == null || externalValue === '')
 
   const isDisabledUnit = useCallback(() => {
     // default 表示未配置：输入框与下拉仍可用，便于继续输入或切换单位
@@ -146,7 +151,8 @@ export function InputNumber ({
   const handleInputChange = useCallback((nextValue: string) => {
     inputChangedSinceFocusRef.current = true
     setDisplayValue(nextValue)
-  }, [])
+    onInputValueChange?.(nextValue)
+  }, [onInputValueChange])
 
   const onKeyDown = useCallback((e: {
     target: any, code: any; preventDefault: () => void

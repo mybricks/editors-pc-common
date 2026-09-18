@@ -463,15 +463,20 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
   const [fontSize, setFontSize] = useState<string | number | null>(() =>
     isConfiguredCssLength(value.fontSize) ? (value.fontSize as string | number) : null
   );
+  const [fontSizeDraftConfigured, setFontSizeDraftConfigured] = useState(false);
+  const [fontSizeInputKey, setFontSizeInputKey] = useState(0);
   const [lineHeight, setLineHeight] = useState<string | number | null>(() =>
     isConfiguredCssLength(value.lineHeight) ? (value.lineHeight as string | number) : null
   );
+  const lineHeightChangedByInputRef = useRef(false);
   const [letterSpacing, setLetterSpacing] = useState<string | number | null>(() =>
     isConfiguredCssLength(value.letterSpacing) ? (value.letterSpacing as string | number) : null
   );
 
   // 切换选中元素时按规则重算；同元素内以本地 onChange 为准，避免与乐观更新互相覆盖
   useEffect(() => {
+    setFontSizeDraftConfigured(false);
+    lineHeightChangedByInputRef.current = false;
     setFontSize(isConfiguredCssLength(value.fontSize) ? (value.fontSize as string | number) : null);
     setLineHeight(isConfiguredCssLength(value.lineHeight) ? (value.lineHeight as string | number) : null);
     setLetterSpacing(
@@ -481,6 +486,7 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
 
   const defaultFontSizePx = getComputedCssLengthPx(targetDom, 'fontSize');
   const fontSizeUnconfigured = !isConfiguredCssLength(fontSize);
+  const showFontSizeDefaultAction = !fontSizeUnconfigured || fontSizeDraftConfigured;
   const fontSizePlaceholder = '默认';
   const fontSizeTip = fontSizeUnconfigured
     ? buildDefaultLengthTip('字号', defaultFontSizePx)
@@ -543,8 +549,16 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
 
   const onFontSizeChange = useCallback(
     (nextFontSize: string | number | null) => {
+      setFontSizeDraftConfigured(false);
+      if (throttleTimerRef.current) {
+        clearTimeout(throttleTimerRef.current);
+        throttleTimerRef.current = null;
+      }
       if (nextFontSize == null || nextFontSize === '') {
         setFontSize(null);
+        // 默认态直接输入 0 时，0 只存在于 InputNumber 的草稿中；外部值仍为 null，
+        // 因此选择「默认」需要重挂载输入框，确保草稿也立即清空。
+        setFontSizeInputKey((key) => key + 1);
         onChange({ key: "fontSize", value: null });
         return;
       }
@@ -598,12 +612,9 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
         // 使用节流控制更新频率，每200ms最多更新一次
         const now = Date.now();
         if (now - lastUpdateTimeRef.current < 200) {
-          // 清除之前的定时器
-          if (throttleTimerRef.current) {
-            clearTimeout(throttleTimerRef.current);
-          }
           // 设置新的定时器，确保最后一次更新能执行
           throttleTimerRef.current = setTimeout(() => {
+            throttleTimerRef.current = null;
             lastUpdateTimeRef.current = Date.now();
             executeUpdate();
           }, 200);
@@ -630,6 +641,8 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
 
   const onLineHeightChange = useCallback(
     (next: string | number | null, nextFontSize?: string | number) => {
+      const changedByInput = lineHeightChangedByInputRef.current;
+      lineHeightChangedByInputRef.current = false;
       let value = next;
       // 下拉选择「默认」：清除行高，回到未配置态
       if (value === 'default' || value === 'normal') {
@@ -654,8 +667,8 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
           if (!isNaN(oldNum) && oldNum === newNum && oldUnit !== newUnit) {
             value = convertLineHeightValue(oldNum, oldUnit, newUnit, fontSizePx, defaultPx);
           }
-        } else {
-          // 未配置时切到具体单位：按计算默认值填充（对齐尺寸编辑器）
+        } else if (!changedByInput) {
+          // 未配置且仅切换单位时，按计算默认值填充；首次手动输入需保留用户提交值。
           value = convertLineHeightValue(defaultPx, 'px', newUnit, fontSizePx, defaultPx);
         }
       }
@@ -683,7 +696,7 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
 
   /** 字号预置列表 + 底部变量入口（图标居中、无文案，对齐 Figma） */
   const fontSizePresetOptions = useMemo(() => ([
-    ...(!fontSizeUnconfigured ? [
+    ...(showFontSizeDefaultAction ? [
       { label: '默认', value: FONT_SIZE_DEFAULT_ACTION, type: 'action' as const },
       { label: '', value: '__fontSizeDefaultDivider__', type: 'divider' as const },
     ] : []),
@@ -697,7 +710,7 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
       disabled: !fontSizeVar.hasVariables,
       tip: fontSizeVar.hasVariables ? '应用变量...' : '当前画布没有可用的尺寸变量',
     },
-  ]), [fontSizePresetItems, fontSizeUnconfigured, fontSizeVar.hasVariables]);
+  ]), [fontSizePresetItems, showFontSizeDefaultAction, fontSizeVar.hasVariables]);
 
   /** 预置列表的勾选项：取当前字号的 px 数值，不在档位里则不勾 */
   const fontSizePresetValue = useMemo(() => {
@@ -1074,6 +1087,7 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
               </div>
               <VariableNumberInput
                 binding={fontSizeVar}
+                inputKey={`font-size-${fontSizeInputKey}`}
                 // 绑定态也给出完整档位列表：顶部单列当前变量，点档位即解绑成固定值
                 menuLayout="presetList"
                 menuOptions={fontSizePresetItems}
@@ -1086,6 +1100,10 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
                   value: fontSizeUnconfigured ? null : fontSize,
                   placeholder: fontSizePlaceholder,
                   unitOptions: FONT_SIZE_OPTIONS,
+                  onInputValueChange: (nextValue) => {
+                    const parsed = parseFloat(nextValue);
+                    setFontSizeDraftConfigured(nextValue.trim() !== '' && !isNaN(parsed));
+                  },
                   // “默认”已合并到右侧字号档位菜单，避免公共 InputNumber 再生成第二个箭头。
                   clearable: false,
                   onChange: onFontSizeChange,
@@ -1154,6 +1172,9 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
                   hideUnitWhenEmpty: true,
                   showIcon: true,
                   showIconOnHover: true,
+                  onInputValueChange: () => {
+                    lineHeightChangedByInputRef.current = true;
+                  },
                   onChange: onLineHeightChange,
                   onAction: (action) => {
                     if (action === APPLY_VARIABLE_ACTION) lineHeightVar.openPicker();
