@@ -1,6 +1,6 @@
-import React, { CSSProperties, useCallback, useEffect, useRef, useState } from 'react'
+import React, { CSSProperties, useCallback, useEffect, useState } from 'react'
 
-import { Panel, ClearButton } from '../../components'
+import { Panel, InputNumber } from '../../components'
 import { useStyleEditorContext } from '../../context'
 import { useDragNumber } from '../../hooks'
 
@@ -13,36 +13,35 @@ interface PositionProps extends PanelBaseProps {
   onChange: ChangeEvent
 }
 
-/** left/top 本身已可编辑的 position（无需再切 absolute） */
+/** 偏移属性本身已可编辑的 position（无需再切 absolute） */
 const EDITABLE_POSITIONS = new Set(['absolute', 'fixed', 'relative', 'sticky'])
 /** 自由定位：按钮高亮，可一键取消 */
 const FREE_POSITIONS = new Set(['absolute', 'fixed'])
-
-/** "12px" / 12 → "12"；auto / null / undefined → "" */
-function toDisplayValue(val: unknown): string {
-  if (val == null) return ''
-  const str = String(val)
-  if (str === 'auto') return ''
-  const num = parseFloat(str)
-  return isNaN(num) ? '' : String(num)
+const POSITION_UNIT_OPTIONS = [
+  { label: 'px', value: 'px' },
+  { label: '%', value: '%' },
+]
+const POSITION_UNIT_SELECT_STYLE: CSSProperties = {
+  background: 'transparent',
 }
 
-/** "12" → "12px"；空字符串 / NaN → null（删除属性） */
-function toOutputValue(str: string): string | null {
-  const num = parseFloat(str)
-  if (isNaN(num)) return null
-  return `${num}px`
+/** 未声明或使用默认值时交给 InputNumber 通过 placeholder 显示「默认」。 */
+function toInputValue(value: unknown): string | undefined {
+  if (value == null || value === '' || value === 'auto' || value === 'inherit') {
+    return undefined
+  }
+  return typeof value === 'number' ? `${value}px` : String(value)
 }
 
 /**
  * 计算元素相对 offsetParent（即 absolute 定位上下文）的偏移。
  * 使用 offsetLeft/offsetTop（布局 CSS 像素），避免画布 transform:scale 下
- * getBoundingClientRect 屏幕像素与写入 less 的 left/top 不一致。
+ * getBoundingClientRect 屏幕像素与写入 less 的 CSS 偏移值不一致。
  */
-function computeDomOffset(dom: HTMLElement): { x: number; y: number } {
+function computeDomOffset(dom: HTMLElement): { top: number; left: number } {
   return {
-    x: Math.round(dom.offsetLeft),
-    y: Math.round(dom.offsetTop),
+    top: Math.round(dom.offsetTop),
+    left: Math.round(dom.offsetLeft),
   }
 }
 
@@ -57,6 +56,8 @@ function isUnconfiguredSize(value: unknown): boolean {
   return value == null || value === '' || value === 'auto' || value === 'inherit'
 }
 
+type PositionDirection = 'top' | 'right' | 'bottom' | 'left'
+
 function PositionInput({
   label,
   rawValue,
@@ -64,152 +65,78 @@ function PositionInput({
   onChange,
   needsActivation,
   onActivate,
-  computedValue,
 }: {
   label: string
   rawValue: unknown
-  cssKey: 'left' | 'top'
+  cssKey: PositionDirection
   onChange: ChangeEvent
   /**
-   * 非自由定位且 left/top 无效时为 true。
+   * 非自由定位且偏移属性无效时为 true。
    * 拖拽位移或输入改值时自动开启自由定位。
    */
   needsActivation: boolean
-  /** 开启自由定位：一次性提交 position:absolute + 当前 X/Y */
+  /** 开启自由定位：一次性提交 position:absolute + 当前偏移 */
   onActivate: () => void
-  /** DOM 计算出的实际位置，用于无显式 CSS 值时的回显 */
-  computedValue: string
 }) {
   const isLocked = needsActivation
-  const hasExplicitValue = rawValue != null && String(rawValue) !== 'auto' && toDisplayValue(rawValue) !== ''
-  const displayValue = hasExplicitValue ? toDisplayValue(rawValue) : computedValue
 
-  const [localValue, setLocalValue] = useState(displayValue)
-  const isEditingRef = useRef(false)
-  /** 拖拽进行中时为 true，防止父组件 re-render 把 localValue 回写为旧的 computedValue */
-  const isDraggingRef = useRef(false)
-  /** 当前编辑/拖拽 session 是否已调用过 onActivate，避免重复激活 */
-  const activatedRef = useRef(false)
-
-  useEffect(() => {
-    if (!isEditingRef.current && !isDraggingRef.current) {
-      setLocalValue(displayValue)
+  const handleChange = useCallback((nextValue: string | null) => {
+    if (nextValue == null) {
+      onChange({ key: cssKey, value: null })
+      return
     }
-  }, [displayValue])
-
-  // 自由定位已开启后，重置 session 标记，便于下次从文档流再进
-  useEffect(() => {
-    if (!needsActivation) {
-      activatedRef.current = false
-    }
-  }, [needsActivation])
-
-  const handleFocus = useCallback(() => {
-    if (isLocked) return
-    // 纯 focus 不开启自由定位，避免一点击输入框就脱离文档流
-    isEditingRef.current = true
-  }, [isLocked])
-
-  const ensureActivated = useCallback(() => {
-    if (needsActivation && !activatedRef.current) {
-      activatedRef.current = true
-      onActivate()
-    }
-  }, [needsActivation, onActivate])
-
-  const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    if (isLocked) return
-    const val = e.target.value
-    setLocalValue(val)
-    const out = toOutputValue(val)
-    if (out !== null) {
-      // 数值真正变化时才开启自由定位
-      ensureActivated()
-      onChange({ key: cssKey, value: out })
-    }
-  }, [cssKey, onChange, ensureActivated, isLocked])
-
-  /** 回车/失焦提交：空值或非法值兜底为 0（与 InputNumber fallbackValue={0} 一致） */
-  const commitValue = useCallback((raw: string) => {
-    if (isLocked) return
-    const out = toOutputValue(raw.trim()) ?? '0px'
-    ensureActivated()
-    onChange({ key: cssKey, value: out })
-    setLocalValue(toDisplayValue(out))
-  }, [cssKey, onChange, ensureActivated, isLocked])
-
-  const handleBlur = useCallback((e: React.FocusEvent<HTMLInputElement>) => {
-    isEditingRef.current = false
-    isDraggingRef.current = false
-    commitValue(e.target.value)
-  }, [commitValue])
-
-  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.code !== 'Enter') return
-    e.preventDefault()
-    commitValue((e.target as HTMLInputElement).value)
-    ;(e.target as HTMLInputElement).blur()
-  }, [commitValue])
+    if (needsActivation) onActivate()
+    onChange({ key: cssKey, value: nextValue })
+  }, [cssKey, needsActivation, onActivate, onChange])
 
   const dragProps = useDragNumber({
     min: Number.NEGATIVE_INFINITY,
     sensitivity: 1,
-    onDragStart: () => {
-      isDraggingRef.current = true
-      activatedRef.current = false
-      if (needsActivation) {
-        // 返回数字触发 useCustomEnd 模式，松手时走 onDragEnd 而非 focus/blur
-        return parseFloat(computedValue) || 0
-      }
-    },
     onDragChange: (newVal) => {
-      // 第一帧移动时激活（只触发一次）
-      ensureActivated()
-      setLocalValue(String(newVal))
-      onChange({ key: cssKey, value: `${newVal}px` })
-    },
-    onDragEnd: (finalValue) => {
-      isDraggingRef.current = false
-      activatedRef.current = false
-      onChange({ key: cssKey, value: `${finalValue}px` })
+      if (needsActivation) onActivate()
+      onChange({ key: cssKey, value: `${newVal}${String(rawValue).trim().endsWith('%') ? '%' : 'px'}` })
     },
   })
 
   return (
-    <Panel.Item className={css.inputItem}>
-      <div className={`${css.inputRow} ${isLocked ? css.inputRowDisabled : ''}`}>
+    <InputNumber
+      style={{ flex: 1, minWidth: 0 }}
+      prefix={(
         <span
-          {...(!isLocked ? dragProps(localValue, `拖拽调整 ${label}`) : {})}
+          {...(!isLocked ? dragProps(toInputValue(rawValue), `拖拽调整 ${label}`) : {})}
           className={`${css.dragLabel} ${isLocked ? css.dragLabelDisabled : ''}`}
         >
           {label}
         </span>
-        <input
-          className={`${css.numberInput} ${isLocked ? css.numberInputDisabled : ''}`}
-          type="text"
-          inputMode="numeric"
-          value={localValue}
-          onChange={handleChange}
-          onFocus={handleFocus}
-          onBlur={handleBlur}
-          onKeyDown={handleKeyDown}
-          disabled={isLocked}
-        />
-        {!isLocked && localValue !== '' && <ClearButton onClick={() => { setLocalValue(''); commitValue('') }} />}
-      </div>
-    </Panel.Item>
+      )}
+      value={toInputValue(rawValue)}
+      defaultValue={toInputValue(rawValue)}
+      defaultUnitValue='px'
+      unitOptions={POSITION_UNIT_OPTIONS}
+      unitSelectStyle={POSITION_UNIT_SELECT_STYLE}
+      placeholder='默认'
+      allowNegative
+      showIcon
+      showIconOnHover
+      unitHideLabelList={['px']}
+      disabled={isLocked}
+      clearable={!isLocked}
+      onClear={() => onChange({ key: cssKey, value: null })}
+      onChange={handleChange}
+    />
   )
 }
 
 export function Position({ value, onChange, showTitle }: PositionProps) {
   const leftVal = value?.left
   const topVal = value?.top
+  const rightVal = value?.right
+  const bottomVal = value?.bottom
   const positionVal = (value as any)?.position
   const positionStr = positionVal != null ? String(positionVal) : 'static'
 
   const editorContext = useStyleEditorContext()
   const targetDom = editorContext?.targetDom ?? null
-  const [domOffset, setDomOffset] = useState<{ x: number; y: number } | null>(null)
   /**
    * 切换瞬间的乐观状态。不能用 getComputedStyle 兜底高亮：
    * 取消后 value 已清掉，但 DOM/computed 可能短暂仍是 absolute，且之后无重渲染，高亮会卡住。
@@ -218,7 +145,7 @@ export function Position({ value, onChange, showTitle }: PositionProps) {
 
   const isFreeFromValue = FREE_POSITIONS.has(positionStr)
   const isFreePosition = optimisticFree ?? isFreeFromValue
-  // static / 未设置：改 X/Y 时需自动开启自由定位
+  // static / 未设置：修改偏移时需自动开启自由定位
   const needsActivation = !(optimisticFree ?? EDITABLE_POSITIONS.has(positionStr))
 
   // value 回传与乐观状态对齐后，清除乐观标记
@@ -229,32 +156,16 @@ export function Position({ value, onChange, showTitle }: PositionProps) {
     }
   }, [optimisticFree, isFreeFromValue])
 
-  useEffect(() => {
-    if (!targetDom) {
-      setDomOffset(null)
-      return
-    }
-    const update = () => setDomOffset(computeDomOffset(targetDom))
-    update()
-    const observer = new ResizeObserver(update)
-    observer.observe(targetDom)
-    if (targetDom.offsetParent) {
-      observer.observe(targetDom.offsetParent as Element)
-    }
-    return () => observer.disconnect()
-  }, [targetDom])
-
-  const computedX = domOffset != null ? String(domOffset.x) : ''
-  const computedY = domOffset != null ? String(domOffset.y) : ''
-
   /** 开启自由定位：锁定当前 DOM 位置（点击瞬间重新计算，避免闭包旧值） */
   const handleActivate = useCallback(() => {
-    const offset = targetDom ? computeDomOffset(targetDom) : { x: 0, y: 0 }
+    const offset = targetDom
+      ? computeDomOffset(targetDom)
+      : { top: 0, left: 0 }
     const size = targetDom ? computeDomSize(targetDom) : null
     const changes = [
       { key: 'position', value: 'absolute' },
-      { key: 'left', value: `${offset.x}px` },
-      { key: 'top', value: `${offset.y}px` },
+      { key: 'left', value: `${offset.left}px` },
+      { key: 'top', value: `${offset.top}px` },
     ]
     if (size && isUnconfiguredSize(value.width)) {
       changes.push({ key: 'width', value: `${size.width}px` })
@@ -262,18 +173,19 @@ export function Position({ value, onChange, showTitle }: PositionProps) {
     if (size && isUnconfiguredSize(value.height)) {
       changes.push({ key: 'height', value: `${size.height}px` })
     }
-    setDomOffset(offset)
     setOptimisticFree(true)
     onChange(changes)
   }, [onChange, targetDom, value.height, value.width])
 
-  /** 取消自由定位：清理 position / left / top */
+  /** 取消自由定位：清理 position 及四个偏移属性 */
   const handleDeactivate = useCallback(() => {
     setOptimisticFree(false)
     onChange([
       { key: 'position', value: null },
-      { key: 'left', value: null },
       { key: 'top', value: null },
+      { key: 'right', value: null },
+      { key: 'bottom', value: null },
+      { key: 'left', value: null },
     ])
   }, [onChange])
 
@@ -303,26 +215,44 @@ export function Position({ value, onChange, showTitle }: PositionProps) {
         </div>
       </div>
       {isFreePosition && (
-        <Panel.Content>
-          <PositionInput
-            label='X'
-            rawValue={leftVal}
-            cssKey='left'
-            onChange={onChange}
-            needsActivation={needsActivation}
-            onActivate={handleActivate}
-            computedValue={computedX}
-          />
-          <PositionInput
-            label='Y'
-            rawValue={topVal}
-            cssKey='top'
-            onChange={onChange}
-            needsActivation={needsActivation}
-            onActivate={handleActivate}
-            computedValue={computedY}
-          />
-        </Panel.Content>
+        <>
+          <Panel.Content>
+            <PositionInput
+              label='上'
+              rawValue={topVal}
+              cssKey='top'
+              onChange={onChange}
+              needsActivation={needsActivation}
+              onActivate={handleActivate}
+            />
+            <PositionInput
+              label='右'
+              rawValue={rightVal}
+              cssKey='right'
+              onChange={onChange}
+              needsActivation={needsActivation}
+              onActivate={handleActivate}
+            />
+          </Panel.Content>
+          <Panel.Content>
+            <PositionInput
+              label='下'
+              rawValue={bottomVal}
+              cssKey='bottom'
+              onChange={onChange}
+              needsActivation={needsActivation}
+              onActivate={handleActivate}
+            />
+            <PositionInput
+              label='左'
+              rawValue={leftVal}
+              cssKey='left'
+              onChange={onChange}
+              needsActivation={needsActivation}
+              onActivate={handleActivate}
+            />
+          </Panel.Content>
+        </>
       )}
     </Panel>
   )
