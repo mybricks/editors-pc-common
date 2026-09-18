@@ -216,7 +216,7 @@ function getComputedCssLengthPx(
 }
 
 function buildDefaultLengthTip(label: string, px: number | null): string {
-  return px != null ? `当前未配置${label}值，${px}为计算值` : label;
+  return px != null ? `未配置值，实际${label}为${px}` : label;
 }
 
 /** 行高单位互转：先归一到 px，再转到目标单位；无效时用 defaultPx */
@@ -495,9 +495,7 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
   const defaultLetterSpacingPx = getComputedCssLengthPx(targetDom, 'letterSpacing');
   const letterSpacingUnconfigured = !isConfiguredCssLength(letterSpacing);
   const letterSpacingPlaceholder = '默认';
-  const letterSpacingTip = letterSpacingUnconfigured
-    ? buildDefaultLengthTip('字间距', defaultLetterSpacingPx)
-    : '字间距';
+  const letterSpacingTip = '字间距';
 
   const [truncateLines, setTruncateLines] = useState<number>(() => {
     const clamp = (value as any).webkitLineClamp;

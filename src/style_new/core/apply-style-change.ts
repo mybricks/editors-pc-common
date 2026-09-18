@@ -2,7 +2,7 @@ import { deepCopy } from '../../utils'
 import { mergeCSSProperties } from '../StyleEditor/helper'
 import { preservePaintRoles } from '../StyleEditor/helper/paint-stack'
 import { PANEL_MAP } from './panel-defaults'
-import { findCascadeWinnerDetail } from './cascade-winner'
+import { createCssCascadeSession } from './css-cascade'
 import { toLine } from './css-code-codec'
 import { toElementArray } from './dom'
 import { collectTextFillCleanupTargets } from './effective-text-fill'
@@ -74,11 +74,11 @@ function logStyleWrite(
 ) {
   Object.entries(style).forEach(([key, value]) => {
     // 排查样式写入目标时可取消下一行注释
-    // console.log('[style_new][style-write]', {
-    //   key,
-    //   value,
-    //   className: targetSelector || '(宿主默认目标)',
-    // })
+    console.log('[style_new][style-write]', {
+      key,
+      value,
+      className: targetSelector || '(宿主默认目标)',
+    })
   })
 }
 
@@ -94,6 +94,8 @@ const preserveCascadePriority = (
   const cascadeMode = typeof selector === 'string' && HOVER_SELECTOR_RE.test(selector)
     ? 'hover'
     : 'default'
+  // 同一批变更共用一次匹配规则扫描；每个属性只做声明级比较。
+  const cascadeSession = createCssCascadeSession(targetDom)
 
   return items.map((item) => {
     if (
@@ -107,7 +109,7 @@ const preserveCascadePriority = (
     const cacheKey = `${cascadeMode}:${property}`
     let shouldPreservePriority = priorityCache?.get(cacheKey)
     if (shouldPreservePriority === undefined) {
-      shouldPreservePriority = !!findCascadeWinnerDetail(targetDom, property, cascadeMode)?.important
+      shouldPreservePriority = !!cascadeSession.resolve(property, cascadeMode)?.priority.important
       priorityCache?.set(cacheKey, shouldPreservePriority)
     }
     if (!shouldPreservePriority) return item

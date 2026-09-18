@@ -1,24 +1,20 @@
 // @ts-ignore
-import colorUtil from 'color-string'
-// @ts-ignore
 import { compare } from 'specificity'
 
 import { refineEffectedPanel } from '../StyleEditor/helper/paint-stack'
 import {
-  createCascadeResolver,
-  findCascadeWinner,
-  findCascadeWinnerDetail,
-  getOwnDeclaringMaxSpec,
-  getOwnDeclaringValue,
-} from './cascade-winner'
-import { toHump } from './css-code-codec'
+  createCssCascadeSession,
+  resolveCascadeRuleSources,
+} from './css-cascade'
+import type { CascadeCandidate, CascadeRuleSource } from './css-cascade'
+import { toHump, toLine } from './css-code-codec'
 import { elementHasClassOrHashed } from './css-modules-match'
 import { getDocument } from './dom'
 import { getStyleRules } from './get-style-rules'
 import type { StyleRulesScanCache } from './get-style-rules'
 import { getValues } from './get-values'
 import { reconcileEffectiveTextFill } from './effective-text-fill'
-import { getDefaultValueFunctionMap2, PANEL_MAP } from './panel-defaults'
+import { PANEL_MAP } from './panel-defaults'
 import { calculateSafeSpecificity, someSelectorPart } from './selector-utils'
 import { hasCssVarReference } from './css-var'
 import {
@@ -266,321 +262,90 @@ export function getEffectedCssPropertyAndOptions (
     const values = getValues(finalRules, computedValues, allInheritOnlyRules);
 
     const _hasPseudo = /:{1,2}[a-zA-Z\-]+(?:\([^)]*\))?$/.test(primarySelector)
-    const cascadeResolver = element ? createCascadeResolver(element) : null
+    // 伪类/伪元素 Tab 编辑的是状态规则，不把元素自身的 style="" 复制进状态回显。
+    // inline 仍会在普通 classname Tab 中参与真实级联优先级计算。
+    const isStateTab = zoneTab ? !!zoneTab.pseudo : _hasPseudo
+    const allowInlineEcho = !isStateTab
+    const cascadeSession = element
+      ? createCssCascadeSession(element, { computedStyle: computedValues })
+      : null
+
+    const panelProperties = Object.keys(PANEL_MAP).map((camel) => ({
+      camel,
+      property: toLine(camel),
+    }))
+    const orderedZoneSources = zoneTab ? getOrderedZoneSourceRules(zoneTab) : []
+    const authoredSources: CascadeRuleSource[] = orderedZoneSources.length > 0
+      ? orderedZoneSources.map((source) => ({
+          rule: source.rule,
+          selectorPart: source.selectorPart,
+          target: source.target,
+          sourceOrder: source.sourceOrder,
+        }))
+      : finalRules
+          .filter((rule) => !allInheritOnlyRules.has(rule))
+          .map((rule, sourceOrder) => ({
+            rule,
+            selectorPart: rule.selectorText,
+            target: element,
+            sourceOrder,
+          }))
+    const authoredWinnerCache = new Map<string, CascadeCandidate | null>()
+    const getAuthoredWinner = (property: string): CascadeCandidate | null => {
+      if (!authoredWinnerCache.has(property)) {
+        authoredWinnerCache.set(
+          property,
+          authoredSources.length > 0
+            ? resolveCascadeRuleSources(authoredSources, property)
+            : null
+        )
+      }
+      return authoredWinnerCache.get(property) || null
+    }
 
     /**
-     * computedStyle 是整個元素的级联结果，同一节点挂多个 classname 时，
-     * 没有当前 tab 声明的边框字段可能来自兄弟 classname。只在确实找到一个
-     * CSS 规则且该规则不属于当前 tab 时清掉回退值；没有规则的 UA 默认边框仍保留。
+     * 面板显示策略：
+     * 1. 普通 classname Tab 有 inline 声明时，显示整个元素真正的级联赢家；
+     * 2. 伪类/伪元素 Tab 不引入 inline，只显示状态规则的 authored 赢家；
+     * 3. 其他情况优先显示当前 Zone Tab 自己的 authored 赢家；
+     * 4. 普通 Tab 当前 Zone 未声明时显示元素级赢家；状态 Tab 保留规则/computed 兜底。
      */
-    const sanitizeBorderFallback = (mode: 'default' | 'hover') => {
-      if (!element) return
+    panelProperties.forEach(({ camel, property }) => {
+      const authoredWinner = getAuthoredWinner(property)
+      const elementInlineCandidate = cascadeSession?.getInlineCandidate(property) || null
+      const inlineCandidate = allowInlineEcho
+        ? elementInlineCandidate
+        : null
+      const effectiveWinner = allowInlineEcho
+        ? cascadeSession?.resolve(property, 'default') || null
+        : null
+      const winner = inlineCandidate
+        ? effectiveWinner
+        : (authoredWinner || effectiveWinner)
+      if (winner?.value) {
+        ;(values as any)[camel] = winner.value
+      } else if (!allowInlineEcho && elementInlineCandidate) {
+        // getValues 的 computed fallback 也可能带入 inline；状态规则没有对应声明时清掉它。
+        delete (values as any)[camel]
+      }
+    })
 
-      const cascadeWinner = cascadeResolver
-
-      const ownRules = finalRules.filter((rule) => !allInheritOnlyRules.has(rule))
-      const emptyValues = getDefaultValueFunctionMap2.border() as Record<string, any>
-      const borderProps: Array<[string, string]> = [
-        ['borderTopColor', 'border-top-color'],
-        ['borderRightColor', 'border-right-color'],
-        ['borderBottomColor', 'border-bottom-color'],
-        ['borderLeftColor', 'border-left-color'],
-        ['borderTopLeftRadius', 'border-top-left-radius'],
-        ['borderTopRightRadius', 'border-top-right-radius'],
-        ['borderBottomRightRadius', 'border-bottom-right-radius'],
-        ['borderBottomLeftRadius', 'border-bottom-left-radius'],
-        ['borderTopStyle', 'border-top-style'],
-        ['borderRightStyle', 'border-right-style'],
-        ['borderBottomStyle', 'border-bottom-style'],
-        ['borderLeftStyle', 'border-left-style'],
-        ['borderTopWidth', 'border-top-width'],
-        ['borderRightWidth', 'border-right-width'],
-        ['borderBottomWidth', 'border-bottom-width'],
-        ['borderLeftWidth', 'border-left-width'],
-      ]
-
-      borderProps.forEach(([camel, hyphen]) => {
-        // CSSOM 中单条规则异常不应中断其他属性的回显。
-        try {
-          const ownValue = getOwnDeclaringValue(ownRules, element, hyphen)
-          if (ownValue) {
-            // 当前 tab 自身声明优先于整元素 computedStyle（包括更高优先级兄弟规则）。
-            ;(values as any)[camel] = ownValue
-            return
-          }
-
-          const winner = cascadeWinner
-            ? cascadeWinner(hyphen, mode)
-            : findCascadeWinnerDetail(element, hyphen, mode)
-          if (winner?.rule && !ownRules.includes(winner.rule)) {
-            ;(values as any)[camel] = emptyValues[camel]
-          }
-        } catch {}
-      })
-    }
-
-
-    // ── 高优先级竞争规则覆盖校正 ──────────────────────────────────────────────
-    // 默认态下，CSS 规则里的颜色值可能被更高特指度规则（如 .tableHeadRow th { color: #555 }，
-    // 特指度 0,1,1）覆盖，而目标选择器（如 .colTag，特指度 0,1,0）的规则值无法生效。
-    // getStyleRules 只返回匹配目标选择器的规则，不含竞争规则，导致回显与实际不符。
-    //
-    // 修复：扫描 document.styleSheets 中所有匹配当前 element 的规则，按 CSS 级联规则
-    // （!important 优先，再比特指度，最后按源码顺序）找出真正胜出的值覆盖回显。
-    // element.matches() 天然过滤伪类规则（:hover/:disabled 等非激活态不会匹配），
-    // 因此无需担心点击选中时 hover 状态的干扰。
-    // 仅在默认态（primarySelector 无伪类后缀）且有真实 DOM 时执行。
-    if (element && !_hasPseudo) {
-      // ── 公共级联扫描：找到所有匹配 element 的规则中，按 CSS 级联（!important → 特指度 → 源码顺序）
-      // 取最终胜出的属性值。注意：点击元素时 element.matches(':hover') 可能返回 true，
-      // 因此需在规则循环内显式过滤交互伪类选择器（:hover/:focus/:active 等）。
-      //
-      // background shorthand 语义处理：
-      //   • `background: #1677ff` 不含 gradient → background-image 隐式变为 'none'，background-color = '#1677ff'
-      //   • `background: linear-gradient(...)` 含 gradient → background-image = gradient，background-color = ''
-      const _findCascadeWinner = (hyphen: string): string | null =>
-        cascadeResolver
-          ? cascadeResolver(hyphen, 'default')?.value ?? null
-          : findCascadeWinner(element, hyphen, 'default')
-
-      // ── 颜色属性：用 colorUtil 归一化比较（处理 rgb/rgba/hex 格式差异）─────────────
-      // ZoneTab 自身声明优先：finalRules 已声明该属性时永不被元素级联赢家覆盖，
-      // 保证回显与写入同一条 classname。仅当当前 tab 未声明时才用级联校正。
-      const colorPropMap: Array<[string, string]> = [
-        ['color', 'color'],
-        ['backgroundColor', 'background-color'],
-        ['borderTopColor', 'border-top-color'],
-        ['borderRightColor', 'border-right-color'],
-        ['borderBottomColor', 'border-bottom-color'],
-        ['borderLeftColor', 'border-left-color'],
-      ]
-      colorPropMap.forEach(([camel, hyphen]) => {
-        const val = (values as any)[camel]
-        if (!val || hasCssVarReference(val)) return
-        const winnerDetail =
-          cascadeResolver
-            ? cascadeResolver(hyphen, 'default')
-            : findCascadeWinnerDetail(element, hyphen, 'default')
-        if (!winnerDetail) return
-        const c1 = colorUtil.get(val)
-        const c2 = colorUtil.get(winnerDetail.value)
-        if (!c1 || !c2 || c1.value.join(',') === c2.value.join(',')) return
-        const ownMaxSpec = getOwnDeclaringMaxSpec(
-          finalRules as CSSStyleRule[],
-          element,
-          hyphen
-        )
-        // 当前 ZoneTab 已声明 → 不覆盖（回显与写入同一条）
-        if (!ownMaxSpec) {
-          (values as any)[camel] = winnerDetail.value
-        }
+    // inline 不属于 CSSStyleRule：单独展开面板并记录 authored 数据。
+    // 通过声明候选展开 shorthand，使 background/gap/border 能映射到对应 longhand 面板字段。
+    const inlineEffectedPanels: string[] = []
+    const inlineAuthoredStyle: Record<string, any> = allowInlineEcho && element
+      ? cssRuleStyleToBag(element.style)
+      : {}
+    if (allowInlineEcho && element && element.style.length > 0 && cascadeSession) {
+      const inlineBag: Record<string, any> = { ...inlineAuthoredStyle }
+      panelProperties.forEach(({ camel, property }) => {
+        const candidate = cascadeSession.getInlineCandidate(property)
+        if (candidate?.value) inlineBag[camel] = candidate.value
       })
 
-      // ── 背景图属性：用字符串比较（linear-gradient 无法被 colorUtil 解析）────────────
-      // background: transparent 等简写会把 background-image 写成 initial，对面板等同于 none。
-      // ZoneTab 自身声明优先：finalRules 已声明时不覆盖；仅未声明时用级联校正。
-      if ((values as any)['backgroundImage'] === 'initial') {
-        (values as any)['backgroundImage'] = 'none'
-      }
-      const bgImageVal = (values as any)['backgroundImage']
-      if (bgImageVal && bgImageVal !== 'none' && !hasCssVarReference(bgImageVal)) {
-        const bgWinnerDetail =
-          cascadeResolver
-            ? cascadeResolver('background-image', 'default')
-            : findCascadeWinnerDetail(element, 'background-image', 'default')
-        if (bgWinnerDetail) {
-          const norm = (s: string) => s.replace(/\s+/g, ' ').trim().toLowerCase()
-          if (norm(bgImageVal) !== norm(bgWinnerDetail.value)) {
-            const ownMaxSpec = getOwnDeclaringMaxSpec(
-              finalRules as CSSStyleRule[],
-              element,
-              'background-image'
-            )
-            // 当前 ZoneTab 已声明 → 不覆盖（回显与写入同一条）
-            if (!ownMaxSpec) {
-              (values as any)['backgroundImage'] = bgWinnerDetail.value
-            }
-          }
-        }
-      }
-
-      // ── backgroundColor 兜底：组件 Less 无 background-color 时从 CSSOM 取实际生效值 ────
-      // 场景：antd Button 的背景色由 `.ant-btn-variant-solid { background: #1677ff }` 设置，
-      // 组件 Less 中无对应 background-color 规则，导致 getValues 返回空字符串，
-      // colorPropMap 的 !val 守卫跳过级联扫描，样式面板背景区域显示空白。
-      // 修复：当 values.backgroundColor 为空时，主动扫描 CSSOM 取实际生效的背景色，
-      // 让用户能看到并覆盖外部库（如 antd）设置的默认背景。
-      if (!(values as any)['backgroundColor'] && ((values as any)['backgroundImage'] === 'none' || (values as any)['backgroundImage'] === 'initial')) {
-        // 优先用级联扫描（过滤伪类规则），兜底用已中和 :focus 的 computed 快照
-        let _bgColorCandidate = _findCascadeWinner('background-color')
-        if (!_bgColorCandidate || !colorUtil.get(_bgColorCandidate)) {
-          const _compBg = computedValues?.getPropertyValue('background-color') ?? ''
-          if (_compBg) _bgColorCandidate = _compBg
-        }
-        if (_bgColorCandidate && _bgColorCandidate !== 'none') {
-          const c = colorUtil.get(_bgColorCandidate)
-          // 过滤掉透明色（rgba(0,0,0,0)）和无效值，只显示真实背景色
-          if (c && !(c.value[0] === 0 && c.value[1] === 0 && c.value[2] === 0 && c.value[3] === 0)) {
-            (values as any)['backgroundColor'] = _bgColorCandidate
-          }
-        }
-      }
-
-      sanitizeBorderFallback('default')
-    }
-
-    // ── hover 态级联校正：同默认态，自身声明优先；仅当前 tab 未声明时用级联补值。
-    if (element && _hasPseudo && /^.*:hover\s*$/i.test(primarySelector)) {
-      const HOVER_TAIL_RE = /:hover\s*$/i
-
-      const _findHoverCascadeWinner = (hyphen: string): string | null =>
-        cascadeResolver
-          ? cascadeResolver(hyphen, 'hover')?.value ?? null
-          : findCascadeWinner(element, hyphen, 'hover')
-
-      // 颜色属性校正：同默认态，自身声明优先，回显与写入同一条
-      const colorPropMapH: Array<[string, string]> = [
-        ['color', 'color'],
-        ['backgroundColor', 'background-color'],
-        ['borderTopColor', 'border-top-color'],
-        ['borderRightColor', 'border-right-color'],
-        ['borderBottomColor', 'border-bottom-color'],
-        ['borderLeftColor', 'border-left-color'],
-      ]
-      colorPropMapH.forEach(([camel, hyphen]) => {
-        const val = (values as any)[camel]
-        if (!val || hasCssVarReference(val)) return
-        const winnerDetail =
-          cascadeResolver
-            ? cascadeResolver(hyphen, 'hover')
-            : findCascadeWinnerDetail(element, hyphen, 'hover')
-        if (!winnerDetail) return
-        const c1 = colorUtil.get(val)
-        const c2 = colorUtil.get(winnerDetail.value)
-        if (!c1 || !c2 || c1.value.join(',') === c2.value.join(',')) return
-        const ownMaxSpec = getOwnDeclaringMaxSpec(
-          finalRules as CSSStyleRule[],
-          element,
-          hyphen
-        )
-        // 当前 ZoneTab 已声明 → 不覆盖（回显与写入同一条）
-        if (!ownMaxSpec) {
-          (values as any)[camel] = winnerDetail.value
-        }
-      })
-
-      // 背景图属性校正：同默认态，自身声明优先
-      const bgImageValH = (values as any)['backgroundImage']
-      if (bgImageValH && bgImageValH !== 'none' && !hasCssVarReference(bgImageValH)) {
-        const bgWinnerDetailH =
-          cascadeResolver
-            ? cascadeResolver('background-image', 'hover')
-            : findCascadeWinnerDetail(element, 'background-image', 'hover')
-        if (bgWinnerDetailH) {
-          const norm = (s: string) => s.replace(/\s+/g, ' ').trim().toLowerCase()
-          if (norm(bgImageValH) !== norm(bgWinnerDetailH.value)) {
-            const ownMaxSpecH = getOwnDeclaringMaxSpec(
-              finalRules as CSSStyleRule[],
-              element,
-              'background-image'
-            )
-            // 当前 ZoneTab 已声明 → 不覆盖（回显与写入同一条）
-            if (!ownMaxSpecH) {
-              (values as any)['backgroundImage'] = bgWinnerDetailH.value
-            }
-          }
-        }
-      }
-      // 若 backgroundImage 被校正为真实渐变（说明组件 hover 规则以 !important 胜出），
-      // 则 antd background 简写设置的 backgroundColor 在视觉上被渐变覆盖、不可见，
-      // 清空以避免 parseLayers 渲染出冗余的第二背景图层。
-      const _bgImageAfterH = (values as any)['backgroundImage']
-      if (
-        _bgImageAfterH !== bgImageValH &&
-        _bgImageAfterH &&
-        _bgImageAfterH !== 'none' &&
-        _bgImageAfterH !== 'initial'
-      ) {
-        ;(values as any)['backgroundColor'] = ''
-      }
-
-      // backgroundColor 兜底：hover tab 下外部库覆盖时回显实际生效背景色
-      if (!(values as any)['backgroundColor'] && ((values as any)['backgroundImage'] === 'none' || (values as any)['backgroundImage'] === 'initial')) {
-        let _bgColorCandidateH = _findHoverCascadeWinner('background-color')
-        if (!_bgColorCandidateH || !colorUtil.get(_bgColorCandidateH)) {
-          const _compBg = computedValues?.getPropertyValue('background-color') ?? ''
-          if (_compBg) _bgColorCandidateH = _compBg
-        }
-        if (_bgColorCandidateH && _bgColorCandidateH !== 'none') {
-          const c = colorUtil.get(_bgColorCandidateH)
-          if (c && !(c.value[0] === 0 && c.value[1] === 0 && c.value[2] === 0 && c.value[3] === 0)) {
-            (values as any)['backgroundColor'] = _bgColorCandidateH
-          }
-        }
-      }
-
-      sanitizeBorderFallback('hover')
-    }
-    // ────────────────────────────────────────────────────────────────────────
-
-    // ── 内联 style 补丁：展开面板 + 用 element.style 原始值覆盖 ────────────────
-    // 背景：element.style 里的属性不在任何 CSSStyleRule 中，
-    //       getEffectedPanelsFromCssRules 无法感知，对应面板会保持折叠。
-    //       同时 getValues 对 width/height 等属性使用静态 'auto' 兜底，
-    //       会丢失内联 style 的真实值。
-    // 注意：inline 普通声明并不一定是最终生效值。外部 author 规则里的
-    // `!important` 可以覆盖它（例如 inline padding-left:24px 被 padding:0 16px
-    // !important 覆盖）。此时原始 inline 值仍需保留用于 authored/面板归属判断，
-    // 但回显 values 必须使用 computedValues 中的实际值。
-    const inlineEffectedPanels: string[] = [];
-    const inlineAuthoredStyle: Record<string, any> = {};
-    const inlineCascadeMode = _hasPseudo && /^.*:hover\s*$/i.test(primarySelector)
-      ? 'hover'
-      : 'default';
-    const isInlineDeclarationOverridden = (kebabProp: string): boolean => {
-      if (!element) return false;
-      if (element.style.getPropertyPriority(kebabProp) === 'important') return false;
-      const winner = cascadeResolver
-        ? cascadeResolver(kebabProp, inlineCascadeMode)
-        : findCascadeWinnerDetail(element, kebabProp, inlineCascadeMode);
-      return !!winner?.important;
-    };
-    if (element && element.style.length > 0) {
-      const inlineBag: Record<string, any> = {};
-      for (let i = 0; i < element.style.length; i++) {
-        const kebabProp = element.style[i];
-        const camelProp = toHump(kebabProp);
-        const inlineVal = element.style.getPropertyValue(kebabProp);
-        if (inlineVal) {
-          if (isInlineDeclarationOverridden(kebabProp)) {
-            const computedVal =
-              (computedValues as any)?.[camelProp] ||
-              computedValues?.getPropertyValue?.(kebabProp) ||
-              '';
-            if (computedVal) (values as any)[camelProp] = computedVal;
-          } else {
-            (values as any)[camelProp] = inlineVal;
-          }
-          inlineBag[camelProp] = inlineVal;
-          inlineAuthoredStyle[camelProp] = inlineVal;
-        }
-      }
-      // 补齐 webkit 读法，供文字渐变面板归属判断
-      const webkitClip = element.style.getPropertyValue('-webkit-background-clip');
-      const webkitFill = element.style.getPropertyValue('-webkit-text-fill-color');
-      if (webkitClip) inlineBag.WebkitBackgroundClip = webkitClip;
-      if (webkitFill) inlineBag.WebkitTextFillColor = webkitFill;
-      if (webkitClip) {
-        inlineAuthoredStyle.WebkitBackgroundClip = webkitClip;
-        if (!inlineAuthoredStyle.backgroundClip) {
-          inlineAuthoredStyle.backgroundClip = webkitClip;
-        }
-      }
-      if (webkitFill) inlineAuthoredStyle.WebkitTextFillColor = webkitFill;
-
-      const inlineStyleBag = { ...values, ...inlineBag };
+      const inlineStyleBag = { ...values, ...inlineBag }
       Object.keys(inlineBag).forEach((camelProp) => {
-        const mapped = PANEL_MAP[camelProp];
+        const mapped = PANEL_MAP[camelProp]
         if (
           isMeaninglessStylePropForPanel(
             camelProp,
@@ -590,36 +355,15 @@ export function getEffectedCssPropertyAndOptions (
             element.style
           )
         ) {
-          return;
+          return
         }
-        const panel = refineEffectedPanel(camelProp, mapped, inlineStyleBag);
+        const panel = refineEffectedPanel(camelProp, mapped, inlineStyleBag)
         if (panel === 'border' && !isBorderPanelMeaningfullyUsed(inlineStyleBag)) {
-          return;
+          return
         }
         if (panel && !inlineEffectedPanels.includes(panel)) {
-          inlineEffectedPanels.push(panel);
+          inlineEffectedPanels.push(panel)
         }
-      });
-    }
-    // ────────────────────────────────────────────────────────────────────────
-
-    // ── ZoneTab 自身声明回填（须在级联校正、内联 style 之后）────────────────
-    // color 的 computedIfInvalid、级联赢家、element.style 都会读到「整元素实际生效色」。
-    // 同一节点挂多个 class 时（如 .agent-dropdown-trigger.dataset-selector），切到
-    // .dataset-selector tab 仍会显示兄弟 class 的 #1890FF，而不是本 tab 声明的
-    // rgb(29,33,38)。当前 tab 的 finalRules 已声明该属性时，强制回填自身声明。
-    if (finalRules.length > 0) {
-      const ownEchoProps: Array<[string, string]> = [
-        ['color', 'color'],
-        ['backgroundColor', 'background-color'],
-        ['borderTopColor', 'border-top-color'],
-        ['borderRightColor', 'border-right-color'],
-        ['borderBottomColor', 'border-bottom-color'],
-        ['borderLeftColor', 'border-left-color'],
-      ]
-      ownEchoProps.forEach(([camel, hyphen]) => {
-        const ownVal = getOwnDeclaringValue(finalRules as CSSStyleRule[], element, hyphen)
-        if (ownVal) (values as any)[camel] = ownVal
       })
     }
 
@@ -697,10 +441,15 @@ export function getEffectedCssPropertyAndOptions (
       ) as string[]),
       ...inlineEffectedPanels,
     ]));
-    const ownAuthoredStyle = ownSelectorRules.reduce<Record<string, any>>(
+    const zoneAuthoredStyle = ownSelectorRules.reduce<Record<string, any>>(
       (result, rule) => Object.assign(result, cssRuleStyleToBag(rule.style)),
-      { ...inlineAuthoredStyle }
-    );
+      {}
+    )
+    // inline 是元素自身最后的 authored 来源，不能再被 Zone 规则覆盖。
+    const ownAuthoredStyle = {
+      ...zoneAuthoredStyle,
+      ...inlineAuthoredStyle,
+    }
 
     // 其他命中当前 DOM 但不属于当前编辑选择器的规则（如 .actionBtn 当编辑 .actionBtn.primary 时），
     // 产生的面板需要展开回显但不能有减号，单独返回供外层计算 readonlyExpandedOptions。

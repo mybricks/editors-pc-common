@@ -1,10 +1,12 @@
-// @ts-ignore
-import { compare } from 'specificity'
-
 import { resolveCssomSourceSelector } from './build-zone-selectors-from-cssom'
-import { toLine } from './css-code-codec'
+import {
+  normalizeCssProperty,
+  resolveCascadeRuleSources,
+} from './css-cascade'
+import type { CascadeCandidate, CascadeRuleSource } from './css-cascade'
+import { toHump } from './css-code-codec'
 import { getDocument } from './dom'
-import { calculateSafeSpecificity, splitTopLevelSelectors } from './selector-utils'
+import { splitTopLevelSelectors } from './selector-utils'
 
 export type ZoneSourceRule = {
   rule: CSSStyleRule
@@ -46,43 +48,38 @@ export function getOrderedZoneSourceRules(tab: ZoneTab): ZoneSourceRule[] {
     .filter((item, index, all) => all.findIndex((candidate) =>
       candidate.rule === item.rule && candidate.selectorPart === item.selectorPart
     ) === index)
-    .sort((a, b) => {
-      const aImportant = a.rule.style.cssText.includes('!important') ? 1 : 0
-      const bImportant = b.rule.style.cssText.includes('!important') ? 1 : 0
-      if (aImportant !== bImportant) return aImportant - bImportant
-
-      const aSpec = calculateSafeSpecificity(a.selectorPart, a.target as HTMLElement)
-      const bSpec = calculateSafeSpecificity(b.selectorPart, b.target as HTMLElement)
-      if (aSpec && bSpec) {
-        const bySpec = compare(aSpec, bSpec)
-        if (bySpec !== 0) return bySpec
-      }
-      return a.sourceOrder - b.sourceOrder
-    })
+    .sort((a, b) => a.sourceOrder - b.sourceOrder)
 }
 
-const PROPERTY_FALLBACKS: Record<string, string[]> = {
-  backgroundColor: ['background'],
-  backgroundImage: ['background'],
-  fontSize: ['font'],
-  borderRadius: [
-    'border-top-left-radius',
-    'border-top-right-radius',
-    'border-bottom-right-radius',
-    'border-bottom-left-radius',
-  ],
+function toCascadeRuleSources(sources: ZoneSourceRule[]): CascadeRuleSource[] {
+  return sources.map((source) => ({
+    rule: source.rule,
+    selectorPart: source.selectorPart,
+    target: source.target,
+    sourceOrder: source.sourceOrder,
+  }))
 }
 
-function readSourceProperty(source: ZoneSourceRule, cssProperty: string): string {
-  try {
-    return source.rule.style.getPropertyValue(cssProperty) || ''
-  } catch {
-    return ''
-  }
+function resolveZoneWinner(
+  sources: ZoneSourceRule[],
+  styleKey: string
+): CascadeCandidate | null {
+  return resolveCascadeRuleSources(
+    toCascadeRuleSources(sources),
+    normalizeCssProperty(styleKey)
+  )
 }
 
-function sourceDeclaresProperty(source: ZoneSourceRule, cssProperties: string[]): boolean {
-  return cssProperties.some((property) => !!readSourceProperty(source, property).trim())
+function findWinnerSource(
+  sources: ZoneSourceRule[],
+  winner: CascadeCandidate
+): ZoneSourceRule | undefined {
+  if (winner.source.kind !== 'rule') return undefined
+  return sources.find((source) =>
+    source.rule === winner.source.rule &&
+    source.selectorPart === winner.source.selector &&
+    source.sourceOrder === winner.source.sourceOrder
+  ) || sources.find((source) => source.rule === winner.source.rule)
 }
 
 /**
@@ -93,24 +90,11 @@ export function resolveZonePropertySelector(
   tab: ZoneTab,
   styleKey: string
 ): string | undefined {
-  const cssProperty = toLine(styleKey)
   const orderedRules = getOrderedZoneSourceRules(tab)
-  const fallbackProperties = PROPERTY_FALLBACKS[styleKey] || []
-  const findLastDeclaringRule = (properties: string[]) => {
-    let winner: ZoneSourceRule | undefined
-    for (const source of orderedRules) {
-      if (sourceDeclaresProperty(source, properties)) winner = source
-    }
-    return winner
-  }
-
-  const directWinner = findLastDeclaringRule([cssProperty])
-  const fallbackWinner = directWinner
-    ? undefined
-    : findLastDeclaringRule(fallbackProperties)
-
-  const winner = directWinner || fallbackWinner
-  return winner ? (winner.sourceSelector || tab.selector) : undefined
+  const winner = resolveZoneWinner(orderedRules, styleKey)
+  if (!winner) return undefined
+  const source = findWinnerSource(orderedRules, winner)
+  return source ? (source.sourceSelector || tab.selector) : undefined
 }
 
 /**
@@ -121,40 +105,23 @@ export function resolveZoneDeletionTarget(
   tab: ZoneTab,
   styleKey: string
 ): ZoneDeletionTarget | undefined {
-  const cssProperty = toLine(styleKey)
   const orderedRules = getOrderedZoneSourceRules(tab)
-  const findLastDeclaringRule = (properties: string[]) => {
-    let winner: ZoneSourceRule | undefined
-    for (const source of orderedRules) {
-      if (sourceDeclaresProperty(source, properties)) winner = source
-    }
-    return winner
+  const winner = resolveZoneWinner(orderedRules, styleKey)
+  if (!winner) return undefined
+  const source = findWinnerSource(orderedRules, winner)
+  if (!source) return undefined
+  const directProperty = normalizeCssProperty(styleKey)
+  return {
+    selector: source.sourceSelector || tab.selector,
+    property: winner.authoredProperty === directProperty
+      ? styleKey
+      : toHump(winner.authoredProperty),
   }
-
-  const directWinner = findLastDeclaringRule([cssProperty])
-  if (directWinner) {
-    return {
-      selector: directWinner.sourceSelector || tab.selector,
-      property: styleKey,
-    }
-  }
-
-  if (styleKey === 'rowGap' || styleKey === 'columnGap') {
-    const shorthandWinner = findLastDeclaringRule(['gap'])
-    if (shorthandWinner) {
-      return {
-        selector: shorthandWinner.sourceSelector || tab.selector,
-        property: 'gap',
-      }
-    }
-  }
-
-  return undefined
 }
 
 /**
  * 属性没有现有声明时，返回当前 tab 最适合新增样式的 Less 源码 selector。
- * sourceRules 已按回显级联顺序排序，因此最后一条是优先级最高的来源。
+ * 没有现有属性声明时无法按属性选赢家，退回源码顺序最后一条来源。
  */
 export function resolveZoneFallbackSelector(tab: ZoneTab): string {
   const orderedRules = getOrderedZoneSourceRules(tab)

@@ -1269,11 +1269,11 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
                       cfg.disableWidth
                         ? SIZE_DISABLED_TIP
                         : isWidthFill && widthDefaultPx != null
-                          ? `当前宽填满父容器，${widthDefaultPx}为计算值`
+                          ? `当前填满父容器，实际宽为${widthDefaultPx}`
                           : isWidthHug && widthDefaultPx != null
-                            ? `当前宽适应内容，${widthDefaultPx}为计算值`
+                            ? `当前适应内容，实际宽为${widthDefaultPx}`
                           : isWidthDefault && widthDefaultPx != null
-                            ? `未配置宽，${widthDefaultPx}为计算值`
+                            ? `未配置值，实际宽为${widthDefaultPx}`
                             : undefined
                     }
                     badge={
@@ -1369,11 +1369,11 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
                       cfg.disableHeight
                         ? SIZE_DISABLED_TIP
                         : isHeightFill && heightDefaultPx != null
-                          ? `当前高填满父容器，${heightDefaultPx}为计算值`
+                          ? `当前填满父容器，实际高为${heightDefaultPx}`
                           : isHeightHug && heightDefaultPx != null
-                            ? `当前高适应内容，${heightDefaultPx}为计算值`
+                            ? `当前适应内容，实际高为${heightDefaultPx}`
                           : isHeightDefault && heightDefaultPx != null
-                            ? `未配置高，${heightDefaultPx}为计算值`
+                            ? `未配置值，实际高为${heightDefaultPx}`
                             : undefined
                     }
                     badge={
