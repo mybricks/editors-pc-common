@@ -33,6 +33,8 @@ interface PanelProps {
   addTip?: string
   addOptions?: AddOption[]
   onAddOption?: (value: string) => void
+  /** 展开态标题栏右侧的自定义内容 */
+  headerRight?: ReactNode
   /** 隐藏与上一个 Panel 之间的顶部分割线（如布局与尺寸合并视觉分组） */
   hideTopBorder?: boolean
   /** 即使内容可见也保留上边框（如尺寸默认展示宽高，并非点 + 展开） */
@@ -58,7 +60,7 @@ function isEmptyChildren(children: ReactNode): boolean {
   return false
 }
 
-export function Panel ({title, titleTip, children, showReset = false, showTitle = true, showDelete = true, deleteNode, onDelete, rightColumn, deleteRef, resetFunction = () => {}, isActive = false, collapse = false, onExpand, onAdd, addTip, addOptions, onAddOption, hideTopBorder = false, keepTopBorder = false}: PanelProps) {
+export function Panel ({title, titleTip, children, showReset = false, showTitle = true, showDelete = true, deleteNode, onDelete, rightColumn, deleteRef, resetFunction = () => {}, isActive = false, collapse = false, onExpand, onAdd, addTip, addOptions, onAddOption, headerRight, hideTopBorder = false, keepTopBorder = false}: PanelProps) {
   const isInherited = collapse === 'inherited'
   const [collapsed, setCollapsed] = useState(collapse === true)
   const isEmpty = useMemo(() => !collapsed && isEmptyChildren(children), [collapsed, children])
@@ -113,6 +115,8 @@ export function Panel ({title, titleTip, children, showReset = false, showTitle 
                 <PlusOutlined />
               </div>
             )
+          ) : headerRight ? (
+            <div className={css.headerRight}>{headerRight}</div>
           ) : addOptions && addOptions.length > 0 ? (
             <Dropdown
               value={null}

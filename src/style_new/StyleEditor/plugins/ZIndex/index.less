@@ -5,3 +5,45 @@
 
 .clearRow:hover [data-input-clear],
 .clearRow:focus-within [data-input-clear] { opacity: 1; pointer-events: auto; }
+
+.modeSwitch {
+  display: flex;
+  align-items: center;
+  position: relative;
+  width: auto;
+  flex-shrink: 0;
+  margin-left: auto;
+  margin-right: 22px;
+  background-color: var(--mybricks-bg-color-secondary, #F5F5F5);
+  border-radius: 4px;
+  padding: 1px;
+  box-sizing: border-box;
+  gap: 1px;
+}
+
+.modeOption {
+  flex: 0 0 auto;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 10px;
+  box-sizing: border-box;
+  white-space: nowrap;
+  cursor: pointer;
+  border-radius: 3px;
+  position: relative;
+  z-index: 1;
+  font-size: 11px;
+  line-height: 1;
+  color: var(--mybricks-text-color-main, #333);
+  user-select: none;
+  border: 1px solid transparent;
+}
+
+.modeOptionActive {
+  font-weight: 500;
+  background-color: var(--mybricks-bg-color-main, #FFF);
+  border-color: var(--mybricks-border-color-main, #DDD);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1), 0 0 0 0.5px rgba(0, 0, 0, 0.06);
+}

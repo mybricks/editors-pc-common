@@ -1,4 +1,4 @@
-import React, { useMemo, useCallback } from "react";
+import React, { useMemo, useCallback, useEffect, useState } from "react";
 
 import {
   Font,
@@ -53,14 +53,32 @@ export default function ({
   finnalExcludeOptions,
   onChange,
 }: StyleEditorProps) {
+  const [positionForOrder, setPositionForOrder] = useState(defaultValue?.position);
+
+  useEffect(() => {
+    setPositionForOrder(defaultValue?.position);
+  }, [defaultValue?.position]);
+
   const handleValueChange: StyleEditorProps["onChange"] = useCallback(
     (value) => {
+      const changes = Array.isArray(value) ? value : [value];
+      const positionChange = changes.find((change) => change.key === 'position');
+      if (positionChange) {
+        setPositionForOrder(positionChange.value);
+      }
       onChange(value);
     },
     [onChange]
   );
 
-  const fixedOrderKeys = Object.keys(PLUGINS_MAP); // 获取 PLUGINS_MAP 的键并用作固定顺序
+  const fixedOrderKeys = useMemo(() => {
+    const keys = Object.keys(PLUGINS_MAP); // 获取 PLUGINS_MAP 的键并用作固定顺序
+    if (String(positionForOrder).toLowerCase() !== 'absolute') {
+      return keys;
+    }
+
+    return ['ZINDEX', ...keys.filter((key) => key !== 'ZINDEX')];
+  }, [positionForOrder]);
   // 使用 Set 存储已经处理过的 options 键
   const processedOptions = new Set<string>();
   const getOptionType = (option: Option) => {
@@ -175,7 +193,7 @@ export default function ({
     //     )
     //   );
     // });
-  }, [options, finnalExcludeOptions, defaultValue, handleValueChange, collapsedOptions, readonlyExpandedOptions]);
+  }, [options, finnalExcludeOptions, defaultValue, handleValueChange, collapsedOptions, readonlyExpandedOptions, positionForOrder]);
 
   return <div className={css.style}>{editors}</div>;
 }
