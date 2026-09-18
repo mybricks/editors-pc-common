@@ -267,13 +267,14 @@ export function Position({ value, onChange, showTitle }: PositionProps) {
     onChange(changes)
   }, [onChange, targetDom, value.height, value.width])
 
-  /** 取消自由定位：清理 position / left / top */
+  /** 取消自由定位：清理 position / left / top / zIndex */
   const handleDeactivate = useCallback(() => {
     setOptimisticFree(false)
     onChange([
       { key: 'position', value: null },
       { key: 'left', value: null },
       { key: 'top', value: null },
+      { key: 'zIndex', value: null },
     ])
   }, [onChange])
 

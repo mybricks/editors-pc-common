@@ -123,6 +123,18 @@ export default function ({
       const JSX = PLUGINS_MAP[pluginKey];
       const option = keyToOption[pluginKey];
       const config = typeof option === "string" ? {} : option?.config || {}; // 使用选项中的配置或空对象
+      const autoExpandZIndex =
+        pluginKey === 'ZINDEX' &&
+        String(positionForOrder).toLowerCase() === 'absolute' &&
+        defaultValue?.zIndex == null;
+      let panelCollapse: boolean | 'inherited' = false;
+      if (!autoExpandZIndex) {
+        if (collapsedOptions.includes(pluginKey.toLowerCase())) {
+          panelCollapse = true;
+        } else if (readonlyExpandedOptions?.includes(pluginKey.toLowerCase())) {
+          panelCollapse = 'inherited';
+        }
+      }
 
       return JSX ? (
         <JSX
@@ -130,13 +142,7 @@ export default function ({
           value={defaultValue}
           onChange={handleValueChange}
           config={config}
-          collapse={
-            collapsedOptions.includes(pluginKey.toLowerCase())
-              ? true
-              : readonlyExpandedOptions?.includes(pluginKey.toLowerCase())
-                ? 'inherited' as const
-                : false
-          }
+          collapse={panelCollapse}
           showTitle={showTitle}
         />
       ) : null;

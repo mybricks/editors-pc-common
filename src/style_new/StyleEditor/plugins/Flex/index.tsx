@@ -1,6 +1,6 @@
 import React, { CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
-import { Panel, InputNumber, ClearButton } from '../../components'
+import { Panel, InputNumber } from '../../components'
 import { Setting as SettingIcon } from '../../icons/Setting'
 import { useStyleEditorContext } from '../../context'
 
@@ -457,7 +457,6 @@ export function Flex({ value, onChange, showTitle, collapse }: FlexProps) {
                     className={`${css.input} ${css.darkPlaceholder}`}
                     spellCheck={false}
                   />
-                  {localGrow !== '' && <ClearButton onClick={() => { setLocalGrow(''); commitLonghands({ grow: '' }) }} />}
                 </Panel.Item>
               </Panel.Content>
               <Panel.Content>

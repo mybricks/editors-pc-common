@@ -18,6 +18,18 @@ export function ZIndex({ value, onChange, config, showTitle, collapse }: ZIndexP
   const [localValue, setLocalValue] = useState(rawValue != null ? String(rawValue) : '')
   const isEditingRef = useRef(false)
   const numericValue = rawValue == null ? null : Number(rawValue)
+  const [optimisticPreset, setOptimisticPreset] = useState<number | null>(null)
+  const optimisticBaseValueRef = useRef<number | null>(numericValue)
+
+  useEffect(() => {
+    if (optimisticPreset == null) return
+    const isConfirmed = numericValue === optimisticPreset
+    const changedExternally =
+      !Object.is(numericValue, optimisticBaseValueRef.current) && !isConfirmed
+    if (isConfirmed || changedExternally) {
+      setOptimisticPreset(null)
+    }
+  }, [numericValue, optimisticPreset])
 
   // 父组件值变化时（如重置、外部设置），同步本地状态
   useEffect(() => {
@@ -27,6 +39,7 @@ export function ZIndex({ value, onChange, config, showTitle, collapse }: ZIndexP
   }, [rawValue])
 
   const refresh = useCallback(() => {
+    setOptimisticPreset(null)
     onChange({ key: 'zIndex', value: null })
     setLocalValue('')
   }, [onChange])
@@ -37,6 +50,7 @@ export function ZIndex({ value, onChange, config, showTitle, collapse }: ZIndexP
 
   // onChange 处理键盘输入 + 原生 spinner 点击（type="number" 的步进箭头）
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setOptimisticPreset(null)
     const val = e.target.value
     setLocalValue(val)
     const num = parseInt(val, 10)
@@ -46,6 +60,7 @@ export function ZIndex({ value, onChange, config, showTitle, collapse }: ZIndexP
   }, [onChange])
 
   const handleBlur = useCallback((e: React.FocusEvent<HTMLInputElement>) => {
+    setOptimisticPreset(null)
     isEditingRef.current = false
     const val = e.target.value.trim()
     if (!val) {
@@ -60,21 +75,25 @@ export function ZIndex({ value, onChange, config, showTitle, collapse }: ZIndexP
 
   const setPreset = useCallback((preset: number) => {
     isEditingRef.current = false
+    optimisticBaseValueRef.current = numericValue
+    setOptimisticPreset(preset)
     onChange({ key: 'zIndex', value: preset })
     setLocalValue(String(preset))
-  }, [onChange])
+  }, [numericValue, onChange])
+
+  const activePreset = optimisticPreset ?? numericValue
 
   const modeSwitch = (
     <div className={css.modeSwitch}>
       <div
-        className={`${css.modeOption} ${numericValue === TOP_Z_INDEX ? css.modeOptionActive : ''}`}
-        onClick={() => { if (numericValue !== TOP_Z_INDEX) setPreset(TOP_Z_INDEX) }}
+        className={`${css.modeOption} ${activePreset === TOP_Z_INDEX ? css.modeOptionActive : ''}`}
+        onClick={() => { if (activePreset !== TOP_Z_INDEX) setPreset(TOP_Z_INDEX) }}
       >
         置顶
       </div>
       <div
-        className={`${css.modeOption} ${numericValue === BOTTOM_Z_INDEX ? css.modeOptionActive : ''}`}
-        onClick={() => { if (numericValue !== BOTTOM_Z_INDEX) setPreset(BOTTOM_Z_INDEX) }}
+        className={`${css.modeOption} ${activePreset === BOTTOM_Z_INDEX ? css.modeOptionActive : ''}`}
+        onClick={() => { if (activePreset !== BOTTOM_Z_INDEX) setPreset(BOTTOM_Z_INDEX) }}
       >
         置底
       </div>
