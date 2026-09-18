@@ -124,6 +124,7 @@ const FONT_SIZE_OPTIONS = [
   { label: "px", value: "px" },
   // { label: "默认", value: "inherit" },
 ];
+const FONT_SIZE_DEFAULT_ACTION = 'fontSizeDefault';
 const FONT_SIZE_DISABLED_LIST = ["inherit"];
 
 const LINEHEIGHT_UNIT_OPTIONS = [
@@ -682,6 +683,10 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
 
   /** 字号预置列表 + 底部变量入口（图标居中、无文案，对齐 Figma） */
   const fontSizePresetOptions = useMemo(() => ([
+    ...(!fontSizeUnconfigured ? [
+      { label: '默认', value: FONT_SIZE_DEFAULT_ACTION, type: 'action' as const },
+      { label: '', value: '__fontSizeDefaultDivider__', type: 'divider' as const },
+    ] : []),
     ...fontSizePresetItems,
     { label: '', value: '__fontSizeVariableDivider__', type: 'divider' as const },
     {
@@ -692,7 +697,7 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
       disabled: !fontSizeVar.hasVariables,
       tip: fontSizeVar.hasVariables ? '应用变量...' : '当前画布没有可用的尺寸变量',
     },
-  ]), [fontSizePresetItems, fontSizeVar.hasVariables]);
+  ]), [fontSizePresetItems, fontSizeUnconfigured, fontSizeVar.hasVariables]);
 
   /** 预置列表的勾选项：取当前字号的 px 数值，不在档位里则不勾 */
   const fontSizePresetValue = useMemo(() => {
@@ -725,10 +730,10 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
 
   /** 行高、字间距的单位菜单末尾统一挂「应用变量...」 */
   const lineHeightUnitOptions = useMemo(() => [
-    ...LINEHEIGHT_UNIT_OPTIONS,
+    ...LINEHEIGHT_UNIT_OPTIONS.filter((option) => !lineHeightUnconfigured || option.value !== 'default'),
     { label: '', value: '__variableDivider__', type: 'divider' as const },
     getApplyVariableOption(lineHeightVar.hasVariables),
-  ], [lineHeightVar.hasVariables]);
+  ], [lineHeightUnconfigured, lineHeightVar.hasVariables]);
 
   const letterSpacingUnitOptions = useMemo(() => [
     ...LETTERSPACING_UNIT_OPTIONS,
@@ -1081,6 +1086,8 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
                   value: fontSizeUnconfigured ? null : fontSize,
                   placeholder: fontSizePlaceholder,
                   unitOptions: FONT_SIZE_OPTIONS,
+                  // “默认”已合并到右侧字号档位菜单，避免公共 InputNumber 再生成第二个箭头。
+                  clearable: false,
                   onChange: onFontSizeChange,
                   suffix: (
                     <Dropdown
@@ -1091,7 +1098,8 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
                       options={fontSizePresetOptions}
                       onClick={(size) => onFontSizeChange(`${size}px`)}
                       onAction={(action) => {
-                        if (action === APPLY_VARIABLE_ACTION) fontSizeVar.openPicker();
+                        if (action === FONT_SIZE_DEFAULT_ACTION) onFontSizeChange(null);
+                        else if (action === APPLY_VARIABLE_ACTION) fontSizeVar.openPicker();
                       }}
                     >
                       <span className={css.fontSizeArrow} data-mybricks-tip="字号档位">
