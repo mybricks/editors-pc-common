@@ -15,7 +15,20 @@
 }
 
 .sizeUnitIcon {
-  margin-right: 0 !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 16px;
+  // Select 自身还有一层布局占位，比首行 badge 多占约 2px。
+  margin-right: 5px !important;
+  flex-shrink: 0;
+  font-size: 10px;
+
+  svg {
+    width: 15px;
+    height: 15px;
+  }
 }
 
 .sizeRows {
