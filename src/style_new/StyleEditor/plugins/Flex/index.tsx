@@ -432,10 +432,9 @@ export function Flex({ value, onChange, showTitle, collapse }: FlexProps) {
                   onFocus={handleFocus}
                   onBlur={handleBlur}
                   onKeyDown={handleKeyDown}
-                  className={css.input}
+                  className={`${css.input} ${css.darkPlaceholder}`}
                   spellCheck={false}
                 />
-                {localValue !== '' && <ClearButton onClick={() => commitShorthand('')} />}
               </Panel.Item>
             </Panel.Content>
           ) : (
@@ -455,7 +454,7 @@ export function Flex({ value, onChange, showTitle, collapse }: FlexProps) {
                     }}
                     onBlur={handleGrowBlur}
                     onKeyDown={handleKeyDown}
-                    className={css.input}
+                    className={`${css.input} ${css.darkPlaceholder}`}
                     spellCheck={false}
                   />
                   {localGrow !== '' && <ClearButton onClick={() => { setLocalGrow(''); commitLonghands({ grow: '' }) }} />}
@@ -476,10 +475,9 @@ export function Flex({ value, onChange, showTitle, collapse }: FlexProps) {
                     }}
                     onBlur={handleShrinkBlur}
                     onKeyDown={handleKeyDown}
-                    className={css.input}
+                    className={`${css.input} ${css.darkPlaceholder}`}
                     spellCheck={false}
                   />
-                  {localShrink !== '' && <ClearButton onClick={() => { setLocalShrink(''); commitLonghands({ shrink: '' }) }} />}
                 </Panel.Item>
               </Panel.Content>
               <Panel.Content>
