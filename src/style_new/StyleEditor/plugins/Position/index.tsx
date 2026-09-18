@@ -128,10 +128,11 @@ function PositionInput({
 }
 
 export function Position({ value, onChange, showTitle }: PositionProps) {
-  const leftVal = value?.left
-  const topVal = value?.top
-  const rightVal = value?.right
-  const bottomVal = value?.bottom
+  const [leftVal, setLeftVal] = useState(value?.left)
+  const [topVal, setTopVal] = useState(value?.top)
+  const [rightVal, setRightVal] = useState(value?.right)
+  const [bottomVal, setBottomVal] = useState(value?.bottom)
+
   const positionVal = (value as any)?.position
   const positionStr = positionVal != null ? String(positionVal) : 'static'
 
@@ -156,6 +157,13 @@ export function Position({ value, onChange, showTitle }: PositionProps) {
     }
   }, [optimisticFree, isFreeFromValue])
 
+  useEffect(() => {
+    setLeftVal(value?.left)
+    setTopVal(value?.top)
+    setRightVal(value?.right)
+    setBottomVal(value?.bottom)
+  }, [value?.left, value?.top, value?.right, value?.bottom])
+
   /** 开启自由定位：锁定当前 DOM 位置（点击瞬间重新计算，避免闭包旧值） */
   const handleActivate = useCallback(() => {
     const offset = targetDom
@@ -175,6 +183,8 @@ export function Position({ value, onChange, showTitle }: PositionProps) {
     }
     setOptimisticFree(true)
     onChange(changes)
+    setLeftVal(`${offset.left}px`)
+    setTopVal(`${offset.top}px`)
   }, [onChange, targetDom, value.height, value.width])
 
   /** 取消自由定位：清理 position 及四个偏移属性 */
