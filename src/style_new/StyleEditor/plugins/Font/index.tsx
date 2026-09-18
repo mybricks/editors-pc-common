@@ -982,7 +982,7 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
                     : {}),
                 }}
                 options={fontFamilyOptions()}
-                value={innerFontFamily?.[0] && innerFontFamily[0] !== 'inherit' ? innerFontFamily[0] : undefined}
+                value={innerFontFamily?.[0] && innerFontFamily[0] !== 'inherit' ? (innerFontFamily[0]?.startsWith('var') ? '@字体变量' : innerFontFamily[0]) : undefined}
                 clearable={!!(innerFontFamily?.[0] && innerFontFamily[0] !== 'inherit')}
                 onClear={() => {
                   setInnerFontFamily([]);
