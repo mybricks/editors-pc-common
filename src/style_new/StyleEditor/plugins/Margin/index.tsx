@@ -47,6 +47,7 @@ const DEFAULT_STYLE = {
 const CHIP_STYLE = {flex: '1 1 0', minWidth: 0, width: 0}
 const UNIT_OPTIONS = [
   { label: '默认', value: 'default' },
+  {label: '', value: '—divider_', type: 'divider'},
   { label: 'px', value: 'px' },
   { label: 'auto', value: 'auto' },
   { label: '%', value: '%' }
