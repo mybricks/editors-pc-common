@@ -97,6 +97,7 @@ const SIZE_PROPERTY_KEYS = new Set([
 type SizeFieldKey = 'width' | 'height' | 'minWidth' | 'maxWidth' | 'minHeight' | 'maxHeight';
 
 const DETACH_VARIABLE_ACTION = 'detachVariable';
+const SIZE_DEFAULT_ACTION = 'sizeDefault';
 
 const CONSTRAINT_REMOVE_LABEL: Record<'minWidth' | 'maxWidth' | 'minHeight' | 'maxHeight', string> = {
   minWidth: '移除最小宽',
@@ -128,6 +129,8 @@ interface SizingModeBadgeProps {
 function SizingModeBadge({ mode, compactDisplay = false, dimension, actualSize, parentSize = 0, onChange, onPreferPercent, onAddMin, onAddMax, hasVariables = false, onApplyVariable }: SizingModeBadgeProps) {
   const dim = dimension === 'width' ? 'width' : 'height';
   const options = [
+    { label: '默认', value: SIZE_DEFAULT_ACTION, type: 'action' as const },
+    { label: '', value: '__sizeDefaultDivider__', type: 'divider' as const },
     { label: `固定${dim === 'width' ? '宽' : '高'} (${actualSize}px)`, value: 'fixed', icon: <FixedWidth /> },
     { label: '%', value: '%' },
     { label: '适应内容',                          value: 'hug',   icon: <HugContents /> },
@@ -156,10 +159,13 @@ function SizingModeBadge({ mode, compactDisplay = false, dimension, actualSize, 
   }, [actualSize, parentSize, onChange, onPreferPercent]);
 
   const handleAction = useCallback((val: string) => {
-    if (val === 'addMin') onAddMin?.();
-    if (val === 'addMax') onAddMax?.();
-    if (val === APPLY_VARIABLE_ACTION) onApplyVariable?.();
-  }, [onAddMin, onAddMax, onApplyVariable]);
+    if (val === SIZE_DEFAULT_ACTION) {
+      onPreferPercent?.(false);
+      onChange(null);
+    } else if (val === 'addMin') onAddMin?.();
+    else if (val === 'addMax') onAddMax?.();
+    else if (val === APPLY_VARIABLE_ACTION) onApplyVariable?.();
+  }, [onChange, onPreferPercent, onAddMin, onAddMax, onApplyVariable]);
 
   return (
     <Dropdown value={mode} options={options} onClick={handleClick} onAction={handleAction}>
@@ -989,6 +995,16 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
     const measured = Math.round(isWidthField(field) ? actualWidth : actualHeight);
     const options: Array<{ label: string; value: string; type?: 'action' | 'divider'; icon?: React.ReactNode; iconSize?: 'sm' | 'md' }> = [
       {
+        label: '默认',
+        value: SIZE_DEFAULT_ACTION,
+        type: 'action',
+      },
+      {
+        label: '',
+        value: '__sizeVariableDefaultDivider__',
+        type: 'divider',
+      },
+      {
         label: `固定值 (${resolvedVarLengths[field] || `${measured}px`})`,
         value: DETACH_VARIABLE_ACTION,
         type: 'action',
@@ -1007,14 +1023,18 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
   }, [actualWidth, actualHeight, resolvedVarLengths]);
 
   const handleVariableMenuAction = useCallback((field: SizeFieldKey, action: string) => {
-    if (action === DETACH_VARIABLE_ACTION) {
+    if (action === SIZE_DEFAULT_ACTION) {
+      if (field === 'width') handleWidthChange(null);
+      else if (field === 'height') handleHeightChange(null);
+      else clearConstraint(field);
+    } else if (action === DETACH_VARIABLE_ACTION) {
       detachVariable(field);
     } else if (action === 'hug' || action === 'fill') {
       applySizingMode(field as 'width' | 'height', action);
     } else if (action === 'remove') {
       removeConstraint(field as 'minWidth' | 'maxWidth' | 'minHeight' | 'maxHeight');
     }
-  }, [detachVariable, applySizingMode, removeConstraint]);
+  }, [handleWidthChange, handleHeightChange, clearConstraint, detachVariable, applySizingMode, removeConstraint]);
 
   /**
    * 变量态的拖拽：从变量当前值起步，一动就落成 px 数值（即自动解绑），
