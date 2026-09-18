@@ -40,9 +40,13 @@ const DEFAULT_STYLE = {
 /** 绑定态胶囊与输入框同宽，且不把相邻字段挤出面板 */
 const CHIP_STYLE = {flex: '1 1 0', minWidth: 0, width: 0}
 const UNIT_OPTIONS = [
+  {label: '默认', value: 'default'},
+  {label: '', value: '—divider_', type: 'divider'},
   {label: 'px', value: 'px'},
   {label: '%', value: '%'}
 ]
+/** 「默认」表示属性完全未设置：输入框禁止直接编辑，需先切到具体单位 */
+const UNIT_DISABLED_LIST = ['default']
 const PADDING_KEYS = ['paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft'] as const
 
 export function Padding({value, onChange, config, showTitle, collapse}: PaddingProps) {
@@ -76,19 +80,38 @@ export function Padding({value, onChange, config, showTitle, collapse}: PaddingP
   }, [onChange])
 
   const handleChange = useCallback((value: any) => {
+    // 单位下拉选中「默认」时 InputNumber 会回传 'default'，等同于清空该属性
+    const normalizedValue: Record<string, any> = {...value}
+    Object.keys(normalizedValue).forEach((key) => {
+      if (normalizedValue[key]?.includes('default')) normalizedValue[key] = null
+    })
+
     const current: Record<string, any> = {...paddingValueRef.current}
     PADDING_KEYS.forEach((key) => {
       if (current[key] == null || current[key] === '') current[key] = '0px'
     })
-    const next = {...current, ...value}
+    const next = {...current, ...normalizedValue}
     paddingValueRef.current = next
     setPaddingValue(next)
 
-    const hasCompletePadding = PADDING_KEYS.every(
-      (key) => next[key] !== null && typeof next[key] !== 'undefined' && next[key] !== ''
-    )
-    const keys = hasCompletePadding ? PADDING_KEYS : Object.keys(value)
-    onChange(keys.map((key) => ({key, value: next[key]})))
+    // 某方向切为「默认」（null）时，仅传改动的 key（null），
+    // 同时补发其余方向的原始值（rawValueRef，保留变量引用），
+    // 让下游 shorthand-normalizer 能正确展开 padding shorthand，而不丢失其他方向。
+    const changedKeys = new Set(Object.keys(normalizedValue))
+    const changeItems: {key: string; value: any}[] = []
+    PADDING_KEYS.forEach((key) => {
+      if (changedKeys.has(key)) {
+        // 用户直接改动的方向：传新值（null 或真实值）
+        changeItems.push({key, value: normalizedValue[key]})
+      } else {
+        // 未改动的方向：用原始 prop 值补发，保留 var() 引用
+        const rawVal = (paddingValueRef.current as any)[key]
+        if (rawVal != null && rawVal !== '') {
+          changeItems.push({key, value: rawVal})
+        }
+      }
+    })
+    onChange(changeItems)
   }, [onChange])
 
   const handleUnifiedChange = useCallback((next: string | null) => {
@@ -169,8 +192,9 @@ export function Padding({value, onChange, config, showTitle, collapse}: PaddingP
                 inputProps={{
                   style: DEFAULT_STYLE,
                   defaultValue: paddingValue.paddingTop,
-                  defaultUnitValue: 'px',
+                  defaultUnitValue: 'default',
                   unitOptions,
+                  unitDisabledList: UNIT_DISABLED_LIST,
                   showIcon: true,
                   showIconOnHover: true,
                   fallbackValue: 0,
@@ -215,8 +239,9 @@ export function Padding({value, onChange, config, showTitle, collapse}: PaddingP
                     inputProps={{
                       style: DEFAULT_STYLE,
                       defaultValue: paddingValue.paddingLeft,
-                      defaultUnitValue: 'px',
+                      defaultUnitValue: 'default',
                       unitOptions,
+                      unitDisabledList: UNIT_DISABLED_LIST,
                       showIcon: true,
                       showIconOnHover: true,
                       fallbackValue: 0,
@@ -247,8 +272,9 @@ export function Padding({value, onChange, config, showTitle, collapse}: PaddingP
                     inputProps={{
                       style: DEFAULT_STYLE,
                       defaultValue: paddingValue.paddingTop,
-                      defaultUnitValue: 'px',
+                      defaultUnitValue: 'default',
                       unitOptions,
+                      unitDisabledList: UNIT_DISABLED_LIST,
                       showIcon: true,
                       showIconOnHover: true,
                       fallbackValue: 0,
@@ -281,8 +307,9 @@ export function Padding({value, onChange, config, showTitle, collapse}: PaddingP
                     inputProps={{
                       style: DEFAULT_STYLE,
                       defaultValue: paddingValue.paddingRight,
-                      defaultUnitValue: 'px',
+                      defaultUnitValue: 'default',
                       unitOptions,
+                      unitDisabledList: UNIT_DISABLED_LIST,
                       showIcon: true,
                       showIconOnHover: true,
                       fallbackValue: 0,
@@ -313,8 +340,9 @@ export function Padding({value, onChange, config, showTitle, collapse}: PaddingP
                     inputProps={{
                       style: DEFAULT_STYLE,
                       defaultValue: paddingValue.paddingBottom,
-                      defaultUnitValue: 'px',
+                      defaultUnitValue: 'default',
                       unitOptions,
+                      unitDisabledList: UNIT_DISABLED_LIST,
                       showIcon: true,
                       showIconOnHover: true,
                       fallbackValue: 0,
@@ -349,6 +377,7 @@ export function Padding({value, onChange, config, showTitle, collapse}: PaddingP
       ...PADDING_KEYS.map((key) => ({key, value: null}))
     ])
     paddingValueRef.current = {}
+    rawValueRef.current = {}
     setPaddingValue({} as any)
     setForceRenderKey(prev => prev + 1)
   }, [onChange])

@@ -46,6 +46,8 @@ const DEFAULT_STYLE = {
 /** 绑定态胶囊与输入框同宽，且不把相邻字段挤出面板 */
 const CHIP_STYLE = {flex: '1 1 0', minWidth: 0, width: 0}
 const UNIT_OPTIONS = [
+  { label: '默认', value: 'default' },
+  {label: '', value: '—divider_', type: 'divider'},
   { label: 'px', value: 'px' },
   { label: 'auto', value: 'auto' },
   { label: '%', value: '%' }
@@ -62,8 +64,22 @@ function expandMarginShorthand(value: CSSProperties): MarginValue {
   })
   if (typeof next.margin !== 'string' || !next.margin.trim()) return next
 
-  const parts = next.margin.replace(/\s*!important\s*$/i, '').trim().split(/\s+/)
-  if (parts.length < 1 || parts.length > 4) return next
+  const rawMargin = next.margin.replace(/\s*!important\s*$/i, '').trim()
+  const parts: string[] = []
+  let token = ''
+  let depth = 0
+  for (const char of rawMargin) {
+    if (char === '(') depth += 1
+    if (char === ')') depth -= 1
+    if (/\s/.test(char) && depth === 0) {
+      if (token) parts.push(token)
+      token = ''
+    } else {
+      token += char
+    }
+  }
+  if (token) parts.push(token)
+  if (depth !== 0 || parts.length < 1 || parts.length > 4) return next
 
   const [top, right = top, bottom = top, left = right] = parts
   const expanded = parts.length === 1
@@ -80,6 +96,26 @@ function expandMarginShorthand(value: CSSProperties): MarginValue {
   return next
 }
 
+function getMarginEditorValue(
+  value: CSSProperties,
+  authoredStyle?: Record<string, any>
+): MarginValue {
+  // defaultValue 来自 computedStyle，未声明方向也会被浏览器补成 0px。只要能拿到
+  // 当前规则的原始声明，就以它作为面板回显来源，避免把浏览器默认值误判成用户配置。
+  if (!authoredStyle) return expandMarginShorthand(value)
+
+  const authored = expandMarginShorthand(authoredStyle as CSSProperties)
+  const hasAuthoredMargin =
+    Object.prototype.hasOwnProperty.call(authoredStyle, 'margin') ||
+    MARGIN_KEYS.some((key) => Object.prototype.hasOwnProperty.call(authoredStyle, key))
+  if (!hasAuthoredMargin) return {}
+
+  const next: MarginValue = {}
+  MARGIN_KEYS.forEach((key) => {
+    if (authored[key] != null && authored[key] !== '') next[key] = authored[key]
+  })
+  return next
+}
 interface MarginValueInputProps {
   binding: LengthVarBinding
   value: string | number | null | undefined
@@ -95,7 +131,9 @@ function AutoMarginBadge({inputProps}: {inputProps: InputNumberProps}) {
       options={options}
       onAction={inputProps.onAction}
       onClick={(unit) => {
-        if (unit === 'auto') {
+        if (unit === 'default') {
+          inputProps.onClear?.()
+        } else if (unit === 'auto') {
           inputProps.onChange?.('auto')
         } else if (unit === 'px' || unit === '%') {
           inputProps.onChange?.(`0${unit}`)
@@ -115,8 +153,8 @@ function AutoMarginBadge({inputProps}: {inputProps: InputNumberProps}) {
 function MarginValueInput({binding, value, label, inputProps}: MarginValueInputProps) {
   const normalizedInputProps = {
     ...inputProps,
-    // InputNumber 对禁用单位会直接回写关键字，避免把数字和 auto 拼成 0auto。
-    unitDisabledList: Array.from(new Set([...(inputProps.unitDisabledList ?? []), 'auto']))
+    // InputNumber 对禁用单位会直接回写关键字，避免把数字和 auto/default 拼成 0auto。
+    unitDisabledList: Array.from(new Set([...(inputProps.unitDisabledList ?? []), 'auto', 'default']))
   }
 
   if (!binding.varRef && value === 'auto') {
@@ -174,14 +212,14 @@ const DEFAULT_CONFIG = {
 }
 
 export function Margin ({value, onChange, config, showTitle, collapse}: MarginProps) {
-  const initialValue = expandMarginShorthand(value)
+  const context = useStyleEditorContext()
+  const initialValue = getMarginEditorValue(value, context?.authoredStyle)
   const [toggle, setToggle] = useState(getToggleDefaultValue(initialValue))
   const [marginValue, setMarginValue] = useState(initialValue)
   const marginValueRef = useRef(initialValue)
   const [forceRenderKey, setForceRenderKey] = useState<number>(Math.random())
   const [splitMarginIcon, setSplitMarginIcon] = useState(<MarginTopOutlined />)
   const getDragProps = useDragNumber({ continuous: true, min: -Infinity })
-  const context = useStyleEditorContext()
   const handleSwitchToUnified = useCallback(() => {
     onChange(MARGIN_KEYS.map((key) => ({ key, value: null })))
     setToggle(true)
@@ -194,7 +232,7 @@ export function Margin ({value, onChange, config, showTitle, collapse}: MarginPr
 
   // 面板实例会在切换选中组件时复用，需同步新的边距值，避免先显示上一组件的数字。
   useLayoutEffect(() => {
-    const next = expandMarginShorthand(value);
+    const next = getMarginEditorValue(value, context?.authoredStyle);
     marginValueRef.current = next
     setMarginValue((previous) => {
       return MARGIN_KEYS.every((key) => previous[key] === next[key]) ? previous : next;
@@ -204,21 +242,35 @@ export function Margin ({value, onChange, config, showTitle, collapse}: MarginPr
       isExternalSyncRef.current = true;
       setToggle(nextToggle);
     }
-  }, [value.margin, value.marginTop, value.marginRight, value.marginBottom, value.marginLeft]);
+  }, [
+    value.margin,
+    value.marginTop,
+    value.marginRight,
+    value.marginBottom,
+    value.marginLeft,
+    context?.authoredStyle,
+  ]);
 
   const handleChange = useCallback((value: CSSProperties & Record<string, any>) => {
-    const current: Record<string, any> = {...marginValueRef.current}
-    MARGIN_KEYS.forEach((key) => {
-      if (current[key] == null || current[key] === '') current[key] = '0px'
+    // 单位下拉选中「默认」时 InputNumber 会回传 'default'，等同于清空该属性
+    const normalizedValue: Record<string, any> = {...value}
+    Object.keys(normalizedValue).forEach((key) => {
+      if (String(normalizedValue[key] ?? '').includes('default')) normalizedValue[key] = null
     })
-    const next = {...current, ...value}
+
+    // 仅写入用户实际修改的方向。不能为未声明方向补 0px，否则编辑单边会把
+    // 浏览器 computedStyle 的默认值固化为 margin shorthand。
+    const current: Record<string, any> = {...marginValueRef.current}
+    const next = {...current, ...normalizedValue}
     marginValueRef.current = next
     setMarginValue(next)
 
+    // 仅在四个方向都有显式值时聚合为 margin 简写；否则只写本次修改的方向，
+    // 避免把浏览器 computedStyle 的默认 0px 固化进 CSS。
     const hasCompleteMargin = MARGIN_KEYS.every(
       (key) => next[key] !== null && typeof next[key] !== 'undefined' && next[key] !== ''
     )
-    const keys = hasCompleteMargin ? MARGIN_KEYS : Object.keys(value)
+    const keys = hasCompleteMargin ? MARGIN_KEYS : Object.keys(normalizedValue)
     const changeList = keys.map((key) => ({key, value: next[key]}))
 
     // 检测父容器 flex 对齐冲突，自动追加 align-self 修复
@@ -254,11 +306,12 @@ export function Margin ({value, onChange, config, showTitle, collapse}: MarginPr
   }, [context?.targetDom, onChange])
 
   const handleUnifiedChange = useCallback((next: string | null) => {
+    const value = next === 'default' ? null : next
     handleChange({
-      marginTop: next,
-      marginRight: next,
-      marginBottom: next,
-      marginLeft: next
+      marginTop: value,
+      marginRight: value,
+      marginBottom: value,
+      marginLeft: value
     })
   }, [handleChange])
 
@@ -332,7 +385,7 @@ export function Margin ({value, onChange, config, showTitle, collapse}: MarginPr
                 inputProps={{
                   style: DEFAULT_STYLE,
                   defaultValue: marginValue.marginTop,
-                  defaultUnitValue: 'px',
+                  defaultUnitValue: 'default',
                   unitOptions,
                   showIcon: true,
                   showIconOnHover: true,
@@ -380,7 +433,7 @@ export function Margin ({value, onChange, config, showTitle, collapse}: MarginPr
                     inputProps={{
                       style: DEFAULT_STYLE,
                       defaultValue: marginValue.marginLeft,
-                      defaultUnitValue: 'px',
+                      defaultUnitValue: 'default',
                       unitOptions,
                       showIcon: true,
                       showIconOnHover: true,
@@ -414,7 +467,7 @@ export function Margin ({value, onChange, config, showTitle, collapse}: MarginPr
                     inputProps={{
                       style: DEFAULT_STYLE,
                       defaultValue: marginValue.marginTop,
-                      defaultUnitValue: 'px',
+                      defaultUnitValue: 'default',
                       unitOptions,
                       showIcon: true,
                       showIconOnHover: true,
@@ -450,7 +503,7 @@ export function Margin ({value, onChange, config, showTitle, collapse}: MarginPr
                     inputProps={{
                       style: DEFAULT_STYLE,
                       defaultValue: marginValue.marginRight,
-                      defaultUnitValue: 'px',
+                      defaultUnitValue: 'default',
                       unitOptions,
                       showIcon: true,
                       showIconOnHover: true,
@@ -484,7 +537,7 @@ export function Margin ({value, onChange, config, showTitle, collapse}: MarginPr
                     inputProps={{
                       style: DEFAULT_STYLE,
                       defaultValue: marginValue.marginBottom,
-                      defaultUnitValue: 'px',
+                      defaultUnitValue: 'default',
                       unitOptions,
                       showIcon: true,
                       showIconOnHover: true,

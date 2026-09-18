@@ -700,7 +700,8 @@ export function ColorEditor({
           {/* 开始输入后隐藏胶囊，避免「旧变量值 + 新输入」同时出现 */}
           {!varDraft && (
             <span className={css.variableValue} onClick={onPresetClick}>
-              {variableDisplayText}
+              {/* 暂时去掉具体变量名的展示，直接展示文案 {variableDisplayText} */}
+              @颜色变量
             </span>
           )}
           <input
