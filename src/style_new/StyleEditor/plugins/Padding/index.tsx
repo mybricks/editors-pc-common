@@ -99,7 +99,6 @@ export function Padding({value, onChange, config, showTitle, collapse}: PaddingP
     )
     const keys = hasCompletePadding ? PADDING_KEYS : Object.keys(value)
     onChange(keys.map((key) => ({key, value: next[key]})))
-    console.log('handleChange', value, normalizedValue, paddingValueRef.current, next, keys.map((key) => ({key, value: next[key]})))
   }, [onChange])
 
   const handleUnifiedChange = useCallback((next: string | null) => {

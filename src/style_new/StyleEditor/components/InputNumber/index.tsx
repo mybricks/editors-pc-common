@@ -220,6 +220,9 @@ export function InputNumber ({
 
     // 空值或非法值：若有兜底值则补填并提交，否则回到默认状态并删除属性
     if (!trimmed || isNaN(parseFloat(trimmed))) {
+      if (unitDisabledList.includes(unit) && (displayValue === '' || displayValue === null)) {
+        return
+      }
       // 仅查看 placeholder 后直接失焦时保持原状态；只有实际编辑过才提交清空。
       if (
         !trimmed &&
