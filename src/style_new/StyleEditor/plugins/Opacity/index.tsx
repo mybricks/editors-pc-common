@@ -57,6 +57,11 @@ export function Opacity ({ value, onChange, config, showTitle, collapse }: Opaci
     ? parseFloat(resolvedValue)
     : (isNaN(parseFloat(opacityRawValue as any)) ? 1 : parseFloat(opacityRawValue as any))
 
+  const handleSliderChange = useCallback((sliderValue: number) => {
+    if (Math.abs(sliderValue - fallbackOpacity) < 1e-6) return
+    onChange({ key: 'opacity', value: sliderValue })
+  }, [fallbackOpacity, onChange])
+
   useEffect(() => {
     if (isReset && opacityRawValue != null) {
       setIsReset(false)
@@ -128,7 +133,7 @@ export function Opacity ({ value, onChange, config, showTitle, collapse }: Opaci
           ) : (
             <Slider
               defaultValue={defaultValue}
-              onChange={(sliderValue) => onChange({key: 'opacity', value: sliderValue})}
+              onChange={handleSliderChange}
               hasVariables={hasVariables}
               onApplyVariable={openPicker}
             />

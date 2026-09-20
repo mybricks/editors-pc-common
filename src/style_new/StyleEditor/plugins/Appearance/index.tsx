@@ -83,10 +83,13 @@ export function Appearance({ value, onChange, showTitle, collapse }: AppearanceP
       }
       const num = parseFloat(trimmed)
       if (!isNaN(num)) {
-        onChange({ key: 'opacity', value: percentToOpacity(num) })
+        const nextValue = percentToOpacity(num)
+        const currentValue = opacityPercent / 100
+        if (!varRef && nextValue === currentValue) return
+        onChange({ key: 'opacity', value: nextValue })
       }
     },
-    [onChange]
+    [onChange, opacityPercent, varRef]
   )
 
   const getDragPropsOpacity = useDragNumber({
