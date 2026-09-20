@@ -384,22 +384,27 @@ export function getDefaultConfiguration ({value, options}: GetDefaultConfigurati
 
     // CSSOM 只能提供变量解析后的结果，源码中的 var() 才是后续复用所需的信息。
     // 优先收集 splitCSSProperties 已保留下来的 longhand，再用当前 ZoneTab 的
-    // authoredStyle 补齐规则中的 padding shorthand，避免被 computed 值覆盖。
+    // authoredStyle 补齐规则中的 padding/margin shorthand，避免被 computed 值覆盖。
     const authoredVariableValues: Record<string, any> = {}
     const collectAuthoredVariables = (source: Record<string, any>) => {
-      const rawPadding = source.padding
-      const expandedPadding = hasCssVarReference(rawPadding)
-        ? expandFourShorthand(rawPadding)
-        : null
-      if (expandedPadding) {
-        ;['paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft'].forEach((key, index) => {
-          authoredVariableValues[key] = expandedPadding[index]
-        })
-      }
-      ;['paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft'].forEach((key) => {
-        if (hasCssVarReference(source[key])) {
-          authoredVariableValues[key] = source[key]
+      ;[
+        ['padding', 'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft'],
+        ['margin', 'marginTop', 'marginRight', 'marginBottom', 'marginLeft'],
+      ].forEach(([shorthand, top, right, bottom, left]) => {
+        const rawShorthand = source[shorthand]
+        const expanded = hasCssVarReference(rawShorthand)
+          ? expandFourShorthand(rawShorthand)
+          : null
+        if (expanded) {
+          ;[top, right, bottom, left].forEach((key, index) => {
+            authoredVariableValues[key] = expanded[index]
+          })
         }
+        ;[top, right, bottom, left].forEach((key) => {
+          if (hasCssVarReference(source[key])) {
+            authoredVariableValues[key] = source[key]
+          }
+        })
       })
     }
     collectAuthoredVariables(splitedSetValue)

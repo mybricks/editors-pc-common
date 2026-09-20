@@ -283,10 +283,21 @@ export const splitCSSProperties = (
 
   // margin
   if (cssProperties.margin) {
-    splitStyles.marginTop = computedStyle.marginTop
-    splitStyles.marginRight = computedStyle.marginRight
-    splitStyles.marginBottom = computedStyle.marginBottom
-    splitStyles.marginLeft = computedStyle.marginLeft
+    // computedStyle 会把 var(--xxx) 展开成具体像素，导致变量绑定信息丢失。
+    // 含变量时按 CSS 四值规则保留源码值；普通 margin 仍沿用浏览器计算结果。
+    const authoredMargin = hasCSSVariable(cssProperties.margin)
+      ? expandFourShorthand(cssProperties.margin)
+      : null
+    const [marginTop, marginRight, marginBottom, marginLeft] = authoredMargin || [
+      computedStyle.marginTop,
+      computedStyle.marginRight,
+      computedStyle.marginBottom,
+      computedStyle.marginLeft,
+    ]
+    splitStyles.marginTop = marginTop
+    splitStyles.marginRight = marginRight
+    splitStyles.marginBottom = marginBottom
+    splitStyles.marginLeft = marginLeft
     delete splitStyles.margin
   }
 

@@ -97,6 +97,18 @@ export function applyRuleHooks(
     }
   }
 
+  // margin 简写含 var() 时同样不能依赖 computed fallback，否则变量会变成像素值。
+  const styleMarginShorthand = style.getPropertyValue('margin')
+  if (styleMarginShorthand && styleMarginShorthand.includes('var(')) {
+    const expandedMargin = expandFourShorthand(styleMarginShorthand)
+    if (expandedMargin) {
+      acc.marginTop = expandedMargin[0]
+      acc.marginRight = expandedMargin[1]
+      acc.marginBottom = expandedMargin[2]
+      acc.marginLeft = expandedMargin[3]
+    }
+  }
+
   // webkit backdrop-filter
   const styleWebkitBackdropFilter = style.getPropertyValue?.('-webkit-backdrop-filter')
   if (styleWebkitBackdropFilter) {
