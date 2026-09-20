@@ -94,7 +94,11 @@ export function VariableNumberInput({
   compact = false,
 }: VariableNumberInputProps) {
   // 「固定值」是所有字段共有的解绑出口，调用方不传菜单时兜底给它
-  const chipMenuOptions = menuOptions ?? buildDetachMenuOptions(binding.fallbackValue)
+  const defaultUnitOption = inputProps.unitOptions?.find((option) => option.value === 'default')
+  const chipMenuOptions = menuOptions ?? [
+    ...(defaultUnitOption ? [defaultUnitOption] : []),
+    ...buildDetachMenuOptions(binding.fallbackValue),
+  ]
 
   const handleMenuAction = (action: string) => {
     if (action === DETACH_VARIABLE_ACTION) {
@@ -102,6 +106,14 @@ export function VariableNumberInput({
       return
     }
     onMenuAction?.(action)
+  }
+
+  const handleMenuSelect = (value: string) => {
+    if (value === 'default') {
+      inputProps.onClear?.()
+      return
+    }
+    onMenuSelect?.(value)
   }
 
   return (
@@ -116,7 +128,7 @@ export function VariableNumberInput({
           menuOptions={chipMenuOptions}
           menuLayout={menuLayout}
           menuStyle={menuStyle}
-          onMenuSelect={onMenuSelect}
+          onMenuSelect={handleMenuSelect}
           onMenuAction={handleMenuAction}
           onInputValue={inputProps.onChange as (value: string) => void}
           onDetach={binding.detach}
