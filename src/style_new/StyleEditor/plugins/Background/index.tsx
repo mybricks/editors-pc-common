@@ -306,7 +306,7 @@ function LayerItem({
           onClick={startEditing}
         >
           {/* 暂时去掉具体变量名的展示，直接展示文案 {getLayerLabel(layer)} */}
-           @颜色变量
+          {isVariableReference ? '@颜色变量' : getLayerLabel(layer)}
         </div>
       )}
 
