@@ -249,6 +249,7 @@ function replaceGroup(
 
 /** 将 padding/margin 四值简写展开，同时保留 var() 和 !important。 */
 export function expandFourShorthand(raw: unknown): string[] | null {
+  if (raw == null || String(raw).trim() === '') return null
   const {value, important} = parsePriority(raw)
   const parts = splitTopLevelComponents(value)
   if (!parts || parts.length < 1 || parts.length > 4) return null
