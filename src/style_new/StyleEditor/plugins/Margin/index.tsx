@@ -108,7 +108,13 @@ function getMarginEditorValue(
   const hasAuthoredMargin =
     Object.prototype.hasOwnProperty.call(authoredStyle, 'margin') ||
     MARGIN_KEYS.some((key) => Object.prototype.hasOwnProperty.call(authoredStyle, key))
-  if (!hasAuthoredMargin) return {}
+  if (!hasAuthoredMargin) {
+    // 与 Padding 面板保持一致：getDefaultConfiguration 已经从 CSSRule 中保留了
+    // var(...)，即使 authoredStyle 没拿到 shorthand，也应使用明确的变量值回显。
+    // 普通 computed 的 0px/auto 仍然返回空对象，继续显示「默认」。
+    const hasVariableMargin = MARGIN_KEYS.some((key) => isCssVarValue((value as any)[key]))
+    return hasVariableMargin ? expandMarginShorthand(value) : {}
+  }
 
   const next: MarginValue = {}
   MARGIN_KEYS.forEach((key) => {
@@ -258,20 +264,27 @@ export function Margin ({value, onChange, config, showTitle, collapse}: MarginPr
       if (String(normalizedValue[key] ?? '').includes('default')) normalizedValue[key] = null
     })
 
-    // 仅写入用户实际修改的方向。不能为未声明方向补 0px，否则编辑单边会把
-    // 浏览器 computedStyle 的默认值固化为 margin shorthand。
     const current: Record<string, any> = {...marginValueRef.current}
     const next = {...current, ...normalizedValue}
     marginValueRef.current = next
     setMarginValue(next)
 
-    // 仅在四个方向都有显式值时聚合为 margin 简写；否则只写本次修改的方向，
-    // 避免把浏览器 computedStyle 的默认 0px 固化进 CSS。
-    const hasCompleteMargin = MARGIN_KEYS.every(
-      (key) => next[key] !== null && typeof next[key] !== 'undefined' && next[key] !== ''
-    )
-    const keys = hasCompleteMargin ? MARGIN_KEYS : Object.keys(normalizedValue)
-    const changeList = keys.map((key) => ({key, value: next[key]}))
+    // 清空某一边时，必须把其余方向的原始值一起传给下游。
+    // liveStyle 可能仍是 margin shorthand；只传一个 null 会让 shorthand-normalizer
+    // 误以为整组属性都要删除。这里沿用 Padding 的做法：本次修改传 null，其余方向
+    // 传当前快照中的值，让下游先拆成四边，再只删除目标方向。
+    const changedKeys = new Set(Object.keys(normalizedValue))
+    const changeList: Array<{key: string; value: any}> = []
+    MARGIN_KEYS.forEach((key) => {
+      if (changedKeys.has(key)) {
+        changeList.push({key, value: normalizedValue[key]})
+      } else {
+        const rawValue = next[key]
+        if (rawValue != null && rawValue !== '') {
+          changeList.push({key, value: rawValue})
+        }
+      }
+    })
 
     // 检测父容器 flex 对齐冲突，自动追加 align-self 修复
     const conflict = getAlignConflict(context?.targetDom)
