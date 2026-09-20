@@ -1,5 +1,6 @@
 import React from 'react'
 import { findCssVarReferences } from '../../core/css-var'
+import { expandFourShorthand } from '../../core/shorthand-normalizer'
 import { clipHasText, getBackgroundClip } from './paint-stack'
 
 const hasCSSVariable = (value: string | any) => {
@@ -291,10 +292,21 @@ export const splitCSSProperties = (
 
   // padding
   if (cssProperties.padding) {
-    splitStyles.paddingTop = computedStyle.paddingTop
-    splitStyles.paddingRight = computedStyle.paddingRight
-    splitStyles.paddingBottom = computedStyle.paddingBottom
-    splitStyles.paddingLeft = computedStyle.paddingLeft
+    // computedStyle 会把 var(--xxx) 展开成具体像素，导致变量绑定信息丢失。
+    // 能按 CSS 四值规则展开时直接保留源码值；普通 padding 仍沿用浏览器计算结果。
+    const authoredPadding = hasCSSVariable(cssProperties.padding)
+      ? expandFourShorthand(cssProperties.padding)
+      : null
+    const [paddingTop, paddingRight, paddingBottom, paddingLeft] = authoredPadding || [
+      computedStyle.paddingTop,
+      computedStyle.paddingRight,
+      computedStyle.paddingBottom,
+      computedStyle.paddingLeft,
+    ]
+    splitStyles.paddingTop = paddingTop
+    splitStyles.paddingRight = paddingRight
+    splitStyles.paddingBottom = paddingBottom
+    splitStyles.paddingLeft = paddingLeft
     delete splitStyles.padding
   }
 

@@ -3,6 +3,7 @@
  */
 
 import { findCssVarReferences } from './css-var'
+import { expandFourShorthand } from './shorthand-normalizer'
 
 export type ValuesAcc = Record<string, any>
 
@@ -80,6 +81,20 @@ export function applyRuleHooks(
   ).trim()
   if (ruleBoxShadow.includes('var(')) {
     acc.boxShadow = ruleBoxShadow
+  }
+
+  // padding 简写含 var() 时，CSSStyleDeclaration 的四个 longhand 可能为空，
+  // 后续 computed fallback 会把变量解析成具体像素。按 CSS 四值规则回填源码值，
+  // 保留变量引用供面板回显和后续复用。
+  const stylePaddingShorthand = style.getPropertyValue('padding')
+  if (stylePaddingShorthand && stylePaddingShorthand.includes('var(')) {
+    const expandedPadding = expandFourShorthand(stylePaddingShorthand)
+    if (expandedPadding) {
+      acc.paddingTop = expandedPadding[0]
+      acc.paddingRight = expandedPadding[1]
+      acc.paddingBottom = expandedPadding[2]
+      acc.paddingLeft = expandedPadding[3]
+    }
   }
 
   // webkit backdrop-filter
