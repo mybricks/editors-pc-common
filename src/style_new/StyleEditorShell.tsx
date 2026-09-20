@@ -830,7 +830,11 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
           />
         )}
         {showEditModeControl && (
-          <div className={css.editModeControl}>
+          <div
+            className={`${css.editModeControl} ${
+              zoneSelectorList.length > 1 ? css.editModeControlWithTabs : ''
+            } ${!isSoloEdit ? css.editModeControlBatch : ''}`}
+          >
             <Checkbox
               checked={!isSoloEdit}
               onChange={(event) => (event.target.checked ? onExitSoloEdit() : onEnterSoloEdit())}
@@ -843,8 +847,8 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
               }`}
             >
               {isSoloEdit
-                ? '当前仅编辑选中区域'
-                : `修改会影响 ${affectedCount}个区域`}
+                ? '仅编辑选中区域'
+                : <>影响 <span className={css.affectedCount}>{affectedCount}</span> 个区域</>}
             </div>
           </div>
         )}

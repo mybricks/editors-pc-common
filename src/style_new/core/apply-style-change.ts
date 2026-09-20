@@ -258,7 +258,7 @@ export function applyStyleChange({
     FLEX_LONGHAND_KEYS.forEach((k) => forceDelete(k))
   }
 
-  const normalized = normalizeStyleShorthands(nextSetValue, changeItems)
+  const normalized = normalizeStyleShorthands(nextSetValue, changeItems, new Set(deletedKeys))
   normalized.deletions.forEach((key) => {
     if (!deletedKeys.includes(key)) deletedKeys.push(key)
   })

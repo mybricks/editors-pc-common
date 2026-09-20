@@ -3,6 +3,7 @@
  */
 
 import { findCssVarReferences } from './css-var'
+import { expandFourShorthand } from './shorthand-normalizer'
 
 export type ValuesAcc = Record<string, any>
 
@@ -80,6 +81,45 @@ export function applyRuleHooks(
   ).trim()
   if (ruleBoxShadow.includes('var(')) {
     acc.boxShadow = ruleBoxShadow
+  }
+
+  // padding 简写含 var() 时，CSSStyleDeclaration 的四个 longhand 可能为空，
+  // 后续 computed fallback 会把变量解析成具体像素。按 CSS 四值规则回填源码值，
+  // 保留变量引用供面板回显和后续复用。
+  const stylePaddingShorthand = style.getPropertyValue('padding')
+  if (stylePaddingShorthand && stylePaddingShorthand.includes('var(')) {
+    const expandedPadding = expandFourShorthand(stylePaddingShorthand)
+    if (expandedPadding) {
+      acc.paddingTop = expandedPadding[0]
+      acc.paddingRight = expandedPadding[1]
+      acc.paddingBottom = expandedPadding[2]
+      acc.paddingLeft = expandedPadding[3]
+    }
+  }
+
+  // margin 简写含 var() 时同样不能依赖 computed fallback，否则变量会变成像素值。
+  const styleMarginShorthand = style.getPropertyValue('margin')
+  if (styleMarginShorthand && styleMarginShorthand.includes('var(')) {
+    const expandedMargin = expandFourShorthand(styleMarginShorthand)
+    if (expandedMargin) {
+      acc.marginTop = expandedMargin[0]
+      acc.marginRight = expandedMargin[1]
+      acc.marginBottom = expandedMargin[2]
+      acc.marginLeft = expandedMargin[3]
+    }
+  }
+
+  // border-radius 简写含 var() 时，CSSStyleDeclaration 的四个圆角 longhand
+  // 可能被 computed fallback 解析成具体像素；按四角规则回填源码变量，供 Border 面板回显。
+  const styleBorderRadiusShorthand = style.getPropertyValue('border-radius')
+  if (styleBorderRadiusShorthand && styleBorderRadiusShorthand.includes('var(')) {
+    const expandedBorderRadius = expandFourShorthand(styleBorderRadiusShorthand)
+    if (expandedBorderRadius) {
+      acc.borderTopLeftRadius = expandedBorderRadius[0]
+      acc.borderTopRightRadius = expandedBorderRadius[1]
+      acc.borderBottomRightRadius = expandedBorderRadius[2]
+      acc.borderBottomLeftRadius = expandedBorderRadius[3]
+    }
   }
 
   // webkit backdrop-filter

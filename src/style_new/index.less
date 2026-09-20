@@ -275,45 +275,45 @@
 }
 
 .affectedHint {
-  font-size: 12px;
-  text-align: center;
-  font-style: italic;
-
-  &:before {
-    content: '(';
-    margin-right: 2px;
-  }
-
-  &:after {
-    content: ')';
-    margin-left: 4px;
-  }
+  font-size: 11px;
+  line-height: 18px;
 }
 
 .batchAffectedHint {
-  color: #eab303;
+  color: @font-color-content;
 }
 
 .soloAffectedHint {
-  color: #6d28d9;
+  color: var(--mybricks-text-color-secondary, #666);
+}
+
+.affectedCount {
+  color: var(--mybricks-color-primary, #FA6400);
+  font-weight: 600;
 }
 
 .editModeControl {
-  --checkbox-hover-color: #6d28d9;
+  --checkbox-hover-color: var(--mybricks-color-primary, #FA6400);
   display: flex;
   align-items: center;
-  min-height: 28px;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-height: 32px;
   margin: 0 0 8px 0;
-  padding: 4px;
+  padding: 5px 8px;
+  border-radius: 5px;
+  border: 1px solid @boder-color;
+  background-color: @bg-color-main;
   user-select: none;
-  justify-content: center;
 
   :global(.ant-checkbox-wrapper) {
     display: inline-flex;
     align-items: center;
-    color: #262626;
+    color: @font-color-content;
     font-size: 12px;
     line-height: 20px;
+    font-weight: 500;
     flex-shrink: 0;
     white-space: nowrap;
   }
@@ -325,24 +325,6 @@
   :global(.ant-checkbox-inner) {
     width: 14px;
     height: 14px;
-  }
-
-  :global(.ant-checkbox-checked .ant-checkbox-inner) {
-    background-color: var(--mybricks-color-primary);
-    border-color: transparent;
-  }
-
-  :global(.ant-checkbox-checked::after) {
-    border-color: var(--mybricks-color-primary);
-  }
-
-  :global(.ant-checkbox-wrapper:hover .ant-checkbox-checked::after) {
-    border-color: var(--checkbox-hover-color);
-  }
-
-  :global(.ant-checkbox-wrapper:hover .ant-checkbox-checked:not(.ant-checkbox-disabled) .ant-checkbox-inner) {
-    background-color: var(--checkbox-hover-color);
-    border-color: var(--checkbox-hover-color);
   }
 
   :global(.ant-checkbox-wrapper:hover .ant-checkbox:not(.ant-checkbox-disabled) .ant-checkbox-inner) {
@@ -361,12 +343,40 @@
   }
 
   .affectedHint {
-    text-align: right;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    margin-left: auto;
     min-width: 0;
+    white-space: nowrap;
   }
+}
+
+.editModeControlBatch {
+  border-color: color-mix(in srgb, var(--mybricks-color-primary, #FA6400) 22%, @bg-color-main);
+  background-color: color-mix(in srgb, var(--mybricks-color-primary, #FA6400) 10%, @bg-color-main);
+
+  :global(.ant-checkbox-checked .ant-checkbox-inner),
+  :global(.ant-checkbox-wrapper:hover .ant-checkbox-checked:not(.ant-checkbox-disabled) .ant-checkbox-inner) {
+    background-color: var(--mybricks-color-primary, #FA6400);
+    border-color: var(--mybricks-color-primary, #FA6400) !important;
+  }
+
+  :global(.ant-checkbox-checked .ant-checkbox-inner::after) {
+    border-color: #fff;
+  }
+
+  :global(.ant-checkbox-checked::after),
+  :global(.ant-checkbox-wrapper:hover .ant-checkbox-checked::after) {
+    border-color: var(--mybricks-color-primary, #FA6400);
+  }
+
+  :global(.ant-checkbox-input:focus-visible + .ant-checkbox-inner) {
+    outline: 2px solid var(--mybricks-color-primary, #FA6400);
+    outline-offset: 2px;
+  }
+}
+
+.editModeControlWithTabs {
+  margin-right: 6px;
+  margin-left: 6px;
 }
 
 .styleSection {

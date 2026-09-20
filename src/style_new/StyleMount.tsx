@@ -8,6 +8,36 @@ import type { EditorProps } from './type'
 import { applyStyleChange } from './core/apply-style-change'
 import type { ZoneWriteTarget } from './core/apply-style-change'
 import { toElementArray } from './core/dom'
+import { expandFourShorthand } from './core/shorthand-normalizer'
+
+const BOX_MODEL_KEYS = {
+  margin: ['marginTop', 'marginRight', 'marginBottom', 'marginLeft'],
+  padding: ['paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft'],
+}
+
+function mergeAuthoredBoxModelValues(
+  setValue: Record<string, any>,
+  authoredStyle?: Record<string, any>
+) {
+  const merged = deepCopy(setValue || {})
+  if (!authoredStyle) return merged
+
+  Object.entries(BOX_MODEL_KEYS).forEach(([shorthand, longhands]) => {
+    const expanded = expandFourShorthand(authoredStyle[shorthand])
+    if (expanded) {
+      longhands.forEach((key, index) => {
+        merged[key] = expanded[index]
+      })
+    }
+    longhands.forEach((key) => {
+      if (authoredStyle[key] != null && authoredStyle[key] !== '') {
+        merged[key] = authoredStyle[key]
+      }
+    })
+  })
+
+  return merged
+}
 
 interface StyleProps extends EditorProps {
   [key: string]: any
@@ -31,13 +61,19 @@ export function StyleMount({
   const importantPriorityCacheRef = useRef(new Map<string, boolean>())
   const zoneWriteTargetsRef = useRef(new Map<string, ZoneWriteTarget>())
   const liveStyleRef = useRef<Record<string, any>>(
-    initLiveStyle(deepCopy(setValue || {}), (defaultValue as any) || {})
+    initLiveStyle(
+      mergeAuthoredBoxModelValues(setValue || {}, authoredStyle),
+      (defaultValue as any) || {}
+    )
   )
 
   // 当 setValue 被外部改写时，同步更新 liveStyleRef。
   useEffect(() => {
-    liveStyleRef.current = initLiveStyle(deepCopy(setValue || {}), (defaultValue as any) || {})
-  }, [setValue])
+    liveStyleRef.current = initLiveStyle(
+      mergeAuthoredBoxModelValues(setValue || {}, authoredStyle),
+      (defaultValue as any) || {}
+    )
+  }, [setValue, authoredStyle])
 
   const handleChange: ChangeEvent = useCallback(
     (value) => {

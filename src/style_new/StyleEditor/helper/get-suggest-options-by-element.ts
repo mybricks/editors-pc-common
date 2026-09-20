@@ -10,21 +10,18 @@ export function getSuggestOptionsByElement(selectDom: HTMLElement): { type: stri
   }
 
   try {
-    // 处理字体相关
-    let fontOption: any = {
-      type: 'font',
-      config: {}
-    }
-    /** 深层遍历，当前Dom下方所有的带直接文本节点的元素 */
-    const textElemnts = findElementsWithDirectTextChildren(selectDom);
     // flex/inline-flex/grid/inline-grid 容器：text-align 无效，需映射到 justify-content
     const selectDomStyle = window.getComputedStyle(selectDom);
     const selectDomDisplay = selectDomStyle.display;
     const isFlexLike = ['flex', 'inline-flex', 'grid', 'inline-grid'].includes(selectDomDisplay);
-    if (Array.isArray(textElemnts) && textElemnts.length === 0) { // 未找到文本元素，隐藏字体配置
-      const hasIconChild = !!selectDom.querySelector('svg, .anticon, [role="img"]');
-      if (hasIconChild) {
-        fontOption.config = {
+
+    // 字体面板始终可见；纯图标场景仍只展示适用的配置项。
+    const hasText = !!selectDom.textContent?.trim();
+    const hasIconChild = !!selectDom.querySelector('svg, .anticon, [role="img"]');
+    const fontOption = {
+      type: 'font',
+      config: {
+        ...(!hasText && hasIconChild ? {
           disableFontFamily: true,
           disableColor: false,
           disableFontSize: false,
@@ -33,16 +30,10 @@ export function getSuggestOptionsByElement(selectDom: HTMLElement): { type: stri
           disableLineHeight: true,
           disableWhiteSpace: true,
           disableTextAlign: false,
-          ...(isFlexLike ? { textAlignMode: 'flex' } : {}),
-        }
-      } else {
-        fontOption = void 0;
-      }
-    } else { // 自身或后代包含文本时，稳定展示全部通用字体配置
-      fontOption.config = {
+        } : {}),
         ...(isFlexLike ? { textAlignMode: 'flex' } : {}),
       }
-    }
+    };
 
     // 处理size
     const sizeDisabled = shouldSizeDisabled(selectDom);
@@ -357,31 +348,4 @@ function shouldOverflowDisabled(selectDom: HTMLElement) {
     (selectDom.childNodes.length === 1 &&
       selectDom.firstChild instanceof Text &&
       selectDom.firstChild.nodeValue?.trim() === '');
-}
-
-
-/**
- * @description 找出当前Dom下方的所有带直接文本节点的Dom，注意是深层次的
- * @param element 
- * @returns 
- */
-function findElementsWithDirectTextChildren(element: HTMLElement) {
-  if (Array.from(element.childNodes).some(node =>
-    node.nodeType === Node.TEXT_NODE && node.nodeValue && node.nodeValue.trim() !== ''
-  )) {
-    return element
-  }
-  // 选择所有不包含其他元素的节点，css选择器性能更好
-  const leafElements = element.querySelectorAll(':not(:empty):not(:has(*))');
-
-  if (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA') {
-    return void 0
-  }
-
-  // 过滤出只包含文本内容的元素
-  return Array.from(leafElements).filter(el =>
-    Array.from(el.childNodes).some(node =>
-      node.nodeType === Node.TEXT_NODE && node.nodeValue && node.nodeValue.trim() !== ''
-    ) || el.tagName === 'INPUT' || el.tagName === 'TEXTAREA'
-  );
 }
