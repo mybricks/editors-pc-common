@@ -149,11 +149,12 @@ export function VariableChip({
     <Panel.Item style={style}>
       <div
         className={`${css.chip}${compact ? ` ${css.compact}` : ''}${showIconOnHover ? ` ${css.iconOnHover}` : ''}`}
-        data-mybricks-tip={
-          resolvedValue && resolvedValue !== displayText
+        data-mybricks-tip={JSON.stringify({
+          content: resolvedValue && resolvedValue !== displayText
             ? `变量：${varName || value}\n${resolvedValue}`
-            : `变量：${varName || value}`
-        }
+            : `变量：${varName || value}`,
+          position: 'left',
+        })}
       >
         {prefix && <div className={css.prefix}>{prefix}</div>}
         <div className={css.main}>

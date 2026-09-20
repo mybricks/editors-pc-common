@@ -672,14 +672,7 @@ export function ColorEditor({
     }
 
     // 主题色标题等仍走绑定展示；var() 回显走下方输入框
-    if (nonColorValue && !isCssVarRef(value)) {
-      if (!finalValue && emptyValueLabel) {
-        return (
-          <div className={`${css.text} ${css.emptyText}`} onClick={onPresetClick}>
-            {emptyValueLabel}
-          </div>
-        );
-      }
+    if (nonColorValue && !isCssVarRef(value) && (finalValue || !emptyValueLabel)) {
       return (
         <>
           <div className={css.text} onClick={onPresetClick}>
@@ -720,6 +713,7 @@ export function ColorEditor({
         data-mybricks-tip="支持16进制、RGB、RGBA、HSL、HSLA、var()或颜色名称"
         ref={inputColorRef}
         value={userInput}
+        placeholder={emptyValueLabel}
         className={css.input}
         onFocus={() => {
           isFocus.current = true;

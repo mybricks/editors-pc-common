@@ -1338,11 +1338,19 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
               </Panel.Content>
               <Panel.Content style={{ padding: 3 }}>
                 <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
+                  <div
+                    className={css.icon}
+                    ref={topRightRadiusVar.anchorRef}
+                    {...(topRightRadiusVar.varRef
+                      ? topRightRadiusVar.dragProps('拖拽调整右上圆角（将解除变量绑定）')
+                      : getDragPropsRadius(borderValue.borderTopRightRadius, '拖拽调整右上圆角'))}
+                  >
+                    <BorderTopRightRadiusOutlined />
+                  </div>
                   <VariableNumberInput
                     binding={topRightRadiusVar}
                     chipStyle={CHIP_STYLE}
                     inputProps={{
-                      align: 'right',
                       style: DEFAULT_STYLE__NEW,
                       defaultValue: borderValue.borderTopRightRadius,
                       unitOptions: radiusUnitOptions,
@@ -1356,15 +1364,6 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                       onFocus: () => setSplitRadiusIcon(<BorderTopRightRadiusOutlined />),
                     }}
                   />
-                  <div
-                    className={css.icon}
-                    ref={topRightRadiusVar.anchorRef}
-                    {...(topRightRadiusVar.varRef
-                      ? topRightRadiusVar.dragProps('拖拽调整右上圆角（将解除变量绑定）')
-                      : getDragPropsRadius(borderValue.borderTopRightRadius, '拖拽调整右上圆角'))}
-                  >
-                    <BorderTopRightRadiusOutlined />
-                  </div>
                 </Panel.Item>
 
               </Panel.Content>
@@ -1403,11 +1402,19 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
               </Panel.Content>
               <Panel.Content style={{ padding: 3 }}>
                 <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
+                  <div
+                    className={css.icon}
+                    ref={bottomRightRadiusVar.anchorRef}
+                    {...(bottomRightRadiusVar.varRef
+                      ? bottomRightRadiusVar.dragProps('拖拽调整右下圆角（将解除变量绑定）')
+                      : getDragPropsRadius(borderValue.borderBottomRightRadius, '拖拽调整右下圆角'))}
+                  >
+                    <BorderBottomRightRadiusOutlined />
+                  </div>
                   <VariableNumberInput
                     binding={bottomRightRadiusVar}
                     chipStyle={CHIP_STYLE}
                     inputProps={{
-                      align: 'right',
                       style: DEFAULT_STYLE__NEW,
                       defaultValue: borderValue.borderBottomRightRadius,
                       unitOptions: radiusUnitOptions,
@@ -1421,15 +1428,6 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                       onFocus: () => setSplitRadiusIcon(<BorderBottomRightRadiusOutlined />),
                     }}
                   />
-                  <div
-                    className={css.icon}
-                    ref={bottomRightRadiusVar.anchorRef}
-                    {...(bottomRightRadiusVar.varRef
-                      ? bottomRightRadiusVar.dragProps('拖拽调整右下圆角（将解除变量绑定）')
-                      : getDragPropsRadius(borderValue.borderBottomRightRadius, '拖拽调整右下圆角'))}
-                  >
-                    <BorderBottomRightRadiusOutlined />
-                  </div>
                 </Panel.Item>
               </Panel.Content>
             </div>
