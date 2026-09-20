@@ -109,6 +109,19 @@ export function applyRuleHooks(
     }
   }
 
+  // border-radius 简写含 var() 时，CSSStyleDeclaration 的四个圆角 longhand
+  // 可能被 computed fallback 解析成具体像素；按四角规则回填源码变量，供 Border 面板回显。
+  const styleBorderRadiusShorthand = style.getPropertyValue('border-radius')
+  if (styleBorderRadiusShorthand && styleBorderRadiusShorthand.includes('var(')) {
+    const expandedBorderRadius = expandFourShorthand(styleBorderRadiusShorthand)
+    if (expandedBorderRadius) {
+      acc.borderTopLeftRadius = expandedBorderRadius[0]
+      acc.borderTopRightRadius = expandedBorderRadius[1]
+      acc.borderBottomRightRadius = expandedBorderRadius[2]
+      acc.borderBottomLeftRadius = expandedBorderRadius[3]
+    }
+  }
+
   // webkit backdrop-filter
   const styleWebkitBackdropFilter = style.getPropertyValue?.('-webkit-backdrop-filter')
   if (styleWebkitBackdropFilter) {
