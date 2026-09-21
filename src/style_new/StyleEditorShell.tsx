@@ -65,7 +65,7 @@ type CachedStyleEditor = {
 const ZONE_TAB_ADD_OPTIONS = [
   { key: 'hover', suffix: ':hover', label: '悬浮态' },
   { key: 'focus', suffix: ':focus', label: '聚焦态' },
-  { key: 'disabled', suffix: '-disabled', label: '禁用态' },
+  { key: 'disabled', suffix: ':disabled', label: '禁用态' },
   { key: 'before', suffix: '::before', label: '前缀元素' },
   { key: 'after', suffix: '::after', label: '后缀元素' },
 ] as const
@@ -224,11 +224,7 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
         const expectedSelector = `${currentBaseSelector}${option.suffix}`
         return !zoneTabs.some((tab) => (
           tab.selector === expectedSelector ||
-          tab.pseudo === option.suffix ||
-          (option.key === 'disabled' && tab.sourceRules.some((rule) => (
-            rule.selectorPart.includes(`${currentBaseSelector}-disabled`) ||
-            rule.sourceSelector.includes(`${currentBaseSelector}-disabled`)
-          )))
+          tab.pseudo === option.suffix
         ))
       })
       .map(({ key, label }) => ({ key, label }))
@@ -240,7 +236,7 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
     const suffixMap: Record<string, string> = {
       hover: ':hover',
       focus: ':focus',
-      disabled: '-disabled',
+      disabled: ':disabled',
       before: '::before',
       after: '::after',
     }
