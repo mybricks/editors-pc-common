@@ -99,7 +99,11 @@ export function Input({
 
         {align == 'right' && (
           <>
-            {suffix && <div className={css.suffix}>{suffix}</div>}
+            {prefix && (
+              <div className={css.prefix} data-mybricks-tip={prefixTip}>
+                {prefix}
+              </div>
+            )}
             <input
               value={inputValue ?? ''}
               style={{ textAlign: 'right',paddingRight: 3 }}
@@ -112,12 +116,8 @@ export function Input({
               data-mybricks-tip={numberTip}
               type={type}
             />
-            {prefix && (
-              <div className={css.prefix} data-mybricks-tip={prefixTip}>
-                {prefix}
-              </div>
-            )}
             {clearable && inputValue !== '' && inputValue != null && <ClearButton onClick={() => { setInputValue(''); if (onClear) onClear(); else onChange?.('') }} />}
+            {suffix && <div className={css.suffix}>{suffix}</div>}
           </>
         )}
       </div>

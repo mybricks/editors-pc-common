@@ -18,6 +18,8 @@ import { getEffectedCssPropertyAndOptions } from './get-effected-css'
 import { buildZoneEffectiveStyle } from './zone-tab'
 import type { EffectiveStyleValue, ZoneTab } from './zone-tab'
 import { toElementArray } from './dom'
+import { hasCssVarReference } from './css-var'
+import { expandFourShorthand } from './shorthand-normalizer'
 import {
   getDefaultValueFunctionMap,
   getDefaultValueFunctionMap2,
@@ -85,9 +87,22 @@ export function getDefaultConfiguration2 ({value, options}: GetDefaultConfigurat
 }
 
 /**
- * 获取默认的配置项和样式
+ * 为 StyleEditor 组装一次完整的初始化配置。
+ *
+ * 这个方法同时处理两类输入：
+ * 1. 没有真实 DOM（例如只编辑伪类）时，用面板的空白默认值初始化；
+ * 2. 有真实 DOM 时，从 CSSOM、样式规则和 value.get() 汇总当前样式。
+ *
+ * 返回值里的几个字段来源不同，不能混用：
+ * - `defaultValue`：面板展示和 CSS 编辑器使用的当前样式快照；
+ * - `setValue`：业务 value 中保存的源码样式，主要用于判断用户是否配置过；
+ * - `collapsedOptions`：没有自身生效样式的面板；
+ * - `readonlyExpandedOptions`：只有继承/UA 值的面板，展开回显但不能当作可删除的自身样式；
+ * - `authoredStyle`：规则源码中明确写入的属性，供 Margin、Font 等插件区分源码值和 computed 值。
  */
 export function getDefaultConfiguration ({value, options}: GetDefaultConfigurationProps, suggestOptionsCache?: SuggestOptionsCache) {
+  // 第一阶段：先准备所有中间结果。后续会根据是否有真实 DOM，选择
+  // 「从 CSSOM 取生效值」或「从面板默认值生成空白配置」两条路径。
   let finalOpen = false
   let finalOptions
   /** 自动收起没有生效的 CSS 插件 */
@@ -95,6 +110,7 @@ export function getDefaultConfiguration ({value, options}: GetDefaultConfigurati
   let defaultValue: CSSProperties = {}
   let effectiveStyle: Record<string, EffectiveStyleValue> = {}
   let finalSelector
+  // value.get() 是业务侧保存的源码样式；先复制，避免本次计算修改外部对象。
   let setValue: Record<string, any> = deepCopy(value?.get?.() || {})
 
   let getDefaultValue = true
@@ -112,6 +128,8 @@ export function getDefaultConfiguration ({value, options}: GetDefaultConfigurati
     // options是一个数组，直接使用
     finalOptions = options
   } else {
+    // 对象形式的 options 是带上下文的高级配置：插件列表决定可见面板，
+    // targetDom/selector 决定从哪个元素或 CSS 规则读取实际生效样式。
     const { plugins, selector, targetDom, defaultOpen = false, autoOptions = false, exclude, comId } = options
     const zoneTab = (options as any).zoneTab
     dom = targetDom
@@ -132,18 +150,19 @@ export function getDefaultConfiguration ({value, options}: GetDefaultConfigurati
     /** 用户是否配置options */
     const userNoConfig = finalOptions === DEFAULT_OPTIONS
     
-    // 未配置options，开启自动折叠
+    // 未配置插件列表时，或者调用方显式要求 autoOptions 时，允许按实际生效值折叠面板。
     if (userNoConfig || autoOptions) {
       autoCollapseWhenUnusedProperty = true
     }
-    // 未配置options，自动disabled不可用的配置
+    // 只有拿到真实元素时才能计算建议面板；伪类等没有 DOM 的场景保留原始插件列表。
     if ((userNoConfig || autoOptions) && !!realTargetDom) {
       finalOptions = getSuggestOptionsWithCache(realTargetDom, suggestOptionsCache) ?? finalOptions
     }
 
 
     
-    // 将引擎传入的 [data-zone-selector='[...]'] 格式解析为 CSS 选择器数组
+    // 引擎可能把多状态选择器编码成 [data-zone-selector='[".a", ".b"]']。
+    // realSelectors 用于逐个查规则，realSelector 则作为单值传给伪类/源码读取逻辑。
     const rawSelector = Array.isArray(selector) ? selector[0] : selector;
     const zoneArrayMatch = rawSelector?.match(/\[data-zone-selector=['"]?(\[[^\]]*\])['"]?\]/);
 
@@ -163,7 +182,8 @@ export function getDefaultConfiguration ({value, options}: GetDefaultConfigurati
     const isPseudoSelector = typeof realSelector === 'string' && /:(:)?[a-zA-Z0-9\-\_]+/.test(realSelector);
     const realDom = !!realTargetDom ? realTargetDom : null;
 
-    // 带上选中上下文再取一次 value.get：AI 组件可从 Less 读到原始 flex:1，而不是 CSSOM 的 1 1 0%
+    // 带上选中上下文再取一次 value.get：AI 组件可从 Less 读到原始 flex:1，
+    // 而不是 CSSOM 序列化后的 1 1 0%。源码值会覆盖第一次无上下文读取的同名字段。
     try {
       const authored = (value.get as any)?.({
         selector: realSelector,
@@ -178,6 +198,9 @@ export function getDefaultConfiguration ({value, options}: GetDefaultConfigurati
     } catch {}
 
     if (realDom || isPseudoSelector) {
+      // 第二阶段 A：有元素或伪类选择器时，读取真正生效的 CSS。
+      // getEffectedCssPropertyAndOptions 同时返回：当前样式值、自己规则命中的面板、
+      // 祖先继承命中的面板，以及源码中明确声明的 authoredStyle。
       getDefaultValue = false;
       const [styleValues, options, ownRulesPanels, ancestorPanels, authoredStyle] = getEffectedCssPropertyAndOptions(
         realDom,
@@ -207,6 +230,7 @@ export function getDefaultConfiguration ({value, options}: GetDefaultConfigurati
       effectedFromAncestorsOnly = mapEffectedPanels(ancestorPanels as string[]);
       ownAuthoredStyle = authoredStyle || {};
       finalOptions = normalizeEffectOptions(finalOptions)
+      // 每个面板只负责生成自己拥有的默认字段；Object.assign 的顺序遵循插件列表顺序。
       finalOptions.forEach((option) => {
         let type, config;
         if (typeof option === 'string') {
@@ -225,6 +249,8 @@ export function getDefaultConfiguration ({value, options}: GetDefaultConfigurati
     }
   }
 
+  // 第二阶段 B：无 DOM/伪类上下文时，仍要把选项统一成标准面板对象，
+  // 并用各面板的空白默认值初始化，保证编辑器可以正常挂载。
   finalOptions = normalizeEffectOptions(finalOptions)
 
   if (getDefaultValue) {
@@ -247,6 +273,8 @@ export function getDefaultConfiguration ({value, options}: GetDefaultConfigurati
     })
   }
 
+  // 将业务侧保存的简写属性拆成长写，便于后续按属性判断面板是否有自身配置，
+  // 也便于和 computedStyle 的字段合并。原始 setValue 仍保留在上面用于判断 shorthand 声明。
   const splitedSetValue = splitCSSProperties(setValue)
 
   // 历史 CSS 曾将 box-shadow 的四长度格式用于 text-shadow。
@@ -261,6 +289,8 @@ export function getDefaultConfiguration ({value, options}: GetDefaultConfigurati
     defaultValue.textShadow = splitedSetValue.textShadow
   }
 
+  // 第三阶段：从源码样式反推「用户自己配置过哪些面板」。
+  // 这里不能只看拆分后的 0px：padding/margin 的 shorthand 可能在拆分时丢失“明确声明”的语义。
   const setValueEffectedPanels = new Set<string>();
   // splitCSSProperties 会把 margin/padding shorthand 展开成四个 computed 长写，
   // 先基于原始 setValue 记录用户是否明确写入了 box-model 声明，避免 0px 信息丢失。
@@ -292,6 +322,7 @@ export function getDefaultConfiguration ({value, options}: GetDefaultConfigurati
     }
   })
 
+  // 只有既没有 CSS 规则生效、也没有源码配置、也不是祖先继承的面板才自动折叠。
   let collapsedOptions: any = [];
   if (effctedOptions) {
     collapsedOptions = finalOptions.map(t => {
@@ -301,12 +332,15 @@ export function getDefaultConfiguration ({value, options}: GetDefaultConfigurati
 
   const ownEffectedSet = new Set([...effectedFromRulesOnly, ...Array.from(setValueEffectedPanels)]);
   
+  // 祖先继承值需要展开回显，但不能和自身样式混在一起，否则面板会出现可删除标记。
   let readonlyExpandedOptions = Array.from(new Set(effectedFromAncestorsOnly.filter(p => !ownEffectedSet.has(p))));
 
   // 检测被折叠的面板中是否有 UA/computedStyle 默认值（即 defaultValue 里的属性值与空白默认值不同）。
   // 若直接折叠，用户展开后会看到有值却显示 - 号（可误删），因此将它们移入 readonlyExpandedOptions，
   // 渲染为 collapse='inherited'，展开且无 - 号，与父级继承样式的处理方式保持一致。
   if (collapsedOptions.length > 0) {
+    // 折叠前再检查一次 UA/computedStyle 值：例如浏览器给元素补的默认值，
+    // 虽然不是用户配置，却应该让面板保持可见并以 inherited/只读方式展示。
     const uaFilledPanels: string[] = [];
     collapsedOptions = collapsedOptions.filter((panelKey: string) => {
       // @ts-ignore
@@ -359,10 +393,43 @@ export function getDefaultConfiguration ({value, options}: GetDefaultConfigurati
   }
   // CSSOM 会把 flex:1 / 长写都序列化成 flex: 1 11 0%，无法区分简写与单独配置。
   // Less/value.get 有源码值时以其为准，并清掉 CSSOM 合成项；长写优先时不带回 flex。
+  // 第四阶段：合并当前源码样式和 CSSOM/规则样式。
+  // 有 DOM 时 computed/规则值优先，再用源码值补充；无 DOM 时源码值覆盖空白默认值。
+  // flex 单独处理，因为 CSSOM 会把 flex:1 序列化成长写，反过来会改变面板语义。
   const mergeDefaultValue = (): CSSProperties => {
     const merged: Record<string, any> = getDefaultValue
       ? Object.assign(defaultValue, splitedSetValue)
       : Object.assign({}, splitedSetValue, defaultValue)
+
+    // CSSOM 只能提供变量解析后的结果，源码中的 var() 才是后续复用所需的信息。
+    // 优先收集 splitCSSProperties 已保留下来的 longhand，再用当前 ZoneTab 的
+    // authoredStyle 补齐规则中的 padding/margin shorthand，避免被 computed 值覆盖。
+    const authoredVariableValues: Record<string, any> = {}
+    const collectAuthoredVariables = (source: Record<string, any>) => {
+      ;[
+        ['padding', 'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft'],
+        ['margin', 'marginTop', 'marginRight', 'marginBottom', 'marginLeft'],
+      ].forEach(([shorthand, top, right, bottom, left]) => {
+        const rawShorthand = source[shorthand]
+        const expanded = hasCssVarReference(rawShorthand)
+          ? expandFourShorthand(rawShorthand)
+          : null
+        if (expanded) {
+          ;[top, right, bottom, left].forEach((key, index) => {
+            authoredVariableValues[key] = expanded[index]
+          })
+        }
+        ;[top, right, bottom, left].forEach((key) => {
+          if (hasCssVarReference(source[key])) {
+            authoredVariableValues[key] = source[key]
+          }
+        })
+      })
+    }
+    collectAuthoredVariables(splitedSetValue)
+    collectAuthoredVariables(ownAuthoredStyle)
+    Object.assign(merged, authoredVariableValues)
+
     const flexKeys = ['flex', 'flexGrow', 'flexShrink', 'flexBasis'] as const
     const isPresent = (v: unknown) => v != null && String(v).trim() !== ''
     const hasAuthoredFlex = flexKeys.some((k) => isPresent(splitedSetValue[k]))

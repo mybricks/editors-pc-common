@@ -171,7 +171,6 @@ export function InputNumber ({
         // 例如尺寸为「填满」时，输入框为空并通过 placeholder 展示计算值。
         if (
           !trimmed &&
-          typeof fallbackValue === 'undefined' &&
           !inputChangedSinceFocusRef.current &&
           !focusValueRef.current.trim()
         ) {
@@ -232,7 +231,6 @@ export function InputNumber ({
       // 仅查看 placeholder 后直接失焦时保持原状态；只有实际编辑过才提交清空。
       if (
         !trimmed &&
-        typeof fallbackValue === 'undefined' &&
         !inputChangedSinceFocusRef.current &&
         !focusValueRef.current.trim()
       ) {

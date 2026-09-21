@@ -247,7 +247,9 @@ function replaceGroup(
   Object.assign(style, output)
 }
 
-function expandFourShorthand(raw: unknown): string[] | null {
+/** 将 padding/margin 四值简写展开，同时保留 var() 和 !important。 */
+export function expandFourShorthand(raw: unknown): string[] | null {
+  if (raw == null || String(raw).trim() === '') return null
   const {value, important} = parsePriority(raw)
   const parts = splitTopLevelComponents(value)
   if (!parts || parts.length < 1 || parts.length > 4) return null
@@ -294,14 +296,30 @@ function normalizeSimpleGroup(
   style: Record<string, any>,
   group: SimpleGroup,
   changedKeys: Set<string>,
-  deletions: string[]
+  deletions: string[],
+  clearedKeys: Set<string>
 ) {
   const { shorthand, longhands, serialize } = group
   const allKeys = [shorthand, ...longhands]
   const touched = allKeys.some((key) => changedKeys.has(key))
+  const hasGroupValue = allKeys.some((key) => hasValue(style, key))
   // 编辑单一方向时，先将已有 shorthand 展开。否则删除一个 longhand 会直接移除
   // shorthand，导致未编辑方向的 margin/padding 也一并丢失。
   expandShorthandForLonghandChange(style, shorthand, longhands, changedKeys, deletions)
+  // liveStyle 可能已经把 shorthand 展开成四个 longhand。此时清除其中一边
+  // 不会再经过 shorthand 展开逻辑，需要用 CSS 初始值补回该边，才能保留其他边。
+  if (touched && hasGroupValue) {
+    const existingValues = longhands
+      .filter((key) => hasValue(style, key))
+      .map((key) => parsePriority(style[key]))
+    const preserveImportant =
+      existingValues.length > 0 && existingValues.every(({ important }) => important)
+    longhands.forEach((key) => {
+      if (clearedKeys.has(key) && !hasValue(style, key)) {
+        style[key] = preserveImportant ? '0px!important' : '0px'
+      }
+    })
+  }
   if (touched) {
     allKeys.forEach((key) => {
       if (!Object.prototype.hasOwnProperty.call(style, key) || hasValue(style, key)) return
@@ -418,13 +436,14 @@ function normalizeBorder(
 
 export function normalizeStyleShorthands(
   input: Record<string, any>,
-  changes: ShorthandChangeItem[] = []
+  changes: ShorthandChangeItem[] = [],
+  clearedKeys: Set<string> = new Set()
 ): ShorthandNormalizeResult {
   const style = { ...(input || {}) }
   const deletions: string[] = []
   const changedKeys = new Set(changes.map(({ key }) => key))
 
-  BOX_GROUPS.forEach((group) => normalizeSimpleGroup(style, group, changedKeys, deletions))
+  BOX_GROUPS.forEach((group) => normalizeSimpleGroup(style, group, changedKeys, deletions, clearedKeys))
   normalizeBorder(style, changedKeys, deletions)
 
   return { style, deletions }

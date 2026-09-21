@@ -209,6 +209,8 @@ export function Flex({ value, onChange, showTitle, collapse }: FlexProps) {
   const isEditingGrowRef = useRef(false)
   const isEditingShrinkRef = useRef(false)
   const isEditingBasisRef = useRef(false)
+  const focusGrowValueRef = useRef('')
+  const focusShrinkValueRef = useRef('')
   // 切回比例时 advanced 输入会卸载并触发 blur；抑制这次 blur 落盘，避免盖掉简写写入
   const suppressLonghandBlurRef = useRef(false)
 
@@ -268,6 +270,7 @@ export function Flex({ value, onChange, showTitle, collapse }: FlexProps) {
     (raw: string) => {
       const trimmed = raw.trim()
       if (!trimmed) {
+        if (!hasFlexValue) return
         onChange(clearFlexChanges())
         setLocalValue('')
         setLocalGrow('')
@@ -278,6 +281,16 @@ export function Flex({ value, onChange, showTitle, collapse }: FlexProps) {
       }
       // 走简写：清空长写，回到统一比例；写入前压成简洁写法（1 1 0% → 1）
       const normalized = normalizeFlexDisplay(trimmed)
+      // 仅失焦不代表值发生变化，避免把当前回显值再次写回上层。
+      if (
+        normalized === echo &&
+        !isNonEmpty(value?.flexGrow) &&
+        !isNonEmpty(value?.flexShrink) &&
+        !isNonEmpty(value?.flexBasis)
+      ) {
+        setLocalValue(normalized)
+        return
+      }
       onChange([
         { key: 'flex', value: normalized },
         { key: 'flexGrow', value: null },
@@ -290,7 +303,7 @@ export function Flex({ value, onChange, showTitle, collapse }: FlexProps) {
       setLocalBasis('')
       setMode('ratio')
     },
-    [onChange]
+    [onChange, echo, hasFlexValue, value?.flexGrow, value?.flexShrink, value?.flexBasis]
   )
 
   /** 点 + 展开时立刻写入 flex:1，避免空输入框看起来像“点了没反应” */
@@ -324,9 +337,16 @@ export function Flex({ value, onChange, showTitle, collapse }: FlexProps) {
       const basis = basisRaw != null ? String(basisRaw).trim() : ''
 
       if (!grow && !shrink && !basis) {
+        if (!hasFlexValue) return
         onChange(clearFlexChanges())
         setLocalValue('')
         setLocalBasis('')
+        return
+      }
+
+      // 高级字段失焦时，只有三项实际变化才需要把简写切成长写并通知上层。
+      if (grow === parts.grow && shrink === parts.shrink && basis === parts.basis) {
+        setLocalBasis(basis)
         return
       }
 
@@ -341,7 +361,7 @@ export function Flex({ value, onChange, showTitle, collapse }: FlexProps) {
       setLocalValue('')
       setMode('advanced')
     },
-    [onChange, localGrow, localShrink, localBasis]
+    [onChange, localGrow, localShrink, localBasis, hasFlexValue, parts]
   )
 
   const handleFocus = useCallback(() => {
@@ -369,6 +389,7 @@ export function Flex({ value, onChange, showTitle, collapse }: FlexProps) {
       isEditingGrowRef.current = false
       const v = e.target.value.trim()
       setLocalGrow(v)
+      if (v === focusGrowValueRef.current) return
       commitLonghands({ grow: v })
     },
     [commitLonghands]
@@ -379,6 +400,7 @@ export function Flex({ value, onChange, showTitle, collapse }: FlexProps) {
       isEditingShrinkRef.current = false
       const v = e.target.value.trim()
       setLocalShrink(v)
+      if (v === focusShrinkValueRef.current) return
       commitLonghands({ shrink: v })
     },
     [commitLonghands]
@@ -451,6 +473,7 @@ export function Flex({ value, onChange, showTitle, collapse }: FlexProps) {
                     onChange={(e) => setLocalGrow(e.target.value)}
                     onFocus={() => {
                       isEditingGrowRef.current = true
+                      focusGrowValueRef.current = localGrow.trim()
                     }}
                     onBlur={handleGrowBlur}
                     onKeyDown={handleKeyDown}
@@ -471,6 +494,7 @@ export function Flex({ value, onChange, showTitle, collapse }: FlexProps) {
                     onChange={(e) => setLocalShrink(e.target.value)}
                     onFocus={() => {
                       isEditingShrinkRef.current = true
+                      focusShrinkValueRef.current = localShrink.trim()
                     }}
                     onBlur={handleShrinkBlur}
                     onKeyDown={handleKeyDown}
