@@ -268,7 +268,8 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
       activeSelector = soloSelector
       resolvedEditConfig = {
         ...resolvedEditConfig,
-        options: { ...resolvedEditConfig.options, selector: soloSelector },
+        // 单独编辑写入专属 selector，不能再按 zoneTab 的来源规则拆分到公共 class。
+        options: { ...resolvedEditConfig.options, selector: soloSelector, zoneTab: null },
       }
     }
 

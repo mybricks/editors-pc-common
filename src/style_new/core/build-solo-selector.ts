@@ -59,6 +59,21 @@ function getRuntimeSelector(element: Element, sourceSelector: string): string {
   })
 }
 
+function getCssModulePrefix(element: Element): string | null {
+  const runtimeClass = Array.from(element.classList).find((className) => {
+    const separator = className.lastIndexOf('--')
+    return separator > 0 && className.slice(0, separator).includes('_')
+  })
+  if (!runtimeClass) return null
+  return runtimeClass.slice(0, runtimeClass.lastIndexOf('--'))
+}
+
+function isOutsideSoloModule(element: Element, targetDom: Element): boolean {
+  const targetPrefix = getCssModulePrefix(targetDom)
+  const currentPrefix = getCssModulePrefix(element)
+  return !!targetPrefix && !!currentPrefix && currentPrefix !== targetPrefix
+}
+
 function normalizeSelector(selector: string): string {
   return selector.replace(/\s+/g, ' ').trim()
 }
@@ -213,6 +228,7 @@ export const buildSoloSelector = (
   let current: Element | null = targetDom
 
   while (current && current !== componentRoot) {
+    if (isOutsideSoloModule(current, targetDom)) break
     const zoneClassSelector = getZoneClassSelector(current)
     if (zoneClassSelector) {
       const selector = current === targetDom ? baseTail : zoneClassSelector
@@ -245,6 +261,7 @@ function getRuntimeSoloSelector(
   let current: Element | null = targetDom
 
   while (current && current !== componentRoot) {
+    if (isOutsideSoloModule(current, targetDom)) break
     const zoneClassSelector = getRuntimeZoneClassSelector(current)
     if (zoneClassSelector) {
       const selector = current === targetDom
