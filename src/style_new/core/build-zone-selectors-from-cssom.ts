@@ -133,10 +133,11 @@ function isSubjectZoneSelector(
   subjectOnEl: Set<string>,
   onlyNoiseClasses: boolean
 ): boolean {
+  const lastSegment = demangled.trim().split(/\s+/).pop() || ''
+  if (lastSegment === '*') return false
   // 没有可用主体 class 时，仍拦截只带噪音 class 的节点，避免放行所有祖先规则。
   // 真正没有任何 class 的节点仍保留 CSSOM 结构选择器能力（如 `.title span`）。
   if (!subjectOnEl.size) return !onlyNoiseClasses
-  const lastSegment = demangled.trim().split(/\s+/).pop() || ''
   const classes = extractClassTokens(lastSegment)
   if (!classes.length) return false
   return classes.some(
