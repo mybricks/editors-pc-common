@@ -1,4 +1,6 @@
 import React, { useMemo } from 'react'
+import { Button, Dropdown, Menu } from 'antd'
+import { PlusOutlined } from '@ant-design/icons'
 
 import css from './index.less'
 
@@ -83,11 +85,16 @@ function getZoneTabLabels(selectors: string[]): string[] {
 
 export function ZoneTabBar(props: {
   selectors: string[]
+  labels?: string[]
   activeIdx: number
   onSelect: (idx: number) => void
+  onAdd?: (type: string) => void
 }) {
-  const { selectors, activeIdx, onSelect } = props
-  const labels = useMemo(() => getZoneTabLabels(selectors), [selectors])
+  const { selectors, labels: providedLabels, activeIdx, onSelect, onAdd } = props
+  const labels = useMemo(
+    () => providedLabels ?? getZoneTabLabels(selectors),
+    [providedLabels, selectors]
+  )
 
   return (
     <div className={css.zoneTabBar}>
@@ -100,6 +107,23 @@ export function ZoneTabBar(props: {
           {labels[idx]}
         </div>
       ))}
+      {onAdd && (
+        <Dropdown
+          trigger={['click']}
+          overlay={
+            <Menu onClick={({ key }) => onAdd(String(key))}>
+              <Menu.Item key="hover">悬浮态</Menu.Item>
+              <Menu.Item key="focus">聚焦态</Menu.Item>
+              <Menu.Item key="active">按下态</Menu.Item>
+              <Menu.Item key="disabled">禁用态</Menu.Item>
+              <Menu.Item key="before">前缀元素</Menu.Item>
+              <Menu.Item key="after">后缀元素</Menu.Item>
+            </Menu>
+          }
+        >
+          <Button type="text" size="small" icon={<PlusOutlined />} aria-label="新增状态" />
+        </Dropdown>
+      )}
     </div>
   )
 }

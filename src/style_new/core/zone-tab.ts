@@ -18,12 +18,24 @@ export type ZoneSourceRule = {
   isPageStyle: boolean
 }
 
+export type EffectiveStyleValue = {
+  value: unknown
+  type: 'inline' | 'stylesheet' | 'computed'
+  sourceSelector?: string
+  selectorPart?: string
+  sourceOrder?: number
+  important?: boolean
+}
+
 export type ZoneTab = {
   selector: string
   baseSelector: string
   pseudo: string | null
   sourceRules: ZoneSourceRule[]
   baseRules: ZoneSourceRule[]
+  target?: Element
+  label?: string
+  effectiveStyle?: Record<string, EffectiveStyleValue>
 }
 
 export type ZoneDeletionTarget = {
@@ -61,6 +73,141 @@ export function getOrderedZoneSourceRules(tab: ZoneTab): ZoneSourceRule[] {
       }
       return a.sourceOrder - b.sourceOrder
     })
+}
+
+function readStyleProperty(source: ZoneSourceRule, property: string): string {
+  try {
+    return source.rule.style.getPropertyValue(property).trim()
+  } catch {
+    return ''
+  }
+}
+
+function findStyleSource(tab: ZoneTab, styleKey: string): ZoneSourceRule | undefined {
+  const property = toLine(styleKey)
+  const fallbackProperties = PROPERTY_FALLBACKS[styleKey] || []
+  const orderedRules = getOrderedZoneSourceRules(tab)
+  for (let index = orderedRules.length - 1; index >= 0; index -= 1) {
+    const source = orderedRules[index]
+    if (readStyleProperty(source, property)) return source
+  }
+  for (let index = orderedRules.length - 1; index >= 0; index -= 1) {
+    const source = orderedRules[index]
+    if (fallbackProperties.some((fallback) => readStyleProperty(source, fallback))) return source
+  }
+  return undefined
+}
+
+/** 使用现有面板计算出的 styleValues 生成来源信息，避免重复实现 CSS 级联。 */
+export function buildZoneEffectiveStyle(
+  tab: ZoneTab,
+  styleValues: Record<string, unknown>,
+  target?: Element | null,
+): Record<string, EffectiveStyleValue> {
+  const result: Record<string, EffectiveStyleValue> = {}
+  Object.entries(styleValues).forEach(([styleKey, value]) => {
+    if (value == null || String(value).trim() === '') return
+    const source = findStyleSource(tab, styleKey)
+    const cssProperty = toLine(styleKey)
+    const inlineStyle = target instanceof HTMLElement ? target.style : null
+    const inlineValue = inlineStyle?.getPropertyValue(cssProperty).trim()
+    const stylesheetImportant = !!source && source.rule.style.getPropertyPriority(cssProperty) === 'important'
+    const inlineWins = !!inlineValue && !stylesheetImportant
+    result[styleKey] = {
+      value,
+      type: source ? (inlineWins ? 'inline' : 'stylesheet') : (inlineValue ? 'inline' : 'computed'),
+      sourceSelector: inlineWins ? undefined : source?.sourceSelector,
+      selectorPart: inlineWins ? 'inline' : source?.selectorPart,
+      sourceOrder: inlineWins ? undefined : source?.sourceOrder,
+      important: inlineWins
+        ? inlineStyle?.getPropertyPriority(cssProperty) === 'important'
+        : stylesheetImportant || undefined,
+    }
+  })
+  return result
+}
+
+const PSEUDO_TAIL_RE = /(:{1,2}[a-zA-Z\-]+(?:\([^)]*\))?)$/
+
+function shortenClassLabel(rawLabel: string): string {
+  const classes = rawLabel.split('.')
+  const hashedClasses = classes.filter((cls) => cls.includes('--'))
+  return hashedClasses.length > 0
+    ? hashedClasses.map((cls) => cls.slice(cls.lastIndexOf('--') + 2)).join('.')
+    : rawLabel
+}
+
+function getStateLabel(base: string): string | null {
+  const names = base.match(/[a-zA-Z_][a-zA-Z0-9_-]*/g) || []
+  const stateLabels: Array<[RegExp, string]> = [
+    [/(?:^|[-_])selected(?:$|[-_])/i, '选中态'],
+    [/(?:^|[-_])active(?:$|[-_])/i, '激活态'],
+    [/(?:^|[-_])disabled(?:$|[-_])/i, '禁用态'],
+    [/(?:^|[-_])checked(?:$|[-_])/i, '选中态'],
+    [/(?:^|[-_])focus(?:$|[-_])/i, '聚焦态'],
+  ]
+  for (const name of names) {
+    const state = stateLabels.find(([pattern]) => pattern.test(name))
+    if (state) return state[1]
+  }
+  return null
+}
+
+function getPseudoLabel(pseudo: string, base: string): string {
+  const pseudoLabels: Record<string, string> = {
+    ':hover': '悬浮态',
+    ':active': '按下态',
+    ':focus': '聚焦态',
+    ':focus-visible': '键盘聚焦态',
+    ':focus-within': '后代聚焦态',
+    ':disabled': '禁用态',
+    '::before': '前缀元素',
+    '::after': '后缀元素',
+    '::placeholder': '占位符元素',
+  }
+  const pseudoLabel = pseudoLabels[pseudo] || pseudo
+  return base ? `${shortenClassLabel(base)}${pseudoLabel}` : pseudoLabel
+}
+
+function getZoneTabLabel(selector: string): string {
+  const parts = selector.trim().split(/\s+/)
+  const lastPart = parts[parts.length - 1] || ''
+  const pseudoMatch = lastPart.match(PSEUDO_TAIL_RE)
+  const base = pseudoMatch
+    ? lastPart.slice(0, -pseudoMatch[1].length).replace(/^\./, '')
+    : lastPart.replace(/^\./, '')
+  if (pseudoMatch) return getPseudoLabel(pseudoMatch[1], base)
+  const stateLabel = getStateLabel(base)
+  return `${shortenClassLabel(base)}${stateLabel || '常规'}`
+}
+
+function getDisambiguatedBaseLabel(selector: string): string {
+  const parts = selector.trim().split(/\s+/)
+  const lastPart = parts[parts.length - 1] || ''
+  const self = getZoneTabLabel(lastPart)
+  if (parts.length < 2) return self
+  const parent = shortenClassLabel(parts[parts.length - 2].replace(/^\./, ''))
+  return parent ? `${parent} ${self}` : self
+}
+
+function isPseudoSelector(selector: string): boolean {
+  const lastPart = selector.trim().split(/\s+/).pop() || ''
+  return PSEUDO_TAIL_RE.test(lastPart)
+}
+
+/** 生成与 zoneTabs 顺序一致的展示名称。 */
+export function getZoneTabLabels(selectors: string[]): string[] {
+  const labels = selectors.map(getZoneTabLabel)
+  const counts = new Map<string, number>()
+  labels.forEach((label) => counts.set(label, (counts.get(label) ?? 0) + 1))
+
+  return selectors.map((selector, index) => {
+    if (isPseudoSelector(selector)) return labels[index]
+    if (!isPseudoSelector(selector) && (counts.get(labels[index]) ?? 0) > 1) {
+      return getDisambiguatedBaseLabel(selector)
+    }
+    return labels[index]
+  })
 }
 
 const PROPERTY_FALLBACKS: Record<string, string[]> = {
@@ -327,6 +474,8 @@ export function collectZoneTabs(
       pseudo: null,
       sourceRules: [],
       baseRules: [],
+      target: elements[0],
+      effectiveStyle: {},
     })
   }
   if (!elements.length || !baseSelectors.length) return Array.from(tabs.values())
@@ -367,6 +516,8 @@ export function collectZoneTabs(
             pseudo: state.pseudo,
             sourceRules: [],
             baseRules: [],
+            target,
+            effectiveStyle: {},
           }
           tabs.set(pseudoKey, pseudoTab)
         }
@@ -387,5 +538,6 @@ export function collectZoneTabs(
     if (base) tab.baseRules = base.baseRules.slice()
   }
 
-  return Array.from(tabs.values()).filter((tab) => !tab.pseudo || tab.sourceRules.length > 0)
+  return Array.from(tabs.values())
+    .filter((tab) => !tab.pseudo || tab.sourceRules.length > 0)
 }

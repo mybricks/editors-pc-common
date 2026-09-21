@@ -41,6 +41,7 @@ import {
   getSavedSoloStyle,
 } from './core/build-solo-selector'
 import type { SavedSoloStyle } from './core/build-solo-selector'
+import type { ZoneTab } from './core/zone-tab'
 import { getDocument, toElementArray } from './core/dom'
 import { backToVisualIcon } from './icon'
 import { ZoneTabBar } from './ZoneTabBar'
@@ -131,7 +132,7 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
   }, [editConfig])
 
   const { batchMeta, refreshBatchMeta, onBatchDiscard, onBatchCommit } = useBatchMeta(editConfig)
-  const { zoneSelectorList, zoneTabs, activeZoneIdx, setActiveZoneIdx } = useZoneSelectors(
+  const { zoneSelectorList, zoneTabs, activeZoneIdx, setActiveZoneIdx, addZoneTab } = useZoneSelectors(
     editConfig,
     targetDom,
     open
@@ -206,6 +207,43 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
 
   const activeZoneTab = zoneTabs[activeZoneIdx] ?? null
 
+  const onAddZoneTab = useCallback((type: string) => {
+    const currentBaseSelector = activeZoneTab?.baseSelector || baseSelector
+    if (!currentBaseSelector) return
+    const suffixMap: Record<string, string> = {
+      hover: ':hover',
+      focus: ':focus',
+      'focus-visible': ':focus-visible',
+      active: ':active',
+      disabled: '-disabled',
+      before: '::before',
+      after: '::after',
+    }
+    const suffix = suffixMap[type]
+    if (!suffix) return
+    const selector = `${currentBaseSelector}${suffix}`
+    const labels: Record<string, string> = {
+      hover: `${currentBaseSelector}悬浮态`,
+      focus: `${currentBaseSelector}聚焦态`,
+      'focus-visible': `${currentBaseSelector}键盘聚焦态`,
+      active: `${currentBaseSelector}按下态`,
+      disabled: `${currentBaseSelector}禁用态`,
+      before: `${currentBaseSelector}前缀元素`,
+      after: `${currentBaseSelector}后缀元素`,
+    }
+    const tab: ZoneTab = {
+      selector,
+      baseSelector: currentBaseSelector,
+      pseudo: suffix.startsWith(':') ? suffix : null,
+      sourceRules: [],
+      baseRules: [],
+      target: selectedTarget || undefined,
+      label: labels[type],
+      effectiveStyle: {},
+    }
+    addZoneTab(tab)
+  }, [activeZoneTab, addZoneTab, baseSelector, selectedTarget])
+
   const componentRoot = useMemo(() => {
     return shellComId ? getDocument().getElementById(shellComId) : null
   }, [shellComId])
@@ -218,6 +256,7 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
 
   const onZoneTabSelect = useCallback(
     (idx: number) => {
+      console.log('[StyleEditorShell] zoneTab selected', zoneTabs[idx])
       if (idx === activeZoneIdx) return
 
       // Solo 模式下同步更新写入目标，避免先用旧 soloSelector 构建一遍，
@@ -241,6 +280,7 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
       selectedTarget,
       setActiveZoneIdx,
       zoneSelectorList,
+      zoneTabs,
     ]
   )
 
@@ -825,11 +865,13 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
             </div>
           </div>
         )}
-        {zoneSelectorList.length > 1 && (
+        {zoneSelectorList.length > 0 && (
           <ZoneTabBar
             selectors={zoneSelectorList}
+            labels={zoneTabs.map((tab) => tab.label || tab.selector)}
             activeIdx={activeZoneIdx}
             onSelect={onZoneTabSelect}
+            onAdd={onAddZoneTab}
           />
         )}
         {showEditModeControl && (

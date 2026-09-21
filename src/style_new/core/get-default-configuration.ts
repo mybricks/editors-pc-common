@@ -15,6 +15,8 @@ import type { GetDefaultConfigurationProps } from '../type'
 import type { Options } from '../StyleEditor/type'
 import { mapEffectedPanels, normalizeEffectOptions } from './effects-alias'
 import { getEffectedCssPropertyAndOptions } from './get-effected-css'
+import { buildZoneEffectiveStyle } from './zone-tab'
+import type { EffectiveStyleValue, ZoneTab } from './zone-tab'
 import { toElementArray } from './dom'
 import {
   getDefaultValueFunctionMap,
@@ -91,6 +93,7 @@ export function getDefaultConfiguration ({value, options}: GetDefaultConfigurati
   /** 自动收起没有生效的 CSS 插件 */
   let autoCollapseWhenUnusedProperty = true;
   let defaultValue: CSSProperties = {}
+  let effectiveStyle: Record<string, EffectiveStyleValue> = {}
   let finalSelector
   let setValue: Record<string, any> = deepCopy(value?.get?.() || {})
 
@@ -183,6 +186,22 @@ export function getDefaultConfiguration ({value, options}: GetDefaultConfigurati
         zoneTab,
       );
 
+      if (zoneTab) {
+        effectiveStyle = buildZoneEffectiveStyle(
+          zoneTab as ZoneTab,
+          styleValues as Record<string, unknown>,
+          realDom,
+        )
+      }
+      const panelStyleValues = Object.entries(effectiveStyle).reduce<Record<string, unknown>>(
+        (result, [key, item]) => {
+          result[key] = item.value
+          return result
+        },
+        {},
+      )
+      const valuesForPanels = zoneTab ? panelStyleValues : styleValues
+
       effctedOptions = options == null ? options : mapEffectedPanels(options as string[]);
       effectedFromRulesOnly = mapEffectedPanels(ownRulesPanels as string[]);
       effectedFromAncestorsOnly = mapEffectedPanels(ancestorPanels as string[]);
@@ -200,7 +219,7 @@ export function getDefaultConfiguration ({value, options}: GetDefaultConfigurati
         // @ts-ignore
         if (DEFAULT_OPTIONS.includes(type)) {
           // @ts-ignore TODO: 类型补全
-          Object.assign(defaultValue, getDefaultValueFunctionMap[type](styleValues, config));
+          Object.assign(defaultValue, getDefaultValueFunctionMap[type](valuesForPanels, config));
         }
       });
     }
@@ -367,18 +386,20 @@ export function getDefaultConfiguration ({value, options}: GetDefaultConfigurati
     return merged as CSSProperties
   }
 
+  const finalDefaultValue = mergeDefaultValue()
   return {
     options: finalOptions,
     collapsedOptions,
     readonlyExpandedOptions,
     autoCollapseWhenUnusedProperty,
-    defaultValue: mergeDefaultValue(),
+    defaultValue: finalDefaultValue,
     setValue: Object.assign({}, splitedSetValue),
     authoredStyle: Object.assign({}, ownAuthoredStyle),
     finalOpen,
     finalSelector,
     finnalExcludeOptions,
     targetDom: dom,
+    effectiveStyle,
   } as {
     options: Options,
     collapsedOptions: string[]
@@ -391,5 +412,6 @@ export function getDefaultConfiguration ({value, options}: GetDefaultConfigurati
     finalSelector: string,
     finnalExcludeOptions: any,
     targetDom: any,
+    effectiveStyle: Record<string, EffectiveStyleValue>,
   }
 }

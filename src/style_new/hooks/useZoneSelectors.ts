@@ -8,11 +8,13 @@ import {
 import { elMatchesSelectorTail } from '../core/css-modules-match'
 import { toElementArray } from '../core/dom'
 import { scanPseudoSelectors } from '../core/scan-pseudo-selectors'
-import { collectZoneTabs } from '../core/zone-tab'
+import { getEffectedCssPropertyAndOptions } from '../core/get-effected-css'
+import { buildZoneEffectiveStyle, collectZoneTabs, getZoneTabLabels } from '../core/zone-tab'
 import type { ZoneTab } from '../core/zone-tab'
 
 export function useZoneSelectors(editConfig: any, targetDom: any, _open: boolean) {
   const [activeZoneIdx, setActiveZoneIdx] = useState(0)
+  const [customZoneTabs, setCustomZoneTabs] = useState<ZoneTab[]>([])
   // 用户手动点 tab 后，禁止被「按 DOM class 对齐」立刻打回基础态（:hover / 状态类等）
   const userSelectedRef = useRef(false)
 
@@ -24,6 +26,7 @@ export function useZoneSelectors(editConfig: any, targetDom: any, _open: boolean
   // 换选中元素时，恢复自动对齐
   useEffect(() => {
     userSelectedRef.current = false
+    setCustomZoneTabs([])
   }, [targetDom])
 
   const zoneTabs = useMemo<ZoneTab[]>(() => {
@@ -60,14 +63,43 @@ export function useZoneSelectors(editConfig: any, targetDom: any, _open: boolean
           pseudo: pseudo.slice(baseSelector.length) || null,
           sourceRules: [],
           baseRules: [],
+          effectiveStyle: {},
         })
       }
     }
     // 保持 CSSOM 命中顺序，同时把没有可读 sourceRule 的兼容 fallback 放在末尾。
     const ordered = result.map((selector) => tabs.find((tab) => tab.selector === selector)).filter(Boolean) as ZoneTab[]
     tabs.filter((tab) => !result.includes(tab.selector)).forEach((tab) => ordered.push(tab))
-    return ordered
-  }, [targetDom, comId])
+    const labels = getZoneTabLabels(ordered.map((tab) => tab.selector))
+    const generatedTabs = ordered.map((tab, index) => {
+      const target = domList[0] as HTMLElement | undefined
+      let effectiveStyle = tab.effectiveStyle ?? {}
+      if (target) {
+        const [styleValues] = getEffectedCssPropertyAndOptions(
+          target,
+          tab.selector,
+          comId,
+          tab,
+        )
+        effectiveStyle = buildZoneEffectiveStyle(tab, styleValues as Record<string, unknown>, target)
+      }
+      return {
+        ...tab,
+        label: labels[index],
+        effectiveStyle,
+      }
+    })
+    const customTabs = customZoneTabs.map((tab) => {
+      const target = domList[0] as HTMLElement | undefined
+      if (!target) return tab
+      const [styleValues] = getEffectedCssPropertyAndOptions(target, tab.selector, comId, tab)
+      return {
+        ...tab,
+        effectiveStyle: buildZoneEffectiveStyle(tab, styleValues as Record<string, unknown>, target),
+      }
+    })
+    return [...generatedTabs, ...customTabs]
+  }, [targetDom, comId, customZoneTabs])
 
   const zoneSelectorList = useMemo(() => zoneTabs.map((tab) => tab.selector), [zoneTabs])
 
@@ -110,10 +142,31 @@ export function useZoneSelectors(editConfig: any, targetDom: any, _open: boolean
     setActiveZoneIdx(idx)
   }, [])
 
+  const addZoneTab = useCallback((tab: ZoneTab) => {
+    const existingIndex = zoneTabs.findIndex((item) => item.selector === tab.selector)
+    const customIndex = customZoneTabs.findIndex((item) => item.selector === tab.selector)
+    if (existingIndex >= 0) {
+      setActiveZoneIdx(existingIndex)
+      userSelectedRef.current = true
+      return
+    }
+    if (customIndex >= 0) {
+      setActiveZoneIdx(zoneTabs.length + customIndex)
+      userSelectedRef.current = true
+      return
+    }
+    setCustomZoneTabs((tabs) => {
+      return [...tabs, tab]
+    })
+    setActiveZoneIdx(zoneTabs.length + customZoneTabs.length)
+    userSelectedRef.current = true
+  }, [customZoneTabs, zoneTabs])
+
   return {
     zoneSelectorList,
     zoneTabs,
     activeZoneIdx,
     setActiveZoneIdx: setActiveZoneIdxByUser,
+    addZoneTab,
   }
 }
