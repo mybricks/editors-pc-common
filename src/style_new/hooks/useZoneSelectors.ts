@@ -9,7 +9,12 @@ import { elMatchesSelectorTail } from '../core/css-modules-match'
 import { toElementArray } from '../core/dom'
 import { scanPseudoSelectors } from '../core/scan-pseudo-selectors'
 import { getEffectedCssPropertyAndOptions } from '../core/get-effected-css'
-import { buildZoneEffectiveStyle, collectZoneTabs, getZoneTabLabels } from '../core/zone-tab'
+import {
+  buildZoneEffectiveStyle,
+  collectZoneTabs,
+  getZoneTabLabels,
+  mergeZoneTabsByState,
+} from '../core/zone-tab'
 import type { ZoneTab } from '../core/zone-tab'
 
 export function useZoneSelectors(editConfig: any, targetDom: any, _open: boolean) {
@@ -70,8 +75,9 @@ export function useZoneSelectors(editConfig: any, targetDom: any, _open: boolean
     // 保持 CSSOM 命中顺序，同时把没有可读 sourceRule 的兼容 fallback 放在末尾。
     const ordered = result.map((selector) => tabs.find((tab) => tab.selector === selector)).filter(Boolean) as ZoneTab[]
     tabs.filter((tab) => !result.includes(tab.selector)).forEach((tab) => ordered.push(tab))
-    const labels = getZoneTabLabels(ordered.map((tab) => tab.selector))
-    const generatedTabs = ordered.map((tab, index) => {
+    const merged = mergeZoneTabsByState(ordered)
+    const labels = getZoneTabLabels(merged.map((tab) => tab.selector))
+    const generatedTabs = merged.map((tab, index) => {
       const target = domList[0] as HTMLElement | undefined
       let effectiveStyle = tab.effectiveStyle ?? {}
       if (target) {

@@ -223,13 +223,13 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
     if (!suffix) return
     const selector = `${currentBaseSelector}${suffix}`
     const labels: Record<string, string> = {
-      hover: `${currentBaseSelector}悬浮态`,
-      focus: `${currentBaseSelector}聚焦态`,
-      'focus-visible': `${currentBaseSelector}键盘聚焦态`,
-      active: `${currentBaseSelector}按下态`,
-      disabled: `${currentBaseSelector}禁用态`,
-      before: `${currentBaseSelector}前缀元素`,
-      after: `${currentBaseSelector}后缀元素`,
+      hover: '悬浮态',
+      focus: '聚焦态',
+      'focus-visible': '键盘聚焦态',
+      active: '按下态',
+      disabled: '禁用态',
+      before: '前缀元素',
+      after: '后缀元素',
     }
     const tab: ZoneTab = {
       selector,

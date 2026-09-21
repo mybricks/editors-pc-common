@@ -153,7 +153,7 @@ function getStateLabel(base: string): string | null {
   return null
 }
 
-function getPseudoLabel(pseudo: string, base: string): string {
+function getPseudoLabel(pseudo: string): string {
   const pseudoLabels: Record<string, string> = {
     ':hover': '悬浮态',
     ':active': '按下态',
@@ -166,7 +166,7 @@ function getPseudoLabel(pseudo: string, base: string): string {
     '::placeholder': '占位符元素',
   }
   const pseudoLabel = pseudoLabels[pseudo] || pseudo
-  return base ? `${shortenClassLabel(base)}${pseudoLabel}` : pseudoLabel
+  return pseudoLabel
 }
 
 function getZoneTabLabel(selector: string): string {
@@ -176,9 +176,9 @@ function getZoneTabLabel(selector: string): string {
   const base = pseudoMatch
     ? lastPart.slice(0, -pseudoMatch[1].length).replace(/^\./, '')
     : lastPart.replace(/^\./, '')
-  if (pseudoMatch) return getPseudoLabel(pseudoMatch[1], base)
+  if (pseudoMatch) return getPseudoLabel(pseudoMatch[1])
   const stateLabel = getStateLabel(base)
-  return `${shortenClassLabel(base)}${stateLabel || '常规'}`
+  return stateLabel || '常规'
 }
 
 function getDisambiguatedBaseLabel(selector: string): string {
@@ -208,6 +208,36 @@ export function getZoneTabLabels(selectors: string[]): string[] {
     }
     return labels[index]
   })
+}
+
+export function mergeZoneTabsByState(tabs: ZoneTab[]): ZoneTab[] {
+  const merged = new Map<string, ZoneTab>()
+  const mergeRules = (target: ZoneSourceRule[], incoming: ZoneSourceRule[]) => {
+    incoming.forEach((rule) => {
+      if (!target.some((item) => item.rule === rule.rule && item.selectorPart === rule.selectorPart)) {
+        target.push(rule)
+      }
+    })
+  }
+
+  tabs.forEach((tab) => {
+    const stateKey = tab.pseudo || '__base__'
+    const existing = merged.get(stateKey)
+    if (!existing) {
+      merged.set(stateKey, {
+        ...tab,
+        sourceRules: tab.sourceRules.slice(),
+        baseRules: tab.baseRules.slice(),
+        effectiveStyle: {},
+      })
+      return
+    }
+
+    mergeRules(existing.sourceRules, tab.sourceRules)
+    mergeRules(existing.baseRules, tab.baseRules)
+  })
+
+  return Array.from(merged.values())
 }
 
 const PROPERTY_FALLBACKS: Record<string, string[]> = {
