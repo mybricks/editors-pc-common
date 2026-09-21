@@ -20,12 +20,7 @@ function getZoneTabLabel(selector: string): string {
       ':disabled': '禁用态',
       '::before': '前缀元素',
       '::after': '后缀元素',
-      ':first-child': '首项',
-      ':last-child': '末项',
-      ':only-child': '唯一项',
     }
-    const nthChild = pseudoMatch[1].match(/^:nth-child\((\d+)\)$/)
-    if (nthChild) return `第${nthChild[1]}项`
     return pseudoLabels[pseudoMatch[1]] || pseudoMatch[1]
   }
 

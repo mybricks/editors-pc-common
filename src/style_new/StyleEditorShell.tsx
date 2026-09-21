@@ -65,7 +65,6 @@ type CachedStyleEditor = {
 const ZONE_TAB_ADD_OPTIONS = [
   { key: 'hover', suffix: ':hover', label: '悬浮态' },
   { key: 'focus', suffix: ':focus', label: '聚焦态' },
-  { key: 'active', suffix: ':active', label: '按下态' },
   { key: 'disabled', suffix: '-disabled', label: '禁用态' },
   { key: 'before', suffix: '::before', label: '前缀元素' },
   { key: 'after', suffix: '::after', label: '后缀元素' },
@@ -241,7 +240,6 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
     const suffixMap: Record<string, string> = {
       hover: ':hover',
       focus: ':focus',
-      active: ':active',
       disabled: '-disabled',
       before: '::before',
       after: '::after',
@@ -252,7 +250,6 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
     const labels: Record<string, string> = {
       hover: '悬浮态',
       focus: '聚焦态',
-      active: '按下态',
       disabled: '禁用态',
       before: '前缀元素',
       after: '后缀元素',

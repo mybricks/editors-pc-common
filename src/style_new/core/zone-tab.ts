@@ -137,22 +137,6 @@ function shortenClassLabel(rawLabel: string): string {
     : rawLabel
 }
 
-function getStateLabel(base: string): string | null {
-  const names = base.match(/[a-zA-Z_][a-zA-Z0-9_-]*/g) || []
-  const stateLabels: Array<[RegExp, string]> = [
-    [/(?:^|[-_])selected(?:$|[-_])/i, '选中态'],
-    [/(?:^|[-_])active(?:$|[-_])/i, '激活态'],
-    [/(?:^|[-_])disabled(?:$|[-_])/i, '禁用态'],
-    [/(?:^|[-_])checked(?:$|[-_])/i, '选中态'],
-    [/(?:^|[-_])focus(?:$|[-_])/i, '聚焦态'],
-  ]
-  for (const name of names) {
-    const state = stateLabels.find(([pattern]) => pattern.test(name))
-    if (state) return state[1]
-  }
-  return null
-}
-
 function getPseudoLabel(pseudo: string): string {
   const pseudoLabels: Record<string, string> = {
     ':hover': '悬浮态',
@@ -164,12 +148,7 @@ function getPseudoLabel(pseudo: string): string {
     '::before': '前缀元素',
     '::after': '后缀元素',
     '::placeholder': '占位符元素',
-    ':first-child': '首项',
-    ':last-child': '末项',
-    ':only-child': '唯一项',
   }
-  const nthChild = pseudo.match(/^:nth-child\((\d+)\)$/)
-  if (nthChild) return `第${nthChild[1]}项`
   const pseudoLabel = pseudoLabels[pseudo] || pseudo
   return pseudoLabel
 }
@@ -178,12 +157,8 @@ function getZoneTabLabel(selector: string): string {
   const parts = selector.trim().split(/\s+/)
   const lastPart = parts[parts.length - 1] || ''
   const pseudoMatch = lastPart.match(PSEUDO_TAIL_RE)
-  const base = pseudoMatch
-    ? lastPart.slice(0, -pseudoMatch[1].length).replace(/^\./, '')
-    : lastPart.replace(/^\./, '')
   if (pseudoMatch) return getPseudoLabel(pseudoMatch[1])
-  const stateLabel = getStateLabel(base)
-  return stateLabel || '常规'
+  return '常规'
 }
 
 function getDisambiguatedBaseLabel(selector: string): string {
