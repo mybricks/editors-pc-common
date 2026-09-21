@@ -255,6 +255,9 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
               ...originalOptions,
               selector: zoneSelectorList[activeZoneIdx],
               zoneTab: activeZoneTab,
+              // 诊断样式写入来源时需要看到当前元素的全部候选 selector，
+              // 不能只拿 activeZoneTab，否则无法列出其他未生效的 classname。
+              zoneTabs,
             },
           }
     let activeSelector =

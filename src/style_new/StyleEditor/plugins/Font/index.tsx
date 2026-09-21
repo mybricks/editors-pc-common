@@ -26,7 +26,7 @@ import {
 } from "../../components";
 import { splitValueAndUnit } from "../../utils";
 import { isObject } from "../../../../util/lodash/isObject";
-import { PanelBaseProps } from "../../type";
+import { PanelBaseProps, StyleChangeItem, StyleChangeResult } from "../../type";
 import { useDragNumber, useCanvasColorVariables, useLengthVarBinding, isCssVarValue } from "../../hooks";
 import { Variable } from "../../icons/Variable";
 import { FontSetting } from "../../icons/FontSetting";
@@ -51,7 +51,7 @@ const FONT_SIZE_MENU_STYLE: CSSProperties = { maxHeight: 'none', maxWidth: 132 }
 
 interface FontProps extends PanelBaseProps {
   value: CSSProperties;
-  onChange: (value: { key: string; value: any } | Array<{ key: string; value: any }>) => void;
+  onChange: (value: StyleChangeItem | StyleChangeItem[]) => StyleChangeResult | void;
 }
 
 /** CSS 通用族名及关键字，无需加引号 */
@@ -385,8 +385,14 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
       color: null,
       WebkitTextFillColor: null,
     };
+    const changeItems: StyleChangeItem[] = toStyleChangeItems(cleared).map((item) =>
+      item.key === 'color'
+        ? { ...item, intent: 'clear-effective-style' }
+        : item
+    );
+    const result = onChange(changeItems);
+    if (result?.clearUnsupported && !result.clearApplied) return;
     textFillStyleRef.current = { ...textFillStyleRef.current, ...cleared };
-    onChange(toStyleChangeItems(cleared));
     setTextFillAuthored(false);
     setTextFillDisplayOverride(getInheritedTextColor(targetDom));
     setTextFillEditorRevision((revision) => revision + 1);

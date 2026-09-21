@@ -28,9 +28,21 @@ export interface StyleEditorProps {
   onChange: ChangeEvent;
 }
 
+export type StyleChangeItem = {
+  key: string;
+  value: any;
+  intent?: 'clear-effective-style';
+};
+
+export type StyleChangeResult = {
+  applied: boolean;
+  clearApplied?: boolean;
+  clearUnsupported?: boolean;
+};
+
 export type ChangeEvent = (
-  arg: { key: string; value: any } | Array<{ key: string; value: any }>
-) => void;
+  arg: StyleChangeItem | StyleChangeItem[]
+) => StyleChangeResult | void;
 
 
 export interface PanelBaseProps {

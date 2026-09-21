@@ -1,3 +1,6 @@
+// @ts-ignore
+import { compare } from 'specificity'
+
 import { deepCopy } from '../../utils'
 import { mergeCSSProperties } from '../StyleEditor/helper'
 import { preservePaintRoles } from '../StyleEditor/helper/paint-stack'
@@ -16,9 +19,14 @@ import {
   resolveZoneDeletionTarget,
   resolveZonePropertySelector,
 } from './zone-tab'
-import type { ZoneTab } from './zone-tab'
+import type { ZoneSourceRule, ZoneTab } from './zone-tab'
+import { calculateSafeSpecificity } from './selector-utils'
 
-export type StyleChangeItem = { key: string; value: any }
+export type StyleChangeItem = {
+  key: string
+  value: any
+  intent?: 'clear-effective-style'
+}
 
 type StyleWriteGroup = {
   style: Record<string, any>
@@ -32,6 +40,364 @@ export type ZoneWriteTarget = {
 
 const IMPORTANT_SUFFIX_RE = /!important\s*$/i
 const HOVER_SELECTOR_RE = /:hover\s*$/
+const INLINE_STYLE_LABEL = 'inline style'
+
+/** 与 Zone 写入来源解析保持一致的少量简写兜底。 */
+const STYLE_SOURCE_PROPERTY_FALLBACKS: Record<string, string[]> = {
+  backgroundColor: ['background'],
+  backgroundImage: ['background'],
+  fontSize: ['font'],
+  borderRadius: [
+    'border-top-left-radius',
+    'border-top-right-radius',
+    'border-bottom-right-radius',
+    'border-bottom-left-radius',
+  ],
+}
+
+type DeclaredStyleValue = {
+  property: string
+  value: string
+  important: boolean
+}
+
+type StyleSourceCandidate = DeclaredStyleValue & {
+  label: string
+  source?: ZoneSourceRule
+  specificity?: any
+  sourceOrder: number
+  inline: boolean
+}
+
+type StyleClearPlan =
+  | {
+      action: 'delete' | 'write-unset'
+      key: string
+      value: null | 'unset' | 'unset !important'
+      selector: string
+      winner: StyleSourceCandidate
+      candidates: StyleSourceCandidate[]
+    }
+  | {
+      action: 'noop' | 'unsupported'
+      key: string
+      reason: string
+      winner: StyleSourceCandidate | null
+      candidates: StyleSourceCandidate[]
+    }
+
+type StyleWriteLogContext = {
+  targetDom: HTMLElement | null
+  activeZoneTab: ZoneTab | null
+  zoneTabs: ZoneTab[]
+  deletion?: boolean
+  skipped?: boolean
+}
+
+function readDeclaredStyleValue(
+  style: CSSStyleDeclaration,
+  styleKey: string
+): DeclaredStyleValue | null {
+  const directProperty = toLine(styleKey)
+  const properties = [
+    directProperty,
+    ...(STYLE_SOURCE_PROPERTY_FALLBACKS[styleKey] || []),
+  ]
+
+  for (const property of properties) {
+    const value = style.getPropertyValue(property).trim()
+    if (!value) continue
+    return {
+      property,
+      value,
+      important: style.getPropertyPriority(property) === 'important',
+    }
+  }
+
+  return null
+}
+
+function getDiagnosticZoneTabs(
+  zoneTabs: ZoneTab[],
+  activeZoneTab: ZoneTab | null
+): ZoneTab[] {
+  if (!activeZoneTab?.pseudo) {
+    return zoneTabs.filter((tab) => !tab.pseudo)
+  }
+
+  // 状态 Tab 下同时保留基础态和相同状态的候选，便于看到实际覆盖链。
+  return zoneTabs.filter(
+    (tab) => !tab.pseudo || tab.pseudo === activeZoneTab.pseudo
+  )
+}
+
+function collectStyleSourceCandidates(
+  targetDom: HTMLElement | null,
+  zoneTabs: ZoneTab[],
+  activeZoneTab: ZoneTab | null,
+  styleKey: string
+): StyleSourceCandidate[] {
+  if (!targetDom) return []
+
+  const result: StyleSourceCandidate[] = []
+  const seenRules = new Set<string>()
+
+  getDiagnosticZoneTabs(zoneTabs, activeZoneTab).forEach((tab) => {
+    const rules = tab.pseudo
+      ? [...tab.baseRules, ...tab.sourceRules]
+      : tab.sourceRules
+    rules.forEach((source) => {
+      const identity = `${source.sourceOrder}\u0000${source.selectorPart}`
+      if (seenRules.has(identity)) return
+      seenRules.add(identity)
+
+      const declared = readDeclaredStyleValue(source.rule.style, styleKey)
+      if (!declared) return
+      result.push({
+        ...declared,
+        label: source.sourceSelector || tab.selector,
+        source,
+        specificity: calculateSafeSpecificity(source.selectorPart, targetDom),
+        sourceOrder: source.sourceOrder,
+        inline: false,
+      })
+    })
+  })
+
+  const isPseudoElement = !!activeZoneTab?.pseudo?.startsWith('::')
+  if (!isPseudoElement) {
+    const inlineDeclared = readDeclaredStyleValue(targetDom.style, styleKey)
+    if (inlineDeclared) {
+      result.push({
+        ...inlineDeclared,
+        label: INLINE_STYLE_LABEL,
+        sourceOrder: Number.MAX_SAFE_INTEGER,
+        inline: true,
+      })
+    }
+  }
+
+  return result
+}
+
+function resolveEffectiveStyleSource(
+  candidates: StyleSourceCandidate[]
+): StyleSourceCandidate | null {
+  const inline = candidates.find((candidate) => candidate.inline)
+  const ruleCandidates = candidates
+    .filter((candidate) => !candidate.inline)
+    .sort((a, b) => {
+      if (a.important !== b.important) return a.important ? 1 : -1
+      if (a.specificity && b.specificity) {
+        const bySpecificity = compare(a.specificity, b.specificity)
+        if (bySpecificity !== 0) return bySpecificity
+      }
+      return a.sourceOrder - b.sourceOrder
+    })
+  const ruleWinner = ruleCandidates[ruleCandidates.length - 1] ?? null
+
+  if (!inline) return ruleWinner
+  if (!ruleWinner) return inline
+  if (inline.important || !ruleWinner.important) return inline
+  return ruleWinner
+}
+
+function normalizeCssKeyword(value: unknown): string {
+  return String(value ?? '')
+    .replace(/\s*!important\s*$/i, '')
+    .trim()
+    .toLowerCase()
+}
+
+function readStaticInlineStyleInfo(
+  targetDom: HTMLElement | null,
+  styleKey: string,
+  requirePropertyRange = false
+): boolean {
+  const raw = targetDom?.dataset?.styleInfo
+  if (!raw) return false
+  try {
+    const styleInfo = JSON.parse(raw)
+    const aliases = [
+      styleKey,
+      styleKey ? styleKey[0].toLowerCase() + styleKey.slice(1) : styleKey,
+      styleKey ? styleKey[0].toUpperCase() + styleKey.slice(1) : styleKey,
+    ]
+    return aliases.some((key) => {
+      const entry = styleInfo?.[key]
+      if (entry?.kind !== 'static') return false
+      if (entry.hasSpread || entry.duplicate) return false
+      if (!requirePropertyRange) return true
+      return (
+        typeof entry.propertyStart === 'number' &&
+        typeof entry.propertyEnd === 'number'
+      )
+    })
+  } catch {
+    return false
+  }
+}
+
+function createStyleClearPlan(
+  targetDom: HTMLElement | null,
+  zoneTabs: ZoneTab[],
+  activeZoneTab: ZoneTab | null,
+  styleKey: string
+): StyleClearPlan {
+  const candidates = collectStyleSourceCandidates(
+    targetDom,
+    zoneTabs,
+    activeZoneTab,
+    styleKey
+  )
+  const winner = resolveEffectiveStyleSource(candidates)
+
+  if (!winner) {
+    return {
+      action: 'noop',
+      key: styleKey,
+      reason: 'no-local-declaration',
+      winner: null,
+      candidates,
+    }
+  }
+
+  if (normalizeCssKeyword(winner.value) === 'unset') {
+    return {
+      action: 'noop',
+      key: styleKey,
+      reason: 'already-neutralized',
+      winner,
+      candidates,
+    }
+  }
+
+  const action = candidates.length === 1 ? 'delete' : 'write-unset'
+  if (winner.inline) {
+    if (!readStaticInlineStyleInfo(targetDom, styleKey, action === 'delete')) {
+      return {
+        action: 'unsupported',
+        key: styleKey,
+        reason: 'dynamic-or-untracked-inline-style',
+        winner,
+        candidates,
+      }
+    }
+    if (action === 'write-unset' && winner.important) {
+      return {
+        action: 'unsupported',
+        key: styleKey,
+        reason: 'inline-important-cannot-be-written-by-jsx-style',
+        winner,
+        candidates,
+      }
+    }
+  }
+
+  const targetSelector = winner.inline
+    ? 'inline'
+    : winner.source?.sourceSelector || winner.label
+  if (!targetSelector) {
+    return {
+      action: 'unsupported',
+      key: styleKey,
+      reason: 'winner-selector-unavailable',
+      winner,
+      candidates,
+    }
+  }
+
+  return {
+    action,
+    key: styleKey,
+    value:
+      action === 'delete'
+        ? null
+        : winner.important
+          ? 'unset !important'
+          : 'unset',
+    selector: targetSelector,
+    winner,
+    candidates,
+  }
+}
+
+function applyStyleClearPlans(
+  plans: StyleClearPlan[],
+  editConfig: any,
+  zoneWriteTargets?: Map<string, ZoneWriteTarget>,
+  execute = true
+): string[] {
+  const appliedKeys: string[] = []
+
+  plans.forEach((plan) => {
+    console.log('[style_new][style-clear-plan]', {
+      key: plan.key,
+      candidateCount: plan.candidates.length,
+      candidates: plan.candidates.map((candidate) => ({
+        label: candidate.label,
+        inline: candidate.inline,
+        property: candidate.property,
+        value: candidate.value,
+        important: candidate.important,
+        sourceOrder: candidate.sourceOrder,
+      })),
+      effectiveClassName: plan.winner?.label ?? null,
+      action: plan.action,
+      writeClassName:
+        plan.action === 'delete' || plan.action === 'write-unset'
+          ? plan.selector
+          : null,
+      reason:
+        plan.action === 'noop' || plan.action === 'unsupported'
+          ? plan.reason
+          : null,
+    })
+
+    if (!execute || plan.action === 'noop' || plan.action === 'unsupported') return
+
+    // 新清空链路用 null/unset 直接表达意图，不再写全局删除 side-channel。
+    ;(window as any).__mybricks_style_deletions = null
+    editConfig.value.set(
+      { [plan.key]: plan.value },
+      { selector: plan.selector }
+    )
+    zoneWriteTargets?.delete(plan.key)
+    appliedKeys.push(plan.key)
+  })
+
+  return appliedKeys
+}
+
+/**
+ * 按组件库 styleProxy 当前路由规则推测实际落点：
+ * - 三方/无 zone 节点走 inline preview；
+ * - 已有静态 JSX style 的同名属性优先写 inline；
+ * - class 节点删除 inline 后还会继续处理 Less selector。
+ */
+function resolveSandboxWriteClassNames(
+  targetDom: HTMLElement | null,
+  styleKey: string,
+  targetSelector: string | undefined,
+  deletion: boolean
+): string[] {
+  if (!targetDom) return [targetSelector || '(宿主默认目标)']
+
+  const hasZoneSelector = !!targetDom.dataset?.zoneSelector
+  const hasDragInsert = targetDom.hasAttribute('data-drag-insert')
+  if ((!hasZoneSelector && !hasDragInsert) || targetDom.classList.length === 0 || hasDragInsert) {
+    return [INLINE_STYLE_LABEL]
+  }
+
+  if (readStaticInlineStyleInfo(targetDom, styleKey)) {
+    if (deletion && targetSelector) {
+      return [INLINE_STYLE_LABEL, targetSelector]
+    }
+    return [INLINE_STYLE_LABEL]
+  }
+
+  return [targetSelector || '(宿主默认目标)']
+}
 
 function getStyleDiff(
   beforeStyle: Record<string, any>,
@@ -70,15 +436,40 @@ function addStyleWriteGroup(
 
 function logStyleWrite(
   style: Record<string, any>,
-  targetSelector: string | undefined
+  targetSelector: string | undefined,
+  context: StyleWriteLogContext
 ) {
   Object.entries(style).forEach(([key, value]) => {
-    // 排查样式写入目标时可取消下一行注释
-    // console.log('[style_new][style-write]', {
-    //   key,
-    //   value,
-    //   className: targetSelector || '(宿主默认目标)',
-    // })
+    const candidates = collectStyleSourceCandidates(
+      context.targetDom,
+      context.zoneTabs,
+      context.activeZoneTab,
+      key
+    )
+    const effective = resolveEffectiveStyleSource(candidates)
+    const allClassNames = Array.from(new Set(candidates.map((candidate) => candidate.label)))
+    const ineffectiveClassNames = allClassNames.filter(
+      (className) => className !== effective?.label
+    )
+    const isDeletion = !!context.deletion || value === null
+    const writeClassNames = context.skipped
+      ? []
+      : resolveSandboxWriteClassNames(
+        context.targetDom,
+        key,
+        targetSelector,
+        isDeletion
+      )
+
+    console.log('[style_new][style-write-source]', {
+      key,
+      value,
+      effectiveClassName: effective?.label ?? null,
+      writeClassName: writeClassNames[0] ?? null,
+      additionalWriteClassNames: writeClassNames.slice(1),
+      ineffectiveClassNames,
+      skipped: !!context.skipped,
+    })
   })
 }
 
@@ -130,6 +521,8 @@ export type ApplyStyleChangeParams = {
 export type ApplyStyleChangeResult = {
   nextLiveStyle: Record<string, any>
   applied: boolean
+  clearApplied: boolean
+  clearUnsupported: boolean
 }
 
 /**
@@ -162,22 +555,81 @@ export function applyStyleChange({
       ? (editConfig.options as any).targetDom ?? null
       : null
   const realTargetDom = (toElementArray(targetDom)[0] ?? null) as HTMLElement | null
+  const activeZoneTab: ZoneTab | null =
+    !Array.isArray(editConfig.options) && editConfig.options
+      ? (editConfig.options as any).zoneTab ?? null
+      : null
+  const zoneTabs: ZoneTab[] =
+    !Array.isArray(editConfig.options) && editConfig.options
+      ? (editConfig.options as any).zoneTabs ?? (activeZoneTab ? [activeZoneTab] : [])
+      : (activeZoneTab ? [activeZoneTab] : [])
+  const clearItems = rawItems.filter(
+    (item) => item.intent === 'clear-effective-style'
+  )
+  const normalRawItems = rawItems.filter(
+    (item) => item.intent !== 'clear-effective-style'
+  )
+  // 必须在任何普通写入改变 DOM/CSSOM 之前确定来源、winner 和目标。
+  const clearPlans = clearItems.map((item) =>
+    createStyleClearPlan(realTargetDom, zoneTabs, activeZoneTab, item.key)
+  )
+  const clearUnsupported = clearPlans.some(
+    (plan) => plan.action === 'unsupported'
+  )
+
+  // 显式清空是一个用户动作；目标不可写时不能只执行同批的
+  // paint-stack 清理，否则会留下“颜色未清、其他属性已删”的半完成状态。
+  if (clearUnsupported) {
+    applyStyleClearPlans(clearPlans, editConfig, zoneWriteTargets, false)
+    return {
+      nextLiveStyle: liveStyle,
+      applied: false,
+      clearApplied: false,
+      clearUnsupported: true,
+    }
+  }
+
+  if (normalRawItems.length === 0) {
+    const appliedKeys = applyStyleClearPlans(
+      clearPlans,
+      editConfig,
+      zoneWriteTargets
+    )
+    if (appliedKeys.length === 0) {
+      return {
+        nextLiveStyle: liveStyle,
+        applied: false,
+        clearApplied: false,
+        clearUnsupported: false,
+      }
+    }
+    const nextLiveStyle = deepCopy(liveStyle || {})
+    appliedKeys.forEach((key) => delete nextLiveStyle[key])
+    onBatchMetaChange?.()
+    return {
+      nextLiveStyle,
+      applied: true,
+      clearApplied: true,
+      clearUnsupported: false,
+    }
+  }
+
   const isSolidTextFillTransition =
     isTextFillActive(liveStyle) &&
-    rawItems.some(
+    normalRawItems.some(
       (item) =>
         item.key === 'color' &&
         typeof item.value === 'string' &&
         item.value.trim() !== '' &&
         item.value.trim().toLowerCase() !== 'transparent'
     ) &&
-    rawItems.some(
+    normalRawItems.some(
       (item) =>
         (item.key === 'WebkitTextFillColor' || item.key === 'webkitTextFillColor') &&
         item.value == null
     )
   const priorityAwareItems = preserveCascadePriority(
-    rawItems,
+    normalRawItems,
     realTargetDom,
     selector,
     preserveImportantPriority,
@@ -271,7 +723,28 @@ export function applyStyleChange({
 
   // 没有任何实际变更时直接返回，不触发样式写入（避免展开面板后折叠产生多余版本）
   if (!hasRealChange) {
-    return { nextLiveStyle: liveStyle, applied: false }
+    const appliedKeys = applyStyleClearPlans(
+      clearPlans,
+      editConfig,
+      zoneWriteTargets
+    )
+    if (appliedKeys.length === 0) {
+      return {
+        nextLiveStyle: liveStyle,
+        applied: false,
+        clearApplied: false,
+        clearUnsupported: false,
+      }
+    }
+    const nextLiveStyle = deepCopy(liveStyle || {})
+    appliedKeys.forEach((key) => delete nextLiveStyle[key])
+    onBatchMetaChange?.()
+    return {
+      nextLiveStyle,
+      applied: true,
+      clearApplied: true,
+      clearUnsupported: false,
+    }
   }
 
   const mergedCssProperties = mergeCSSProperties(deepCopy(normalized.style))
@@ -297,10 +770,11 @@ export function applyStyleChange({
   const setOptions = selector ? { selector } : undefined
   const batchMeta = editConfig.value.getBatchMeta?.()
   const isThirdPartyFocus = !!realTargetDom && !realTargetDom.getAttribute('data-zone-selector')
-  const activeZoneTab: ZoneTab | null =
-    !Array.isArray(editConfig.options) && editConfig.options
-      ? (editConfig.options as any).zoneTab ?? null
-      : null
+  const writeLogContext: StyleWriteLogContext = {
+    targetDom: realTargetDom,
+    activeZoneTab,
+    zoneTabs,
+  }
 
   if (isSolidTextFillTransition && !isThirdPartyFocus) {
     const comId =
@@ -311,6 +785,11 @@ export function applyStyleChange({
     cleanupTargets.forEach((target) => {
       ;(window as any).__mybricks_style_deletions = target.properties
       const cleanupOptions = { selector: target.selector }
+      logStyleWrite(
+        Object.fromEntries(target.properties.map((key) => [key, null])),
+        target.selector,
+        { ...writeLogContext, deletion: true }
+      )
       editConfig.value.set({}, cleanupOptions)
     })
   }
@@ -349,7 +828,14 @@ export function applyStyleChange({
       const deletionTarget =
         rememberedTarget ||
         resolveZoneDeletionTarget(activeZoneTab, key)
-      if (!deletionTarget) return
+      if (!deletionTarget) {
+        logStyleWrite(
+          { [key]: null },
+          undefined,
+          { ...writeLogContext, deletion: true, skipped: true }
+        )
+        return
+      }
       const group = addStyleWriteGroup(groups, deletionTarget.selector)
       if (!group.deletions.includes(deletionTarget.property)) {
         group.deletions.push(deletionTarget.property)
@@ -357,7 +843,28 @@ export function applyStyleChange({
     })
 
     if (groups.size === 0) {
-      return { nextLiveStyle: liveStyle, applied: false }
+      const appliedKeys = applyStyleClearPlans(
+        clearPlans,
+        editConfig,
+        zoneWriteTargets
+      )
+      if (appliedKeys.length === 0) {
+        return {
+          nextLiveStyle: liveStyle,
+          applied: false,
+          clearApplied: false,
+          clearUnsupported: false,
+        }
+      }
+      const nextLiveStyle = deepCopy(liveStyle || {})
+      appliedKeys.forEach((key) => delete nextLiveStyle[key])
+      onBatchMetaChange?.()
+      return {
+        nextLiveStyle,
+        applied: true,
+        clearApplied: true,
+        clearUnsupported: false,
+      }
     }
 
     try {
@@ -365,28 +872,52 @@ export function applyStyleChange({
         ;(window as any).__mybricks_style_deletions =
           group.deletions.length > 0 ? group.deletions : null
         const groupOptions = { selector: sourceSelector }
-        logStyleWrite(group.style, sourceSelector)
+        logStyleWrite(group.style, sourceSelector, writeLogContext)
         logStyleWrite(
           Object.fromEntries(group.deletions.map((key) => [key, null])),
-          sourceSelector
+          sourceSelector,
+          { ...writeLogContext, deletion: true }
         )
         write(group.style, groupOptions)
       })
     } finally {
       ;(window as any).__mybricks_style_deletions = null
     }
+    const appliedKeys = applyStyleClearPlans(
+      clearPlans,
+      editConfig,
+      zoneWriteTargets
+    )
+    appliedKeys.forEach((key) => delete finalCssProperties[key])
     onBatchMetaChange?.()
-    return { nextLiveStyle: finalCssProperties, applied: true }
+    return {
+      nextLiveStyle: finalCssProperties,
+      applied: true,
+      clearApplied: appliedKeys.length > 0,
+      clearUnsupported: false,
+    }
   }
 
   ;(window as any).__mybricks_style_deletions =
     effectiveDeletions.length > 0 ? effectiveDeletions : null
   logStyleWrite(
     getStyleDiff(liveStyle || {}, finalCssProperties, effectiveDeletions),
-    selector
+    selector,
+    writeLogContext
   )
   write(finalCssProperties, setOptions)
   ;(window as any).__mybricks_style_deletions = null
+  const appliedKeys = applyStyleClearPlans(
+    clearPlans,
+    editConfig,
+    zoneWriteTargets
+  )
+  appliedKeys.forEach((key) => delete finalCssProperties[key])
   onBatchMetaChange?.()
-  return { nextLiveStyle: finalCssProperties, applied: true }
+  return {
+    nextLiveStyle: finalCssProperties,
+    applied: true,
+    clearApplied: appliedKeys.length > 0,
+    clearUnsupported: false,
+  }
 }

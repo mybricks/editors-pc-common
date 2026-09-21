@@ -41,7 +41,7 @@ export function StyleMount({
 
   const handleChange: ChangeEvent = useCallback(
     (value) => {
-      const { nextLiveStyle, applied } = applyStyleChange({
+      const result = applyStyleChange({
         value: value as any,
         liveStyle: liveStyleRef.current,
         collapsedOptions,
@@ -52,9 +52,11 @@ export function StyleMount({
         zoneWriteTargets: zoneWriteTargetsRef.current,
         onBatchMetaChange,
       })
+      const { nextLiveStyle, applied } = result
       if (applied) {
         liveStyleRef.current = nextLiveStyle
       }
+      return result
     },
     [editConfig, options, collapsedOptions, preserveImportantPriority, onBatchMetaChange]
   )
