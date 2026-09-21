@@ -61,7 +61,9 @@ export function useZoneSelectors(editConfig: any, targetDom: any, _open: boolean
     const tabKeys = new Set(tabs.map((tab) => tab.selector))
     for (const pseudo of scanPseudoSelectors(baseSelectors, comId, domList)) {
       if (!tabKeys.has(pseudo) && !/:nth-child\(\d+\)$/.test(pseudo)) {
-        const baseSelector = baseSelectors.find((base) => pseudo.startsWith(base)) || pseudo
+        const baseSelector = [...baseSelectors]
+          .sort((a, b) => b.length - a.length)
+          .find((base) => pseudo.startsWith(base)) || pseudo
         tabs.push({
           selector: pseudo,
           baseSelector,

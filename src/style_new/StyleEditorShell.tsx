@@ -62,6 +62,15 @@ type CachedStyleEditor = {
   stale: boolean
 }
 
+const ZONE_TAB_ADD_OPTIONS = [
+  { key: 'hover', suffix: ':hover', label: '悬浮态' },
+  { key: 'focus', suffix: ':focus', label: '聚焦态' },
+  { key: 'active', suffix: ':active', label: '按下态' },
+  { key: 'disabled', suffix: '-disabled', label: '禁用态' },
+  { key: 'before', suffix: '::before', label: '前缀元素' },
+  { key: 'after', suffix: '::after', label: '后缀元素' },
+] as const
+
 async function writeClipboardText(text: string): Promise<boolean> {
   try {
     if (navigator.clipboard?.writeText) {
@@ -207,13 +216,31 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
 
   const activeZoneTab = zoneTabs[activeZoneIdx] ?? null
 
+  const zoneTabAddOptions = useMemo(() => {
+    const currentBaseSelector = activeZoneTab?.baseSelector || baseSelector
+    if (!currentBaseSelector) return []
+
+    return ZONE_TAB_ADD_OPTIONS
+      .filter((option) => {
+        const expectedSelector = `${currentBaseSelector}${option.suffix}`
+        return !zoneTabs.some((tab) => (
+          tab.selector === expectedSelector ||
+          tab.pseudo === option.suffix ||
+          (option.key === 'disabled' && tab.sourceRules.some((rule) => (
+            rule.selectorPart.includes(`${currentBaseSelector}-disabled`) ||
+            rule.sourceSelector.includes(`${currentBaseSelector}-disabled`)
+          )))
+        ))
+      })
+      .map(({ key, label }) => ({ key, label }))
+  }, [activeZoneTab, baseSelector, zoneTabs])
+
   const onAddZoneTab = useCallback((type: string) => {
     const currentBaseSelector = activeZoneTab?.baseSelector || baseSelector
     if (!currentBaseSelector) return
     const suffixMap: Record<string, string> = {
       hover: ':hover',
       focus: ':focus',
-      'focus-visible': ':focus-visible',
       active: ':active',
       disabled: '-disabled',
       before: '::before',
@@ -225,7 +252,6 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
     const labels: Record<string, string> = {
       hover: '悬浮态',
       focus: '聚焦态',
-      'focus-visible': '键盘聚焦态',
       active: '按下态',
       disabled: '禁用态',
       before: '前缀元素',
@@ -872,6 +898,7 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
             activeIdx={activeZoneIdx}
             onSelect={onZoneTabSelect}
             onAdd={onAddZoneTab}
+            addOptions={zoneTabAddOptions}
           />
         )}
         {showEditModeControl && (

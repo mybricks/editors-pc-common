@@ -164,7 +164,12 @@ function getPseudoLabel(pseudo: string): string {
     '::before': '前缀元素',
     '::after': '后缀元素',
     '::placeholder': '占位符元素',
+    ':first-child': '首项',
+    ':last-child': '末项',
+    ':only-child': '唯一项',
   }
+  const nthChild = pseudo.match(/^:nth-child\((\d+)\)$/)
+  if (nthChild) return `第${nthChild[1]}项`
   const pseudoLabel = pseudoLabels[pseudo] || pseudo
   return pseudoLabel
 }

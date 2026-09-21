@@ -20,7 +20,12 @@ function getZoneTabLabel(selector: string): string {
       ':disabled': '禁用态',
       '::before': '前缀元素',
       '::after': '后缀元素',
+      ':first-child': '首项',
+      ':last-child': '末项',
+      ':only-child': '唯一项',
     }
+    const nthChild = pseudoMatch[1].match(/^:nth-child\((\d+)\)$/)
+    if (nthChild) return `第${nthChild[1]}项`
     return pseudoLabels[pseudoMatch[1]] || pseudoMatch[1]
   }
 
@@ -82,8 +87,16 @@ export function ZoneTabBar(props: {
   activeIdx: number
   onSelect: (idx: number) => void
   onAdd?: (type: string) => void
+  addOptions?: Array<{ key: string; label: string }>
 }) {
-  const { selectors, labels: providedLabels, activeIdx, onSelect, onAdd } = props
+  const {
+    selectors,
+    labels: providedLabels,
+    activeIdx,
+    onSelect,
+    onAdd,
+    addOptions = [],
+  } = props
   const labels = useMemo(
     () => providedLabels ?? getZoneTabLabels(selectors),
     [providedLabels, selectors]
@@ -100,17 +113,14 @@ export function ZoneTabBar(props: {
           {labels[idx]}
         </div>
       ))}
-      {onAdd && (
+      {onAdd && addOptions.length > 0 && (
         <Dropdown
           trigger={['click']}
           overlay={
             <Menu onClick={({ key }) => onAdd(String(key))}>
-              <Menu.Item key="hover">悬浮态</Menu.Item>
-              <Menu.Item key="focus">聚焦态</Menu.Item>
-              <Menu.Item key="active">按下态</Menu.Item>
-              <Menu.Item key="disabled">禁用态</Menu.Item>
-              <Menu.Item key="before">前缀元素</Menu.Item>
-              <Menu.Item key="after">后缀元素</Menu.Item>
+              {addOptions.map((option) => (
+                <Menu.Item key={option.key}>{option.label}</Menu.Item>
+              ))}
             </Menu>
           }
         >
