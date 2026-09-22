@@ -8,6 +8,7 @@ export {
   useStyleEditorContext,
   useEffectiveStyleValue,
   useApplyStyleMutations,
+  useStyleChange,
   useStyleField,
   useStyleClear,
 } from './context'

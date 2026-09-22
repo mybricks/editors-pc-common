@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useMemo, useRef, useEffect, CSSProperties } from "react";
 import { createPortal } from "react-dom";
 
-import { useApplyStyleMutations, useEffectiveStyleValue, useStyleChange, useStyleClear, useStyleEditorContext } from "../..";
+import { useEffectiveStyleValue, useStyleChange, useStyleClear, useStyleEditorContext } from "../..";
 
 import {
   Panel,
@@ -25,7 +25,7 @@ import {
   APPLY_VARIABLE_ACTION,
 } from "../../components";
 import { splitValueAndUnit } from "../../utils";
-import { PanelBaseProps, StyleChangeItem, StyleChangeResult, StyleMutation } from "../../type";
+import { PanelBaseProps, StyleChangeItem, StyleChangeResult } from "../../type";
 import { useDragNumber, useCanvasColorVariables, useLengthVarBinding, isCssVarValue } from "../../hooks";
 import { Variable } from "../../icons/Variable";
 import { FontSetting } from "../../icons/FontSetting";
@@ -178,14 +178,6 @@ function isEffectiveStyleConfigured(item?: EffectiveStyleValue): boolean {
   return !(typeof item.value === 'string' && /^unset$/i.test(item.value.trim()));
 }
 
-function toStyleMutations(style: Record<string, any>): StyleMutation[] {
-  return toStyleChangeItems(style).map(({ key, value }): StyleMutation =>
-    value == null
-      ? { type: 'clear', key }
-      : { type: 'set', key, value }
-  );
-}
-
 /** 是否为用户显式配置的长度类样式（非空、非关键字） */
 function isConfiguredCssLength(value: unknown): boolean {
   if (value == null || value === '') return false;
@@ -327,12 +319,11 @@ function parseDecorationLength(value: string | undefined): string | null {
   return value;
 }
 
-export function Font({ config, showTitle }: FontProps) {
+export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProps) {
   const context = useStyleEditorContext();
   const effectiveStyle = context?.effectiveStyle;
   const value = useEffectiveStyleValue();
-  const onChange = useStyleChange();
-  const applyStyleMutations = useApplyStyleMutations();
+  const onChange = useStyleChange(fallbackOnChange);
   const colorField = useStyleClear('color');
   const familyField = useStyleClear('fontFamily');
   const sizeField = useStyleClear('fontSize');
@@ -379,9 +370,9 @@ export function Font({ config, showTitle }: FontProps) {
         ? buildGradientTextFill(next, current)
         : buildSolidTextFill(next, current);
       textFillStyleRef.current = { ...current, ...nextStyle };
-      applyStyleMutations(toStyleMutations(nextStyle));
+      onChange(toStyleChangeItems(nextStyle));
     },
-    [applyStyleMutations]
+    [onChange]
   );
 
   const handleTextFillClear = useCallback(() => {
@@ -390,12 +381,12 @@ export function Font({ config, showTitle }: FontProps) {
       color: null,
       WebkitTextFillColor: null,
     };
-    const mutations = toStyleMutations(cleared);
-    const clearWritesUnset = mutations.some((mutation) =>
-      mutation.type === 'clear' &&
-      context?.getStyleProperty?.(mutation.key)?.clearPlan.action === 'write-unset'
+    const changes = toStyleChangeItems(cleared);
+    const clearWritesUnset = changes.some((change) =>
+      change.value == null &&
+      context?.getStyleProperty?.(change.key)?.clearPlan.action === 'write-unset'
     );
-    const result = applyStyleMutations(mutations);
+    const result = onChange(changes);
     // 文字渐变可能没有独立 color 声明，但关联 paint 清理仍可成功；
     // 只有目标明确不可写时才保留原 UI 状态。
     if (result?.clearUnsupported && !result.clearApplied) return;
@@ -410,7 +401,7 @@ export function Font({ config, showTitle }: FontProps) {
     textFillStyleRef.current = { ...textFillStyleRef.current, ...cleared };
     setTextFillAuthored(false);
     setTextFillEditorRevision((revision) => revision + 1);
-  }, [applyStyleMutations, context?.getStyleProperty, context?.getStylePreview]);
+  }, [onChange, context?.getStyleProperty, context?.getStylePreview]);
 
   const effectiveTextFillValue = parseTextFillDisplayValue(value as Record<string, any>);
   const textFillValue = textFillPreviewColor ?? effectiveTextFillValue;
@@ -449,11 +440,11 @@ export function Font({ config, showTitle }: FontProps) {
   }, [targetDom, familyConfigured, value.fontFamily]);
 
   const handleFontFamilyClear = useCallback(() => {
-    const result = applyStyleMutations([{ type: 'clear', key: 'fontFamily' }]);
+    const result = onChange({ key: 'fontFamily', value: null });
     if (result && !result.clearApplied) return;
     setInnerFontFamily([]);
     setFontFamilyAuthored(false);
-  }, [applyStyleMutations]);
+  }, [onChange]);
 
   const computedFontFamily = effectiveStyle?.fontFamily?.computedValue;
   const fontFamilyPreview = fontFamilyAuthored
@@ -994,9 +985,7 @@ export function Font({ config, showTitle }: FontProps) {
                     setInnerFontFamily(first);
                     if (first.length) {
                       setFontFamilyAuthored(true);
-                      applyStyleMutations([
-                        { type: 'set', key: 'fontFamily', value: quoteIfNeeded(first[0]) },
-                      ]);
+                      onChange({ key: 'fontFamily', value: quoteIfNeeded(first[0]) });
                     }
                     setIsMultiMode(false);
                   }}
@@ -1060,21 +1049,19 @@ export function Font({ config, showTitle }: FontProps) {
                     return;
                   }
                   setFontFamilyAuthored(true);
-                  applyStyleMutations([{
-                    type: 'set',
+                  onChange({
                     key: 'fontFamily',
                     value: nextValue.map(quoteIfNeeded).join(', '),
-                  }]);
+                  });
                   setInnerFontFamily(nextValue);
                 }}
                 onReorder={(newOrder: string[]) => {
                   setInnerFontFamily(newOrder);
                   setFontFamilyAuthored(true);
-                  applyStyleMutations([{
-                    type: 'set',
+                  onChange({
                     key: 'fontFamily',
                     value: newOrder.map(quoteIfNeeded).join(', '),
-                  }]);
+                  });
                 }}
                 footer={modeFooter}
                 placeholder={fontFamilyPlaceholder}
@@ -1101,9 +1088,7 @@ export function Font({ config, showTitle }: FontProps) {
                 onChange={(newValue: string) => {
                   setInnerFontFamily([newValue]);
                   setFontFamilyAuthored(true);
-                  applyStyleMutations([
-                    { type: 'set', key: 'fontFamily', value: quoteIfNeeded(newValue) },
-                  ]);
+                  onChange({ key: 'fontFamily', value: quoteIfNeeded(newValue) });
                 }}
                 footer={modeFooter}
                 placeholder={fontFamilyPlaceholder}
