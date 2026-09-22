@@ -20,8 +20,6 @@ export type ZoneSourceRule = {
 
 export type EffectiveStyleValue = {
   value: unknown
-  /** 浏览器最终解析后的计算值（getComputedStyle 读取）。
-   * 注意：伪类 Tab（如 :hover）下此值是元素静止状态的近似值，非伪类激活时的精确值。 */
   computedValue?: string
   type: 'inline' | 'stylesheet' | 'computed'
   sourceSelector?: string
