@@ -1,4 +1,4 @@
-import React, { useCallback, useContext, createContext } from 'react'
+import React, { useCallback, useContext, createContext, useMemo, CSSProperties } from 'react'
 import type { EditorProps } from '../type'
 import type { EffectiveStyleValue, ZoneTab } from '../core/zone-tab'
 import type { StyleProperty } from '../core/style-property'
@@ -60,6 +60,20 @@ export function useStyleEditorContext () {
   const context = useContext(StyleEditorContext)
 
   return context
+}
+
+export function useEffectiveStyleValue(): CSSProperties {
+  const effectiveStyle = useStyleEditorContext()?.effectiveStyle
+
+  return useMemo(() => {
+    const nextValue: Record<string, any> = {}
+    Object.entries(effectiveStyle || {}).forEach(([key, item]) => {
+      nextValue[key] = typeof item.value === 'string' && /^unset$/i.test(item.value.trim())
+        ? item.computedValue
+        : item.value
+    })
+    return nextValue as CSSProperties
+  }, [effectiveStyle])
 }
 
 /** 所有属性编辑器共用的修改入口；fallback 仅用于脱离 StyleMount 的独立渲染。 */

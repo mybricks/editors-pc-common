@@ -6,6 +6,7 @@ export { DEFAULT_OPTIONS } from './constans'
 export {
   StyleEditorProvider,
   useStyleEditorContext,
+  useEffectiveStyleValue,
   useApplyStyleMutations,
   useStyleField,
   useStyleClear,

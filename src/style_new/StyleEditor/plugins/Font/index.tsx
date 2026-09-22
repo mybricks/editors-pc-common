@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useMemo, useRef, useEffect, CSSProperties } from "react";
 import { createPortal } from "react-dom";
 
-import { useApplyStyleMutations, useStyleClear, useStyleEditorContext } from "../..";
+import { useApplyStyleMutations, useEffectiveStyleValue, useStyleClear, useStyleEditorContext } from "../..";
 
 import {
   Panel,
@@ -178,12 +178,6 @@ function isEffectiveStyleConfigured(item?: EffectiveStyleValue): boolean {
   return !(typeof item.value === 'string' && /^unset$/i.test(item.value.trim()));
 }
 
-function getEffectiveDisplayValue(item: EffectiveStyleValue): unknown {
-  return typeof item.value === 'string' && /^unset$/i.test(item.value.trim())
-    ? item.computedValue
-    : item.value;
-}
-
 function toStyleMutations(style: Record<string, any>): StyleMutation[] {
   return toStyleChangeItems(style).map(({ key, value }): StyleMutation =>
     value == null
@@ -336,13 +330,7 @@ function parseDecorationLength(value: string | undefined): string | null {
 export function Font({ config, showTitle }: FontProps) {
   const context = useStyleEditorContext();
   const effectiveStyle = context?.effectiveStyle;
-  const value = useMemo(() => {
-    const nextValue: Record<string, any> = {};
-    Object.entries(effectiveStyle || {}).forEach(([key, item]) => {
-      nextValue[key] = getEffectiveDisplayValue(item);
-    });
-    return nextValue as CSSProperties;
-  }, [effectiveStyle]);
+  const value = useEffectiveStyleValue();
   const applyStyleMutations = useApplyStyleMutations();
   const onChange: FontProps['onChange'] = useCallback((input) => {
     const items = Array.isArray(input) ? input : [input];
