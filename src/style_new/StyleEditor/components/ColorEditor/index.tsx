@@ -624,8 +624,9 @@ export function ColorEditor({
     const { value, nonColorValue, finalValue } = state;
 
     if (inherited) {
+      const emptyValueType = emptyValueLabel ?? '继承';
       const tip = inheritedTipColor
-        ? `未配置颜色，${inheritedTipColor}为继承值`
+        ? `未配置颜色，${inheritedTipColor}为${emptyValueType}值`
         : '未配置颜色';
       return (
         <input

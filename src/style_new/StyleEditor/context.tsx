@@ -38,7 +38,7 @@ interface StyleEditorContextValue {
   /** 批量执行 set/clear；写入 selector 与 clear 的 null/unset 由公共层解析 */
   applyStyleMutations?: ApplyStyleMutations
   getStyleProperty?: (key: string) => StyleProperty
-  getStylePreview?: (key: string) => string
+  getStylePreview?: (key: string, refresh?: boolean) => string
 }
 
 const StyleEditorContext = createContext<StyleEditorContextValue | undefined>(undefined)

@@ -18,7 +18,7 @@ import {
 } from './zone-tab'
 import type { ZoneTab } from './zone-tab'
 import {
-  collectStyleSourceCandidates, createStyleClearPlan, getStyleResolution,
+  collectStyleSourceCandidates, createStyleClearPlan, cssPropertyName, getStyleResolution,
   readStaticInlineStyleInfo, resolveEffectiveStyleSource,
 } from './style-property'
 import type { StyleClearPlan } from './style-property'
@@ -300,6 +300,24 @@ function applyEffectiveStyleChanges(
   groups.forEach((patch, selector) => {
     // 组件库现有协议：整包只包含 null/unset，就按 selector 定向清空。
     editConfig.value.set(patch, { selector })
+    // JSX 内联样式经源码重编译后才会更新画布；同步更新当前节点，
+    // 让删除回调可以立即读取到清空后的真实计算值。
+    if (selector === INLINE_STYLE_LABEL && target) {
+      Object.entries(patch).forEach(([key, value]) => {
+        const property = cssPropertyName(key)
+        if (value === null) {
+          target.style.removeProperty(property)
+          return
+        }
+        const nextValue = String(value).trim()
+        const important = IMPORTANT_SUFFIX_RE.test(nextValue)
+        target.style.setProperty(
+          property,
+          nextValue.replace(IMPORTANT_SUFFIX_RE, '').trim(),
+          important ? 'important' : ''
+        )
+      })
+    }
     Object.entries(patch).forEach(([key, value]) => {
       if (value === null) delete nextLiveStyle[key]
       else nextLiveStyle[key] = value

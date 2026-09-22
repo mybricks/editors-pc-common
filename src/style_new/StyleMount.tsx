@@ -159,9 +159,14 @@ export function StyleMount({
     const realDom = (toElementArray(dom)[0] ?? null) as HTMLElement | null
     const previewCache = new Map<string, string>()
     let computed: CSSStyleDeclaration | undefined
-    const getStylePreview = (key: string) => {
+    const getStylePreview = (key: string, refresh = false) => {
       if (!realDom) return ''
       const property = cssPropertyName(key)
+      if (refresh) {
+        computed = (realDom.ownerDocument.defaultView || window).getComputedStyle(
+          realDom, zoneTab?.pseudo?.startsWith('::') ? zoneTab.pseudo : null)
+        previewCache.clear()
+      }
       if (!previewCache.has(property)) {
         computed = computed || (realDom.ownerDocument.defaultView || window).getComputedStyle(
           realDom, zoneTab?.pseudo?.startsWith('::') ? zoneTab.pseudo : null)

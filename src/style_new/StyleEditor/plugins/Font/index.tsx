@@ -361,6 +361,7 @@ export function Font({ config, showTitle }: FontProps) {
     colorConfigured
   );
   const [pendingTextFillDefault, setPendingTextFillDefault] = useState(false);
+  const [textFillPreviewColor, setTextFillPreviewColor] = useState<string>();
   const [textFillEditorRevision, setTextFillEditorRevision] = useState(0);
 
   const [cfg] = useState({ ...DEFAULT_CONFIG, ...config });
@@ -376,6 +377,7 @@ export function Font({ config, showTitle }: FontProps) {
       const next = getColorEditorValue(input);
       if (!next) return;
       setPendingTextFillDefault(false);
+      setTextFillPreviewColor(undefined);
       setTextFillAuthored(true);
       const current = textFillStyleRef.current;
       const nextStyle = isGradientValue(next)
@@ -402,14 +404,22 @@ export function Font({ config, showTitle }: FontProps) {
     // 文字渐变可能没有独立 color 声明，但关联 paint 清理仍可成功；
     // 只有目标明确不可写时才保留原 UI 状态。
     if (result?.clearUnsupported && !result.clearApplied) return;
+    const getStylePreview = context?.getStylePreview;
+    const textFillColor = getStylePreview?.('WebkitTextFillColor', true).trim() || '';
+    const color = getStylePreview?.('color').trim() || '';
+    const previewColor = textFillColor && textFillColor.toLowerCase() !== 'currentcolor'
+      ? textFillColor
+      : color;
     setPendingTextFillDefault(!!result?.clearApplied && clearWritesUnset);
+    setTextFillPreviewColor(previewColor || undefined);
     textFillStyleRef.current = { ...textFillStyleRef.current, ...cleared };
     setTextFillAuthored(false);
     setTextFillEditorRevision((revision) => revision + 1);
-  }, [applyStyleMutations, context?.getStyleProperty]);
+  }, [applyStyleMutations, context?.getStyleProperty, context?.getStylePreview]);
 
-  const textFillValue = parseTextFillDisplayValue(value as Record<string, any>);
-  const textFillComputedColor = (
+  const effectiveTextFillValue = parseTextFillDisplayValue(value as Record<string, any>);
+  const textFillValue = textFillPreviewColor ?? effectiveTextFillValue;
+  const textFillComputedColor = textFillPreviewColor ?? (
     effectiveStyle?.WebkitTextFillColor?.computedValue ??
     effectiveStyle?.webkitTextFillColor?.computedValue ??
     effectiveStyle?.color?.computedValue
@@ -424,6 +434,7 @@ export function Font({ config, showTitle }: FontProps) {
       colorConfigured
     );
     setPendingTextFillDefault(false);
+    setTextFillPreviewColor(undefined);
     setTextFillEditorRevision((revision) => revision + 1);
   }, [targetDom, effectiveStyle, colorConfigured, value.color, value.backgroundImage]);
 
