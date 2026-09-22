@@ -4,6 +4,7 @@
 
 import { findCssVarReferences } from './css-var'
 import { expandFourShorthand } from './shorthand-normalizer'
+import { applyRecoveredBackground } from './get-values-background'
 
 export type ValuesAcc = Record<string, any>
 
@@ -11,7 +12,9 @@ export type ValuesAcc = Record<string, any>
 export function applyRuleHooks(
   rule: CSSStyleRule,
   acc: ValuesAcc,
-  inheritOnly: boolean
+  inheritOnly: boolean,
+  computedValues?: CSSStyleDeclaration,
+  element?: HTMLElement | null,
 ) {
   if (inheritOnly) return
 
@@ -45,6 +48,16 @@ export function applyRuleHooks(
     ) {
       acc.backgroundColor = bgShorthand
     }
+  }
+
+  // Chromium 对含 var() 的 background 简写可能把整个声明序列化成空的
+  // background/background-image/background-color。此时从 ownerNode 的原始
+  // <style> 文本恢复声明；内联背景由 element.style 自己负责，跳过这里。
+  // 示例：
+  // background: linear-gradient(90deg, var(--color-accent-cyan) 0%, var(--color-accent-violet) 100%);
+  // background: var(--color-accent-cyan);
+  if (!bgShorthand && !acc.backgroundColor && !acc.backgroundImage && (!!computedValues?.backgroundImage || !!computedValues?.backgroundColor)) {
+    applyRecoveredBackground(rule, acc, computedValues, element)
   }
 
   // border-color 简写含 var() 时（如 border-color: var(--xxx)），
@@ -186,9 +199,12 @@ export function buildExportBag(acc: ValuesAcc): Record<string, any> {
 
     backgroundColor: acc.backgroundColor,
     backgroundImage: acc.backgroundImage,
+    backgroundPositionX: acc.backgroundPositionX,
+    backgroundPositionY: acc.backgroundPositionY,
     backgroundRepeat: acc.backgroundRepeat,
     backgroundPosition: acc.backgroundPosition,
     backgroundSize: acc.backgroundSize,
+    backgroundAttachment: acc.backgroundAttachment,
     backgroundOrigin: acc.backgroundOrigin,
     backgroundClip: acc.backgroundClip,
 

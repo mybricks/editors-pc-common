@@ -263,7 +263,7 @@ export function getEffectedCssPropertyAndOptions (
       return [{}, []]
     }
 
-    const values = getValues(finalRules, computedValues, allInheritOnlyRules);
+    const values = getValues(finalRules, computedValues, allInheritOnlyRules, element);
 
     const _hasPseudo = /:{1,2}[a-zA-Z\-]+(?:\([^)]*\))?$/.test(primarySelector)
     const cascadeResolver = element ? createCascadeResolver(element) : null
@@ -725,7 +725,7 @@ export function getEffectedCssPropertyAndOptions (
           try {
             const { rules: baseRules } = getStyleRules(element, baseSelector, styleRulesScanCache)
             if (baseRules.length > 0) {
-              const baseValues = getValues(baseRules, computedValues, new Set<CSSStyleRule>())
+              const baseValues = getValues(baseRules, computedValues, new Set<CSSStyleRule>(), element)
               Object.keys(baseValues as object).forEach(key => {
                 const baseVal = (baseValues as any)[key]
                 const curVal = (values as any)[key]
