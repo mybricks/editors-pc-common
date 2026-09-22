@@ -2,7 +2,7 @@ import React, { CSSProperties, useCallback, useEffect, useMemo, useRef, useState
 
 import { Panel, InputNumber } from '../../components'
 import { Setting as SettingIcon } from '../../icons/Setting'
-import { useStyleEditorContext } from '../../context'
+import { useEffectiveStyleValue, useStyleChange, useStyleEditorContext } from '../../context'
 
 import type { ChangeEvent, PanelBaseProps } from '../../type'
 
@@ -185,8 +185,10 @@ function resolveFlexMode(value: CSSProperties & Record<string, any> | undefined)
   return 'ratio'
 }
 
-export function Flex({ value, onChange, showTitle, collapse }: FlexProps) {
-  const editorContext = useStyleEditorContext()
+export function Flex({ onChange: fallbackOnChange, showTitle, collapse }: FlexProps) {
+  const editorContext = useStyleEditorContext();
+  const value = useEffectiveStyleValue();
+  const onChange = useStyleChange(fallbackOnChange);
   const targetDom = editorContext?.targetDom ?? null
   const visible = isFlexChildVisible(targetDom)
 
