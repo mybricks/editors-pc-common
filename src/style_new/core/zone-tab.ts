@@ -20,6 +20,9 @@ export type ZoneSourceRule = {
 
 export type EffectiveStyleValue = {
   value: unknown
+  /** 浏览器最终解析后的计算值（getComputedStyle 读取）。
+   * 注意：伪类 Tab（如 :hover）下此值是元素静止状态的近似值，非伪类激活时的精确值。 */
+  computedValue?: string
   type: 'inline' | 'stylesheet' | 'computed'
   sourceSelector?: string
   selectorPart?: string
@@ -105,6 +108,7 @@ export function buildZoneEffectiveStyle(
   target?: Element | null,
 ): Record<string, EffectiveStyleValue> {
   const result: Record<string, EffectiveStyleValue> = {}
+  const computedStyle = target instanceof HTMLElement ? window.getComputedStyle(target) : null
   Object.entries(styleValues).forEach(([styleKey, value]) => {
     if (value == null || String(value).trim() === '') return
     const source = findStyleSource(tab, styleKey)
@@ -113,8 +117,10 @@ export function buildZoneEffectiveStyle(
     const inlineValue = inlineStyle?.getPropertyValue(cssProperty).trim()
     const stylesheetImportant = !!source && source.rule.style.getPropertyPriority(cssProperty) === 'important'
     const inlineWins = !!inlineValue && !stylesheetImportant
+    const computedValue = computedStyle?.getPropertyValue(cssProperty).trim() || undefined
     result[styleKey] = {
       value,
+      computedValue,
       type: source ? (inlineWins ? 'inline' : 'stylesheet') : (inlineValue ? 'inline' : 'computed'),
       sourceSelector: inlineWins ? undefined : source?.sourceSelector,
       selectorPart: inlineWins ? 'inline' : source?.selectorPart,
