@@ -537,7 +537,13 @@ export function applyStyleChange({
     FLEX_LONGHAND_KEYS.forEach((k) => forceDelete(k))
   }
 
-  const normalized = normalizeStyleShorthands(nextSetValue, changeItems, new Set(deletedKeys))
+  // 增量修改只归一化本次触碰的属性组，避免修改 position 时误写 margin/padding。
+  const normalized = normalizeStyleShorthands(
+    nextSetValue,
+    changeItems,
+    new Set(deletedKeys),
+    { changedGroupsOnly: true }
+  )
   normalized.deletions.forEach((key) => {
     if (!deletedKeys.includes(key)) deletedKeys.push(key)
   })

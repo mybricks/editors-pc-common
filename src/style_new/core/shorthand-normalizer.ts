@@ -5,6 +5,11 @@ export type ShorthandNormalizeResult = {
   deletions: string[]
 }
 
+export type ShorthandNormalizeOptions = {
+  /** 增量写入时只处理 changes 命中的属性组；默认保留全量快照归一化。 */
+  changedGroupsOnly?: boolean
+}
+
 type SimpleGroup = {
   shorthand: string
   longhands: string[]
@@ -437,14 +442,22 @@ function normalizeBorder(
 export function normalizeStyleShorthands(
   input: Record<string, any>,
   changes: ShorthandChangeItem[] = [],
-  clearedKeys: Set<string> = new Set()
+  clearedKeys: Set<string> = new Set(),
+  options: ShorthandNormalizeOptions = {}
 ): ShorthandNormalizeResult {
   const style = { ...(input || {}) }
   const deletions: string[] = []
   const changedKeys = new Set(changes.map(({ key }) => key))
+  const shouldNormalize = (keys: string[]) =>
+    !options.changedGroupsOnly || keys.some((key) => changedKeys.has(key))
 
-  BOX_GROUPS.forEach((group) => normalizeSimpleGroup(style, group, changedKeys, deletions, clearedKeys))
-  normalizeBorder(style, changedKeys, deletions)
+  BOX_GROUPS.forEach((group) => {
+    if (!shouldNormalize([group.shorthand, ...group.longhands])) return
+    normalizeSimpleGroup(style, group, changedKeys, deletions, clearedKeys)
+  })
+  if (shouldNormalize(BORDER_KEYS)) {
+    normalizeBorder(style, changedKeys, deletions)
+  }
 
   return { style, deletions }
 }
