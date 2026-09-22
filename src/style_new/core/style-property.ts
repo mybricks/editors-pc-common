@@ -86,10 +86,6 @@ function planClear(key: string, candidates: StyleSourceCandidate[], target: HTML
   if (/^unset$/i.test(winner.value.trim())) return { ...base, action: 'noop', reason: 'already-neutralized' }
   const selector = winner.label
   if (!selector) return { ...base, action: 'unsupported', reason: 'winner-selector-unavailable' }
-  // 同 selector 多条规则无法通过现有通道区分源码位置。
-  if (!winner.inline && candidates.some(c => c !== winner && c.label === selector && c.source?.rule !== winner.source?.rule)) {
-    return { ...base, action: 'unsupported', reason: 'ambiguous-source-selector' }
-  }
   const action = candidates.length === 1 && winner.property === cssPropertyName(key) ? 'delete' : 'write-unset'
   if (winner.inline && !readStaticInlineStyleInfo(target, key)) {
     return { ...base, action: 'unsupported', reason: 'dynamic-or-untracked-inline-style' }

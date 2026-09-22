@@ -94,13 +94,13 @@ export const PROP_SPECS: PropSpec[] = [
   { camel: 'marginLeft', inherit: false, fallback: 'computed' },
 
   // background
-  { camel: 'backgroundColor', inherit: false, fallback: 'empty' },
-  { camel: 'backgroundImage', inherit: false, fallback: 'static', staticValue: 'none' },
+  { camel: 'backgroundColor', inherit: false, fallback: 'computed' },
+  { camel: 'backgroundImage', inherit: false, fallback: 'computed', staticValue: 'none' },
   { camel: 'backgroundRepeat', inherit: false, fallback: 'computed' },
-  { camel: 'backgroundPosition', inherit: false, fallback: 'static', staticValue: 'left top' },
+  { camel: 'backgroundPosition', inherit: false, fallback: 'computed', staticValue: 'left top' },
   { camel: 'backgroundSize', inherit: false, fallback: 'computed' },
-  { camel: 'backgroundOrigin', inherit: false, fallback: 'none' },
-  { camel: 'backgroundClip', inherit: false, fallback: 'none' },
+  { camel: 'backgroundOrigin', inherit: false, fallback: 'computed' },
+  { camel: 'backgroundClip', inherit: false, fallback: 'computed' },
 
   // border
   { camel: 'borderTopColor', inherit: false, fallback: 'computedIfInvalid' },

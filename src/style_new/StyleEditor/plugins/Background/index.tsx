@@ -7,8 +7,8 @@ import React, {
   useState,
 } from "react";
 import ColorUtil from "color";
-import { useStyleEditorContext } from "../..";
-import { PanelBaseProps } from "./../../type";
+import { useApplyStyleMutations, useEffectiveStyleValue, useStyleEditorContext } from "../..";
+import { PanelBaseProps, StyleMutation } from "./../../type";
 import { Panel, Colorpicker } from "../../components";
 import { MinusOutlined, TransparentColorOutlined } from "../../components/Icon";
 import { useDragNumber, useCanvasColorVariables } from "../../hooks";
@@ -30,7 +30,7 @@ import {
   resolveCssVarsInCssValue,
 } from "../../../core/resolve-css-var-color";
 import type { CssVarColorOption } from "../../../core/resolve-css-var-color";
-import { getBackgroundLayerOwnership } from "../../../core/background-layer-ownership";
+import { cssPropertyName } from "../../../core/style-property";
 
 function GripIcon() {
   return (
@@ -45,14 +45,6 @@ function GripIcon() {
   );
 }
 
-const ALL_BACKGROUND_KEYS = [
-  "backgroundColor",
-  "backgroundImage",
-  "backgroundRepeat",
-  "backgroundPosition",
-  "backgroundSize",
-] as const;
-
 interface BackgroundProps extends PanelBaseProps {
   value: CSSProperties & Record<string, any>;
   onChange: (
@@ -66,6 +58,12 @@ const DEFAULT_CONFIG = {
   disableGradient: false,
   useImportant: false,
 };
+
+function toStyleMutations(changes: Array<{ key: string; value: any }>): StyleMutation[] {
+  return changes.map(({ key, value }) => value == null
+    ? { type: 'clear', key }
+    : { type: 'set', key, value });
+}
 
 function getSwatchStyle(layer: BgLayer, scopeEl?: Element | null, resolvedColor?: string): CSSProperties {
   if (layer.type === "image") {
@@ -343,26 +341,32 @@ function LayerItem({
 // ── Main Background Plugin ──────────────────────────────────────────────────
 
 export function Background({
-  value,
-  onChange,
   config,
   showTitle,
   collapse,
 }: BackgroundProps) {
   const context = useStyleEditorContext();
+  const value = useEffectiveStyleValue() as CSSProperties & Record<string, any>;
+  const applyStyleMutations = useApplyStyleMutations();
   const { targetDom, variableOptions: canvasVariableOptions } = useCanvasColorVariables();
   const [{ disableBackgroundColor, disableBackgroundImage, disableGradient }] =
     useState({ ...DEFAULT_CONFIG, ...config });
 
   // ── Layer state ──────────────────────────────────────────────────────────
 
-  const editOptions = context?.editConfig?.options;
-  const ownership = getBackgroundLayerOwnership(
-    value,
-    editOptions && !Array.isArray(editOptions) ? editOptions : undefined,
-  ) ?? {
-    backgroundImage: collapse !== 'inherited',
-    backgroundColor: collapse !== 'inherited',
+  const getClearAction = (key: string) =>
+    context?.getStyleProperty?.(key)?.clearPlan.action;
+  const canClear = (key: string) => {
+    const action = getClearAction(key);
+    return action === 'delete' || action === 'write-unset';
+  };
+  const ownership = {
+    backgroundImage: canClear('backgroundImage') && [
+      'backgroundSize',
+      'backgroundRepeat',
+      'backgroundPosition',
+    ].every(key => getClearAction(key) !== 'unsupported'),
+    backgroundColor: canClear('backgroundColor'),
   };
   const ownershipFingerprint = `${ownership.backgroundImage}:${ownership.backgroundColor}`;
   const lastOwnershipRef = useRef(ownershipFingerprint);
@@ -401,10 +405,19 @@ export function Background({
   const lastEmittedRef = useRef(
     buildContentFingerprint(value as Record<string, any>)
   );
+  const localEmitPendingRef = useRef(false);
 
   useEffect(() => {
     const style = value as Record<string, any>;
     const fingerprint = buildContentFingerprint(style);
+    // mutation 会先更新属性来源，外部 EffectiveStyleValue 随后才到；跳过这一次旧值回灌。
+    if (localEmitPendingRef.current) {
+      localEmitPendingRef.current = false;
+      if (fingerprint !== lastEmittedRef.current) {
+        lastOwnershipRef.current = ownershipFingerprint;
+        return;
+      }
+    }
     if (fingerprint === lastEmittedRef.current && ownershipFingerprint === lastOwnershipRef.current) return;
     lastEmittedRef.current = fingerprint;
     lastOwnershipRef.current = ownershipFingerprint;
@@ -435,6 +448,39 @@ export function Background({
 
   const emitLayers = useCallback(
     (newLayers: BgLayer[], changes = serializeLayers(newLayers)) => {
+      changes.filter(({ value }) => value == null).forEach(({ key }) => {
+        const property = context?.getStyleProperty?.(key);
+        if (!property) return;
+        const { winner, candidates, clearPlan } = property;
+        const reasons: string[] = [];
+        if (candidates.length > 1) {
+          reasons.push(`存在 ${candidates.length} 条候选声明，删除后会暴露其他声明`);
+        }
+        if (winner && winner.property !== cssPropertyName(key)) {
+          reasons.push(`生效值来自简写 ${winner.property}，不能直接删除 ${cssPropertyName(key)}`);
+        }
+        console.log('[样式编辑][背景清空判断]', {
+          属性: key,
+          生效selector: winner?.label ?? null,
+          生效声明属性: winner?.property ?? null,
+          候选声明数: candidates.length,
+          候选声明: candidates.map(candidate => ({
+            selector: candidate.label,
+            property: candidate.property,
+            value: candidate.value,
+            inline: candidate.inline,
+            important: candidate.important,
+            currentState: candidate.currentState,
+          })),
+          清空方式: clearPlan.action,
+          写入selector: 'selector' in clearPlan ? clearPlan.selector : null,
+          写入值: 'value' in clearPlan ? clearPlan.value : null,
+          判断原因: reasons.join('；') || ('reason' in clearPlan ? clearPlan.reason : '唯一直接声明，可直接删除'),
+        });
+      });
+      const result = applyStyleMutations(toStyleMutations(changes));
+      if (result?.clearUnsupported && !result.clearApplied) return;
+      localEmitPendingRef.current = true;
       const get = (key: string) =>
         changes.some((c) => c.key === key)
           ? changes.find((c) => c.key === key)?.value ?? ""
@@ -454,9 +500,8 @@ export function Background({
         : newLayers;
       layersRef.current = nextLayers;
       setLayers(nextLayers);
-      (onChange as any)(changes);
     },
-    [onChange, value]
+    [applyStyleMutations, context?.getStyleProperty, value]
   );
 
   // ── Layer handlers ───────────────────────────────────────────────────────
@@ -523,10 +568,8 @@ export function Background({
   }, [emitLayers]);
 
   const handleReset = useCallback(() => {
-    lastEmittedRef.current = "none";
-    setLayers([]);
-    (onChange as any)(ALL_BACKGROUND_KEYS.map((key) => ({ key, value: null })));
-  }, [onChange]);
+    emitLayers([]);
+  }, [emitLayers]);
 
   // ── Drag-to-reorder ──────────────────────────────────────────────────────
 
