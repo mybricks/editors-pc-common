@@ -236,6 +236,7 @@ export function reconcileEffectiveTextFill(
   const ownsBackgroundImage =
     hasBackgroundImage(authoredBackgroundImage) || ambiguousBackgroundVar
 
+  // TODO: 没支持 background: var(--color-accent-cyan); 结合 clip 的 case，也需要回显到字体颜色上
   if (
     !ownsBackgroundImage ||
     !effectiveClip ||

@@ -266,7 +266,7 @@ export function getEffectedCssPropertyAndOptions (
       return [{}, []]
     }
 
-    const values = getValues(finalRules, computedValues, allInheritOnlyRules);
+    const values = getValues(finalRules, computedValues, allInheritOnlyRules, element);
 
     const _hasPseudo = /:{1,2}[a-zA-Z\-]+(?:\([^)]*\))?$/.test(primarySelector)
     const cascadeResolver = element ? createCascadeResolver(element) : null
@@ -346,6 +346,32 @@ export function getEffectedCssPropertyAndOptions (
           ? cascadeResolver(hyphen, 'default')?.value ?? null
           : findCascadeWinner(element, hyphen, 'default')
 
+      // 元素悬浮时，computedStyle 会带上 hover 背景色，不能直接当作默认态颜色。
+      const defaultBackgroundWinner = _findCascadeWinner('background-color')
+      let hoverBackgroundWinner: string | null = null
+      if (cascadeResolver) {
+        const hoverWinner = cascadeResolver('background-color', 'hover')
+        hoverBackgroundWinner = hoverWinner ? hoverWinner.value : null
+      } else {
+        hoverBackgroundWinner = findCascadeWinner(element, 'background-color', 'hover')
+      }
+      const hasDefaultBackgroundDeclaration = !!getOwnDeclaringMaxSpec(
+        finalRules as CSSStyleRule[],
+        element,
+        'background-color'
+      )
+      // 只有同时满足三个条件才清空背景色：
+      // 1. 常规态自己的规则没有背景色；
+      // 2. 常规态级联计算也没有背景色；
+      // 3. hover 态存在背景色。
+      if (
+        !hasDefaultBackgroundDeclaration &&
+        !defaultBackgroundWinner &&
+        hoverBackgroundWinner
+      ) {
+        values.backgroundColor = ''
+      }
+
       // ── 颜色属性：用 colorUtil 归一化比较（处理 rgb/rgba/hex 格式差异）─────────────
       // ZoneTab 自身声明优先：finalRules 已声明该属性时永不被元素级联赢家覆盖，
       // 保证回显与写入同一条 classname。仅当当前 tab 未声明时才用级联校正。
@@ -416,7 +442,7 @@ export function getEffectedCssPropertyAndOptions (
       if (!(values as any)['backgroundColor'] && ((values as any)['backgroundImage'] === 'none' || (values as any)['backgroundImage'] === 'initial')) {
         // 优先用级联扫描（过滤伪类规则），兜底用已中和 :focus 的 computed 快照
         let _bgColorCandidate = _findCascadeWinner('background-color')
-        if (!_bgColorCandidate || !colorUtil.get(_bgColorCandidate)) {
+        if ((!_bgColorCandidate || !colorUtil.get(_bgColorCandidate)) && !hoverBackgroundWinner) {
           const _compBg = computedValues?.getPropertyValue('background-color') ?? ''
           if (_compBg) _bgColorCandidate = _compBg
         }
@@ -745,7 +771,7 @@ export function getEffectedCssPropertyAndOptions (
           try {
             const { rules: baseRules } = getStyleRules(element, baseSelector, styleRulesScanCache)
             if (baseRules.length > 0) {
-              const baseValues = getValues(baseRules, computedValues, new Set<CSSStyleRule>())
+              const baseValues = getValues(baseRules, computedValues, new Set<CSSStyleRule>(), element)
               Object.keys(baseValues as object).forEach(key => {
                 const baseVal = (baseValues as any)[key]
                 const curVal = (values as any)[key]
