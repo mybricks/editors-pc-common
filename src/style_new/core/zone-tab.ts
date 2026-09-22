@@ -85,19 +85,58 @@ function readStyleProperty(source: ZoneSourceRule, property: string): string {
   }
 }
 
+/**
+ * 从规则列表中找出某个 CSS 属性真正的「级联赢家」规则。
+ *
+ * 判断优先级的顺序：!important > 选择器特指度 > 规则在样式表中的出现顺序（越靠后越优先）。
+ *
+ * 关键：!important 必须按属性维度判断，而不能看整条规则的 cssText。
+ *
+ * 反例（会出错的写法）：
+ *   .ccOtherPropImportant { color: #1570ef; background: #eff8ff !important; }
+ *   .ccScope .ccColorSpecificWinner { color: #067647; }  ← 特指度更高
+ *
+ *   如果用 cssText.includes('!important') 判断，.ccOtherPropImportant 整条规则
+ *   会被当成 important 而排在最后，color 的 winner 就会错误指向它。
+ *   但实际上只有 background 有 !important，color 没有，
+ *   color 的 winner 应该是特指度更高的 .ccScope .ccColorSpecificWinner。
+ *
+ *   正确做法是用 rule.style.getPropertyPriority('color') 单独判断 color 是否 important。
+ */
+function findCascadeWinner(
+  candidates: ZoneSourceRule[],
+  properties: string[]
+): ZoneSourceRule | undefined {
+  const declaring = candidates.filter((source) =>
+    properties.some((prop) => readStyleProperty(source, prop))
+  )
+  if (!declaring.length) return undefined
+
+  return declaring.reduce((winner, current) => {
+    const winImportant = properties.some(
+      (prop) => winner.rule.style.getPropertyPriority(prop) === 'important'
+    )
+    const curImportant = properties.some(
+      (prop) => current.rule.style.getPropertyPriority(prop) === 'important'
+    )
+    if (winImportant !== curImportant) return curImportant ? current : winner
+
+    const winSpec = calculateSafeSpecificity(winner.selectorPart, winner.target as HTMLElement)
+    const curSpec = calculateSafeSpecificity(current.selectorPart, current.target as HTMLElement)
+    if (winSpec && curSpec) {
+      const bySpec = compare(winSpec, curSpec)
+      if (bySpec !== 0) return bySpec > 0 ? winner : current
+    }
+    return current.sourceOrder >= winner.sourceOrder ? current : winner
+  })
+}
+
 function findStyleSource(tab: ZoneTab, styleKey: string): ZoneSourceRule | undefined {
   const property = toLine(styleKey)
   const fallbackProperties = PROPERTY_FALLBACKS[styleKey] || []
-  const orderedRules = getOrderedZoneSourceRules(tab)
-  for (let index = orderedRules.length - 1; index >= 0; index -= 1) {
-    const source = orderedRules[index]
-    if (readStyleProperty(source, property)) return source
-  }
-  for (let index = orderedRules.length - 1; index >= 0; index -= 1) {
-    const source = orderedRules[index]
-    if (fallbackProperties.some((fallback) => readStyleProperty(source, fallback))) return source
-  }
-  return undefined
+  // getOrderedZoneSourceRules 负责去重；cascade 排序由 findCascadeWinner 按属性级重算
+  const deduped = getOrderedZoneSourceRules(tab)
+  return findCascadeWinner(deduped, [property]) ?? findCascadeWinner(deduped, fallbackProperties)
 }
 
 /** 使用现有面板计算出的 styleValues 生成来源信息，避免重复实现 CSS 级联。 */
