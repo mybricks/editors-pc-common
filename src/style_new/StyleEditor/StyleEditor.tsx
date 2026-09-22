@@ -66,7 +66,7 @@ export default function ({
       if (positionChange) {
         setPositionForOrder(positionChange.value);
       }
-      onChange(value);
+      return onChange(value);
     },
     [onChange]
   );

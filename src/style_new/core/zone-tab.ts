@@ -3,6 +3,7 @@ import { compare } from 'specificity'
 
 import { isPageScopedSelector, resolveCssomSourceSelector } from './build-zone-selectors-from-cssom'
 import { toLine } from './css-code-codec'
+import { getStyleResolution } from './style-property'
 import { getDocument } from './dom'
 import { calculateSafeSpecificity, splitTopLevelSelectors } from './selector-utils'
 
@@ -236,92 +237,24 @@ const PROPERTY_FALLBACKS: Record<string, string[]> = {
   ],
 }
 
-function readSourceProperty(source: ZoneSourceRule, cssProperty: string): string {
-  try {
-    return source.rule.style.getPropertyValue(cssProperty) || ''
-  } catch {
-    return ''
-  }
+/** 兼容旧调用点，实际来源只由公共解析器决定。 */
+export function resolveZonePropertySource(tab: ZoneTab, key: string): ZoneSourceRule | undefined {
+  return getStyleResolution(tab).get(key).winner?.source
 }
 
-function sourceDeclaresProperty(source: ZoneSourceRule, cssProperties: string[]): boolean {
-  return cssProperties.some((property) => !!readSourceProperty(source, property).trim())
+export function resolveZonePropertySelector(tab: ZoneTab, key: string): string | undefined {
+  const winner = getStyleResolution(tab).get(key).winner
+  return winner?.currentState ? winner.label || undefined : undefined
 }
 
-/**
- * 找到当前 ZoneTab 中最终声明某个样式属性的 Less 源码 selector。
- * 直接属性优先；只有没有直接声明时才使用少量简写兜底映射。
- */
-export function resolveZonePropertySelector(
-  tab: ZoneTab,
-  styleKey: string
-): string | undefined {
-  const cssProperty = toLine(styleKey)
-  const orderedRules = getOrderedZoneSourceRules(tab)
-  const fallbackProperties = PROPERTY_FALLBACKS[styleKey] || []
-  const findLastDeclaringRule = (properties: string[]) => {
-    let winner: ZoneSourceRule | undefined
-    for (const source of orderedRules) {
-      if (sourceDeclaresProperty(source, properties)) winner = source
-    }
-    return winner
-  }
-
-  const directWinner = findLastDeclaringRule([cssProperty])
-  const fallbackWinner = directWinner
-    ? undefined
-    : findLastDeclaringRule(fallbackProperties)
-
-  const winner = directWinner || fallbackWinner
-  return winner ? (winner.sourceSelector || tab.selector) : undefined
+export function resolveZoneDeletionTarget(tab: ZoneTab, key: string): ZoneDeletionTarget | undefined {
+  const winner = getStyleResolution(tab).get(key).winner
+  if (!winner?.currentState || !winner.label) return undefined
+  return { selector: winner.label, property: winner.property === 'gap' ? 'gap' : key }
 }
 
-/**
- * 找到删除某个样式时真正需要操作的源码 selector 和属性。
- * 删除不能使用新增样式的 fallback selector；Gap 还需要识别 gap 简写来源。
- */
-export function resolveZoneDeletionTarget(
-  tab: ZoneTab,
-  styleKey: string
-): ZoneDeletionTarget | undefined {
-  const cssProperty = toLine(styleKey)
-  const orderedRules = getOrderedZoneSourceRules(tab)
-  const findLastDeclaringRule = (properties: string[]) => {
-    let winner: ZoneSourceRule | undefined
-    for (const source of orderedRules) {
-      if (sourceDeclaresProperty(source, properties)) winner = source
-    }
-    return winner
-  }
-
-  const directWinner = findLastDeclaringRule([cssProperty])
-  if (directWinner) {
-    return {
-      selector: directWinner.sourceSelector || tab.selector,
-      property: styleKey,
-    }
-  }
-
-  if (styleKey === 'rowGap' || styleKey === 'columnGap') {
-    const shorthandWinner = findLastDeclaringRule(['gap'])
-    if (shorthandWinner) {
-      return {
-        selector: shorthandWinner.sourceSelector || tab.selector,
-        property: 'gap',
-      }
-    }
-  }
-
-  return undefined
-}
-
-/**
- * 属性没有现有声明时，返回当前 tab 最适合新增样式的 Less 源码 selector。
- * sourceRules 已按回显级联顺序排序，因此最后一条是优先级最高的来源。
- */
 export function resolveZoneFallbackSelector(tab: ZoneTab): string {
-  const orderedRules = getOrderedZoneSourceRules(tab)
-  return orderedRules[orderedRules.length - 1]?.sourceSelector || tab.selector
+  return tab.selector
 }
 
 const EDITABLE_STATES = new Set([

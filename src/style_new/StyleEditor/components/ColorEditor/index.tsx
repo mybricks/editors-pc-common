@@ -77,7 +77,7 @@ type ColorOptions = Array<ColorOption>;
 interface ColorEditorProps {
   options?: ColorOptions;
   defaultValue: any;
-  /** 变量引用的实际色值，仅用于色块与取色器预览 */
+  /** 外部解析出的实际色值，仅用于色块与取色器预览，不作为配置值写回 */
   resolvedColor?: string;
   /** 当前画布可用的 CSS 颜色变量 */
   variableOptions?: CssVarColorOption[];
@@ -632,7 +632,7 @@ export function ColorEditor({
           data-mybricks-tip={`${tip}；支持16进制、RGB、RGBA、HSL、HSLA、var()或颜色名称`}
           ref={inputColorRef}
           value={userInput}
-          placeholder="继承"
+          placeholder={emptyValueLabel ?? "继承"}
           spellCheck={false}
           className={`${css.input} ${css.inheritedInput}`}
           onFocus={() => {
@@ -825,6 +825,7 @@ export function ColorEditor({
       const previewColor =
         resolvedVarColor ||
         state.optionsValueToAllMap[finalValue]?.value ||
+        resolvedColor ||
         finalValue;
       style = {
         backgroundColor: previewColor || "transparent",
@@ -876,6 +877,8 @@ export function ColorEditor({
           {nonColorValue ? (
             finalValue ? (
               <></>
+            ) : resolvedColor ? (
+              <TransparentColorOutlined />
             ) : (
               emptyValueLabel ? <TransparentColorOutlined /> : <QuestionCircleOutlined />
             )

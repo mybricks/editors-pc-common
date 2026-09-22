@@ -178,21 +178,22 @@ function quoteUrlIfNeeded(value: string): string {
 /**
  * Serialize BgLayer[] into CSS key-value pairs.
  *
- * All layers — including solid colors — are expressed as background-image
- * entries (solid colors via `linear-gradient(color, color)`).
- * background-color is always cleared to '' so the output is a single,
- * predictable property with no mixed-property edge cases.
+ * 保留现有 background-color 来源；新增纯色图层使用 background-image，
+ * 避免普通编辑把已有颜色从一个 selector 迁移到另一个属性来源。
  */
 export function serializeLayers(
   layers: BgLayer[],
 ): Array<{ key: string; value: any }> {
   // 外部 background-color 保留在原属性上，不能在编辑其他层时复制进页面的 image 栈。
-  const externalColor = layers.find(l => l.sourceProperty === 'backgroundColor' && l.canRemove === false);
-  const visibleLayers = layers.filter(l => l.visible && l !== externalColor);
+  const colorLayer = layers.find(l => l.sourceProperty === 'backgroundColor');
+  const colorChanges = colorLayer?.canRemove === false ? [] : [
+    { key: 'backgroundColor', value: colorLayer?.visible ? colorLayer.value : null },
+  ];
+  const visibleLayers = layers.filter(l => l.visible && l !== colorLayer);
 
   if (visibleLayers.length === 0) {
     return [
-      ...(!externalColor ? [{ key: 'backgroundColor', value: null }] : []),
+      ...colorChanges,
       { key: 'backgroundImage', value: null },
       { key: 'backgroundSize', value: null },
       { key: 'backgroundRepeat', value: null },
@@ -220,7 +221,7 @@ export function serializeLayers(
   });
 
   return [
-    ...(!externalColor ? [{ key: 'backgroundColor', value: null }] : []),
+    ...colorChanges,
     { key: 'backgroundImage', value: bgImages.join(', ') },
     { key: 'backgroundSize', value: bgSizes.join(', ') },
     { key: 'backgroundRepeat', value: bgRepeats.join(', ') },
@@ -239,7 +240,7 @@ export function getLayerRemovalChanges(
     return [{ key: 'backgroundColor', value: null }];
   }
   const remainingImages = layers.filter((layer, i) =>
-    i !== index && !(layer.sourceProperty === 'backgroundColor' && layer.canRemove === false)
+    i !== index && layer.sourceProperty !== 'backgroundColor'
   );
   return serializeLayers(remainingImages).filter(item => item.key !== 'backgroundColor');
 }

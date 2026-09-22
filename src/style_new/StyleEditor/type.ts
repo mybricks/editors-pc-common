@@ -31,7 +31,7 @@ export interface StyleEditorProps {
 export type StyleChangeItem = {
   key: string;
   value: any;
-  intent?: 'clear-effective-style';
+  intent?: 'clear-effective-style' | 'set-effective-style';
 };
 
 export type StyleChangeResult = {
@@ -39,6 +39,22 @@ export type StyleChangeResult = {
   clearApplied?: boolean;
   clearUnsupported?: boolean;
 };
+
+/** 属性编辑器只表达修改意图；selector 以及 clear 的 null/unset 由公共层解析。 */
+export type StyleMutation =
+  | {
+      type: 'set';
+      key: string;
+      value: any;
+    }
+  | {
+      type: 'clear';
+      key: string;
+    };
+
+export type ApplyStyleMutations = (
+  mutations: StyleMutation[]
+) => StyleChangeResult | void;
 
 export type ChangeEvent = (
   arg: StyleChangeItem | StyleChangeItem[]

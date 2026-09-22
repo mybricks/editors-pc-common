@@ -1,6 +1,3 @@
-// @ts-ignore
-import { compare } from 'specificity'
-
 import { deepCopy } from '../../utils'
 import { mergeCSSProperties } from '../StyleEditor/helper'
 import { preservePaintRoles } from '../StyleEditor/helper/paint-stack'
@@ -19,13 +16,17 @@ import {
   resolveZoneDeletionTarget,
   resolveZonePropertySelector,
 } from './zone-tab'
-import type { ZoneSourceRule, ZoneTab } from './zone-tab'
-import { calculateSafeSpecificity } from './selector-utils'
+import type { ZoneTab } from './zone-tab'
+import {
+  collectStyleSourceCandidates, createStyleClearPlan, getStyleResolution,
+  readStaticInlineStyleInfo, resolveEffectiveStyleSource,
+} from './style-property'
+import type { StyleClearPlan } from './style-property'
 
 export type StyleChangeItem = {
   key: string
   value: any
-  intent?: 'clear-effective-style'
+  intent?: 'clear-effective-style' | 'set-effective-style'
 }
 
 type StyleWriteGroup = {
@@ -40,51 +41,7 @@ export type ZoneWriteTarget = {
 
 const IMPORTANT_SUFFIX_RE = /!important\s*$/i
 const HOVER_SELECTOR_RE = /:hover\s*$/
-const INLINE_STYLE_LABEL = 'inline style'
-
-/** 与 Zone 写入来源解析保持一致的少量简写兜底。 */
-const STYLE_SOURCE_PROPERTY_FALLBACKS: Record<string, string[]> = {
-  backgroundColor: ['background'],
-  backgroundImage: ['background'],
-  fontSize: ['font'],
-  borderRadius: [
-    'border-top-left-radius',
-    'border-top-right-radius',
-    'border-bottom-right-radius',
-    'border-bottom-left-radius',
-  ],
-}
-
-type DeclaredStyleValue = {
-  property: string
-  value: string
-  important: boolean
-}
-
-type StyleSourceCandidate = DeclaredStyleValue & {
-  label: string
-  source?: ZoneSourceRule
-  specificity?: any
-  sourceOrder: number
-  inline: boolean
-}
-
-type StyleClearPlan =
-  | {
-      action: 'delete' | 'write-unset'
-      key: string
-      value: null | 'unset' | 'unset !important'
-      selector: string
-      winner: StyleSourceCandidate
-      candidates: StyleSourceCandidate[]
-    }
-  | {
-      action: 'noop' | 'unsupported'
-      key: string
-      reason: string
-      winner: StyleSourceCandidate | null
-      candidates: StyleSourceCandidate[]
-    }
+const INLINE_STYLE_LABEL = 'inline'
 
 type StyleWriteLogContext = {
   targetDom: HTMLElement | null
@@ -94,232 +51,63 @@ type StyleWriteLogContext = {
   skipped?: boolean
 }
 
-function readDeclaredStyleValue(
-  style: CSSStyleDeclaration,
-  styleKey: string
-): DeclaredStyleValue | null {
-  const directProperty = toLine(styleKey)
-  const properties = [
-    directProperty,
-    ...(STYLE_SOURCE_PROPERTY_FALLBACKS[styleKey] || []),
-  ]
-
-  for (const property of properties) {
-    const value = style.getPropertyValue(property).trim()
-    if (!value) continue
-    return {
-      property,
-      value,
-      important: style.getPropertyPriority(property) === 'important',
-    }
-  }
-
-  return null
+type StyleOperationLogParams = {
+  key: string
+  value: any
+  action: '写入' | '清空'
+  candidates: ReturnType<typeof collectStyleSourceCandidates>
+  winner: ReturnType<typeof resolveEffectiveStyleSource>
+  writeSelectors: string[]
+  skipped?: boolean
+  reason?: string
 }
 
-function getDiagnosticZoneTabs(
-  zoneTabs: ZoneTab[],
-  activeZoneTab: ZoneTab | null
-): ZoneTab[] {
-  if (!activeZoneTab?.pseudo) {
-    return zoneTabs.filter((tab) => !tab.pseudo)
+function logStyleOperation({
+  key,
+  value,
+  action,
+  candidates,
+  winner,
+  writeSelectors,
+  skipped,
+  reason,
+}: StyleOperationLogParams) {
+  const selectors = Array.from(new Set(candidates.map((candidate) => candidate.label).filter(Boolean)))
+  const details: Record<string, any> = {
+    属性: key,
+    方式: action,
+    生效selector: winner?.label ?? null,
+    其他未生效selector: selectors.filter((selector) => selector !== winner?.label),
+    写入selector:
+      writeSelectors.length > 1
+        ? writeSelectors
+        : writeSelectors[0] ?? null,
+    值: value,
   }
-
-  // 状态 Tab 下同时保留基础态和相同状态的候选，便于看到实际覆盖链。
-  return zoneTabs.filter(
-    (tab) => !tab.pseudo || tab.pseudo === activeZoneTab.pseudo
-  )
+  if (skipped) {
+    details.结果 = '跳过'
+    details.原因 = reason || null
+  }
+  console.log('[样式编辑]', details)
 }
 
-function collectStyleSourceCandidates(
-  targetDom: HTMLElement | null,
-  zoneTabs: ZoneTab[],
-  activeZoneTab: ZoneTab | null,
-  styleKey: string
-): StyleSourceCandidate[] {
-  if (!targetDom) return []
-
-  const result: StyleSourceCandidate[] = []
-  const seenRules = new Set<string>()
-
-  getDiagnosticZoneTabs(zoneTabs, activeZoneTab).forEach((tab) => {
-    const rules = tab.pseudo
-      ? [...tab.baseRules, ...tab.sourceRules]
-      : tab.sourceRules
-    rules.forEach((source) => {
-      const identity = `${source.sourceOrder}\u0000${source.selectorPart}`
-      if (seenRules.has(identity)) return
-      seenRules.add(identity)
-
-      const declared = readDeclaredStyleValue(source.rule.style, styleKey)
-      if (!declared) return
-      result.push({
-        ...declared,
-        label: source.sourceSelector || tab.selector,
-        source,
-        specificity: calculateSafeSpecificity(source.selectorPart, targetDom),
-        sourceOrder: source.sourceOrder,
-        inline: false,
-      })
-    })
+function logStyleClearPlan(plan: StyleClearPlan, execute = true) {
+  const canApply = execute && (plan.action === 'delete' || plan.action === 'write-unset')
+  logStyleOperation({
+    key: plan.key,
+    value: canApply ? plan.value : null,
+    action: '清空',
+    candidates: plan.candidates,
+    winner: plan.winner,
+    writeSelectors: canApply ? [plan.selector] : [],
+    skipped: !canApply,
+    reason:
+      plan.action === 'noop' || plan.action === 'unsupported'
+        ? plan.reason
+        : execute
+          ? undefined
+          : 'batch-clear-aborted',
   })
-
-  const isPseudoElement = !!activeZoneTab?.pseudo?.startsWith('::')
-  if (!isPseudoElement) {
-    const inlineDeclared = readDeclaredStyleValue(targetDom.style, styleKey)
-    if (inlineDeclared) {
-      result.push({
-        ...inlineDeclared,
-        label: INLINE_STYLE_LABEL,
-        sourceOrder: Number.MAX_SAFE_INTEGER,
-        inline: true,
-      })
-    }
-  }
-
-  return result
-}
-
-function resolveEffectiveStyleSource(
-  candidates: StyleSourceCandidate[]
-): StyleSourceCandidate | null {
-  const inline = candidates.find((candidate) => candidate.inline)
-  const ruleCandidates = candidates
-    .filter((candidate) => !candidate.inline)
-    .sort((a, b) => {
-      if (a.important !== b.important) return a.important ? 1 : -1
-      if (a.specificity && b.specificity) {
-        const bySpecificity = compare(a.specificity, b.specificity)
-        if (bySpecificity !== 0) return bySpecificity
-      }
-      return a.sourceOrder - b.sourceOrder
-    })
-  const ruleWinner = ruleCandidates[ruleCandidates.length - 1] ?? null
-
-  if (!inline) return ruleWinner
-  if (!ruleWinner) return inline
-  if (inline.important || !ruleWinner.important) return inline
-  return ruleWinner
-}
-
-function normalizeCssKeyword(value: unknown): string {
-  return String(value ?? '')
-    .replace(/\s*!important\s*$/i, '')
-    .trim()
-    .toLowerCase()
-}
-
-function readStaticInlineStyleInfo(
-  targetDom: HTMLElement | null,
-  styleKey: string,
-  requirePropertyRange = false
-): boolean {
-  const raw = targetDom?.dataset?.styleInfo
-  if (!raw) return false
-  try {
-    const styleInfo = JSON.parse(raw)
-    const aliases = [
-      styleKey,
-      styleKey ? styleKey[0].toLowerCase() + styleKey.slice(1) : styleKey,
-      styleKey ? styleKey[0].toUpperCase() + styleKey.slice(1) : styleKey,
-    ]
-    return aliases.some((key) => {
-      const entry = styleInfo?.[key]
-      if (entry?.kind !== 'static') return false
-      if (entry.hasSpread || entry.duplicate) return false
-      if (!requirePropertyRange) return true
-      return (
-        typeof entry.propertyStart === 'number' &&
-        typeof entry.propertyEnd === 'number'
-      )
-    })
-  } catch {
-    return false
-  }
-}
-
-function createStyleClearPlan(
-  targetDom: HTMLElement | null,
-  zoneTabs: ZoneTab[],
-  activeZoneTab: ZoneTab | null,
-  styleKey: string
-): StyleClearPlan {
-  const candidates = collectStyleSourceCandidates(
-    targetDom,
-    zoneTabs,
-    activeZoneTab,
-    styleKey
-  )
-  const winner = resolveEffectiveStyleSource(candidates)
-
-  if (!winner) {
-    return {
-      action: 'noop',
-      key: styleKey,
-      reason: 'no-local-declaration',
-      winner: null,
-      candidates,
-    }
-  }
-
-  if (normalizeCssKeyword(winner.value) === 'unset') {
-    return {
-      action: 'noop',
-      key: styleKey,
-      reason: 'already-neutralized',
-      winner,
-      candidates,
-    }
-  }
-
-  const action = candidates.length === 1 ? 'delete' : 'write-unset'
-  if (winner.inline) {
-    if (!readStaticInlineStyleInfo(targetDom, styleKey, action === 'delete')) {
-      return {
-        action: 'unsupported',
-        key: styleKey,
-        reason: 'dynamic-or-untracked-inline-style',
-        winner,
-        candidates,
-      }
-    }
-    if (action === 'write-unset' && winner.important) {
-      return {
-        action: 'unsupported',
-        key: styleKey,
-        reason: 'inline-important-cannot-be-written-by-jsx-style',
-        winner,
-        candidates,
-      }
-    }
-  }
-
-  const targetSelector = winner.inline
-    ? 'inline'
-    : winner.source?.sourceSelector || winner.label
-  if (!targetSelector) {
-    return {
-      action: 'unsupported',
-      key: styleKey,
-      reason: 'winner-selector-unavailable',
-      winner,
-      candidates,
-    }
-  }
-
-  return {
-    action,
-    key: styleKey,
-    value:
-      action === 'delete'
-        ? null
-        : winner.important
-          ? 'unset !important'
-          : 'unset',
-    selector: targetSelector,
-    winner,
-    candidates,
-  }
 }
 
 function applyStyleClearPlans(
@@ -331,28 +119,7 @@ function applyStyleClearPlans(
   const appliedKeys: string[] = []
 
   plans.forEach((plan) => {
-    console.log('[style_new][style-clear-plan]', {
-      key: plan.key,
-      candidateCount: plan.candidates.length,
-      candidates: plan.candidates.map((candidate) => ({
-        label: candidate.label,
-        inline: candidate.inline,
-        property: candidate.property,
-        value: candidate.value,
-        important: candidate.important,
-        sourceOrder: candidate.sourceOrder,
-      })),
-      effectiveClassName: plan.winner?.label ?? null,
-      action: plan.action,
-      writeClassName:
-        plan.action === 'delete' || plan.action === 'write-unset'
-          ? plan.selector
-          : null,
-      reason:
-        plan.action === 'noop' || plan.action === 'unsupported'
-          ? plan.reason
-          : null,
-    })
+    logStyleClearPlan(plan, execute)
 
     if (!execute || plan.action === 'noop' || plan.action === 'unsupported') return
 
@@ -447,10 +214,6 @@ function logStyleWrite(
       key
     )
     const effective = resolveEffectiveStyleSource(candidates)
-    const allClassNames = Array.from(new Set(candidates.map((candidate) => candidate.label)))
-    const ineffectiveClassNames = allClassNames.filter(
-      (className) => className !== effective?.label
-    )
     const isDeletion = !!context.deletion || value === null
     const writeClassNames = context.skipped
       ? []
@@ -461,14 +224,15 @@ function logStyleWrite(
         isDeletion
       )
 
-    console.log('[style_new][style-write-source]', {
+    logStyleOperation({
       key,
       value,
-      effectiveClassName: effective?.label ?? null,
-      writeClassName: writeClassNames[0] ?? null,
-      additionalWriteClassNames: writeClassNames.slice(1),
-      ineffectiveClassNames,
+      action: isDeletion ? '清空' : '写入',
+      candidates,
+      winner: effective,
+      writeSelectors: writeClassNames,
       skipped: !!context.skipped,
+      reason: context.skipped ? 'write-target-unavailable' : undefined,
     })
   })
 }
@@ -504,6 +268,48 @@ const preserveCascadePriority = (
     if (!shouldPreservePriority) return item
     return { ...item, value: `${item.value}!important` }
   })
+}
+
+/** 共享属性决策；普通值沿用现有写入，清空单独提交 null/unset。 */
+function applyEffectiveStyleChanges(
+  items: StyleChangeItem[], liveStyle: Record<string, any>, tab: ZoneTab,
+  target: HTMLElement | null, editConfig: any, onBatchMetaChange?: () => void
+): ApplyStyleChangeResult {
+  const resolution = getStyleResolution(tab, target)
+  const changes = preservePaintRoles(items, liveStyle)
+  // 先预检整个用户动作，避免清空不可执行却先修改了共享图层。
+  const plans = changes.filter(item => item.value === null).map(item => resolution.get(item.key).clearPlan)
+  if (plans.some(plan => plan.action === 'unsupported')) {
+    plans.forEach(plan => logStyleClearPlan(plan, false))
+    return { nextLiveStyle: liveStyle, applied: false, clearApplied: false, clearUnsupported: true }
+  }
+  const writes = changes.filter(item => item.value != null).map(({ key, value }) => ({ key, value }))
+  const normal = writes.length
+    ? applyStyleChange({ value: writes, liveStyle, editConfig })
+    : { nextLiveStyle: liveStyle, applied: false }
+  const nextLiveStyle = { ...normal.nextLiveStyle }
+  const groups = new Map<string, Record<string, any>>()
+  let clearApplied = false
+  plans.forEach(plan => {
+    logStyleClearPlan(plan)
+    if (plan.action === 'noop' || plan.action === 'unsupported') return
+    const patch = groups.get(plan.selector) || {}
+    patch[plan.key] = plan.value
+    groups.set(plan.selector, patch)
+  })
+  groups.forEach((patch, selector) => {
+    // 组件库现有协议：整包只包含 null/unset，就按 selector 定向清空。
+    editConfig.value.set(patch, { selector })
+    Object.entries(patch).forEach(([key, value]) => {
+      if (value === null) delete nextLiveStyle[key]
+      else nextLiveStyle[key] = value
+      resolution.record(key, value, selector)
+    })
+    clearApplied = true
+  })
+  const applied = normal.applied || clearApplied
+  if (applied) onBatchMetaChange?.()
+  return { nextLiveStyle, applied, clearApplied, clearUnsupported: false }
 }
 
 export type ApplyStyleChangeParams = {
@@ -563,6 +369,9 @@ export function applyStyleChange({
     !Array.isArray(editConfig.options) && editConfig.options
       ? (editConfig.options as any).zoneTabs ?? (activeZoneTab ? [activeZoneTab] : [])
       : (activeZoneTab ? [activeZoneTab] : [])
+  if (activeZoneTab && rawItems.length && rawItems.every(item => item.intent)) {
+    return applyEffectiveStyleChanges(rawItems, liveStyle, activeZoneTab, realTargetDom, editConfig, onBatchMetaChange)
+  }
   const clearItems = rawItems.filter(
     (item) => item.intent === 'clear-effective-style'
   )
@@ -879,6 +688,9 @@ export function applyStyleChange({
           { ...writeLogContext, deletion: true }
         )
         write(group.style, groupOptions)
+        Object.entries(group.style).forEach(([key, value]) => {
+          getStyleResolution(activeZoneTab, realTargetDom).record(key, value, sourceSelector)
+        })
       })
     } finally {
       ;(window as any).__mybricks_style_deletions = null

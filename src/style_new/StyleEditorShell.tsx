@@ -275,8 +275,19 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
 
   const onZoneTabSelect = useCallback(
     (idx: number) => {
-      console.log('[StyleEditorShell] zoneTab selected', zoneTabs[idx])
       if (idx === activeZoneIdx) return
+
+      const nextTab = zoneTabs[idx]
+      const selectors = Array.from(new Set([
+        nextTab?.selector,
+        ...((nextTab?.baseRules || []).map((item) => item.sourceSelector || item.selectorPart)),
+        ...((nextTab?.sourceRules || []).map((item) => item.sourceSelector || item.selectorPart)),
+        ...(selectedTarget && (selectedTarget as HTMLElement).style?.length ? ['inline'] : []),
+      ].filter(Boolean)))
+      console.log('[样式编辑][切换Tab]', {
+        tab: nextTab?.label || nextTab?.selector || null,
+        selectors,
+      })
 
       // Solo 模式下同步更新写入目标，避免先用旧 soloSelector 构建一遍，
       // 再由 rehydrate effect 根据新 tab selector 触发第二次构建。
@@ -714,23 +725,26 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
       const styleEditorCache = styleEditorCacheRef.current
       const cachedEditor = styleEditorCache.get(styleEditorCacheKey)
       const cacheHit = !!cachedEditor && !cachedEditor.stale
-      if (!cacheHit) {
-        styleEditorCache.set(
-          styleEditorCacheKey,
-          {
-            stale: false,
-            element: (
-              <StyleMount
-                key={`${styleEditorCacheKey}:${styleEditorCacheGeneration}:${++styleEditorMountRevisionRef.current}`}
-                editConfig={resolvedEditConfig}
-                preserveImportantPriority={isSoloEdit}
-                onBatchMetaChange={invalidateInactiveStyleEditors}
-                {...activeStyleProps}
-              />
-            ),
-          }
-        )
-      }
+      const styleMountKey = cacheHit && cachedEditor?.element.key
+        ? cachedEditor.element.key
+        : `${styleEditorCacheKey}:${styleEditorCacheGeneration}:${++styleEditorMountRevisionRef.current}`
+      // 命中缓存时沿用 key 保留插件内部状态，但仍用本轮配置刷新 props；
+      // 否则切回 Tab 后 effectiveStyle/defaultValue 会停留在首次挂载快照。
+      styleEditorCache.set(
+        styleEditorCacheKey,
+        {
+          stale: false,
+          element: (
+            <StyleMount
+              key={styleMountKey}
+              editConfig={resolvedEditConfig}
+              preserveImportantPriority={isSoloEdit}
+              onBatchMetaChange={invalidateInactiveStyleEditors}
+              {...activeStyleProps}
+            />
+          ),
+        }
+      )
 
       if (!cacheHit && styleEditorCache.size > STYLE_EDITOR_CACHE_LIMIT) {
         const oldestKey = styleEditorCache.keys().next().value

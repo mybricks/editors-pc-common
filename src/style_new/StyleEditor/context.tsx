@@ -1,6 +1,9 @@
-import React, { useContext, createContext } from 'react'
+import React, { useCallback, useContext, createContext } from 'react'
 import type { EditorProps } from '../type'
-import type { ZoneTab } from '../core/zone-tab'
+import type { EffectiveStyleValue, ZoneTab } from '../core/zone-tab'
+import type { StyleProperty } from '../core/style-property'
+import { buildStyleMutationChange } from './helper/style-mutations'
+import type { ApplyStyleMutations, ChangeEvent, StyleMutation } from './type'
 
 interface StyleEditorContextValue {
   editConfig: {
@@ -30,6 +33,12 @@ interface StyleEditorContextValue {
   targetDom?: HTMLElement | null
   /** 当前编辑规则显式写入的样式，不包含继承/计算值 */
   authoredStyle?: Record<string, any>
+  /** 当前 Tab 下逐属性解析出的实际生效值及来源 */
+  effectiveStyle?: Record<string, EffectiveStyleValue>
+  /** 批量执行 set/clear；写入 selector 与 clear 的 null/unset 由公共层解析 */
+  applyStyleMutations?: ApplyStyleMutations
+  getStyleProperty?: (key: string) => StyleProperty
+  getStylePreview?: (key: string) => string
 }
 
 const StyleEditorContext = createContext<StyleEditorContextValue | undefined>(undefined)
@@ -51,4 +60,57 @@ export function useStyleEditorContext () {
   const context = useContext(StyleEditorContext)
 
   return context
+}
+
+/** 所有属性编辑器共用的修改入口；fallback 仅用于脱离 StyleMount 的独立渲染。 */
+export function useApplyStyleMutations(fallbackOnChange?: ChangeEvent): ApplyStyleMutations {
+  const context = useStyleEditorContext()
+  return useCallback(
+    (mutations: StyleMutation[]) => {
+      if (context?.applyStyleMutations) {
+        return context.applyStyleMutations(mutations)
+      }
+      return fallbackOnChange?.(
+        buildStyleMutationChange(mutations)
+      )
+    },
+    [context?.applyStyleMutations, fallbackOnChange]
+  )
+}
+
+/** 没有 Zone 上下文时 available=false，独立编辑器继续使用原有行为。 */
+export function useStyleField(key: string) {
+  const context = useStyleEditorContext()
+  const property = context?.getStyleProperty?.(key)
+  const winner = property?.winner
+  const plan = property?.clearPlan
+  const set = useCallback((value: string | number) =>
+    context?.applyStyleMutations?.([{ type: 'set', key, value }]),
+    [context?.applyStyleMutations, key])
+  const clear = useCallback(() =>
+    context?.applyStyleMutations?.([{ type: 'clear', key }]),
+    [context?.applyStyleMutations, key])
+  const neutralized = !!winner && /^unset$/i.test(winner.value.trim())
+  return {
+    available: !!context?.getStyleProperty,
+    source: winner?.label || null,
+    value: winner?.currentState && !neutralized ? winner.value : undefined,
+    previewValue: context?.getStylePreview?.(key),
+    set,
+    clear: plan?.action === 'delete' || plan?.action === 'write-unset' ? clear : undefined,
+    disabledReason: plan?.action === 'unsupported' ? plan.reason : undefined,
+  }
+}
+
+/** 仅提供清空执行能力；不向属性编辑器暴露任何样式回显值。 */
+export function useStyleClear(key: string) {
+  const context = useStyleEditorContext()
+  const plan = context?.getStyleProperty?.(key)?.clearPlan
+  const clear = useCallback(() =>
+    context?.applyStyleMutations?.([{ type: 'clear', key }]),
+    [context?.applyStyleMutations, key])
+  return {
+    clear: plan?.action === 'delete' || plan?.action === 'write-unset' ? clear : undefined,
+    disabledReason: plan?.action === 'unsupported' ? plan.reason : undefined,
+  }
 }
