@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useMemo, useRef, useEffect, CSSProperties } from "react";
 import { createPortal } from "react-dom";
 
-import { useApplyStyleMutations, useEffectiveStyleValue, useStyleClear, useStyleEditorContext } from "../..";
+import { useApplyStyleMutations, useEffectiveStyleValue, useStyleChange, useStyleClear, useStyleEditorContext } from "../..";
 
 import {
   Panel,
@@ -331,13 +331,8 @@ export function Font({ config, showTitle }: FontProps) {
   const context = useStyleEditorContext();
   const effectiveStyle = context?.effectiveStyle;
   const value = useEffectiveStyleValue();
+  const onChange = useStyleChange();
   const applyStyleMutations = useApplyStyleMutations();
-  const onChange: FontProps['onChange'] = useCallback((input) => {
-    const items = Array.isArray(input) ? input : [input];
-    return applyStyleMutations(items.map(item => item.value == null
-      ? { type: 'clear', key: item.key }
-      : { type: 'set', key: item.key, value: item.value }));
-  }, [applyStyleMutations]);
   const colorField = useStyleClear('color');
   const familyField = useStyleClear('fontFamily');
   const sizeField = useStyleClear('fontSize');

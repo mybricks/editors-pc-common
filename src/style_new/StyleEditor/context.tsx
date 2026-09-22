@@ -92,6 +92,18 @@ export function useApplyStyleMutations(fallbackOnChange?: ChangeEvent): ApplySty
   )
 }
 
+/** 将属性编辑器原有的 onChange 输入适配为统一的 set/clear mutation。 */
+export function useStyleChange(fallbackOnChange?: ChangeEvent): ChangeEvent {
+  const applyStyleMutations = useApplyStyleMutations(fallbackOnChange)
+  return useCallback((input) => {
+    const items = Array.isArray(input) ? input : [input]
+    return applyStyleMutations(items.map((item) => item.value == null
+      ? { type: 'clear', key: item.key }
+      : { type: 'set', key: item.key, value: item.value }
+    ))
+  }, [applyStyleMutations])
+}
+
 /** 没有 Zone 上下文时 available=false，独立编辑器继续使用原有行为。 */
 export function useStyleField(key: string) {
   const context = useStyleEditorContext()
