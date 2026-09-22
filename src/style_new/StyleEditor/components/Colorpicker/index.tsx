@@ -106,6 +106,10 @@ export function Colorpicker(props:ColorpickerProps) {
     }
   }, []);
 
+  const handleClose = useCallback(() => {
+    setOpen(false);
+  }, []);
+
   useEffect(() => {
     if (open) {
       setTimeout(() => {
@@ -148,6 +152,7 @@ export function Colorpicker(props:ColorpickerProps) {
             disableBackgroundColor={disableBackgroundColor}
             disableBackgroundImage={disableBackgroundImage}
             disableGradient={disableGradient}
+            onClose={handleClose}
           />,
           document.body
         )}
@@ -189,6 +194,8 @@ interface ColorSketchProps {
   disableBackgroundImage?: boolean;
   /** 禁用渐变 tab */
   disableGradient?: boolean;
+  /** 关闭弹层回调；传入后弹层右上角展示关闭按钮 */
+  onClose?: () => void;
 }
 
 function ColorSketch({
@@ -209,6 +216,7 @@ function ColorSketch({
   disableBackgroundColor = false,
   disableBackgroundImage = false,
   disableGradient = false,
+  onClose,
 }: ColorSketchProps) {
   useEffect(() => {
     const menusContainer = childRef.current!;
@@ -287,7 +295,11 @@ function ColorSketch({
   useEffect(() => {
     // value 只同步数据，不驱动 tab；避免回写时把用户选中的 tab 抢走
     if (value?.includes?.("gradient")) {
-      setGradientValue(value)
+      if (selectedVariableName?.includes("var(--")) {
+        setGradientValue(selectedVariableName);
+      } else {
+        setGradientValue(value);
+      }
     } else if (value && !value.includes("url(")) {
       setColorValue(value)
     }
@@ -353,6 +365,21 @@ function ColorSketch({
     <div ref={childRef} className={css.colorSketch} data-dropdown-portal="true" onFocus={(e) => e.stopPropagation()}>
       <div className={css.content}>
         <div className={css.tabItem}>
+          {onClose && (
+            <button
+              type="button"
+              className={css.closeBtn}
+              title="关闭"
+              onClick={(e) => {
+                e.stopPropagation();
+                onClose();
+              }}
+            >
+              <svg viewBox="64 64 896 896" width="12" height="12" fill="currentColor" aria-hidden="true">
+                <path d="M563.8 512l262.5-312.9c4.4-5.2.7-13.1-6.1-13.1h-79.8c-4.7 0-9.2 2.1-12.3 5.7L511.6 449.8 295.1 191.7c-3-3.6-7.5-5.7-12.3-5.7H203c-6.8 0-10.5 7.9-6.1 13.1L459.4 512 196.9 824.9A7.95 7.95 0 00203 838h79.8c4.7 0 9.2-2.1 12.3-5.7l216.5-258.1 216.5 258.1c3 3.6 7.5 5.7 12.3 5.7h79.8c6.8 0 10.5-7.9 6.1-13.1L563.8 512z" />
+              </svg>
+            </button>
+          )}
           {(showSubTabs || hasVariableOptions) && (
             <div className={css.subTabs}>
               {!disableBackgroundColor && (
