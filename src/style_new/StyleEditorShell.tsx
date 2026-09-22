@@ -786,7 +786,8 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
     editMode,
     key,
     activeZoneIdx,
-    resolveActiveEditContext,
+    // TODO: 暂时去掉这个依赖，此依赖会导致 editor 被频繁刷新重新渲染。持续观察，没问题就可以删除这依赖
+    // resolveActiveEditContext,
     refreshBatchMeta,
     invalidateInactiveStyleEditors,
     isSoloEdit,
