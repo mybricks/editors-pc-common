@@ -202,6 +202,7 @@ export function getDefaultConfiguration ({value, options}: GetDefaultConfigurati
       // getEffectedCssPropertyAndOptions 同时返回：当前样式值、自己规则命中的面板、
       // 祖先继承命中的面板，以及源码中明确声明的 authoredStyle。
       getDefaultValue = false;
+      // TODO: 此方法耗时比较多，平均耗时 30ms 左右
       const [styleValues, options, ownRulesPanels, ancestorPanels, authoredStyle] = getEffectedCssPropertyAndOptions(
         realDom,
         realSelectors.length > 1 ? realSelectors : (realSelector ?? ''),
