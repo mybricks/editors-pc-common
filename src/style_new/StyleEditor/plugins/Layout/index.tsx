@@ -7,7 +7,7 @@ import Gap, { GapProps } from "./Gap";
 import type { Layout } from "./types";
 import { Panel } from "../../components";
 import type { ChangeEvent, PanelBaseProps } from "../../type";
-import { useStyleEditorContext } from "../../context";
+import { useEffectiveStyleValue, useStyleChange, useStyleEditorContext } from "../../context";
 import styles from "./index.less";
 
 interface LayoutEditorProps extends PanelBaseProps {
@@ -106,10 +106,12 @@ const defaultValue: LayoutModel = {
   columnGap: 0,
 };
 
-export function Layout({ value, onChange, showTitle, collapse, config }: LayoutEditorProps) {
+export function Layout({ onChange: fallbackOnChange, showTitle, collapse, config }: LayoutEditorProps) {
+  const context = useStyleEditorContext();
+  const value = useEffectiveStyleValue();
+  const onChange = useStyleChange(fallbackOnChange);
   /** 替换元素（如 img）：面板只提供 display 切换，不提供 flex 容器能力 */
   const displayOnly = !!config?.displayOnly;
-  const context = useStyleEditorContext();
   const authoredStyle = context?.authoredStyle;
   const canInspectAuthoredGap = !!context?.targetDom;
   const [clearedGapKeys, setClearedGapKeys] = useState<Record<GapKey, boolean>>(() => ({
