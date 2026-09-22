@@ -5,7 +5,7 @@ import { FixedWidth } from '../../icons/FixedWidth'
 import { isCssVarValue } from '../../hooks/useLengthVarBinding'
 import { useCanvasOpacityVariables } from '../../hooks/useCanvasOpacityVariables'
 import { resolveCssVarOpacity, formatOpacityDisplay } from '../../../core/resolve-css-var-opacity'
-import { useStyleEditorContext } from '../../context'
+import { useStyleEditorContext, useEffectiveStyleValue, useStyleChange } from '../../context'
 import type { VariableChipMenuOption } from '../../components/VariableChip'
 
 import type { ChangeEvent, PanelBaseProps } from '../../type'
@@ -19,12 +19,14 @@ interface OpacityProps extends PanelBaseProps {
 
 const DETACH_VARIABLE_ACTION = 'detachVariable'
 
-export function Opacity ({ value, onChange, config, showTitle, collapse }: OpacityProps) {
+export function Opacity ({ onChange: fallbackOnChange, config, showTitle, collapse }: OpacityProps) {
   const [forceRenderKey, setForceRenderKey] = useState<number>(Math.random())
   const [isReset, setIsReset] = useState(false)
 
   const context = useStyleEditorContext()
   const targetDom = context?.targetDom ?? null
+  const value = useEffectiveStyleValue()
+  const onChange = useStyleChange(fallbackOnChange)
 
   const { variableOptions } = useCanvasOpacityVariables()
   const hasVariables = variableOptions.length > 0

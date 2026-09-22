@@ -2,6 +2,7 @@ import React, { CSSProperties, useCallback, useEffect, useRef, useState } from '
 
 import { Panel, ClearButton } from '../../components'
 import { useDragNumber } from '../../hooks'
+import { useEffectiveStyleValue, useStyleChange } from '../../context'
 import { Ratation } from '../../icons/Rotation'
 import { Rotation90R } from '../../icons/Rotation90R'
 import { RotationFlipHorizontal } from '../../icons/RotationFlipHorizontal'
@@ -53,7 +54,9 @@ interface RotationProps extends PanelBaseProps {
   onChange: ChangeEvent
 }
 
-export function Rotation({ value, onChange, showTitle, collapse }: RotationProps) {
+export function Rotation({ value: _value, onChange: fallbackOnChange, showTitle, collapse }: RotationProps) {
+  const value = useEffectiveStyleValue() as CSSProperties
+  const onChange = useStyleChange(fallbackOnChange)
   const transformStr = value?.transform as string | undefined
   const { angle: parsedAngle, flipX, flipY } = parseTransform(transformStr)
 
