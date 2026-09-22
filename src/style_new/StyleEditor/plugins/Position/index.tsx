@@ -1,7 +1,7 @@
 import React, { CSSProperties, useCallback, useEffect, useState } from 'react'
 
 import { Panel, InputNumber } from '../../components'
-import { useStyleEditorContext } from '../../context'
+import { useEffectiveStyleValue, useStyleChange, useStyleEditorContext } from '../../context'
 import { useDragNumber } from '../../hooks'
 
 import type { ChangeEvent, PanelBaseProps } from '../../type'
@@ -127,16 +127,18 @@ function PositionInput({
   )
 }
 
-export function Position({ value, onChange, showTitle }: PositionProps) {
+export function Position({ onChange: fallbackOnChange, showTitle }: PositionProps) {
+  const editorContext = useStyleEditorContext();
+  const value = useEffectiveStyleValue();
   const [leftVal, setLeftVal] = useState(value?.left)
   const [topVal, setTopVal] = useState(value?.top)
   const [rightVal, setRightVal] = useState(value?.right)
   const [bottomVal, setBottomVal] = useState(value?.bottom)
+  const onChange = useStyleChange(fallbackOnChange);
 
   const positionVal = (value as any)?.position
   const positionStr = positionVal != null ? String(positionVal) : 'static'
 
-  const editorContext = useStyleEditorContext()
   const targetDom = editorContext?.targetDom ?? null
   /**
    * 切换瞬间的乐观状态。不能用 getComputedStyle 兜底高亮：
