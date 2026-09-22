@@ -1,6 +1,6 @@
 /**
  * @module get-values
- * @input  rules, computedValues, inheritOnlyRules?
+ * @input  rules, computedValues, inheritOnlyRules?, element?
  * @output 面板回显用的样式对象（含 Webkit 别名）
  * @invariant inheritOnly 规则只读 inherit:true 的属性；backgroundColor/Image 不随意用 computed 兜底
  */
@@ -138,7 +138,8 @@ function applyFallback(
 export function getValues(
   rules: CSSStyleRule[],
   computedValues: CSSStyleDeclaration,
-  inheritOnlyRules?: Set<CSSStyleRule>
+  inheritOnlyRules?: Set<CSSStyleRule>,
+  element?: HTMLElement | null,
 ) {
   const acc: ValuesAcc = {}
 
@@ -156,7 +157,7 @@ export function getValues(
       acc[spec.camel] = v
     }
 
-    applyRuleHooks(rule, acc, inheritOnly)
+    applyRuleHooks(rule, acc, inheritOnly, computedValues, element)
   })
 
   for (const spec of PROP_SPECS) {
