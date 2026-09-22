@@ -26,7 +26,7 @@ import { AddMax } from "../../icons/AddMax";
 import { AspectRatioLock } from "../../icons/AspectRatioLock";
 import { AspectRatioUnlock } from "../../icons/AspectRatioUnlock";
 import { useDragNumber, useCanvasLengthVariables, isCssVarValue } from "../../hooks";
-import { useStyleEditorContext } from "../../context";
+import { useEffectiveStyleValue, useStyleChange, useStyleEditorContext } from "../../context";
 import { resolveCssVarLength } from "../../../core/resolve-css-var-length";
 import { formatLengthDisplay } from "../../utils";
 
@@ -282,7 +282,10 @@ const DEFAULT_CONFIG = {
   disableMinHeight: true,
 };
 
-export function Size({value, onChange: rawOnChange, config, showTitle, collapse}: SizeProps) {
+export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: SizeProps) {
+  const editorContext = useStyleEditorContext();
+  const value = useEffectiveStyleValue();
+  const rawOnChange = useStyleChange(fallbackOnChange);
   const [cfg] = useState({...DEFAULT_CONFIG, ...config});
 
   // const hasInitWidthHeight = !!normalizeSizeValue(value.width) || !!normalizeSizeValue(value.height);
@@ -307,7 +310,6 @@ export function Size({value, onChange: rawOnChange, config, showTitle, collapse}
   const getLockedInput = (ref: React.RefObject<HTMLDivElement>) =>
     ref.current?.querySelector<HTMLInputElement>('input') ?? null;
 
-  const editorContext = useStyleEditorContext();
   const targetDom = editorContext?.targetDom ?? null;
 
   // 有「弹性」面板时（父为 flex 子项），尺寸恢复顶部分割线；否则与布局合并视觉分组
