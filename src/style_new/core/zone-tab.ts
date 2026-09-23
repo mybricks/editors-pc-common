@@ -151,6 +151,21 @@ function findStyleSource(tab: ZoneTab, styleKey: string): ZoneSourceRule | undef
  */
 const SKIP_COMPUTED_VALUE_WHEN_UNSET = new Set(['flex'])
 
+function readInheritedColorWithoutHover(target: HTMLElement): string | undefined {
+  let ancestor = target.parentElement
+  while (ancestor) {
+    const resolver = createCascadeResolver(ancestor)
+    const defaultWinner = resolver('color', 'default')
+    const hoverWinner = resolver('color', 'hover')
+    if (hoverWinner && !defaultWinner) {
+      ancestor = ancestor.parentElement
+      continue
+    }
+    return defaultWinner?.value || window.getComputedStyle(ancestor).getPropertyValue('color').trim() || undefined
+  }
+  return undefined
+}
+
 /** 使用现有面板计算出的 styleValues 生成来源信息，避免重复实现 CSS 级联。 */
 export function buildZoneEffectiveStyle(
   tab: ZoneTab,
@@ -176,6 +191,13 @@ export function buildZoneEffectiveStyle(
     let computedValue = skipComputedValue
       ? undefined
       : (computedStyle?.getPropertyValue(cssProperty).trim() || undefined)
+    if (!skipComputedValue && cascadeResolver && !inlineValue && cssProperty === 'color' && !source) {
+      const inheritedColor = readInheritedColorWithoutHover(target)
+      if (inheritedColor) {
+        hasEffectiveValue = false
+        computedValue = inheritedColor
+      }
+    }
     if (!skipComputedValue && cascadeResolver && !inlineValue) {
       const defaultWinner = cascadeResolver(cssProperty, 'default')
       const hoverWinner = cascadeResolver(cssProperty, 'hover')
@@ -183,9 +205,7 @@ export function buildZoneEffectiveStyle(
         // 点击元素时 getComputedStyle 可能仍混入 :hover；默认态只使用常规级联结果。
         if (!defaultWinner && !source) {
           hasEffectiveValue = false
-          computedValue = cssProperty === 'color' && target.parentElement
-            ? window.getComputedStyle(target.parentElement).getPropertyValue(cssProperty).trim() || undefined
-            : undefined
+          if (cssProperty !== 'color') computedValue = undefined
         } else {
           computedValue = defaultWinner?.value
         }
