@@ -16,6 +16,7 @@ import {
   mergeZoneTabsByState,
 } from '../core/zone-tab'
 import type { ZoneTab } from '../core/zone-tab'
+import { uniqBy } from 'lodash'
 
 export function useZoneSelectors(editConfig: any, targetDom: any, _open: boolean) {
   const [activeZoneIdx, setActiveZoneIdx] = useState(0)
@@ -106,7 +107,7 @@ export function useZoneSelectors(editConfig: any, targetDom: any, _open: boolean
         effectiveStyle: buildZoneEffectiveStyle(tab, styleValues as Record<string, unknown>, target),
       }
     })
-    return [...generatedTabs, ...customTabs]
+    return uniqBy([...generatedTabs, ...customTabs].reverse(), (tab) => tab.selector).reverse()
   }, [targetDom, comId, customZoneTabs])
 
   const zoneSelectorList = useMemo(() => zoneTabs.map((tab) => tab.selector), [zoneTabs])
@@ -171,9 +172,46 @@ export function useZoneSelectors(editConfig: any, targetDom: any, _open: boolean
   }, [customZoneTabs, zoneTabs])
 
   const deleteZoneTab = useCallback((selector: string) => {
+    const addedTab = zoneTabs.find((tab) => tab.selector === selector && tab.isAdded)
+    if (!addedTab) return
+
+    // 样式写入后 CSSOM 可能已更新，但 zoneTabs 仍被 useMemo 缓存；删除前补扫一次，
+    // 确保能拿到新增状态刚写入的 CSSStyleRule。
+    const latestTabs = collectZoneTabs(
+      toElementArray(targetDom),
+      [addedTab.baseSelector],
+      comId,
+    )
+    const styleRules = [
+      ...zoneTabs.filter((tab) => tab.selector === selector).flatMap((tab) => tab.sourceRules),
+      ...latestTabs.filter((tab) => tab.selector === selector).flatMap((tab) => tab.sourceRules),
+    ]
+    const propertiesBySelector = new Map<string, string[]>()
+
+    styleRules.forEach(({ rule, sourceSelector }) => {
+      if (!rule?.style) return
+      const writeSelector = sourceSelector || addedTab.selector
+      const properties = propertiesBySelector.get(writeSelector) || []
+      for (let index = 0; index < rule.style.length; index++) {
+        const property = rule.style.item(index)
+        if (property && !properties.includes(property)) properties.push(property)
+      }
+      if (properties.length) propertiesBySelector.set(writeSelector, properties)
+    })
+
+    propertiesBySelector.forEach((properties, sourceSelector) => {
+      try {
+        // 宿主通过 side-channel 区分「删除声明」和「写入空对象」。
+        ;(window as any).__mybricks_style_deletions = properties
+        editConfig.value.set({}, { selector: sourceSelector })
+      } finally {
+        ;(window as any).__mybricks_style_deletions = null
+      }
+    })
+
     setCustomZoneTabs((tabs) => tabs.filter((tab) => tab.selector !== selector))
     userSelectedRef.current = true
-  }, [])
+  }, [comId, editConfig, targetDom, zoneTabs])
 
   return {
     zoneSelectorList,
