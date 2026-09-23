@@ -569,7 +569,7 @@ function applyEffectiveStyleChanges(
   }
   const writes = changes.filter(item => item.value != null && !getBoxSpacingProperty(item.key) && !isBorderProperty(item.key) &&
     !(replacingFlex && flexKeys.includes(item.key)))
-    .map(({ key, value }) => ({ key, value }))
+    .map(({ key, value, borderMode, target }) => ({ key, value, borderMode, target }))
   const normal = writes.length
     ? applyStyleChange({ value: writes, liveStyle, editConfig })
     : { nextLiveStyle: liveStyle, applied: false }

@@ -309,7 +309,8 @@ function normalizeSimpleGroup(
   group: SimpleGroup,
   changedKeys: Set<string>,
   deletions: string[],
-  clearedKeys: Set<string>
+  clearedKeys: Set<string>,
+  split = false,
 ) {
   const { shorthand, longhands, serialize } = group
   const allKeys = [shorthand, ...longhands]
@@ -350,6 +351,11 @@ function normalizeSimpleGroup(
   const completeLonghands = longhands.every((key) => hasValue(style, key))
 
   if (completeLonghands) {
+    if (split) {
+      if (hasValue(style, shorthand)) addDeletion(deletions, shorthand)
+      delete style[shorthand]
+      return
+    }
     const shorthandValue = withCommonPriority(
       longhands.map((key) => style[key]),
       serialize
@@ -526,7 +532,10 @@ export function normalizeStyleShorthands(
 
   BOX_GROUPS.forEach((group) => {
     if (!shouldNormalize([group.shorthand, ...group.longhands])) return
-    normalizeSimpleGroup(style, group, changedKeys, deletions, clearedKeys)
+    const split = group.shorthand === 'borderRadius' && changes.some(
+      change => group.longhands.includes(change.key) && change.borderMode === 'split'
+    )
+    normalizeSimpleGroup(style, group, changedKeys, deletions, clearedKeys, split)
   })
   if (shouldNormalize(BORDER_KEYS)) {
     const split = changes.some(change => BORDER_KEYS.includes(change.key) && change.borderMode === 'split')

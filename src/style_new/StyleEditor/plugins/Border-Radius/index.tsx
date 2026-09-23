@@ -99,7 +99,7 @@ export function BorderRadius({ value, onChange: fallbackOnChange, config }: Bord
     }
   }, [context?.targetDom, context?.effectiveStyle, editorValue.borderRadius, editorValue.borderTopLeftRadius, editorValue.borderTopRightRadius, editorValue.borderBottomRightRadius, editorValue.borderBottomLeftRadius])
 
-  const handleChange = useCallback((changes: CSSProperties & Record<string, any>) => {
+  const handleChange = useCallback((changes: CSSProperties & Record<string, any>, borderMode: 'all' | 'split' = radiusToggleValue) => {
     const current: Record<string, any> = { ...radiusValueRef.current }
     RADIUS_KEYS.forEach(key => {
       if (current[key] == null || current[key] === '') current[key] = '0px'
@@ -113,18 +113,22 @@ export function BorderRadius({ value, onChange: fallbackOnChange, config }: Bord
     if (!hasClear && complete) {
       keys = RADIUS_KEYS
     }
-    onChange(keys.map(key => ({ key, value: next[key] == null ? null : `${next[key]}${useImportant ? '!important' : ''}` })))
-  }, [onChange, useImportant])
+    onChange(keys.map(key => ({
+      key,
+      value: next[key] == null ? null : `${next[key]}${useImportant ? '!important' : ''}`,
+      borderMode,
+    })))
+  }, [onChange, radiusToggleValue, useImportant])
 
   const radiusAllVar = useLengthVarBinding({
     value: radiusValue.borderTopLeftRadius,
-    onChange: next => handleChange({ borderTopLeftRadius: next, borderTopRightRadius: next, borderBottomRightRadius: next, borderBottomLeftRadius: next }),
+    onChange: next => handleChange({ borderTopLeftRadius: next, borderTopRightRadius: next, borderBottomRightRadius: next, borderBottomLeftRadius: next }, 'all'),
     computedProp: 'borderTopLeftRadius',
   })
-  const topLeftVar = useLengthVarBinding({ value: radiusValue.borderTopLeftRadius, onChange: next => handleChange({ borderTopLeftRadius: next }), computedProp: 'borderTopLeftRadius' })
-  const topRightVar = useLengthVarBinding({ value: radiusValue.borderTopRightRadius, onChange: next => handleChange({ borderTopRightRadius: next }), computedProp: 'borderTopRightRadius' })
-  const bottomRightVar = useLengthVarBinding({ value: radiusValue.borderBottomRightRadius, onChange: next => handleChange({ borderBottomRightRadius: next }), computedProp: 'borderBottomRightRadius' })
-  const bottomLeftVar = useLengthVarBinding({ value: radiusValue.borderBottomLeftRadius, onChange: next => handleChange({ borderBottomLeftRadius: next }), computedProp: 'borderBottomLeftRadius' })
+  const topLeftVar = useLengthVarBinding({ value: radiusValue.borderTopLeftRadius, onChange: next => handleChange({ borderTopLeftRadius: next }, 'split'), computedProp: 'borderTopLeftRadius' })
+  const topRightVar = useLengthVarBinding({ value: radiusValue.borderTopRightRadius, onChange: next => handleChange({ borderTopRightRadius: next }, 'split'), computedProp: 'borderTopRightRadius' })
+  const bottomRightVar = useLengthVarBinding({ value: radiusValue.borderBottomRightRadius, onChange: next => handleChange({ borderBottomRightRadius: next }, 'split'), computedProp: 'borderBottomRightRadius' })
+  const bottomLeftVar = useLengthVarBinding({ value: radiusValue.borderBottomLeftRadius, onChange: next => handleChange({ borderBottomLeftRadius: next }, 'split'), computedProp: 'borderBottomLeftRadius' })
   const unitOptions = useMemo(() => withApplyVariableOption(UNIT_OPTIONS, radiusAllVar.hasVariables), [radiusAllVar.hasVariables])
 
   useUpdateEffect(() => {
@@ -137,7 +141,7 @@ export function BorderRadius({ value, onChange: fallbackOnChange, config }: Bord
       borderTopRightRadius: radiusValue.borderTopLeftRadius,
       borderBottomRightRadius: radiusValue.borderTopLeftRadius,
       borderBottomLeftRadius: radiusValue.borderTopLeftRadius,
-    })
+    }, radiusToggleValue)
   }, [radiusToggleValue])
 
   const renderInput = (binding: ReturnType<typeof useLengthVarBinding>, icon: React.ReactNode, key: typeof RADIUS_KEYS[number], tip: string, rawValue: unknown, style: CSSProperties) => (
@@ -158,7 +162,7 @@ export function BorderRadius({ value, onChange: fallbackOnChange, config }: Bord
           showIcon: true,
           showIconOnHover: true,
           fallbackValue: 0,
-          onChange: next => handleChange({ [key]: next === 'default' ? null : next }),
+          onChange: next => handleChange({ [key]: next === 'default' ? null : next }, 'split'),
           onAction: action => { if (action === APPLY_VARIABLE_ACTION) binding.openPicker() },
         }}
       />
@@ -188,7 +192,7 @@ export function BorderRadius({ value, onChange: fallbackOnChange, config }: Bord
                   allRadiusClear.clear?.()
                   return
                 }
-                handleChange({ borderTopLeftRadius: next, borderTopRightRadius: next, borderBottomRightRadius: next, borderBottomLeftRadius: next })
+                handleChange({ borderTopLeftRadius: next, borderTopRightRadius: next, borderBottomRightRadius: next, borderBottomLeftRadius: next }, 'all')
               },
               onAction: action => { if (action === APPLY_VARIABLE_ACTION) radiusAllVar.openPicker() },
             }}
