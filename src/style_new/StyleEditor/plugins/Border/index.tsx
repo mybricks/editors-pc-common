@@ -10,11 +10,6 @@ import {
   Panel,
   Select,
   ColorEditor,
-  BorderRadiusSplitOutlined,
-  BorderTopLeftRadiusOutlined,
-  BorderTopRightRadiusOutlined,
-  BorderBottomLeftRadiusOutlined,
-  BorderBottomRightRadiusOutlined,
   BorderWeightOutlined,
   BorderSplitOutlined,
   BorderTopOutlined,
@@ -87,10 +82,6 @@ const BORDER_POSITION_OPTIONS = [
   { label: "居中", value: "center" },
   { label: "内部", value: "inside" },
 ];
-const UNIT_OPTIONS = [
-  { label: "px", value: "px" },
-  { label: "%", value: "%" },
-];
 const DEFAULT_UNIT_OPTION = { label: '默认', value: 'default' };
 const DEFAULT_UNIT_DIVIDER = { label: '', value: '__borderDefaultDivider__', type: 'divider' as const };
 
@@ -102,20 +93,6 @@ function withDefaultUnitOption<T extends { label: string; value: string }>(
     ? [DEFAULT_UNIT_OPTION, DEFAULT_UNIT_DIVIDER, ...options]
     : options;
 }
-const DEFAULT_STYLE = {
-  padding: 0,
-  fontSize: 10,
-  minWidth: 71,
-  //maxWidth: 71,
-  marginLeft: 4,
-};
-
-const DEFAULT_STYLE__NEW = {
-  padding: 0,
-  fontSize: 10,
-  marginLeft: 0,
-};
-
 const BORDER_WIDTH_UNIT_OPTIONS = [{ label: 'px', value: 'px' }];
 const CHIP_STYLE = { flex: '1 1 0', minWidth: 0, width: 0, marginLeft: 4 };
 // 独立配置：颜色 flex:1，宽度列必须四边同宽，绑定胶囊和数字输入共用这一列，
@@ -143,7 +120,6 @@ const DEFAULT_CONFIG = {
   disableBorderStyle: false,
   disableBorderWidth: false,
   disableBorderColor: false,
-  disableBorderRadius: false,
   disableBorderTop: false,
   disableBorderRight: false,
   disableBorderBottom: false,
@@ -155,11 +131,6 @@ const BORDER_LOGICAL_KEYS = [
   'borderTopWidth', 'borderRightWidth', 'borderBottomWidth', 'borderLeftWidth',
   'borderTopColor', 'borderRightColor', 'borderBottomColor', 'borderLeftColor',
   'borderTopStyle', 'borderRightStyle', 'borderBottomStyle', 'borderLeftStyle',
-];
-
-const BORDER_RADIUS_KEYS = [
-  'borderTopLeftRadius', 'borderTopRightRadius',
-  'borderBottomRightRadius', 'borderBottomLeftRadius',
 ];
 
 const BORDER_COLOR_KEYS = [
@@ -210,7 +181,6 @@ function getBorderEditorValue(
   } else {
     [
       ...BORDER_LOGICAL_KEYS,
-      ...BORDER_RADIUS_KEYS,
       'outline', 'outlineOffset', 'boxShadow',
       ...BORDER_PAINT_KEYS,
     ].forEach((key) => {
@@ -414,7 +384,6 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
       disableBorderWidth,
       disableBorderColor,
       disableBorderStyle,
-      disableBorderRadius,
       disableBorderTop,
       disableBorderRight,
       disableBorderBottom,
@@ -427,18 +396,14 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
     () => getBorderEditorValue(effectiveStyle ? effectiveValue : value, effectiveStyle),
     [externalStyleSource, effectiveValue]
   );
-  const [{ borderToggleValue, radiusToggleValue }, setToggleValue] = useState(
-    getToggleDefaultValue(defaultBorderValue)
+  const [borderToggleValue, setBorderToggleValue] = useState(
+    getBorderToggleDefaultValue(defaultBorderValue)
   );
   const contentBackgroundLayersRef = useRef<string[] | null>(getContentBackgroundLayers(defaultBorderValue));
   const [borderValue, setBorderValue] = useState(defaultBorderValue);
   const [previewValues, setPreviewValues] = useState<Record<string, string | undefined>>({});
   const [forceRenderKey, setForceRenderKey] = useState<number>(Math.random());
   const [borderColorEditorKey, setBorderColorEditorKey] = useState(0);
-  const [splitRadiusIcon, setSplitRadiusIcon] = useState(
-    <BorderTopLeftRadiusOutlined />
-  );
-  const getDragPropsRadius = useDragNumber({ continuous: true });
   const getDragPropsBorder = useDragNumber({ continuous: true });
 
   // ── 边框宽度 CSS 变量绑定 ────────────────────────────────────────────────────
@@ -493,43 +458,9 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
     computedProp: 'borderLeftWidth',
   });
 
-  // ── 圆角 CSS 变量绑定 ─────────────────────────────────────────────────────────
-  const radiusAllVar = useLengthVarBinding({
-    value: borderValue.borderTopLeftRadius,
-    onChange: (next) => handleChange({
-      borderTopLeftRadius: next, borderBottomLeftRadius: next,
-      borderBottomRightRadius: next, borderTopRightRadius: next,
-    }),
-    computedProp: 'borderTopLeftRadius',
-  });
-  const topLeftRadiusVar = useLengthVarBinding({
-    value: borderValue.borderTopLeftRadius,
-    onChange: (next) => handleChange({ borderTopLeftRadius: next }),
-    computedProp: 'borderTopLeftRadius',
-  });
-  const topRightRadiusVar = useLengthVarBinding({
-    value: borderValue.borderTopRightRadius,
-    onChange: (next) => handleChange({ borderTopRightRadius: next }),
-    computedProp: 'borderTopRightRadius',
-  });
-  const bottomLeftRadiusVar = useLengthVarBinding({
-    value: borderValue.borderBottomLeftRadius,
-    onChange: (next) => handleChange({ borderBottomLeftRadius: next }),
-    computedProp: 'borderBottomLeftRadius',
-  });
-  const bottomRightRadiusVar = useLengthVarBinding({
-    value: borderValue.borderBottomRightRadius,
-    onChange: (next) => handleChange({ borderBottomRightRadius: next }),
-    computedProp: 'borderBottomRightRadius',
-  });
-
   const borderWidthUnitOptions = useMemo(
     () => withApplyVariableOption(BORDER_WIDTH_UNIT_OPTIONS, widthAllVar.hasVariables),
     [widthAllVar.hasVariables]
-  );
-  const radiusUnitOptions = useMemo(
-    () => withApplyVariableOption(UNIT_OPTIONS, radiusAllVar.hasVariables),
-    [radiusAllVar.hasVariables]
   );
 
   const [showStyleSettings, setShowStyleSettings] = useState(false);
@@ -646,7 +577,7 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
     setBorderValue(next);
     setPreviewValues({});
     setBorderPosition(nextPosition);
-    setToggleValue(getToggleDefaultValue(next));
+    setBorderToggleValue(getBorderToggleDefaultValue(next));
     setBorderColorEditorKey((key) => key + 1);
   }, [targetDom, defaultBorderValue]);
 
@@ -656,7 +587,6 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
     const pos = borderPositionRef.current;
     const keys = Array.from(new Set([
       ...BORDER_LOGICAL_KEYS,
-      ...BORDER_RADIUS_KEYS,
       ...(pos === 'outside' ? ['outline', 'outlineOffset'] : []),
       ...(pos === 'inside' ? ['boxShadow'] : []),
     ]));
@@ -683,7 +613,7 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
     if (mutationFailed(result)) return;
     contentBackgroundLayersRef.current = null;
     setShowStyleSettings(false);
-    setToggleValue({borderToggleValue: 'all', radiusToggleValue: 'all'});
+    setBorderToggleValue('all');
     borderPositionRef.current = 'center';
     setBorderPosition('center');
     setForceRenderKey(prev => prev + 1);
@@ -817,15 +747,13 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
   const allWidthClearKeys = borderPosition === 'center'
     ? BORDER_WIDTH_KEYS
     : positionClearKeys;
-  const allRadiusCanClear = canClearKeys(BORDER_RADIUS_KEYS);
   const allColorCanClear = canClearKeys(allColorClearKeys);
   const allWidthCanClear = canClearKeys(allWidthClearKeys);
   const fieldCanClear = Object.fromEntries(
-    [...BORDER_LOGICAL_KEYS, ...BORDER_RADIUS_KEYS].map((key) => [key, canClearKeys([key])])
+    BORDER_LOGICAL_KEYS.map((key) => [key, canClearKeys([key])])
   ) as Record<string, boolean>;
   const resetKeys = [
     ...BORDER_LOGICAL_KEYS,
-    ...BORDER_RADIUS_KEYS,
     ...positionClearKeys,
     ...(borderGradientValue ? gradientMutationClearKeys : []),
   ];
@@ -867,11 +795,6 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
     if (borderPositionRef.current !== 'center') return handlePositionBorderClear();
     return handleChange(Object.fromEntries(BORDER_WIDTH_KEYS.map((key) => [key, null])));
   }, [handleChange, handlePositionBorderClear]);
-
-  const handleAllRadiusClear = useCallback(() =>
-    handleChange(Object.fromEntries(BORDER_RADIUS_KEYS.map((key) => [key, null]))),
-    [handleChange]
-  );
 
   const borderConfig = useMemo(() => {
     if (disableBorderWidth && disableBorderColor && disableBorderStyle) {
@@ -1430,262 +1353,9 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
     borderWidthUnitOptions, shouldShowMiniLayout,
   ]);
 
-  const radiusConfig = useMemo(() => {
-    if (disableBorderRadius) {
-      return null;
-    }
-    if (radiusToggleValue === "all") {
-      return (
-        <div className={css.row}>
-          <Panel.Content style={{ padding: 3 }}>
-            <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
-              <div
-                className={css.icon}
-                ref={radiusAllVar.anchorRef}
-                {...(radiusAllVar.varRef
-                  ? radiusAllVar.dragProps('拖拽调整圆角（将解除变量绑定）')
-                  : getDragPropsRadius(borderValue.borderTopLeftRadius, '拖拽调整圆角半径'))}
-              >
-                <BorderRadiusSplitOutlined />
-              </div>
-              <VariableNumberInput
-                binding={radiusAllVar}
-                chipStyle={CHIP_STYLE}
-                inputProps={{
-                  tip: borderValue.borderTopLeftRadius == null
-                    ? buildComputedTip('圆角半径', effectiveStyle?.borderTopLeftRadius, getPreviewValue('borderTopLeftRadius'))
-                    : '圆角半径',
-                  style: DEFAULT_STYLE,
-                  defaultValue: borderValue.borderTopLeftRadius,
-                  value: borderValue.borderTopLeftRadius,
-                  unitOptions: withDefaultUnitOption(radiusUnitOptions, allRadiusCanClear),
-                  unitDisabledList: ['default'],
-                  showIcon: true,
-                  showIconOnHover: true,
-                  fallbackValue: 0,
-                  clearable: allRadiusCanClear,
-                  onClear: handleAllRadiusClear,
-                  onChange: (value) => {
-                    if (value === 'default') {
-                      handleAllRadiusClear();
-                      return;
-                    }
-                    handleChange({
-                      borderTopLeftRadius: value,
-                      borderBottomLeftRadius: value,
-                      borderBottomRightRadius: value,
-                      borderTopRightRadius: value,
-                    });
-                  },
-                  onAction: (action) => {
-                    if (action === APPLY_VARIABLE_ACTION) radiusAllVar.openPicker();
-                  },
-                }}
-              />
-            </Panel.Item>
-          </Panel.Content>
-          <div
-            data-mybricks-tip={`{content:'切换为单独配置',position:'left'}`}
-            className={css.actionIcon}
-            onClick={() =>
-              handleToggleChange({ key: "radiusToggleValue", value: "split" })
-            }
-          >
-            <BorderRadiusSplitOutlined />
-          </div>
-        </div>
-      );
-    } else {
-      return (
-        <div className={css.independentBox}>
-          <div style={{ minWidth: "120px", flex: 1 }}>
-            <div className={css.row} style={{ paddingRight: 0 }}>
-              <Panel.Content style={{ padding: 3 }}>
-                <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
-                  <div
-                    className={css.icon}
-                    ref={topLeftRadiusVar.anchorRef}
-                    {...(topLeftRadiusVar.varRef
-                      ? topLeftRadiusVar.dragProps('拖拽调整左上圆角（将解除变量绑定）')
-                      : getDragPropsRadius(borderValue.borderTopLeftRadius, '拖拽调整左上圆角'))}
-                  >
-                    <BorderTopLeftRadiusOutlined />
-                  </div>
-                  <VariableNumberInput
-                    binding={topLeftRadiusVar}
-                    chipStyle={CHIP_STYLE}
-                    inputProps={{
-                      tip: borderValue.borderTopLeftRadius == null
-                        ? buildComputedTip('左上圆角', effectiveStyle?.borderTopLeftRadius, getPreviewValue('borderTopLeftRadius'))
-                        : '左上圆角',
-                      style: DEFAULT_STYLE__NEW,
-                      defaultValue: borderValue.borderTopLeftRadius,
-                      value: borderValue.borderTopLeftRadius,
-                      unitOptions: withDefaultUnitOption(radiusUnitOptions, fieldCanClear.borderTopLeftRadius),
-                      unitDisabledList: ['default'],
-                      showIcon: true,
-                      showIconOnHover: true,
-                      fallbackValue: 0,
-                      clearable: fieldCanClear.borderTopLeftRadius,
-                      onClear: () => handleChange({ borderTopLeftRadius: null }),
-                      onChange: (value) => handleChange({
-                        borderTopLeftRadius: value === 'default' ? null : value,
-                      }),
-                      onAction: (action) => {
-                        if (action === APPLY_VARIABLE_ACTION) topLeftRadiusVar.openPicker();
-                      },
-                      onFocus: () => setSplitRadiusIcon(<BorderTopLeftRadiusOutlined />),
-                    }}
-                  />
-                </Panel.Item>
-              </Panel.Content>
-              <Panel.Content style={{ padding: 3 }}>
-                <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
-                  <div
-                    className={css.icon}
-                    ref={topRightRadiusVar.anchorRef}
-                    {...(topRightRadiusVar.varRef
-                      ? topRightRadiusVar.dragProps('拖拽调整右上圆角（将解除变量绑定）')
-                      : getDragPropsRadius(borderValue.borderTopRightRadius, '拖拽调整右上圆角'))}
-                  >
-                    <BorderTopRightRadiusOutlined />
-                  </div>
-                  <VariableNumberInput
-                    binding={topRightRadiusVar}
-                    chipStyle={CHIP_STYLE}
-                    inputProps={{
-                      tip: borderValue.borderTopRightRadius == null
-                        ? buildComputedTip('右上圆角', effectiveStyle?.borderTopRightRadius, getPreviewValue('borderTopRightRadius'))
-                        : '右上圆角',
-                      style: DEFAULT_STYLE__NEW,
-                      defaultValue: borderValue.borderTopRightRadius,
-                      value: borderValue.borderTopRightRadius,
-                      unitOptions: withDefaultUnitOption(radiusUnitOptions, fieldCanClear.borderTopRightRadius),
-                      unitDisabledList: ['default'],
-                      showIcon: true,
-                      showIconOnHover: true,
-                      fallbackValue: 0,
-                      clearable: fieldCanClear.borderTopRightRadius,
-                      onClear: () => handleChange({ borderTopRightRadius: null }),
-                      onChange: (value) => handleChange({
-                        borderTopRightRadius: value === 'default' ? null : value,
-                      }),
-                      onAction: (action) => {
-                        if (action === APPLY_VARIABLE_ACTION) topRightRadiusVar.openPicker();
-                      },
-                      onFocus: () => setSplitRadiusIcon(<BorderTopRightRadiusOutlined />),
-                    }}
-                  />
-                </Panel.Item>
-
-              </Panel.Content>
-            </div>
-            <div className={css.row} style={{ paddingRight: 0 }}>
-              <Panel.Content style={{ padding: 3 }}>
-
-                <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
-                  <div
-                    className={css.icon}
-                    ref={bottomLeftRadiusVar.anchorRef}
-                    {...(bottomLeftRadiusVar.varRef
-                      ? bottomLeftRadiusVar.dragProps('拖拽调整左下圆角（将解除变量绑定）')
-                      : getDragPropsRadius(borderValue.borderBottomLeftRadius, '拖拽调整左下圆角'))}
-                  >
-                    <BorderBottomLeftRadiusOutlined />
-                  </div>
-                  <VariableNumberInput
-                    binding={bottomLeftRadiusVar}
-                    chipStyle={CHIP_STYLE}
-                    inputProps={{
-                      tip: borderValue.borderBottomLeftRadius == null
-                        ? buildComputedTip('左下圆角', effectiveStyle?.borderBottomLeftRadius, getPreviewValue('borderBottomLeftRadius'))
-                        : '左下圆角',
-                      style: DEFAULT_STYLE__NEW,
-                      defaultValue: borderValue.borderBottomLeftRadius,
-                      value: borderValue.borderBottomLeftRadius,
-                      unitOptions: withDefaultUnitOption(radiusUnitOptions, fieldCanClear.borderBottomLeftRadius),
-                      unitDisabledList: ['default'],
-                      showIcon: true,
-                      showIconOnHover: true,
-                      fallbackValue: 0,
-                      clearable: fieldCanClear.borderBottomLeftRadius,
-                      onClear: () => handleChange({ borderBottomLeftRadius: null }),
-                      onChange: (value) => handleChange({
-                        borderBottomLeftRadius: value === 'default' ? null : value,
-                      }),
-                      onAction: (action) => {
-                        if (action === APPLY_VARIABLE_ACTION) bottomLeftRadiusVar.openPicker();
-                      },
-                      onFocus: () => setSplitRadiusIcon(<BorderBottomLeftRadiusOutlined />),
-                    }}
-                  />
-                </Panel.Item>
-              </Panel.Content>
-              <Panel.Content style={{ padding: 3 }}>
-                <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
-                  <div
-                    className={css.icon}
-                    ref={bottomRightRadiusVar.anchorRef}
-                    {...(bottomRightRadiusVar.varRef
-                      ? bottomRightRadiusVar.dragProps('拖拽调整右下圆角（将解除变量绑定）')
-                      : getDragPropsRadius(borderValue.borderBottomRightRadius, '拖拽调整右下圆角'))}
-                  >
-                    <BorderBottomRightRadiusOutlined />
-                  </div>
-                  <VariableNumberInput
-                    binding={bottomRightRadiusVar}
-                    chipStyle={CHIP_STYLE}
-                    inputProps={{
-                      tip: borderValue.borderBottomRightRadius == null
-                        ? buildComputedTip('右下圆角', effectiveStyle?.borderBottomRightRadius, getPreviewValue('borderBottomRightRadius'))
-                        : '右下圆角',
-                      style: DEFAULT_STYLE__NEW,
-                      defaultValue: borderValue.borderBottomRightRadius,
-                      value: borderValue.borderBottomRightRadius,
-                      unitOptions: withDefaultUnitOption(radiusUnitOptions, fieldCanClear.borderBottomRightRadius),
-                      unitDisabledList: ['default'],
-                      showIcon: true,
-                      showIconOnHover: true,
-                      fallbackValue: 0,
-                      clearable: fieldCanClear.borderBottomRightRadius,
-                      onClear: () => handleChange({ borderBottomRightRadius: null }),
-                      onChange: (value) => handleChange({
-                        borderBottomRightRadius: value === 'default' ? null : value,
-                      }),
-                      onAction: (action) => {
-                        if (action === APPLY_VARIABLE_ACTION) bottomRightRadiusVar.openPicker();
-                      },
-                      onFocus: () => setSplitRadiusIcon(<BorderBottomRightRadiusOutlined />),
-                    }}
-                  />
-                </Panel.Item>
-              </Panel.Content>
-            </div>
-          </div>
-
-          <div
-            data-mybricks-tip={`{content:'切换为统一配置',position:'left'}`}
-            className={css.independentActionIcon}
-            onClick={() =>
-              handleToggleChange({ key: "radiusToggleValue", value: "all" })
-            }
-          >
-            <BorderRadiusSplitOutlined />
-          </div>
-        </div>
-      );
-    }
-  }, [
-    radiusToggleValue, splitRadiusIcon, borderValue, previewValues,
-    getDragPropsRadius, handleChange, handleAllRadiusClear, allRadiusCanClear,
-    fieldCanClear, effectiveStyle,
-    radiusAllVar, topLeftRadiusVar, topRightRadiusVar,
-    bottomLeftRadiusVar, bottomRightRadiusVar, radiusUnitOptions,
-  ]);
-
   const handleToggleChange = useCallback(
-    ({ key, value }: { key: string; value: string }) => {
-      if (key === 'borderToggleValue' && value === 'all' && borderToggleValue !== 'all') {
+    (value: 'all' | 'split') => {
+      if (value === 'all' && borderToggleValue !== 'all') {
         const current = borderValueRef.current;
         const result = handleAllModeChange({
           ...Object.fromEntries(BORDER_COLOR_KEYS.map((name) => [name, current.borderTopColor])),
@@ -1694,21 +1364,9 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
         });
         if (mutationFailed(result)) return;
       }
-      if (key === 'radiusToggleValue' && value === 'all' && radiusToggleValue !== 'all') {
-        const current = borderValueRef.current.borderTopLeftRadius;
-        const result = handleChange(
-          Object.fromEntries(BORDER_RADIUS_KEYS.map((name) => [name, current]))
-        );
-        if (mutationFailed(result)) return;
-      }
-      setToggleValue((val) => {
-        return {
-          ...val,
-          [key]: value,
-        };
-      });
+      setBorderToggleValue(value);
     },
-    [borderToggleValue, radiusToggleValue, handleAllModeChange, handleChange]
+    [borderToggleValue, handleAllModeChange]
   );
 
   const styleSettingsPortal = !disableBorderStyle && showStyleSettings
@@ -1764,10 +1422,7 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
               className={`${css.rightColumnBtn} ${css.rightColumnBtnSmall}`}
               onClick={() => {
                 setShowStyleSettings(false);
-                handleToggleChange({
-                  key: "borderToggleValue",
-                  value: borderToggleValue === 'all' ? "split" : "all",
-                });
+                handleToggleChange(borderToggleValue === 'all' ? "split" : "all");
               }}
             >
               <BorderSplitOutlined />
@@ -1778,43 +1433,31 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
     >
       <React.Fragment key={forceRenderKey}>
         {borderConfig}
-        {radiusConfig}
       </React.Fragment>
     </Panel>
     </>
   );
 }
 
-function getToggleDefaultValue(value: CSSProperties) {
-  return {
-    borderToggleValue:
-      allEqual([
-        value.borderTopWidth,
-        value.borderRightWidth,
-        value.borderBottomWidth,
-        value.borderLeftWidth,
-      ]) &&
-        allEqual([
-          value.borderTopStyle,
-          value.borderRightStyle,
-          value.borderBottomStyle,
-          value.borderLeftStyle,
-        ]) &&
-        allEqual([
-          value.borderTopColor,
-          value.borderRightColor,
-          value.borderBottomColor,
-          value.borderLeftColor,
-        ])
-        ? "all"
-        : "split",
-    radiusToggleValue: allEqual([
-      value.borderTopLeftRadius,
-      value.borderTopRightRadius,
-      value.borderBottomRightRadius,
-      value.borderBottomLeftRadius,
+function getBorderToggleDefaultValue(value: CSSProperties) {
+  return allEqual([
+    value.borderTopWidth,
+    value.borderRightWidth,
+    value.borderBottomWidth,
+    value.borderLeftWidth,
+  ]) &&
+    allEqual([
+      value.borderTopStyle,
+      value.borderRightStyle,
+      value.borderBottomStyle,
+      value.borderLeftStyle,
+    ]) &&
+    allEqual([
+      value.borderTopColor,
+      value.borderRightColor,
+      value.borderBottomColor,
+      value.borderLeftColor,
     ])
-      ? "all"
-      : "split",
-  };
+    ? "all"
+    : "split";
 }
