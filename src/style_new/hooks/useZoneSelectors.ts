@@ -135,7 +135,7 @@ export function useZoneSelectors(editConfig: any, targetDom: any, _open: boolean
     if (!userSelectedRef.current) {
       syncActiveIdx()
     } else {
-      setActiveZoneIdx((prev) => (prev >= zoneSelectorList.length ? 0 : prev))
+      setActiveZoneIdx((prev) => (prev >= zoneSelectorList.length ? zoneSelectorList.length - 1 : prev))
     }
 
     const observer = new MutationObserver(() => {
@@ -167,7 +167,7 @@ export function useZoneSelectors(editConfig: any, targetDom: any, _open: boolean
     setCustomZoneTabs((tabs) => {
       return [...tabs, tab]
     })
-    setActiveZoneIdx(zoneTabs.length + customZoneTabs.length)
+    setActiveZoneIdx(uniqBy([...zoneTabs, ...customZoneTabs], (t) => t.selector).length)
     userSelectedRef.current = true
   }, [customZoneTabs, zoneTabs])
 
