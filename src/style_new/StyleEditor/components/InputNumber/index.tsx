@@ -164,6 +164,7 @@ export function InputNumber ({
       e.target.select();// 光标增减时依旧选中
       e.preventDefault();
     } else if (code === 'Enter') {
+      e.preventDefault();
       const trimmed = e.target.value.trim();
       if (!trimmed || isNaN(parseFloat(trimmed))) {
         e.preventDefault();
@@ -213,6 +214,8 @@ export function InputNumber ({
         inputChangedSinceFocusRef.current = false;
         onChange?.(String(parseFloat(String(finalVal))) + submitUnit);
       }
+      // number 变化时由 [unit, number] effect 提交；后续 blur 不能重复提交同一次编辑。
+      inputChangedSinceFocusRef.current = false;
       // useUpdateEffect([unit, number]) 只在 unit/number 变化时触发；
     }
   }, [number, unit, unitDisabledList, fallbackValue, onChange, handleNumberChange, allowNegative]);
