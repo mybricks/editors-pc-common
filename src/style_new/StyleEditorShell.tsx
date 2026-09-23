@@ -65,6 +65,7 @@ type CachedStyleEditor = {
 const ZONE_TAB_ADD_OPTIONS = [
   { key: 'hover', suffix: ':hover', label: '悬浮态' },
   { key: 'focus', suffix: ':focus', label: '聚焦态' },
+  { key: 'active', suffix: ':active', label: '激活态' },
   { key: 'disabled', suffix: ':disabled', label: '禁用态' },
   { key: 'before', suffix: '::before', label: '前缀元素' },
   { key: 'after', suffix: '::after', label: '后缀元素' },
@@ -236,6 +237,7 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
     const suffixMap: Record<string, string> = {
       hover: ':hover',
       focus: ':focus',
+      active: ':active',
       disabled: ':disabled',
       before: '::before',
       after: '::after',
@@ -246,22 +248,26 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
     const labels: Record<string, string> = {
       hover: '悬浮态',
       focus: '聚焦态',
+      active: '激活态',
       disabled: '禁用态',
       before: '前缀元素',
       after: '后缀元素',
     }
+    // 从基础态 tab 的 sourceRules 初始化 baseRules，使 resolveZoneFallbackSelector
+    // 能拿到带 comId 作用域的 sourceSelector，确保写回的规则可被下次扫描识别。
+    const baseTab = zoneTabs.find((t) => t.selector === currentBaseSelector && !t.pseudo)
     const tab: ZoneTab = {
       selector,
       baseSelector: currentBaseSelector,
       pseudo: suffix.startsWith(':') ? suffix : null,
       sourceRules: [],
-      baseRules: [],
+      baseRules: baseTab ? baseTab.sourceRules.slice() : [],
       target: selectedTarget || undefined,
       label: labels[type],
       effectiveStyle: {},
     }
     addZoneTab(tab)
-  }, [activeZoneTab, addZoneTab, baseSelector, selectedTarget])
+  }, [activeZoneTab, addZoneTab, baseSelector, selectedTarget, zoneTabs])
 
   const componentRoot = useMemo(() => {
     return shellComId ? getDocument().getElementById(shellComId) : null
