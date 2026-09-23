@@ -177,16 +177,21 @@ export function createStyleResolution(tab: ZoneTab, target: HTMLElement | null =
       index.set(property, remaining)
       cache.delete(property)
 
-      // 写入简写后立即刷新四边来源，连续输入/重置不等待 CSSOM 重编译。
+      // 写入简写后立即刷新长写来源，连续输入/重置不等待 CSSOM 重编译。
       const border = value != null ? expandBorderShorthand(stylePropertyKey(property), value) : null
-      if (value != null && (property === 'margin' || property === 'padding' || (border && STYLE_SHORTHANDS[property]))) {
-        const expanded = border
+      const flex = value != null && property === 'flex' ? target?.ownerDocument?.createElement('div').style : undefined
+      if (flex) flex.setProperty('flex', String(value).replace(/\s*!important\s*$/i, '').trim())
+      if (value != null && (flex || property === 'margin' || property === 'padding' || (border && STYLE_SHORTHANDS[property]))) {
+        const expanded = flex
+          ? STYLE_SHORTHANDS.flex.map(key => flex.getPropertyValue(key))
+          : border
           ? STYLE_SHORTHANDS[property].map(key => border[stylePropertyKey(key)])
           : expandFourShorthand(value)
         const shorthand = remaining[remaining.length - 1]
         if (expanded && shorthand) STYLE_SHORTHANDS[property].forEach((longhand, position) => {
           const others = (index.get(longhand) || []).filter(candidate => candidate.label !== selector)
-          others.push({
+          // var() 等不透明简写可能无法展开，移除旧值即可，不能缓存空值作为 winner。
+          if (expanded[position]) others.push({
             ...shorthand,
             value: expanded[position].replace(/\s*!important\s*$/i, '').trim(),
           })

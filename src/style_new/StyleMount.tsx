@@ -6,7 +6,7 @@ import { buildStyleMutationChange } from './StyleEditor/helper/style-mutations'
 import { initLiveStyle } from './StyleEditor/helper/gradient-border'
 import type { ChangeEvent, StyleMutation } from './StyleEditor/type'
 import type { EditorProps } from './type'
-import { applyStyleChange } from './core/apply-style-change'
+import { applyStyleChange, createStyleRemovalPlan } from './core/apply-style-change'
 import type { ZoneWriteTarget } from './core/apply-style-change'
 import { toElementArray } from './core/dom'
 import { createBatchStyleClearPlans, cssPropertyName, getStyleResolution, invalidateStyleResolution } from './core/style-property'
@@ -122,8 +122,8 @@ export function StyleMount({
     )
   }, [setValue, authoredStyle])
 
-  const handleChange: ChangeEvent = useCallback(
-    (value) => {
+  const handleChange = useCallback(
+    (value: Parameters<ChangeEvent>[0], removeKeys?: readonly string[]) => {
       const result = applyStyleChange({
         value: value as any,
         liveStyle: liveStyleRef.current,
@@ -134,6 +134,7 @@ export function StyleMount({
         importantPriorityCache: importantPriorityCacheRef.current,
         zoneWriteTargets: zoneWriteTargetsRef.current,
         onBatchMetaChange,
+        removeKeys,
       })
       const { nextLiveStyle, applied } = result
       if (applied) {
@@ -148,6 +149,11 @@ export function StyleMount({
   const applyStyleMutations = useCallback(
     (mutations: StyleMutation[]) =>
       handleChange(buildStyleMutationChange(mutations)),
+    [handleChange]
+  )
+
+  const removeStyleProperties = useCallback(
+    (keys: readonly string[]) => handleChange([], keys),
     [handleChange]
   )
 
@@ -188,6 +194,9 @@ export function StyleMount({
       getStyleProperty: zoneTab ? (key: string) => getStyleResolution(zoneTab, realDom).get(key) : undefined,
       getStyleClearPlans: zoneTab ? (keys: readonly string[]) =>
         createBatchStyleClearPlans(keys, getStyleResolution(zoneTab, realDom), realDom) : undefined,
+      removeStyleProperties: zoneTab ? removeStyleProperties : undefined,
+      getStyleRemovalState: zoneTab ? (keys: readonly string[]) =>
+        createStyleRemovalPlan(keys, getStyleResolution(zoneTab, realDom), realDom, liveStyleRef.current) : undefined,
       getStylePreview,
     }
   }, [
@@ -196,6 +205,7 @@ export function StyleMount({
     authoredStyle,
     effectiveStyle,
     applyStyleMutations,
+    removeStyleProperties,
     zoneTab,
     styleRevision,
   ])

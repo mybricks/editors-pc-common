@@ -2,7 +2,8 @@ import React, { CSSProperties, useCallback, useEffect, useMemo, useRef, useState
 
 import { Panel, InputNumber } from '../../components'
 import { Setting as SettingIcon } from '../../icons/Setting'
-import { useEffectiveStyleValue, useStyleChange, useStyleEditorContext } from '../../context'
+import { MinusOutlined } from '../../components/Icon'
+import { useEffectiveStyleValue, useStyleChange, useStyleClear, useStyleEditorContext } from '../../context'
 
 import type { ChangeEvent, PanelBaseProps } from '../../type'
 
@@ -147,10 +148,6 @@ function resolveFlexParts(
   return { grow: '', shrink: '', basis: '' }
 }
 
-function clearFlexChanges() {
-  return FLEX_KEYS.map((key) => ({ key, value: null as null }))
-}
-
 /**
  * 源码有长写 → 单独配置（按钮选中）。
  * 读取链路只返回 CSSOM 合成简写时，非常规多段值也按单独配置回显。
@@ -189,6 +186,7 @@ export function Flex({ onChange: fallbackOnChange, showTitle, collapse }: FlexPr
   const editorContext = useStyleEditorContext();
   const value = useEffectiveStyleValue();
   const onChange = useStyleChange(fallbackOnChange);
+  const { clear, disabledReason } = useStyleClear(FLEX_KEYS, { mode: 'remove-declaration', fallbackOnChange });
   const targetDom = editorContext?.targetDom ?? null
   const visible = isFlexChildVisible(targetDom)
 
@@ -243,6 +241,10 @@ export function Flex({ onChange: fallbackOnChange, showTitle, collapse }: FlexPr
     isNonEmpty(value?.flexGrow) ||
     isNonEmpty(value?.flexShrink) ||
     isNonEmpty(value?.flexBasis)
+  // 外部回显可能晚于本地输入；按钮与展开状态跟随当前可见值，删除权限仍由 clear 决定。
+  const hasVisibleFlexValue = hasFlexValue || (mode === 'ratio'
+    ? isNonEmpty(localValue)
+    : [localGrow, localShrink, localBasis].some(isNonEmpty))
 
   const switchToAdvanced = useCallback(() => {
     // 进入单独配置后允许长写 blur 落盘
@@ -260,25 +262,25 @@ export function Flex({ onChange: fallbackOnChange, showTitle, collapse }: FlexPr
   }, [localValue])
 
   const refresh = useCallback(() => {
-    onChange(clearFlexChanges())
-    setLocalValue('')
-    setLocalGrow('')
-    setLocalShrink('')
-    setLocalBasis('')
-    setMode('ratio')
-  }, [onChange])
+    if (!clear) return
+    const result = clear()
+    if (result?.clearUnsupported || (result && !result.applied)) return
+    const remaining = Object.fromEntries(FLEX_KEYS.map(key => [key, editorContext?.getStyleProperty?.(key).winner?.value]))
+    const nextEcho = formatFlexEcho(remaining)
+    const nextParts = resolveFlexParts(remaining, nextEcho)
+    setLocalValue(nextEcho)
+    setLocalGrow(nextParts.grow)
+    setLocalShrink(nextParts.shrink)
+    setLocalBasis(nextParts.basis)
+    setMode(resolveFlexMode(remaining))
+  }, [clear, editorContext?.getStyleProperty])
 
   const commitShorthand = useCallback(
     (raw: string) => {
       const trimmed = raw.trim()
       if (!trimmed) {
         if (!hasFlexValue) return
-        onChange(clearFlexChanges())
-        setLocalValue('')
-        setLocalGrow('')
-        setLocalShrink('')
-        setLocalBasis('')
-        setMode('ratio')
+        refresh()
         return
       }
       // 走简写：清空长写，回到统一比例；写入前压成简洁写法（1 1 0% → 1）
@@ -293,19 +295,20 @@ export function Flex({ onChange: fallbackOnChange, showTitle, collapse }: FlexPr
         setLocalValue(normalized)
         return
       }
-      onChange([
+      const result = onChange([
         { key: 'flex', value: normalized },
         { key: 'flexGrow', value: null },
         { key: 'flexShrink', value: null },
         { key: 'flexBasis', value: null },
       ])
+      if (result?.clearUnsupported || (result && !result.applied)) return
       setLocalValue(normalized)
       setLocalGrow('')
       setLocalShrink('')
       setLocalBasis('')
       setMode('ratio')
     },
-    [onChange, echo, hasFlexValue, value?.flexGrow, value?.flexShrink, value?.flexBasis]
+    [onChange, refresh, echo, hasFlexValue, value?.flexGrow, value?.flexShrink, value?.flexBasis]
   )
 
   /** 点 + 展开时立刻写入 flex:1，避免空输入框看起来像“点了没反应” */
@@ -340,9 +343,7 @@ export function Flex({ onChange: fallbackOnChange, showTitle, collapse }: FlexPr
 
       if (!grow && !shrink && !basis) {
         if (!hasFlexValue) return
-        onChange(clearFlexChanges())
-        setLocalValue('')
-        setLocalBasis('')
+        refresh()
         return
       }
 
@@ -357,13 +358,14 @@ export function Flex({ onChange: fallbackOnChange, showTitle, collapse }: FlexPr
       changes.push({ key: 'flexShrink', value: shrink !== '' ? shrink : null })
       // 0 / 0% 等合法值不能用 || 落到 null
       changes.push({ key: 'flexBasis', value: basis !== '' ? basis : null })
-      onChange(changes)
+      const result = onChange(changes)
+      if (result?.clearUnsupported || (result && !result.applied)) return
       setLocalBasis(basis)
       // 走长写后比例清空，并保持单独配置模式
       setLocalValue('')
       setMode('advanced')
     },
-    [onChange, localGrow, localShrink, localBasis, hasFlexValue, parts]
+    [onChange, refresh, localGrow, localShrink, localBasis, hasFlexValue, parts]
   )
 
   const handleFocus = useCallback(() => {
@@ -425,7 +427,7 @@ export function Flex({ onChange: fallbackOnChange, showTitle, collapse }: FlexPr
 
   if (!visible) return null
 
-  const effectiveCollapse = hasFlexValue ? false : collapse
+  const effectiveCollapse = hasVisibleFlexValue ? false : collapse
   const isAdvanced = mode === 'advanced'
 
   return (
@@ -434,13 +436,19 @@ export function Flex({ onChange: fallbackOnChange, showTitle, collapse }: FlexPr
       titleTip={COPY.panelTip}
       showTitle={showTitle}
       showReset={true}
+      showDelete={!!clear}
+      deleteNode={hasVisibleFlexValue || clear ? (
+        <span aria-disabled={!clear} title={!clear ? disabledReason || '样式来源尚未就绪，暂不能删除' : undefined}
+          style={{ opacity: clear ? 1 : 0.4 }}><MinusOutlined /></span>
+      ) : undefined}
+      onDelete={clear ? refresh : undefined}
       resetFunction={refresh}
       collapse={effectiveCollapse}
-      onAdd={!hasFlexValue ? handleAdd : undefined}
+      onAdd={!hasVisibleFlexValue ? handleAdd : undefined}
       hideTopBorder
     >
       {/* 切换按钮槽位固定，避免比例/单独两套结构导致绝对位置抖动 */}
-      <div className={css.body}>
+      <div className={css.body} title={disabledReason}>
         <div className={css.fields}>
           {!isAdvanced ? (
             <Panel.Content>
