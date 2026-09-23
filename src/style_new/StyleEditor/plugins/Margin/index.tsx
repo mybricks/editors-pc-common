@@ -240,6 +240,7 @@ export function Margin ({value, onChange: fallbackOnChange, config, showTitle, c
   const rightClear = useStyleClear('marginRight')
   const bottomClear = useStyleClear('marginBottom')
   const leftClear = useStyleClear('marginLeft')
+  const unifiedClear = useStyleClear(MARGIN_KEYS)
   // Zone 模式只跟随 EffectiveStyleValue。写入后 StyleMount 会先刷新 value，
   // effectiveStyle 稍后才回流；若监听 value，会用旧 effectiveStyle 把本地新值覆盖掉。
   const editorValue = context?.effectiveStyle ? effectiveValue : value
@@ -408,9 +409,8 @@ export function Margin ({value, onChange: fallbackOnChange, config, showTitle, c
   const leftCanClear = !!leftClear.clear || (!leftClear.disabledReason && (
     draftConfigured.marginLeft || (standalone && marginValue.marginLeft != null)
   ))
-  const clearFields = [topClear, rightClear, bottomClear, leftClear]
-  const unifiedCanClear = clearFields.every((field) => !field.disabledReason) &&
-    [topCanClear, rightCanClear, bottomCanClear, leftCanClear].some(Boolean)
+  const unifiedCanClear = !!unifiedClear.clear || (!unifiedClear.disabledReason &&
+    [topCanClear, rightCanClear, bottomCanClear, leftCanClear].some(Boolean))
   const canReset = standalone
     ? [topCanClear, rightCanClear, bottomCanClear, leftCanClear].some(Boolean)
     : unifiedCanClear

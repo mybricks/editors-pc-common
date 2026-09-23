@@ -99,6 +99,7 @@ export function Padding({value, onChange: fallbackOnChange, config, showTitle, c
   const rightClear = useStyleClear('paddingRight')
   const bottomClear = useStyleClear('paddingBottom')
   const leftClear = useStyleClear('paddingLeft')
+  const unifiedClear = useStyleClear(PADDING_KEYS)
   // Zone 模式只跟随 EffectiveStyleValue，避免写入后较早刷新的 value
   // 触发同步，并被尚未回流的旧 effectiveStyle 覆盖本地新值。
   const editorValue = context?.effectiveStyle ? effectiveValue : value
@@ -239,9 +240,8 @@ export function Padding({value, onChange: fallbackOnChange, config, showTitle, c
   const leftCanClear = !!leftClear.clear || (!leftClear.disabledReason && (
     draftConfigured.paddingLeft || (standalone && paddingValue.paddingLeft != null)
   ))
-  const clearFields = [topClear, rightClear, bottomClear, leftClear]
-  const unifiedCanClear = clearFields.every((field) => !field.disabledReason) &&
-    [topCanClear, rightCanClear, bottomCanClear, leftCanClear].some(Boolean)
+  const unifiedCanClear = !!unifiedClear.clear || (!unifiedClear.disabledReason &&
+    [topCanClear, rightCanClear, bottomCanClear, leftCanClear].some(Boolean))
   const canReset = standalone
     ? [topCanClear, rightCanClear, bottomCanClear, leftCanClear].some(Boolean)
     : unifiedCanClear

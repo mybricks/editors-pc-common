@@ -18,10 +18,12 @@ import {
 } from './zone-tab'
 import type { ZoneTab } from './zone-tab'
 import {
-  collectStyleSourceCandidates, createStyleClearPlan, cssPropertyName, getStyleResolution,
+  collectStyleSourceCandidates, createBatchStyleClearPlans, createStyleClearPlan,
+  cssPropertyName, getStyleResolution,
   readStaticInlineStyleInfo, resolveEffectiveStyleSource,
 } from './style-property'
-import type { StyleClearPlan } from './style-property'
+import type { StyleClearPlan, StyleResolution } from './style-property'
+import { getShorthandFamily, stylePropertyKey } from './style-shorthand-groups'
 
 export type StyleChangeItem = {
   key: string
@@ -42,6 +44,10 @@ export type ZoneWriteTarget = {
 const IMPORTANT_SUFFIX_RE = /!important\s*$/i
 const HOVER_SELECTOR_RE = /:hover\s*$/
 const INLINE_STYLE_LABEL = 'inline'
+
+function removeClearedLiveStyleKeys(style: Record<string, any>, key: string) {
+  getShorthandFamily(cssPropertyName(key)).forEach(property => delete style[stylePropertyKey(property)])
+}
 
 type StyleWriteLogContext = {
   targetDom: HTMLElement | null
@@ -114,23 +120,33 @@ function applyStyleClearPlans(
   plans: StyleClearPlan[],
   editConfig: any,
   zoneWriteTargets?: Map<string, ZoneWriteTarget>,
-  execute = true
+  execute = true,
+  resolution?: StyleResolution
 ): string[] {
   const appliedKeys: string[] = []
+  const groups = new Map<string, Record<string, any>>()
 
   plans.forEach((plan) => {
     logStyleClearPlan(plan, execute)
 
     if (!execute || plan.action === 'noop' || plan.action === 'unsupported') return
 
-    // 新清空链路用 null/unset 直接表达意图，不再写全局删除 side-channel。
+    const patch = groups.get(plan.selector) || {}
+    patch[plan.key] = plan.value
+    groups.set(plan.selector, patch)
+  })
+
+  groups.forEach((patch, selector) => {
+    // 同一属性族一次提交，避免逐条删除期间读取到半清空的源码/CSSOM。
     ;(window as any).__mybricks_style_deletions = null
-    editConfig.value.set(
-      { [plan.key]: plan.value },
-      { selector: plan.selector }
-    )
-    zoneWriteTargets?.delete(plan.key)
-    appliedKeys.push(plan.key)
+    editConfig.value.set(patch, { selector })
+    Object.entries(patch).forEach(([key, value]) => {
+      getShorthandFamily(cssPropertyName(key)).forEach(property =>
+        zoneWriteTargets?.delete(stylePropertyKey(property))
+      )
+      resolution?.record(key, value, selector)
+      appliedKeys.push(key)
+    })
   })
 
   return appliedKeys
@@ -278,7 +294,11 @@ function applyEffectiveStyleChanges(
   const resolution = getStyleResolution(tab, target)
   const changes = preservePaintRoles(items, liveStyle)
   // 先预检整个用户动作，避免清空不可执行却先修改了共享图层。
-  const plans = changes.filter(item => item.value === null).map(item => resolution.get(item.key).clearPlan)
+  const plans = createBatchStyleClearPlans(
+    changes.filter(item => item.value === null).map(item => item.key),
+    resolution,
+    target
+  )
   if (plans.some(plan => plan.action === 'unsupported')) {
     plans.forEach(plan => logStyleClearPlan(plan, false))
     return { nextLiveStyle: liveStyle, applied: false, clearApplied: false, clearUnsupported: true }
@@ -319,7 +339,7 @@ function applyEffectiveStyleChanges(
       })
     }
     Object.entries(patch).forEach(([key, value]) => {
-      if (value === null) delete nextLiveStyle[key]
+      if (value === null) removeClearedLiveStyleKeys(nextLiveStyle, key)
       else nextLiveStyle[key] = value
       resolution.record(key, value, selector)
     })
@@ -397,9 +417,18 @@ export function applyStyleChange({
     (item) => item.intent !== 'clear-effective-style'
   )
   // 必须在任何普通写入改变 DOM/CSSOM 之前确定来源、winner 和目标。
-  const clearPlans = clearItems.map((item) =>
-    createStyleClearPlan(realTargetDom, zoneTabs, activeZoneTab, item.key)
-  )
+  const clearResolution = activeZoneTab
+    ? getStyleResolution(activeZoneTab, realTargetDom)
+    : undefined
+  const clearPlans = clearResolution
+    ? createBatchStyleClearPlans(
+      clearItems.map(item => item.key),
+      clearResolution,
+      realTargetDom
+    )
+    : clearItems.map((item) =>
+      createStyleClearPlan(realTargetDom, zoneTabs, activeZoneTab, item.key)
+    )
   const clearUnsupported = clearPlans.some(
     (plan) => plan.action === 'unsupported'
   )
@@ -420,7 +449,9 @@ export function applyStyleChange({
     const appliedKeys = applyStyleClearPlans(
       clearPlans,
       editConfig,
-      zoneWriteTargets
+      zoneWriteTargets,
+      true,
+      clearResolution
     )
     if (appliedKeys.length === 0) {
       return {
@@ -431,7 +462,7 @@ export function applyStyleChange({
       }
     }
     const nextLiveStyle = deepCopy(liveStyle || {})
-    appliedKeys.forEach((key) => delete nextLiveStyle[key])
+    appliedKeys.forEach((key) => removeClearedLiveStyleKeys(nextLiveStyle, key))
     onBatchMetaChange?.()
     return {
       nextLiveStyle,
@@ -559,7 +590,9 @@ export function applyStyleChange({
     const appliedKeys = applyStyleClearPlans(
       clearPlans,
       editConfig,
-      zoneWriteTargets
+      zoneWriteTargets,
+      true,
+      clearResolution
     )
     if (appliedKeys.length === 0) {
       return {
@@ -570,7 +603,7 @@ export function applyStyleChange({
       }
     }
     const nextLiveStyle = deepCopy(liveStyle || {})
-    appliedKeys.forEach((key) => delete nextLiveStyle[key])
+    appliedKeys.forEach((key) => removeClearedLiveStyleKeys(nextLiveStyle, key))
     onBatchMetaChange?.()
     return {
       nextLiveStyle,
@@ -679,7 +712,9 @@ export function applyStyleChange({
       const appliedKeys = applyStyleClearPlans(
         clearPlans,
         editConfig,
-        zoneWriteTargets
+        zoneWriteTargets,
+        true,
+        clearResolution
       )
       if (appliedKeys.length === 0) {
         return {
@@ -690,7 +725,7 @@ export function applyStyleChange({
         }
       }
       const nextLiveStyle = deepCopy(liveStyle || {})
-      appliedKeys.forEach((key) => delete nextLiveStyle[key])
+      appliedKeys.forEach((key) => removeClearedLiveStyleKeys(nextLiveStyle, key))
       onBatchMetaChange?.()
       return {
         nextLiveStyle,
@@ -722,9 +757,11 @@ export function applyStyleChange({
     const appliedKeys = applyStyleClearPlans(
       clearPlans,
       editConfig,
-      zoneWriteTargets
+      zoneWriteTargets,
+      true,
+      clearResolution
     )
-    appliedKeys.forEach((key) => delete finalCssProperties[key])
+    appliedKeys.forEach((key) => removeClearedLiveStyleKeys(finalCssProperties, key))
     onBatchMetaChange?.()
     return {
       nextLiveStyle: finalCssProperties,
@@ -746,9 +783,11 @@ export function applyStyleChange({
   const appliedKeys = applyStyleClearPlans(
     clearPlans,
     editConfig,
-    zoneWriteTargets
+    zoneWriteTargets,
+    true,
+    clearResolution
   )
-  appliedKeys.forEach((key) => delete finalCssProperties[key])
+  appliedKeys.forEach((key) => removeClearedLiveStyleKeys(finalCssProperties, key))
   onBatchMetaChange?.()
   return {
     nextLiveStyle: finalCssProperties,

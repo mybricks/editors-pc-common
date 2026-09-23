@@ -2,25 +2,10 @@
 import { compare } from 'specificity'
 import { toLine } from './css-code-codec'
 import { calculateSafeSpecificity } from './selector-utils'
+import {
+  BATCH_CLEAR_SHORTHANDS, getShorthandFamily, STYLE_SHORTHANDS, stylePropertyKey,
+} from './style-shorthand-groups'
 import type { ZoneSourceRule, ZoneTab } from './zone-tab'
-
-const SIDES = ['top', 'right', 'bottom', 'left']
-const SHORTHANDS: Record<string, string[]> = {
-  font: ['font-family', 'font-size', 'font-weight', 'font-style', 'font-stretch', 'font-variant', 'line-height'],
-  background: ['background-color', 'background-image', 'background-size', 'background-position', 'background-repeat', 'background-origin', 'background-clip', 'background-attachment'],
-  border: SIDES.flatMap(side => ['width', 'style', 'color'].map(key => `border-${side}-${key}`)),
-  'border-color': SIDES.map(side => `border-${side}-color`),
-  'border-width': SIDES.map(side => `border-${side}-width`),
-  'border-style': SIDES.map(side => `border-${side}-style`),
-  'border-radius': ['border-top-left-radius', 'border-top-right-radius', 'border-bottom-right-radius', 'border-bottom-left-radius'],
-  margin: SIDES.map(side => `margin-${side}`),
-  padding: SIDES.map(side => `padding-${side}`),
-  gap: ['row-gap', 'column-gap'],
-  overflow: ['overflow-x', 'overflow-y'],
-  flex: ['flex-grow', 'flex-shrink', 'flex-basis'],
-  'text-decoration': ['text-decoration-line', 'text-decoration-color', 'text-decoration-style', 'text-decoration-thickness'],
-}
-SIDES.forEach(side => { SHORTHANDS[`border-${side}`] = ['width', 'style', 'color'].map(key => `border-${side}-${key}`) })
 
 export const cssPropertyName = (key: string) => key.startsWith('--')
   ? key
@@ -51,6 +36,14 @@ export type StyleProperty = {
   winner: StyleSourceCandidate | null
   candidates: StyleSourceCandidate[]
   clearPlan: StyleClearPlan
+}
+
+function readInlineStyleProperties(target: HTMLElement | null): Set<string> {
+  try {
+    return new Set(Object.keys(JSON.parse(target?.dataset?.styleInfo || '{}'))
+      .filter(Boolean)
+      .map(key => cssPropertyName(key[0].toLowerCase() + key.slice(1))))
+  } catch { return new Set() }
 }
 
 export function readStaticInlineStyleInfo(target: HTMLElement | null, key: string, deletion = false): boolean {
@@ -106,14 +99,28 @@ export function createStyleResolution(tab: ZoneTab, target: HTMLElement | null =
   const addStyle = (style: CSSStyleDeclaration, source?: ZoneSourceRule) => {
     const declared = Array.from({ length: style.length }, (_, i) => style.item(i))
     const expanded = new Set(declared)
-    const shorthandNames = Object.keys(SHORTHANDS).filter(name => !!style.getPropertyValue(name))
-    shorthandNames.forEach(name => SHORTHANDS[name].forEach(key => expanded.add(key)))
+    const shorthandNames = Object.keys(STYLE_SHORTHANDS).filter(name => !!style.getPropertyValue(name))
+    shorthandNames.forEach(name => {
+      // CSSOM 枚举通常只有 longhand，简写本身也必须进入索引。
+      expanded.add(name)
+      STYLE_SHORTHANDS[name].forEach(key => expanded.add(key))
+    })
+    const inlineProperties = !source ? readInlineStyleProperties(target) : undefined
+    // 某个 longhand 的 unset/important 可能使整个简写无法序列化，但源码中的
+    // border 仍可能存在。四边贡献完整时继续保守标记，防止只删 border-width
+    // 后原 border 的宽度重新露出。JSX 则可以用源码元数据精确判断原始写法。
+    const possibleShorthands = Object.keys(STYLE_SHORTHANDS).filter(name =>
+      shorthandNames.includes(name) || STYLE_SHORTHANDS[name].every(key => !!style.getPropertyValue(key))
+    )
+    const contributingShorthands = inlineProperties?.size
+      ? possibleShorthands.filter(name => inlineProperties.has(name))
+      : possibleShorthands
     const specificity = source && calculateSafeSpecificity(source.selectorPart, target)
     expanded.forEach(key => {
       const value = style.getPropertyValue(key).trim()
       if (!value) return
       // CSSOM 可能合成简写；有简写贡献时保守地补长写，不删除整个简写。
-      const shorthand = shorthandNames.find(name => SHORTHANDS[name].includes(key))
+      const shorthand = contributingShorthands.find(name => STYLE_SHORTHANDS[name].includes(key))
       const candidate: StyleSourceCandidate = {
         property: shorthand || key,
         value,
@@ -140,7 +147,7 @@ export function createStyleResolution(tab: ZoneTab, target: HTMLElement | null =
       const property = cssPropertyName(key)
       if (!cache.has(property)) {
         const candidates = index.get(property) || []
-        const wireKey = property.startsWith('--') ? property : property.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase())
+        const wireKey = stylePropertyKey(property)
         const clearPlan = planClear(wireKey, candidates, target)
         cache.set(property, { candidates, winner: clearPlan.winner, clearPlan })
       }
@@ -168,11 +175,105 @@ export function createStyleResolution(tab: ZoneTab, target: HTMLElement | null =
       }
       index.set(property, remaining)
       cache.delete(property)
+
+      // 删除 shorthand 时同步移除它在 longhand 索引中的贡献，避免源码/CSSOM
+      // 尚未完成重编译时，后续查询仍把已经删除的简写当作生效来源。
+      if (value == null) {
+        ;(STYLE_SHORTHANDS[property] || []).forEach(longhand => {
+          const longhandCandidates = index.get(longhand) || []
+          index.set(
+            longhand,
+            longhandCandidates.filter(candidate =>
+              candidate.label !== selector || candidate.property !== property
+            )
+          )
+          cache.delete(longhand)
+        })
+      }
+
+      // 写一个 longhand 后，CSSOM 尚未刷新，旧的合成简写已经不能再作为来源。
+      const affected = STYLE_SHORTHANDS[property] || [property]
+      Object.entries(STYLE_SHORTHANDS).forEach(([name, longhands]) => {
+        if (name === property || !longhands.some(key => affected.includes(key))) return
+        index.set(name, (index.get(name) || []).filter(candidate => candidate.label !== selector))
+        cache.delete(name)
+      })
     },
   }
 }
 
 export type StyleResolution = ReturnType<typeof createStyleResolution>
+
+/**
+ * 整组恢复默认时删除 winning source 内的整个属性族，允许低优先级样式重新生效。
+ * CSSOM 会合成/拆开简写，不能用 item() 判断源码究竟写了 margin 还是四条长写，
+ * 因此同时清理该组所有写法；部分清空仍保留 unset，避免删除未选中的配置。
+ */
+export function createBatchStyleClearPlans(
+  keys: readonly string[],
+  resolution: StyleResolution,
+  target: HTMLElement | null
+): StyleClearPlan[] {
+  let plannedKeys = Array.from(new Set(keys.flatMap(key => {
+    const property = cssPropertyName(key)
+    return BATCH_CLEAR_SHORTHANDS.includes(property)
+      ? STYLE_SHORTHANDS[property].map(stylePropertyKey)
+      : [stylePropertyKey(property)]
+  })))
+  const deletes: StyleClearPlan[] = []
+
+  BATCH_CLEAR_SHORTHANDS.forEach(property => {
+    const longhands = STYLE_SHORTHANDS[property].map(stylePropertyKey)
+    if (!longhands.every(longhand => plannedKeys.includes(longhand))) return
+
+    const longhandProperties = longhands.map(longhand => resolution.get(longhand))
+    const winner = longhandProperties[0]?.winner
+    if (!winner) return
+    const family = getShorthandFamily(property)
+    const sameSource = longhandProperties.every(({ winner: current }) =>
+      !!current &&
+      current.currentState &&
+      family.includes(current.property) &&
+      current.label === winner.label &&
+      current.inline === winner.inline &&
+      current.source === winner.source
+    )
+    if (!sameSource || !winner.label) return
+
+    let deleteProperties = family
+    if (winner.inline) {
+      // JSX 的源码范围才是原始声明信息，不能要求 CSSOM 展开的每个 longhand
+      // 都有独立源码范围；但组内任意动态属性仍必须阻止整个动作。
+      const inlineProperties = readInlineStyleProperties(target)
+      deleteProperties = family.filter(name => inlineProperties.has(name))
+      if (
+        deleteProperties.some(name => !readStaticInlineStyleInfo(target, stylePropertyKey(name), true)) ||
+        !STYLE_SHORTHANDS[property].every(longhand => deleteProperties.some(name =>
+          name === longhand || STYLE_SHORTHANDS[name]?.includes(longhand)
+        ))
+      ) return
+    }
+
+    plannedKeys = plannedKeys.filter(key => !longhands.includes(key))
+    deleteProperties.forEach(name => {
+      const current = resolution.get(name)
+      deletes.push({
+        key: stylePropertyKey(name),
+        winner,
+        candidates: current.candidates,
+        action: 'delete',
+        selector: winner.label,
+        value: null,
+      })
+    })
+  })
+
+  return [
+    ...plannedKeys.map(key => resolution.get(key).clearPlan),
+    ...deletes,
+  ]
+}
+
 const resolutions = new WeakMap<ZoneTab, StyleResolution>()
 export function getStyleResolution(tab: ZoneTab, target?: HTMLElement | null): StyleResolution {
   let result = resolutions.get(tab)

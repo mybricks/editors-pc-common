@@ -9,7 +9,7 @@ import type { EditorProps } from './type'
 import { applyStyleChange } from './core/apply-style-change'
 import type { ZoneWriteTarget } from './core/apply-style-change'
 import { toElementArray } from './core/dom'
-import { cssPropertyName, getStyleResolution, invalidateStyleResolution } from './core/style-property'
+import { createBatchStyleClearPlans, cssPropertyName, getStyleResolution, invalidateStyleResolution } from './core/style-property'
 import { collectZoneTabs, mergeZoneTabsByState } from './core/zone-tab'
 import type { ZoneTab } from './core/zone-tab'
 import { expandFourShorthand } from './core/shorthand-normalizer'
@@ -186,6 +186,8 @@ export function StyleMount({
       effectiveStyle,
       applyStyleMutations,
       getStyleProperty: zoneTab ? (key: string) => getStyleResolution(zoneTab, realDom).get(key) : undefined,
+      getStyleClearPlans: zoneTab ? (keys: readonly string[]) =>
+        createBatchStyleClearPlans(keys, getStyleResolution(zoneTab, realDom), realDom) : undefined,
       getStylePreview,
     }
   }, [

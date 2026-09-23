@@ -1,7 +1,7 @@
 import React, { useCallback, useContext, createContext, useMemo, CSSProperties } from 'react'
 import type { EditorProps } from '../type'
 import type { EffectiveStyleValue, ZoneTab } from '../core/zone-tab'
-import type { StyleProperty } from '../core/style-property'
+import type { StyleClearPlan, StyleProperty } from '../core/style-property'
 import { buildStyleMutationChange } from './helper/style-mutations'
 import type { ApplyStyleMutations, ChangeEvent, StyleMutation } from './type'
 
@@ -38,6 +38,7 @@ interface StyleEditorContextValue {
   /** 批量执行 set/clear；写入 selector 与 clear 的 null/unset 由公共层解析 */
   applyStyleMutations?: ApplyStyleMutations
   getStyleProperty?: (key: string) => StyleProperty
+  getStyleClearPlans?: (keys: readonly string[]) => StyleClearPlan[]
   getStylePreview?: (key: string, refresh?: boolean) => string
 }
 
@@ -128,15 +129,21 @@ export function useStyleField(key: string) {
   }
 }
 
-/** 仅提供清空执行能力；不向属性编辑器暴露任何样式回显值。 */
-export function useStyleClear(key: string) {
+/** 单属性和整组共用执行器的预检结果；不向属性编辑器暴露样式回显值。 */
+export function useStyleClear(key: string | readonly string[]) {
   const context = useStyleEditorContext()
-  const plan = context?.getStyleProperty?.(key)?.clearPlan
+  const keys = useMemo(() => typeof key === 'string' ? [key] : key, [key])
+  const plans = context?.getStyleClearPlans?.(keys) ?? keys.flatMap(name => {
+    const plan = context?.getStyleProperty?.(name)?.clearPlan
+    return plan ? [plan] : []
+  })
+  const unsupported = plans.find(plan => plan.action === 'unsupported')
   const clear = useCallback(() =>
-    context?.applyStyleMutations?.([{ type: 'clear', key }]),
-    [context?.applyStyleMutations, key])
+    context?.applyStyleMutations?.(keys.map(name => ({ type: 'clear', key: name }))),
+    [context?.applyStyleMutations, keys])
   return {
-    clear: plan?.action === 'delete' || plan?.action === 'write-unset' ? clear : undefined,
-    disabledReason: plan?.action === 'unsupported' ? plan.reason : undefined,
+    clear: !unsupported && plans.some(plan => plan.action === 'delete' || plan.action === 'write-unset')
+      ? clear : undefined,
+    disabledReason: unsupported?.action === 'unsupported' ? unsupported.reason : undefined,
   }
 }

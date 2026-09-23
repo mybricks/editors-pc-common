@@ -1,12 +1,15 @@
-import React, { useMemo, useState, useCallback, useRef, useEffect, CSSProperties } from "react";
+import React, { useMemo, useState, useCallback, useRef, useEffect, useLayoutEffect, CSSProperties } from "react";
 import { createPortal } from "react-dom";
-import { useStyleEditorContext } from "../..";
+import {
+  useEffectiveStyleValue,
+  useStyleChange,
+  useStyleEditorContext,
+} from "../..";
 
 import {
   Panel,
   Select,
   ColorEditor,
-  InputNumber,
   BorderRadiusSplitOutlined,
   BorderTopLeftRadiusOutlined,
   BorderTopRightRadiusOutlined,
@@ -25,7 +28,7 @@ import {
 } from "../../components";
 import { Setting as SettingIcon } from "../../icons/Setting";
 import { allEqual } from "../../utils";
-import { useUpdateEffect, useDragNumber, useLengthVarBinding } from "../../hooks";
+import { useDragNumber, useLengthVarBinding } from "../../hooks";
 import {
   isGradientValue,
   toSolidBackgroundLayer,
@@ -38,7 +41,8 @@ import {
 import { getColorEditorValue } from "../../helper/get-color-editor-value";
 import { getCssVarColorOptions, resolveCssVarColor } from "../../../core/resolve-css-var-color";
 
-import type { ChangeEvent, PanelBaseProps } from "../../type";
+import type { ChangeEvent, PanelBaseProps, StyleChangeItem, StyleChangeResult } from "../../type";
+import type { EffectiveStyleValue } from "../../../core/zone-tab";
 
 import css from "./index.less";
 
@@ -46,12 +50,6 @@ interface BorderProps extends PanelBaseProps {
   value: CSSProperties;
   onChange: ChangeEvent;
 }
-
-const BORDER_STYLE_OPTIONS = [
-  { label: "无", value: "none" },
-  { label: "实线", value: "solid" },
-  { label: "虚线", value: "dashed" },
-];
 
 const STROKE_STYLE_POPUP_OPTIONS = [
   { value: 'none', label: '无' },
@@ -70,18 +68,10 @@ const isZeroBorderWidth = (value: unknown) => {
   return normalized === '' || normalized === '0' || normalized === '0px' || normalized === '0%';
 };
 
-const isDefaultBorderColor = (value: unknown) => {
-  const normalized = String(value ?? '').trim().toLowerCase();
-  return normalized === '' || normalized === 'currentcolor';
-};
-
 const hasNoVisibleBorderLine = (style: unknown, width: unknown) => {
   const normalizedStyle = String(style ?? '').trim().toLowerCase();
   return normalizedStyle === 'none' || normalizedStyle === 'hidden' || isZeroBorderWidth(width);
 };
-
-const shouldShowDefaultBorderColor = (color: unknown, style: unknown, width: unknown) =>
-  hasNoVisibleBorderLine(style, width) || isDefaultBorderColor(color);
 
 const normalizeBorderWidthValue = (value: unknown, style: unknown) => {
   const normalizedStyle = String(style ?? '').trim().toLowerCase();
@@ -101,6 +91,17 @@ const UNIT_OPTIONS = [
   { label: "px", value: "px" },
   { label: "%", value: "%" },
 ];
+const DEFAULT_UNIT_OPTION = { label: '默认', value: 'default' };
+const DEFAULT_UNIT_DIVIDER = { label: '', value: '__borderDefaultDivider__', type: 'divider' as const };
+
+function withDefaultUnitOption<T extends { label: string; value: string }>(
+  options: T[],
+  clearable: boolean
+) {
+  return clearable
+    ? [DEFAULT_UNIT_OPTION, DEFAULT_UNIT_DIVIDER, ...options]
+    : options;
+}
 const DEFAULT_STYLE = {
   padding: 0,
   fontSize: 10,
@@ -150,13 +151,122 @@ const DEFAULT_CONFIG = {
   useImportant: false,
 };
 
-const GRADIENT_BORDER_KEYS = ["backgroundImage", "backgroundOrigin", "backgroundClip"];
-
 const BORDER_LOGICAL_KEYS = [
   'borderTopWidth', 'borderRightWidth', 'borderBottomWidth', 'borderLeftWidth',
   'borderTopColor', 'borderRightColor', 'borderBottomColor', 'borderLeftColor',
   'borderTopStyle', 'borderRightStyle', 'borderBottomStyle', 'borderLeftStyle',
 ];
+
+const BORDER_RADIUS_KEYS = [
+  'borderTopLeftRadius', 'borderTopRightRadius',
+  'borderBottomRightRadius', 'borderBottomLeftRadius',
+];
+
+const BORDER_COLOR_KEYS = [
+  'borderTopColor', 'borderRightColor', 'borderBottomColor', 'borderLeftColor',
+];
+
+const BORDER_WIDTH_KEYS = [
+  'borderTopWidth', 'borderRightWidth', 'borderBottomWidth', 'borderLeftWidth',
+];
+
+const BORDER_STYLE_KEYS = [
+  'borderTopStyle', 'borderRightStyle', 'borderBottomStyle', 'borderLeftStyle',
+];
+
+const BORDER_PAINT_KEYS = [
+  'backgroundColor', 'backgroundImage', 'backgroundOrigin', 'backgroundClip',
+  'WebkitBackgroundClip', 'webkitBackgroundClip',
+  'backgroundSize', 'backgroundRepeat', 'backgroundPosition',
+  'WebkitTextFillColor', 'webkitTextFillColor',
+];
+
+type BorderValue = CSSProperties & Record<string, any>;
+
+function isEffectiveStyleConfigured(item?: EffectiveStyleValue): boolean {
+  if (!item || item.type === 'computed') return false;
+  return !(typeof item.value === 'string' && /^unset$/i.test(item.value.trim()));
+}
+
+function stripImportant(value: unknown): unknown {
+  return typeof value === 'string'
+    ? value.replace(/\s*!important\s*$/i, '')
+    : value;
+}
+
+/**
+ * Zone 模式只把逐属性的显式值放进编辑态；computed 值仅用于预览和提示，
+ * 避免用户修改一个边框字段时把浏览器默认值一并写回。
+ */
+function getBorderEditorValue(
+  value: CSSProperties,
+  effectiveStyle?: Record<string, EffectiveStyleValue>
+): BorderValue {
+  const source = value as BorderValue;
+  const next: BorderValue = {};
+
+  if (!effectiveStyle) {
+    Object.assign(next, source);
+  } else {
+    [
+      ...BORDER_LOGICAL_KEYS,
+      ...BORDER_RADIUS_KEYS,
+      'outline', 'outlineOffset', 'boxShadow',
+      ...BORDER_PAINT_KEYS,
+    ].forEach((key) => {
+      // paint stack 需要完整 EffectiveStyleValue 才能在渐变边框写入时保留背景/文字层；
+      // 这些值只参与复合计算，不决定边框字段是否已配置。
+      if (BORDER_PAINT_KEYS.includes(key) || isEffectiveStyleConfigured(effectiveStyle[key])) {
+        if (source[key] != null && source[key] !== '') next[key] = source[key];
+      }
+    });
+  }
+
+  Object.entries(next).forEach(([key, current]) => {
+    next[key] = stripImportant(current);
+  });
+  (['Top', 'Right', 'Bottom', 'Left'] as const).forEach((side) => {
+    const widthKey = `border${side}Width`;
+    const styleKey = `border${side}Style`;
+    if (next[widthKey] != null) {
+      next[widthKey] = normalizeBorderWidthValue(next[widthKey], next[styleKey]);
+    }
+  });
+
+  // outside / inside 是 outline / box-shadow 的虚拟编辑形态，仅在对应属性有显式来源时还原。
+  const pos = detectPositionFromCSS(next);
+  if (pos === 'outside' && next.outline) {
+    const virtual = parseOutlineToVirtual(String(next.outline));
+    BORDER_LOGICAL_KEYS.forEach((key) => {
+      if (key.endsWith('Width')) next[key] = virtual.width;
+      else if (key.endsWith('Style')) next[key] = virtual.style;
+      else if (key.endsWith('Color')) next[key] = virtual.color;
+    });
+  } else if (pos === 'inside' && next.boxShadow) {
+    const virtual = parseInsetShadowToVirtual(String(next.boxShadow));
+    BORDER_LOGICAL_KEYS.forEach((key) => {
+      if (key.endsWith('Width')) next[key] = virtual.width;
+      else if (key.endsWith('Style')) next[key] = 'solid';
+      else if (key.endsWith('Color')) next[key] = virtual.color;
+    });
+  }
+  return next;
+}
+
+function buildComputedTip(
+  label: string,
+  item?: EffectiveStyleValue,
+  previewValue?: string
+): string {
+  const computedValue = previewValue ?? item?.computedValue;
+  return computedValue
+    ? `当前未配置${label}，${computedValue}为计算值`
+    : label;
+}
+
+function mutationFailed(result: StyleChangeResult | void): boolean {
+  return !!result?.clearUnsupported && !result.clearApplied;
+}
 
 const NEW_BORDER_EDITOR_VALUE: CSSProperties & Record<string, any> = {
   borderTopWidth: '1px',
@@ -292,8 +402,11 @@ const buildClearGradientBorderValue = (
   });
 };
 
-export function Border({ value, onChange, config, showTitle, collapse }: BorderProps) {
+export function Border({ value, onChange: fallbackOnChange, config, showTitle, collapse }: BorderProps) {
   const context = useStyleEditorContext();
+  const effectiveStyle = context?.effectiveStyle;
+  const effectiveValue = useEffectiveStyleValue();
+  const onChange = useStyleChange(fallbackOnChange);
   const targetDom = context?.targetDom ?? null;
   const canvasColorVariables = getCssVarColorOptions(targetDom);
   const [
@@ -309,92 +422,19 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
       useImportant,
     },
   ] = useState({ ...DEFAULT_CONFIG, ...config });
-  const [{ borderToggleValue, radiusToggleValue }, setToggleValue] = useState(
-    getToggleDefaultValue(value)
+  const externalStyleSource = effectiveStyle ?? value;
+  const defaultBorderValue = useMemo(
+    () => getBorderEditorValue(effectiveStyle ? effectiveValue : value, effectiveStyle),
+    [externalStyleSource, effectiveValue]
   );
-  const suppressBorderToggleWriteRef = useRef(false);
-  const suppressRadiusToggleWriteRef = useRef(false);
-  const defaultBorderValue = useMemo(() => {
-    const defaultValue = Object.assign({}, value) as CSSProperties & Record<string, any>;
-    Object.entries(defaultValue).forEach(([key, val]) => {
-      if (typeof val === "string") {
-        // @ts-ignore
-        defaultValue[key] = val.replace(/!.*$/, "");
-      }
-    });
-    (['Top', 'Right', 'Bottom', 'Left'] as const).forEach((side) => {
-      const widthKey = `border${side}Width`;
-      const styleKey = `border${side}Style`;
-      defaultValue[widthKey] = normalizeBorderWidthValue(
-        defaultValue[widthKey],
-        defaultValue[styleKey],
-      );
-    });
-    // 对于 outside/inside 模式，从 outline/boxShadow 还原虚拟 border* 值供编辑器显示
-    const pos = detectPositionFromCSS(defaultValue);
-    if (pos === 'outside' && defaultValue.outline) {
-      const v = parseOutlineToVirtual(String(defaultValue.outline));
-      BORDER_LOGICAL_KEYS.forEach(k => {
-        if (k.endsWith('Width')) defaultValue[k] = v.width;
-        else if (k.endsWith('Style')) defaultValue[k] = v.style;
-        else if (k.endsWith('Color')) defaultValue[k] = v.color;
-      });
-    } else if (pos === 'inside' && defaultValue.boxShadow) {
-      const v = parseInsetShadowToVirtual(String(defaultValue.boxShadow));
-      BORDER_LOGICAL_KEYS.forEach(k => {
-        if (k.endsWith('Width')) defaultValue[k] = v.width;
-        else if (k.endsWith('Style')) defaultValue[k] = 'solid';
-        else if (k.endsWith('Color')) defaultValue[k] = v.color;
-      });
-    }
-    return defaultValue;
-  }, []);
+  const [{ borderToggleValue, radiusToggleValue }, setToggleValue] = useState(
+    getToggleDefaultValue(defaultBorderValue)
+  );
   const contentBackgroundLayersRef = useRef<string[] | null>(getContentBackgroundLayers(defaultBorderValue));
-  const borderGradientRef = useRef<string | undefined>(getGradientBorderValue(defaultBorderValue));
   const [borderValue, setBorderValue] = useState(defaultBorderValue);
+  const [previewValues, setPreviewValues] = useState<Record<string, string | undefined>>({});
   const [forceRenderKey, setForceRenderKey] = useState<number>(Math.random());
-  // 面板切换重挂载的瞬间，value（DOM computedStyle）有时还没同步到最新的渐变边框信息，
-  // 导致 defaultBorderValue 快照缺失渐变边框；borderValue 挂载后不会再跟随 value 更新，
-  // 于是渐变颜色编辑器会一直显示成默认的 90° 白色渐变。这里做一次性补偿：
-  // 一旦发现外部 value 补上了渐变边框数据而内部状态还没有，就同步过来，
-  // 并 bump ColorEditor 的 key 让它用正确的初始值重新挂载。
-  // 只在挂载后"追一次"，避免用户主动清除渐变边框后，被滞后的外部 value 错误地复原。
   const [borderColorEditorKey, setBorderColorEditorKey] = useState(0);
-  const hasCaughtUpGradientRef = useRef(false);
-  const hasUserEditedRef = useRef(false);
-  useUpdateEffect(() => {
-    if (hasCaughtUpGradientRef.current || hasUserEditedRef.current) {
-      return;
-    }
-    if (hasGradientBorderBackground(borderValue)) {
-      hasCaughtUpGradientRef.current = true;
-      return;
-    }
-    const incomingValue: CSSProperties & Record<string, any> = Object.assign({}, value);
-    Object.entries(incomingValue).forEach(([key, v]) => {
-      if (typeof v === "string") {
-        // @ts-ignore
-        incomingValue[key] = v.replace(/!.*$/, "");
-      }
-    });
-    if (!hasGradientBorderBackground(incomingValue)) {
-      return;
-    }
-    const gradientLayer = getGradientBorderValue(incomingValue);
-    if (!gradientLayer) {
-      return;
-    }
-    hasCaughtUpGradientRef.current = true;
-    contentBackgroundLayersRef.current = getContentBackgroundLayers(incomingValue);
-    borderGradientRef.current = gradientLayer;
-    setBorderValue((val) => ({
-      ...val,
-      backgroundImage: incomingValue.backgroundImage,
-      backgroundOrigin: incomingValue.backgroundOrigin,
-      backgroundClip: incomingValue.backgroundClip,
-    }));
-    setBorderColorEditorKey((k) => k + 1);
-  }, [value]);
   const [splitRadiusIcon, setSplitRadiusIcon] = useState(
     <BorderTopLeftRadiusOutlined />
   );
@@ -533,75 +573,43 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
     };
   }, [showStyleSettings]);
 
-  const handleChange = useCallback(
-    (value: CSSProperties & Record<string, any>) => {
-      hasUserEditedRef.current = true;
-      setBorderValue((val) => {
-        const {
-          backgroundImage,
-          backgroundOrigin,
-          backgroundClip,
-          borderTopWidth,
-          borderRightWidth,
-          borderBottomWidth,
-          borderLeftWidth,
-          borderTopColor,
-          borderRightColor,
-          borderBottomColor,
-          borderLeftColor,
-          borderTopStyle,
-          borderRightStyle,
-          borderBottomStyle,
-          borderLeftStyle,
-          borderTopLeftRadius,
-          borderBottomLeftRadius,
-          borderBottomRightRadius,
-          borderTopRightRadius,
-        } = val ?? {};
-
-        const newValues: Record<string, any> = {
-          // 仅当 backgroundImage 代表实际的渐变边框（非 none/空）时才携带背景属性，
-          // 否则普通边框宽度/样式/圆角操作会把 "none" 写入，覆盖用户的背景渐变图片。
-          ...(backgroundImage && backgroundImage !== 'none' ? {
-            backgroundImage,
-            backgroundOrigin,
-            backgroundClip,
-          } : {}),
-          borderTopWidth,
-          borderRightWidth,
-          borderBottomWidth,
-          borderLeftWidth,
-          borderTopColor,
-          borderRightColor,
-          borderBottomColor,
-          borderLeftColor,
-          borderTopStyle,
-          borderRightStyle,
-          borderBottomStyle,
-          borderLeftStyle,
-          borderTopLeftRadius,
-          borderBottomLeftRadius,
-          borderBottomRightRadius,
-          borderTopRightRadius,
-          ...value,
-        }
-        const deletedKeys = Object.keys(value).filter((key) => value[key] === null);
-
-        onChange(
-          Array.from(new Set([...Object.keys(newValues), ...deletedKeys]))
-            .filter((key) => newValues[key] != null || deletedKeys.includes(key))
-            .map((key) => {
-              return {
-                key,
-                // TODO
-                value: newValues[key] === null ? null : `${newValues[key]}${useImportant ? "!important" : ""}`,
-              };
-            })
-        );
-        return newValues;
-      });
+  const commitStyleChanges = useCallback(
+    (changes: BorderValue) => {
+      const items: StyleChangeItem[] = Object.entries(changes).map(([key, nextValue]) => ({
+        key,
+        value: nextValue == null
+          ? null
+          : `${nextValue}${useImportant ? '!important' : ''}`,
+      }));
+      return onChange(items);
     },
     [onChange, useImportant]
+  );
+
+  const handleChange = useCallback(
+    (changes: BorderValue) => {
+      const result = commitStyleChanges(changes);
+      if (mutationFailed(result)) return result;
+
+      const next = { ...borderValueRef.current };
+      Object.entries(changes).forEach(([key, nextValue]) => {
+        if (nextValue == null) delete next[key];
+        else next[key] = stripImportant(nextValue);
+      });
+      borderValueRef.current = next;
+      setBorderValue(next);
+      setPreviewValues((current) => {
+        const preview = { ...current };
+        Object.entries(changes).forEach(([key, nextValue]) => {
+          preview[key] = nextValue == null
+            ? context?.getStylePreview?.(key, true)?.trim() || undefined
+            : undefined;
+        });
+        return preview;
+      });
+      return result;
+    },
+    [commitStyleChanges, context?.getStylePreview]
   );
 
   const isLengthNineAndEndsWithZeroes = (str: string) => {
@@ -621,52 +629,65 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
     () => detectPositionFromCSS(defaultBorderValue)
   );
 
-  const refresh = useCallback(() => {
-    // 仅在确实存在渐变边框层时清 background*，避免误删文字渐变占用的栈
-    const styleForStack = (value || borderValueRef.current) as Record<string, any>;
-    const hasBorderGradientLayer = !!decomposeBackgroundStack(styleForStack).borderLayer;
-    const pos = borderPositionRef.current;
-    const keys = [
-      ...BORDER_LOGICAL_KEYS,
-      'borderTopLeftRadius', 'borderTopRightRadius', 'borderBottomLeftRadius', 'borderBottomRightRadius',
-      'border', 'borderTop', 'borderRight', 'borderBottom', 'borderLeft',
-      'borderRadius', 'borderWidth', 'borderStyle', 'borderColor',
-      ...(pos === 'outside' ? ['outline', 'outlineOffset'] : []),
-      ...(pos === 'inside' ? ['boxShadow'] : []),
-      ...(hasBorderGradientLayer ? GRADIENT_BORDER_KEYS : []),
-    ];
-
-    onChange(Array.from(new Set(keys)).map(key => ({ key, value: null })));
-    setShowStyleSettings(false);
-    setBorderValue({} as any);
-    setBorderPosition('center');
-    setForceRenderKey(prev => prev + 1);
-  }, [onChange, value]);
-
   const borderPositionRef = useRef<BorderPosition>(borderPosition);
   borderPositionRef.current = borderPosition;
 
   const borderValueRef = useRef(borderValue);
   borderValueRef.current = borderValue;
 
-  const handleExpand = useCallback(() => {
-    const next = {...NEW_BORDER_EDITOR_VALUE};
+  // 选中元素、Zone Tab 或 EffectiveStyleValue 更新时，按逐属性来源同步编辑态。
+  // 本地写入只触发 styleRevision，不会改变 effectiveStyle 对象，因此不会被旧数据回滚。
+  useLayoutEffect(() => {
+    const next = defaultBorderValue;
+    const nextPosition = detectPositionFromCSS(next);
     borderValueRef.current = next;
-    contentBackgroundLayersRef.current = null;
-    borderGradientRef.current = undefined;
-    hasUserEditedRef.current = true;
-    setShowStyleSettings(false);
-    if (borderToggleValue !== 'all') suppressBorderToggleWriteRef.current = true;
-    if (radiusToggleValue !== 'all') suppressRadiusToggleWriteRef.current = true;
+    borderPositionRef.current = nextPosition;
+    contentBackgroundLayersRef.current = getContentBackgroundLayers(next);
     setBorderValue(next);
-    onChange(BORDER_LOGICAL_KEYS.map(key => ({
-      key,
-      value: `${next[key]}${useImportant ? '!important' : ''}`,
-    })));
-    setToggleValue({borderToggleValue: 'all', radiusToggleValue: 'all'});
+    setPreviewValues({});
+    setBorderPosition(nextPosition);
+    setToggleValue(getToggleDefaultValue(next));
+    setBorderColorEditorKey((key) => key + 1);
+  }, [targetDom, defaultBorderValue]);
+
+  const refresh = useCallback(() => {
+    const current = borderValueRef.current;
+    const hasBorderGradientLayer = !!decomposeBackgroundStack(current).borderLayer;
+    const pos = borderPositionRef.current;
+    const keys = Array.from(new Set([
+      ...BORDER_LOGICAL_KEYS,
+      ...BORDER_RADIUS_KEYS,
+      ...(pos === 'outside' ? ['outline', 'outlineOffset'] : []),
+      ...(pos === 'inside' ? ['boxShadow'] : []),
+    ]));
+    const changes: BorderValue = Object.fromEntries(keys.map((key) => [key, null]));
+    if (hasBorderGradientLayer) {
+      Object.assign(
+        changes,
+        buildClearGradientBorderValue(current, contentBackgroundLayersRef.current)
+      );
+    }
+    const result = handleChange(changes);
+    if (mutationFailed(result)) return;
+
+    contentBackgroundLayersRef.current = null;
+    setShowStyleSettings(false);
+    borderPositionRef.current = 'center';
     setBorderPosition('center');
     setForceRenderKey(prev => prev + 1);
-  }, [borderToggleValue, radiusToggleValue, onChange, useImportant]);
+  }, [handleChange]);
+
+  const handleExpand = useCallback(() => {
+    const next = {...NEW_BORDER_EDITOR_VALUE};
+    const result = handleChange(next);
+    if (mutationFailed(result)) return;
+    contentBackgroundLayersRef.current = null;
+    setShowStyleSettings(false);
+    setToggleValue({borderToggleValue: 'all', radiusToggleValue: 'all'});
+    borderPositionRef.current = 'center';
+    setBorderPosition('center');
+    setForceRenderKey(prev => prev + 1);
+  }, [handleChange]);
 
   // 构建 outside/inside 模式的 CSS 输出
   const emitPositionCSS = useCallback((
@@ -676,79 +697,75 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
     s: string,
   ) => {
     const wNum = parseFloat(String(w)) || 1;
-    const borderNullEntries = BORDER_LOGICAL_KEYS.map(k => ({ key: k, value: null as any }));
+    const borderClears = Object.fromEntries(BORDER_LOGICAL_KEYS.map((key) => [key, null]));
     if (pos === 'outside') {
-      onChange([
-        { key: 'outline', value: `${wNum}px ${s || 'solid'} ${c || '#000000'}` },
-        { key: 'outlineOffset', value: '0px' },
-        { key: 'boxShadow', value: null },
-        ...borderNullEntries,
-      ]);
+      return commitStyleChanges({
+        outline: `${wNum}px ${s || 'solid'} ${c || '#000000'}`,
+        outlineOffset: '0px',
+        boxShadow: null,
+        ...borderClears,
+      });
     } else if (pos === 'inside') {
-      onChange([
-        { key: 'boxShadow', value: `inset 0 0 0 ${wNum}px ${c || '#000000'}` },
-        { key: 'outline', value: null },
-        { key: 'outlineOffset', value: null },
-        ...borderNullEntries,
-      ]);
+      return commitStyleChanges({
+        boxShadow: `inset 0 0 0 ${wNum}px ${c || '#000000'}`,
+        outline: null,
+        outlineOffset: null,
+        ...borderClears,
+      });
     }
-  }, [onChange]);
+  }, [commitStyleChanges]);
 
   // all 模式下感知 position 的变更处理（outside/inside 时转换为 outline/boxShadow 输出）
   const handleAllModeChange = useCallback((changes: Record<string, any>) => {
     const pos = borderPositionRef.current;
     if (pos === 'center') {
-      handleChange(changes);
-      return;
+      return handleChange(changes);
     }
-    hasUserEditedRef.current = true;
     const currentVal = borderValueRef.current;
     const newVal = { ...currentVal, ...changes };
-    setBorderValue(newVal);
     const w = newVal.borderTopWidth || '1px';
     const c = newVal.borderTopColor || '#000000';
     const s = newVal.borderTopStyle || 'solid';
-    emitPositionCSS(pos, w, c, s);
+    const result = emitPositionCSS(pos, w, c, s);
+    if (mutationFailed(result)) return result;
+    borderValueRef.current = newVal;
+    setBorderValue(newVal);
+    setPreviewValues((current) => {
+      const next = { ...current };
+      Object.keys(changes).forEach((key) => { next[key] = undefined; });
+      return next;
+    });
+    return result;
   }, [handleChange, emitPositionCSS]);
 
   // Position 下拉切换时，将当前 borderValue 转换为新的 CSS 位置输出
   const handlePositionChange = useCallback((newPos: BorderPosition) => {
     const oldPos = borderPositionRef.current;
     if (oldPos === newPos) return;
-    setBorderPosition(newPos);
-    hasUserEditedRef.current = true;
     const val = borderValueRef.current;
     const w = val.borderTopWidth || '1px';
     const c = val.borderTopColor || '#000000';
     const s = val.borderTopStyle || 'solid';
-    const wNum = parseFloat(String(w)) || 1;
-    const borderNullEntries = BORDER_LOGICAL_KEYS.map(k => ({ key: k, value: null as any }));
+    let result;
     if (newPos === 'outside') {
-      onChange([
-        { key: 'outline', value: `${wNum}px ${s} ${c}` },
-        { key: 'outlineOffset', value: '0px' },
-        { key: 'boxShadow', value: null },
-        ...borderNullEntries,
-      ]);
+      result = emitPositionCSS('outside', w, c, s);
     } else if (newPos === 'inside') {
-      onChange([
-        { key: 'boxShadow', value: `inset 0 0 0 ${wNum}px ${c}` },
-        { key: 'outline', value: null },
-        { key: 'outlineOffset', value: null },
-        ...borderNullEntries,
-      ]);
+      result = emitPositionCSS('inside', w, c, s);
     } else {
       // center: 恢复为标准 border
-      onChange([
-        ...BORDER_LOGICAL_KEYS.filter(k => k.endsWith('Width')).map(k => ({ key: k, value: w })),
-        ...BORDER_LOGICAL_KEYS.filter(k => k.endsWith('Color')).map(k => ({ key: k, value: c })),
-        ...BORDER_LOGICAL_KEYS.filter(k => k.endsWith('Style')).map(k => ({ key: k, value: s })),
-        { key: 'outline', value: null },
-        { key: 'outlineOffset', value: null },
-        { key: 'boxShadow', value: null },
-      ]);
+      result = commitStyleChanges({
+        ...Object.fromEntries(BORDER_WIDTH_KEYS.map((key) => [key, w])),
+        ...Object.fromEntries(BORDER_COLOR_KEYS.map((key) => [key, c])),
+        ...Object.fromEntries(BORDER_STYLE_KEYS.map((key) => [key, s])),
+        outline: null,
+        outlineOffset: null,
+        boxShadow: null,
+      });
     }
-  }, [onChange]);
+    if (mutationFailed(result)) return;
+    borderPositionRef.current = newPos;
+    setBorderPosition(newPos);
+  }, [commitStyleChanges, emitPositionCSS]);
 
   const hasBorderSection = !(disableBorderWidth && disableBorderColor && disableBorderStyle);
   const isInherited = collapse === 'inherited';
@@ -758,10 +775,103 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
 
   const popupStyleValue = borderHasNoVisibleLine ? 'none' : currentBorderStyle;
   const borderGradientValue = getGradientBorderValue(borderValue);
-  const borderColorIsDefault = borderHasNoVisibleLine || (!borderGradientValue && isDefaultBorderColor(borderValue.borderTopColor));
+  const standalone = !context?.getStyleProperty;
+  const isConfiguredKey = (key: string) => {
+    const current = borderValue[key];
+    if (current == null || current === '') return false;
+    if (effectiveStyle || !key.endsWith('Color')) return true;
+    const side = key.slice('border'.length, -'Color'.length);
+    return !hasNoVisibleBorderLine(
+      borderValue[`border${side}Style`],
+      borderValue[`border${side}Width`]
+    ) && String(current).trim().toLowerCase() !== 'currentcolor';
+  };
+  const borderColorIsDefault = !borderGradientValue && !isConfiguredKey('borderTopColor');
   const borderColorValue = borderColorIsDefault
     ? ''
     : borderGradientValue || borderValue.borderTopColor;
+
+  const canClearKeys = (keys: string[]) => {
+    if (standalone) return keys.some((key) => borderValue[key] != null);
+    const plans = context?.getStyleClearPlans?.(keys) ??
+      keys.map((key) => context?.getStyleProperty?.(key)?.clearPlan).filter(Boolean);
+    return !plans.some((plan) => plan?.action === 'unsupported') &&
+      plans.some((plan) => plan?.action === 'delete' || plan?.action === 'write-unset');
+  };
+  const getPreviewValue = (key: string) =>
+    previewValues[key] ?? effectiveStyle?.[key]?.computedValue;
+  const positionClearKeys = borderPosition === 'outside'
+    ? ['outline', 'outlineOffset']
+    : borderPosition === 'inside'
+      ? ['boxShadow']
+      : [];
+  const gradientClearValue = borderGradientValue
+    ? buildClearGradientBorderValue(borderValue, contentBackgroundLayersRef.current)
+    : {};
+  const gradientMutationClearKeys = Object.entries(gradientClearValue)
+    .filter(([, nextValue]) => nextValue == null)
+    .map(([key]) => key);
+  const allColorClearKeys = borderPosition === 'center'
+    ? [...BORDER_COLOR_KEYS, ...gradientMutationClearKeys]
+    : positionClearKeys;
+  const allWidthClearKeys = borderPosition === 'center'
+    ? BORDER_WIDTH_KEYS
+    : positionClearKeys;
+  const allRadiusCanClear = canClearKeys(BORDER_RADIUS_KEYS);
+  const allColorCanClear = canClearKeys(allColorClearKeys);
+  const allWidthCanClear = canClearKeys(allWidthClearKeys);
+  const fieldCanClear = Object.fromEntries(
+    [...BORDER_LOGICAL_KEYS, ...BORDER_RADIUS_KEYS].map((key) => [key, canClearKeys([key])])
+  ) as Record<string, boolean>;
+  const resetKeys = [
+    ...BORDER_LOGICAL_KEYS,
+    ...BORDER_RADIUS_KEYS,
+    ...positionClearKeys,
+    ...(borderGradientValue ? gradientMutationClearKeys : []),
+  ];
+  const canReset = canClearKeys(resetKeys);
+
+  const handlePositionBorderClear = useCallback(() => {
+    const pos = borderPositionRef.current;
+    const changes: BorderValue = Object.fromEntries(
+      BORDER_LOGICAL_KEYS.map((key) => [key, null])
+    );
+    if (pos === 'outside') {
+      changes.outline = null;
+      changes.outlineOffset = null;
+    } else if (pos === 'inside') {
+      changes.boxShadow = null;
+    }
+    return handleChange(changes);
+  }, [handleChange]);
+
+  const handleAllColorClear = useCallback(() => {
+    if (borderPositionRef.current !== 'center') return handlePositionBorderClear();
+    const current = borderValueRef.current;
+    const clearGradient = buildClearGradientBorderValue(
+      current,
+      contentBackgroundLayersRef.current
+    );
+    const result = handleChange({
+      ...Object.fromEntries(BORDER_COLOR_KEYS.map((key) => [key, null])),
+      ...clearGradient,
+    });
+    if (!mutationFailed(result)) {
+      contentBackgroundLayersRef.current = null;
+      setBorderColorEditorKey((key) => key + 1);
+    }
+    return result;
+  }, [handleChange, handlePositionBorderClear]);
+
+  const handleAllWidthClear = useCallback(() => {
+    if (borderPositionRef.current !== 'center') return handlePositionBorderClear();
+    return handleChange(Object.fromEntries(BORDER_WIDTH_KEYS.map((key) => [key, null])));
+  }, [handleChange, handlePositionBorderClear]);
+
+  const handleAllRadiusClear = useCallback(() =>
+    handleChange(Object.fromEntries(BORDER_RADIUS_KEYS.map((key) => [key, null]))),
+    [handleChange]
+  );
 
   const borderConfig = useMemo(() => {
     if (disableBorderWidth && disableBorderColor && disableBorderStyle) {
@@ -780,53 +890,61 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                     style={{ padding: 0, flex: 1, minWidth: 26 }}
                     defaultValue={borderColorValue}
                     emptyValueLabel="默认"
-                    resolvedColor={resolveCssVarColor(borderValue.borderTopColor || "", targetDom) ?? undefined}
+                    resolvedColor={resolveCssVarColor(
+                      borderValue.borderTopColor || getPreviewValue('borderTopColor') || "",
+                      targetDom
+                    ) ?? undefined}
                     variableOptions={canvasColorVariables}
                     scopeEl={targetDom}
                     showSubTabs={borderPosition === 'center'}
                     disableBackgroundImage={true}
+                    clearable={allColorCanClear}
+                    onClear={handleAllColorClear}
                     onChange={(input: any) => {
                       const value = getColorEditorValue(input);
                       if (!value) return;
                       const pos = borderPositionRef.current;
                       if (pos === 'center') {
                         // 居中模式：保留完整渐变/纯色逻辑
-                        setBorderValue((val) => {
-                          let newValue: Record<string, any>;
-                          if (isGradientValue(value)) {
-                            if (!contentBackgroundLayersRef.current?.length) {
-                              contentBackgroundLayersRef.current = getContentBackgroundLayers(val);
-                            }
-                            newValue = buildGradientBorderValue(value, val, contentBackgroundLayersRef.current);
-                            borderGradientRef.current = value;
-                          } else {
-                            newValue = {
-                              borderTopColor: value,
-                              borderRightColor: value,
-                              borderBottomColor: value,
-                              borderLeftColor: value,
-                              ...buildClearGradientBorderValue(val, contentBackgroundLayersRef.current),
-                            };
-                            borderGradientRef.current = undefined;
+                        const current = borderValueRef.current;
+                        let newValue: Record<string, any>;
+                        if (isGradientValue(value)) {
+                          const contentLayers = contentBackgroundLayersRef.current?.length
+                            ? contentBackgroundLayersRef.current
+                            : getContentBackgroundLayers(current);
+                          newValue = buildGradientBorderValue(value, current, contentLayers);
+                          if (!isLengthNineAndEndsWithZeroes(value) && isZeroBorderWidth(current.borderTopWidth)) {
+                            const autoStyle = !current.borderTopStyle || current.borderTopStyle === 'none'
+                              ? 'solid'
+                              : current.borderTopStyle;
+                            Object.assign(newValue, {
+                              ...Object.fromEntries(BORDER_WIDTH_KEYS.map((key) => [key, '1px'])),
+                              ...Object.fromEntries(BORDER_STYLE_KEYS.map((key) => [key, autoStyle])),
+                            });
+                          }
+                          const result = handleChange(newValue);
+                          if (!mutationFailed(result)) {
+                            contentBackgroundLayersRef.current = contentLayers;
+                          }
+                        } else {
+                          newValue = {
+                            ...Object.fromEntries(BORDER_COLOR_KEYS.map((key) => [key, value])),
+                            ...buildClearGradientBorderValue(current, contentBackgroundLayersRef.current),
+                          };
+                          if (!isLengthNineAndEndsWithZeroes(value) && isZeroBorderWidth(current.borderTopWidth)) {
+                            const autoStyle = !current.borderTopStyle || current.borderTopStyle === "none"
+                              ? "solid"
+                              : current.borderTopStyle;
+                            Object.assign(newValue, {
+                              ...Object.fromEntries(BORDER_WIDTH_KEYS.map((key) => [key, '1px'])),
+                              ...Object.fromEntries(BORDER_STYLE_KEYS.map((key) => [key, autoStyle])),
+                            });
+                          }
+                          const result = handleChange(newValue);
+                          if (!mutationFailed(result)) {
                             contentBackgroundLayersRef.current = null;
                           }
-                          if (!isLengthNineAndEndsWithZeroes(value) && isZeroBorderWidth(val.borderTopWidth)) {
-                            const autoStyle = !val.borderTopStyle || val.borderTopStyle === "none" ? "solid" : val.borderTopStyle;
-                            newValue = {
-                              ...newValue,
-                              borderTopWidth: "1px",
-                              borderRightWidth: "1px",
-                              borderBottomWidth: "1px",
-                              borderLeftWidth: "1px",
-                              borderTopStyle: autoStyle,
-                              borderRightStyle: autoStyle,
-                              borderBottomStyle: autoStyle,
-                              borderLeftStyle: autoStyle,
-                            };
-                          }
-                          handleChange(newValue);
-                          return { ...val, ...newValue };
-                        });
+                        }
                       } else {
                         // 外部/内部模式：仅支持纯色，输出 outline/boxShadow
                         if (isLengthNineAndEndsWithZeroes(value)) return;
@@ -901,17 +1019,26 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                       binding={widthAllVar}
                       chipStyle={CHIP_STYLE}
                       inputProps={{
-                        tip: '边框宽度',
+                        tip: borderValue.borderTopWidth == null
+                          ? buildComputedTip('边框宽度', effectiveStyle?.borderTopWidth, getPreviewValue('borderTopWidth'))
+                          : '边框宽度',
                         style: { padding: 0, fontSize: 10, marginLeft: shouldShowMiniLayout ? 2 : 4, flex: 1, minWidth: 0 },
                         defaultValue: borderValue.borderTopWidth,
                         value: borderValue.borderTopWidth,
                         defaultUnitValue: 'px',
-                        unitOptions: borderWidthUnitOptions,
+                        unitOptions: withDefaultUnitOption(borderWidthUnitOptions, allWidthCanClear),
+                        unitDisabledList: ['default'],
                         unitHideLabelList: ['px', '%'],
                         showIcon: true,
                         showIconOnHover: true,
                         fallbackValue: 0,
+                        clearable: allWidthCanClear,
+                        onClear: handleAllWidthClear,
                         onChange: (value) => {
+                          if (value === 'default') {
+                            handleAllWidthClear();
+                            return;
+                          }
                           const borderStyle =
                             !borderValue.borderTopStyle || borderValue.borderTopStyle === 'none'
                               ? 'solid'
@@ -969,13 +1096,16 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                   </div>
                   {disableBorderColor ? null : (
                     <ColorEditor
+                      key={`left-${borderColorEditorKey}`}
                       style={{ padding: 0, marginLeft: 2, flex: 1, minWidth: 26 }}
-                      defaultValue={shouldShowDefaultBorderColor(borderValue.borderLeftColor, borderValue.borderLeftStyle, borderValue.borderLeftWidth) ? '' : borderValue.borderLeftColor}
+                      defaultValue={isConfiguredKey('borderLeftColor') ? borderValue.borderLeftColor : ''}
                       emptyValueLabel="默认"
-                      resolvedColor={resolveCssVarColor(borderValue.borderLeftColor || "", targetDom) ?? undefined}
+                      resolvedColor={resolveCssVarColor(borderValue.borderLeftColor || getPreviewValue('borderLeftColor') || "", targetDom) ?? undefined}
                       variableOptions={canvasColorVariables}
                       scopeEl={targetDom}
                       showSubTabs={false}
+                      clearable={fieldCanClear.borderLeftColor}
+                      onClear={() => handleChange({ borderLeftColor: null })}
                       onChange={(input: any) => {
                         const value = getColorEditorValue(input);
                         if (!value) return;
@@ -1000,25 +1130,34 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                         chipStyle={CHIP_STYLE_SPLIT}
                         compact
                         inputProps={{
-                          tip: '左边框宽度',
+                          tip: borderValue.borderLeftWidth == null
+                            ? buildComputedTip('左边框宽度', effectiveStyle?.borderLeftWidth, getPreviewValue('borderLeftWidth'))
+                            : '左边框宽度',
                           style: WIDTH_STYLE_SPLIT,
                           defaultValue: borderValue.borderLeftWidth,
                           value: borderValue.borderLeftWidth,
                           defaultUnitValue: 'px',
-                          unitOptions: borderWidthUnitOptions,
+                          unitOptions: withDefaultUnitOption(borderWidthUnitOptions, fieldCanClear.borderLeftWidth),
+                          unitDisabledList: ['default'],
                           unitHideLabelList: ['px', '%'],
                           showIcon: true,
                           showIconOnHover: true,
-                          clearable: false,
+                          clearable: fieldCanClear.borderLeftWidth,
+                          onClear: () => handleChange({ borderLeftWidth: null }),
                           fallbackValue: 0,
-                          onChange: (value) =>
+                          onChange: (value) => {
+                            if (value === 'default') {
+                              handleChange({ borderLeftWidth: null });
+                              return;
+                            }
                             handleChange({
                               borderLeftWidth: value,
                               borderLeftStyle:
                                 !borderValue.borderLeftStyle || borderValue.borderLeftStyle === 'none'
                                   ? 'solid'
                                   : borderValue.borderLeftStyle,
-                            }),
+                            });
+                          },
                           onAction: (action) => {
                             if (action === APPLY_VARIABLE_ACTION) leftWidthVar.openPicker();
                           },
@@ -1039,13 +1178,16 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                   </div>
                   {disableBorderColor ? null : (
                     <ColorEditor
+                      key={`top-${borderColorEditorKey}`}
                       style={{ padding: 0, marginLeft: 2, flex: 1, minWidth: 26 }}
-                      defaultValue={shouldShowDefaultBorderColor(borderValue.borderTopColor, borderValue.borderTopStyle, borderValue.borderTopWidth) ? '' : borderValue.borderTopColor}
+                      defaultValue={isConfiguredKey('borderTopColor') ? borderValue.borderTopColor : ''}
                       emptyValueLabel="默认"
-                      resolvedColor={resolveCssVarColor(borderValue.borderTopColor || "", targetDom) ?? undefined}
+                      resolvedColor={resolveCssVarColor(borderValue.borderTopColor || getPreviewValue('borderTopColor') || "", targetDom) ?? undefined}
                       variableOptions={canvasColorVariables}
                       scopeEl={targetDom}
                       showSubTabs={false}
+                      clearable={fieldCanClear.borderTopColor}
+                      onClear={() => handleChange({ borderTopColor: null })}
                       onChange={(input: any) => {
                         const value = getColorEditorValue(input);
                         if (!value) return;
@@ -1070,25 +1212,34 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                         chipStyle={CHIP_STYLE_SPLIT}
                         compact
                         inputProps={{
-                          tip: '上边框宽度',
+                          tip: borderValue.borderTopWidth == null
+                            ? buildComputedTip('上边框宽度', effectiveStyle?.borderTopWidth, getPreviewValue('borderTopWidth'))
+                            : '上边框宽度',
                           style: WIDTH_STYLE_SPLIT,
                           defaultValue: borderValue.borderTopWidth,
                           value: borderValue.borderTopWidth,
                           defaultUnitValue: 'px',
-                          unitOptions: borderWidthUnitOptions,
+                          unitOptions: withDefaultUnitOption(borderWidthUnitOptions, fieldCanClear.borderTopWidth),
+                          unitDisabledList: ['default'],
                           unitHideLabelList: ['px', '%'],
                           showIcon: true,
                           showIconOnHover: true,
-                          clearable: false,
+                          clearable: fieldCanClear.borderTopWidth,
+                          onClear: () => handleChange({ borderTopWidth: null }),
                           fallbackValue: 0,
-                          onChange: (value) =>
+                          onChange: (value) => {
+                            if (value === 'default') {
+                              handleChange({ borderTopWidth: null });
+                              return;
+                            }
                             handleChange({
                               borderTopWidth: value,
                               borderTopStyle:
                                 !borderValue.borderTopStyle || borderValue.borderTopStyle === 'none'
                                   ? 'solid'
                                   : borderValue.borderTopStyle,
-                            }),
+                            });
+                          },
                           onAction: (action) => {
                             if (action === APPLY_VARIABLE_ACTION) topWidthVar.openPicker();
                           },
@@ -1110,13 +1261,16 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                   </div>
                   {disableBorderColor ? null : (
                     <ColorEditor
+                      key={`right-${borderColorEditorKey}`}
                       style={{ padding: 0, marginLeft: 2, flex: 1, minWidth: 26 }}
-                      defaultValue={shouldShowDefaultBorderColor(borderValue.borderRightColor, borderValue.borderRightStyle, borderValue.borderRightWidth) ? '' : borderValue.borderRightColor}
+                      defaultValue={isConfiguredKey('borderRightColor') ? borderValue.borderRightColor : ''}
                       emptyValueLabel="默认"
-                      resolvedColor={resolveCssVarColor(borderValue.borderRightColor || "", targetDom) ?? undefined}
+                      resolvedColor={resolveCssVarColor(borderValue.borderRightColor || getPreviewValue('borderRightColor') || "", targetDom) ?? undefined}
                       variableOptions={canvasColorVariables}
                       scopeEl={targetDom}
                       showSubTabs={false}
+                      clearable={fieldCanClear.borderRightColor}
+                      onClear={() => handleChange({ borderRightColor: null })}
                       onChange={(input: any) => {
                         const value = getColorEditorValue(input);
                         if (!value) return;
@@ -1141,25 +1295,34 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                         chipStyle={CHIP_STYLE_SPLIT}
                         compact
                         inputProps={{
-                          tip: '右边框宽度',
+                          tip: borderValue.borderRightWidth == null
+                            ? buildComputedTip('右边框宽度', effectiveStyle?.borderRightWidth, getPreviewValue('borderRightWidth'))
+                            : '右边框宽度',
                           style: WIDTH_STYLE_SPLIT,
                           defaultValue: borderValue.borderRightWidth,
                           value: borderValue.borderRightWidth,
                           defaultUnitValue: 'px',
-                          unitOptions: borderWidthUnitOptions,
+                          unitOptions: withDefaultUnitOption(borderWidthUnitOptions, fieldCanClear.borderRightWidth),
+                          unitDisabledList: ['default'],
                           unitHideLabelList: ['px', '%'],
                           showIcon: true,
                           showIconOnHover: true,
-                          clearable: false,
+                          clearable: fieldCanClear.borderRightWidth,
+                          onClear: () => handleChange({ borderRightWidth: null }),
                           fallbackValue: 0,
-                          onChange: (value) =>
+                          onChange: (value) => {
+                            if (value === 'default') {
+                              handleChange({ borderRightWidth: null });
+                              return;
+                            }
                             handleChange({
                               borderRightWidth: value,
                               borderRightStyle:
                                 !borderValue.borderRightStyle || borderValue.borderRightStyle === 'none'
                                   ? 'solid'
                                   : borderValue.borderRightStyle,
-                            }),
+                            });
+                          },
                           onAction: (action) => {
                             if (action === APPLY_VARIABLE_ACTION) rightWidthVar.openPicker();
                           },
@@ -1181,13 +1344,16 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                   </div>
                   {disableBorderColor ? null : (
                     <ColorEditor
+                      key={`bottom-${borderColorEditorKey}`}
                       style={{ padding: 0, marginLeft: 2, flex: 1, minWidth: 26 }}
-                      defaultValue={shouldShowDefaultBorderColor(borderValue.borderBottomColor, borderValue.borderBottomStyle, borderValue.borderBottomWidth) ? '' : borderValue.borderBottomColor}
+                      defaultValue={isConfiguredKey('borderBottomColor') ? borderValue.borderBottomColor : ''}
                       emptyValueLabel="默认"
-                      resolvedColor={resolveCssVarColor(borderValue.borderBottomColor || "", targetDom) ?? undefined}
+                      resolvedColor={resolveCssVarColor(borderValue.borderBottomColor || getPreviewValue('borderBottomColor') || "", targetDom) ?? undefined}
                       variableOptions={canvasColorVariables}
                       scopeEl={targetDom}
                       showSubTabs={false}
+                      clearable={fieldCanClear.borderBottomColor}
+                      onClear={() => handleChange({ borderBottomColor: null })}
                       onChange={(input: any) => {
                         const value = getColorEditorValue(input);
                         if (!value) return;
@@ -1212,25 +1378,34 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                         chipStyle={CHIP_STYLE_SPLIT}
                         compact
                         inputProps={{
-                          tip: '下边框宽度',
+                          tip: borderValue.borderBottomWidth == null
+                            ? buildComputedTip('下边框宽度', effectiveStyle?.borderBottomWidth, getPreviewValue('borderBottomWidth'))
+                            : '下边框宽度',
                           style: WIDTH_STYLE_SPLIT,
                           defaultValue: borderValue.borderBottomWidth,
                           value: borderValue.borderBottomWidth,
                           defaultUnitValue: 'px',
-                          unitOptions: borderWidthUnitOptions,
+                          unitOptions: withDefaultUnitOption(borderWidthUnitOptions, fieldCanClear.borderBottomWidth),
+                          unitDisabledList: ['default'],
                           unitHideLabelList: ['px', '%'],
                           showIcon: true,
                           showIconOnHover: true,
-                          clearable: false,
+                          clearable: fieldCanClear.borderBottomWidth,
+                          onClear: () => handleChange({ borderBottomWidth: null }),
                           fallbackValue: 0,
-                          onChange: (value) =>
+                          onChange: (value) => {
+                            if (value === 'default') {
+                              handleChange({ borderBottomWidth: null });
+                              return;
+                            }
                             handleChange({
                               borderBottomWidth: value,
                               borderBottomStyle:
                                 !borderValue.borderBottomStyle || borderValue.borderBottomStyle === 'none'
                                   ? 'solid'
                                   : borderValue.borderBottomStyle,
-                            }),
+                            });
+                          },
                           onAction: (action) => {
                             if (action === APPLY_VARIABLE_ACTION) bottomWidthVar.openPicker();
                           },
@@ -1245,7 +1420,15 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
         </div>
       );
     }
-  }, [borderToggleValue, popupStyleValue, borderValue, getDragPropsBorder, borderColorEditorKey, borderPosition, refresh, handleAllModeChange, handlePositionChange, targetDom, canvasColorVariables, widthAllVar, topWidthVar, rightWidthVar, bottomWidthVar, leftWidthVar, borderWidthUnitOptions, shouldShowMiniLayout]);
+  }, [
+    borderToggleValue, popupStyleValue, borderValue, previewValues,
+    getDragPropsBorder, borderColorEditorKey, borderPosition,
+    handleAllModeChange, handlePositionChange, handleAllColorClear, handleAllWidthClear,
+    handleChange, allColorCanClear, allWidthCanClear, fieldCanClear,
+    effectiveStyle, targetDom, canvasColorVariables,
+    widthAllVar, topWidthVar, rightWidthVar, bottomWidthVar, leftWidthVar,
+    borderWidthUnitOptions, shouldShowMiniLayout,
+  ]);
 
   const radiusConfig = useMemo(() => {
     if (disableBorderRadius) {
@@ -1269,20 +1452,31 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                 binding={radiusAllVar}
                 chipStyle={CHIP_STYLE}
                 inputProps={{
-                  tip: '圆角半径',
+                  tip: borderValue.borderTopLeftRadius == null
+                    ? buildComputedTip('圆角半径', effectiveStyle?.borderTopLeftRadius, getPreviewValue('borderTopLeftRadius'))
+                    : '圆角半径',
                   style: DEFAULT_STYLE,
                   defaultValue: borderValue.borderTopLeftRadius,
-                  unitOptions: radiusUnitOptions,
+                  value: borderValue.borderTopLeftRadius,
+                  unitOptions: withDefaultUnitOption(radiusUnitOptions, allRadiusCanClear),
+                  unitDisabledList: ['default'],
                   showIcon: true,
                   showIconOnHover: true,
                   fallbackValue: 0,
-                  onChange: (value) =>
+                  clearable: allRadiusCanClear,
+                  onClear: handleAllRadiusClear,
+                  onChange: (value) => {
+                    if (value === 'default') {
+                      handleAllRadiusClear();
+                      return;
+                    }
                     handleChange({
                       borderTopLeftRadius: value,
                       borderBottomLeftRadius: value,
                       borderBottomRightRadius: value,
                       borderTopRightRadius: value,
-                    }),
+                    });
+                  },
                   onAction: (action) => {
                     if (action === APPLY_VARIABLE_ACTION) radiusAllVar.openPicker();
                   },
@@ -1321,13 +1515,22 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                     binding={topLeftRadiusVar}
                     chipStyle={CHIP_STYLE}
                     inputProps={{
+                      tip: borderValue.borderTopLeftRadius == null
+                        ? buildComputedTip('左上圆角', effectiveStyle?.borderTopLeftRadius, getPreviewValue('borderTopLeftRadius'))
+                        : '左上圆角',
                       style: DEFAULT_STYLE__NEW,
                       defaultValue: borderValue.borderTopLeftRadius,
-                      unitOptions: radiusUnitOptions,
+                      value: borderValue.borderTopLeftRadius,
+                      unitOptions: withDefaultUnitOption(radiusUnitOptions, fieldCanClear.borderTopLeftRadius),
+                      unitDisabledList: ['default'],
                       showIcon: true,
                       showIconOnHover: true,
                       fallbackValue: 0,
-                      onChange: (value) => handleChange({ borderTopLeftRadius: value }),
+                      clearable: fieldCanClear.borderTopLeftRadius,
+                      onClear: () => handleChange({ borderTopLeftRadius: null }),
+                      onChange: (value) => handleChange({
+                        borderTopLeftRadius: value === 'default' ? null : value,
+                      }),
                       onAction: (action) => {
                         if (action === APPLY_VARIABLE_ACTION) topLeftRadiusVar.openPicker();
                       },
@@ -1351,13 +1554,22 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                     binding={topRightRadiusVar}
                     chipStyle={CHIP_STYLE}
                     inputProps={{
+                      tip: borderValue.borderTopRightRadius == null
+                        ? buildComputedTip('右上圆角', effectiveStyle?.borderTopRightRadius, getPreviewValue('borderTopRightRadius'))
+                        : '右上圆角',
                       style: DEFAULT_STYLE__NEW,
                       defaultValue: borderValue.borderTopRightRadius,
-                      unitOptions: radiusUnitOptions,
+                      value: borderValue.borderTopRightRadius,
+                      unitOptions: withDefaultUnitOption(radiusUnitOptions, fieldCanClear.borderTopRightRadius),
+                      unitDisabledList: ['default'],
                       showIcon: true,
                       showIconOnHover: true,
                       fallbackValue: 0,
-                      onChange: (value) => handleChange({ borderTopRightRadius: value }),
+                      clearable: fieldCanClear.borderTopRightRadius,
+                      onClear: () => handleChange({ borderTopRightRadius: null }),
+                      onChange: (value) => handleChange({
+                        borderTopRightRadius: value === 'default' ? null : value,
+                      }),
                       onAction: (action) => {
                         if (action === APPLY_VARIABLE_ACTION) topRightRadiusVar.openPicker();
                       },
@@ -1385,13 +1597,22 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                     binding={bottomLeftRadiusVar}
                     chipStyle={CHIP_STYLE}
                     inputProps={{
+                      tip: borderValue.borderBottomLeftRadius == null
+                        ? buildComputedTip('左下圆角', effectiveStyle?.borderBottomLeftRadius, getPreviewValue('borderBottomLeftRadius'))
+                        : '左下圆角',
                       style: DEFAULT_STYLE__NEW,
                       defaultValue: borderValue.borderBottomLeftRadius,
-                      unitOptions: radiusUnitOptions,
+                      value: borderValue.borderBottomLeftRadius,
+                      unitOptions: withDefaultUnitOption(radiusUnitOptions, fieldCanClear.borderBottomLeftRadius),
+                      unitDisabledList: ['default'],
                       showIcon: true,
                       showIconOnHover: true,
                       fallbackValue: 0,
-                      onChange: (value) => handleChange({ borderBottomLeftRadius: value }),
+                      clearable: fieldCanClear.borderBottomLeftRadius,
+                      onClear: () => handleChange({ borderBottomLeftRadius: null }),
+                      onChange: (value) => handleChange({
+                        borderBottomLeftRadius: value === 'default' ? null : value,
+                      }),
                       onAction: (action) => {
                         if (action === APPLY_VARIABLE_ACTION) bottomLeftRadiusVar.openPicker();
                       },
@@ -1415,13 +1636,22 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
                     binding={bottomRightRadiusVar}
                     chipStyle={CHIP_STYLE}
                     inputProps={{
+                      tip: borderValue.borderBottomRightRadius == null
+                        ? buildComputedTip('右下圆角', effectiveStyle?.borderBottomRightRadius, getPreviewValue('borderBottomRightRadius'))
+                        : '右下圆角',
                       style: DEFAULT_STYLE__NEW,
                       defaultValue: borderValue.borderBottomRightRadius,
-                      unitOptions: radiusUnitOptions,
+                      value: borderValue.borderBottomRightRadius,
+                      unitOptions: withDefaultUnitOption(radiusUnitOptions, fieldCanClear.borderBottomRightRadius),
+                      unitDisabledList: ['default'],
                       showIcon: true,
                       showIconOnHover: true,
                       fallbackValue: 0,
-                      onChange: (value) => handleChange({ borderBottomRightRadius: value }),
+                      clearable: fieldCanClear.borderBottomRightRadius,
+                      onClear: () => handleChange({ borderBottomRightRadius: null }),
+                      onChange: (value) => handleChange({
+                        borderBottomRightRadius: value === 'default' ? null : value,
+                      }),
                       onAction: (action) => {
                         if (action === APPLY_VARIABLE_ACTION) bottomRightRadiusVar.openPicker();
                       },
@@ -1445,10 +1675,32 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
         </div>
       );
     }
-  }, [radiusToggleValue, splitRadiusIcon, borderValue, getDragPropsRadius, radiusAllVar, topLeftRadiusVar, topRightRadiusVar, bottomLeftRadiusVar, bottomRightRadiusVar, radiusUnitOptions]);
+  }, [
+    radiusToggleValue, splitRadiusIcon, borderValue, previewValues,
+    getDragPropsRadius, handleChange, handleAllRadiusClear, allRadiusCanClear,
+    fieldCanClear, effectiveStyle,
+    radiusAllVar, topLeftRadiusVar, topRightRadiusVar,
+    bottomLeftRadiusVar, bottomRightRadiusVar, radiusUnitOptions,
+  ]);
 
   const handleToggleChange = useCallback(
     ({ key, value }: { key: string; value: string }) => {
+      if (key === 'borderToggleValue' && value === 'all' && borderToggleValue !== 'all') {
+        const current = borderValueRef.current;
+        const result = handleAllModeChange({
+          ...Object.fromEntries(BORDER_COLOR_KEYS.map((name) => [name, current.borderTopColor])),
+          ...Object.fromEntries(BORDER_STYLE_KEYS.map((name) => [name, current.borderTopStyle])),
+          ...Object.fromEntries(BORDER_WIDTH_KEYS.map((name) => [name, current.borderTopWidth])),
+        });
+        if (mutationFailed(result)) return;
+      }
+      if (key === 'radiusToggleValue' && value === 'all' && radiusToggleValue !== 'all') {
+        const current = borderValueRef.current.borderTopLeftRadius;
+        const result = handleChange(
+          Object.fromEntries(BORDER_RADIUS_KEYS.map((name) => [name, current]))
+        );
+        if (mutationFailed(result)) return;
+      }
       setToggleValue((val) => {
         return {
           ...val,
@@ -1456,42 +1708,8 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
         };
       });
     },
-    [borderValue]
+    [borderToggleValue, radiusToggleValue, handleAllModeChange, handleChange]
   );
-
-  useUpdateEffect(() => {
-    if (suppressBorderToggleWriteRef.current) {
-      suppressBorderToggleWriteRef.current = false;
-      return;
-    }
-    handleChange({
-      borderTopColor: borderValue.borderTopColor,
-      borderRightColor: borderValue.borderTopColor,
-      borderBottomColor: borderValue.borderTopColor,
-      borderLeftColor: borderValue.borderTopColor,
-      borderTopStyle: borderValue.borderTopStyle,
-      borderRightStyle: borderValue.borderTopStyle,
-      borderBottomStyle: borderValue.borderTopStyle,
-      borderLeftStyle: borderValue.borderTopStyle,
-      borderTopWidth: borderValue.borderTopWidth,
-      borderRightWidth: borderValue.borderTopWidth,
-      borderBottomWidth: borderValue.borderTopWidth,
-      borderLeftWidth: borderValue.borderTopWidth,
-    });
-  }, [borderToggleValue]);
-
-  useUpdateEffect(() => {
-    if (suppressRadiusToggleWriteRef.current) {
-      suppressRadiusToggleWriteRef.current = false;
-      return;
-    }
-    handleChange({
-      borderTopLeftRadius: borderValue.borderTopLeftRadius,
-      borderTopRightRadius: borderValue.borderTopLeftRadius,
-      borderBottomLeftRadius: borderValue.borderTopLeftRadius,
-      borderBottomRightRadius: borderValue.borderTopLeftRadius,
-    });
-  }, [radiusToggleValue]);
 
   const styleSettingsPortal = !disableBorderStyle && showStyleSettings
     ? createPortal(
@@ -1526,7 +1744,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
       deleteRef={panelDeleteRef}
       rightColumn={
         <div className={css.rightColumn}>
-          {!isInherited && (
+          {!isInherited && canReset && (
             <div
               data-mybricks-tip={`{content:'删除边框',position:'left'}`}
               className={css.rightColumnBtn}
@@ -1535,7 +1753,7 @@ export function Border({ value, onChange, config, showTitle, collapse }: BorderP
               <MinusOutlined />
             </div>
           )}
-          {isInherited && hasBorderSection && (
+          {(isInherited || !canReset) && (
             <div className={css.rightColumnPlaceholder} aria-hidden="true" />
           )}
           {hasBorderSection && (
