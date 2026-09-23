@@ -31,6 +31,8 @@ export type EffectiveStyleValue = {
 
 export type ZoneTab = {
   selector: string
+  /** 合并前参与当前状态 Tab 的基础 selector，用于影响区域统计。 */
+  affectedSelectors?: string[]
   baseSelector: string
   pseudo: string | null
   sourceRules: ZoneSourceRule[]
@@ -38,6 +40,8 @@ export type ZoneTab = {
   target?: Element
   label?: string
   effectiveStyle?: Record<string, EffectiveStyleValue>
+  /** 是否由右侧新增状态按钮临时添加。 */
+  isAdded?: boolean
 }
 
 export type ZoneDeletionTarget = {
@@ -258,6 +262,7 @@ export function mergeZoneTabsByState(tabs: ZoneTab[]): ZoneTab[] {
     if (!existing) {
       merged.set(stateKey, {
         ...tab,
+        affectedSelectors: Array.from(new Set(tab.affectedSelectors ?? [tab.selector])),
         sourceRules: tab.sourceRules.slice(),
         baseRules: tab.baseRules.slice(),
         effectiveStyle: {},
@@ -267,6 +272,10 @@ export function mergeZoneTabsByState(tabs: ZoneTab[]): ZoneTab[] {
 
     mergeRules(existing.sourceRules, tab.sourceRules)
     mergeRules(existing.baseRules, tab.baseRules)
+    existing.affectedSelectors = Array.from(new Set([
+      ...(existing.affectedSelectors ?? [existing.selector]),
+      ...(tab.affectedSelectors ?? [tab.selector]),
+    ]))
   })
 
   return Array.from(merged.values())

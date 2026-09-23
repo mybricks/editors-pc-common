@@ -779,7 +779,7 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
   // 普通 border 的宽度“默认”只撤销宽度；整组删除仍由面板减号负责。
   const handleAllWidthClear = useCallback(() => {
     if (borderPositionRef.current !== 'center') return refresh();
-    return handleWidthChange(BORDER_WIDTH_KEYS, null, true);
+    return handleWidthChange(['borderWidth'], 0, true);
   }, [handleWidthChange, refresh]);
 
   const borderConfig = useMemo(() => {
@@ -1039,11 +1039,11 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
                           showIcon: true,
                           showIconOnHover: true,
                           clearable: fieldCanClear.borderLeftWidth,
-                          onClear: () => handleWidthChange(['borderLeftWidth'], null),
+                          onClear: () => handleWidthChange(['borderLeftWidth'], 0),
                           fallbackValue: 0,
                           onChange: (value) => {
                             if (value === 'default') {
-                              handleWidthChange(['borderLeftWidth'], null);
+                              handleWidthChange(['borderLeftWidth'], 0);
                               return;
                             }
                             handleWidthChange(['borderLeftWidth'], value);
@@ -1115,11 +1115,11 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
                           showIcon: true,
                           showIconOnHover: true,
                           clearable: fieldCanClear.borderTopWidth,
-                          onClear: () => handleWidthChange(['borderTopWidth'], null),
+                          onClear: () => handleWidthChange(['borderTopWidth'], 0),
                           fallbackValue: 0,
                           onChange: (value) => {
                             if (value === 'default') {
-                              handleWidthChange(['borderTopWidth'], null);
+                              handleWidthChange(['borderTopWidth'], 0);
                               return;
                             }
                             handleWidthChange(['borderTopWidth'], value);
@@ -1192,11 +1192,11 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
                           showIcon: true,
                           showIconOnHover: true,
                           clearable: fieldCanClear.borderRightWidth,
-                          onClear: () => handleWidthChange(['borderRightWidth'], null),
+                          onClear: () => handleWidthChange(['borderRightWidth'], 0),
                           fallbackValue: 0,
                           onChange: (value) => {
                             if (value === 'default') {
-                              handleWidthChange(['borderRightWidth'], null);
+                              handleWidthChange(['borderRightWidth'], 0);
                               return;
                             }
                             handleWidthChange(['borderRightWidth'], value);
@@ -1269,11 +1269,11 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
                           showIcon: true,
                           showIconOnHover: true,
                           clearable: fieldCanClear.borderBottomWidth,
-                          onClear: () => handleWidthChange(['borderBottomWidth'], null),
+                          onClear: () => handleWidthChange(['borderBottomWidth'], 0),
                           fallbackValue: 0,
                           onChange: (value) => {
                             if (value === 'default') {
-                              handleWidthChange(['borderBottomWidth'], null);
+                              handleWidthChange(['borderBottomWidth'], 0);
                               return;
                             }
                             handleWidthChange(['borderBottomWidth'], value);
@@ -1344,7 +1344,7 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
     <>
     {styleSettingsPortal as React.ReactNode}
     <Panel
-      title="描边"
+      title="边框"
       showTitle={showTitle}
       collapse={collapse}
       onExpand={handleExpand}

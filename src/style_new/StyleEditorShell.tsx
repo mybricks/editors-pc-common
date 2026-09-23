@@ -67,8 +67,8 @@ const ZONE_TAB_ADD_OPTIONS = [
   { key: 'focus', suffix: ':focus', label: '聚焦态' },
   { key: 'active', suffix: ':active', label: '激活态' },
   { key: 'disabled', suffix: ':disabled', label: '禁用态' },
-  { key: 'before', suffix: '::before', label: '前缀元素' },
-  { key: 'after', suffix: '::after', label: '后缀元素' },
+  // { key: 'before', suffix: '::before', label: '前缀元素' },
+  // { key: 'after', suffix: '::after', label: '后缀元素' },
 ] as const
 
 async function writeClipboardText(text: string): Promise<boolean> {
@@ -141,7 +141,14 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
   }, [editConfig])
 
   const { batchMeta, refreshBatchMeta, onBatchDiscard, onBatchCommit } = useBatchMeta(editConfig)
-  const { zoneSelectorList, zoneTabs, activeZoneIdx, setActiveZoneIdx, addZoneTab } = useZoneSelectors(
+  const {
+    zoneSelectorList,
+    zoneTabs,
+    activeZoneIdx,
+    setActiveZoneIdx,
+    addZoneTab,
+    deleteZoneTab,
+  } = useZoneSelectors(
     editConfig,
     targetDom,
     open
@@ -158,7 +165,7 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
 
   const affectedCount = useAffectedCount(
     activeZoneIdx,
-    zoneSelectorList,
+    zoneTabs,
     finalSelector,
     shellComId || undefined,
     selectedTarget
@@ -265,9 +272,15 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
       target: selectedTarget || undefined,
       label: labels[type],
       effectiveStyle: {},
+      isAdded: true,
     }
+    console.log('[添加Tab]', tab);
     addZoneTab(tab)
   }, [activeZoneTab, addZoneTab, baseSelector, selectedTarget, zoneTabs])
+
+  const onDeleteZoneTab = useCallback((selector: string) => {
+    deleteZoneTab(selector)
+  }, [deleteZoneTab])
 
   const componentRoot = useMemo(() => {
     return shellComId ? getDocument().getElementById(shellComId) : null
@@ -914,6 +927,8 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
             onSelect={onZoneTabSelect}
             onAdd={onAddZoneTab}
             addOptions={zoneTabAddOptions}
+            deletableSelectors={zoneTabs.filter((tab) => tab.isAdded).map((tab) => tab.selector)}
+            onDelete={onDeleteZoneTab}
           />
         )}
         {showEditModeControl && (

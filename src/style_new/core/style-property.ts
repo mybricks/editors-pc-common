@@ -294,6 +294,15 @@ export function createBatchStyleClearPlans(
     )
     if (!sameSource || !winner.label) return
 
+    // 多个 selector 同时提供同一组圆角时，清空生效来源需要写入 unset，
+    const hasOtherCurrentSource = longhandProperties.some(({ winner: current, candidates }) =>
+      candidates.some(candidate =>
+        candidate.currentState &&
+        (candidate.label !== current?.label || candidate.inline !== current?.inline || candidate.source !== current?.source)
+      )
+    )
+    if (hasOtherCurrentSource && property === 'border-radius') return
+
     let deleteProperties = family
     if (winner.inline) {
       // JSX 的源码范围才是原始声明信息，不能要求 CSSOM 展开的每个 longhand

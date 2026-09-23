@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react'
 import { Button, Dropdown, Menu } from 'antd'
-import { PlusOutlined } from '@ant-design/icons'
+import { CloseOutlined, PlusOutlined } from '@ant-design/icons'
 
 import css from './index.less'
 
@@ -83,6 +83,8 @@ export function ZoneTabBar(props: {
   onSelect: (idx: number) => void
   onAdd?: (type: string) => void
   addOptions?: Array<{ key: string; label: string }>
+  deletableSelectors?: string[]
+  onDelete?: (selector: string) => void
 }) {
   const {
     selectors,
@@ -91,6 +93,8 @@ export function ZoneTabBar(props: {
     onSelect,
     onAdd,
     addOptions = [],
+    deletableSelectors = [],
+    onDelete,
   } = props
   const labels = useMemo(
     () => providedLabels ?? getZoneTabLabels(selectors),
@@ -105,7 +109,20 @@ export function ZoneTabBar(props: {
           className={`${css.zoneTab}${idx === activeIdx ? ` ${css.zoneTabActive}` : ''}`}
           onClick={() => onSelect(idx)}
         >
-          {labels[idx]}
+          <span>{labels[idx]}</span>
+          {onDelete && deletableSelectors.includes(sel) && (
+            <button
+              className={css.zoneTabDelete}
+              type="button"
+              aria-label={`删除${labels[idx]}`}
+              onClick={(event) => {
+                event.stopPropagation()
+                onDelete(sel)
+              }}
+            >
+              <CloseOutlined />
+            </button>
+          )}
         </div>
       ))}
       {onAdd && addOptions.length > 0 && (

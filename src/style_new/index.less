@@ -263,6 +263,35 @@
   }
 }
 
+.zoneTabDelete {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  color: #333 !important;
+  background: #fff;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 20%);
+  cursor: pointer;
+  line-height: 1;
+  z-index: 2;
+
+  svg {
+    width: 9px;
+    height: 9px;
+  }
+}
+
+.zoneTab:hover .zoneTabDelete {
+  display: inline-flex;
+}
+
 .zoneTabActive {
   color: #fff;
   z-index: 1;
