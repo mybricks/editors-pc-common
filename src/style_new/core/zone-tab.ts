@@ -38,6 +38,8 @@ export type ZoneTab = {
   target?: Element
   label?: string
   effectiveStyle?: Record<string, EffectiveStyleValue>
+  /** 是否由右侧新增状态按钮临时添加。 */
+  isAdded?: boolean
 }
 
 export type ZoneDeletionTarget = {

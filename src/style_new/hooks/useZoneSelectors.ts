@@ -170,11 +170,17 @@ export function useZoneSelectors(editConfig: any, targetDom: any, _open: boolean
     userSelectedRef.current = true
   }, [customZoneTabs, zoneTabs])
 
+  const deleteZoneTab = useCallback((selector: string) => {
+    setCustomZoneTabs((tabs) => tabs.filter((tab) => tab.selector !== selector))
+    userSelectedRef.current = true
+  }, [])
+
   return {
     zoneSelectorList,
     zoneTabs,
     activeZoneIdx,
     setActiveZoneIdx: setActiveZoneIdxByUser,
     addZoneTab,
+    deleteZoneTab,
   }
 }
