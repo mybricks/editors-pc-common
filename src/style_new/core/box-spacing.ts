@@ -2,7 +2,7 @@ import { expandFourShorthand, normalizeStyleShorthands } from './shorthand-norma
 import {
   cssPropertyName, readInlineStyleProperties, readStaticInlineStyleInfo, resolveEffectiveStyleSource,
 } from './style-property'
-import type { StyleProperty, StyleResolution } from './style-property'
+import type { StyleResolution } from './style-property'
 import type { StyleChangeItem } from './apply-style-change'
 import type { EffectiveStyleValue } from './zone-tab'
 
@@ -18,22 +18,19 @@ export function getBoxSpacingProperty(key: string): BoxSpacingProperty | undefin
   )
 }
 
-/** 独立单边走清空；只有简写贡献的单边才补零，保留其他方向并重新压缩。 */
-export function normalizeBoxSpacingChange(
-  key: string,
-  next: any,
-  source?: StyleProperty,
-  standaloneValue?: Record<string, any>
-): any {
-  if (next != null && String(next).trim() !== 'default') return next
-  const property = getBoxSpacingProperty(key)
-  if (!property || key === property) return null
-  if (source) {
-    if (source.clearPlan.action === 'delete' || source.clearPlan.action === 'noop') return null
-    return source.winner?.currentState && source.winner.property === property ? '0px' : null
-  }
-  // 无属性来源解析的独立面板，仅在确有简写时补零，不能将未配置值写成 0。
-  return expandFourShorthand(standaloneValue?.[property]) ? '0px' : null
+/** 默认始终表示取消配置，显式输入的 0 仍是 set。 */
+export function normalizeBoxSpacingChange(next: any): any {
+  return next == null || String(next).trim() === 'default' ? null : next
+}
+
+/** 整组清空沿用原计划；部分方向的清空由间距写入计划原子地拆写简写。 */
+export function getBoxSpacingSideClearKeys(changes: StyleChangeItem[]): Set<string> {
+  const cleared = new Set(changes.filter(change => change.value == null).map(change => change.key))
+  return new Set((Object.keys(BOX_SPACING_KEYS) as BoxSpacingProperty[]).flatMap(property => {
+    const keys: readonly string[] = BOX_SPACING_KEYS[property]
+    return cleared.has(property) || keys.every(key => cleared.has(key))
+      ? [] : keys.filter(key => cleared.has(key))
+  }))
 }
 
 /** 未配置保持空值；0 是显式配置。独立面板也支持简写回显。 */
@@ -79,6 +76,7 @@ export type SpacingWritePlan = {
   selector: string
   style: Record<string, any>
   deletions: string[]
+  clearedKeys: string[]
   unsupported: boolean
 }
 
@@ -88,18 +86,22 @@ export type SpacingWritePlan = {
  */
 export function createSpacingWritePlans(
   changes: StyleChangeItem[],
-  resolution: StyleResolution,
+  resolution: Pick<StyleResolution, 'get'>,
   currentSelector: string,
   target: HTMLElement | null,
   resolveSelector?: (change: StyleChangeItem) => string | null
 ): SpacingWritePlan[] {
+  const sideClearKeys = getBoxSpacingSideClearKeys(changes)
   const groups = new Map<string, { property: BoxSpacingProperty; selector: string; changes: StyleChangeItem[] }>()
   changes.forEach(change => {
     const property = getBoxSpacingProperty(change.key)
-    if (!property || change.value == null) return
+    const clearing = change.value == null
+    if (!property || (clearing && !sideClearKeys.has(change.key))) return
     const winner = resolution.get(change.key).winner
+    // 清空只跟随当前状态的生效来源，不能走 computed 的新增声明路由。
+    if (clearing && !winner?.currentState) return
     // 执行器传入统一的属性写入决策，computed 的单边也参与最高权重选择。
-    const selector = resolveSelector
+    const selector = clearing ? winner?.label || '' : resolveSelector
       ? resolveSelector(change) || ''
       : change.target === 'current-rule'
         ? currentSelector
@@ -113,6 +115,17 @@ export function createSpacingWritePlans(
   return Array.from(groups.values(), ({ property, selector, changes: groupChanges }) => {
     const keys = BOX_SPACING_KEYS[property]
     const family = [property, ...keys]
+    const clearedKeys = groupChanges.filter(change => change.value == null).map(change => change.key)
+    // 独立长写可直接删除，不重写无关方向（尤其是带动态 JSX 的相邻方向）。
+    const deleteOnly = clearedKeys.length === groupChanges.length && groupChanges.every(change =>
+      resolution.get(change.key).winner?.property === cssPropertyName(change.key)
+    )
+    if (deleteOnly) {
+      const unsupported = !selector || (selector === 'inline' && clearedKeys.some(key =>
+        !readStaticInlineStyleInfo(target, key, true)
+      ))
+      return { property, selector, style: {}, deletions: clearedKeys, clearedKeys, unsupported }
+    }
     const style: Record<string, any> = {}
     family.forEach(key => {
       const candidate = resolveEffectiveStyleSource(resolution.get(key).candidates.filter(item =>
@@ -121,6 +134,10 @@ export function createSpacingWritePlans(
       if (candidate) style[key] = `${candidate.value}${candidate.important ? ' !important' : ''}`
     })
     const nextChanges = groupChanges.map(change => {
+      if (change.value == null) {
+        style[change.key] = null
+        return change
+      }
       const preserveImportant = /!important\s*$/i.test(String(style[change.key] || '')) ||
         (change.key === property && keys.some(key => resolution.get(key).winner?.important))
       const value = preserveImportant && !/!important\s*$/i.test(String(change.value))
@@ -128,7 +145,7 @@ export function createSpacingWritePlans(
       style[change.key] = value
       return { ...change, value }
     })
-    const normalized = normalizeStyleShorthands(style, nextChanges, new Set(), { changedGroupsOnly: true })
+    const normalized = normalizeStyleShorthands(style, nextChanges, new Set(clearedKeys), { changedGroupsOnly: true })
     let output = normalized.style
     let deletions = normalized.deletions.filter(key => !(key in output))
     let unsupported = !selector
@@ -139,14 +156,18 @@ export function createSpacingWritePlans(
         const expanded = expandFourShorthand(output[property])
         if (expanded) output = Object.fromEntries(keys.map((key, index) => [key, expanded[index]]))
       }
+      // 简写拆成缺一边的长写需要真实源码范围；不能以补零/unset 冒充清空。
+      const requiredDeletions = deletions.filter(key => inlineProperties.has(cssPropertyName(key)))
+      const cannotDelete = requiredDeletions.some(key => !readStaticInlineStyleInfo(target, key, true))
       deletions = deletions.filter(key => !(key in output) && readStaticInlineStyleInfo(target, key, true))
       unsupported = Object.keys(output).some(key => !readStaticInlineStyleInfo(target, key)) ||
+        cannotDelete ||
         Object.values(output).some(value => /!important\s*$/i.test(String(value))) ||
         family.some(key => inlineProperties.has(cssPropertyName(key)) && !readStaticInlineStyleInfo(target, key, true))
     } else {
       // 宿主的常规写入优先路由同名 JSX 属性；不能把“当前 class”写入偷换成 inline。
       unsupported ||= [...Object.keys(output), ...deletions].some(key => inlineProperties.has(cssPropertyName(key)))
     }
-    return { property, selector, style: output, deletions, unsupported }
+    return { property, selector, style: output, deletions, clearedKeys, unsupported }
   })
 }

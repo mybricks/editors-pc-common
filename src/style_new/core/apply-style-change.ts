@@ -20,7 +20,7 @@ import {
 } from './style-property'
 import type { StyleClearPlan, StyleResolution } from './style-property'
 import { getShorthandFamily, stylePropertyKey } from './style-shorthand-groups'
-import { createSpacingWritePlans, getBoxSpacingProperty } from './box-spacing'
+import { BOX_SPACING_KEYS, createSpacingWritePlans, getBoxSpacingProperty, getBoxSpacingSideClearKeys } from './box-spacing'
 import { createStyleWriteTargetResolver } from './style-write-target'
 import type { StyleWriteTarget } from './style-write-target'
 
@@ -309,9 +309,10 @@ function applyEffectiveStyleChanges(
 ): ApplyStyleChangeResult {
   const resolution = getStyleResolution(tab, target)
   const changes = preservePaintRoles(items, liveStyle)
+  const sideClearKeys = getBoxSpacingSideClearKeys(changes)
   // 先预检整个用户动作，避免清空不可执行却先修改了共享图层。
   const plans = createBatchStyleClearPlans(
-    changes.filter(item => item.value === null).map(item => item.key),
+    changes.filter(item => item.value === null && !sideClearKeys.has(item.key)).map(item => item.key),
     resolution,
     target
   )
@@ -338,25 +339,35 @@ function applyEffectiveStyleChanges(
   if ('clearUnsupported' in normal && normal.clearUnsupported) return normal
   const nextLiveStyle = { ...normal.nextLiveStyle }
   spacingPlans.forEach(plan => {
-    const { selector, style, deletions } = plan
+    const { selector, style, deletions, clearedKeys } = plan
+    clearedKeys.forEach(key => logStyleOperation({
+      key, value: null, action: '清空', candidates: resolution.get(key).candidates,
+      winner: resolution.get(key).winner, writeSelectors: [selector],
+    }))
     changes.filter(item => item.value != null && getBoxSpacingProperty(item.key) === plan.property)
       .forEach(item => {
         const writeTarget = writeTargets.get(item.key)!
         if (writeTarget.selector === selector) logStyleWriteTarget(item.key, item.value, writeTarget, tab, style)
       })
-    const usePreview = (editConfig.value.getBatchMeta?.()?.enabled ||
-      (!!target && !target.getAttribute('data-zone-selector'))) && !!editConfig.value.previewBatch
-    try {
-      // 间距压缩与冗余长写删除必须在同一次源码写入中完成。
-      ;(window as any).__mybricks_style_deletions = deletions.length ? deletions : null
-      if (usePreview) editConfig.value.previewBatch(style, { selector })
-      else editConfig.value.set(style, { selector })
-    } finally {
-      ;(window as any).__mybricks_style_deletions = null
+    if (!Object.keys(style).length) {
+      // 独立声明清空仍沿用宿主的定向删除协议。
+      editConfig.value.set(Object.fromEntries(deletions.map(key => [key, null])), { selector })
+    } else {
+      const usePreview = (editConfig.value.getBatchMeta?.()?.enabled ||
+        (!!target && !target.getAttribute('data-zone-selector'))) && !!editConfig.value.previewBatch
+      try {
+        // 简写拆分/压缩与旧声明删除必须在同一次源码写入中完成。
+        ;(window as any).__mybricks_style_deletions = deletions.length ? deletions : null
+        if (usePreview) editConfig.value.previewBatch(style, { selector })
+        else editConfig.value.set(style, { selector })
+      } finally {
+        ;(window as any).__mybricks_style_deletions = null
+      }
     }
     deletions.forEach(key => {
       delete nextLiveStyle[key]
       resolution.record(key, null, selector)
+      if (selector === INLINE_STYLE_LABEL && target) target.style.removeProperty(cssPropertyName(key))
     })
     Object.entries(style).forEach(([key, value]) => {
       nextLiveStyle[key] = value
@@ -367,9 +378,18 @@ function applyEffectiveStyleChanges(
         winner: resolution.get(key).winner, writeSelectors: [selector],
       })
     })
+    if (clearedKeys.length) {
+      // 拆分后的本地快照保持稀疏，并保留其他来源真正生效的相邻方向。
+      delete nextLiveStyle[plan.property]
+      BOX_SPACING_KEYS[plan.property].forEach(key => {
+        const winner = resolution.get(key).winner
+        if (winner?.currentState) nextLiveStyle[key] = `${winner.value}${winner.important ? ' !important' : ''}`
+        else delete nextLiveStyle[key]
+      })
+    }
   })
   const groups = new Map<string, Record<string, any>>()
-  let clearApplied = false
+  let clearApplied = spacingPlans.some(plan => plan.clearedKeys.length > 0)
   plans.forEach(plan => {
     logStyleClearPlan(plan)
     if (plan.action === 'noop' || plan.action === 'unsupported') return

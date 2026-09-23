@@ -326,9 +326,9 @@ function normalizeSimpleGroup(
   // 编辑单一方向时，先将已有 shorthand 展开。否则删除一个 longhand 会直接移除
   // shorthand，导致未编辑方向的 margin/padding 也一并丢失。
   expandShorthandForLonghandChange(style, shorthand, longhands, changedKeys, deletions)
-  // liveStyle 可能已经把 shorthand 展开成四个 longhand。此时清除其中一边
-  // 不会再经过 shorthand 展开逻辑，需要用 CSS 初始值补回该边，才能保留其他边。
-  if (touched && hasGroupValue) {
+  // 间距的 clear 表示取消该方向的声明，保留其余长写，不能补零后重新压成简写。
+  // 其他属性组继续保留原来的初始值处理。
+  if (touched && hasGroupValue && shorthand !== 'margin' && shorthand !== 'padding') {
     const existingValues = longhands
       .filter((key) => hasValue(style, key))
       .map((key) => parsePriority(style[key]))

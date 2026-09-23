@@ -3,7 +3,7 @@ import type { CSSProperties } from 'react'
 import { useEffectiveStyleValue, useStyleChange, useStyleClear, useStyleEditorContext } from '../context'
 import type { ChangeEvent, StyleChangeItem } from '../type'
 import {
-  BOX_SPACING_KEYS, getUnifiedSpacingValue, normalizeBoxSpacingChange, readBoxSpacingValue,
+  BOX_SPACING_KEYS, createSpacingWritePlans, getUnifiedSpacingValue, normalizeBoxSpacingChange, readBoxSpacingValue,
 } from '../../core/box-spacing'
 import type { BoxSpacingProperty } from '../../core/box-spacing'
 
@@ -58,14 +58,14 @@ export function useBoxSpacingEditor({ property, value, onChange: fallbackOnChang
     let reset = false
     Object.entries(changes).forEach(([key, next]) => {
       const isReset = next == null || String(next).trim() === 'default'
-      normalized[key] = normalizeBoxSpacingChange(key, next, context?.getStyleProperty?.(key), externalValue)
+      normalized[key] = normalizeBoxSpacingChange(next)
       reset ||= isReset
     })
     const result = commit(normalized)
     // 原来就是 0/未配置时外部值可能不变，重挂载以清掉 InputNumber 的“默认”草稿。
     if (reset && !result?.clearUnsupported) setForceRenderKey(key => key + 1)
     return result
-  }, [commit, context?.getStyleProperty, externalValue])
+  }, [commit])
 
   const refresh = useCallback(() => {
     const result = onChange(keys.map(key => ({ key, value: null })))
@@ -95,9 +95,12 @@ export function useBoxSpacingEditor({ property, value, onChange: fallbackOnChang
 
   const canResetSide = (key: string) => {
     if (spacingValue[key] == null) return false
-    const plan = context?.getStyleProperty?.(key)?.clearPlan
-    // JSX 简写的单边重置为 set(0)，不要求每边有源码范围；独立声明沿用 clearPlan。
-    return plan?.action !== 'unsupported' || !!groupClear.clear
+    if (!context?.getStyleProperty) return true
+    // 与执行器共用预检；整组可删不代表 JSX 简写能安全拆成三条新长写。
+    const plans = createSpacingWritePlans(
+      [{ key, value: null }], { get: context.getStyleProperty }, '', context.targetDom || null
+    )
+    return plans.length > 0 && plans.every(plan => !plan.unsupported)
   }
   const unifiedCanClear = !!groupClear.clear || (!groupClear.disabledReason && keys.some(key => spacingValue[key] != null))
   return {
