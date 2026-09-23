@@ -23,7 +23,7 @@ import { getShorthandFamily, STYLE_SHORTHANDS, stylePropertyKey } from './style-
 import { BOX_SPACING_KEYS, createSpacingWritePlans, getBoxSpacingProperty, getBoxSpacingSideClearKeys } from './box-spacing'
 import { createStyleWriteTargetResolver } from './style-write-target'
 import type { StyleWriteTarget } from './style-write-target'
-import { BORDER_DETAIL_KEYS, createBorderWritePlans, isBorderProperty } from './border-write'
+import { BORDER_DETAIL_KEYS, BORDER_RADIUS_KEYS, createBorderRadiusWritePlans, createBorderWritePlans, isBorderProperty, isBorderRadiusProperty } from './border-write'
 
 export type StyleChangeItem = {
   key: string
@@ -555,6 +555,8 @@ function applyEffectiveStyleChanges(
       deletions: flexDeletions, clearedKeys: [] as string[], unsupported: flexUnsupported }] : []),
     ...createSpacingWritePlans(specializedChanges, resolution, tab.selector, target,
       change => writeTargets.get(change.key)?.selector || null),
+    ...createBorderRadiusWritePlans(specializedChanges, resolution, target,
+      change => writeTargets.get(change.key)?.selector || null),
     ...createBorderWritePlans(specializedChanges, resolution, target,
       change => writeTargets.get(change.key)?.selector || null),
   ]
@@ -567,7 +569,7 @@ function applyEffectiveStyleChanges(
     plans.forEach(plan => logStyleClearPlan(plan, false))
     return { nextLiveStyle: liveStyle, applied: false, clearApplied: false, clearUnsupported: true }
   }
-  const writes = changes.filter(item => item.value != null && !getBoxSpacingProperty(item.key) && !isBorderProperty(item.key) &&
+  const writes = changes.filter(item => item.value != null && !getBoxSpacingProperty(item.key) && !isBorderProperty(item.key) && !isBorderRadiusProperty(item.key) &&
     !(replacingFlex && flexKeys.includes(item.key)))
     .map(({ key, value, borderMode, target }) => ({ key, value, borderMode, target }))
   const normal = writes.length
@@ -583,7 +585,9 @@ function applyEffectiveStyleChanges(
     }))
     changes.filter(item => item.value != null &&
       (plan.property === 'flex' ? flexKeys.includes(item.key) :
-        plan.property === 'border' ? isBorderProperty(item.key) : getBoxSpacingProperty(item.key) === plan.property))
+        plan.property === 'border' ? isBorderProperty(item.key) :
+          plan.property === 'borderRadius' ? isBorderRadiusProperty(item.key) :
+            getBoxSpacingProperty(item.key) === plan.property))
       .forEach(item => {
         const writeTarget = writeTargets.get(item.key)!
         if (writeTarget.selector === selector) logStyleWriteTarget(item.key, item.value, writeTarget, tab, style)
@@ -620,7 +624,14 @@ function applyEffectiveStyleChanges(
     if (clearedKeys.length && plan.property !== 'flex') {
       // 拆分后的本地快照保持稀疏，并保留其他来源真正生效的相邻方向。
       delete nextLiveStyle[plan.property]
-      const keys = plan.property === 'border' ? BORDER_DETAIL_KEYS : BOX_SPACING_KEYS[plan.property]
+      let keys: readonly string[]
+      if (plan.property === 'border') {
+        keys = BORDER_DETAIL_KEYS
+      } else if (plan.property === 'borderRadius') {
+        keys = BORDER_RADIUS_KEYS
+      } else {
+        keys = BOX_SPACING_KEYS[plan.property]
+      }
       keys.forEach(key => {
         const winner = resolution.get(key).winner
         if (winner?.currentState) nextLiveStyle[key] = `${winner.value}${winner.important ? ' !important' : ''}`

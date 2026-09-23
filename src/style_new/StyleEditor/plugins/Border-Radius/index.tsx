@@ -13,7 +13,7 @@ import {
   APPLY_VARIABLE_ACTION,
 } from '../../components'
 import { allEqual } from '../../utils'
-import { useDragNumber, useLengthVarBinding, useUpdateEffect } from '../../hooks'
+import { useDragNumber, useLengthVarBinding } from '../../hooks'
 import { expandFourShorthand } from '../../../core/shorthand-normalizer'
 import type { ChangeEvent, PanelBaseProps } from '../../type'
 import css from './index.less'
@@ -65,6 +65,15 @@ function expandBorderRadiusShorthand(value: CSSProperties): CSSProperties & Reco
   return next
 }
 
+function getUnifiedRadiusValue(value: Record<string, any>): string | null {
+  const cssWide = /^(initial|inherit|unset|revert|revert-layer)$/i
+  const values = RADIUS_KEYS
+    .map(key => value[key])
+    .filter(item => item != null && String(item).trim() !== '' && !cssWide.test(String(item).trim()))
+  if (values.length === 0) return null
+  return String(values[0])
+}
+
 export function BorderRadius({ value, onChange: fallbackOnChange, config }: BorderRadiusProps) {
   const context = useStyleEditorContext()
   const effectiveValue = useEffectiveStyleValue()
@@ -74,7 +83,6 @@ export function BorderRadius({ value, onChange: fallbackOnChange, config }: Bord
   const [{ radiusToggleValue }, setToggleValue] = useState(getToggleDefaultValue(editorValue))
   const [radiusValue, setRadiusValue] = useState(() => expandBorderRadiusShorthand(editorValue))
   const radiusValueRef = useRef(radiusValue)
-  const externalSyncRef = useRef(false)
   const getDragProps = useDragNumber({ continuous: true })
   const allRadiusClear = useStyleClear(RADIUS_KEYS)
   const topLeftClear = useStyleClear('borderTopLeftRadius')
@@ -94,7 +102,6 @@ export function BorderRadius({ value, onChange: fallbackOnChange, config }: Bord
     setRadiusValue(previous => RADIUS_KEYS.every(key => previous[key] === next[key]) ? previous : next)
     const nextToggle = getToggleDefaultValue(editorValue).radiusToggleValue
     if (nextToggle !== radiusToggleValue) {
-      externalSyncRef.current = true
       setToggleValue({ radiusToggleValue: nextToggle })
     }
   }, [context?.targetDom, context?.effectiveStyle, editorValue.borderRadius, editorValue.borderTopLeftRadius, editorValue.borderTopRightRadius, editorValue.borderBottomRightRadius, editorValue.borderBottomLeftRadius])
@@ -131,18 +138,22 @@ export function BorderRadius({ value, onChange: fallbackOnChange, config }: Bord
   const bottomLeftVar = useLengthVarBinding({ value: radiusValue.borderBottomLeftRadius, onChange: next => handleChange({ borderBottomLeftRadius: next }, 'split'), computedProp: 'borderBottomLeftRadius' })
   const unitOptions = useMemo(() => withApplyVariableOption(UNIT_OPTIONS, radiusAllVar.hasVariables), [radiusAllVar.hasVariables])
 
-  useUpdateEffect(() => {
-    if (externalSyncRef.current) {
-      externalSyncRef.current = false
-      return
+  const handleSwitchToUnified = useCallback(() => {
+    const next = getUnifiedRadiusValue(radiusValueRef.current)
+    if (next == null) return
+    const valueWithImportant = `${next}${useImportant ? '!important' : ''}`
+    const result = onChange({ key: 'borderRadius', value: valueWithImportant, target: 'current-rule', borderMode: 'all' })
+    if (result?.clearUnsupported || (result && !result.applied)) return
+    const unified = {
+      borderTopLeftRadius: next,
+      borderTopRightRadius: next,
+      borderBottomRightRadius: next,
+      borderBottomLeftRadius: next,
     }
-    handleChange({
-      borderTopLeftRadius: radiusValue.borderTopLeftRadius,
-      borderTopRightRadius: radiusValue.borderTopLeftRadius,
-      borderBottomRightRadius: radiusValue.borderTopLeftRadius,
-      borderBottomLeftRadius: radiusValue.borderTopLeftRadius,
-    }, radiusToggleValue)
-  }, [radiusToggleValue])
+    radiusValueRef.current = unified
+    setRadiusValue(unified)
+    setToggleValue({ radiusToggleValue: 'all' })
+  }, [onChange, useImportant])
 
   const renderInput = (binding: ReturnType<typeof useLengthVarBinding>, icon: React.ReactNode, key: typeof RADIUS_KEYS[number], tip: string, rawValue: unknown, style: CSSProperties) => (
     <>
@@ -213,6 +224,13 @@ export function BorderRadius({ value, onChange: fallbackOnChange, config }: Bord
   }
 
   const toggleTo = radiusToggleValue === 'all' ? 'split' : 'all'
+  const handleToggle = () => {
+    if (toggleTo === 'all') {
+      handleSwitchToUnified()
+      return
+    }
+    setToggleValue({ radiusToggleValue: 'split' })
+  }
   return (
     <Panel
       title='圆角'
@@ -226,7 +244,7 @@ export function BorderRadius({ value, onChange: fallbackOnChange, config }: Bord
             data-mybricks-tip={toggleTo === 'split'
               ? "{content:'切换为单独配置',position:'left'}"
               : "{content:'切换为统一配置',position:'left'}"}
-            onClick={() => setToggleValue({ radiusToggleValue: toggleTo })}
+            onClick={handleToggle}
           >
             <BorderRadiusSplitOutlined />
           </div>
