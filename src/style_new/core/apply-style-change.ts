@@ -23,12 +23,14 @@ import { getShorthandFamily, stylePropertyKey } from './style-shorthand-groups'
 import { BOX_SPACING_KEYS, createSpacingWritePlans, getBoxSpacingProperty, getBoxSpacingSideClearKeys } from './box-spacing'
 import { createStyleWriteTargetResolver } from './style-write-target'
 import type { StyleWriteTarget } from './style-write-target'
+import { BORDER_DETAIL_KEYS, createBorderWritePlans, isBorderProperty } from './border-write'
 
 export type StyleChangeItem = {
   key: string
   value: any
   intent?: 'clear-effective-style' | 'set-effective-style'
   target?: 'current-rule'
+  borderMode?: 'all' | 'split'
 }
 
 type StyleWriteGroup = {
@@ -312,7 +314,7 @@ function applyEffectiveStyleChanges(
   const sideClearKeys = getBoxSpacingSideClearKeys(changes)
   // 先预检整个用户动作，避免清空不可执行却先修改了共享图层。
   const plans = createBatchStyleClearPlans(
-    changes.filter(item => item.value === null && !sideClearKeys.has(item.key)).map(item => item.key),
+    changes.filter(item => item.value === null && !sideClearKeys.has(item.key) && !isBorderProperty(item.key)).map(item => item.key),
     resolution,
     target
   )
@@ -320,9 +322,13 @@ function applyEffectiveStyleChanges(
   const writeTargets = new Map(changes.filter(item => item.value != null).map(item =>
     [item.key, resolveWriteTarget(item.key, item.target)] as const
   ))
-  const spacingPlans = createSpacingWritePlans(changes, resolution, tab.selector, target,
-    change => writeTargets.get(change.key)?.selector || null)
-  if (plans.some(plan => plan.action === 'unsupported') || spacingPlans.some(plan => plan.unsupported) ||
+  const propertyPlans = [
+    ...createSpacingWritePlans(changes, resolution, tab.selector, target,
+      change => writeTargets.get(change.key)?.selector || null),
+    ...createBorderWritePlans(changes, resolution, target,
+      change => writeTargets.get(change.key)?.selector || null),
+  ]
+  if (plans.some(plan => plan.action === 'unsupported') || propertyPlans.some(plan => plan.unsupported) ||
     Array.from(writeTargets.values()).some(item => !item.selector)) {
     changes.forEach(item => {
       const writeTarget = writeTargets.get(item.key)
@@ -331,20 +337,21 @@ function applyEffectiveStyleChanges(
     plans.forEach(plan => logStyleClearPlan(plan, false))
     return { nextLiveStyle: liveStyle, applied: false, clearApplied: false, clearUnsupported: true }
   }
-  const writes = changes.filter(item => item.value != null && !getBoxSpacingProperty(item.key))
+  const writes = changes.filter(item => item.value != null && !getBoxSpacingProperty(item.key) && !isBorderProperty(item.key))
     .map(({ key, value }) => ({ key, value }))
   const normal = writes.length
     ? applyStyleChange({ value: writes, liveStyle, editConfig })
     : { nextLiveStyle: liveStyle, applied: false }
   if ('clearUnsupported' in normal && normal.clearUnsupported) return normal
   const nextLiveStyle = { ...normal.nextLiveStyle }
-  spacingPlans.forEach(plan => {
+  propertyPlans.forEach(plan => {
     const { selector, style, deletions, clearedKeys } = plan
     clearedKeys.forEach(key => logStyleOperation({
       key, value: null, action: '清空', candidates: resolution.get(key).candidates,
       winner: resolution.get(key).winner, writeSelectors: [selector],
     }))
-    changes.filter(item => item.value != null && getBoxSpacingProperty(item.key) === plan.property)
+    changes.filter(item => item.value != null &&
+      (plan.property === 'border' ? isBorderProperty(item.key) : getBoxSpacingProperty(item.key) === plan.property))
       .forEach(item => {
         const writeTarget = writeTargets.get(item.key)!
         if (writeTarget.selector === selector) logStyleWriteTarget(item.key, item.value, writeTarget, tab, style)
@@ -381,7 +388,8 @@ function applyEffectiveStyleChanges(
     if (clearedKeys.length) {
       // 拆分后的本地快照保持稀疏，并保留其他来源真正生效的相邻方向。
       delete nextLiveStyle[plan.property]
-      BOX_SPACING_KEYS[plan.property].forEach(key => {
+      const keys = plan.property === 'border' ? BORDER_DETAIL_KEYS : BOX_SPACING_KEYS[plan.property]
+      keys.forEach(key => {
         const winner = resolution.get(key).winner
         if (winner?.currentState) nextLiveStyle[key] = `${winner.value}${winner.important ? ' !important' : ''}`
         else delete nextLiveStyle[key]
@@ -389,7 +397,7 @@ function applyEffectiveStyleChanges(
     }
   })
   const groups = new Map<string, Record<string, any>>()
-  let clearApplied = spacingPlans.some(plan => plan.clearedKeys.length > 0)
+  let clearApplied = propertyPlans.some(plan => plan.clearedKeys.length > 0)
   plans.forEach(plan => {
     logStyleClearPlan(plan)
     if (plan.action === 'noop' || plan.action === 'unsupported') return
@@ -425,7 +433,7 @@ function applyEffectiveStyleChanges(
     })
     clearApplied = true
   })
-  const applied = normal.applied || spacingPlans.length > 0 || clearApplied
+  const applied = normal.applied || propertyPlans.length > 0 || clearApplied
   if (applied) onBatchMetaChange?.()
   return { nextLiveStyle, applied, clearApplied, clearUnsupported: false }
 }

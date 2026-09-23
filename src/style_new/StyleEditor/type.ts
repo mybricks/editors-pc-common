@@ -34,6 +34,8 @@ export type StyleChangeItem = {
   intent?: 'clear-effective-style' | 'set-effective-style';
   /** 统一间距落到当前 Tab 的最高权重默认目标；省略时先跟随属性生效来源。 */
   target?: 'current-rule';
+  /** 单独配置固定按边写入，不因四边相同而跨边合并。 */
+  borderMode?: 'all' | 'split';
 };
 
 export type StyleChangeResult = {
@@ -49,10 +51,12 @@ export type StyleMutation =
       key: string;
       value: any;
       target?: 'current-rule';
+      borderMode?: 'all' | 'split';
     }
   | {
       type: 'clear';
       key: string;
+      borderMode?: 'all' | 'split';
     };
 
 export type ApplyStyleMutations = (

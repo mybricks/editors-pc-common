@@ -10,6 +10,7 @@ export function buildStyleMutationChange(
         key: mutation.key,
         value: null,
         intent: 'clear-effective-style',
+        ...(mutation.borderMode ? { borderMode: mutation.borderMode } : {}),
       }
     }
     return {
@@ -17,6 +18,7 @@ export function buildStyleMutationChange(
       value: mutation.value,
       intent: 'set-effective-style',
       ...(mutation.target ? { target: mutation.target } : {}),
+      ...(mutation.borderMode ? { borderMode: mutation.borderMode } : {}),
     }
   })
 }

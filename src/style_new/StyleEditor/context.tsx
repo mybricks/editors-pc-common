@@ -3,7 +3,7 @@ import type { EditorProps } from '../type'
 import type { EffectiveStyleValue, ZoneTab } from '../core/zone-tab'
 import type { StyleClearPlan, StyleProperty } from '../core/style-property'
 import { buildStyleMutationChange } from './helper/style-mutations'
-import type { ApplyStyleMutations, ChangeEvent, StyleMutation } from './type'
+import type { ApplyStyleMutations, ChangeEvent, StyleChangeResult, StyleMutation } from './type'
 
 interface StyleEditorContextValue {
   editConfig: {
@@ -39,6 +39,9 @@ interface StyleEditorContextValue {
   applyStyleMutations?: ApplyStyleMutations
   getStyleProperty?: (key: string) => StyleProperty
   getStyleClearPlans?: (keys: readonly string[]) => StyleClearPlan[]
+  /** 取消当前配置，允许其他来源重新生效；与原有 clear 的屏蔽语义分开。 */
+  removeStyleProperties?: (keys: readonly string[]) => StyleChangeResult | void
+  getStyleRemovalState?: (keys: readonly string[]) => { canClear: boolean; disabledReason?: string }
   getStylePreview?: (key: string, refresh?: boolean) => string
 }
 
@@ -99,8 +102,8 @@ export function useStyleChange(fallbackOnChange?: ChangeEvent): ChangeEvent {
   return useCallback((input) => {
     const items = Array.isArray(input) ? input : [input]
     return applyStyleMutations(items.map((item) => item.value == null
-      ? { type: 'clear', key: item.key }
-      : { type: 'set', key: item.key, value: item.value, target: item.target }
+      ? { type: 'clear', key: item.key, borderMode: item.borderMode }
+      : { type: 'set', key: item.key, value: item.value, target: item.target, borderMode: item.borderMode }
     ))
   }, [applyStyleMutations])
 }
@@ -130,17 +133,31 @@ export function useStyleField(key: string) {
 }
 
 /** 单属性和整组共用执行器的预检结果；不向属性编辑器暴露样式回显值。 */
-export function useStyleClear(key: string | readonly string[]) {
+export function useStyleClear(key: string | readonly string[], options?: {
+  mode?: 'remove-declaration'
+  fallbackOnChange?: ChangeEvent
+}) {
   const context = useStyleEditorContext()
   const keys = useMemo(() => typeof key === 'string' ? [key] : key, [key])
-  const plans = context?.getStyleClearPlans?.(keys) ?? keys.flatMap(name => {
+  const removing = options?.mode === 'remove-declaration'
+  const removalState = removing ? context?.getStyleRemovalState?.(keys) : undefined
+  const plans = removing ? [] : context?.getStyleClearPlans?.(keys) ?? keys.flatMap(name => {
     const plan = context?.getStyleProperty?.(name)?.clearPlan
     return plan ? [plan] : []
   })
   const unsupported = plans.find(plan => plan.action === 'unsupported')
-  const clear = useCallback(() =>
-    context?.applyStyleMutations?.(keys.map(name => ({ type: 'clear', key: name }))),
-    [context?.applyStyleMutations, keys])
+  const clear = useCallback(() => {
+    if (removing) {
+      if (context?.removeStyleProperties) return context.removeStyleProperties(keys)
+      // 没有 Zone 的独立面板沿用原 onChange 删除，不转成 clear-effective-style。
+      return options?.fallbackOnChange?.(keys.map(name => ({ key: name, value: null })))
+    }
+    return context?.applyStyleMutations?.(keys.map(name => ({ type: 'clear', key: name })))
+  }, [removing, context?.removeStyleProperties, context?.applyStyleMutations, options?.fallbackOnChange, keys])
+  if (removing) return {
+    clear: (removalState ? removalState.canClear : !!options?.fallbackOnChange) ? clear : undefined,
+    disabledReason: removalState?.disabledReason,
+  }
   return {
     clear: !unsupported && plans.some(plan => plan.action === 'delete' || plan.action === 'write-unset')
       ? clear : undefined,

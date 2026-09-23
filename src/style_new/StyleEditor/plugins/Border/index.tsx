@@ -35,6 +35,7 @@ import {
 } from "../../helper/paint-stack";
 import { getColorEditorValue } from "../../helper/get-color-editor-value";
 import { getCssVarColorOptions, resolveCssVarColor } from "../../../core/resolve-css-var-color";
+import { buildBorderWidthChange, getBorderSideKeys, hasNoVisibleBorderLine } from "../../helper/border-value";
 
 import type { ChangeEvent, PanelBaseProps, StyleChangeItem, StyleChangeResult } from "../../type";
 import type { EffectiveStyleValue } from "../../../core/zone-tab";
@@ -61,11 +62,6 @@ const BORDER_WIDTH_KEYWORD_VALUES: Record<string, string> = {
 const isZeroBorderWidth = (value: unknown) => {
   const normalized = String(value ?? '').trim().toLowerCase();
   return normalized === '' || normalized === '0' || normalized === '0px' || normalized === '0%';
-};
-
-const hasNoVisibleBorderLine = (style: unknown, width: unknown) => {
-  const normalizedStyle = String(style ?? '').trim().toLowerCase();
-  return normalizedStyle === 'none' || normalizedStyle === 'hidden' || isZeroBorderWidth(width);
 };
 
 const normalizeBorderWidthValue = (value: unknown, style: unknown) => {
@@ -396,7 +392,7 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
     () => getBorderEditorValue(effectiveStyle ? effectiveValue : value, effectiveStyle),
     [externalStyleSource, effectiveValue]
   );
-  const [borderToggleValue, setBorderToggleValue] = useState(
+  const [borderToggleValue, setBorderToggleValue] = useState<'all' | 'split'>(
     getBorderToggleDefaultValue(defaultBorderValue)
   );
   const contentBackgroundLayersRef = useRef<string[] | null>(getContentBackgroundLayers(defaultBorderValue));
@@ -409,52 +405,27 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
   // ── 边框宽度 CSS 变量绑定 ────────────────────────────────────────────────────
   const widthAllVar = useLengthVarBinding({
     value: borderValue.borderTopWidth,
-    onChange: (next) => {
-      const borderStyle = !borderValue.borderTopStyle || borderValue.borderTopStyle === 'none'
-        ? 'solid' : borderValue.borderTopStyle;
-      handleAllModeChange({
-        borderTopWidth: next, borderRightWidth: next,
-        borderBottomWidth: next, borderLeftWidth: next,
-        borderTopStyle: borderStyle, borderRightStyle: borderStyle,
-        borderBottomStyle: borderStyle, borderLeftStyle: borderStyle,
-      });
-    },
+    onChange: (next) => handleWidthChange(BORDER_WIDTH_KEYS, next, true),
     computedProp: 'borderTopWidth',
   });
   const topWidthVar = useLengthVarBinding({
     value: borderValue.borderTopWidth,
-    onChange: (next) => handleChange({
-      borderTopWidth: next,
-      borderTopStyle: !borderValue.borderTopStyle || borderValue.borderTopStyle === 'none'
-        ? 'solid' : borderValue.borderTopStyle,
-    }),
+    onChange: (next) => handleWidthChange(['borderTopWidth'], next),
     computedProp: 'borderTopWidth',
   });
   const rightWidthVar = useLengthVarBinding({
     value: borderValue.borderRightWidth,
-    onChange: (next) => handleChange({
-      borderRightWidth: next,
-      borderRightStyle: !borderValue.borderRightStyle || borderValue.borderRightStyle === 'none'
-        ? 'solid' : borderValue.borderRightStyle,
-    }),
+    onChange: (next) => handleWidthChange(['borderRightWidth'], next),
     computedProp: 'borderRightWidth',
   });
   const bottomWidthVar = useLengthVarBinding({
     value: borderValue.borderBottomWidth,
-    onChange: (next) => handleChange({
-      borderBottomWidth: next,
-      borderBottomStyle: !borderValue.borderBottomStyle || borderValue.borderBottomStyle === 'none'
-        ? 'solid' : borderValue.borderBottomStyle,
-    }),
+    onChange: (next) => handleWidthChange(['borderBottomWidth'], next),
     computedProp: 'borderBottomWidth',
   });
   const leftWidthVar = useLengthVarBinding({
     value: borderValue.borderLeftWidth,
-    onChange: (next) => handleChange({
-      borderLeftWidth: next,
-      borderLeftStyle: !borderValue.borderLeftStyle || borderValue.borderLeftStyle === 'none'
-        ? 'solid' : borderValue.borderLeftStyle,
-    }),
+    onChange: (next) => handleWidthChange(['borderLeftWidth'], next),
     computedProp: 'borderLeftWidth',
   });
 
@@ -505,21 +476,26 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
   }, [showStyleSettings]);
 
   const commitStyleChanges = useCallback(
-    (changes: BorderValue) => {
+    (changes: BorderValue, borderMode: 'all' | 'split' = borderToggleValue) => {
+      const unifiedWidthSet = borderMode === 'all' && BORDER_WIDTH_KEYS.every(key => changes[key] != null);
       const items: StyleChangeItem[] = Object.entries(changes).map(([key, nextValue]) => ({
         key,
         value: nextValue == null
           ? null
           : `${nextValue}${useImportant ? '!important' : ''}`,
+        ...(BORDER_LOGICAL_KEYS.includes(key) ? {
+          borderMode,
+          ...(unifiedWidthSet && nextValue != null ? { target: 'current-rule' as const } : {}),
+        } : {}),
       }));
       return onChange(items);
     },
-    [onChange, useImportant]
+    [onChange, useImportant, borderToggleValue]
   );
 
   const handleChange = useCallback(
-    (changes: BorderValue) => {
-      const result = commitStyleChanges(changes);
+    (changes: BorderValue, borderMode?: 'all' | 'split') => {
+      const result = commitStyleChanges(changes, borderMode);
       if (mutationFailed(result)) return result;
 
       const next = { ...borderValueRef.current };
@@ -609,7 +585,7 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
 
   const handleExpand = useCallback(() => {
     const next = {...NEW_BORDER_EDITOR_VALUE};
-    const result = handleChange(next);
+    const result = handleChange(next, 'all');
     if (mutationFailed(result)) return;
     contentBackgroundLayersRef.current = null;
     setShowStyleSettings(false);
@@ -649,7 +625,7 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
   const handleAllModeChange = useCallback((changes: Record<string, any>) => {
     const pos = borderPositionRef.current;
     if (pos === 'center') {
-      return handleChange(changes);
+      return handleChange(changes, 'all');
     }
     const currentVal = borderValueRef.current;
     const newVal = { ...currentVal, ...changes };
@@ -667,6 +643,14 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
     });
     return result;
   }, [handleChange, emitPositionCSS]);
+
+  const handleWidthChange = useCallback((keys: string[], next: any, all = false) => {
+    const mutation = buildBorderWidthChange(
+      borderValueRef.current, keys, next,
+      key => context?.getStylePreview?.(key) || effectiveStyle?.[key]?.computedValue
+    );
+    return all ? handleAllModeChange(mutation.changes) : handleChange(mutation.changes);
+  }, [handleChange, handleAllModeChange, context?.getStylePreview, effectiveStyle]);
 
   // Position 下拉切换时，将当前 borderValue 转换为新的 CSS 位置输出
   const handlePositionChange = useCallback((newPos: BorderPosition) => {
@@ -690,7 +674,7 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
         outline: null,
         outlineOffset: null,
         boxShadow: null,
-      });
+      }, 'all');
     }
     if (mutationFailed(result)) return;
     borderPositionRef.current = newPos;
@@ -700,16 +684,21 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
   const hasBorderSection = !(disableBorderWidth && disableBorderColor && disableBorderStyle);
   const isInherited = collapse === 'inherited';
 
-  const currentBorderStyle = borderValue.borderTopStyle ?? 'none';
-  const borderHasNoVisibleLine = hasNoVisibleBorderLine(currentBorderStyle, borderValue.borderTopWidth);
+  const getPreviewValue = (key: string) =>
+    context?.getStylePreview?.(key) || previewValues[key] || effectiveStyle?.[key]?.computedValue;
+  const currentBorderStyle = borderValue.borderTopStyle ?? getPreviewValue('borderTopStyle') ?? 'none';
+  const borderHasNoVisibleLine = hasNoVisibleBorderLine(
+    currentBorderStyle, borderValue.borderTopWidth ?? getPreviewValue('borderTopWidth')
+  );
 
-  const popupStyleValue = borderHasNoVisibleLine ? 'none' : currentBorderStyle;
+  // 线型按自己的配置回显，不因宽度缺失或为零而把已配置线型显示成“无”。
+  const popupStyleValue = borderValue.borderTopStyle ?? (borderHasNoVisibleLine ? 'none' : currentBorderStyle);
   const borderGradientValue = getGradientBorderValue(borderValue);
   const standalone = !context?.getStyleProperty;
   const isConfiguredKey = (key: string) => {
     const current = borderValue[key];
     if (current == null || current === '') return false;
-    if (effectiveStyle || !key.endsWith('Color')) return true;
+    if (effectiveStyle || borderToggleValue === 'all' || !key.endsWith('Color')) return true;
     const side = key.slice('border'.length, -'Color'.length);
     return !hasNoVisibleBorderLine(
       borderValue[`border${side}Style`],
@@ -728,8 +717,6 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
     return !plans.some((plan) => plan?.action === 'unsupported') &&
       plans.some((plan) => plan?.action === 'delete' || plan?.action === 'write-unset');
   };
-  const getPreviewValue = (key: string) =>
-    previewValues[key] ?? effectiveStyle?.[key]?.computedValue;
   const positionClearKeys = borderPosition === 'outside'
     ? ['outline', 'outlineOffset']
     : borderPosition === 'inside'
@@ -744,13 +731,9 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
   const allColorClearKeys = borderPosition === 'center'
     ? [...BORDER_COLOR_KEYS, ...gradientMutationClearKeys]
     : positionClearKeys;
-  const allWidthClearKeys = borderPosition === 'center'
-    ? BORDER_WIDTH_KEYS
-    : positionClearKeys;
   const allColorCanClear = canClearKeys(allColorClearKeys);
-  const allWidthCanClear = canClearKeys(allWidthClearKeys);
   const fieldCanClear = Object.fromEntries(
-    BORDER_LOGICAL_KEYS.map((key) => [key, canClearKeys([key])])
+    BORDER_LOGICAL_KEYS.map((key) => [key, canClearKeys(key.endsWith('Width') ? getBorderSideKeys(key) : [key])])
   ) as Record<string, boolean>;
   const resetKeys = [
     ...BORDER_LOGICAL_KEYS,
@@ -758,6 +741,7 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
     ...(borderGradientValue ? gradientMutationClearKeys : []),
   ];
   const canReset = canClearKeys(resetKeys);
+  const allWidthCanClear = borderPosition === 'center' ? canClearKeys(BORDER_WIDTH_KEYS) : canReset;
 
   const handlePositionBorderClear = useCallback(() => {
     const pos = borderPositionRef.current;
@@ -780,6 +764,7 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
       current,
       contentBackgroundLayersRef.current
     );
+    console.log("clearGradient",clearGradient)
     const result = handleChange({
       ...Object.fromEntries(BORDER_COLOR_KEYS.map((key) => [key, null])),
       ...clearGradient,
@@ -791,10 +776,11 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
     return result;
   }, [handleChange, handlePositionBorderClear]);
 
+  // 普通 border 的宽度“默认”只撤销宽度；整组删除仍由面板减号负责。
   const handleAllWidthClear = useCallback(() => {
-    if (borderPositionRef.current !== 'center') return handlePositionBorderClear();
-    return handleChange(Object.fromEntries(BORDER_WIDTH_KEYS.map((key) => [key, null])));
-  }, [handleChange, handlePositionBorderClear]);
+    if (borderPositionRef.current !== 'center') return refresh();
+    return handleWidthChange(BORDER_WIDTH_KEYS, null, true);
+  }, [handleWidthChange, refresh]);
 
   const borderConfig = useMemo(() => {
     if (disableBorderWidth && disableBorderColor && disableBorderStyle) {
@@ -962,20 +948,7 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
                             handleAllWidthClear();
                             return;
                           }
-                          const borderStyle =
-                            !borderValue.borderTopStyle || borderValue.borderTopStyle === 'none'
-                              ? 'solid'
-                              : borderValue.borderTopStyle;
-                          handleAllModeChange({
-                            borderTopWidth: value,
-                            borderRightWidth: value,
-                            borderBottomWidth: value,
-                            borderLeftWidth: value,
-                            borderTopStyle: borderStyle,
-                            borderRightStyle: borderStyle,
-                            borderBottomStyle: borderStyle,
-                            borderLeftStyle: borderStyle,
-                          });
+                          handleWidthChange(BORDER_WIDTH_KEYS, value, true);
                         },
                         onAction: (action) => {
                           if (action === APPLY_VARIABLE_ACTION) widthAllVar.openPicker();
@@ -1066,20 +1039,14 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
                           showIcon: true,
                           showIconOnHover: true,
                           clearable: fieldCanClear.borderLeftWidth,
-                          onClear: () => handleChange({ borderLeftWidth: null }),
+                          onClear: () => handleWidthChange(['borderLeftWidth'], null),
                           fallbackValue: 0,
                           onChange: (value) => {
                             if (value === 'default') {
-                              handleChange({ borderLeftWidth: null });
+                              handleWidthChange(['borderLeftWidth'], null);
                               return;
                             }
-                            handleChange({
-                              borderLeftWidth: value,
-                              borderLeftStyle:
-                                !borderValue.borderLeftStyle || borderValue.borderLeftStyle === 'none'
-                                  ? 'solid'
-                                  : borderValue.borderLeftStyle,
-                            });
+                            handleWidthChange(['borderLeftWidth'], value);
                           },
                           onAction: (action) => {
                             if (action === APPLY_VARIABLE_ACTION) leftWidthVar.openPicker();
@@ -1148,20 +1115,14 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
                           showIcon: true,
                           showIconOnHover: true,
                           clearable: fieldCanClear.borderTopWidth,
-                          onClear: () => handleChange({ borderTopWidth: null }),
+                          onClear: () => handleWidthChange(['borderTopWidth'], null),
                           fallbackValue: 0,
                           onChange: (value) => {
                             if (value === 'default') {
-                              handleChange({ borderTopWidth: null });
+                              handleWidthChange(['borderTopWidth'], null);
                               return;
                             }
-                            handleChange({
-                              borderTopWidth: value,
-                              borderTopStyle:
-                                !borderValue.borderTopStyle || borderValue.borderTopStyle === 'none'
-                                  ? 'solid'
-                                  : borderValue.borderTopStyle,
-                            });
+                            handleWidthChange(['borderTopWidth'], value);
                           },
                           onAction: (action) => {
                             if (action === APPLY_VARIABLE_ACTION) topWidthVar.openPicker();
@@ -1231,20 +1192,14 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
                           showIcon: true,
                           showIconOnHover: true,
                           clearable: fieldCanClear.borderRightWidth,
-                          onClear: () => handleChange({ borderRightWidth: null }),
+                          onClear: () => handleWidthChange(['borderRightWidth'], null),
                           fallbackValue: 0,
                           onChange: (value) => {
                             if (value === 'default') {
-                              handleChange({ borderRightWidth: null });
+                              handleWidthChange(['borderRightWidth'], null);
                               return;
                             }
-                            handleChange({
-                              borderRightWidth: value,
-                              borderRightStyle:
-                                !borderValue.borderRightStyle || borderValue.borderRightStyle === 'none'
-                                  ? 'solid'
-                                  : borderValue.borderRightStyle,
-                            });
+                            handleWidthChange(['borderRightWidth'], value);
                           },
                           onAction: (action) => {
                             if (action === APPLY_VARIABLE_ACTION) rightWidthVar.openPicker();
@@ -1314,20 +1269,14 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
                           showIcon: true,
                           showIconOnHover: true,
                           clearable: fieldCanClear.borderBottomWidth,
-                          onClear: () => handleChange({ borderBottomWidth: null }),
+                          onClear: () => handleWidthChange(['borderBottomWidth'], null),
                           fallbackValue: 0,
                           onChange: (value) => {
                             if (value === 'default') {
-                              handleChange({ borderBottomWidth: null });
+                              handleWidthChange(['borderBottomWidth'], null);
                               return;
                             }
-                            handleChange({
-                              borderBottomWidth: value,
-                              borderBottomStyle:
-                                !borderValue.borderBottomStyle || borderValue.borderBottomStyle === 'none'
-                                  ? 'solid'
-                                  : borderValue.borderBottomStyle,
-                            });
+                            handleWidthChange(['borderBottomWidth'], value);
                           },
                           onAction: (action) => {
                             if (action === APPLY_VARIABLE_ACTION) bottomWidthVar.openPicker();
@@ -1347,7 +1296,8 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
     borderToggleValue, popupStyleValue, borderValue, previewValues,
     getDragPropsBorder, borderColorEditorKey, borderPosition,
     handleAllModeChange, handlePositionChange, handleAllColorClear, handleAllWidthClear,
-    handleChange, allColorCanClear, allWidthCanClear, fieldCanClear,
+    handleChange, handleWidthChange, allColorCanClear, allWidthCanClear, fieldCanClear,
+    context?.getStylePreview,
     effectiveStyle, targetDom, canvasColorVariables,
     widthAllVar, topWidthVar, rightWidthVar, bottomWidthVar, leftWidthVar,
     borderWidthUnitOptions, shouldShowMiniLayout,
@@ -1439,7 +1389,7 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
   );
 }
 
-function getBorderToggleDefaultValue(value: CSSProperties) {
+function getBorderToggleDefaultValue(value: CSSProperties): 'all' | 'split' {
   return allEqual([
     value.borderTopWidth,
     value.borderRightWidth,

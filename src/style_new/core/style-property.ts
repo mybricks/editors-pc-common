@@ -6,7 +6,7 @@ import {
   BATCH_CLEAR_SHORTHANDS, getShorthandFamily, STYLE_SHORTHANDS, stylePropertyKey,
 } from './style-shorthand-groups'
 import type { ZoneSourceRule, ZoneTab } from './zone-tab'
-import { expandFourShorthand } from './shorthand-normalizer'
+import { expandBorderShorthand, expandFourShorthand } from './shorthand-normalizer'
 
 export const cssPropertyName = (key: string) => key.startsWith('--')
   ? key
@@ -177,9 +177,12 @@ export function createStyleResolution(tab: ZoneTab, target: HTMLElement | null =
       index.set(property, remaining)
       cache.delete(property)
 
-      // 写入间距简写后立即刷新四边来源，连续输入/重置不等待 CSSOM 重编译。
-      if (value != null && (property === 'margin' || property === 'padding')) {
-        const expanded = expandFourShorthand(value)
+      // 写入简写后立即刷新四边来源，连续输入/重置不等待 CSSOM 重编译。
+      const border = value != null ? expandBorderShorthand(stylePropertyKey(property), value) : null
+      if (value != null && (property === 'margin' || property === 'padding' || (border && STYLE_SHORTHANDS[property]))) {
+        const expanded = border
+          ? STYLE_SHORTHANDS[property].map(key => border[stylePropertyKey(key)])
+          : expandFourShorthand(value)
         const shorthand = remaining[remaining.length - 1]
         if (expanded && shorthand) STYLE_SHORTHANDS[property].forEach((longhand, position) => {
           const others = (index.get(longhand) || []).filter(candidate => candidate.label !== selector)
