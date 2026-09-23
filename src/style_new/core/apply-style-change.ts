@@ -24,11 +24,13 @@ import {
 } from './style-property'
 import type { StyleClearPlan, StyleResolution } from './style-property'
 import { getShorthandFamily, stylePropertyKey } from './style-shorthand-groups'
+import { createSpacingWritePlans, getBoxSpacingProperty } from './box-spacing'
 
 export type StyleChangeItem = {
   key: string
   value: any
   intent?: 'clear-effective-style' | 'set-effective-style'
+  target?: 'current-rule'
 }
 
 type StyleWriteGroup = {
@@ -299,15 +301,43 @@ function applyEffectiveStyleChanges(
     resolution,
     target
   )
-  if (plans.some(plan => plan.action === 'unsupported')) {
+  const spacingPlans = createSpacingWritePlans(changes, resolution, resolveZoneFallbackSelector(tab), target)
+  if (plans.some(plan => plan.action === 'unsupported') || spacingPlans.some(plan => plan.unsupported)) {
     plans.forEach(plan => logStyleClearPlan(plan, false))
     return { nextLiveStyle: liveStyle, applied: false, clearApplied: false, clearUnsupported: true }
   }
-  const writes = changes.filter(item => item.value != null).map(({ key, value }) => ({ key, value }))
+  const writes = changes.filter(item => item.value != null && !getBoxSpacingProperty(item.key))
+    .map(({ key, value }) => ({ key, value }))
   const normal = writes.length
     ? applyStyleChange({ value: writes, liveStyle, editConfig })
     : { nextLiveStyle: liveStyle, applied: false }
   const nextLiveStyle = { ...normal.nextLiveStyle }
+  spacingPlans.forEach(plan => {
+    const { selector, style, deletions } = plan
+    const usePreview = (editConfig.value.getBatchMeta?.()?.enabled ||
+      (!!target && !target.getAttribute('data-zone-selector'))) && !!editConfig.value.previewBatch
+    try {
+      // 间距压缩与冗余长写删除必须在同一次源码写入中完成。
+      ;(window as any).__mybricks_style_deletions = deletions.length ? deletions : null
+      if (usePreview) editConfig.value.previewBatch(style, { selector })
+      else editConfig.value.set(style, { selector })
+    } finally {
+      ;(window as any).__mybricks_style_deletions = null
+    }
+    deletions.forEach(key => {
+      delete nextLiveStyle[key]
+      resolution.record(key, null, selector)
+    })
+    Object.entries(style).forEach(([key, value]) => {
+      nextLiveStyle[key] = value
+      resolution.record(key, value, selector)
+      if (selector === INLINE_STYLE_LABEL && target) target.style.setProperty(cssPropertyName(key), String(value))
+      logStyleOperation({
+        key, value, action: '写入', candidates: resolution.get(key).candidates,
+        winner: resolution.get(key).winner, writeSelectors: [selector],
+      })
+    })
+  })
   const groups = new Map<string, Record<string, any>>()
   let clearApplied = false
   plans.forEach(plan => {
@@ -345,7 +375,7 @@ function applyEffectiveStyleChanges(
     })
     clearApplied = true
   })
-  const applied = normal.applied || clearApplied
+  const applied = normal.applied || spacingPlans.length > 0 || clearApplied
   if (applied) onBatchMetaChange?.()
   return { nextLiveStyle, applied, clearApplied, clearUnsupported: false }
 }
@@ -678,9 +708,19 @@ export function applyStyleChange({
       // getStyleDiff 用 null 表示删除；删除必须通过专用 side-channel 传递，
       // 不能把 null 当作本次要写入的样式值。
       if (!Object.prototype.hasOwnProperty.call(finalCssProperties, key)) return
-      const sourceSelector =
-        resolveZonePropertySelector(activeZoneTab, key) ||
-        resolveZoneFallbackSelector(activeZoneTab)
+      const propertySelector = resolveZonePropertySelector(activeZoneTab, key)
+      const sourceSelector = propertySelector || resolveZoneFallbackSelector(activeZoneTab)
+      console.log('[样式编辑][写入目标解析]', {
+        属性: key,
+        属性类型: activeZoneTab.effectiveStyle?.[key]?.type || null,
+        写入值: value,
+        计算出的classname: sourceSelector,
+        classname来源: propertySelector
+          ? '属性当前生效规则'
+          : '属性无可写来源（如 computed），回退当前 Zone Tab',
+        属性来源selector: propertySelector || null,
+        当前ZoneTabSelector: activeZoneTab.selector,
+      })
       const group = addStyleWriteGroup(groups, sourceSelector)
       group.style[key] = deepCopy(value)
       zoneWriteTargets?.set(key, {

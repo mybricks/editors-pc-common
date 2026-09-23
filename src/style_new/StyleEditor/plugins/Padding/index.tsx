@@ -1,9 +1,6 @@
 import React, {
-  useLayoutEffect,
   useMemo,
   useState,
-  useCallback,
-  useRef,
   CSSProperties
 } from 'react'
 
@@ -18,14 +15,10 @@ import {
   withApplyVariableOption,
   APPLY_VARIABLE_ACTION
 } from '../../components'
-import {allEqual} from '../../utils'
-import {useDragNumber, useLengthVarBinding} from '../../hooks'
+import {useDragNumber, useLengthVarBinding, useBoxSpacingEditor} from '../../hooks'
 
 import type {ChangeEvent, PanelBaseProps} from '../../type'
 import {
-  useEffectiveStyleValue,
-  useStyleChange,
-  useStyleClear,
   useStyleEditorContext
 } from '../../context'
 import type {EffectiveStyleValue} from '../../../core/zone-tab'
@@ -52,30 +45,8 @@ const UNIT_OPTIONS = [
   {label: 'px', value: 'px'},
   {label: '%', value: '%'}
 ]
-/** 「默认」表示属性完全未设置：输入框禁止直接编辑，需先切到具体单位 */
+/** default 是菜单动作，由共用 Hook 按单边重置/整组清空处理。 */
 const UNIT_DISABLED_LIST = ['default']
-const PADDING_KEYS = ['paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft'] as const
-
-type PaddingValue = CSSProperties & Record<string, any>
-
-function isEffectiveStyleConfigured(item?: EffectiveStyleValue): boolean {
-  if (!item || item.type === 'computed') return false
-  return !(typeof item.value === 'string' && /^unset$/i.test(item.value.trim()))
-}
-
-function getPaddingEditorValue(
-  value: CSSProperties,
-  effectiveStyle?: Record<string, EffectiveStyleValue>
-): PaddingValue {
-  const next: PaddingValue = {}
-  PADDING_KEYS.forEach((key) => {
-    if (effectiveStyle && !isEffectiveStyleConfigured(effectiveStyle[key])) return
-    const current = value[key]
-    if (current != null && current !== '') next[key] = current
-  })
-  return next
-}
-
 function getUnitOptions(clearable: boolean) {
   return clearable ? UNIT_OPTIONS : UNIT_OPTIONS.slice(2)
 }
@@ -93,112 +64,13 @@ function buildComputedTip(
 
 export function Padding({value, onChange: fallbackOnChange, config, showTitle, collapse}: PaddingProps) {
   const context = useStyleEditorContext()
-  const effectiveValue = useEffectiveStyleValue()
-  const onChange = useStyleChange(fallbackOnChange)
-  const topClear = useStyleClear('paddingTop')
-  const rightClear = useStyleClear('paddingRight')
-  const bottomClear = useStyleClear('paddingBottom')
-  const leftClear = useStyleClear('paddingLeft')
-  const unifiedClear = useStyleClear(PADDING_KEYS)
-  // Zone 模式只跟随 EffectiveStyleValue，避免写入后较早刷新的 value
-  // 触发同步，并被尚未回流的旧 effectiveStyle 覆盖本地新值。
-  const editorValue = context?.effectiveStyle ? effectiveValue : value
-  const initialValue = getPaddingEditorValue(
-    editorValue,
-    context?.effectiveStyle
-  )
-  const [toggle, setToggle] = useState(getToggleDefaultValue(initialValue))
-  const [paddingValue, setPaddingValue] = useState(initialValue)
-  const paddingValueRef = useRef(initialValue)
-  const [draftConfigured, setDraftConfigured] = useState<Record<string, boolean>>({})
-  const [previewValues, setPreviewValues] = useState<Record<string, string | undefined>>({})
-  const [forceRenderKey, setForceRenderKey] = useState<number>(Math.random())
+  const {
+    spacingValue: paddingValue, toggle, setToggle, previewValues, forceRenderKey,
+    handleChange, handleUnifiedChange, handleSwitchToUnified, refresh,
+    canResetSide, unifiedCanClear, canReset,
+  } = useBoxSpacingEditor({ property: 'padding', value, onChange: fallbackOnChange })
   const [splitPaddingIcon, setSplitPaddingIcon] = useState(<PaddingTopOutlined/>)
   const getDragProps = useDragNumber({ continuous: true })
-
-  // 面板实例会在切换选中组件时复用，需同步新的内边距值，避免旧值短暂回显。
-  useLayoutEffect(() => {
-    const next = getPaddingEditorValue(
-      editorValue,
-      context?.effectiveStyle
-    );
-    paddingValueRef.current = next
-    setDraftConfigured({})
-    setPreviewValues({})
-    setPaddingValue((previous) => {
-      return PADDING_KEYS.every((key) => previous[key] === next[key]) ? previous : next;
-    });
-    const nextToggle = getToggleDefaultValue(next);
-    if (nextToggle !== toggle) {
-      setToggle(nextToggle);
-    }
-  }, [
-    context?.targetDom,
-    context?.effectiveStyle,
-    effectiveValue.paddingTop,
-    effectiveValue.paddingRight,
-    effectiveValue.paddingBottom,
-    effectiveValue.paddingLeft,
-    context?.effectiveStyle ? undefined : value.paddingTop,
-    context?.effectiveStyle ? undefined : value.paddingRight,
-    context?.effectiveStyle ? undefined : value.paddingBottom,
-    context?.effectiveStyle ? undefined : value.paddingLeft
-  ]);
-
-  const handleChange = useCallback((changes: PaddingValue) => {
-    // 单位下拉选中「默认」时 InputNumber 会回传 'default'，等同于清空该属性
-    const normalizedValue: Record<string, any> = {...changes}
-    Object.keys(normalizedValue).forEach((key) => {
-      if (String(normalizedValue[key] ?? '').includes('default')) normalizedValue[key] = null
-    })
-
-    const result = onChange(Object.entries(normalizedValue).map(([key, nextValue]) => ({
-      key,
-      value: nextValue
-    })))
-    if (result?.clearUnsupported && !result.clearApplied) return result
-
-    const next = {...paddingValueRef.current, ...normalizedValue}
-    paddingValueRef.current = next
-    setPaddingValue(next)
-    setDraftConfigured((current) => {
-      const nextDraft = {...current}
-      Object.entries(normalizedValue).forEach(([key, nextValue]) => {
-        nextDraft[key] = nextValue != null
-      })
-      return nextDraft
-    })
-    setPreviewValues((current) => {
-      const nextPreview = {...current}
-      Object.entries(normalizedValue).forEach(([key, nextValue]) => {
-        nextPreview[key] = nextValue == null
-          ? context?.getStylePreview?.(key, true) || undefined
-          : undefined
-      })
-      return nextPreview
-    })
-    return result
-  }, [onChange, context?.getStylePreview])
-
-  const handleUnifiedChange = useCallback((next: string | null) => {
-    handleChange({
-      paddingTop: next,
-      paddingRight: next,
-      paddingBottom: next,
-      paddingLeft: next
-    })
-  }, [handleChange])
-
-  const handleSwitchToUnified = useCallback(() => {
-    const result = handleChange({
-      paddingTop: paddingValueRef.current.paddingTop ?? null,
-      paddingRight: paddingValueRef.current.paddingTop ?? null,
-      paddingBottom: paddingValueRef.current.paddingTop ?? null,
-      paddingLeft: paddingValueRef.current.paddingTop ?? null
-    })
-    if (result?.clearUnsupported && !result.clearApplied) return
-    setToggle(true)
-  }, [handleChange])
 
   // 统一模式与四边各自持有绑定态：统一模式绑一个变量即写四边同值（对齐 Figma）
   const unifiedVar = useLengthVarBinding({
@@ -227,24 +99,10 @@ export function Padding({value, onChange: fallbackOnChange, config, showTitle, c
     computedProp: 'paddingLeft'
   })
 
-  const standalone = !context?.getStyleProperty
-  const topCanClear = !!topClear.clear || (!topClear.disabledReason && (
-    draftConfigured.paddingTop || (standalone && paddingValue.paddingTop != null)
-  ))
-  const rightCanClear = !!rightClear.clear || (!rightClear.disabledReason && (
-    draftConfigured.paddingRight || (standalone && paddingValue.paddingRight != null)
-  ))
-  const bottomCanClear = !!bottomClear.clear || (!bottomClear.disabledReason && (
-    draftConfigured.paddingBottom || (standalone && paddingValue.paddingBottom != null)
-  ))
-  const leftCanClear = !!leftClear.clear || (!leftClear.disabledReason && (
-    draftConfigured.paddingLeft || (standalone && paddingValue.paddingLeft != null)
-  ))
-  const unifiedCanClear = !!unifiedClear.clear || (!unifiedClear.disabledReason &&
-    [topCanClear, rightCanClear, bottomCanClear, leftCanClear].some(Boolean))
-  const canReset = standalone
-    ? [topCanClear, rightCanClear, bottomCanClear, leftCanClear].some(Boolean)
-    : unifiedCanClear
+  const topCanClear = canResetSide('paddingTop')
+  const rightCanClear = canResetSide('paddingRight')
+  const bottomCanClear = canResetSide('paddingBottom')
+  const leftCanClear = canResetSide('paddingLeft')
   const unifiedUnitOptions = useMemo(
     () => withApplyVariableOption(getUnitOptions(unifiedCanClear), unifiedVar.hasVariables),
     [unifiedCanClear, unifiedVar.hasVariables]
@@ -506,20 +364,6 @@ export function Padding({value, onChange: fallbackOnChange, config, showTitle, c
     }
   })()
 
-  const refresh = useCallback(() => {
-    const result = onChange(PADDING_KEYS.map((key) => ({key, value: null})))
-    if (result?.clearUnsupported && !result.clearApplied) return
-    paddingValueRef.current = {}
-    setDraftConfigured({})
-    setPreviewValues(Object.fromEntries(PADDING_KEYS.map((key) => [
-      key,
-      context?.getStylePreview?.(key, true) || undefined
-    ])))
-    setPaddingValue({} as any)
-    setToggle(true)
-    setForceRenderKey(prev => prev + 1)
-  }, [onChange, context?.getStylePreview])
-
   return (
     <Panel
       title='内边距'
@@ -534,8 +378,4 @@ export function Padding({value, onChange: fallbackOnChange, config, showTitle, c
       </React.Fragment>
     </Panel>
   )
-}
-
-function getToggleDefaultValue(value: CSSProperties): boolean {
-  return allEqual([value.paddingTop, value.paddingRight, value.paddingBottom, value.paddingLeft])
 }

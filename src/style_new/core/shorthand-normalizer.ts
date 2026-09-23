@@ -143,7 +143,14 @@ function compactFour(values: string[]): string[] {
 }
 
 function serializeFourValues(values: string[]): string | null {
-  return values.length === 4 ? compactFour(values).join(' ') : null
+  if (values.length !== 4) return null
+  // CSS-wide 关键字只能单独使用，不能生成 `0 unset 0 0` 这样的无效简写。
+  if (values.some(value => /^(initial|inherit|unset|revert|revert-layer)$/i.test(value))) {
+    return values.every(value => value === values[0]) ? values[0] : null
+  }
+  return compactFour(values.map(value =>
+    /^[-+]?0+(?:\.0+)?(?:px|em|rem|%|vh|vw|vmin|vmax|cm|mm|in|pt|pc)?$/i.test(value) ? '0' : value
+  )).join(' ')
 }
 
 function serializeTwoValues(values: string[]): string | null {
@@ -308,6 +315,14 @@ function normalizeSimpleGroup(
   const allKeys = [shorthand, ...longhands]
   const touched = allKeys.some((key) => changedKeys.has(key))
   const hasGroupValue = allKeys.some((key) => hasValue(style, key))
+  // 显式设置简写时，新简写优先于快照里残留的旧 longhand。
+  if (changedKeys.has(shorthand) && hasValue(style, shorthand) &&
+    !longhands.some(key => changedKeys.has(key))) {
+    const expanded = longhands.length === 4 ? expandFourShorthand(style[shorthand]) : null
+    const value = expanded ? withCommonPriority(expanded, serialize) : null
+    replaceGroup(style, { [shorthand]: value ?? style[shorthand] }, allKeys, deletions)
+    return
+  }
   // 编辑单一方向时，先将已有 shorthand 展开。否则删除一个 longhand 会直接移除
   // shorthand，导致未编辑方向的 margin/padding 也一并丢失。
   expandShorthandForLonghandChange(style, shorthand, longhands, changedKeys, deletions)

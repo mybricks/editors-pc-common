@@ -16,6 +16,7 @@ export function buildStyleMutationChange(
       key: mutation.key,
       value: mutation.value,
       intent: 'set-effective-style',
+      ...(mutation.target ? { target: mutation.target } : {}),
     }
   })
 }

@@ -32,6 +32,8 @@ export type StyleChangeItem = {
   key: string;
   value: any;
   intent?: 'clear-effective-style' | 'set-effective-style';
+  /** 统一间距配置落到当前 Tab；省略时跟随属性的生效来源。 */
+  target?: 'current-rule';
 };
 
 export type StyleChangeResult = {
@@ -46,6 +48,7 @@ export type StyleMutation =
       type: 'set';
       key: string;
       value: any;
+      target?: 'current-rule';
     }
   | {
       type: 'clear';

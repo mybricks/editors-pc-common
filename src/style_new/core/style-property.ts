@@ -6,6 +6,7 @@ import {
   BATCH_CLEAR_SHORTHANDS, getShorthandFamily, STYLE_SHORTHANDS, stylePropertyKey,
 } from './style-shorthand-groups'
 import type { ZoneSourceRule, ZoneTab } from './zone-tab'
+import { expandFourShorthand } from './shorthand-normalizer'
 
 export const cssPropertyName = (key: string) => key.startsWith('--')
   ? key
@@ -38,7 +39,7 @@ export type StyleProperty = {
   clearPlan: StyleClearPlan
 }
 
-function readInlineStyleProperties(target: HTMLElement | null): Set<string> {
+export function readInlineStyleProperties(target: HTMLElement | null): Set<string> {
   try {
     return new Set(Object.keys(JSON.parse(target?.dataset?.styleInfo || '{}'))
       .filter(Boolean)
@@ -176,6 +177,21 @@ export function createStyleResolution(tab: ZoneTab, target: HTMLElement | null =
       index.set(property, remaining)
       cache.delete(property)
 
+      // 写入间距简写后立即刷新四边来源，连续输入/重置不等待 CSSOM 重编译。
+      if (value != null && (property === 'margin' || property === 'padding')) {
+        const expanded = expandFourShorthand(value)
+        const shorthand = remaining[remaining.length - 1]
+        if (expanded && shorthand) STYLE_SHORTHANDS[property].forEach((longhand, position) => {
+          const others = (index.get(longhand) || []).filter(candidate => candidate.label !== selector)
+          others.push({
+            ...shorthand,
+            value: expanded[position].replace(/\s*!important\s*$/i, '').trim(),
+          })
+          index.set(longhand, others)
+          cache.delete(longhand)
+        })
+      }
+
       // 删除 shorthand 时同步移除它在 longhand 索引中的贡献，避免源码/CSSOM
       // 尚未完成重编译时，后续查询仍把已经删除的简写当作生效来源。
       if (value == null) {
@@ -227,6 +243,36 @@ export function createBatchStyleClearPlans(
     if (!longhands.every(longhand => plannedKeys.includes(longhand))) return
 
     const longhandProperties = longhands.map(longhand => resolution.get(longhand))
+    if (property === 'margin' || property === 'padding') {
+      // 间距的整组清空包含稀疏长写和多来源配置；按生效来源删除，不生成 unset。
+      // 未生效的其他来源保留，清空后允许它们自然回显。
+      const winners = longhandProperties.map(item => item.winner).filter((item): item is StyleSourceCandidate =>
+        !!item?.currentState
+      )
+      const sources = winners.filter((item, index) => winners.findIndex(other =>
+        other.label === item.label && other.inline === item.inline
+      ) === index)
+      const groupPlans: StyleClearPlan[] = []
+      const family = getShorthandFamily(property)
+      for (const source of sources) {
+        if (!source.label) return
+        const properties = source.inline
+          ? family.filter(name => readInlineStyleProperties(target).has(name)) : family
+        if (source.inline && (!properties.length || properties.some(name =>
+          !readStaticInlineStyleInfo(target, stylePropertyKey(name), true)
+        ))) return
+        properties.forEach(name => groupPlans.push({
+          key: stylePropertyKey(name), winner: source,
+          candidates: resolution.get(name).candidates,
+          action: 'delete', selector: source.label, value: null,
+        }))
+      }
+      if (groupPlans.length) {
+        plannedKeys = plannedKeys.filter(key => !longhands.includes(key))
+        deletes.push(...groupPlans)
+      }
+      return
+    }
     const winner = longhandProperties[0]?.winner
     if (!winner) return
     const family = getShorthandFamily(property)

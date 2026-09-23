@@ -1,9 +1,6 @@
 import React, {
-  useLayoutEffect,
   useMemo,
   useState,
-  useCallback,
-  useRef,
   CSSProperties
 } from 'react'
 
@@ -21,14 +18,10 @@ import {
   withApplyVariableOption,
   APPLY_VARIABLE_ACTION
 } from '../../components'
-import { allEqual } from '../../utils'
-import { useDragNumber, useLengthVarBinding, isCssVarValue } from '../../hooks'
+import { useDragNumber, useLengthVarBinding, useBoxSpacingEditor } from '../../hooks'
 
 import type { ChangeEvent, PanelBaseProps } from '../../type'
 import {
-  useEffectiveStyleValue,
-  useStyleChange,
-  useStyleClear,
   useStyleEditorContext
 } from '../../context'
 import type { LengthVarBinding } from '../../hooks/useLengthVarBinding'
@@ -58,71 +51,6 @@ const UNIT_OPTIONS = [
   { label: 'auto', value: 'auto' },
   { label: '%', value: '%' }
 ]
-const MARGIN_KEYS = ['marginTop', 'marginRight', 'marginBottom', 'marginLeft'] as const
-
-type MarginValue = CSSProperties & Record<string, any>
-
-function isEffectiveStyleConfigured(item?: EffectiveStyleValue): boolean {
-  if (!item || item.type === 'computed') return false
-  return !(typeof item.value === 'string' && /^unset$/i.test(item.value.trim()))
-}
-
-/** 将 margin 简写展开，保留 auto 关键字供编辑器回显。 */
-function expandMarginShorthand(value: CSSProperties): MarginValue {
-  const next: MarginValue = {...value}
-  MARGIN_KEYS.forEach((key) => {
-    if (String(next[key] ?? '').trim().toLowerCase() === '0auto') next[key] = 'auto'
-  })
-  if (typeof next.margin !== 'string' || !next.margin.trim()) return next
-
-  const rawMargin = next.margin.replace(/\s*!important\s*$/i, '').trim()
-  const parts: string[] = []
-  let token = ''
-  let depth = 0
-  for (const char of rawMargin) {
-    if (char === '(') depth += 1
-    if (char === ')') depth -= 1
-    if (/\s/.test(char) && depth === 0) {
-      if (token) parts.push(token)
-      token = ''
-    } else {
-      token += char
-    }
-  }
-  if (token) parts.push(token)
-  if (depth !== 0 || parts.length < 1 || parts.length > 4) return next
-
-  const [top, right = top, bottom = top, left = right] = parts
-  const expanded = parts.length === 1
-    ? [top, top, top, top]
-    : parts.length === 2
-      ? [top, right, top, right]
-      : parts.length === 3
-        ? [top, right, bottom, right]
-        : [top, right, bottom, left]
-
-  MARGIN_KEYS.forEach((key, index) => {
-    if (next[key] == null || next[key] === '') next[key] = expanded[index]
-  })
-  return next
-}
-
-function getMarginEditorValue(
-  value: CSSProperties,
-  effectiveStyle?: Record<string, EffectiveStyleValue>
-): MarginValue {
-  if (!effectiveStyle) return expandMarginShorthand(value)
-  const next: MarginValue = {}
-  MARGIN_KEYS.forEach((key) => {
-    if (!isEffectiveStyleConfigured(effectiveStyle[key])) return
-    const current = value[key]
-    if (current != null && current !== '') {
-      next[key] = String(current).trim().toLowerCase() === '0auto' ? 'auto' : current
-    }
-  })
-  return next
-}
-
 function getUnitOptions(clearable: boolean) {
   return clearable ? UNIT_OPTIONS : UNIT_OPTIONS.slice(2)
 }
@@ -200,31 +128,6 @@ function MarginValueInput({binding, value, label, inputProps}: MarginValueInputP
   return <VariableNumberInput binding={binding} inputProps={normalizedInputProps} chipStyle={CHIP_STYLE} />
 }
 
-/**
- * 检测当前元素与父容器 flex 对齐的冲突情况。
- * 返回 { isRow, alignItems } 表示父容器是行方向以及其对齐值，
- * 或返回 null（无 flex 父容器 / 元素已设置 align-self）。
- */
-function getAlignConflict(targetDom: HTMLElement | null | undefined) {
-  const parent = targetDom?.parentElement
-  if (!parent) return null
-
-  const ps = window.getComputedStyle(parent)
-  if (ps.display !== 'flex' && ps.display !== 'inline-flex') return null
-
-  // 元素自身已有明确的 align-self 时跳过（用户已主动控制对齐）
-  const selfAlign = targetDom ? window.getComputedStyle(targetDom).alignSelf : 'auto'
-  if (selfAlign !== 'auto' && selfAlign !== 'normal') return null
-
-  const isRow = !ps.flexDirection || ps.flexDirection.startsWith('row')
-  return { isRow, alignItems: ps.alignItems }
-}
-
-/** 绑定变量本身不该改动对齐，只有落成具体数值才参与 flex 冲突修复 */
-function isFixedMargin(val: unknown): boolean {
-  return val != null && !isCssVarValue(val as string)
-}
-
 const DEFAULT_CONFIG = {
   disableMarginTop: false,
   disableMarginRight: false,
@@ -234,140 +137,14 @@ const DEFAULT_CONFIG = {
 
 export function Margin ({value, onChange: fallbackOnChange, config, showTitle, collapse}: MarginProps) {
   const context = useStyleEditorContext()
-  const effectiveValue = useEffectiveStyleValue()
-  const onChange = useStyleChange(fallbackOnChange)
-  const topClear = useStyleClear('marginTop')
-  const rightClear = useStyleClear('marginRight')
-  const bottomClear = useStyleClear('marginBottom')
-  const leftClear = useStyleClear('marginLeft')
-  const unifiedClear = useStyleClear(MARGIN_KEYS)
-  // Zone 模式只跟随 EffectiveStyleValue。写入后 StyleMount 会先刷新 value，
-  // effectiveStyle 稍后才回流；若监听 value，会用旧 effectiveStyle 把本地新值覆盖掉。
-  const editorValue = context?.effectiveStyle ? effectiveValue : value
-  const initialValue = getMarginEditorValue(
-    editorValue,
-    context?.effectiveStyle
-  )
-  const [toggle, setToggle] = useState(getToggleDefaultValue(initialValue))
-  const [marginValue, setMarginValue] = useState(initialValue)
-  const marginValueRef = useRef(initialValue)
-  const [draftConfigured, setDraftConfigured] = useState<Record<string, boolean>>({})
-  const [previewValues, setPreviewValues] = useState<Record<string, string | undefined>>({})
-  const [forceRenderKey, setForceRenderKey] = useState<number>(Math.random())
+  const {
+    spacingValue: marginValue, toggle, setToggle, previewValues, forceRenderKey,
+    handleChange, handleUnifiedChange, handleSwitchToUnified, refresh,
+    canResetSide, unifiedCanClear, canReset,
+  } = useBoxSpacingEditor({ property: 'margin', value, onChange: fallbackOnChange })
   const [splitMarginIcon, setSplitMarginIcon] = useState(<MarginTopOutlined />)
   const getDragProps = useDragNumber({ continuous: true, min: -Infinity })
-
   const cfg = useMemo(() => ({ ...DEFAULT_CONFIG, ...(config ?? {}) }), [config]);
-
-  // 面板实例会在切换选中组件时复用，需同步新的边距值，避免先显示上一组件的数字。
-  useLayoutEffect(() => {
-    const next = getMarginEditorValue(
-      editorValue,
-      context?.effectiveStyle
-    );
-    marginValueRef.current = next
-    setDraftConfigured({})
-    setPreviewValues({})
-    setMarginValue((previous) => {
-      return MARGIN_KEYS.every((key) => previous[key] === next[key]) ? previous : next;
-    });
-    const nextToggle = getToggleDefaultValue(next);
-    if (nextToggle !== toggle) {
-      setToggle(nextToggle);
-    }
-  }, [
-    context?.targetDom,
-    context?.effectiveStyle,
-    effectiveValue.marginTop,
-    effectiveValue.marginRight,
-    effectiveValue.marginBottom,
-    effectiveValue.marginLeft,
-    context?.effectiveStyle ? undefined : value.margin,
-    context?.effectiveStyle ? undefined : value.marginTop,
-    context?.effectiveStyle ? undefined : value.marginRight,
-    context?.effectiveStyle ? undefined : value.marginBottom,
-    context?.effectiveStyle ? undefined : value.marginLeft,
-  ]);
-
-  const handleChange = useCallback((changes: CSSProperties & Record<string, any>) => {
-    // 单位下拉选中「默认」时 InputNumber 会回传 'default'，等同于清空该属性
-    const normalizedValue: Record<string, any> = {...changes}
-    Object.keys(normalizedValue).forEach((key) => {
-      if (String(normalizedValue[key] ?? '').includes('default')) normalizedValue[key] = null
-    })
-
-    const changeItems = Object.entries(normalizedValue).map(([key, nextValue]) => ({
-      key,
-      value: nextValue
-    }))
-
-    // 检测父容器 flex 对齐冲突，自动追加 align-self 修复
-    const conflict = getAlignConflict(context?.targetDom)
-    if (conflict) {
-      const { isRow, alignItems } = conflict
-      const crossStart = isRow ? 'marginTop' : 'marginLeft'
-      const crossEnd   = isRow ? 'marginBottom' : 'marginRight'
-
-      if (alignItems === 'flex-end' && isFixedMargin(changes[crossStart])) {
-        // 父容器底/右对齐，用户设置 cross-start 方向 margin → 自动顶/左对齐
-        changeItems.push({key: 'alignSelf', value: 'flex-start'})
-      } else if (alignItems === 'flex-start' && isFixedMargin(changes[crossEnd])) {
-        // 父容器顶/左对齐，用户设置 cross-end 方向 margin → 自动底/右对齐
-        changeItems.push({key: 'alignSelf', value: 'flex-end'})
-      } else if (alignItems === 'center') {
-        if (isFixedMargin(changes[crossStart])) {
-          changeItems.push({key: 'alignSelf', value: 'flex-start'})
-        } else if (isFixedMargin(changes[crossEnd])) {
-          changeItems.push({key: 'alignSelf', value: 'flex-end'})
-        }
-      }
-    }
-
-    const result = onChange(changeItems)
-    if (result?.clearUnsupported && !result.clearApplied) return result
-
-    const next = {...marginValueRef.current, ...normalizedValue}
-    marginValueRef.current = next
-    setMarginValue(next)
-    setDraftConfigured((current) => {
-      const nextDraft = {...current}
-      Object.entries(normalizedValue).forEach(([key, nextValue]) => {
-        nextDraft[key] = nextValue != null
-      })
-      return nextDraft
-    })
-    setPreviewValues((current) => {
-      const nextPreview = {...current}
-      Object.entries(normalizedValue).forEach(([key, nextValue]) => {
-        nextPreview[key] = nextValue == null
-          ? context?.getStylePreview?.(key, true) || undefined
-          : undefined
-      })
-      return nextPreview
-    })
-    return result
-  }, [onChange, context?.getStylePreview, context?.targetDom])
-
-  const handleUnifiedChange = useCallback((next: string | null) => {
-    const value = next === 'default' ? null : next
-    handleChange({
-      marginTop: value,
-      marginRight: value,
-      marginBottom: value,
-      marginLeft: value
-    })
-  }, [handleChange])
-
-  const handleSwitchToUnified = useCallback(() => {
-    const result = handleChange({
-      marginTop: marginValueRef.current.marginTop ?? null,
-      marginRight: marginValueRef.current.marginTop ?? null,
-      marginBottom: marginValueRef.current.marginTop ?? null,
-      marginLeft: marginValueRef.current.marginTop ?? null
-    })
-    if (result?.clearUnsupported && !result.clearApplied) return
-    setToggle(true)
-  }, [handleChange])
 
   // 统一模式与四边各自持有绑定态：统一模式绑一个变量即写四边同值（对齐 Figma）
   const unifiedVar = useLengthVarBinding({
@@ -396,24 +173,10 @@ export function Margin ({value, onChange: fallbackOnChange, config, showTitle, c
     computedProp: 'marginLeft'
   })
 
-  const standalone = !context?.getStyleProperty
-  const topCanClear = !!topClear.clear || (!topClear.disabledReason && (
-    draftConfigured.marginTop || (standalone && marginValue.marginTop != null)
-  ))
-  const rightCanClear = !!rightClear.clear || (!rightClear.disabledReason && (
-    draftConfigured.marginRight || (standalone && marginValue.marginRight != null)
-  ))
-  const bottomCanClear = !!bottomClear.clear || (!bottomClear.disabledReason && (
-    draftConfigured.marginBottom || (standalone && marginValue.marginBottom != null)
-  ))
-  const leftCanClear = !!leftClear.clear || (!leftClear.disabledReason && (
-    draftConfigured.marginLeft || (standalone && marginValue.marginLeft != null)
-  ))
-  const unifiedCanClear = !!unifiedClear.clear || (!unifiedClear.disabledReason &&
-    [topCanClear, rightCanClear, bottomCanClear, leftCanClear].some(Boolean))
-  const canReset = standalone
-    ? [topCanClear, rightCanClear, bottomCanClear, leftCanClear].some(Boolean)
-    : unifiedCanClear
+  const topCanClear = canResetSide('marginTop')
+  const rightCanClear = canResetSide('marginRight')
+  const bottomCanClear = canResetSide('marginBottom')
+  const leftCanClear = canResetSide('marginLeft')
   const unifiedUnitOptions = useMemo(
     () => withApplyVariableOption(getUnitOptions(unifiedCanClear), unifiedVar.hasVariables),
     [unifiedCanClear, unifiedVar.hasVariables]
@@ -680,20 +443,6 @@ export function Margin ({value, onChange: fallbackOnChange, config, showTitle, c
     }
   })()
 
-  const refresh = useCallback(() => {
-    const result = onChange(MARGIN_KEYS.map((key) => ({key, value: null})))
-    if (result?.clearUnsupported && !result.clearApplied) return
-    marginValueRef.current = {}
-    setDraftConfigured({})
-    setPreviewValues(Object.fromEntries(MARGIN_KEYS.map((key) => [
-      key,
-      context?.getStylePreview?.(key, true) || undefined
-    ])))
-    setMarginValue({} as any)
-    setToggle(true)
-    setForceRenderKey(prev => prev + 1)
-  }, [onChange, context?.getStylePreview])
-
   return (
     <Panel
       title='外边距'
@@ -708,8 +457,4 @@ export function Margin ({value, onChange: fallbackOnChange, config, showTitle, c
       </React.Fragment>
     </Panel>
   )
-}
-
-function getToggleDefaultValue (value: CSSProperties): boolean {
-  return allEqual([value.marginTop, value.marginRight, value.marginBottom, value.marginLeft])
 }
