@@ -165,7 +165,7 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
 
   const affectedCount = useAffectedCount(
     activeZoneIdx,
-    zoneSelectorList,
+    zoneTabs,
     finalSelector,
     shellComId || undefined,
     selectedTarget
