@@ -16,7 +16,7 @@ import type { ZoneTab } from './zone-tab'
 import {
   collectStyleSourceCandidates, createBatchStyleClearPlans, createStyleClearPlan,
   cssPropertyName, getStyleResolution,
-  readInlineStyleProperties, readStaticInlineStyleInfo, resolveEffectiveStyleSource,
+  hasFallbackStyleCandidate, readInlineStyleProperties, readStaticInlineStyleInfo, resolveEffectiveStyleSource,
 } from './style-property'
 import type { StyleClearPlan, StyleResolution } from './style-property'
 import { getShorthandFamily, STYLE_SHORTHANDS, stylePropertyKey } from './style-shorthand-groups'
@@ -66,8 +66,8 @@ const BACKGROUND_INITIAL_VALUES: Record<string, string[]> = {
 }
 
 /**
- * 取消配置与 clear-effective-style（屏蔽级联）分开。只删除当前生效来源，
- * 允许低优先级声明重新出现；简写必须同源拆分，绝不以 unset 冒充删除。
+ * 取消配置与 clear-effective-style 共用级联保护：存在后备来源时写 unset，
+ * 没有后备来源时才删除当前声明；简写删除必须同源安全拆分。
  * 预检与执行共用此计划，面板不需要理解 selector、简写或 JSX 写入限制。
  */
 export function createStyleRemovalPlan(
@@ -103,10 +103,45 @@ export function createStyleRemovalPlan(
   const shorthandOnly = wholeFamilies.filter(name =>
     STYLE_SHORTHANDS[name].every(property => !resolution.get(property).winner)
   ).map(stylePropertyKey)
+  // 调用方明确提交整个简写族（如 flex + 三个 longhand）时，优先中和简写本身。
+  // 否则逐个 longhand 写 unset 会留下原 flex 声明，也会把一条配置膨胀成多条。
+  const handledKeys = new Set<string>()
+  const explicitProperties = new Set(keys.map(cssPropertyName))
+  const explicitWholeFamilies = wholeFamilies.filter(name => explicitProperties.has(name))
+  for (const family of explicitWholeFamilies) {
+    if (handledKeys.has(stylePropertyKey(family))) continue
+    const property = resolution.get(family)
+    const winner = property.winner
+    if (!winner?.currentState) continue
+    if (property.clearPlan.action === 'noop') {
+      getShorthandFamily(family).forEach(name => handledKeys.add(stylePropertyKey(name)))
+      continue
+    }
+    if (!hasFallbackStyleCandidate(property)) continue
+    const plan = property.clearPlan
+    if (plan.action === 'unsupported') return blocked(plan.reason)
+    if (plan.action !== 'write-unset') return blocked('无法安全屏蔽后备样式来源')
+    const group = groups.get(plan.selector) || { selector: plan.selector, style: {}, deletions: [] }
+    group.style[plan.key] = plan.value
+    groups.set(plan.selector, group)
+    getShorthandFamily(family).forEach(name => handledKeys.add(stylePropertyKey(name)))
+  }
   // 显式转数组，避免宿主降级编译时把 Set/Map 迭代器当作数组而跳过循环。
   for (const key of Array.from(new Set([...Array.from(requested), ...shorthandOnly]))) {
-    const winner = resolution.get(key).winner
+    if (handledKeys.has(key)) continue
+    const property = resolution.get(key)
+    const winner = property.winner
     if (!winner?.currentState) continue
+    if (property.clearPlan.action === 'noop') continue
+    if (hasFallbackStyleCandidate(property)) {
+      const plan = property.clearPlan
+      if (plan.action === 'unsupported') return blocked(plan.reason)
+      if (plan.action !== 'write-unset') return blocked('无法安全屏蔽后备样式来源')
+      const group = groups.get(plan.selector) || { selector: plan.selector, style: {}, deletions: [] }
+      group.style[key] = plan.value
+      groups.set(plan.selector, group)
+      continue
+    }
     if (!winner.label) return blocked('找不到可删除的样式来源')
     const selector = winner.label
     const group = groups.get(selector) || { selector, style: {}, deletions: [] }
@@ -198,7 +233,7 @@ function applyStyleRemoval(
       resolution.record(key, value, selector)
       if (selector === INLINE_STYLE_LABEL) target?.style.setProperty(cssPropertyName(key), String(value))
     })
-    console.log('[样式编辑][删除声明]', { selector, 删除: deletions, 保留: style })
+    console.log('[样式编辑][取消配置]', { selector, 删除: deletions, 写入: style })
   })
   // 先完成所有删除/拆分，再按真实剩余来源刷新，避免清掉刚保留的兄弟属性。
   touched.forEach(key => {
@@ -479,10 +514,17 @@ function applyEffectiveStyleChanges(
   const replacingFlex = flexKeys.every(key => changes.some(item => item.key === key)) &&
     changes.some(item => flexKeys.includes(item.key) && item.value != null)
   const sideClearKeys = getBoxSpacingSideClearKeys(changes)
+  const shouldUseCascadeClearPlan = (item: StyleChangeItem) =>
+    item.value === null &&
+    !(replacingFlex && flexKeys.includes(item.key)) &&
+    hasFallbackStyleCandidate(resolution.get(item.key))
+  const specializedChanges = changes.filter(item => !shouldUseCascadeClearPlan(item))
   // 先预检整个用户动作，避免清空不可执行却先修改了共享图层。
   const plans = createBatchStyleClearPlans(
-    changes.filter(item => item.value === null && !sideClearKeys.has(item.key) && !isBorderProperty(item.key) &&
-      !(replacingFlex && flexKeys.includes(item.key))).map(item => item.key),
+    changes.filter(item => item.value === null && (shouldUseCascadeClearPlan(item) || (
+      !sideClearKeys.has(item.key) && !isBorderProperty(item.key) &&
+      !(replacingFlex && flexKeys.includes(item.key))
+    ))).map(item => item.key),
     resolution,
     target
   )
@@ -511,9 +553,9 @@ function applyEffectiveStyleChanges(
   const propertyPlans = [
     ...(replacingFlex ? [{ property: 'flex' as const, selector: flexSelector, style: flexStyle,
       deletions: flexDeletions, clearedKeys: [] as string[], unsupported: flexUnsupported }] : []),
-    ...createSpacingWritePlans(changes, resolution, tab.selector, target,
+    ...createSpacingWritePlans(specializedChanges, resolution, tab.selector, target,
       change => writeTargets.get(change.key)?.selector || null),
-    ...createBorderWritePlans(changes, resolution, target,
+    ...createBorderWritePlans(specializedChanges, resolution, target,
       change => writeTargets.get(change.key)?.selector || null),
   ]
   if (plans.some(plan => plan.action === 'unsupported') || propertyPlans.some(plan => plan.unsupported) ||
@@ -638,7 +680,7 @@ export type ApplyStyleChangeParams = {
   importantPriorityCache?: Map<string, boolean>
   zoneWriteTargets?: Map<string, ZoneWriteTarget>
   onBatchMetaChange?: () => void
-  /** 仅由 useStyleClear 的 remove-declaration 模式提交；不改变普通 null 的语义。 */
+  /** 由 useStyleClear 的兼容删除模式提交；公共层仍根据后备来源决定 delete/unset。 */
   removeKeys?: readonly string[]
 }
 

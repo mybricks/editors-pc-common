@@ -39,6 +39,21 @@ export type StyleProperty = {
   clearPlan: StyleClearPlan
 }
 
+/** 删除 winner 后是否还有其他来源会接管当前属性。 */
+export function hasFallbackStyleCandidate(
+  property: Pick<StyleProperty, 'winner' | 'candidates'>
+): boolean {
+  const winner = property.winner
+  if (!winner) return false
+  return property.candidates.some(candidate =>
+    candidate !== winner && (
+      candidate.label !== winner.label ||
+      candidate.inline !== winner.inline ||
+      candidate.source !== winner.source
+    )
+  )
+}
+
 export function readInlineStyleProperties(target: HTMLElement | null): Set<string> {
   try {
     return new Set(Object.keys(JSON.parse(target?.dataset?.styleInfo || '{}'))
@@ -229,7 +244,8 @@ export function createStyleResolution(tab: ZoneTab, target: HTMLElement | null =
 export type StyleResolution = ReturnType<typeof createStyleResolution>
 
 /**
- * 整组恢复默认时删除 winning source 内的整个属性族，允许低优先级样式重新生效。
+ * 整组恢复默认时，无后备来源才删除 winning source 内的整个属性族。
+ * 有后备来源时保留逐属性 clearPlan，用 unset 阻止低优先级样式重新生效。
  * CSSOM 会合成/拆开简写，不能用 item() 判断源码究竟写了 margin 还是四条长写，
  * 因此同时清理该组所有写法；部分清空仍保留 unset，避免删除未选中的配置。
  */
@@ -251,9 +267,10 @@ export function createBatchStyleClearPlans(
     if (!longhands.every(longhand => plannedKeys.includes(longhand))) return
 
     const longhandProperties = longhands.map(longhand => resolution.get(longhand))
+    const hasFallbackSource = longhandProperties.some(hasFallbackStyleCandidate)
+    if (hasFallbackSource) return
     if (property === 'margin' || property === 'padding') {
-      // 间距的整组清空包含稀疏长写和多来源配置；按生效来源删除，不生成 unset。
-      // 未生效的其他来源保留，清空后允许它们自然回显。
+      // 没有后备来源时，间距整组清空仍支持稀疏长写和各方向不同来源。
       const winners = longhandProperties.map(item => item.winner).filter((item): item is StyleSourceCandidate =>
         !!item?.currentState
       )
@@ -293,15 +310,6 @@ export function createBatchStyleClearPlans(
       current.source === winner.source
     )
     if (!sameSource || !winner.label) return
-
-    // 多个 selector 同时提供同一组圆角时，清空生效来源需要写入 unset，
-    const hasOtherCurrentSource = longhandProperties.some(({ winner: current, candidates }) =>
-      candidates.some(candidate =>
-        candidate.currentState &&
-        (candidate.label !== current?.label || candidate.inline !== current?.inline || candidate.source !== current?.source)
-      )
-    )
-    if (hasOtherCurrentSource && property === 'border-radius') return
 
     let deleteProperties = family
     if (winner.inline) {

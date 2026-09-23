@@ -39,7 +39,7 @@ interface StyleEditorContextValue {
   applyStyleMutations?: ApplyStyleMutations
   getStyleProperty?: (key: string) => StyleProperty
   getStyleClearPlans?: (keys: readonly string[]) => StyleClearPlan[]
-  /** 取消当前配置，允许其他来源重新生效；与原有 clear 的屏蔽语义分开。 */
+  /** 取消当前配置；公共层根据是否存在后备来源决定删除声明或写 unset。 */
   removeStyleProperties?: (keys: readonly string[]) => StyleChangeResult | void
   getStyleRemovalState?: (keys: readonly string[]) => { canClear: boolean; disabledReason?: string }
   getStylePreview?: (key: string, refresh?: boolean) => string
@@ -134,6 +134,7 @@ export function useStyleField(key: string) {
 
 /** 单属性和整组共用执行器的预检结果；不向属性编辑器暴露样式回显值。 */
 export function useStyleClear(key: string | readonly string[], options?: {
+  /** 兼容已有面板的模式名；实际 null/unset 仍由公共规划层决定。 */
   mode?: 'remove-declaration'
   fallbackOnChange?: ChangeEvent
 }) {

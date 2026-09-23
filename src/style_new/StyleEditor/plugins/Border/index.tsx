@@ -743,6 +743,65 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
   const canReset = canClearKeys(resetKeys);
   const allWidthCanClear = borderPosition === 'center' ? canClearKeys(BORDER_WIDTH_KEYS) : canReset;
 
+  // useEffect(() => {
+  //   const plans = standalone
+  //     ? []
+  //     : context?.getStyleClearPlans?.(resetKeys) ??
+  //       resetKeys.map((key) => context?.getStyleProperty?.(key)?.clearPlan).filter(Boolean);
+  //   const planSnapshot = plans.map((plan) => ({
+  //     key: plan?.key,
+  //     action: plan?.action,
+  //     selector: plan && 'selector' in plan ? plan.selector : undefined,
+  //     reason: plan && 'reason' in plan ? plan.reason : undefined,
+  //     winner: plan?.winner ? {
+  //       value: plan.winner.value,
+  //       property: plan.winner.property,
+  //       source: plan.winner.label,
+  //       currentState: plan.winner.currentState,
+  //       important: plan.winner.important,
+  //     } : null,
+  //     candidates: plan?.candidates.length,
+  //   }));
+
+  //   console.log('[边框删除预检]', {
+  //     canReset,
+  //     showMinus: !isInherited && canReset,
+  //     standalone,
+  //     isInherited,
+  //     borderPosition,
+  //     borderToggleValue,
+  //     resetKeys: [...resetKeys],
+  //     plans: planSnapshot,
+  //   });
+  //   console.table(resetKeys.map((key) => {
+  //     const property = context?.getStyleProperty?.(key);
+  //     const winner = property?.winner;
+  //     const clearPlan = property?.clearPlan;
+  //     return {
+  //       key,
+  //       面板值: borderValue[key],
+  //       显示值: effectiveStyle?.[key]?.value,
+  //       显示来源: effectiveStyle?.[key]?.sourceSelector,
+  //       索引值: winner?.value,
+  //       索引属性: winner?.property,
+  //       索引来源: winner?.label,
+  //       属于当前状态: winner?.currentState,
+  //       候选数量: property?.candidates.length,
+  //       单属性清空动作: clearPlan?.action,
+  //       不可清空原因: clearPlan && 'reason' in clearPlan ? clearPlan.reason : undefined,
+  //     };
+  //   }));
+  // }, [
+  //   canReset,
+  //   standalone,
+  //   isInherited,
+  //   borderPosition,
+  //   borderToggleValue,
+  //   context,
+  //   effectiveStyle,
+  //   borderValue,
+  // ]);
+
   const handlePositionBorderClear = useCallback(() => {
     const pos = borderPositionRef.current;
     const changes: BorderValue = Object.fromEntries(
