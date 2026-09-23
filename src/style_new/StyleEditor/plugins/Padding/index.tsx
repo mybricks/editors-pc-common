@@ -19,9 +19,16 @@ import {
   APPLY_VARIABLE_ACTION
 } from '../../components'
 import {allEqual} from '../../utils'
-import {useUpdateEffect, useDragNumber, useLengthVarBinding} from '../../hooks'
+import {useDragNumber, useLengthVarBinding} from '../../hooks'
 
 import type {ChangeEvent, PanelBaseProps} from '../../type'
+import {
+  useEffectiveStyleValue,
+  useStyleChange,
+  useStyleClear,
+  useStyleEditorContext
+} from '../../context'
+import type {EffectiveStyleValue} from '../../../core/zone-tab'
 
 import css from './index.less'
 
@@ -49,70 +56,128 @@ const UNIT_OPTIONS = [
 const UNIT_DISABLED_LIST = ['default']
 const PADDING_KEYS = ['paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft'] as const
 
-export function Padding({value, onChange, config, showTitle, collapse}: PaddingProps) {
-  const [toggle, setToggle] = useState(getToggleDefaultValue(value))
-  const [paddingValue, setPaddingValue] = useState({...value})
-  const paddingValueRef = useRef({...value})
+type PaddingValue = CSSProperties & Record<string, any>
+
+function isEffectiveStyleConfigured(item?: EffectiveStyleValue): boolean {
+  if (!item || item.type === 'computed') return false
+  return !(typeof item.value === 'string' && /^unset$/i.test(item.value.trim()))
+}
+
+function getPaddingEditorValue(
+  value: CSSProperties,
+  effectiveStyle?: Record<string, EffectiveStyleValue>
+): PaddingValue {
+  const next: PaddingValue = {}
+  PADDING_KEYS.forEach((key) => {
+    if (effectiveStyle && !isEffectiveStyleConfigured(effectiveStyle[key])) return
+    const current = value[key]
+    if (current != null && current !== '') next[key] = current
+  })
+  return next
+}
+
+function getUnitOptions(clearable: boolean) {
+  return clearable ? UNIT_OPTIONS : UNIT_OPTIONS.slice(2)
+}
+
+function buildComputedTip(
+  label: string,
+  item?: EffectiveStyleValue,
+  previewValue?: string
+): string {
+  const computedValue = previewValue ?? item?.computedValue
+  return computedValue
+    ? `当前未配置${label}值，${computedValue}为计算值`
+    : label
+}
+
+export function Padding({value, onChange: fallbackOnChange, config, showTitle, collapse}: PaddingProps) {
+  const context = useStyleEditorContext()
+  const effectiveValue = useEffectiveStyleValue()
+  const onChange = useStyleChange(fallbackOnChange)
+  const topClear = useStyleClear('paddingTop')
+  const rightClear = useStyleClear('paddingRight')
+  const bottomClear = useStyleClear('paddingBottom')
+  const leftClear = useStyleClear('paddingLeft')
+  // Zone 模式只跟随 EffectiveStyleValue，避免写入后较早刷新的 value
+  // 触发同步，并被尚未回流的旧 effectiveStyle 覆盖本地新值。
+  const editorValue = context?.effectiveStyle ? effectiveValue : value
+  const initialValue = getPaddingEditorValue(
+    editorValue,
+    context?.effectiveStyle
+  )
+  const [toggle, setToggle] = useState(getToggleDefaultValue(initialValue))
+  const [paddingValue, setPaddingValue] = useState(initialValue)
+  const paddingValueRef = useRef(initialValue)
+  const [draftConfigured, setDraftConfigured] = useState<Record<string, boolean>>({})
+  const [previewValues, setPreviewValues] = useState<Record<string, string | undefined>>({})
   const [forceRenderKey, setForceRenderKey] = useState<number>(Math.random())
   const [splitPaddingIcon, setSplitPaddingIcon] = useState(<PaddingTopOutlined/>)
   const getDragProps = useDragNumber({ continuous: true })
 
-  /** 由外部值同步引起的模式切换不应回写四边，否则会覆盖真实内边距 */
-  const isExternalSyncRef = useRef(false)
-
   // 面板实例会在切换选中组件时复用，需同步新的内边距值，避免旧值短暂回显。
   useLayoutEffect(() => {
-    const next = {...value};
+    const next = getPaddingEditorValue(
+      editorValue,
+      context?.effectiveStyle
+    );
     paddingValueRef.current = next
+    setDraftConfigured({})
+    setPreviewValues({})
     setPaddingValue((previous) => {
       return PADDING_KEYS.every((key) => previous[key] === next[key]) ? previous : next;
     });
-    const nextToggle = getToggleDefaultValue(value);
+    const nextToggle = getToggleDefaultValue(next);
     if (nextToggle !== toggle) {
-      isExternalSyncRef.current = true;
       setToggle(nextToggle);
     }
-  }, [value.paddingTop, value.paddingRight, value.paddingBottom, value.paddingLeft]);
+  }, [
+    context?.targetDom,
+    context?.effectiveStyle,
+    effectiveValue.paddingTop,
+    effectiveValue.paddingRight,
+    effectiveValue.paddingBottom,
+    effectiveValue.paddingLeft,
+    context?.effectiveStyle ? undefined : value.paddingTop,
+    context?.effectiveStyle ? undefined : value.paddingRight,
+    context?.effectiveStyle ? undefined : value.paddingBottom,
+    context?.effectiveStyle ? undefined : value.paddingLeft
+  ]);
 
-  const handleSwitchToUnified = useCallback(() => {
-    onChange(PADDING_KEYS.map((key) => ({ key, value: null })))
-    setToggle(true)
-  }, [onChange])
-
-  const handleChange = useCallback((value: any) => {
+  const handleChange = useCallback((changes: PaddingValue) => {
     // 单位下拉选中「默认」时 InputNumber 会回传 'default'，等同于清空该属性
-    const normalizedValue: Record<string, any> = {...value}
+    const normalizedValue: Record<string, any> = {...changes}
     Object.keys(normalizedValue).forEach((key) => {
-      if (normalizedValue[key]?.includes('default')) normalizedValue[key] = null
+      if (String(normalizedValue[key] ?? '').includes('default')) normalizedValue[key] = null
     })
 
-    const current: Record<string, any> = {...paddingValueRef.current}
-    PADDING_KEYS.forEach((key) => {
-      if (current[key] == null || current[key] === '') current[key] = '0px'
-    })
-    const next = {...current, ...normalizedValue}
+    const result = onChange(Object.entries(normalizedValue).map(([key, nextValue]) => ({
+      key,
+      value: nextValue
+    })))
+    if (result?.clearUnsupported && !result.clearApplied) return result
+
+    const next = {...paddingValueRef.current, ...normalizedValue}
     paddingValueRef.current = next
     setPaddingValue(next)
-
-    // 某方向切为「默认」（null）时，仅传改动的 key（null），
-    // 同时补发其余方向的原始值（rawValueRef，保留变量引用），
-    // 让下游 shorthand-normalizer 能正确展开 padding shorthand，而不丢失其他方向。
-    const changedKeys = new Set(Object.keys(normalizedValue))
-    const changeItems: {key: string; value: any}[] = []
-    PADDING_KEYS.forEach((key) => {
-      if (changedKeys.has(key)) {
-        // 用户直接改动的方向：传新值（null 或真实值）
-        changeItems.push({key, value: normalizedValue[key]})
-      } else {
-        // 未改动的方向：用原始 prop 值补发，保留 var() 引用
-        const rawVal = (paddingValueRef.current as any)[key]
-        if (rawVal != null && rawVal !== '') {
-          changeItems.push({key, value: rawVal})
-        }
-      }
+    setDraftConfigured((current) => {
+      const nextDraft = {...current}
+      Object.entries(normalizedValue).forEach(([key, nextValue]) => {
+        nextDraft[key] = nextValue != null
+      })
+      return nextDraft
     })
-    onChange(changeItems)
-  }, [onChange])
+    setPreviewValues((current) => {
+      const nextPreview = {...current}
+      Object.entries(normalizedValue).forEach(([key, nextValue]) => {
+        nextPreview[key] = nextValue == null
+          ? context?.getStylePreview?.(key, true) || undefined
+          : undefined
+      })
+      return nextPreview
+    })
+    return result
+  }, [onChange, context?.getStylePreview])
 
   const handleUnifiedChange = useCallback((next: string | null) => {
     handleChange({
@@ -121,6 +186,17 @@ export function Padding({value, onChange, config, showTitle, collapse}: PaddingP
       paddingBottom: next,
       paddingLeft: next
     })
+  }, [handleChange])
+
+  const handleSwitchToUnified = useCallback(() => {
+    const result = handleChange({
+      paddingTop: paddingValueRef.current.paddingTop ?? null,
+      paddingRight: paddingValueRef.current.paddingTop ?? null,
+      paddingBottom: paddingValueRef.current.paddingTop ?? null,
+      paddingLeft: paddingValueRef.current.paddingTop ?? null
+    })
+    if (result?.clearUnsupported && !result.clearApplied) return
+    setToggle(true)
   }, [handleChange])
 
   // 统一模式与四边各自持有绑定态：统一模式绑一个变量即写四边同值（对齐 Figma）
@@ -150,25 +226,45 @@ export function Padding({value, onChange, config, showTitle, collapse}: PaddingP
     computedProp: 'paddingLeft'
   })
 
-  const unitOptions = useMemo(
-    () => withApplyVariableOption(UNIT_OPTIONS, unifiedVar.hasVariables),
-    [unifiedVar.hasVariables]
+  const standalone = !context?.getStyleProperty
+  const topCanClear = !!topClear.clear || (!topClear.disabledReason && (
+    draftConfigured.paddingTop || (standalone && paddingValue.paddingTop != null)
+  ))
+  const rightCanClear = !!rightClear.clear || (!rightClear.disabledReason && (
+    draftConfigured.paddingRight || (standalone && paddingValue.paddingRight != null)
+  ))
+  const bottomCanClear = !!bottomClear.clear || (!bottomClear.disabledReason && (
+    draftConfigured.paddingBottom || (standalone && paddingValue.paddingBottom != null)
+  ))
+  const leftCanClear = !!leftClear.clear || (!leftClear.disabledReason && (
+    draftConfigured.paddingLeft || (standalone && paddingValue.paddingLeft != null)
+  ))
+  const clearFields = [topClear, rightClear, bottomClear, leftClear]
+  const unifiedCanClear = clearFields.every((field) => !field.disabledReason) &&
+    [topCanClear, rightCanClear, bottomCanClear, leftCanClear].some(Boolean)
+  const canReset = standalone
+    ? [topCanClear, rightCanClear, bottomCanClear, leftCanClear].some(Boolean)
+    : unifiedCanClear
+  const unifiedUnitOptions = useMemo(
+    () => withApplyVariableOption(getUnitOptions(unifiedCanClear), unifiedVar.hasVariables),
+    [unifiedCanClear, unifiedVar.hasVariables]
   )
-
-  useUpdateEffect(() => {
-    if (isExternalSyncRef.current) {
-      isExternalSyncRef.current = false
-      return
-    }
-    if (toggle) {
-      handleChange({
-        paddingTop: paddingValue.paddingTop,
-        paddingRight: paddingValue.paddingTop,
-        paddingBottom: paddingValue.paddingTop,
-        paddingLeft: paddingValue.paddingTop
-      })
-    }
-  }, [toggle])
+  const topUnitOptions = useMemo(
+    () => withApplyVariableOption(getUnitOptions(topCanClear), topVar.hasVariables),
+    [topCanClear, topVar.hasVariables]
+  )
+  const rightUnitOptions = useMemo(
+    () => withApplyVariableOption(getUnitOptions(rightCanClear), rightVar.hasVariables),
+    [rightCanClear, rightVar.hasVariables]
+  )
+  const bottomUnitOptions = useMemo(
+    () => withApplyVariableOption(getUnitOptions(bottomCanClear), bottomVar.hasVariables),
+    [bottomCanClear, bottomVar.hasVariables]
+  )
+  const leftUnitOptions = useMemo(
+    () => withApplyVariableOption(getUnitOptions(leftCanClear), leftVar.hasVariables),
+    [leftCanClear, leftVar.hasVariables]
+  )
 
   const paddingConfig = (() => {
     if (toggle) {
@@ -193,17 +289,24 @@ export function Padding({value, onChange, config, showTitle, collapse}: PaddingP
                   style: DEFAULT_STYLE,
                   defaultValue: paddingValue.paddingTop,
                   defaultUnitValue: 'default',
-                  unitOptions,
+                  unitOptions: unifiedUnitOptions,
                   unitDisabledList: UNIT_DISABLED_LIST,
                   showIcon: true,
                   showIconOnHover: true,
                   fallbackValue: 0,
+                  clearable: unifiedCanClear,
                   onChange: handleUnifiedChange,
                   onClear: () => handleUnifiedChange(null),
                   onAction: (action) => {
                     if (action === APPLY_VARIABLE_ACTION) unifiedVar.openPicker()
                   },
-                  tip: `{content:'内边距',position:'top'}`
+                  tip: paddingValue.paddingTop == null
+                    ? buildComputedTip(
+                      '内边距',
+                      context?.effectiveStyle?.paddingTop,
+                      previewValues.paddingTop
+                    )
+                    : '内边距'
                 }}
               />
             </Panel.Item>
@@ -240,17 +343,25 @@ export function Padding({value, onChange, config, showTitle, collapse}: PaddingP
                       style: DEFAULT_STYLE,
                       defaultValue: paddingValue.paddingLeft,
                       defaultUnitValue: 'default',
-                      unitOptions,
+                      unitOptions: leftUnitOptions,
                       unitDisabledList: UNIT_DISABLED_LIST,
                       showIcon: true,
                       showIconOnHover: true,
                       fallbackValue: 0,
+                      clearable: leftCanClear,
                       onChange: (value) => handleChange({paddingLeft: value}),
                       onClear: () => handleChange({paddingLeft: null}),
                       onAction: (action) => {
                         if (action === APPLY_VARIABLE_ACTION) leftVar.openPicker()
                       },
-                      onFocus: () => setSplitPaddingIcon(<PaddingLeftOutlined/>)
+                      onFocus: () => setSplitPaddingIcon(<PaddingLeftOutlined/>),
+                      tip: paddingValue.paddingLeft == null
+                        ? buildComputedTip(
+                          '左内边距',
+                          context?.effectiveStyle?.paddingLeft,
+                          previewValues.paddingLeft
+                        )
+                        : '左内边距'
                     }}
                   />
                 </Panel.Item>
@@ -273,17 +384,25 @@ export function Padding({value, onChange, config, showTitle, collapse}: PaddingP
                       style: DEFAULT_STYLE,
                       defaultValue: paddingValue.paddingTop,
                       defaultUnitValue: 'default',
-                      unitOptions,
+                      unitOptions: topUnitOptions,
                       unitDisabledList: UNIT_DISABLED_LIST,
                       showIcon: true,
                       showIconOnHover: true,
                       fallbackValue: 0,
+                      clearable: topCanClear,
                       onChange: (value) => handleChange({paddingTop: value}),
                       onClear: () => handleChange({paddingTop: null}),
                       onAction: (action) => {
                         if (action === APPLY_VARIABLE_ACTION) topVar.openPicker()
                       },
-                      onFocus: () => setSplitPaddingIcon(<PaddingTopOutlined/>)
+                      onFocus: () => setSplitPaddingIcon(<PaddingTopOutlined/>),
+                      tip: paddingValue.paddingTop == null
+                        ? buildComputedTip(
+                          '上内边距',
+                          context?.effectiveStyle?.paddingTop,
+                          previewValues.paddingTop
+                        )
+                        : '上内边距'
                     }}
                   />
                 </Panel.Item>
@@ -308,17 +427,25 @@ export function Padding({value, onChange, config, showTitle, collapse}: PaddingP
                       style: DEFAULT_STYLE,
                       defaultValue: paddingValue.paddingRight,
                       defaultUnitValue: 'default',
-                      unitOptions,
+                      unitOptions: rightUnitOptions,
                       unitDisabledList: UNIT_DISABLED_LIST,
                       showIcon: true,
                       showIconOnHover: true,
                       fallbackValue: 0,
+                      clearable: rightCanClear,
                       onChange: (value) => handleChange({paddingRight: value}),
                       onClear: () => handleChange({paddingRight: null}),
                       onAction: (action) => {
                         if (action === APPLY_VARIABLE_ACTION) rightVar.openPicker()
                       },
-                      onFocus: () => setSplitPaddingIcon(<PaddingRightOutlined/>)
+                      onFocus: () => setSplitPaddingIcon(<PaddingRightOutlined/>),
+                      tip: paddingValue.paddingRight == null
+                        ? buildComputedTip(
+                          '右内边距',
+                          context?.effectiveStyle?.paddingRight,
+                          previewValues.paddingRight
+                        )
+                        : '右内边距'
                     }}
                   />
                 </Panel.Item>
@@ -341,17 +468,25 @@ export function Padding({value, onChange, config, showTitle, collapse}: PaddingP
                       style: DEFAULT_STYLE,
                       defaultValue: paddingValue.paddingBottom,
                       defaultUnitValue: 'default',
-                      unitOptions,
+                      unitOptions: bottomUnitOptions,
                       unitDisabledList: UNIT_DISABLED_LIST,
                       showIcon: true,
                       showIconOnHover: true,
                       fallbackValue: 0,
+                      clearable: bottomCanClear,
                       onChange: (value) => handleChange({paddingBottom: value}),
                       onClear: () => handleChange({paddingBottom: null}),
                       onAction: (action) => {
                         if (action === APPLY_VARIABLE_ACTION) bottomVar.openPicker()
                       },
-                      onFocus: () => setSplitPaddingIcon(<PaddingBottomOutlined/>)
+                      onFocus: () => setSplitPaddingIcon(<PaddingBottomOutlined/>),
+                      tip: paddingValue.paddingBottom == null
+                        ? buildComputedTip(
+                          '下内边距',
+                          context?.effectiveStyle?.paddingBottom,
+                          previewValues.paddingBottom
+                        )
+                        : '下内边距'
                     }}
                   />
                 </Panel.Item>
@@ -372,18 +507,28 @@ export function Padding({value, onChange, config, showTitle, collapse}: PaddingP
   })()
 
   const refresh = useCallback(() => {
-    onChange([
-      {key: 'padding', value: null},
-      ...PADDING_KEYS.map((key) => ({key, value: null}))
-    ])
+    const result = onChange(PADDING_KEYS.map((key) => ({key, value: null})))
+    if (result?.clearUnsupported && !result.clearApplied) return
     paddingValueRef.current = {}
-    rawValueRef.current = {}
+    setDraftConfigured({})
+    setPreviewValues(Object.fromEntries(PADDING_KEYS.map((key) => [
+      key,
+      context?.getStylePreview?.(key, true) || undefined
+    ])))
     setPaddingValue({} as any)
+    setToggle(true)
     setForceRenderKey(prev => prev + 1)
-  }, [onChange])
+  }, [onChange, context?.getStylePreview])
 
   return (
-    <Panel title='内边距' showTitle={showTitle} showReset={true} resetFunction={refresh} collapse={collapse}>
+    <Panel
+      title='内边距'
+      showTitle={showTitle}
+      showReset={canReset}
+      showDelete={canReset}
+      resetFunction={refresh}
+      collapse={collapse}
+    >
       <React.Fragment key={forceRenderKey}>
         {paddingConfig}
       </React.Fragment>
