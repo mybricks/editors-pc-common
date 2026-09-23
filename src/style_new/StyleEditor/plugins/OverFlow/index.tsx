@@ -1,7 +1,7 @@
 import React, { CSSProperties, useCallback, useLayoutEffect, useRef, useState } from 'react';
 
 import {Panel, Select} from '../../components';
-import { useEffectiveStyleValue, useStyleChange } from '../../context';
+import { useEffectiveStyleValue, useStyleChange, useStyleClear, useStyleEditorContext } from '../../context';
 
 import type {ChangeEvent, PanelBaseProps} from '../../type';
 import css from './index.less'
@@ -24,9 +24,13 @@ const VALUE_OPTIONS = [
   { label: '显示内容', value: 'visible' }
 ];
 
+const OVERFLOW_KEYS = ['overflow', 'overflowX', 'overflowY'] as const
+
 export const OverFlow = ({ onChange: fallbackOnChange, showTitle, collapse }: OverFlowProps) => {
+  const editorContext = useStyleEditorContext()
   const value = useEffectiveStyleValue() as OverFlowValueType
   const onChange = useStyleChange(fallbackOnChange)
+  const { clear } = useStyleClear(OVERFLOW_KEYS, { mode: 'remove-declaration', fallbackOnChange })
   const [overflowX, setOverflowX] = useState(value.overflowX)
   const [overflowY, setOverflowY] = useState(value.overflowY)
   const overflowValueRef = useRef<OverFlowValueType>({...value})
@@ -89,19 +93,22 @@ export const OverFlow = ({ onChange: fallbackOnChange, showTitle, collapse }: Ov
   }
 
   const refresh = useCallback(() => {
-    onChange([
-      { key: 'overflow', value: null },
-      { key: 'overflowX', value: null },
-      { key: 'overflowY', value: null },
-    ])
-    overflowValueRef.current = {}
-    setOverflowX(undefined)
-    setOverflowY(undefined)
+    if (!clear) return
+    const result = clear()
+    if (result?.clearUnsupported || (result && !result.applied)) return
+    const next = {
+      overflowX: editorContext?.getStyleProperty?.('overflowX').winner?.value as CSSProperties['overflowX'],
+      overflowY: editorContext?.getStyleProperty?.('overflowY').winner?.value as CSSProperties['overflowY'],
+    }
+    overflowValueRef.current = next
+    setOverflowX(next.overflowX)
+    setOverflowY(next.overflowY)
     setForceRenderKey(prev => prev + 1)
-  }, [onChange])
+  }, [clear, editorContext?.getStyleProperty])
 
   return (
-    <Panel title='内容溢出' showTitle={showTitle} showReset={true} resetFunction={refresh} collapse={collapse}>
+    <Panel title='内容溢出' showTitle={showTitle} showReset={true} showDelete={!!clear}
+      resetFunction={refresh} collapse={collapse}>
       <React.Fragment key={forceRenderKey}>
         <Panel.Content>
           <Select
