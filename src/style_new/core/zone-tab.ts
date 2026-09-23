@@ -4,6 +4,7 @@ import { compare } from 'specificity'
 import { isPageScopedSelector, resolveCssomSourceSelector } from './build-zone-selectors-from-cssom'
 import { toLine } from './css-code-codec'
 import { getStyleResolution } from './style-property'
+import { createCascadeResolver } from './cascade-winner'
 import { getDocument } from './dom'
 import { calculateSafeSpecificity, splitTopLevelSelectors } from './selector-utils'
 
@@ -20,7 +21,7 @@ export type ZoneSourceRule = {
 }
 
 export type EffectiveStyleValue = {
-  value: unknown
+  value?: unknown
   computedValue?: string
   type: 'inline' | 'stylesheet' | 'computed'
   sourceSelector?: string
@@ -158,8 +159,13 @@ export function buildZoneEffectiveStyle(
 ): Record<string, EffectiveStyleValue> {
   const result: Record<string, EffectiveStyleValue> = {}
   const computedStyle = target instanceof HTMLElement ? window.getComputedStyle(target) : null
+  const cascadeResolver = target instanceof HTMLElement && !tab.pseudo
+    ? createCascadeResolver(target)
+    : null
   Object.entries(styleValues).forEach(([styleKey, value]) => {
     if (value == null || String(value).trim() === '') return
+    let effectiveValue: unknown = value
+    let hasEffectiveValue = true
     const source = findStyleSource(tab, styleKey)
     const cssProperty = toLine(styleKey)
     const inlineStyle = target instanceof HTMLElement ? target.style : null
@@ -167,9 +173,26 @@ export function buildZoneEffectiveStyle(
     const stylesheetImportant = !!source && source.rule.style.getPropertyPriority(cssProperty) === 'important'
     const inlineWins = !!inlineValue && !stylesheetImportant
     const skipComputedValue = SKIP_COMPUTED_VALUE_WHEN_UNSET.has(cssProperty) && String(value).trim() === 'unset'
-    const computedValue = skipComputedValue ? undefined : (computedStyle?.getPropertyValue(cssProperty).trim() || undefined)
+    let computedValue = skipComputedValue
+      ? undefined
+      : (computedStyle?.getPropertyValue(cssProperty).trim() || undefined)
+    if (!skipComputedValue && cascadeResolver && !inlineValue) {
+      const defaultWinner = cascadeResolver(cssProperty, 'default')
+      const hoverWinner = cascadeResolver(cssProperty, 'hover')
+      if (hoverWinner) {
+        // 点击元素时 getComputedStyle 可能仍混入 :hover；默认态只使用常规级联结果。
+        if (!defaultWinner && !source) {
+          hasEffectiveValue = false
+          computedValue = cssProperty === 'color' && target.parentElement
+            ? window.getComputedStyle(target.parentElement).getPropertyValue(cssProperty).trim() || undefined
+            : undefined
+        } else {
+          computedValue = defaultWinner?.value
+        }
+      }
+    }
     result[styleKey] = {
-      value,
+      ...(hasEffectiveValue ? { value: effectiveValue } : {}),
       computedValue,
       type: source ? (inlineWins ? 'inline' : 'stylesheet') : (inlineValue ? 'inline' : 'computed'),
       sourceSelector: inlineWins ? undefined : source?.sourceSelector,
