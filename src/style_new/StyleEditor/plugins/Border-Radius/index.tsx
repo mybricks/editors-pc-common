@@ -14,6 +14,7 @@ import {
 } from '../../components'
 import { allEqual } from '../../utils'
 import { useDragNumber, useLengthVarBinding, useUpdateEffect } from '../../hooks'
+import { expandFourShorthand } from '../../../core/shorthand-normalizer'
 import type { ChangeEvent, PanelBaseProps } from '../../type'
 import css from './index.less'
 
@@ -51,6 +52,19 @@ function stripImportant(value: CSSProperties): CSSProperties & Record<string, an
   return next
 }
 
+function expandBorderRadiusShorthand(value: CSSProperties): CSSProperties & Record<string, any> {
+  const next = stripImportant(value)
+  const shorthand = next.borderRadius
+  if (shorthand == null) return next
+
+  const expanded = expandFourShorthand(shorthand)
+  if (!expanded) return next
+  RADIUS_KEYS.forEach((key, index) => {
+    if (next[key] == null || next[key] === '') next[key] = expanded[index]
+  })
+  return next
+}
+
 export function BorderRadius({ value, onChange: fallbackOnChange, config }: BorderRadiusProps) {
   const context = useStyleEditorContext()
   const effectiveValue = useEffectiveStyleValue()
@@ -58,7 +72,7 @@ export function BorderRadius({ value, onChange: fallbackOnChange, config }: Bord
   const editorValue = context?.effectiveStyle ? effectiveValue : value
   const [{ useImportant, disableBorderRadius }] = useState({ useImportant: false, disableBorderRadius: false, ...config })
   const [{ radiusToggleValue }, setToggleValue] = useState(getToggleDefaultValue(editorValue))
-  const [radiusValue, setRadiusValue] = useState(() => stripImportant(editorValue))
+  const [radiusValue, setRadiusValue] = useState(() => expandBorderRadiusShorthand(editorValue))
   const radiusValueRef = useRef(radiusValue)
   const externalSyncRef = useRef(false)
   const getDragProps = useDragNumber({ continuous: true })
@@ -75,7 +89,7 @@ export function BorderRadius({ value, onChange: fallbackOnChange, config }: Bord
   }
 
   useLayoutEffect(() => {
-    const next = stripImportant(editorValue)
+    const next = expandBorderRadiusShorthand(editorValue)
     radiusValueRef.current = next
     setRadiusValue(previous => RADIUS_KEYS.every(key => previous[key] === next[key]) ? previous : next)
     const nextToggle = getToggleDefaultValue(editorValue).radiusToggleValue
@@ -83,7 +97,7 @@ export function BorderRadius({ value, onChange: fallbackOnChange, config }: Bord
       externalSyncRef.current = true
       setToggleValue({ radiusToggleValue: nextToggle })
     }
-  }, [context?.targetDom, context?.effectiveStyle, editorValue.borderTopLeftRadius, editorValue.borderTopRightRadius, editorValue.borderBottomRightRadius, editorValue.borderBottomLeftRadius])
+  }, [context?.targetDom, context?.effectiveStyle, editorValue.borderRadius, editorValue.borderTopLeftRadius, editorValue.borderTopRightRadius, editorValue.borderBottomRightRadius, editorValue.borderBottomLeftRadius])
 
   const handleChange = useCallback((changes: CSSProperties & Record<string, any>) => {
     const current: Record<string, any> = { ...radiusValueRef.current }
