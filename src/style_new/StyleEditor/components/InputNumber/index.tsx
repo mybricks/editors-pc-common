@@ -209,6 +209,10 @@ export function InputNumber ({
       const finalVal = handleNumberChange(submitNumber);
       e.target.value = finalVal;
       setDisplayValue(finalVal);
+      if (prevNumber === finalVal && inputChangedSinceFocusRef.current) {
+        inputChangedSinceFocusRef.current = false;
+        onChange?.(String(parseFloat(String(finalVal))) + submitUnit);
+      }
       // useUpdateEffect([unit, number]) 只在 unit/number 变化时触发；
     }
   }, [number, unit, unitDisabledList, fallbackValue, onChange, handleNumberChange, allowNegative]);
@@ -268,6 +272,10 @@ export function InputNumber ({
     const finalVal = handleNumberChange(newValue);
     e.target.value = finalVal;
     setDisplayValue(finalVal);
+    if (prevNumber === finalVal && inputChangedSinceFocusRef.current) {
+      inputChangedSinceFocusRef.current = false;
+      onChange?.(String(parseFloat(String(finalVal))) + submitUnit);
+    }
 
     // useUpdateEffect([unit, number]) 只在 unit 或 number 发生变化时才触发 onChange。
   }, [number, allowNegative, unit, unitDisabledList, onChange, fallbackValue, handleNumberChange]);
