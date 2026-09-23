@@ -28,6 +28,7 @@ const UNIT_OPTIONS = [
 ]
 const DEFAULT_UNIT_OPTION = { label: '默认', value: 'default' }
 const DEFAULT_UNIT_DIVIDER = { label: '', value: '__borderRadiusDefaultDivider__', type: 'divider' as const }
+const UNIT_DISABLED_LIST = ['default']
 const DEFAULT_STYLE = { padding: 0, fontSize: 10, minWidth: 71, marginLeft: 4 }
 const DEFAULT_STYLE_NEW = { padding: 0, fontSize: 10, marginLeft: 0 }
 const CHIP_STYLE = { flex: '1 1 0', minWidth: 0, width: 0, marginLeft: 4 }
@@ -137,6 +138,7 @@ export function BorderRadius({ value, onChange: fallbackOnChange, config }: Bord
           defaultValue: rawValue,
           value: rawValue,
           unitOptions: withDefaultUnitOption(unitOptions, !!fieldClear[key].clear),
+          unitDisabledList: UNIT_DISABLED_LIST,
           clearable: !!fieldClear[key].clear,
           onClear: () => fieldClear[key].clear?.(),
           showIcon: true,
@@ -163,6 +165,7 @@ export function BorderRadius({ value, onChange: fallbackOnChange, config }: Bord
               tip: '圆角半径', style: DEFAULT_STYLE, defaultValue: radiusValue.borderTopLeftRadius,
               value: radiusValue.borderTopLeftRadius,
               unitOptions: withDefaultUnitOption(unitOptions, !!allRadiusClear.clear),
+              unitDisabledList: UNIT_DISABLED_LIST,
               clearable: !!allRadiusClear.clear,
               onClear: () => allRadiusClear.clear?.(),
               showIcon: true, showIconOnHover: true, fallbackValue: 0,
