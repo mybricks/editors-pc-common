@@ -293,6 +293,13 @@ export function resolveZoneDeletionTarget(tab: ZoneTab, key: string): ZoneDeleti
 }
 
 export function resolveZoneFallbackSelector(tab: ZoneTab): string {
+  // 通过"+"新增伪类 tab 时 sourceRules 为空，直接返回 tab.selector（无 comId）会导致
+  // 写回的规则无法被下次扫描识别。从 baseRules 取带作用域的 sourceSelector 拼伪类，
+  // 确保写回路径与平台作用域一致。
+  if (tab.pseudo && tab.baseRules.length) {
+    const lastBase = tab.baseRules[tab.baseRules.length - 1]
+    if (lastBase?.sourceSelector) return `${lastBase.sourceSelector}${tab.pseudo}`
+  }
   return tab.selector
 }
 

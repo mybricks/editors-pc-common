@@ -2,6 +2,7 @@ export const DEFAULT_OPTIONS = [
   'layout',
   'font',
   'border',
+  'border-radius',
   'background',
   'padding',
   'margin',
