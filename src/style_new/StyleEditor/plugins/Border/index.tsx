@@ -1394,7 +1394,7 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
     <>
     {styleSettingsPortal as React.ReactNode}
     <Panel
-      title="边框"
+      title="描边"
       showTitle={showTitle}
       collapse={collapse}
       onExpand={handleExpand}

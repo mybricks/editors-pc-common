@@ -282,7 +282,10 @@ export function getEffectedCssPropertyAndOptions (
       const cascadeWinner = cascadeResolver
 
       const ownRules = finalRules.filter((rule) => !allInheritOnlyRules.has(rule))
-      const emptyValues = getDefaultValueFunctionMap2.border() as Record<string, any>
+      const emptyValues = {
+        ...getDefaultValueFunctionMap2.border(),
+        ...getDefaultValueFunctionMap2['border-radius'](),
+      } as Record<string, any>
       const borderProps: Array<[string, string]> = [
         ['borderTopColor', 'border-top-color'],
         ['borderRightColor', 'border-right-color'],

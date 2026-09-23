@@ -90,16 +90,20 @@ export function createSpacingWritePlans(
   changes: StyleChangeItem[],
   resolution: StyleResolution,
   currentSelector: string,
-  target: HTMLElement | null
+  target: HTMLElement | null,
+  resolveSelector?: (change: StyleChangeItem) => string | null
 ): SpacingWritePlan[] {
   const groups = new Map<string, { property: BoxSpacingProperty; selector: string; changes: StyleChangeItem[] }>()
   changes.forEach(change => {
     const property = getBoxSpacingProperty(change.key)
     if (!property || change.value == null) return
     const winner = resolution.get(change.key).winner
-    const selector = change.target === 'current-rule'
-      ? currentSelector
-      : winner?.currentState && winner.label || currentSelector
+    // 执行器传入统一的属性写入决策，computed 的单边也参与最高权重选择。
+    const selector = resolveSelector
+      ? resolveSelector(change) || ''
+      : change.target === 'current-rule'
+        ? currentSelector
+        : winner?.currentState && winner.label || currentSelector
     const id = `${property}:${selector}`
     const group = groups.get(id) || { property, selector, changes: [] }
     group.changes.push(change)

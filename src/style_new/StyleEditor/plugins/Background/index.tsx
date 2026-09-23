@@ -636,7 +636,7 @@ export function Background({
 
   return (
     <Panel
-      title="背景"
+      title="填充"
       showTitle={showTitle}
       collapse={effectiveCollapse}
       onAdd={handleAddLayer}

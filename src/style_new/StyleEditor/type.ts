@@ -32,7 +32,7 @@ export type StyleChangeItem = {
   key: string;
   value: any;
   intent?: 'clear-effective-style' | 'set-effective-style';
-  /** 统一间距配置落到当前 Tab；省略时跟随属性的生效来源。 */
+  /** 统一间距落到当前 Tab 的最高权重默认目标；省略时先跟随属性生效来源。 */
   target?: 'current-rule';
 };
 

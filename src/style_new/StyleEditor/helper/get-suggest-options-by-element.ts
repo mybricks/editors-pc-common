@@ -64,11 +64,10 @@ export function getSuggestOptionsByElement(selectDom: HTMLElement): { type: stri
     }
 
     // 处理border
-    const borderOption = shouldBorderDisabled(selectDom) ? void 0 : {
-      type: 'border',
-      config: {
-        disableBorderRadius: shouldBorderRadiusDisabled(selectDom)
-      }
+    const borderOption = shouldBorderDisabled(selectDom) ? void 0 : { type: 'border' }
+    const borderRadiusOption = {
+      type: 'border-radius',
+      config: { disableBorderRadius: shouldBorderRadiusDisabled(selectDom) },
     }
 
     const overflowOption = shouldOverflowDisabled(selectDom) ? void 0 : {
@@ -100,6 +99,7 @@ export function getSuggestOptionsByElement(selectDom: HTMLElement): { type: stri
         type: 'background'
       },
       borderOption,
+      borderRadiusOption,
       {
         type: 'cursor'
       },

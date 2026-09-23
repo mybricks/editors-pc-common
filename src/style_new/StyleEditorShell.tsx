@@ -255,13 +255,14 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
       baseSelector: currentBaseSelector,
       pseudo: suffix.startsWith(':') ? suffix : null,
       sourceRules: [],
-      baseRules: [],
+      // 新状态尚无规则，从整个常规 Tab 的基础规则中计算最高权重写入目标。
+      baseRules: (zoneTabs.find(tab => !tab.pseudo)?.sourceRules || activeZoneTab?.baseRules || []).slice(),
       target: selectedTarget || undefined,
       label: labels[type],
       effectiveStyle: {},
     }
     addZoneTab(tab)
-  }, [activeZoneTab, addZoneTab, baseSelector, selectedTarget])
+  }, [activeZoneTab, addZoneTab, baseSelector, selectedTarget, zoneTabs])
 
   const componentRoot = useMemo(() => {
     return shellComId ? getDocument().getElementById(shellComId) : null

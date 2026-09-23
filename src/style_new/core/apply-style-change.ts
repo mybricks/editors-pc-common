@@ -11,11 +11,7 @@ import {
   overlayNormalizedShorthands,
 } from './shorthand-normalizer'
 import { isTextFillActive } from '../StyleEditor/helper/text-fill'
-import {
-  resolveZoneFallbackSelector,
-  resolveZoneDeletionTarget,
-  resolveZonePropertySelector,
-} from './zone-tab'
+import { resolveZoneDeletionTarget } from './zone-tab'
 import type { ZoneTab } from './zone-tab'
 import {
   collectStyleSourceCandidates, createBatchStyleClearPlans, createStyleClearPlan,
@@ -25,6 +21,8 @@ import {
 import type { StyleClearPlan, StyleResolution } from './style-property'
 import { getShorthandFamily, stylePropertyKey } from './style-shorthand-groups'
 import { createSpacingWritePlans, getBoxSpacingProperty } from './box-spacing'
+import { createStyleWriteTargetResolver } from './style-write-target'
+import type { StyleWriteTarget } from './style-write-target'
 
 export type StyleChangeItem = {
   key: string
@@ -115,6 +113,22 @@ function logStyleClearPlan(plan: StyleClearPlan, execute = true) {
         : execute
           ? undefined
           : 'batch-clear-aborted',
+  })
+}
+
+function logStyleWriteTarget(
+  key: string, value: any, target: StyleWriteTarget, tab: ZoneTab,
+  patch?: Record<string, any>
+) {
+  console.log('[样式编辑][写入目标解析]', {
+    属性: key,
+    写入值: value,
+    计算出的classname: target.selector,
+    classname来源: target.source,
+    选择原因: target.reason,
+    当前ZoneTabSelector: tab.selector,
+    候选selector: target.candidates,
+    ...(patch ? { 实际写入样式: patch } : {}),
   })
 }
 
@@ -301,8 +315,18 @@ function applyEffectiveStyleChanges(
     resolution,
     target
   )
-  const spacingPlans = createSpacingWritePlans(changes, resolution, resolveZoneFallbackSelector(tab), target)
-  if (plans.some(plan => plan.action === 'unsupported') || spacingPlans.some(plan => plan.unsupported)) {
+  const resolveWriteTarget = createStyleWriteTargetResolver(tab, target, resolution)
+  const writeTargets = new Map(changes.filter(item => item.value != null).map(item =>
+    [item.key, resolveWriteTarget(item.key, item.target)] as const
+  ))
+  const spacingPlans = createSpacingWritePlans(changes, resolution, tab.selector, target,
+    change => writeTargets.get(change.key)?.selector || null)
+  if (plans.some(plan => plan.action === 'unsupported') || spacingPlans.some(plan => plan.unsupported) ||
+    Array.from(writeTargets.values()).some(item => !item.selector)) {
+    changes.forEach(item => {
+      const writeTarget = writeTargets.get(item.key)
+      if (writeTarget && !writeTarget.selector) logStyleWriteTarget(item.key, item.value, writeTarget, tab)
+    })
     plans.forEach(plan => logStyleClearPlan(plan, false))
     return { nextLiveStyle: liveStyle, applied: false, clearApplied: false, clearUnsupported: true }
   }
@@ -311,9 +335,15 @@ function applyEffectiveStyleChanges(
   const normal = writes.length
     ? applyStyleChange({ value: writes, liveStyle, editConfig })
     : { nextLiveStyle: liveStyle, applied: false }
+  if ('clearUnsupported' in normal && normal.clearUnsupported) return normal
   const nextLiveStyle = { ...normal.nextLiveStyle }
   spacingPlans.forEach(plan => {
     const { selector, style, deletions } = plan
+    changes.filter(item => item.value != null && getBoxSpacingProperty(item.key) === plan.property)
+      .forEach(item => {
+        const writeTarget = writeTargets.get(item.key)!
+        if (writeTarget.selector === selector) logStyleWriteTarget(item.key, item.value, writeTarget, tab, style)
+      })
     const usePreview = (editConfig.value.getBatchMeta?.()?.enabled ||
       (!!target && !target.getAttribute('data-zone-selector'))) && !!editConfig.value.previewBatch
     try {
@@ -672,6 +702,21 @@ export function applyStyleChange({
     zoneTabs,
   }
 
+  const resolveWriteTarget = activeZoneTab
+    ? createStyleWriteTargetResolver(activeZoneTab, realTargetDom)
+    : undefined
+  const pendingWrites = resolveWriteTarget
+    ? Object.entries(getStyleDiff(liveStyle || {}, finalCssProperties, effectiveDeletions))
+      // diff 中的 null 是删除信号，必须走原有删除来源，不能选最高权重规则。
+      .filter(([key]) => Object.prototype.hasOwnProperty.call(finalCssProperties, key))
+      .map(([key, value]) => ({ key, value, target: resolveWriteTarget(key) }))
+    : []
+  // 在文字渐变清理等副作用之前整批预检，避免只有部分属性写入成功。
+  if (activeZoneTab && pendingWrites.some(item => !item.target.selector)) {
+    pendingWrites.forEach(item => logStyleWriteTarget(item.key, item.value, item.target, activeZoneTab))
+    return { nextLiveStyle: liveStyle, applied: false, clearApplied: false, clearUnsupported: true }
+  }
+
   if (isSolidTextFillTransition && !isThirdPartyFocus) {
     const comId =
       !Array.isArray(editConfig.options) && editConfig.options
@@ -700,27 +745,11 @@ export function applyStyleChange({
       editConfig.value.set(style, options)
   // Zone Tab 的 sourceRules 同时保存 CSSOM 运行时 selector 和可写回 Less 的源码 selector。
   // 只有这里才拆分本次变更；普通组件继续沿用原来的完整状态写回逻辑。
-  if (activeZoneTab?.sourceRules?.length) {
-    const writeStyle = getStyleDiff(liveStyle || {}, finalCssProperties, effectiveDeletions)
+  if (activeZoneTab) {
     const groups = new Map<string, StyleWriteGroup>()
-
-    Object.entries(writeStyle).forEach(([key, value]) => {
-      // getStyleDiff 用 null 表示删除；删除必须通过专用 side-channel 传递，
-      // 不能把 null 当作本次要写入的样式值。
-      if (!Object.prototype.hasOwnProperty.call(finalCssProperties, key)) return
-      const propertySelector = resolveZonePropertySelector(activeZoneTab, key)
-      const sourceSelector = propertySelector || resolveZoneFallbackSelector(activeZoneTab)
-      console.log('[样式编辑][写入目标解析]', {
-        属性: key,
-        属性类型: activeZoneTab.effectiveStyle?.[key]?.type || null,
-        写入值: value,
-        计算出的classname: sourceSelector,
-        classname来源: propertySelector
-          ? '属性当前生效规则'
-          : '属性无可写来源（如 computed），回退当前 Zone Tab',
-        属性来源selector: propertySelector || null,
-        当前ZoneTabSelector: activeZoneTab.selector,
-      })
+    pendingWrites.forEach(({ key, value, target }) => {
+      const sourceSelector = target.selector!
+      logStyleWriteTarget(key, value, target, activeZoneTab)
       const group = addStyleWriteGroup(groups, sourceSelector)
       group.style[key] = deepCopy(value)
       zoneWriteTargets?.set(key, {
