@@ -1,6 +1,7 @@
 import React, { CSSProperties, useCallback, useLayoutEffect, useRef, useState } from 'react';
 
 import {Panel, Select} from '../../components';
+import { useEffectiveStyleValue, useStyleChange } from '../../context';
 
 import type {ChangeEvent, PanelBaseProps} from '../../type';
 import css from './index.less'
@@ -23,7 +24,9 @@ const VALUE_OPTIONS = [
   { label: '显示内容', value: 'visible' }
 ];
 
-export const OverFlow = ({ value, onChange, showTitle, collapse }: OverFlowProps) => {
+export const OverFlow = ({ onChange: fallbackOnChange, showTitle, collapse }: OverFlowProps) => {
+  const value = useEffectiveStyleValue() as OverFlowValueType
+  const onChange = useStyleChange(fallbackOnChange)
   const [overflowX, setOverflowX] = useState(value.overflowX)
   const [overflowY, setOverflowY] = useState(value.overflowY)
   const overflowValueRef = useRef<OverFlowValueType>({...value})
@@ -40,7 +43,7 @@ export const OverFlow = ({ value, onChange, showTitle, collapse }: OverFlowProps
     setOverflowX(next.overflowX)
     setOverflowY(next.overflowY)
     const keys = ['overflowX', 'overflowY'] as const
-    onChange(keys.map((key) => ({key, value: next[key]})))
+    onChange(keys.map((key) => ({key, value: next[key] ?? null})))
   }
 
   const overflowXChange = (val: CSSProperties['overflowX']) => {

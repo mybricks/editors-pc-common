@@ -1,6 +1,7 @@
 import React, { CSSProperties, useCallback, useEffect, useRef, useState } from 'react'
 
 import { Panel, ClearButton } from '../../components'
+import { useEffectiveStyleValue, useStyleChange } from '../../context'
 
 import type { ChangeEvent, PanelBaseProps } from '../../type'
 import css from './index.less'
@@ -13,14 +14,15 @@ interface ZIndexProps extends PanelBaseProps {
   onChange: ChangeEvent
 }
 
-export function ZIndex({ value, onChange, config, showTitle, collapse }: ZIndexProps) {
+export function ZIndex({ value: _value, onChange: fallbackOnChange, config, showTitle, collapse }: ZIndexProps) {
+  const value = useEffectiveStyleValue() as CSSProperties
+  const onChange = useStyleChange(fallbackOnChange)
   const rawValue = value?.zIndex
   const [localValue, setLocalValue] = useState(rawValue != null ? String(rawValue) : '')
   const isEditingRef = useRef(false)
   const numericValue = rawValue == null ? null : Number(rawValue)
   const [optimisticPreset, setOptimisticPreset] = useState<number | null>(null)
   const optimisticBaseValueRef = useRef<number | null>(numericValue)
-
   useEffect(() => {
     if (optimisticPreset == null) return
     const isConfirmed = numericValue === optimisticPreset
