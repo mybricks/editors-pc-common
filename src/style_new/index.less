@@ -274,6 +274,28 @@
   }
 }
 
+.zoneTabAdd {
+  &:hover {
+    background-color: rgba(0, 0, 0, 0.05) !important;
+  }
+}
+
+.zoneTabDropdown {
+  background: #fff;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+
+  :global(.ant-dropdown-menu) {
+    background: #fff;
+    border-radius: 6px;
+    box-shadow: none;
+  }
+
+  :global(.ant-dropdown-menu-item) {
+    font-size: 12px;
+  }
+}
+
 .affectedHint {
   font-size: 11px;
   line-height: 18px;

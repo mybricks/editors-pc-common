@@ -16,7 +16,7 @@ function getZoneTabLabel(selector: string): string {
       ':hover': '悬浮态',
       ':focus': '聚焦态',
       ':focus-visible': '键盘聚焦态',
-      ':active': '按下态',
+      ':active': '激活态',
       ':disabled': '禁用态',
       '::before': '前缀元素',
       '::after': '后缀元素',
@@ -111,6 +111,7 @@ export function ZoneTabBar(props: {
       {onAdd && addOptions.length > 0 && (
         <Dropdown
           trigger={['click']}
+          overlayClassName={css.zoneTabDropdown}
           overlay={
             <Menu onClick={({ key }) => onAdd(String(key))}>
               {addOptions.map((option) => (
@@ -119,7 +120,13 @@ export function ZoneTabBar(props: {
             </Menu>
           }
         >
-          <Button type="text" size="small" icon={<PlusOutlined />} aria-label="新增状态" />
+          <Button
+            className={css.zoneTabAdd}
+            type="text"
+            size="small"
+            icon={<PlusOutlined />}
+            aria-label="新增状态"
+          />
         </Dropdown>
       )}
     </div>

@@ -65,6 +65,7 @@ type CachedStyleEditor = {
 const ZONE_TAB_ADD_OPTIONS = [
   { key: 'hover', suffix: ':hover', label: '悬浮态' },
   { key: 'focus', suffix: ':focus', label: '聚焦态' },
+  { key: 'active', suffix: ':active', label: '激活态' },
   { key: 'disabled', suffix: ':disabled', label: '禁用态' },
   { key: 'before', suffix: '::before', label: '前缀元素' },
   { key: 'after', suffix: '::after', label: '后缀元素' },
@@ -236,6 +237,7 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
     const suffixMap: Record<string, string> = {
       hover: ':hover',
       focus: ':focus',
+      active: ':active',
       disabled: ':disabled',
       before: '::before',
       after: '::after',
@@ -246,17 +248,20 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
     const labels: Record<string, string> = {
       hover: '悬浮态',
       focus: '聚焦态',
+      active: '激活态',
       disabled: '禁用态',
       before: '前缀元素',
       after: '后缀元素',
     }
+    // 优先使用对应基础态；状态合并后则从常规 Tab 取得完整的源码规则。
+    const baseTab = zoneTabs.find((tab) => tab.selector === currentBaseSelector && !tab.pseudo)
+      || zoneTabs.find((tab) => !tab.pseudo)
     const tab: ZoneTab = {
       selector,
       baseSelector: currentBaseSelector,
       pseudo: suffix.startsWith(':') ? suffix : null,
       sourceRules: [],
-      // 新状态尚无规则，从整个常规 Tab 的基础规则中计算最高权重写入目标。
-      baseRules: (zoneTabs.find(tab => !tab.pseudo)?.sourceRules || activeZoneTab?.baseRules || []).slice(),
+      baseRules: (baseTab?.sourceRules.length ? baseTab.sourceRules : activeZoneTab?.baseRules || []).slice(),
       target: selectedTarget || undefined,
       label: labels[type],
       effectiveStyle: {},
