@@ -67,8 +67,8 @@ const ZONE_TAB_ADD_OPTIONS = [
   { key: 'focus', suffix: ':focus', label: '聚焦态' },
   { key: 'active', suffix: ':active', label: '激活态' },
   { key: 'disabled', suffix: ':disabled', label: '禁用态' },
-  { key: 'before', suffix: '::before', label: '前缀元素' },
-  { key: 'after', suffix: '::after', label: '后缀元素' },
+  // { key: 'before', suffix: '::before', label: '前缀元素' },
+  // { key: 'after', suffix: '::after', label: '后缀元素' },
 ] as const
 
 async function writeClipboardText(text: string): Promise<boolean> {
