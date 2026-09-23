@@ -139,6 +139,13 @@ function findStyleSource(tab: ZoneTab, styleKey: string): ZoneSourceRule | undef
   return findCascadeWinner(deduped, [property]) ?? findCascadeWinner(deduped, fallbackProperties)
 }
 
+/**
+ * 当属性值为 unset 时，浏览器会将其 computedValue 还原为 initial，
+ * 对于 flex 等不可继承属性会得到 "0 1 auto" 这样的初始值，容易产生误导。
+ * 白名单中的属性若值为 unset，跳过 computedValue 的计算。
+ */
+const SKIP_COMPUTED_VALUE_WHEN_UNSET = new Set(['flex'])
+
 /** 使用现有面板计算出的 styleValues 生成来源信息，避免重复实现 CSS 级联。 */
 export function buildZoneEffectiveStyle(
   tab: ZoneTab,
@@ -155,7 +162,8 @@ export function buildZoneEffectiveStyle(
     const inlineValue = inlineStyle?.getPropertyValue(cssProperty).trim()
     const stylesheetImportant = !!source && source.rule.style.getPropertyPriority(cssProperty) === 'important'
     const inlineWins = !!inlineValue && !stylesheetImportant
-    const computedValue = computedStyle?.getPropertyValue(cssProperty).trim() || undefined
+    const skipComputedValue = SKIP_COMPUTED_VALUE_WHEN_UNSET.has(cssProperty) && String(value).trim() === 'unset'
+    const computedValue = skipComputedValue ? undefined : (computedStyle?.getPropertyValue(cssProperty).trim() || undefined)
     result[styleKey] = {
       value,
       computedValue,
