@@ -182,13 +182,14 @@ function resolveFlexMode(value: CSSProperties & Record<string, any> | undefined)
   return 'ratio'
 }
 
-export function Flex({ onChange: fallbackOnChange, showTitle, collapse }: FlexProps) {
+export function Flex({ value: fallbackValue, onChange: fallbackOnChange, showTitle, collapse }: FlexProps) {
   const editorContext = useStyleEditorContext();
-  const value = useEffectiveStyleValue();
+  const effectiveValue = useEffectiveStyleValue();
+  const hasFallbackFlexValue = FLEX_KEYS.some(key => isNonEmpty(fallbackValue?.[key]));
+  const value = hasFallbackFlexValue ? fallbackValue : effectiveValue;
   const onChange = useStyleChange(fallbackOnChange);
   const { clear, disabledReason } = useStyleClear(FLEX_KEYS, { mode: 'remove-declaration', fallbackOnChange });
   const targetDom = editorContext?.targetDom ?? null
-  const visible = isFlexChildVisible(targetDom)
 
   const echo = useMemo(
     () => formatFlexEcho(value),
@@ -232,6 +233,7 @@ export function Flex({ onChange: fallbackOnChange, showTitle, collapse }: FlexPr
 
   // 按长写或非常规多段 flex 同步模式，重新聚焦后保持单独配置按钮选中
   useEffect(() => {
+    if (suppressLonghandBlurRef.current) return
     setMode(resolveFlexMode(value))
   }, [targetDom, value?.flexGrow, value?.flexShrink, value?.flexBasis, value?.flex])
 
@@ -241,10 +243,11 @@ export function Flex({ onChange: fallbackOnChange, showTitle, collapse }: FlexPr
     isNonEmpty(value?.flexGrow) ||
     isNonEmpty(value?.flexShrink) ||
     isNonEmpty(value?.flexBasis)
-  // 外部回显可能晚于本地输入；按钮与展开状态跟随当前可见值，删除权限仍由 clear 决定。
-  const hasVisibleFlexValue = hasFlexValue || (mode === 'ratio'
-    ? isNonEmpty(localValue)
-    : [localGrow, localShrink, localBasis].some(isNonEmpty))
+  const hasVisibleFlexValue = hasFlexValue ||
+    isNonEmpty(localValue) ||
+    [localGrow, localShrink, localBasis].some(isNonEmpty)
+  const visible = isFlexChildVisible(targetDom) ||
+    (!!targetDom && !targetDom.isConnected && hasVisibleFlexValue)
 
   const switchToAdvanced = useCallback(() => {
     // 进入单独配置后允许长写 blur 落盘
