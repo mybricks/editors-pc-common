@@ -46,6 +46,25 @@ export type ZoneWriteTarget = {
 const IMPORTANT_SUFFIX_RE = /!important\s*$/i
 const HOVER_SELECTOR_RE = /:hover\s*$/
 const INLINE_STYLE_LABEL = 'inline'
+const EXPLICIT_STYLE_SELECTOR_KEY = '__mybricks_style_explicit_selector'
+
+/**
+ * DOM 重编译后编辑器可能暂时仍持有已断开的旧节点，宿主此时会把 value.set 的
+ * selector options 回退成面板原 selector。用同步 side-channel 保留公共规划层已经
+ * 确定的实际写入目标；styleProxy 会优先读取它。嵌套调用结束后恢复原值。
+ */
+function withExplicitStyleSelector<T>(selector: string, write: () => T): T {
+  const scope = window as any
+  const hadPrevious = Object.prototype.hasOwnProperty.call(scope, EXPLICIT_STYLE_SELECTOR_KEY)
+  const previous = scope[EXPLICIT_STYLE_SELECTOR_KEY]
+  scope[EXPLICIT_STYLE_SELECTOR_KEY] = selector
+  try {
+    return write()
+  } finally {
+    if (hadPrevious) scope[EXPLICIT_STYLE_SELECTOR_KEY] = previous
+    else delete scope[EXPLICIT_STYLE_SELECTOR_KEY]
+  }
+}
 
 type StyleRemovalGroup = StyleWriteGroup & { selector: string }
 export type StyleRemovalPlan = {
@@ -214,14 +233,16 @@ function applyStyleRemoval(
   plan.groups.forEach(({ selector, style, deletions }) => {
     try {
       ;(window as any).__mybricks_style_deletions = Object.keys(style).length ? deletions : null
-      if (!Object.keys(style).length) {
-        editConfig.value.set(Object.fromEntries(deletions.map(key => [key, null])), { selector })
-      } else {
-        const usePreview = (editConfig.value.getBatchMeta?.()?.enabled ||
-          (!!target && !target.getAttribute('data-zone-selector'))) && !!editConfig.value.previewBatch
-        if (usePreview) editConfig.value.previewBatch(style, { selector })
-        else editConfig.value.set(style, { selector })
-      }
+      withExplicitStyleSelector(selector, () => {
+        if (!Object.keys(style).length) {
+          editConfig.value.set(Object.fromEntries(deletions.map(key => [key, null])), { selector })
+        } else {
+          const usePreview = (editConfig.value.getBatchMeta?.()?.enabled ||
+            (!!target && !target.getAttribute('data-zone-selector'))) && !!editConfig.value.previewBatch
+          if (usePreview) editConfig.value.previewBatch(style, { selector })
+          else editConfig.value.set(style, { selector })
+        }
+      })
     } finally {
       ;(window as any).__mybricks_style_deletions = null
     }
@@ -357,7 +378,7 @@ function applyStyleClearPlans(
   groups.forEach((patch, selector) => {
     // 同一属性族一次提交，避免逐条删除期间读取到半清空的源码/CSSOM。
     ;(window as any).__mybricks_style_deletions = null
-    editConfig.value.set(patch, { selector })
+    withExplicitStyleSelector(selector, () => editConfig.value.set(patch, { selector }))
     Object.entries(patch).forEach(([key, value]) => {
       getShorthandFamily(cssPropertyName(key)).forEach(property =>
         zoneWriteTargets?.delete(stylePropertyKey(property))
@@ -596,15 +617,19 @@ function applyEffectiveStyleChanges(
       })
     if (!Object.keys(style).length) {
       // 独立声明清空仍沿用宿主的定向删除协议。
-      editConfig.value.set(Object.fromEntries(deletions.map(key => [key, null])), { selector })
+      withExplicitStyleSelector(selector, () =>
+        editConfig.value.set(Object.fromEntries(deletions.map(key => [key, null])), { selector })
+      )
     } else {
       const usePreview = (editConfig.value.getBatchMeta?.()?.enabled ||
         (!!target && !target.getAttribute('data-zone-selector'))) && !!editConfig.value.previewBatch
       try {
         // 简写拆分/压缩与旧声明删除必须在同一次源码写入中完成。
         ;(window as any).__mybricks_style_deletions = deletions.length ? deletions : null
-        if (usePreview) editConfig.value.previewBatch(style, { selector })
-        else editConfig.value.set(style, { selector })
+        withExplicitStyleSelector(selector, () => {
+          if (usePreview) editConfig.value.previewBatch(style, { selector })
+          else editConfig.value.set(style, { selector })
+        })
       } finally {
         ;(window as any).__mybricks_style_deletions = null
       }
@@ -652,7 +677,7 @@ function applyEffectiveStyleChanges(
   })
   groups.forEach((patch, selector) => {
     // 组件库现有协议：整包只包含 null/unset，就按 selector 定向清空。
-    editConfig.value.set(patch, { selector })
+    withExplicitStyleSelector(selector, () => editConfig.value.set(patch, { selector }))
     // JSX 内联样式经源码重编译后才会更新画布；同步更新当前节点，
     // 让删除回调可以立即读取到清空后的真实计算值。
     if (selector === INLINE_STYLE_LABEL && target) {
