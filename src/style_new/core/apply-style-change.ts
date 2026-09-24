@@ -186,11 +186,13 @@ export function createStyleRemovalPlan(
     group.deletions.push('background', ...backgroundKeys)
   }
   for (const group of Array.from(groups.values())) {
+    const requestedInlineDeletion = group.deletions.length > 0
     group.deletions = Array.from(new Set(group.deletions)).filter(key => !(key in group.style))
     if (group.selector === INLINE_STYLE_LABEL) {
       // 仅删除真实 JSX 属性；不能要求 CSSOM 展开的子属性都有源码范围。
       group.deletions = group.deletions.filter(key => inlineProperties.has(cssPropertyName(key)))
-      if (!group.deletions.length || group.deletions.some(key => !readStaticInlineStyleInfo(target, key, true)) ||
+      if ((requestedInlineDeletion && !group.deletions.length) ||
+        group.deletions.some(key => !readStaticInlineStyleInfo(target, key, true)) ||
         Object.keys(group.style).some(key => !readStaticInlineStyleInfo(target, key)) ||
         Object.values(group.style).some(value => IMPORTANT_SUFFIX_RE.test(String(value)))) {
         return blocked('动态 JSX 或缺少源码范围，无法安全删除/拆分')

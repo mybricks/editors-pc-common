@@ -2,6 +2,7 @@
 import { compare } from 'specificity'
 import { toLine } from './css-code-codec'
 import { calculateSafeSpecificity } from './selector-utils'
+import { readAuthoredBackgroundDeclarations } from './get-values-background'
 import {
   BATCH_CLEAR_SHORTHANDS, getShorthandFamily, STYLE_SHORTHANDS, stylePropertyKey,
 } from './style-shorthand-groups'
@@ -154,14 +155,56 @@ export function createStyleResolution(tab: ZoneTab, target: HTMLElement | null =
     })
   }
   const sources = tab.pseudo ? [...tab.baseRules, ...tab.sourceRules] : tab.sourceRules
-  sources.filter((source, i) => sources.findIndex(item => item.rule === source.rule && item.selectorPart === source.selectorPart) === i)
-    .forEach(source => addStyle(source.rule.style, source))
+  const uniqueSources = sources.filter((source, i) =>
+    sources.findIndex(item => item.rule === source.rule && item.selectorPart === source.selectorPart) === i
+  )
+  uniqueSources.forEach(source => addStyle(source.rule.style, source))
   if (target?.style && !tab.pseudo?.startsWith('::')) addStyle(target.style)
+
+  const recoverMissingBackgroundColorCandidates = () => {
+    const existing = index.get('background-color') || []
+    const additions: StyleSourceCandidate[] = []
+    uniqueSources.forEach(source => {
+      if (existing.some(candidate => candidate.source === source)) return
+      const declarations = readAuthoredBackgroundDeclarations(source.rule)
+      let authoredValue = ''
+      let authoredProperty = ''
+      declarations.forEach(declaration => {
+        const direct = declaration['background-color']?.trim()
+        const shorthand = declaration.background?.trim()
+        if (direct) {
+          authoredValue = direct
+          authoredProperty = 'background-color'
+        } else if (shorthand && /^var\s*\(/i.test(shorthand)) {
+          // Chromium 可能把 background: var(...) 及其 longhand 都序列化为空；
+          // 但它仍是 background-color 的后备声明，清空 inline 时必须参与级联计划。
+          authoredValue = shorthand
+          authoredProperty = 'background'
+        }
+      })
+      if (!authoredValue || !authoredProperty) return
+      additions.push({
+        property: authoredProperty,
+        value: authoredValue,
+        important: source.rule.style.getPropertyPriority(authoredProperty) === 'important',
+        label: source.sourceSelector,
+        source,
+        specificity: calculateSafeSpecificity(source.selectorPart, target),
+        sourceOrder: source.sourceOrder,
+        inline: false,
+        currentState: tab.sourceRules.some(item =>
+          item.rule === source.rule && item.selectorPart === source.selectorPart
+        ),
+      })
+    })
+    if (additions.length) index.set('background-color', [...existing, ...additions])
+  }
 
   return {
     get(key: string): StyleProperty {
       const property = cssPropertyName(key)
       if (!cache.has(property)) {
+        if (property === 'background-color') recoverMissingBackgroundColorCandidates()
         const candidates = index.get(property) || []
         const wireKey = stylePropertyKey(property)
         const clearPlan = planClear(wireKey, candidates, target)
