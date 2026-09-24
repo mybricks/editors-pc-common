@@ -239,7 +239,7 @@ function shortenClassLabel(rawLabel: string): string {
 function getPseudoLabel(pseudo: string): string {
   const pseudoLabels: Record<string, string> = {
     ':hover': '悬浮态',
-    ':active': '按下态',
+    ':active': '激活态',
     ':focus': '聚焦态',
     ':focus-visible': '键盘聚焦态',
     ':focus-within': '后代聚焦态',
