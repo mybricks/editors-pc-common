@@ -36,6 +36,21 @@ export const OverFlow = ({ onChange: fallbackOnChange, showTitle, collapse }: Ov
   const overflowValueRef = useRef<OverFlowValueType>({...value})
   const [forceRenderKey, setForceRenderKey] = useState<number>(Math.random())
 
+  // unset 会在回显层转换成 computedValue（通常是 visible），但它本身只是
+  // 清空后用于屏蔽低优先级来源的中和值，不应因此把内容溢出面板展开。
+  const overflowSources = OVERFLOW_KEYS.map((key) => editorContext?.effectiveStyle?.[key])
+  const hasUnsetSource = overflowSources.some((item) =>
+    typeof item?.value === 'string' && /^unset$/i.test(item.value.trim())
+  )
+  const hasConfiguredSource = overflowSources.some((item) =>
+    item && item.type !== 'computed' && !(
+      typeof item.value === 'string' && /^unset$/i.test(item.value.trim())
+    )
+  )
+  const effectiveCollapse = collapse !== 'inherited' && hasUnsetSource && !hasConfiguredSource
+    ? true
+    : collapse
+
   useLayoutEffect(() => {
     overflowValueRef.current = {...value}
     setOverflowX(value.overflowX)
@@ -108,7 +123,7 @@ export const OverFlow = ({ onChange: fallbackOnChange, showTitle, collapse }: Ov
 
   return (
     <Panel title='内容溢出' showTitle={showTitle} showReset={true} showDelete={!!clear}
-      resetFunction={refresh} collapse={collapse}>
+      resetFunction={refresh} collapse={effectiveCollapse}>
       <React.Fragment key={forceRenderKey}>
         <Panel.Content>
           <Select
