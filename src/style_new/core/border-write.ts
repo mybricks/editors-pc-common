@@ -60,6 +60,19 @@ export function createBorderRadiusWritePlans(
     let unsupported = !selector
     const inlineProperties = readInlineStyleProperties(target)
     if (selector === 'inline') {
+      // JSX 只有静态 borderRadius 简写时，单独配置会先被展开成四条长写。
+      // 长写没有独立源码范围，重新压回原简写才能安全更新这条 inline style。
+      if (readStaticInlineStyleInfo(target, 'borderRadius') &&
+        BORDER_RADIUS_KEYS.every(key => Object.prototype.hasOwnProperty.call(output, key))) {
+        const inlineNormalized = normalizeStyleShorthands(
+          output,
+          groupChanges.map(change => ({ ...change, borderMode: 'all' as const })),
+          new Set(clearedKeys),
+          { changedGroupsOnly: true }
+        )
+        output = inlineNormalized.style
+        deletions = [...new Set([...deletions, ...inlineNormalized.deletions])]
+      }
       output = Object.fromEntries(Object.entries(output).flatMap(([key, value]) => {
         if (readStaticInlineStyleInfo(target, key)) return [[key, value]]
         const expanded = expandFourShorthand(value)
