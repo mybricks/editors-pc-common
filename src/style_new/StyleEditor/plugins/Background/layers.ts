@@ -245,6 +245,54 @@ export function getLayerRemovalChanges(
   return serializeLayers(remainingImages).filter(item => item.key !== 'backgroundColor');
 }
 
+function normalizeLayerValue(layer: BgLayer): string {
+  if (layer.type === 'solid') {
+    try {
+      return new ColorUtil(layer.value).hexa().toLowerCase();
+    } catch {
+      // var() 等表达式无法由 color 解析时继续按源码文本比较。
+    }
+  }
+  return String(layer.value || '').replace(/\s+/g, ' ').trim().toLowerCase();
+}
+
+function isSameLayer(left: BgLayer, right: BgLayer): boolean {
+  return left.sourceProperty === right.sourceProperty &&
+    left.type === right.type &&
+    normalizeLayerValue(left) === normalizeLayerValue(right) &&
+    String(left.size || '').trim() === String(right.size || '').trim() &&
+    String(left.repeat || '').trim() === String(right.repeat || '').trim() &&
+    String(left.position || '').trim() === String(right.position || '').trim();
+}
+
+/**
+ * 删除声明后优先使用属性解析器给出的新级联结果，同时保留解析器无法索引的
+ * computed / 外部只读图层。按多重集合匹配，避免相同背景重复出现时误去重。
+ */
+export function mergeResolvedLayersWithReadonly(
+  resolvedLayers: BgLayer[],
+  remainingLayers: BgLayer[],
+): BgLayer[] {
+  const unmatchedResolved = resolvedLayers.slice();
+  const missingReadonly: Array<{ layer: BgLayer; index: number }> = [];
+
+  remainingLayers.forEach((layer, index) => {
+    if (layer.canRemove !== false) return;
+    const matchIndex = unmatchedResolved.findIndex(candidate => isSameLayer(candidate, layer));
+    if (matchIndex >= 0) {
+      unmatchedResolved.splice(matchIndex, 1);
+      return;
+    }
+    missingReadonly.push({ layer, index });
+  });
+
+  const merged = resolvedLayers.slice();
+  missingReadonly.forEach(({ layer, index }) => {
+    merged.splice(Math.min(index, merged.length), 0, layer);
+  });
+  return merged;
+}
+
 /** Interpret a Colorpicker onChange payload for a specific layer */
 export function interpretPickerChange(
   change: any,

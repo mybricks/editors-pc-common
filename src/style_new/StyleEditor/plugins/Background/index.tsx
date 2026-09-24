@@ -21,6 +21,7 @@ import {
   parseLayers,
   serializeLayers,
   getLayerRemovalChanges,
+  mergeResolvedLayersWithReadonly,
   interpretPickerChange,
 } from "./layers";
 import { getContentBackgroundMeta } from "../../helper/paint-stack";
@@ -447,12 +448,21 @@ export function Background({
       if (remove && context?.getStyleProperty) {
         // 执行器已同步来源索引，立即展示剩余来源，避免先清空 UI 再吞掉级联回显。
         const remaining = Object.fromEntries(BACKGROUND_CLEAR_KEYS.map(key => [key, context.getStyleProperty!(key).winner?.value ?? '']));
-        lastEmittedRef.current = buildContentFingerprint(remaining);
-        const nextLayers = parseLayers(remaining.backgroundImage, remaining.backgroundColor,
+        const resolvedLayers = parseLayers(remaining.backgroundImage, remaining.backgroundColor,
           remaining.backgroundSize, remaining.backgroundRepeat, remaining.backgroundPosition, {
             backgroundImage: !!context.getStyleProperty('backgroundImage').winner?.currentState && !!context.getStyleRemovalState?.(IMAGE_CLEAR_KEYS).canClear,
             backgroundColor: !!context.getStyleRemovalState?.(['backgroundColor']).canClear,
           });
+        // computed / 外部回显层没有 StyleProperty winner，不能因删除当前状态的新层而丢失。
+        const nextLayers = mergeResolvedLayersWithReadonly(resolvedLayers, newLayers);
+        const nextSnapshot = Object.fromEntries(
+          serializeLayers(nextLayers).map(({ key, value }) => [key, value ?? ''])
+        );
+        const colorLayer = nextLayers.find(layer =>
+          layer.visible && layer.sourceProperty === 'backgroundColor'
+        );
+        if (colorLayer) nextSnapshot.backgroundColor = colorLayer.value;
+        lastEmittedRef.current = buildContentFingerprint(nextSnapshot);
         layersRef.current = nextLayers;
         setLayers(nextLayers);
         return;

@@ -23,9 +23,20 @@ export function useBoxSpacingEditor({ property, value, onChange: fallbackOnChang
   const externalValue = context?.effectiveStyle ? effectiveValue : value
   const incoming = readBoxSpacingValue(property, externalValue, context?.effectiveStyle)
   const allEqual = (values: Record<string, any>) => keys.every(key => values[key] === values[keys[0]])
+  const hasConfiguredSide = keys.some(key => incoming[key] != null)
+  const inheritedValues = Object.fromEntries(keys.map(key => [
+    key,
+    context?.effectiveStyle?.[key]?.computedValue?.trim(),
+  ]))
+  const hasCompleteInheritedValues = keys.every(key => inheritedValues[key] != null && inheritedValues[key] !== '')
+  // 伪类没有自己的 margin/padding 声明时，输入仍保持“未配置”；但编辑器形态需要反映
+  // 基础态带来的真实四边值，否则不同的计算值会被空对象误判成统一配置。
+  const incomingToggle = !hasConfiguredSide && hasCompleteInheritedValues
+    ? allEqual(inheritedValues)
+    : allEqual(incoming)
   const [spacingValue, setSpacingValue] = useState(incoming)
   const valueRef = useRef(incoming)
-  const [toggle, setToggle] = useState(allEqual(incoming))
+  const [toggle, setToggle] = useState(incomingToggle)
   const [previewValues, setPreviewValues] = useState<Record<string, string | undefined>>({})
   const [forceRenderKey, setForceRenderKey] = useState(0)
   // Zone 回显只跟随 effectiveStyle，避免 liveStyle 先更新时回滚本地新值。
@@ -34,8 +45,8 @@ export function useBoxSpacingEditor({ property, value, onChange: fallbackOnChang
     valueRef.current = incoming
     setSpacingValue(incoming)
     setPreviewValues({})
-    setToggle(allEqual(incoming))
-  }, [property, context?.targetDom, context?.effectiveStyle, standaloneSignature])
+    setToggle(incomingToggle)
+  }, [property, context?.targetDom, context?.effectiveStyle, standaloneSignature, incomingToggle])
 
   const commit = useCallback((changes: Record<string, any>, unified = false) => {
     const items: StyleChangeItem[] = unified
