@@ -644,13 +644,43 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
     return result;
   }, [handleChange, emitPositionCSS]);
 
+  // outline / inset box-shadow 都只能表达统一宽度。用户开始逐边编辑时，先把
+  // 当前虚拟四边值转换为普通 border，再应用目标边的修改，避免只落下一条
+  // border-*-width，却仍被原 outline / box-shadow 作为可见边框。
+  const handleSplitModeChange = useCallback((changes: BorderValue) => {
+    const pos = borderPositionRef.current;
+    if (pos === 'center') return handleChange(changes, 'split');
+
+    const current = borderValueRef.current;
+    const valueOr = (key: string, fallback: any) =>
+      current[key] == null || current[key] === '' ? fallback : current[key];
+    const topWidth = valueOr('borderTopWidth', '1px');
+    const topColor = valueOr('borderTopColor', '#000000');
+    const topStyle = valueOr('borderTopStyle', 'solid');
+    const standardBorder = {
+      ...Object.fromEntries(BORDER_WIDTH_KEYS.map((key) => [key, valueOr(key, topWidth)])),
+      ...Object.fromEntries(BORDER_COLOR_KEYS.map((key) => [key, valueOr(key, topColor)])),
+      ...Object.fromEntries(BORDER_STYLE_KEYS.map((key) => [key, valueOr(key, topStyle)])),
+      ...(pos === 'outside'
+        ? { outline: null, outlineOffset: null }
+        : { boxShadow: null }),
+      ...changes,
+    };
+    const result = handleChange(standardBorder, 'split');
+    if (mutationFailed(result)) return result;
+
+    borderPositionRef.current = 'center';
+    setBorderPosition('center');
+    return result;
+  }, [handleChange]);
+
   const handleWidthChange = useCallback((keys: string[], next: any, all = false) => {
     const mutation = buildBorderWidthChange(
       borderValueRef.current, keys, next,
       key => context?.getStylePreview?.(key) || effectiveStyle?.[key]?.computedValue
     );
-    return all ? handleAllModeChange(mutation.changes) : handleChange(mutation.changes);
-  }, [handleChange, handleAllModeChange, context?.getStylePreview, effectiveStyle]);
+    return all ? handleAllModeChange(mutation.changes) : handleSplitModeChange(mutation.changes);
+  }, [handleAllModeChange, handleSplitModeChange, context?.getStylePreview, effectiveStyle]);
 
   // Position 下拉切换时，将当前 borderValue 转换为新的 CSS 位置输出
   const handlePositionChange = useCallback((newPos: BorderPosition) => {
@@ -1060,7 +1090,7 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
                       scopeEl={targetDom}
                       showSubTabs={false}
                       clearable={fieldCanClear.borderLeftColor}
-                      onClear={() => handleChange({ borderLeftColor: null })}
+                      onClear={() => handleSplitModeChange({ borderLeftColor: null })}
                       onChange={(input: any) => {
                         const value = getColorEditorValue(input);
                         if (!value) return;
@@ -1071,7 +1101,7 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
                             newValue.borderLeftStyle = "solid";
                           }
                         }
-                        handleChange(newValue);
+                        handleSplitModeChange(newValue);
                       }}
                     />
                   )}
@@ -1136,7 +1166,7 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
                       scopeEl={targetDom}
                       showSubTabs={false}
                       clearable={fieldCanClear.borderTopColor}
-                      onClear={() => handleChange({ borderTopColor: null })}
+                      onClear={() => handleSplitModeChange({ borderTopColor: null })}
                       onChange={(input: any) => {
                         const value = getColorEditorValue(input);
                         if (!value) return;
@@ -1147,7 +1177,7 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
                             newValue.borderTopStyle = "solid";
                           }
                         }
-                        handleChange(newValue);
+                        handleSplitModeChange(newValue);
                       }}
                     />
                   )}
@@ -1213,7 +1243,7 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
                       scopeEl={targetDom}
                       showSubTabs={false}
                       clearable={fieldCanClear.borderRightColor}
-                      onClear={() => handleChange({ borderRightColor: null })}
+                      onClear={() => handleSplitModeChange({ borderRightColor: null })}
                       onChange={(input: any) => {
                         const value = getColorEditorValue(input);
                         if (!value) return;
@@ -1224,7 +1254,7 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
                             newValue.borderRightStyle = "solid";
                           }
                         }
-                        handleChange(newValue);
+                        handleSplitModeChange(newValue);
                       }}
                     />
                   )}
@@ -1290,7 +1320,7 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
                       scopeEl={targetDom}
                       showSubTabs={false}
                       clearable={fieldCanClear.borderBottomColor}
-                      onClear={() => handleChange({ borderBottomColor: null })}
+                      onClear={() => handleSplitModeChange({ borderBottomColor: null })}
                       onChange={(input: any) => {
                         const value = getColorEditorValue(input);
                         if (!value) return;
@@ -1301,7 +1331,7 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
                             newValue.borderBottomStyle = "solid";
                           }
                         }
-                        handleChange(newValue);
+                        handleSplitModeChange(newValue);
                       }}
                     />
                   )}
@@ -1355,7 +1385,7 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
     borderToggleValue, popupStyleValue, borderValue, previewValues,
     getDragPropsBorder, borderColorEditorKey, borderPosition,
     handleAllModeChange, handlePositionChange, handleAllColorClear, handleAllWidthClear,
-    handleChange, handleWidthChange, allColorCanClear, allWidthCanClear, fieldCanClear,
+    handleChange, handleSplitModeChange, handleWidthChange, allColorCanClear, allWidthCanClear, fieldCanClear,
     context?.getStylePreview,
     effectiveStyle, targetDom, canvasColorVariables,
     widthAllVar, topWidthVar, rightWidthVar, bottomWidthVar, leftWidthVar,

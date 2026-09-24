@@ -13,6 +13,7 @@ export const STYLE_SHORTHANDS: Record<string, string[]> = {
     ['width', 'style', 'color'].map(key => `border-${side}-${key}`),
   ])),
   'border-radius': ['border-top-left-radius', 'border-top-right-radius', 'border-bottom-right-radius', 'border-bottom-left-radius'],
+  outline: ['outline-width', 'outline-style', 'outline-color'],
   margin: SIDES.map(side => `margin-${side}`),
   padding: SIDES.map(side => `padding-${side}`),
   gap: ['row-gap', 'column-gap'],
@@ -26,7 +27,7 @@ export const BATCH_CLEAR_SHORTHANDS = [
   'border',
   ...SIDES.map(side => `border-${side}`),
   'border-color', 'border-width', 'border-style',
-  'border-radius', 'margin', 'padding',
+  'border-radius', 'outline', 'margin', 'padding',
 ]
 
 export const stylePropertyKey = (property: string) => property.startsWith('--')
