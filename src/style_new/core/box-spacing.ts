@@ -112,7 +112,8 @@ export function createSpacingWritePlans(
     groups.set(id, group)
   })
 
-  return Array.from(groups.values(), ({ property, selector, changes: groupChanges }) => {
+  const supplementalPlans: SpacingWritePlan[] = []
+  const primaryPlans = Array.from(groups.values(), ({ property, selector, changes: groupChanges }) => {
     const keys = BOX_SPACING_KEYS[property]
     const family = [property, ...keys]
     const clearedKeys = groupChanges.filter(change => change.value == null).map(change => change.key)
@@ -166,8 +167,30 @@ export function createSpacingWritePlans(
         family.some(key => inlineProperties.has(cssPropertyName(key)) && !readStaticInlineStyleInfo(target, key, true))
     } else {
       // 宿主的常规写入优先路由同名 JSX 属性；不能把“当前 class”写入偷换成 inline。
-      unsupported ||= [...Object.keys(output), ...deletions].some(key => inlineProperties.has(cssPropertyName(key)))
+      const inlineConflicts = [...Object.keys(output), ...deletions]
+        .filter(key => inlineProperties.has(cssPropertyName(key)))
+      const consolidatingSources = groupChanges.some(change => change.target === 'current-rule')
+      if (inlineConflicts.length && consolidatingSources) {
+        // “切换为统一配置”本身就是把分散来源归并到 current-rule。静态 JSX
+        // 属性可作为同一动作的补充删除计划移除；动态/spread 仍整体阻止。
+        const inlineDeletions = family.filter(key => inlineProperties.has(cssPropertyName(key)))
+        const inlineUnsupported = inlineDeletions.some(key => !readStaticInlineStyleInfo(target, key, true))
+        supplementalPlans.push({
+          property,
+          selector: 'inline',
+          style: {},
+          deletions: inlineDeletions,
+          clearedKeys: [],
+          unsupported: inlineUnsupported,
+        })
+        unsupported ||= inlineUnsupported
+      } else {
+        unsupported ||= inlineConflicts.length > 0
+      }
     }
     return { property, selector, style: output, deletions, clearedKeys, unsupported }
   })
+  // 先移除 JSX 同名来源并同步 data-style-info，再写 current-rule；否则宿主会
+  // 继续把同名 shorthand（如 inline margin）优先路由回 JSX，而不是目标 class。
+  return [...supplementalPlans, ...primaryPlans]
 }
