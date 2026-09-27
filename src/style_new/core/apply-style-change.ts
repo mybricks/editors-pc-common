@@ -537,9 +537,11 @@ function applyEffectiveStyleChanges(
   const replacingFlex = flexKeys.every(key => changes.some(item => item.key === key)) &&
     changes.some(item => flexKeys.includes(item.key) && item.value != null)
   const sideClearKeys = getBoxSpacingSideClearKeys(changes)
+  // 内联圆角即使有后备来源，也要由圆角规划器一起处理 unset 和简写拆分。
   const shouldUseCascadeClearPlan = (item: StyleChangeItem) =>
     item.value === null &&
     !(replacingFlex && flexKeys.includes(item.key)) &&
+    !(isBorderRadiusProperty(item.key) && resolution.get(item.key).winner?.inline) &&
     hasFallbackStyleCandidate(resolution.get(item.key))
   const specializedChanges = changes.filter(item => !shouldUseCascadeClearPlan(item))
   // 先预检整个用户动作，避免清空不可执行却先修改了共享图层。
@@ -583,6 +585,18 @@ function applyEffectiveStyleChanges(
     ...createBorderWritePlans(specializedChanges, resolution, target,
       change => writeTargets.get(change.key)?.selector || null),
   ]
+  propertyPlans.filter(plan => plan.property === 'borderRadius' && plan.selector === INLINE_STYLE_LABEL)
+    .forEach(plan => plan.clearedKeys.forEach(key => console.log('[圆角清空诊断]', JSON.stringify({
+      属性: key,
+      当前class: target?.className || '',
+      目标仍在画布: target?.isConnected,
+      规则数量: tab.sourceRules.length,
+      单角来源: resolution.get(key).candidates.map(candidate => `${candidate.label}: ${candidate.value}`).join(' | '),
+      简写来源: resolution.get('borderRadius').candidates.map(candidate => `${candidate.label}: ${candidate.value}`).join(' | '),
+      计划写入: Object.entries(plan.style).map(([name, value]) => `${name}: ${value}`).join('; '),
+      删除属性: plan.deletions.join(', '),
+      可执行: !plan.unsupported,
+    }))))
   if (plans.some(plan => plan.action === 'unsupported') || propertyPlans.some(plan => plan.unsupported) ||
     Array.from(writeTargets.values()).some(item => !item.selector)) {
     changes.forEach(item => {

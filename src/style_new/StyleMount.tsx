@@ -72,15 +72,19 @@ export function StyleMount({
     const refresh = () => {
       cancelAnimationFrame(frame)
       frame = requestAnimationFrame(() => {
-        const selectors = Array.from(new Set([
-          zoneTab.baseSelector,
-          ...Array.from(target.classList).map(name => '.' + name),
-        ]))
-        const tabs = mergeZoneTabsByState(collectZoneTabs([target], selectors, zoneOptions?.comId))
-        const current = tabs.find(tab => tab.pseudo === zoneTab.pseudo)
-        if (current) {
-          zoneTab.sourceRules = current.sourceRules
-          zoneTab.baseRules = current.baseRules
+        // 重编译后的旧节点已失去祖先作用域，不能用它清空 class 来源。
+        // 内联值和源码范围仍会更新，下面的缓存失效与回显刷新不能跳过。
+        if (target.isConnected) {
+          const selectors = Array.from(new Set([
+            zoneTab.baseSelector,
+            ...Array.from(target.classList).map(name => '.' + name),
+          ]))
+          const tabs = mergeZoneTabsByState(collectZoneTabs([target], selectors, zoneOptions?.comId))
+          const current = tabs.find(tab => tab.pseudo === zoneTab.pseudo)
+          if (current) {
+            zoneTab.sourceRules = current.sourceRules
+            zoneTab.baseRules = current.baseRules
+          }
         }
         invalidateStyleResolution(zoneTab)
         setStyleRevision(revision => revision + 1)

@@ -1,5 +1,5 @@
 import { BORDER_KEYS, BORDER_DETAIL_KEYS, expandBorderShorthand, expandFourShorthand, normalizeStyleShorthands } from './shorthand-normalizer'
-import { cssPropertyName, readInlineStyleProperties, readStaticInlineStyleInfo, resolveEffectiveStyleSource } from './style-property'
+import { cssPropertyName, hasFallbackStyleCandidate, readInlineStyleProperties, readStaticInlineStyleInfo, resolveEffectiveStyleSource } from './style-property'
 import type { StyleResolution } from './style-property'
 import type { StyleChangeItem } from './apply-style-change'
 import { stylePropertyKey } from './style-shorthand-groups'
@@ -34,7 +34,14 @@ export function createBorderRadiusWritePlans(
 
   return Array.from(groups, ([selector, groupChanges]) => {
     const clearedKeys = groupChanges.filter(change => change.value == null).map(change => change.key)
-    if (selector === 'inline' && clearedKeys.length === groupChanges.length && groupChanges.every(change =>
+    const resetKeys = new Set(clearedKeys.filter(key => {
+      const property = resolution.get(key)
+      if (hasFallbackStyleCandidate(property)) return true
+      // class 的 border-radius（如含 var()）可能没有 CSSOM 单角值，
+      // 但仍会在删除 inline 后接管该角，清空时也必须用 unset 屏蔽。
+      return property.winner?.inline && resolution.get('borderRadius').candidates.some(candidate => !candidate.inline)
+    }))
+    if (selector === 'inline' && !resetKeys.size && clearedKeys.length === groupChanges.length && groupChanges.every(change =>
       resolution.get(change.key).winner?.property === cssPropertyName(change.key)
     )) {
       return {
@@ -56,9 +63,11 @@ export function createBorderRadiusWritePlans(
     })
 
     const nextChanges = groupChanges.map(change => {
+      let value = resetKeys.has(change.key) ? 'unset' : change.value
       const important = /!important\s*$/i.test(String(style[change.key] || ''))
-      const value = change.value != null && important && !/!important\s*$/i.test(String(change.value))
-        ? `${change.value} !important` : change.value
+      if (value != null && important && !/!important\s*$/i.test(String(value))) {
+        value = `${value} !important`
+      }
       style[change.key] = value
       return { ...change, value }
     })
@@ -82,7 +91,7 @@ export function createBorderRadiusWritePlans(
           { changedGroupsOnly: true }
         )
         output = inlineNormalized.style
-        deletions = [...new Set([...deletions, ...inlineNormalized.deletions])]
+        deletions = Array.from(new Set([...deletions, ...inlineNormalized.deletions]))
       }
       output = Object.fromEntries(Object.entries(output).flatMap(([key, value]) => {
         if (key !== 'borderRadius' || readStaticInlineStyleInfo(target, key) || unifyingInlineCorners) return [[key, value]]

@@ -231,6 +231,10 @@ function splitTopLevelComponents(value: string): string[] | null {
 /** border-radius longhand 每角允许一个或两个半径，shorthand 需用 `/` 分隔两组轴。 */
 function serializeBorderRadius(values: string[]): string | null {
   if (values.length !== 4) return null
+  // unset 等关键字不能和数值拼成简写；部分重置必须保留逐角声明。
+  if (values.some(value => /^(initial|inherit|unset|revert|revert-layer)$/i.test(value))) {
+    return values.every(value => value === values[0]) ? values[0] : null
+  }
   const corners = values.map(splitTopLevelComponents)
   if (corners.some((parts) => !parts || parts.length < 1 || parts.length > 2)) return null
 

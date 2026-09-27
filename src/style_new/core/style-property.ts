@@ -97,7 +97,7 @@ function planClear(key: string, candidates: StyleSourceCandidate[], target: HTML
   const selector = winner.label
   if (!selector) return { ...base, action: 'unsupported', reason: 'winner-selector-unavailable' }
   const action = candidates.length === 1 && winner.property === cssPropertyName(key) ? 'delete' : 'write-unset'
-  const canSplitInlineRadius = winner.inline && winner.property === 'border-radius' && candidates.length === 1 &&
+  const canSplitInlineRadius = winner.inline && winner.property === 'border-radius' &&
     readStaticInlineStyleInfo(target, 'borderRadius', true)
   if (winner.inline && !readStaticInlineStyleInfo(target, key) && !canSplitInlineRadius) {
     return { ...base, action: 'unsupported', reason: 'dynamic-or-untracked-inline-style' }
