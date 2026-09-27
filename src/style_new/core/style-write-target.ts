@@ -5,6 +5,7 @@ import { calculateSafeSpecificity } from './selector-utils'
 import { getStyleResolution } from './style-property'
 import type { StyleResolution } from './style-property'
 import { resolveZoneFallbackSelector, splitZoneSelectorState, subjectClassNames } from './zone-tab'
+import { STYLE_SHORTHANDS } from './style-shorthand-groups'
 import type { ZoneSourceRule, ZoneTab } from './zone-tab'
 
 export type StyleWriteCandidate = {
@@ -133,6 +134,14 @@ export function createStyleWriteTargetResolver(
     }
     if (winner?.currentState) {
       return { selector: null, source: 'unsupported', candidates: [], reason: 'winner-selector-unavailable' }
+    }
+    if (key === 'borderRadius') {
+      const corners = STYLE_SHORTHANDS['border-radius']
+        .map(property => resolution.get(property).winner)
+        .filter(candidate => candidate?.currentState)
+      if (corners.length && corners.every(candidate => candidate!.inline)) {
+        return { selector: 'inline', source: 'inline', candidates: [], reason: 'existing-inline-radius-corners' }
+      }
     }
     return getDefaultTarget()
   }

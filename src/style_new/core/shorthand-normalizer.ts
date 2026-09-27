@@ -327,9 +327,9 @@ function normalizeSimpleGroup(
   // 编辑单一方向时，先将已有 shorthand 展开。否则删除一个 longhand 会直接移除
   // shorthand，导致未编辑方向的 margin/padding 也一并丢失。
   expandShorthandForLonghandChange(style, shorthand, longhands, changedKeys, deletions)
-  // 间距的 clear 表示取消该方向的声明，保留其余长写，不能补零后重新压成简写。
+  // 间距和圆角的 clear 表示取消该方向的声明，保留其余长写，不能补零后重新压成简写。
   // 其他属性组继续保留原来的初始值处理。
-  if (touched && hasGroupValue && shorthand !== 'margin' && shorthand !== 'padding') {
+  if (touched && hasGroupValue && shorthand !== 'margin' && shorthand !== 'padding' && shorthand !== 'borderRadius') {
     const existingValues = longhands
       .filter((key) => hasValue(style, key))
       .map((key) => parsePriority(style[key]))

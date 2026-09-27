@@ -34,6 +34,14 @@ export function createBorderRadiusWritePlans(
 
   return Array.from(groups, ([selector, groupChanges]) => {
     const clearedKeys = groupChanges.filter(change => change.value == null).map(change => change.key)
+    if (selector === 'inline' && clearedKeys.length === groupChanges.length && groupChanges.every(change =>
+      resolution.get(change.key).winner?.property === cssPropertyName(change.key)
+    )) {
+      return {
+        property: 'borderRadius' as const, selector, style: {}, deletions: clearedKeys, clearedKeys,
+        unsupported: clearedKeys.some(key => !readStaticInlineStyleInfo(target, key, true)),
+      }
+    }
     const style: Record<string, any> = {}
     const sourceKeys = new Set<string>()
     ;['borderRadius', ...BORDER_RADIUS_KEYS].forEach(key => {
@@ -60,6 +68,9 @@ export function createBorderRadiusWritePlans(
     let unsupported = !selector
     const inlineProperties = readInlineStyleProperties(target)
     if (selector === 'inline') {
+      const unifyingInlineCorners = groupChanges.some(change => change.key === 'borderRadius' && change.value != null) &&
+        !inlineProperties.has('border-radius') &&
+        BORDER_RADIUS_KEYS.some(key => inlineProperties.has(cssPropertyName(key)))
       // JSX 只有静态 borderRadius 简写时，单独配置会先被展开成四条长写。
       // 长写没有独立源码范围，重新压回原简写才能安全更新这条 inline style。
       if (readStaticInlineStyleInfo(target, 'borderRadius') &&
@@ -74,13 +85,18 @@ export function createBorderRadiusWritePlans(
         deletions = [...new Set([...deletions, ...inlineNormalized.deletions])]
       }
       output = Object.fromEntries(Object.entries(output).flatMap(([key, value]) => {
-        if (readStaticInlineStyleInfo(target, key)) return [[key, value]]
+        if (key !== 'borderRadius' || readStaticInlineStyleInfo(target, key) || unifyingInlineCorners) return [[key, value]]
         const expanded = expandFourShorthand(value)
-        return Object.entries(expanded || { [key]: value })
+        return expanded ? BORDER_RADIUS_KEYS.map((name, index) => [name, expanded[index]]) : [[key, value]]
       }))
       const requiredDeletions = deletions.filter(key => inlineProperties.has(cssPropertyName(key)) && !(key in output))
+      // 静态简写可由宿主在原属性位置替换为剩余圆角；新长写无需已有源码范围。
+      const splittingInlineShorthand = requiredDeletions.includes('borderRadius') &&
+        readStaticInlineStyleInfo(target, 'borderRadius', true)
       unsupported ||= requiredDeletions.some(key => !readStaticInlineStyleInfo(target, key, true)) ||
-        Object.keys(output).some(key => !readStaticInlineStyleInfo(target, key)) ||
+        Object.keys(output).some(key => !readStaticInlineStyleInfo(target, key) &&
+          !(unifyingInlineCorners && key === 'borderRadius') &&
+          !(splittingInlineShorthand && !inlineProperties.has(cssPropertyName(key)))) ||
         Object.values(output).some(value => /!important\s*$/i.test(String(value)))
       deletions = requiredDeletions
     } else {

@@ -108,9 +108,6 @@ export function BorderRadius({ value, onChange: fallbackOnChange, config }: Bord
 
   const handleChange = useCallback((changes: CSSProperties & Record<string, any>, borderMode: 'all' | 'split' = radiusToggleValue) => {
     const current: Record<string, any> = { ...radiusValueRef.current }
-    RADIUS_KEYS.forEach(key => {
-      if (current[key] == null || current[key] === '') current[key] = '0px'
-    })
     const next = { ...current, ...changes }
     radiusValueRef.current = next
     setRadiusValue(next)
@@ -139,10 +136,24 @@ export function BorderRadius({ value, onChange: fallbackOnChange, config }: Bord
   const unitOptions = useMemo(() => withApplyVariableOption(UNIT_OPTIONS, radiusAllVar.hasVariables), [radiusAllVar.hasVariables])
 
   const handleSwitchToUnified = useCallback(() => {
-    const next = getUnifiedRadiusValue(radiusValueRef.current)
-    if (next == null) return
+    let configuredValue = radiusValueRef.current
+    let target: 'current-rule' | undefined = 'current-rule'
+    if (context?.getStyleProperty) {
+      const winners = RADIUS_KEYS.map(key => context.getStyleProperty!(key).winner)
+      configuredValue = Object.fromEntries(RADIUS_KEYS.map((key, index) => {
+        const winner = winners[index]
+        return [key, winner?.currentState ? winner.value : undefined]
+      }))
+      const localWinners = winners.filter(winner => winner?.currentState)
+      if (localWinners.length && localWinners.every(winner => winner!.inline)) target = undefined
+    }
+    const next = getUnifiedRadiusValue(configuredValue)
+    if (next == null) {
+      setToggleValue({ radiusToggleValue: 'all' })
+      return
+    }
     const valueWithImportant = `${next}${useImportant ? '!important' : ''}`
-    const result = onChange({ key: 'borderRadius', value: valueWithImportant, target: 'current-rule', borderMode: 'all' })
+    const result = onChange({ key: 'borderRadius', value: valueWithImportant, target, borderMode: 'all' })
     if (result?.clearUnsupported || (result && !result.applied)) return
     const unified = {
       borderTopLeftRadius: next,
@@ -153,7 +164,7 @@ export function BorderRadius({ value, onChange: fallbackOnChange, config }: Bord
     radiusValueRef.current = unified
     setRadiusValue(unified)
     setToggleValue({ radiusToggleValue: 'all' })
-  }, [onChange, useImportant])
+  }, [onChange, useImportant, context?.getStyleProperty])
 
   const renderInput = (binding: ReturnType<typeof useLengthVarBinding>, icon: React.ReactNode, key: typeof RADIUS_KEYS[number], tip: string, rawValue: unknown, style: CSSProperties) => (
     <>
@@ -257,7 +268,8 @@ export function BorderRadius({ value, onChange: fallbackOnChange, config }: Bord
 }
 
 function getToggleDefaultValue(value: CSSProperties) {
+  const expanded = expandBorderRadiusShorthand(value)
   return {
-    radiusToggleValue: allEqual(RADIUS_KEYS.map(key => value[key])) ? 'all' : 'split',
+    radiusToggleValue: allEqual(RADIUS_KEYS.map(key => expanded[key])) ? 'all' : 'split',
   }
 }

@@ -97,7 +97,9 @@ function planClear(key: string, candidates: StyleSourceCandidate[], target: HTML
   const selector = winner.label
   if (!selector) return { ...base, action: 'unsupported', reason: 'winner-selector-unavailable' }
   const action = candidates.length === 1 && winner.property === cssPropertyName(key) ? 'delete' : 'write-unset'
-  if (winner.inline && !readStaticInlineStyleInfo(target, key)) {
+  const canSplitInlineRadius = winner.inline && winner.property === 'border-radius' && candidates.length === 1 &&
+    readStaticInlineStyleInfo(target, 'borderRadius', true)
+  if (winner.inline && !readStaticInlineStyleInfo(target, key) && !canSplitInlineRadius) {
     return { ...base, action: 'unsupported', reason: 'dynamic-or-untracked-inline-style' }
   }
   if (winner.inline && action === 'delete' && !readStaticInlineStyleInfo(target, key, true)) {
@@ -237,14 +239,18 @@ export function createStyleResolution(tab: ZoneTab, target: HTMLElement | null =
 
       // 写入简写后立即刷新长写来源，连续输入/重置不等待 CSSOM 重编译。
       const border = value != null ? expandBorderShorthand(stylePropertyKey(property), value) : null
-      const flex = value != null && property === 'flex' ? target?.ownerDocument?.createElement('div').style : undefined
-      if (flex) flex.setProperty('flex', String(value).replace(/\s*!important\s*$/i, '').trim())
-      if (value != null && (flex || property === 'margin' || property === 'padding' || (border && STYLE_SHORTHANDS[property]))) {
-        const expanded = flex
-          ? STYLE_SHORTHANDS.flex.map(key => flex.getPropertyValue(key))
-          : border
-          ? STYLE_SHORTHANDS[property].map(key => border[stylePropertyKey(key)])
-          : expandFourShorthand(value)
+      const parsedShorthand = value != null && (property === 'flex' || property === 'border-radius')
+        ? target?.ownerDocument?.createElement('div').style : undefined
+      if (parsedShorthand) parsedShorthand.setProperty(property, String(value).replace(/\s*!important\s*$/i, '').trim())
+      if (value != null && (parsedShorthand || property === 'margin' || property === 'padding' || (border && STYLE_SHORTHANDS[property]))) {
+        let expanded: string[] | null
+        if (parsedShorthand) {
+          expanded = STYLE_SHORTHANDS[property].map(key => parsedShorthand.getPropertyValue(key))
+        } else if (border) {
+          expanded = STYLE_SHORTHANDS[property].map(key => border[stylePropertyKey(key)])
+        } else {
+          expanded = expandFourShorthand(value)
+        }
         const shorthand = remaining[remaining.length - 1]
         if (expanded && shorthand) STYLE_SHORTHANDS[property].forEach((longhand, position) => {
           const others = (index.get(longhand) || []).filter(candidate => candidate.label !== selector)

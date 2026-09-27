@@ -545,7 +545,7 @@ function applyEffectiveStyleChanges(
   // 先预检整个用户动作，避免清空不可执行却先修改了共享图层。
   const plans = createBatchStyleClearPlans(
     changes.filter(item => item.value === null && (shouldUseCascadeClearPlan(item) || (
-      !sideClearKeys.has(item.key) && !isBorderProperty(item.key) &&
+      !sideClearKeys.has(item.key) && !isBorderProperty(item.key) && !isBorderRadiusProperty(item.key) &&
       !(replacingFlex && flexKeys.includes(item.key))
     ))).map(item => item.key),
     resolution,
