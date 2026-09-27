@@ -8,7 +8,7 @@ import { useDragNumber } from '../../hooks/useDragNumber'
 import { isCssVarValue } from '../../hooks/useLengthVarBinding'
 import { useCanvasOpacityVariables } from '../../hooks/useCanvasOpacityVariables'
 import { resolveCssVarOpacity, formatOpacityDisplay } from '../../../core/resolve-css-var-opacity'
-import { useStyleEditorContext } from '../../context'
+import { useStyleEditorContext, useStyleChange } from '../../context'
 import type { VariableChipMenuOption } from '../../components/VariableChip'
 
 import type { ChangeEvent, PanelBaseProps } from '../../type'
@@ -34,12 +34,13 @@ function percentToOpacity(percent: number): number {
 
 const DETACH_VARIABLE_ACTION = 'detachVariable'
 
-export function Appearance({ value, onChange, showTitle, collapse }: AppearanceProps) {
+export function Appearance({ value, onChange: fallbackOnChange, showTitle, collapse }: AppearanceProps) {
   const [opacityForceKey, setOpacityForceKey] = useState(0)
   const [opacityDraft, setOpacityDraft] = useState<string | null>(null)
 
   const context = useStyleEditorContext()
   const targetDom = context?.targetDom ?? null
+  const onChange = useStyleChange(fallbackOnChange)
 
   const { variableOptions } = useCanvasOpacityVariables()
   const hasVariables = variableOptions.length > 0
