@@ -29,6 +29,7 @@ import {
   isMeaninglessStylePropForPanel,
 } from './panel-effected'
 import {
+  buildZoneStateStyle,
   getOrderedZoneSourceRules,
   resolveZonePropertySource,
 } from './zone-tab'
@@ -146,6 +147,17 @@ export function getEffectedCssPropertyAndOptions (
     selectorArray.length > 1 || /:{1,2}[a-zA-Z\-]+(?:\([^)]*\))?$/.test(primarySelector)
   ) ? {} : undefined
   try {
+    if (zoneTab?.pseudo) {
+      const rules = Array.from(new Set(zoneTab.sourceRules.map(source => source.rule)))
+      const authoredStyle = rules.reduce<Record<string, any>>(
+        (result, rule) => Object.assign(result, cssRuleStyleToBag(rule.style)), {}
+      )
+      const keys = Array.from(new Set([...Object.keys(PANEL_MAP), ...Object.keys(authoredStyle)]))
+      const stateStyle = buildZoneStateStyle(zoneTab, keys, element)
+      const values = Object.fromEntries(Object.entries(stateStyle).map(([key, item]) => [key, item.value]))
+      const panels = getEffectedPanelsFromCssRules(rules, values)
+      return [values, panels, panels, [], authoredStyle]
+    }
     let finalRules: CSSStyleRule[];
     let computedValues;
     // 汇总所有来自父级继承来源的规则，传给 getValues 做 inheritOnly 过滤

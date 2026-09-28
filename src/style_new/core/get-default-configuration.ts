@@ -230,6 +230,8 @@ export function getDefaultConfiguration ({value, options}: GetDefaultConfigurati
       effectedFromRulesOnly = mapEffectedPanels(ownRulesPanels as string[]);
       effectedFromAncestorsOnly = mapEffectedPanels(ancestorPanels as string[]);
       ownAuthoredStyle = authoredStyle || {};
+      // 宿主 value.get() 可能仍返回常规态；伪类的配置和展开状态只来自自己的规则。
+      if (zoneTab?.pseudo) setValue = deepCopy(ownAuthoredStyle)
       finalOptions = normalizeEffectOptions(finalOptions)
       // 每个面板只负责生成自己拥有的默认字段；Object.assign 的顺序遵循插件列表顺序。
       finalOptions.forEach((option) => {

@@ -10,7 +10,7 @@ import { applyStyleChange, createStyleRemovalPlan } from './core/apply-style-cha
 import type { ZoneWriteTarget } from './core/apply-style-change'
 import { toElementArray } from './core/dom'
 import { createBatchStyleClearPlans, cssPropertyName, getStyleResolution, invalidateStyleResolution } from './core/style-property'
-import { collectZoneTabs, mergeZoneTabsByState } from './core/zone-tab'
+import { buildZoneStateStyle, collectZoneTabs, mergeZoneTabsByState } from './core/zone-tab'
 import type { ZoneTab } from './core/zone-tab'
 import { expandFourShorthand } from './core/shorthand-normalizer'
 
@@ -170,6 +170,8 @@ export function StyleMount({
     const previewCache = new Map<string, string>()
     let computed: CSSStyleDeclaration | undefined
     const getStylePreview = (key: string, refresh = false) => {
+      // 状态未配置的字段保持默认，不用常规态的计算值补回输入框。
+      if (zoneTab?.pseudo) return ''
       if (!realDom) return ''
       const property = cssPropertyName(key)
       if (refresh) {
@@ -184,6 +186,12 @@ export function StyleMount({
       }
       return previewCache.get(property)!
     }
+    let panelEffectiveStyle = effectiveStyle
+    if (zoneTab?.pseudo) {
+      panelEffectiveStyle = buildZoneStateStyle(
+        zoneTab, Object.keys({ ...defaultValue, ...liveStyleRef.current, ...effectiveStyle }), realDom
+      )
+    }
     const CDN = (editConfig as any).getDefaultOptions?.('stylenew')?.CDN
     return {
       editConfig: {
@@ -193,7 +201,7 @@ export function StyleMount({
       autoCollapseWhenUnusedProperty,
       targetDom: realDom,
       authoredStyle,
-      effectiveStyle,
+      effectiveStyle: panelEffectiveStyle,
       applyStyleMutations,
       getStyleProperty: zoneTab ? (key: string) => getStyleResolution(zoneTab, realDom).get(key) : undefined,
       getStyleClearPlans: zoneTab ? (keys: readonly string[]) =>
@@ -208,6 +216,7 @@ export function StyleMount({
     autoCollapseWhenUnusedProperty,
     authoredStyle,
     effectiveStyle,
+    defaultValue,
     applyStyleMutations,
     removeStyleProperties,
     zoneTab,
@@ -218,6 +227,10 @@ export function StyleMount({
   if (zoneTab) {
     const resolution = getStyleResolution(zoneTab, target)
     Object.keys({ ...defaultValue, ...liveStyleRef.current }).forEach(key => {
+      if (zoneTab.pseudo) {
+        panelValue[key] = editorContext.effectiveStyle?.[key]?.value
+        return
+      }
       const winner = resolution.get(key).winner
       panelValue[key] = winner?.value ?? (editorContext.getStylePreview(key) || defaultValue[key])
     })

@@ -3,7 +3,7 @@ import { compare } from 'specificity'
 
 import { isPageScopedSelector, resolveCssomSourceSelector } from './build-zone-selectors-from-cssom'
 import { toLine } from './css-code-codec'
-import { getStyleResolution } from './style-property'
+import { getStyleResolution, resolveEffectiveStyleSource } from './style-property'
 import { createCascadeResolver } from './cascade-winner'
 import { getDocument } from './dom'
 import { calculateSafeSpecificity, splitTopLevelSelectors } from './selector-utils'
@@ -166,12 +166,40 @@ function readInheritedColorWithoutHover(target: HTMLElement): string | undefined
   return undefined
 }
 
-/** 使用现有面板计算出的 styleValues 生成来源信息，避免重复实现 CSS 级联。 */
+/** 状态面板只展示该状态的声明；基础态和内联仍留在解析器中供写入、清空判断。 */
+export function buildZoneStateStyle(
+  tab: ZoneTab,
+  keys: string[],
+  target: HTMLElement | null,
+): Record<string, EffectiveStyleValue> {
+  const resolution = getStyleResolution(tab, target)
+  const result: Record<string, EffectiveStyleValue> = {}
+  keys.forEach(key => {
+    const candidate = resolveEffectiveStyleSource(
+      resolution.get(key).candidates.filter(source => source.currentState)
+    )
+    if (!candidate) return
+    result[key] = {
+      value: candidate.value,
+      type: 'stylesheet',
+      sourceSelector: candidate.label,
+      selectorPart: candidate.source?.selectorPart,
+      sourceOrder: candidate.sourceOrder,
+      important: candidate.important,
+    }
+  })
+  return result
+}
+
+/** 常规态保留生效值回显；伪类/伪元素仅回显当前状态配置。 */
 export function buildZoneEffectiveStyle(
   tab: ZoneTab,
   styleValues: Record<string, unknown>,
   target?: Element | null,
 ): Record<string, EffectiveStyleValue> {
+  if (tab.pseudo) {
+    return buildZoneStateStyle(tab, Object.keys(styleValues), target instanceof HTMLElement ? target : null)
+  }
   const result: Record<string, EffectiveStyleValue> = {}
   const computedStyle = target instanceof HTMLElement ? window.getComputedStyle(target) : null
   const cascadeResolver = target instanceof HTMLElement && !tab.pseudo
