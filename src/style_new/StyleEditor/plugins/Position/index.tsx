@@ -208,7 +208,7 @@ export function Position({ onChange: fallbackOnChange, showTitle }: PositionProp
       showTitle={false}
       showDelete={false}
       collapse={false}
-      keepTopBorder={!isFreePosition}
+      // keepTopBorder={!isFreePosition}
     >
       <div className={css.headerRow}>
         {showTitle !== false && <div className={css.title}>位置</div>}
