@@ -273,7 +273,8 @@ export function Effects({ value: _value, onChange: fallbackOnChange, showTitle, 
     setOverState(null)
   }, [])
 
-  const effectiveCollapse = layers.length === 0 && collapse !== 'inherited' ? true : collapse
+  // collapse 可能一直保留初始的 true；按层数切换，确保删空时触发 Panel 收起。
+  const effectiveCollapse = collapse === 'inherited' ? collapse : layers.length === 0
   const activeLayer = activeIndex != null ? layers[activeIndex] : null
 
   const typeOptionsForActive = useMemo(() => {

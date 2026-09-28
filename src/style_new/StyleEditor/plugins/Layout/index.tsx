@@ -142,7 +142,7 @@ export function Layout({ onChange: fallbackOnChange, showTitle, collapse, config
   }, [value, isReset]);
 
   return (
-    <Panel title="布局" showTitle={showTitle} showReset={true} showDelete={false} resetFunction={refresh} collapse={collapse}>
+    <Panel title="布局" showTitle={showTitle} showReset={true} showDelete={false} resetFunction={refresh} collapse={collapse} keepTopBorder>
       <React.Fragment key={forceRenderKey}>
         <LayoutEditor
           editValue={editValue}

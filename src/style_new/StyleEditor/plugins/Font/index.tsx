@@ -968,7 +968,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
   );
 
   return (
-    <Panel title="字体" showTitle={showTitle} showReset={true} showDelete={false} resetFunction={refresh} collapse={false}>
+    <Panel title="字体" showTitle={showTitle} showReset={true} showDelete={false} resetFunction={refresh} collapse={false} keepTopBorder>
 
       {cfg.disableFontFamily ? null : (
         <Panel.Content style={truncateBtnInFamilyRow ? { position: 'relative' } : undefined}>
