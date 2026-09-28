@@ -11,7 +11,7 @@ import {
   overlayNormalizedShorthands,
 } from './shorthand-normalizer'
 import { isTextFillActive } from '../StyleEditor/helper/text-fill'
-import { resolveZoneDeletionTarget } from './zone-tab'
+import { resolveZoneDeletionTarget, splitZoneSelectorState } from './zone-tab'
 import type { ZoneTab } from './zone-tab'
 import {
   collectStyleSourceCandidates, createBatchStyleClearPlans, createStyleClearPlan,
@@ -216,7 +216,8 @@ export function createStyleRemovalPlan(
         Object.values(group.style).some(value => IMPORTANT_SUFFIX_RE.test(String(value)))) {
         return blocked('动态 JSX 或缺少源码范围，无法安全删除/拆分')
       }
-    } else if ([...group.deletions, ...Object.keys(group.style)].some(key => inlineProperties.has(cssPropertyName(key)))) {
+    } else if (!splitZoneSelectorState(group.selector).pseudo &&
+      [...group.deletions, ...Object.keys(group.style)].some(key => inlineProperties.has(cssPropertyName(key)))) {
       return blocked('同名 JSX 样式会改变写入目标，无法安全删除')
     }
   }
@@ -412,6 +413,7 @@ function resolveSandboxWriteClassNames(
   }
 
   if (readStaticInlineStyleInfo(targetDom, styleKey)) {
+    if (targetSelector && splitZoneSelectorState(targetSelector).pseudo) return [targetSelector]
     if (deletion && targetSelector) {
       return [INLINE_STYLE_LABEL, targetSelector]
     }
@@ -525,13 +527,33 @@ const preserveCascadePriority = (
   })
 }
 
+/** 状态覆盖保留基础态的 inline，仅给存在内联竞争的属性提高优先级。 */
+function preserveStateInlinePriority(
+  items: StyleChangeItem[], tab: ZoneTab | null, target: HTMLElement | null
+): StyleChangeItem[] {
+  if (!tab?.pseudo || tab.pseudo.includes('::') || !target) return items
+  const resolution = getStyleResolution(tab, target)
+  const inlineProperties = readInlineStyleProperties(target)
+  const inlineLonghands = new Set(Array.from(inlineProperties).flatMap(property =>
+    STYLE_SHORTHANDS[property] || [property]
+  ))
+  return items.map(item => {
+    if (item.value == null || IMPORTANT_SUFFIX_RE.test(String(item.value))) return item
+    const property = cssPropertyName(item.key)
+    const properties = STYLE_SHORTHANDS[property] || [property]
+    const hasInline = properties.some(name => inlineLonghands.has(name) ||
+      resolution.get(name).candidates.some(candidate => candidate.inline))
+    return hasInline ? { ...item, value: `${item.value} !important` } : item
+  })
+}
+
 /** 共享属性决策；普通值沿用现有写入，清空单独提交 null/unset。 */
 function applyEffectiveStyleChanges(
   items: StyleChangeItem[], liveStyle: Record<string, any>, tab: ZoneTab,
   target: HTMLElement | null, editConfig: any, onBatchMetaChange?: () => void
 ): ApplyStyleChangeResult {
   const resolution = getStyleResolution(tab, target)
-  const changes = preservePaintRoles(items, liveStyle)
+  const changes = preserveStateInlinePriority(preservePaintRoles(items, liveStyle), tab, target)
   const flexKeys = getShorthandFamily('flex').map(stylePropertyKey)
   // Flex 面板提交的是整组替换；其中的 null 只是清理冲突写法，不是屏蔽级联。
   const replacingFlex = flexKeys.every(key => changes.some(item => item.key === key)) &&
@@ -574,7 +596,8 @@ function applyEffectiveStyleChanges(
       ? flexWrites.some(item => !readStaticInlineStyleInfo(target, item.key)) ||
         flexDeletions.some(key => !readStaticInlineStyleInfo(target, key, true)) ||
         Object.values(flexStyle).some(value => IMPORTANT_SUFFIX_RE.test(String(value)))
-      : flexKeys.some(key => inlineProperties.has(cssPropertyName(key)))))
+      : !splitZoneSelectorState(flexSelector).pseudo &&
+        flexKeys.some(key => inlineProperties.has(cssPropertyName(key)))))
   const propertyPlans = [
     ...(replacingFlex ? [{ property: 'flex' as const, selector: flexSelector, style: flexStyle,
       deletions: flexDeletions, clearedKeys: [] as string[], unsupported: flexUnsupported }] : []),
@@ -879,7 +902,9 @@ export function applyStyleChange({
     preserveImportantPriority,
     importantPriorityCache
   )
-  const changeItems = preservePaintRoles(priorityAwareItems, nextSetValue)
+  const changeItems = preserveStateInlinePriority(
+    preservePaintRoles(priorityAwareItems, nextSetValue), activeZoneTab, realTargetDom
+  )
 
   let hasRealChange = false
   const collapsedPanelSet = new Set(
@@ -1141,7 +1166,12 @@ export function applyStyleChange({
           sourceSelector,
           { ...writeLogContext, deletion: true }
         )
-        write(group.style, groupOptions)
+        if (activeZoneTab.pseudo) {
+          // 状态写入不能在宿主持有旧 DOM 时回退到常规 selector。
+          withExplicitStyleSelector(sourceSelector, () => write(group.style, groupOptions))
+        } else {
+          write(group.style, groupOptions)
+        }
         Object.entries(group.style).forEach(([key, value]) => {
           getStyleResolution(activeZoneTab, realTargetDom).record(key, value, sourceSelector)
         })

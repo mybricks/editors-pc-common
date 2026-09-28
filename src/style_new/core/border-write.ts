@@ -3,6 +3,7 @@ import { cssPropertyName, hasFallbackStyleCandidate, readInlineStyleProperties, 
 import type { StyleResolution } from './style-property'
 import type { StyleChangeItem } from './apply-style-change'
 import { stylePropertyKey } from './style-shorthand-groups'
+import { splitZoneSelectorState } from './zone-tab'
 
 export const isBorderProperty = (key: string) => BORDER_KEYS.includes(key)
 
@@ -108,7 +109,7 @@ export function createBorderRadiusWritePlans(
           !(splittingInlineShorthand && !inlineProperties.has(cssPropertyName(key)))) ||
         Object.values(output).some(value => /!important\s*$/i.test(String(value)))
       deletions = requiredDeletions
-    } else {
+    } else if (!splitZoneSelectorState(selector).pseudo) {
       unsupported ||= [...Object.keys(output), ...deletions].some(key => inlineProperties.has(cssPropertyName(key)))
     }
     return { property: 'borderRadius' as const, selector, style: output, deletions, clearedKeys, unsupported }
@@ -198,7 +199,7 @@ export function createBorderWritePlans(
         Object.keys(output).some(key => !readStaticInlineStyleInfo(target, key)) ||
         Object.values(output).some(value => /!important\s*$/i.test(String(value)))
       deletions = requiredDeletions
-    } else {
+    } else if (!splitZoneSelectorState(selector).pseudo) {
       // 宿主可能优先路由同名 JSX 属性，不能将 class 的合并写入偷换为 inline。
       unsupported ||= [...Object.keys(output), ...deletions].some(key => inlineProperties.has(cssPropertyName(key)))
     }

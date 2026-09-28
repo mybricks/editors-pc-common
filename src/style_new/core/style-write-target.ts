@@ -2,7 +2,7 @@
 import { compare } from 'specificity'
 import { collectSubjectClassSelectors, isZoneTabNoiseClass } from './build-zone-selectors-from-cssom'
 import { calculateSafeSpecificity } from './selector-utils'
-import { getStyleResolution } from './style-property'
+import { getStyleResolution, resolveEffectiveStyleSource } from './style-property'
 import type { StyleResolution } from './style-property'
 import { resolveZoneFallbackSelector, splitZoneSelectorState, subjectClassNames } from './zone-tab'
 import { STYLE_SHORTHANDS } from './style-shorthand-groups'
@@ -125,7 +125,11 @@ export function createStyleWriteTargetResolver(
         reason: `explicit-current-rule:${current.reason}`,
       }
     }
-    const winner = resolution.get(key).winner
+    const property = resolution.get(key)
+    // 基础态 inline 可能遮住已有状态声明，仍应更新该状态原有的来源。
+    const winner = tab.pseudo
+      ? resolveEffectiveStyleSource(property.candidates.filter(candidate => candidate.currentState))
+      : property.winner
     if (winner?.currentState && winner.label) {
       return {
         selector: winner.label, source: winner.inline ? 'inline' : 'property-winner',

@@ -5,6 +5,7 @@ import {
 import type { StyleResolution } from './style-property'
 import type { StyleChangeItem } from './apply-style-change'
 import type { EffectiveStyleValue } from './zone-tab'
+import { splitZoneSelectorState } from './zone-tab'
 
 export const BOX_SPACING_KEYS = {
   margin: ['marginTop', 'marginRight', 'marginBottom', 'marginLeft'],
@@ -165,7 +166,8 @@ export function createSpacingWritePlans(
         cannotDelete ||
         Object.values(output).some(value => /!important\s*$/i.test(String(value))) ||
         family.some(key => inlineProperties.has(cssPropertyName(key)) && !readStaticInlineStyleInfo(target, key, true))
-    } else {
+    } else if (!splitZoneSelectorState(selector).pseudo) {
+      // 状态规则与基础 inline 独立，只有常规态统一配置才允许合并/删除内联来源。
       // 宿主的常规写入优先路由同名 JSX 属性；不能把“当前 class”写入偷换成 inline。
       const inlineConflicts = [...Object.keys(output), ...deletions]
         .filter(key => inlineProperties.has(cssPropertyName(key)))
