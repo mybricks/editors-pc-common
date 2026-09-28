@@ -2,7 +2,7 @@ import { BORDER_KEYS, BORDER_DETAIL_KEYS, expandBorderShorthand, normalizeStyleS
 import { cssPropertyName, hasFallbackStyleCandidate, readInlineStyleProperties, readStaticInlineStyleInfo, resolveEffectiveStyleSource } from './style-property'
 import type { StyleResolution } from './style-property'
 import type { StyleChangeItem } from './apply-style-change'
-import { createFourSideWritePlans } from './four-side-write'
+import { createDirectionalWritePlans } from './four-side-write'
 import { stylePropertyKey } from './style-shorthand-groups'
 import { splitZoneSelectorState } from './zone-tab'
 
@@ -24,7 +24,7 @@ export function createBorderRadiusWritePlans(
   target: HTMLElement | null,
   resolveSelector: (change: StyleChangeItem) => string | null
 ) {
-  return createFourSideWritePlans('borderRadius', changes, resolution, target, resolveSelector)
+  return createDirectionalWritePlans('borderRadius', changes, resolution, target, resolveSelector)
 }
 
 /** 同一来源内压缩 border；统一宽度回填可携带已有显式线型/颜色，不补 computed 值。 */

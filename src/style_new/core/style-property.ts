@@ -7,7 +7,7 @@ import {
   BATCH_CLEAR_SHORTHANDS, getShorthandFamily, STYLE_SHORTHANDS, stylePropertyKey,
 } from './style-shorthand-groups'
 import type { ZoneSourceRule, ZoneTab } from './zone-tab'
-import { expandBorderShorthand, expandFourShorthand } from './shorthand-normalizer'
+import { expandBorderShorthand, expandFourShorthand, expandTwoShorthand } from './shorthand-normalizer'
 
 export const cssPropertyName = (key: string) => key.startsWith('--')
   ? key
@@ -242,12 +242,14 @@ export function createStyleResolution(tab: ZoneTab, target: HTMLElement | null =
       const parsedShorthand = value != null && (property === 'flex' || property === 'border-radius')
         ? target?.ownerDocument?.createElement('div').style : undefined
       if (parsedShorthand) parsedShorthand.setProperty(property, String(value).replace(/\s*!important\s*$/i, '').trim())
-      if (value != null && (parsedShorthand || property === 'margin' || property === 'padding' || (border && STYLE_SHORTHANDS[property]))) {
+      if (value != null && (parsedShorthand || property === 'margin' || property === 'padding' || property === 'overflow' || (border && STYLE_SHORTHANDS[property]))) {
         let expanded: string[] | null
         if (parsedShorthand) {
           expanded = STYLE_SHORTHANDS[property].map(key => parsedShorthand.getPropertyValue(key))
         } else if (border) {
           expanded = STYLE_SHORTHANDS[property].map(key => border[stylePropertyKey(key)])
+        } else if (property === 'overflow') {
+          expanded = expandTwoShorthand(value)
         } else {
           expanded = expandFourShorthand(value)
         }

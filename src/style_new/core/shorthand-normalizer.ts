@@ -155,6 +155,9 @@ function serializeFourValues(values: string[]): string | null {
 
 function serializeTwoValues(values: string[]): string | null {
   if (values.length !== 2) return null
+  if (values.some(value => /^(initial|inherit|unset|revert|revert-layer)$/i.test(value))) {
+    return values[0] === values[1] ? values[0] : null
+  }
   return values[0] === values[1] ? values[0] : values.join(' ')
 }
 
@@ -263,6 +266,15 @@ function replaceGroup(
   Object.assign(style, output)
 }
 
+/** 两轴简写按水平、垂直展开，保留声明值而非浏览器计算值。 */
+export function expandTwoShorthand(raw: unknown): string[] | null {
+  if (raw == null || String(raw).trim() === '') return null
+  const { value, important } = parsePriority(raw)
+  const parts = splitTopLevelComponents(value)
+  if (!parts || parts.length < 1 || parts.length > 2) return null
+  return [parts[0], parts[1] || parts[0]].map(part => `${part}${important ? '!important' : ''}`)
+}
+
 /** 将 padding/margin 四值简写展开，同时保留 var() 和 !important。 */
 export function expandFourShorthand(raw: unknown): string[] | null {
   if (raw == null || String(raw).trim() === '') return null
@@ -290,12 +302,12 @@ function expandShorthandForLonghandChange(
   deletions: string[]
 ) {
   if (
-    longhands.length !== 4 ||
+    (longhands.length !== 4 && shorthand !== 'overflow') ||
     !hasValue(style, shorthand) ||
     !longhands.some((key) => changedKeys.has(key))
   ) return
 
-  const expanded = expandFourShorthand(style[shorthand])
+  const expanded = shorthand === 'overflow' ? expandTwoShorthand(style[shorthand]) : expandFourShorthand(style[shorthand])
   if (!expanded || expanded.length !== longhands.length) return
 
   longhands.forEach((key, index) => {

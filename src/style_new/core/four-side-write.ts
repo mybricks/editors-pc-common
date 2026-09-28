@@ -1,12 +1,12 @@
-import { expandFourShorthand, normalizeStyleShorthands } from './shorthand-normalizer'
+import { expandFourShorthand, expandTwoShorthand, normalizeStyleShorthands } from './shorthand-normalizer'
 import { cssPropertyName, hasFallbackStyleCandidate, readInlineStyleProperties, readStaticInlineStyleInfo, resolveEffectiveStyleSource } from './style-property'
 import type { StyleResolution } from './style-property'
 import type { StyleChangeItem } from './apply-style-change'
 import { STYLE_SHORTHANDS, stylePropertyKey } from './style-shorthand-groups'
 import { splitZoneSelectorState } from './zone-tab'
 
-/** 四方向属性在同一来源内拆写，保留未编辑方向及后备来源。 */
-export function createFourSideWritePlans<Property extends 'borderRadius' | 'margin' | 'padding'>(
+/** 方向属性在同一来源内拆写，保留未编辑方向及后备来源。 */
+export function createDirectionalWritePlans<Property extends 'borderRadius' | 'margin' | 'padding' | 'overflow'>(
   property: Property,
   changes: StyleChangeItem[],
   resolution: Pick<StyleResolution, 'get'>,
@@ -75,14 +75,14 @@ export function createFourSideWritePlans<Property extends 'borderRadius' | 'marg
     let unsupported = !selector
     const inlineProperties = readInlineStyleProperties(target)
     if (selector === 'inline') {
-      // 整组清空后四个方向均需 unset 时，可把已有长写合成一条简写。
+      // 整组清空后所有方向均需 unset 时，可把已有长写合成一条简写。
       const clearingGroup = output[property] === 'unset' &&
         keys.every(key => clearedKeys.includes(key))
       const unifyingInlineSides = (clearingGroup ||
         groupChanges.some(change => change.key === property && change.value != null)) &&
         !inlineProperties.has(cssPropertyName(property)) &&
         keys.some(key => inlineProperties.has(cssPropertyName(key)))
-      // JSX 只有静态简写时，单独配置会先被展开成四条长写。
+      // JSX 只有静态简写时，单独配置会先被展开成各方向长写。
       // 长写没有独立源码范围，重新压回原简写才能安全更新这条 inline style。
       if (readStaticInlineStyleInfo(target, property) &&
         keys.every(key => Object.prototype.hasOwnProperty.call(output, key))) {
@@ -97,7 +97,7 @@ export function createFourSideWritePlans<Property extends 'borderRadius' | 'marg
       }
       output = Object.fromEntries(Object.entries(output).flatMap(([key, value]) => {
         if (key !== property || readStaticInlineStyleInfo(target, key) || unifyingInlineSides) return [[key, value]]
-        const expanded = expandFourShorthand(value)
+        const expanded = property === 'overflow' ? expandTwoShorthand(value) : expandFourShorthand(value)
         return expanded ? keys.map((name, index) => [name, expanded[index]]) : [[key, value]]
       }))
       const requiredDeletions = deletions.filter(key => inlineProperties.has(cssPropertyName(key)) && !(key in output))

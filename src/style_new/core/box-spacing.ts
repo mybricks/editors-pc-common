@@ -5,7 +5,7 @@ import {
 import type { StyleResolution } from './style-property'
 import type { StyleChangeItem } from './apply-style-change'
 import type { EffectiveStyleValue } from './zone-tab'
-import { createFourSideWritePlans } from './four-side-write'
+import { createDirectionalWritePlans } from './four-side-write'
 
 export const BOX_SPACING_KEYS = {
   margin: ['marginTop', 'marginRight', 'marginBottom', 'marginLeft'],
@@ -120,7 +120,7 @@ export function createSpacingWritePlans(
   const supplementalPlans: SpacingWritePlan[] = []
   const primaryPlans = Array.from(groups.values(), ({ property, selector, changes: groupChanges }) => {
     if (selector === 'inline') {
-      return createFourSideWritePlans(property, groupChanges, resolution, target, () => selector)[0]
+      return createDirectionalWritePlans(property, groupChanges, resolution, target, () => selector)[0]
     }
     const keys = BOX_SPACING_KEYS[property]
     const family = [property, ...keys]

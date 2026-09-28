@@ -24,6 +24,7 @@ import { BOX_SPACING_KEYS, createSpacingWritePlans, getBoxSpacingProperty, getBo
 import { createStyleWriteTargetResolver } from './style-write-target'
 import type { StyleWriteTarget } from './style-write-target'
 import { BORDER_DETAIL_KEYS, BORDER_RADIUS_KEYS, createBorderRadiusWritePlans, createBorderWritePlans, isBorderProperty, isBorderRadiusProperty } from './border-write'
+import { createOverflowWritePlans, isOverflowProperty } from './overflow'
 
 export type StyleChangeItem = {
   key: string
@@ -644,6 +645,8 @@ function applyEffectiveStyleChanges(
       change => writeTargets.get(change.key)?.selector || null),
     ...createBorderWritePlans(specializedChanges, resolution, target,
       change => writeTargets.get(change.key)?.selector || null),
+    ...createOverflowWritePlans(changes.filter(item => item.value != null), resolution, target,
+      change => writeTargets.get(change.key)?.selector || null),
   ]
   propertyPlans.filter(plan => plan.property === 'borderRadius' && plan.selector === INLINE_STYLE_LABEL)
     .forEach(plan => plan.clearedKeys.forEach(key => console.log('[圆角清空诊断]', JSON.stringify({
@@ -667,6 +670,7 @@ function applyEffectiveStyleChanges(
     return { nextLiveStyle: liveStyle, applied: false, clearApplied: false, clearUnsupported: true }
   }
   const writes = changes.filter(item => item.value != null && !getBoxSpacingProperty(item.key) && !isBorderProperty(item.key) && !isBorderRadiusProperty(item.key) &&
+    !isOverflowProperty(item.key) &&
     !(replacingFlex && flexKeys.includes(item.key)))
     .map(({ key, value, borderMode, target }) => ({ key, value, borderMode, target }))
   const normal = writes.length
@@ -680,11 +684,14 @@ function applyEffectiveStyleChanges(
       key, value: null, action: '清空', candidates: resolution.get(key).candidates,
       winner: resolution.get(key).winner, writeSelectors: [selector],
     }))
-    changes.filter(item => item.value != null &&
-      (plan.property === 'flex' ? flexKeys.includes(item.key) :
-        plan.property === 'border' ? isBorderProperty(item.key) :
-          plan.property === 'borderRadius' ? isBorderRadiusProperty(item.key) :
-            getBoxSpacingProperty(item.key) === plan.property))
+    changes.filter(item => {
+      if (item.value == null) return false
+      if (plan.property === 'flex') return flexKeys.includes(item.key)
+      if (plan.property === 'border') return isBorderProperty(item.key)
+      if (plan.property === 'borderRadius') return isBorderRadiusProperty(item.key)
+      if (plan.property === 'overflow') return isOverflowProperty(item.key)
+      return getBoxSpacingProperty(item.key) === plan.property
+    })
       .forEach(item => {
         const writeTarget = writeTargets.get(item.key)!
         if (writeTarget.selector === selector) logStyleWriteTarget(item.key, item.value, writeTarget, tab, style)
@@ -722,7 +729,7 @@ function applyEffectiveStyleChanges(
         winner: resolution.get(key).winner, writeSelectors: [selector],
       })
     })
-    if (clearedKeys.length && plan.property !== 'flex') {
+    if (clearedKeys.length && plan.property !== 'flex' && plan.property !== 'overflow') {
       // 拆分后的本地快照保持稀疏，并保留其他来源真正生效的相邻方向。
       delete nextLiveStyle[plan.property]
       let keys: readonly string[]
