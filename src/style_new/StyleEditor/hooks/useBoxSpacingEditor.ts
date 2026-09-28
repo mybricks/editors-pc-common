@@ -13,12 +13,12 @@ type Options = {
   onChange: ChangeEvent
 }
 
-/** Margin/Padding 共用回显、单边重置、整组清空和最大值统一配置。 */
+/** Margin/Padding 共用回显、单边重置、整组清空和统一配置。 */
 export function useBoxSpacingEditor({ property, value, onChange: fallbackOnChange }: Options) {
   const context = useStyleEditorContext()
   const effectiveValue = useEffectiveStyleValue()
   const onChange = useStyleChange(fallbackOnChange)
-  const keys = BOX_SPACING_KEYS[property]
+  const keys: readonly string[] = BOX_SPACING_KEYS[property]
   const groupClear = useStyleClear(keys)
   const externalValue = context?.effectiveStyle ? effectiveValue : value
   const incoming = readBoxSpacingValue(property, externalValue, context?.effectiveStyle)
@@ -48,13 +48,26 @@ export function useBoxSpacingEditor({ property, value, onChange: fallbackOnChang
     setToggle(incomingToggle)
   }, [property, context?.targetDom, context?.effectiveStyle, standaloneSignature, incomingToggle])
 
+  const getConfiguredWinners = useCallback(() => keys
+    .map(key => context?.getStyleProperty?.(key).winner)
+    .filter(winner => winner?.currentState), [keys, context?.getStyleProperty])
+
   const commit = useCallback((changes: Record<string, any>, unified = false) => {
+    let target: 'current-rule' | undefined = 'current-rule'
+    if (unified) {
+      const winners = getConfiguredWinners()
+      if (winners.length && winners.every(winner => winner!.inline)) target = undefined
+    }
     const items: StyleChangeItem[] = unified
-      ? [{ key: property, value: changes[keys[0]], target: 'current-rule' }]
+      ? [{ key: property, value: changes[keys[0]], target }]
       : Object.entries(changes).map(([key, next]) => ({ key, value: next }))
     const result = onChange(items)
     if (result?.clearUnsupported || (result && !result.applied)) return result
     const next = { ...valueRef.current, ...changes }
+    // unset 保留在源码，输入框直接显示未配置，与后续 effectiveStyle 回显一致。
+    Object.keys(changes).forEach(key => {
+      if (next[key] === 'unset') delete next[key]
+    })
     valueRef.current = next
     setSpacingValue(next)
     const previews = Object.fromEntries(Object.entries(changes).map(([key, next]) => [
@@ -62,7 +75,7 @@ export function useBoxSpacingEditor({ property, value, onChange: fallbackOnChang
     ]))
     setPreviewValues(previous => ({ ...previous, ...previews }))
     return result
-  }, [onChange, property, keys, context?.getStylePreview])
+  }, [onChange, property, keys, context?.getStylePreview, getConfiguredWinners])
 
   const handleChange = useCallback((changes: Record<string, any>) => {
     const normalized: Record<string, any> = {}
@@ -95,14 +108,28 @@ export function useBoxSpacingEditor({ property, value, onChange: fallbackOnChang
   }, [commit, keys, refresh])
 
   const handleSwitchToUnified = useCallback(() => {
-    const next = getUnifiedSpacingValue(property, valueRef.current, key =>
-      context?.getStylePreview?.(key, true) || context?.effectiveStyle?.[key]?.computedValue
-    )
+    const winners = getConfiguredWinners()
+    const configured = context?.getStyleProperty
+      ? winners.map(winner => winner!.value)
+      : keys.map(key => valueRef.current[key])
+    const firstValue = configured.find(next => next != null && String(next).trim() !== '' &&
+      !/^(initial|inherit|revert|revert-layer)$/i.test(String(next).trim()))
+    // unset 是显式配置，参与内联统一取值；没有声明时只切换 UI。
+    if (firstValue == null) {
+      setToggle(true)
+      return
+    }
+    let next: string | null = String(firstValue)
+    if (!winners.length || !winners.every(winner => winner!.inline)) {
+      next = getUnifiedSpacingValue(property, valueRef.current, key =>
+        context?.getStylePreview?.(key, true) || context?.effectiveStyle?.[key]?.computedValue
+      )
+    }
     if (next == null) return
     const result = handleUnifiedChange(next)
     if (result?.clearUnsupported || (result && !result.applied)) return
     setToggle(true)
-  }, [property, context?.getStylePreview, context?.effectiveStyle, handleUnifiedChange])
+  }, [property, keys, context?.getStyleProperty, context?.getStylePreview, context?.effectiveStyle, getConfiguredWinners, handleUnifiedChange])
 
   const canResetSide = (key: string) => {
     if (spacingValue[key] == null) return false

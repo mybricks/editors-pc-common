@@ -5,7 +5,7 @@ import {
 import type { StyleResolution } from './style-property'
 import type { StyleChangeItem } from './apply-style-change'
 import type { EffectiveStyleValue } from './zone-tab'
-import { splitZoneSelectorState } from './zone-tab'
+import { createFourSideWritePlans } from './four-side-write'
 
 export const BOX_SPACING_KEYS = {
   margin: ['marginTop', 'marginRight', 'marginBottom', 'marginLeft'],
@@ -24,7 +24,7 @@ export function normalizeBoxSpacingChange(next: any): any {
   return next == null || String(next).trim() === 'default' ? null : next
 }
 
-/** 整组清空沿用原计划；部分方向的清空由间距写入计划原子地拆写简写。 */
+/** 非内联整组清空沿用通用计划；部分方向由间距写入计划原子地拆写简写。 */
 export function getBoxSpacingSideClearKeys(changes: StyleChangeItem[]): Set<string> {
   const cleared = new Set(changes.filter(change => change.value == null).map(change => change.key))
   return new Set((Object.keys(BOX_SPACING_KEYS) as BoxSpacingProperty[]).flatMap(property => {
@@ -97,16 +97,20 @@ export function createSpacingWritePlans(
   changes.forEach(change => {
     const property = getBoxSpacingProperty(change.key)
     const clearing = change.value == null
-    if (!property || (clearing && !sideClearKeys.has(change.key))) return
+    if (!property) return
     const winner = resolution.get(change.key).winner
     // 清空只跟随当前状态的生效来源，不能走 computed 的新增声明路由。
     if (clearing && !winner?.currentState) return
     // 执行器传入统一的属性写入决策，computed 的单边也参与最高权重选择。
-    const selector = clearing ? winner?.label || '' : resolveSelector
-      ? resolveSelector(change) || ''
-      : change.target === 'current-rule'
-        ? currentSelector
-        : winner?.currentState && winner.label || currentSelector
+    let selector = currentSelector
+    if (clearing) {
+      selector = winner?.label || ''
+    } else if (resolveSelector) {
+      selector = resolveSelector(change) || ''
+    } else if (change.target !== 'current-rule' && winner?.currentState && winner.label) {
+      selector = winner.label
+    }
+    if (selector !== 'inline' && clearing && !sideClearKeys.has(change.key)) return
     const id = `${property}:${selector}`
     const group = groups.get(id) || { property, selector, changes: [] }
     group.changes.push(change)
@@ -115,17 +119,18 @@ export function createSpacingWritePlans(
 
   const supplementalPlans: SpacingWritePlan[] = []
   const primaryPlans = Array.from(groups.values(), ({ property, selector, changes: groupChanges }) => {
+    if (selector === 'inline') {
+      return createFourSideWritePlans(property, groupChanges, resolution, target, () => selector)[0]
+    }
     const keys = BOX_SPACING_KEYS[property]
     const family = [property, ...keys]
     const clearedKeys = groupChanges.filter(change => change.value == null).map(change => change.key)
-    // 独立长写可直接删除，不重写无关方向（尤其是带动态 JSX 的相邻方向）。
+    // 独立长写可直接删除，不重写无关方向。
     const deleteOnly = clearedKeys.length === groupChanges.length && groupChanges.every(change =>
       resolution.get(change.key).winner?.property === cssPropertyName(change.key)
     )
     if (deleteOnly) {
-      const unsupported = !selector || (selector === 'inline' && clearedKeys.some(key =>
-        !readStaticInlineStyleInfo(target, key, true)
-      ))
+      const unsupported = !selector
       return { property, selector, style: {}, deletions: clearedKeys, clearedKeys, unsupported }
     }
     const style: Record<string, any> = {}
@@ -148,47 +153,30 @@ export function createSpacingWritePlans(
       return { ...change, value }
     })
     const normalized = normalizeStyleShorthands(style, nextChanges, new Set(clearedKeys), { changedGroupsOnly: true })
-    let output = normalized.style
-    let deletions = normalized.deletions.filter(key => !(key in output))
+    const output = normalized.style
+    const deletions = normalized.deletions.filter(key => !(key in output))
     let unsupported = !selector
     const inlineProperties = readInlineStyleProperties(target)
-    if (selector === 'inline') {
-      // JSX 四条长写不能凭空变成没有源码范围的简写；保留原可写结构。
-      if (output[property] != null && !readStaticInlineStyleInfo(target, property)) {
-        const expanded = expandFourShorthand(output[property])
-        if (expanded) output = Object.fromEntries(keys.map((key, index) => [key, expanded[index]]))
-      }
-      // 简写拆成缺一边的长写需要真实源码范围；不能以补零/unset 冒充清空。
-      const requiredDeletions = deletions.filter(key => inlineProperties.has(cssPropertyName(key)))
-      const cannotDelete = requiredDeletions.some(key => !readStaticInlineStyleInfo(target, key, true))
-      deletions = deletions.filter(key => !(key in output) && readStaticInlineStyleInfo(target, key, true))
-      unsupported = Object.keys(output).some(key => !readStaticInlineStyleInfo(target, key)) ||
-        cannotDelete ||
-        Object.values(output).some(value => /!important\s*$/i.test(String(value))) ||
-        family.some(key => inlineProperties.has(cssPropertyName(key)) && !readStaticInlineStyleInfo(target, key, true))
-    } else if (!splitZoneSelectorState(selector).pseudo) {
-      // 状态规则与基础 inline 独立，只有常规态统一配置才允许合并/删除内联来源。
-      // 宿主的常规写入优先路由同名 JSX 属性；不能把“当前 class”写入偷换成 inline。
-      const inlineConflicts = [...Object.keys(output), ...deletions]
-        .filter(key => inlineProperties.has(cssPropertyName(key)))
-      const consolidatingSources = groupChanges.some(change => change.target === 'current-rule')
-      if (inlineConflicts.length && consolidatingSources) {
-        // “切换为统一配置”本身就是把分散来源归并到 current-rule。静态 JSX
-        // 属性可作为同一动作的补充删除计划移除；动态/spread 仍整体阻止。
-        const inlineDeletions = family.filter(key => inlineProperties.has(cssPropertyName(key)))
-        const inlineUnsupported = inlineDeletions.some(key => !readStaticInlineStyleInfo(target, key, true))
-        supplementalPlans.push({
-          property,
-          selector: 'inline',
-          style: {},
-          deletions: inlineDeletions,
-          clearedKeys: [],
-          unsupported: inlineUnsupported,
-        })
-        unsupported ||= inlineUnsupported
-      } else {
-        unsupported ||= inlineConflicts.length > 0
-      }
+    // 宿主的常规写入优先路由同名 JSX 属性；不能把“当前 class”写入偷换成 inline。
+    const inlineConflicts = [...Object.keys(output), ...deletions]
+      .filter(key => inlineProperties.has(cssPropertyName(key)))
+    const consolidatingSources = groupChanges.some(change => change.target === 'current-rule')
+    if (inlineConflicts.length && consolidatingSources) {
+      // “切换为统一配置”本身就是把分散来源归并到 current-rule。静态 JSX
+      // 属性可作为同一动作的补充删除计划移除；动态/spread 仍整体阻止。
+      const inlineDeletions = family.filter(key => inlineProperties.has(cssPropertyName(key)))
+      const inlineUnsupported = inlineDeletions.some(key => !readStaticInlineStyleInfo(target, key, true))
+      supplementalPlans.push({
+        property,
+        selector: 'inline',
+        style: {},
+        deletions: inlineDeletions,
+        clearedKeys: [],
+        unsupported: inlineUnsupported,
+      })
+      unsupported ||= inlineUnsupported
+    } else {
+      unsupported ||= inlineConflicts.length > 0
     }
     return { property, selector, style: output, deletions, clearedKeys, unsupported }
   })

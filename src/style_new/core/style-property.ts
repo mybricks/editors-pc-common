@@ -97,9 +97,9 @@ function planClear(key: string, candidates: StyleSourceCandidate[], target: HTML
   const selector = winner.label
   if (!selector) return { ...base, action: 'unsupported', reason: 'winner-selector-unavailable' }
   const action = candidates.length === 1 && winner.property === cssPropertyName(key) ? 'delete' : 'write-unset'
-  const canSplitInlineRadius = winner.inline && winner.property === 'border-radius' &&
-    readStaticInlineStyleInfo(target, 'borderRadius', true)
-  if (winner.inline && !readStaticInlineStyleInfo(target, key) && !canSplitInlineRadius) {
+  const canSplitInlineShorthand = winner.inline && ['border-radius', 'margin', 'padding'].includes(winner.property) &&
+    readStaticInlineStyleInfo(target, stylePropertyKey(winner.property), true)
+  if (winner.inline && !readStaticInlineStyleInfo(target, key) && !canSplitInlineShorthand) {
     return { ...base, action: 'unsupported', reason: 'dynamic-or-untracked-inline-style' }
   }
   if (winner.inline && action === 'delete' && !readStaticInlineStyleInfo(target, key, true)) {

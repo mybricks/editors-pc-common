@@ -559,17 +559,20 @@ function applyEffectiveStyleChanges(
   const replacingFlex = flexKeys.every(key => changes.some(item => item.key === key)) &&
     changes.some(item => flexKeys.includes(item.key) && item.value != null)
   const sideClearKeys = getBoxSpacingSideClearKeys(changes)
-  // 内联圆角即使有后备来源，也要由圆角规划器一起处理 unset 和简写拆分。
+  const isInlineSpacing = (item: StyleChangeItem) =>
+    !!getBoxSpacingProperty(item.key) && resolution.get(item.key).winner?.inline
+  // 内联四方向属性由专用规划器一起处理 unset 和简写拆分。
   const shouldUseCascadeClearPlan = (item: StyleChangeItem) =>
     item.value === null &&
     !(replacingFlex && flexKeys.includes(item.key)) &&
     !(isBorderRadiusProperty(item.key) && resolution.get(item.key).winner?.inline) &&
+    !isInlineSpacing(item) &&
     hasFallbackStyleCandidate(resolution.get(item.key))
   const specializedChanges = changes.filter(item => !shouldUseCascadeClearPlan(item))
   // 先预检整个用户动作，避免清空不可执行却先修改了共享图层。
   const plans = createBatchStyleClearPlans(
     changes.filter(item => item.value === null && (shouldUseCascadeClearPlan(item) || (
-      !sideClearKeys.has(item.key) && !isBorderProperty(item.key) && !isBorderRadiusProperty(item.key) &&
+      !sideClearKeys.has(item.key) && !isInlineSpacing(item) && !isBorderProperty(item.key) && !isBorderRadiusProperty(item.key) &&
       !(replacingFlex && flexKeys.includes(item.key))
     ))).map(item => item.key),
     resolution,

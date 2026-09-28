@@ -2,7 +2,7 @@
 import { compare } from 'specificity'
 import { collectSubjectClassSelectors, isZoneTabNoiseClass } from './build-zone-selectors-from-cssom'
 import { calculateSafeSpecificity } from './selector-utils'
-import { getStyleResolution, resolveEffectiveStyleSource } from './style-property'
+import { cssPropertyName, getStyleResolution, resolveEffectiveStyleSource } from './style-property'
 import type { StyleResolution } from './style-property'
 import { resolveZoneFallbackSelector, splitZoneSelectorState, subjectClassNames } from './zone-tab'
 import { STYLE_SHORTHANDS } from './style-shorthand-groups'
@@ -125,6 +125,16 @@ export function createStyleWriteTargetResolver(
         reason: `explicit-current-rule:${current.reason}`,
       }
     }
+    // unset 与数值混用时 CSSOM 无法合成 inline 简写；先看单边来源，
+    // 避免把 class 中的后备简写误当成统一配置的写入目标。
+    if (key === 'borderRadius' || key === 'margin' || key === 'padding') {
+      const sides = STYLE_SHORTHANDS[cssPropertyName(key)]
+        .map(property => resolution.get(property).winner)
+        .filter(candidate => candidate?.currentState)
+      if (sides.length && sides.every(candidate => candidate!.inline)) {
+        return { selector: 'inline', source: 'inline', candidates: [], reason: 'existing-inline-sides' }
+      }
+    }
     const property = resolution.get(key)
     // 基础态 inline 可能遮住已有状态声明，仍应更新该状态原有的来源。
     const winner = tab.pseudo
@@ -138,14 +148,6 @@ export function createStyleWriteTargetResolver(
     }
     if (winner?.currentState) {
       return { selector: null, source: 'unsupported', candidates: [], reason: 'winner-selector-unavailable' }
-    }
-    if (key === 'borderRadius') {
-      const corners = STYLE_SHORTHANDS['border-radius']
-        .map(property => resolution.get(property).winner)
-        .filter(candidate => candidate?.currentState)
-      if (corners.length && corners.every(candidate => candidate!.inline)) {
-        return { selector: 'inline', source: 'inline', candidates: [], reason: 'existing-inline-radius-corners' }
-      }
     }
     return getDefaultTarget()
   }

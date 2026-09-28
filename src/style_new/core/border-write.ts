@@ -1,7 +1,8 @@
-import { BORDER_KEYS, BORDER_DETAIL_KEYS, expandBorderShorthand, expandFourShorthand, normalizeStyleShorthands } from './shorthand-normalizer'
-import { cssPropertyName, hasFallbackStyleCandidate, readInlineStyleProperties, readStaticInlineStyleInfo, resolveEffectiveStyleSource } from './style-property'
+import { BORDER_KEYS, BORDER_DETAIL_KEYS, expandBorderShorthand, normalizeStyleShorthands } from './shorthand-normalizer'
+import { cssPropertyName, readInlineStyleProperties, readStaticInlineStyleInfo, resolveEffectiveStyleSource } from './style-property'
 import type { StyleResolution } from './style-property'
 import type { StyleChangeItem } from './apply-style-change'
+import { createFourSideWritePlans } from './four-side-write'
 import { stylePropertyKey } from './style-shorthand-groups'
 import { splitZoneSelectorState } from './zone-tab'
 
@@ -23,97 +24,7 @@ export function createBorderRadiusWritePlans(
   target: HTMLElement | null,
   resolveSelector: (change: StyleChangeItem) => string | null
 ) {
-  const groups = new Map<string, StyleChangeItem[]>()
-  changes.filter(change => isBorderRadiusProperty(change.key)).forEach(change => {
-    const winner = resolution.get(change.key).winner
-    if (change.value == null && !winner?.currentState) return
-    const selector = change.value == null ? winner?.label || '' : resolveSelector(change) || ''
-    const group = groups.get(selector) || []
-    group.push(change)
-    groups.set(selector, group)
-  })
-
-  return Array.from(groups, ([selector, groupChanges]) => {
-    const clearedKeys = groupChanges.filter(change => change.value == null).map(change => change.key)
-    const resetKeys = new Set(clearedKeys.filter(key => {
-      const property = resolution.get(key)
-      if (hasFallbackStyleCandidate(property)) return true
-      // class 的 border-radius（如含 var()）可能没有 CSSOM 单角值，
-      // 但仍会在删除 inline 后接管该角，清空时也必须用 unset 屏蔽。
-      return property.winner?.inline && resolution.get('borderRadius').candidates.some(candidate => !candidate.inline)
-    }))
-    if (selector === 'inline' && !resetKeys.size && clearedKeys.length === groupChanges.length && groupChanges.every(change =>
-      resolution.get(change.key).winner?.property === cssPropertyName(change.key)
-    )) {
-      return {
-        property: 'borderRadius' as const, selector, style: {}, deletions: clearedKeys, clearedKeys,
-        unsupported: clearedKeys.some(key => !readStaticInlineStyleInfo(target, key, true)),
-      }
-    }
-    const style: Record<string, any> = {}
-    const sourceKeys = new Set<string>()
-    ;['borderRadius', ...BORDER_RADIUS_KEYS].forEach(key => {
-      const candidate = resolveEffectiveStyleSource(resolution.get(key).candidates.filter(item =>
-        item.currentState && item.label === selector
-      ))
-      if (candidate) {
-        style[key] = `${candidate.value}${candidate.important ? ' !important' : ''}`
-        sourceKeys.add(key)
-        sourceKeys.add(stylePropertyKey(candidate.property))
-      }
-    })
-
-    const nextChanges = groupChanges.map(change => {
-      let value = resetKeys.has(change.key) ? 'unset' : change.value
-      const important = /!important\s*$/i.test(String(style[change.key] || ''))
-      if (value != null && important && !/!important\s*$/i.test(String(value))) {
-        value = `${value} !important`
-      }
-      style[change.key] = value
-      return { ...change, value }
-    })
-    const normalized = normalizeStyleShorthands(style, nextChanges, new Set(clearedKeys), { changedGroupsOnly: true })
-    let output = normalized.style
-    let deletions = normalized.deletions.filter(key => sourceKeys.has(key) && !(key in output))
-    let unsupported = !selector
-    const inlineProperties = readInlineStyleProperties(target)
-    if (selector === 'inline') {
-      const unifyingInlineCorners = groupChanges.some(change => change.key === 'borderRadius' && change.value != null) &&
-        !inlineProperties.has('border-radius') &&
-        BORDER_RADIUS_KEYS.some(key => inlineProperties.has(cssPropertyName(key)))
-      // JSX 只有静态 borderRadius 简写时，单独配置会先被展开成四条长写。
-      // 长写没有独立源码范围，重新压回原简写才能安全更新这条 inline style。
-      if (readStaticInlineStyleInfo(target, 'borderRadius') &&
-        BORDER_RADIUS_KEYS.every(key => Object.prototype.hasOwnProperty.call(output, key))) {
-        const inlineNormalized = normalizeStyleShorthands(
-          output,
-          groupChanges.map(change => ({ ...change, borderMode: 'all' as const })),
-          new Set(clearedKeys),
-          { changedGroupsOnly: true }
-        )
-        output = inlineNormalized.style
-        deletions = Array.from(new Set([...deletions, ...inlineNormalized.deletions]))
-      }
-      output = Object.fromEntries(Object.entries(output).flatMap(([key, value]) => {
-        if (key !== 'borderRadius' || readStaticInlineStyleInfo(target, key) || unifyingInlineCorners) return [[key, value]]
-        const expanded = expandFourShorthand(value)
-        return expanded ? BORDER_RADIUS_KEYS.map((name, index) => [name, expanded[index]]) : [[key, value]]
-      }))
-      const requiredDeletions = deletions.filter(key => inlineProperties.has(cssPropertyName(key)) && !(key in output))
-      // 静态简写可由宿主在原属性位置替换为剩余圆角；新长写无需已有源码范围。
-      const splittingInlineShorthand = requiredDeletions.includes('borderRadius') &&
-        readStaticInlineStyleInfo(target, 'borderRadius', true)
-      unsupported ||= requiredDeletions.some(key => !readStaticInlineStyleInfo(target, key, true)) ||
-        Object.keys(output).some(key => !readStaticInlineStyleInfo(target, key) &&
-          !(unifyingInlineCorners && key === 'borderRadius') &&
-          !(splittingInlineShorthand && !inlineProperties.has(cssPropertyName(key)))) ||
-        Object.values(output).some(value => /!important\s*$/i.test(String(value)))
-      deletions = requiredDeletions
-    } else if (!splitZoneSelectorState(selector).pseudo) {
-      unsupported ||= [...Object.keys(output), ...deletions].some(key => inlineProperties.has(cssPropertyName(key)))
-    }
-    return { property: 'borderRadius' as const, selector, style: output, deletions, clearedKeys, unsupported }
-  })
+  return createFourSideWritePlans('borderRadius', changes, resolution, target, resolveSelector)
 }
 
 /** 同一来源内压缩 border；统一宽度回填可携带已有显式线型/颜色，不补 computed 值。 */
