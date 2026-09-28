@@ -1,13 +1,17 @@
-import React, { useCallback, useEffect, useMemo, useRef } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { deepCopy } from '../utils'
 import StyleEditor, { StyleEditorProvider } from './StyleEditor'
+import { buildStyleMutationChange } from './StyleEditor/helper/style-mutations'
 import { initLiveStyle } from './StyleEditor/helper/gradient-border'
-import type { ChangeEvent } from './StyleEditor/type'
+import type { ChangeEvent, StyleMutation } from './StyleEditor/type'
 import type { EditorProps } from './type'
-import { applyStyleChange } from './core/apply-style-change'
+import { applyStyleChange, createStyleRemovalPlan } from './core/apply-style-change'
 import type { ZoneWriteTarget } from './core/apply-style-change'
 import { toElementArray } from './core/dom'
+import { createBatchStyleClearPlans, cssPropertyName, getStyleResolution, invalidateStyleResolution } from './core/style-property'
+import { buildZoneStateStyle, collectZoneTabs, mergeZoneTabsByState } from './core/zone-tab'
+import type { ZoneTab } from './core/zone-tab'
 import { expandFourShorthand } from './core/shorthand-normalizer'
 
 const BOX_MODEL_KEYS = {
@@ -48,6 +52,7 @@ export function StyleMount({
   options,
   setValue,
   authoredStyle,
+  effectiveStyle,
   collapsedOptions,
   readonlyExpandedOptions,
   autoCollapseWhenUnusedProperty,
@@ -56,6 +61,52 @@ export function StyleMount({
   preserveImportantPriority,
   onBatchMetaChange,
 }: StyleProps) {
+  const [styleRevision, setStyleRevision] = useState(0)
+  const zoneOptions = !Array.isArray(editConfig.options) ? editConfig.options as any : null
+  const zoneTab: ZoneTab | undefined = zoneOptions?.zoneTab
+  const target = (toElementArray(zoneOptions?.targetDom)[0] ?? null) as HTMLElement | null
+
+  useEffect(() => {
+    if (!zoneTab || !target) return
+    let frame = 0
+    const refresh = () => {
+      cancelAnimationFrame(frame)
+      frame = requestAnimationFrame(() => {
+        // 重编译后的旧节点已失去祖先作用域，不能用它清空 class 来源。
+        // 内联值和源码范围仍会更新，下面的缓存失效与回显刷新不能跳过。
+        if (target.isConnected) {
+          const selectors = Array.from(new Set([
+            zoneTab.baseSelector,
+            ...Array.from(target.classList).map(name => '.' + name),
+          ]))
+          const tabs = mergeZoneTabsByState(collectZoneTabs([target], selectors, zoneOptions?.comId))
+          const current = tabs.find(tab => tab.pseudo === zoneTab.pseudo)
+          if (current) {
+            zoneTab.sourceRules = current.sourceRules
+            zoneTab.baseRules = current.baseRules
+          }
+        }
+        invalidateStyleResolution(zoneTab)
+        setStyleRevision(revision => revision + 1)
+      })
+    }
+    const observer = new MutationObserver(records => {
+      const relevant = records.some(record => {
+        const el = record.target.nodeType === 1 ? record.target as Element : record.target.parentElement
+        return el?.tagName === 'STYLE' || el?.closest?.('style') ||
+          (record.type === 'attributes' && !!el?.contains(target)) ||
+          Array.from(record.addedNodes).concat(Array.from(record.removedNodes))
+            .some(node => node.nodeType === 1 && /^(STYLE|LINK)$/.test((node as Element).tagName))
+      })
+      if (relevant) refresh()
+    })
+    observer.observe(target.getRootNode(), {
+      subtree: true, childList: true, characterData: true,
+      attributes: true, attributeFilter: ['style', 'class', 'data-style-info'],
+    })
+    return () => { observer.disconnect(); cancelAnimationFrame(frame) }
+  }, [zoneTab, target])
+
   // 追踪每次 handleChange 实际写入后的完整样式快照，
   // 替代 stale 的 setValue prop，作为渐变边框保护逻辑的数据源。
   const importantPriorityCacheRef = useRef(new Map<string, boolean>())
@@ -75,9 +126,9 @@ export function StyleMount({
     )
   }, [setValue, authoredStyle])
 
-  const handleChange: ChangeEvent = useCallback(
-    (value) => {
-      const { nextLiveStyle, applied } = applyStyleChange({
+  const handleChange = useCallback(
+    (value: Parameters<ChangeEvent>[0], removeKeys?: readonly string[]) => {
+      const result = applyStyleChange({
         value: value as any,
         liveStyle: liveStyleRef.current,
         collapsedOptions,
@@ -87,12 +138,27 @@ export function StyleMount({
         importantPriorityCache: importantPriorityCacheRef.current,
         zoneWriteTargets: zoneWriteTargetsRef.current,
         onBatchMetaChange,
+        removeKeys,
       })
+      const { nextLiveStyle, applied } = result
       if (applied) {
         liveStyleRef.current = nextLiveStyle
+        setStyleRevision(revision => revision + 1)
       }
+      return result
     },
     [editConfig, options, collapsedOptions, preserveImportantPriority, onBatchMetaChange]
+  )
+
+  const applyStyleMutations = useCallback(
+    (mutations: StyleMutation[]) =>
+      handleChange(buildStyleMutationChange(mutations)),
+    [handleChange]
+  )
+
+  const removeStyleProperties = useCallback(
+    (keys: readonly string[]) => handleChange([], keys),
+    [handleChange]
   )
 
   const editorContext = useMemo(() => {
@@ -101,6 +167,31 @@ export function StyleMount({
         ? null
         : (editConfig.options as any).targetDom ?? null
     const realDom = (toElementArray(dom)[0] ?? null) as HTMLElement | null
+    const previewCache = new Map<string, string>()
+    let computed: CSSStyleDeclaration | undefined
+    const getStylePreview = (key: string, refresh = false) => {
+      // 状态未配置的字段保持默认，不用常规态的计算值补回输入框。
+      if (zoneTab?.pseudo) return ''
+      if (!realDom) return ''
+      const property = cssPropertyName(key)
+      if (refresh) {
+        computed = (realDom.ownerDocument.defaultView || window).getComputedStyle(
+          realDom, zoneTab?.pseudo?.startsWith('::') ? zoneTab.pseudo : null)
+        previewCache.clear()
+      }
+      if (!previewCache.has(property)) {
+        computed = computed || (realDom.ownerDocument.defaultView || window).getComputedStyle(
+          realDom, zoneTab?.pseudo?.startsWith('::') ? zoneTab.pseudo : null)
+        previewCache.set(property, computed.getPropertyValue(property))
+      }
+      return previewCache.get(property)!
+    }
+    let panelEffectiveStyle = effectiveStyle
+    if (zoneTab?.pseudo) {
+      panelEffectiveStyle = buildZoneStateStyle(
+        zoneTab, Object.keys({ ...defaultValue, ...liveStyleRef.current, ...effectiveStyle }), realDom
+      )
+    }
     const CDN = (editConfig as any).getDefaultOptions?.('stylenew')?.CDN
     return {
       editConfig: {
@@ -110,13 +201,45 @@ export function StyleMount({
       autoCollapseWhenUnusedProperty,
       targetDom: realDom,
       authoredStyle,
+      effectiveStyle: panelEffectiveStyle,
+      applyStyleMutations,
+      getStyleProperty: zoneTab ? (key: string) => getStyleResolution(zoneTab, realDom).get(key) : undefined,
+      getStyleClearPlans: zoneTab ? (keys: readonly string[]) =>
+        createBatchStyleClearPlans(keys, getStyleResolution(zoneTab, realDom), realDom) : undefined,
+      removeStyleProperties: zoneTab ? removeStyleProperties : undefined,
+      getStyleRemovalState: zoneTab ? (keys: readonly string[]) =>
+        createStyleRemovalPlan(keys, getStyleResolution(zoneTab, realDom), realDom, liveStyleRef.current) : undefined,
+      getStylePreview,
     }
-  }, [editConfig, autoCollapseWhenUnusedProperty, authoredStyle])
+  }, [
+    editConfig,
+    autoCollapseWhenUnusedProperty,
+    authoredStyle,
+    effectiveStyle,
+    defaultValue,
+    applyStyleMutations,
+    removeStyleProperties,
+    zoneTab,
+    styleRevision,
+  ])
+
+  const panelValue = { ...defaultValue }
+  if (zoneTab) {
+    const resolution = getStyleResolution(zoneTab, target)
+    Object.keys({ ...defaultValue, ...liveStyleRef.current }).forEach(key => {
+      if (zoneTab.pseudo) {
+        panelValue[key] = editorContext.effectiveStyle?.[key]?.value
+        return
+      }
+      const winner = resolution.get(key).winner
+      panelValue[key] = winner?.value ?? (editorContext.getStylePreview(key) || defaultValue[key])
+    })
+  }
 
   return (
     <StyleEditorProvider value={editorContext}>
       <StyleEditor
-        defaultValue={defaultValue}
+        defaultValue={panelValue}
         options={options}
         finnalExcludeOptions={finnalExcludeOptions}
         collapsedOptions={collapsedOptions}

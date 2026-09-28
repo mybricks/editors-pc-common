@@ -1,6 +1,9 @@
-import React, { CSSProperties, useCallback, useLayoutEffect, useRef, useState } from 'react';
+import React, { CSSProperties, useCallback, useLayoutEffect, useState } from 'react';
 
 import {Panel, Select} from '../../components';
+import { QuestionCircleOutlined } from '../../components/Icon/QuestionCircleOutlined';
+import { useEffectiveStyleValue, useStyleChange, useStyleClear, useStyleEditorContext } from '../../context';
+import { getOverflowAdjustment, OVERFLOW_AXIS_KEYS } from '../../../core/overflow';
 
 import type {ChangeEvent, PanelBaseProps} from '../../type';
 import css from './index.less'
@@ -23,100 +26,104 @@ const VALUE_OPTIONS = [
   { label: '显示内容', value: 'visible' }
 ];
 
-export const OverFlow = ({ value, onChange, showTitle, collapse }: OverFlowProps) => {
-  const [overflowX, setOverflowX] = useState(value.overflowX)
-  const [overflowY, setOverflowY] = useState(value.overflowY)
-  const overflowValueRef = useRef<OverFlowValueType>({...value})
+const OVERFLOW_KEYS = ['overflow', 'overflowX', 'overflowY'] as const
+
+export const OverFlow = ({ value: fallbackValue, onChange: fallbackOnChange, showTitle, collapse }: OverFlowProps) => {
+  const editorContext = useStyleEditorContext()
+  const effectiveValue = useEffectiveStyleValue() as OverFlowValueType
+  const readValue = (key: keyof OverFlowValueType) => {
+    if (editorContext?.getStyleProperty) {
+      const winner = editorContext.getStyleProperty(key).winner
+      if (!winner?.currentState || winner.value === 'unset') return undefined
+      return winner.value.replace(/\s*!important\s*$/i, '') as CSSProperties['overflowX']
+    }
+    return (editorContext?.effectiveStyle ? effectiveValue : fallbackValue)[key]
+  }
+  const value = { overflowX: readValue('overflowX'), overflowY: readValue('overflowY') }
+  const onChange = useStyleChange(fallbackOnChange)
+  const { clear } = useStyleClear(OVERFLOW_KEYS, { mode: 'remove-declaration', fallbackOnChange })
+  const [overflowValue, setOverflowValue] = useState<OverFlowValueType>(value)
   const [forceRenderKey, setForceRenderKey] = useState<number>(Math.random())
 
+  // unset 会在回显层转换成 computedValue（通常是 visible），但它本身只是
+  // 清空后用于屏蔽低优先级来源的中和值，不应因此把内容溢出面板展开。
+  const overflowSources = OVERFLOW_KEYS.map((key) => editorContext?.effectiveStyle?.[key])
+  const hasUnsetSource = overflowSources.some((item) =>
+    typeof item?.value === 'string' && /^unset$/i.test(item.value.trim())
+  )
+  const hasConfiguredSource = overflowSources.some((item) =>
+    item && item.type !== 'computed' && !(
+      typeof item.value === 'string' && /^unset$/i.test(item.value.trim())
+    )
+  )
+  const effectiveCollapse = collapse !== 'inherited' && hasUnsetSource && !hasConfiguredSource
+    ? true
+    : collapse
+
   useLayoutEffect(() => {
-    overflowValueRef.current = {...value}
-    setOverflowX(value.overflowX)
-    setOverflowY(value.overflowY)
-  }, [value.overflowX, value.overflowY])
+    setOverflowValue(value)
+  }, [value.overflowX, value.overflowY, editorContext?.targetDom])
 
-  const emitOverflow = (next: OverFlowValueType) => {
-    overflowValueRef.current = next
-    setOverflowX(next.overflowX)
-    setOverflowY(next.overflowY)
-    const keys = ['overflowX', 'overflowY'] as const
-    onChange(keys.map((key) => ({key, value: next[key]})))
+  const handleAxisChange = (key: keyof OverFlowValueType, next: CSSProperties['overflowX']) => {
+    const result = onChange([{ key, value: next }])
+    if (result && (result.clearUnsupported || !result.applied)) return
+    setOverflowValue(current => ({ ...current, [key]: next }))
   }
 
-  const overflowXChange = (val: CSSProperties['overflowX']) => {
-    const next: OverFlowValueType = {
-      overflowY: overflowValueRef.current.overflowY ?? 'visible',
-      overflowX: val,
-    }
-
-    //显示和隐藏需要x、y轴同时联动生效
-    if (val === 'visible') {
-      next.overflowY = 'visible'
-    }
-
-    if (val === 'hidden') {
-      next.overflowY = 'hidden'
-    }
-
-    if (val === 'scroll' && next.overflowY === 'visible') {
-      next.overflowY = 'auto'
-    }
-    emitOverflow(next)
+  const readNoticeValue = (key: keyof OverFlowValueType) => {
+    const declared = overflowValue[key] || editorContext?.getStyleProperty?.(key).winner?.value || 'visible'
+    if (/^(initial|unset)$/.test(declared)) return 'visible'
+    return declared
   }
-
-  const overflowYChange = (val: CSSProperties['overflowY']) => {
-    const next: OverFlowValueType = {
-      overflowX: overflowValueRef.current.overflowX ?? 'visible',
-      overflowY: val,
+  const axisTips = OVERFLOW_AXIS_KEYS.map((key, index) => {
+    const otherKey = OVERFLOW_AXIS_KEYS[1 - index]
+    const current = readNoticeValue(key)
+    let other = readNoticeValue(otherKey)
+    if (!['visible', 'clip', 'auto', 'scroll', 'hidden'].includes(other)) {
+      other = editorContext?.getStylePreview?.(otherKey) || editorContext?.effectiveStyle?.[otherKey]?.computedValue || ''
     }
-
-    //显示和隐藏需要x、y轴同时联动生效
-    if (val === 'visible') {
-      next.overflowX = 'visible'
-    }
-
-    if (val === 'hidden') {
-      next.overflowX = 'hidden'
-    }
-
-    if (val === 'scroll' && next.overflowX === 'visible') {
-      next.overflowX = 'auto'
-    }
-    emitOverflow(next)
-  }
+    const adjusted = getOverflowAdjustment(current, other)
+    if (!adjusted) return undefined
+    const direction = index === 0 ? '水平' : '垂直'
+    const selected = current === 'clip' ? '裁剪内容' : '显示内容'
+    const actual = adjusted === 'auto' ? '自动' : '隐藏内容'
+    const configured = overflowValue[key] == null ? '当前为' : '设置为'
+    return `${direction}${configured}“${selected}”，受另一方向影响，浏览器实际按“${actual}”处理。`
+  })
 
   const refresh = useCallback(() => {
-    onChange([
-      { key: 'overflow', value: null },
-      { key: 'overflowX', value: null },
-      { key: 'overflowY', value: null },
-    ])
-    overflowValueRef.current = {}
-    setOverflowX(undefined)
-    setOverflowY(undefined)
+    if (!clear) return
+    const result = clear()
+    if (result?.clearUnsupported || (result && !result.applied)) return
+    const next = {
+      overflowX: editorContext?.getStyleProperty?.('overflowX').winner?.value as CSSProperties['overflowX'],
+      overflowY: editorContext?.getStyleProperty?.('overflowY').winner?.value as CSSProperties['overflowY'],
+    }
+    setOverflowValue(next)
     setForceRenderKey(prev => prev + 1)
-  }, [onChange])
+  }, [clear, editorContext?.getStyleProperty])
 
   return (
-    <Panel title='内容溢出' showTitle={showTitle} showReset={true} resetFunction={refresh} collapse={collapse}>
+    <Panel title='内容溢出' showTitle={showTitle} showReset={true} showDelete={!!clear}
+      resetFunction={refresh} collapse={effectiveCollapse}>
       <React.Fragment key={forceRenderKey}>
         <Panel.Content>
-          <Select
-            prefix={<span className={css.tip}>水平</span>}
-            // style={{padding: 0}}
-            // defaultValue={overflowX}
-            value={overflowX}
-            options={VALUE_OPTIONS}
-            onChange={(val) => overflowXChange(val)}
-          />
-          <Select
-            prefix={<span className={css.tip}>垂直</span>}
-            // style={{padding: 0}}
-            // defaultValue={overflowY}
-            value={overflowY}
-            options={VALUE_OPTIONS}
-            onChange={(val) => overflowYChange(val)}
-          />
+          {OVERFLOW_AXIS_KEYS.map((key, index) => (
+            <Select
+              key={key}
+              prefix={
+                <span className={css.tip} data-mybricks-tip={axisTips[index]}>
+                  {index === 0 ? '水平' : '垂直'}
+                  {axisTips[index] && <span className={css.tipIcon}><QuestionCircleOutlined /></span>}
+                </span>
+              }
+              value={overflowValue[key]}
+              placeholder='默认'
+              labelStyle={overflowValue[key] == null ? { color: '#333333', opacity: 1 } : undefined}
+              options={VALUE_OPTIONS}
+              onChange={(val) => handleAxisChange(key, val)}
+            />
+          ))}
         </Panel.Content>
       </React.Fragment>
     </Panel>

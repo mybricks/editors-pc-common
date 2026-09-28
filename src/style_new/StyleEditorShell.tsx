@@ -41,6 +41,7 @@ import {
   getSavedSoloStyle,
 } from './core/build-solo-selector'
 import type { SavedSoloStyle } from './core/build-solo-selector'
+import type { ZoneTab } from './core/zone-tab'
 import { getDocument, toElementArray } from './core/dom'
 import { backToVisualIcon } from './icon'
 import { ZoneTabBar } from './ZoneTabBar'
@@ -60,6 +61,15 @@ type CachedStyleEditor = {
   element: React.ReactElement
   stale: boolean
 }
+
+const ZONE_TAB_ADD_OPTIONS = [
+  { key: 'hover', suffix: ':hover', label: '悬浮态' },
+  { key: 'focus', suffix: ':focus', label: '聚焦态' },
+  { key: 'active', suffix: ':active', label: '激活态' },
+  { key: 'disabled', suffix: ':disabled', label: '禁用态' },
+  // { key: 'before', suffix: '::before', label: '前缀元素' },
+  // { key: 'after', suffix: '::after', label: '后缀元素' },
+] as const
 
 async function writeClipboardText(text: string): Promise<boolean> {
   try {
@@ -109,6 +119,7 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
   const [key, setKey] = useState(0)
   const isResetRef = useRef(false)
   const [isSoloEdit, setIsSoloEdit] = useState(false)
+  const editModeHintRef = useRef<HTMLDivElement | null>(null)
   const [soloSelector, setSoloSelector] = useState<string | null>(null)
   const skipSoloRehydrateRef = useRef(false)
   const soloStyleBackupRef = useRef(new Map<string, SavedSoloStyle>())
@@ -131,7 +142,14 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
   }, [editConfig])
 
   const { batchMeta, refreshBatchMeta, onBatchDiscard, onBatchCommit } = useBatchMeta(editConfig)
-  const { zoneSelectorList, zoneTabs, activeZoneIdx, setActiveZoneIdx } = useZoneSelectors(
+  const {
+    zoneSelectorList,
+    zoneTabs,
+    activeZoneIdx,
+    setActiveZoneIdx,
+    addZoneTab,
+    deleteZoneTab,
+  } = useZoneSelectors(
     editConfig,
     targetDom,
     open
@@ -148,7 +166,7 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
 
   const affectedCount = useAffectedCount(
     activeZoneIdx,
-    zoneSelectorList,
+    zoneTabs,
     finalSelector,
     shellComId || undefined,
     selectedTarget
@@ -206,6 +224,65 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
 
   const activeZoneTab = zoneTabs[activeZoneIdx] ?? null
 
+  const zoneTabAddOptions = useMemo(() => {
+    const currentBaseSelector = activeZoneTab?.baseSelector || baseSelector
+    if (!currentBaseSelector) return []
+
+    return ZONE_TAB_ADD_OPTIONS
+      .filter((option) => {
+        const expectedSelector = `${currentBaseSelector}${option.suffix}`
+        return !zoneTabs.some((tab) => (
+          tab.selector === expectedSelector ||
+          tab.pseudo === option.suffix
+        ))
+      })
+      .map(({ key, label }) => ({ key, label }))
+  }, [activeZoneTab, baseSelector, zoneTabs])
+
+  const onAddZoneTab = useCallback((type: string) => {
+    const currentBaseSelector = activeZoneTab?.baseSelector || baseSelector
+    if (!currentBaseSelector) return
+    const suffixMap: Record<string, string> = {
+      hover: ':hover',
+      focus: ':focus',
+      active: ':active',
+      disabled: ':disabled',
+      before: '::before',
+      after: '::after',
+    }
+    const suffix = suffixMap[type]
+    if (!suffix) return
+    const selector = `${currentBaseSelector}${suffix}`
+    const labels: Record<string, string> = {
+      hover: '悬浮态',
+      focus: '聚焦态',
+      active: '激活态',
+      disabled: '禁用态',
+      before: '前缀元素',
+      after: '后缀元素',
+    }
+    // 优先使用对应基础态；状态合并后则从常规 Tab 取得完整的源码规则。
+    const baseTab = zoneTabs.find((tab) => tab.selector === currentBaseSelector && !tab.pseudo)
+      || zoneTabs.find((tab) => !tab.pseudo)
+    const tab: ZoneTab = {
+      selector,
+      baseSelector: currentBaseSelector,
+      pseudo: suffix.startsWith(':') ? suffix : null,
+      sourceRules: [],
+      baseRules: (baseTab?.sourceRules.length ? baseTab.sourceRules : activeZoneTab?.baseRules || []).slice(),
+      target: selectedTarget || undefined,
+      label: labels[type],
+      effectiveStyle: {},
+      isAdded: true,
+    }
+    console.log('[添加Tab]', tab);
+    addZoneTab(tab)
+  }, [activeZoneTab, addZoneTab, baseSelector, selectedTarget, zoneTabs])
+
+  const onDeleteZoneTab = useCallback((selector: string) => {
+    deleteZoneTab(selector)
+  }, [deleteZoneTab])
+
   const componentRoot = useMemo(() => {
     return shellComId ? getDocument().getElementById(shellComId) : null
   }, [shellComId])
@@ -219,6 +296,18 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
   const onZoneTabSelect = useCallback(
     (idx: number) => {
       if (idx === activeZoneIdx) return
+
+      const nextTab = zoneTabs[idx]
+      const selectors = Array.from(new Set([
+        nextTab?.selector,
+        ...((nextTab?.baseRules || []).map((item) => item.sourceSelector || item.selectorPart)),
+        ...((nextTab?.sourceRules || []).map((item) => item.sourceSelector || item.selectorPart)),
+        ...(selectedTarget && (selectedTarget as HTMLElement).style?.length ? ['inline'] : []),
+      ].filter(Boolean)))
+      console.log('[样式编辑][切换Tab]', {
+        tab: nextTab?.label || nextTab?.selector || null,
+        selectors,
+      })
 
       // Solo 模式下同步更新写入目标，避免先用旧 soloSelector 构建一遍，
       // 再由 rehydrate effect 根据新 tab selector 触发第二次构建。
@@ -241,6 +330,7 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
       selectedTarget,
       setActiveZoneIdx,
       zoneSelectorList,
+      zoneTabs,
     ]
   )
 
@@ -255,6 +345,9 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
               ...originalOptions,
               selector: zoneSelectorList[activeZoneIdx],
               zoneTab: activeZoneTab,
+              // 诊断样式写入来源时需要看到当前元素的全部候选 selector，
+              // 不能只拿 activeZoneTab，否则无法列出其他未生效的 classname。
+              zoneTabs,
             },
           }
     let activeSelector =
@@ -652,23 +745,26 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
       const styleEditorCache = styleEditorCacheRef.current
       const cachedEditor = styleEditorCache.get(styleEditorCacheKey)
       const cacheHit = !!cachedEditor && !cachedEditor.stale
-      if (!cacheHit) {
-        styleEditorCache.set(
-          styleEditorCacheKey,
-          {
-            stale: false,
-            element: (
-              <StyleMount
-                key={`${styleEditorCacheKey}:${styleEditorCacheGeneration}:${++styleEditorMountRevisionRef.current}`}
-                editConfig={resolvedEditConfig}
-                preserveImportantPriority={isSoloEdit}
-                onBatchMetaChange={invalidateInactiveStyleEditors}
-                {...activeStyleProps}
-              />
-            ),
-          }
-        )
-      }
+      const styleMountKey = cacheHit && cachedEditor?.element.key
+        ? cachedEditor.element.key
+        : `${styleEditorCacheKey}:${styleEditorCacheGeneration}:${++styleEditorMountRevisionRef.current}`
+      // 命中缓存时沿用 key 保留插件内部状态，但仍用本轮配置刷新 props；
+      // 否则切回 Tab 后 effectiveStyle/defaultValue 会停留在首次挂载快照。
+      styleEditorCache.set(
+        styleEditorCacheKey,
+        {
+          stale: false,
+          element: (
+            <StyleMount
+              key={styleMountKey}
+              editConfig={resolvedEditConfig}
+              preserveImportantPriority={isSoloEdit}
+              onBatchMetaChange={invalidateInactiveStyleEditors}
+              {...activeStyleProps}
+            />
+          ),
+        }
+      )
 
       if (!cacheHit && styleEditorCache.size > STYLE_EDITOR_CACHE_LIMIT) {
         const oldestKey = styleEditorCache.keys().next().value
@@ -710,7 +806,8 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
     editMode,
     key,
     activeZoneIdx,
-    resolveActiveEditContext,
+    // TODO: 暂时去掉这个依赖，此依赖会导致 editor 被频繁刷新重新渲染。持续观察，没问题就可以删除这依赖
+    // resolveActiveEditContext,
     refreshBatchMeta,
     invalidateInactiveStyleEditors,
     isSoloEdit,
@@ -784,6 +881,15 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
 
   const showEditModeControl = affectedCount !== null && affectedCount > 1
 
+  useEffect(() => {
+    const hint = editModeHintRef.current
+    if (!hint?.parentElement?.matches(':hover')) return
+
+    // 宿主只在 mouseover 的目标节点变化时重读 data-mybricks-tip。
+    // 状态切换后从新的说明节点触发刷新，保留复选框节点及键盘焦点。
+    hint.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }))
+  }, [isSoloEdit])
+
   return {
     render: (
       <>
@@ -823,11 +929,16 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
             </div>
           </div>
         )}
-        {zoneSelectorList.length > 1 && (
+        {zoneSelectorList.length > 0 && (
           <ZoneTabBar
             selectors={zoneSelectorList}
+            labels={zoneTabs.map((tab) => tab.label || tab.selector)}
             activeIdx={activeZoneIdx}
             onSelect={onZoneTabSelect}
+            onAdd={onAddZoneTab}
+            addOptions={zoneTabAddOptions}
+            deletableSelectors={zoneTabs.filter((tab) => tab.isAdded).map((tab) => tab.selector)}
+            onDelete={onDeleteZoneTab}
           />
         )}
         {showEditModeControl && (
@@ -835,6 +946,9 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
             className={`${css.editModeControl} ${
               zoneSelectorList.length > 1 ? css.editModeControlWithTabs : ''
             } ${!isSoloEdit ? css.editModeControlBatch : ''}`}
+            data-mybricks-tip={isSoloEdit
+              ? '只修改当前区域'
+              : '同步修改使用同一套样式的全部区域'}
           >
             <Checkbox
               checked={!isSoloEdit}
@@ -843,6 +957,8 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
               应用至全部
             </Checkbox>
             <div
+              key={isSoloEdit ? 'solo' : 'batch'}
+              ref={editModeHintRef}
               className={`${css.affectedHint} ${
                 isSoloEdit ? css.soloAffectedHint : css.batchAffectedHint
               }`}

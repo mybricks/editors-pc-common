@@ -22,7 +22,7 @@ interface PanelProps {
   showDelete?: boolean
   deleteNode?: ReactNode
   onDelete?: () => void
-  rightColumn?: ReactNode
+  rightColumn?: ReactNode | ((actions: { showDelete: boolean; onDelete: () => void }) => ReactNode)
   deleteRef?: React.MutableRefObject<(() => void) | null>
   resetFunction?: () => void
   isActive?: boolean
@@ -62,16 +62,18 @@ function isEmptyChildren(children: ReactNode): boolean {
 
 export function Panel ({title, titleTip, children, showReset = false, showTitle = true, showDelete = true, deleteNode, onDelete, rightColumn, deleteRef, resetFunction = () => {}, isActive = false, collapse = false, onExpand, onAdd, addTip, addOptions, onAddOption, headerRight, hideTopBorder = false, keepTopBorder = false}: PanelProps) {
   const isInherited = collapse === 'inherited'
-  const [collapsed, setCollapsed] = useState(collapse === true)
+  // 手动添加但尚未配置样式时，也允许用减号收起。
+  const [panelState, setPanelState] = useState<'collapsed' | 'expanded' | 'added'>(collapse === true ? 'collapsed' : 'expanded')
+  const collapsed = panelState === 'collapsed'
   const isEmpty = useMemo(() => !collapsed && isEmptyChildren(children), [collapsed, children])
 
   const handleDelete = useCallback(() => {
     resetFunction()
-    setCollapsed(true)
+    setPanelState('collapsed')
   }, [resetFunction])
 
   const handleAddOptionCollapsed = useCallback((val: string) => {
-    setCollapsed(false);
+    setPanelState('expanded');
     onAddOption?.(val);
   }, [onAddOption]);
 
@@ -84,8 +86,13 @@ export function Panel ({title, titleTip, children, showReset = false, showTitle 
   }, [deleteRef, handleDelete])
 
   useEffect(() => {
-    setCollapsed(collapse === true)
+    setPanelState(collapse === true ? 'collapsed' : 'expanded')
   }, [collapse])
+  const canDelete = !isInherited && (showDelete || panelState === 'added')
+  const handleDeleteClick = showDelete ? handleDelete : () => setPanelState('collapsed')
+  const renderedRightColumn = typeof rightColumn === 'function'
+    ? rightColumn({ showDelete: canDelete, onDelete: handleDeleteClick })
+    : rightColumn
   return (
     <div className={`${css.panel} ${collapsed ? css.collapsed : ''} ${isEmpty ? css.empty : ''} ${hideTopBorder ? css.hideTopBorder : ''} ${keepTopBorder ? css.keepTopBorder : ''}`}>
       <div className={css.header}>
@@ -111,7 +118,7 @@ export function Panel ({title, titleTip, children, showReset = false, showTitle 
                 <PlusOutlined />
               </Dropdown>
             ) : (
-              <div className={css.right} onClick={() => { setCollapsed(false); onExpand?.(); onAdd?.(); }}>
+              <div className={css.right} onClick={() => { setPanelState('added'); onExpand?.(); onAdd?.(); }}>
                 <PlusOutlined />
               </div>
             )
@@ -139,12 +146,12 @@ export function Panel ({title, titleTip, children, showReset = false, showTitle 
             <div className={css.wrap}>
               {children}
             </div>
-            {rightColumn ? rightColumn : deleteNode ? (
+            {renderedRightColumn ? renderedRightColumn : deleteNode ? (
               <div className={css.deleteBtn} onClick={onDelete}>{deleteNode}</div>
-            ) : isInherited || !showDelete ? (
+            ) : !canDelete ? (
               <div style={{ width: 22, flexShrink: 0 }} />
             ) : (
-              <div className={css.deleteBtn} onClick={handleDelete}>
+              <div className={css.deleteBtn} onClick={handleDeleteClick}>
                 <MinusOutlined />
               </div>
             )}

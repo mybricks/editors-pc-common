@@ -28,7 +28,11 @@ import {
   isBorderPanelMeaningfullyUsed,
   isMeaninglessStylePropForPanel,
 } from './panel-effected'
-import { getOrderedZoneSourceRules } from './zone-tab'
+import {
+  buildZoneStateStyle,
+  getOrderedZoneSourceRules,
+  resolveZonePropertySource,
+} from './zone-tab'
 import type { ZoneTab } from './zone-tab'
 
 /** 穿透 shadowRoot 取真正的 activeElement（画布常在 webview shadow 内） */
@@ -143,6 +147,17 @@ export function getEffectedCssPropertyAndOptions (
     selectorArray.length > 1 || /:{1,2}[a-zA-Z\-]+(?:\([^)]*\))?$/.test(primarySelector)
   ) ? {} : undefined
   try {
+    if (zoneTab?.pseudo) {
+      const rules = Array.from(new Set(zoneTab.sourceRules.map(source => source.rule)))
+      const authoredStyle = rules.reduce<Record<string, any>>(
+        (result, rule) => Object.assign(result, cssRuleStyleToBag(rule.style)), {}
+      )
+      const keys = Array.from(new Set([...Object.keys(PANEL_MAP), ...Object.keys(authoredStyle)]))
+      const stateStyle = buildZoneStateStyle(zoneTab, keys, element)
+      const values = Object.fromEntries(Object.entries(stateStyle).map(([key, item]) => [key, item.value]))
+      const panels = getEffectedPanelsFromCssRules(rules, values)
+      return [values, panels, panels, [], authoredStyle]
+    }
     let finalRules: CSSStyleRule[];
     let computedValues;
     // 汇总所有来自父级继承来源的规则，传给 getValues 做 inheritOnly 过滤
@@ -279,7 +294,10 @@ export function getEffectedCssPropertyAndOptions (
       const cascadeWinner = cascadeResolver
 
       const ownRules = finalRules.filter((rule) => !allInheritOnlyRules.has(rule))
-      const emptyValues = getDefaultValueFunctionMap2.border() as Record<string, any>
+      const emptyValues = {
+        ...getDefaultValueFunctionMap2.border(),
+        ...getDefaultValueFunctionMap2['border-radius'](),
+      } as Record<string, any>
       const borderProps: Array<[string, string]> = [
         ['borderTopColor', 'border-top-color'],
         ['borderRightColor', 'border-right-color'],
@@ -633,7 +651,8 @@ export function getEffectedCssPropertyAndOptions (
     // color 的 computedIfInvalid、级联赢家、element.style 都会读到「整元素实际生效色」。
     // 同一节点挂多个 class 时（如 .agent-dropdown-trigger.dataset-selector），切到
     // .dataset-selector tab 仍会显示兄弟 class 的 #1890FF，而不是本 tab 声明的
-    // rgb(29,33,38)。当前 tab 的 finalRules 已声明该属性时，强制回填自身声明。
+    // rgb(29,33,38)。回显与写入共用 resolveZonePropertySource，保证取到同一条规则。
+    // 但普通 class 不能覆盖实际胜出的 inline style；只有 class !important 时才回填 class。
     if (finalRules.length > 0) {
       const ownEchoProps: Array<[string, string]> = [
         ['color', 'color'],
@@ -644,7 +663,21 @@ export function getEffectedCssPropertyAndOptions (
         ['borderLeftColor', 'border-left-color'],
       ]
       ownEchoProps.forEach(([camel, hyphen]) => {
-        const ownVal = getOwnDeclaringValue(finalRules as CSSStyleRule[], element, hyphen)
+        const inlineVal = element?.style.getPropertyValue(hyphen).trim()
+        if (inlineVal && !isInlineDeclarationOverridden(hyphen)) return
+
+        const source = zoneTab
+          ? resolveZonePropertySource(zoneTab, camel)
+          : undefined
+        const declaringRules = zoneTab
+          ? (source ? [source.rule] : [])
+          : finalRules as CSSStyleRule[]
+        if (declaringRules.length === 0) return
+        const ownVal = getOwnDeclaringValue(
+          declaringRules,
+          element,
+          hyphen
+        )
         if (ownVal) (values as any)[camel] = ownVal
       })
     }
@@ -685,7 +718,9 @@ export function getEffectedCssPropertyAndOptions (
       return charBefore === ' ' || charBefore === '>' || charBefore === '+' || charBefore === '~' || charBefore === ',';
     };
 
-    const ownSelectorRules = tailSegments.length > 0
+    const ownSelectorRules = zoneTab
+      ? Array.from(new Set(zoneTab.sourceRules.map(source => source.rule)))
+      : tailSegments.length > 0
       ? finalRules.filter((rule: any) => {
           const st: string = rule.selectorText ?? '';
           // 逗号合并选择器由 someSelectorPart 统一拆分后逐段判断

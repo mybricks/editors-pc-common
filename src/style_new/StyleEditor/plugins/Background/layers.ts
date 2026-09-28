@@ -178,21 +178,22 @@ function quoteUrlIfNeeded(value: string): string {
 /**
  * Serialize BgLayer[] into CSS key-value pairs.
  *
- * All layers — including solid colors — are expressed as background-image
- * entries (solid colors via `linear-gradient(color, color)`).
- * background-color is always cleared to '' so the output is a single,
- * predictable property with no mixed-property edge cases.
+ * 保留现有 background-color 来源；新增纯色图层使用 background-image，
+ * 避免普通编辑把已有颜色从一个 selector 迁移到另一个属性来源。
  */
 export function serializeLayers(
   layers: BgLayer[],
 ): Array<{ key: string; value: any }> {
   // 外部 background-color 保留在原属性上，不能在编辑其他层时复制进页面的 image 栈。
-  const externalColor = layers.find(l => l.sourceProperty === 'backgroundColor' && l.canRemove === false);
-  const visibleLayers = layers.filter(l => l.visible && l !== externalColor);
+  const colorLayer = layers.find(l => l.sourceProperty === 'backgroundColor');
+  const colorChanges = colorLayer?.canRemove === false ? [] : [
+    { key: 'backgroundColor', value: colorLayer?.visible ? colorLayer.value : null },
+  ];
+  const visibleLayers = layers.filter(l => l.visible && l !== colorLayer);
 
   if (visibleLayers.length === 0) {
     return [
-      ...(!externalColor ? [{ key: 'backgroundColor', value: null }] : []),
+      ...colorChanges,
       { key: 'backgroundImage', value: null },
       { key: 'backgroundSize', value: null },
       { key: 'backgroundRepeat', value: null },
@@ -220,7 +221,7 @@ export function serializeLayers(
   });
 
   return [
-    ...(!externalColor ? [{ key: 'backgroundColor', value: null }] : []),
+    ...colorChanges,
     { key: 'backgroundImage', value: bgImages.join(', ') },
     { key: 'backgroundSize', value: bgSizes.join(', ') },
     { key: 'backgroundRepeat', value: bgRepeats.join(', ') },
@@ -239,9 +240,57 @@ export function getLayerRemovalChanges(
     return [{ key: 'backgroundColor', value: null }];
   }
   const remainingImages = layers.filter((layer, i) =>
-    i !== index && !(layer.sourceProperty === 'backgroundColor' && layer.canRemove === false)
+    i !== index && layer.sourceProperty !== 'backgroundColor'
   );
   return serializeLayers(remainingImages).filter(item => item.key !== 'backgroundColor');
+}
+
+function normalizeLayerValue(layer: BgLayer): string {
+  if (layer.type === 'solid') {
+    try {
+      return new ColorUtil(layer.value).hexa().toLowerCase();
+    } catch {
+      // var() 等表达式无法由 color 解析时继续按源码文本比较。
+    }
+  }
+  return String(layer.value || '').replace(/\s+/g, ' ').trim().toLowerCase();
+}
+
+function isSameLayer(left: BgLayer, right: BgLayer): boolean {
+  return left.sourceProperty === right.sourceProperty &&
+    left.type === right.type &&
+    normalizeLayerValue(left) === normalizeLayerValue(right) &&
+    String(left.size || '').trim() === String(right.size || '').trim() &&
+    String(left.repeat || '').trim() === String(right.repeat || '').trim() &&
+    String(left.position || '').trim() === String(right.position || '').trim();
+}
+
+/**
+ * 删除声明后优先使用属性解析器给出的新级联结果，同时保留解析器无法索引的
+ * computed / 外部只读图层。按多重集合匹配，避免相同背景重复出现时误去重。
+ */
+export function mergeResolvedLayersWithReadonly(
+  resolvedLayers: BgLayer[],
+  remainingLayers: BgLayer[],
+): BgLayer[] {
+  const unmatchedResolved = resolvedLayers.slice();
+  const missingReadonly: Array<{ layer: BgLayer; index: number }> = [];
+
+  remainingLayers.forEach((layer, index) => {
+    if (layer.canRemove !== false) return;
+    const matchIndex = unmatchedResolved.findIndex(candidate => isSameLayer(candidate, layer));
+    if (matchIndex >= 0) {
+      unmatchedResolved.splice(matchIndex, 1);
+      return;
+    }
+    missingReadonly.push({ layer, index });
+  });
+
+  const merged = resolvedLayers.slice();
+  missingReadonly.forEach(({ layer, index }) => {
+    merged.splice(Math.min(index, merged.length), 0, layer);
+  });
+  return merged;
 }
 
 /** Interpret a Colorpicker onChange payload for a specific layer */

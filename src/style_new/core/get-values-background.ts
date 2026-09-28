@@ -94,7 +94,7 @@ function getSelectorCandidates(selector: string): string[] {
  * selector 会先转义成正则字面量，空白则放宽为任意连续空白，以兼容压缩
  * CSS、格式化 CSS 以及 CSSOM 与源码之间的细微格式差异。
  */
-function getRawBackgroundDeclarations(rule: CSSStyleRule): Record<string, string>[] {
+export function readAuthoredBackgroundDeclarations(rule: CSSStyleRule): Record<string, string>[] {
   const sourceText = getSourceStyleText(rule)
   if (!sourceText) return []
 
@@ -275,7 +275,7 @@ function recoverBackgroundFromSource(
   if (!computedValues || hasInlineBackgroundDeclaration(element)) return {}
   if (!hasMeaningfulComputedBackground(computedValues)) return {}
 
-  const declarations = getRawBackgroundDeclarations(rule)
+  const declarations = readAuthoredBackgroundDeclarations(rule)
   const rawValues = declarations.flatMap((declaration) => Object.values(declaration))
   if (!rawValues.some((value) => /gradient\s*\(/i.test(value)) && !rawValues.some((value) => /var\s*\(/i.test(value))) return {}
 

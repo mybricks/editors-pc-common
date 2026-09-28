@@ -3,6 +3,8 @@ import { compare } from 'specificity'
 
 import { isPageScopedSelector, resolveCssomSourceSelector } from './build-zone-selectors-from-cssom'
 import { toLine } from './css-code-codec'
+import { getStyleResolution, resolveEffectiveStyleSource } from './style-property'
+import { createCascadeResolver } from './cascade-winner'
 import { getDocument } from './dom'
 import { calculateSafeSpecificity, splitTopLevelSelectors } from './selector-utils'
 
@@ -18,12 +20,29 @@ export type ZoneSourceRule = {
   isPageStyle: boolean
 }
 
+export type EffectiveStyleValue = {
+  value?: unknown
+  computedValue?: string
+  type: 'inline' | 'stylesheet' | 'computed'
+  sourceSelector?: string
+  selectorPart?: string
+  sourceOrder?: number
+  important?: boolean
+}
+
 export type ZoneTab = {
   selector: string
+  /** 合并前参与当前状态 Tab 的基础 selector，用于影响区域统计。 */
+  affectedSelectors?: string[]
   baseSelector: string
   pseudo: string | null
   sourceRules: ZoneSourceRule[]
   baseRules: ZoneSourceRule[]
+  target?: Element
+  label?: string
+  effectiveStyle?: Record<string, EffectiveStyleValue>
+  /** 是否由右侧新增状态按钮临时添加。 */
+  isAdded?: boolean
 }
 
 export type ZoneDeletionTarget = {
@@ -63,6 +82,276 @@ export function getOrderedZoneSourceRules(tab: ZoneTab): ZoneSourceRule[] {
     })
 }
 
+function readStyleProperty(source: ZoneSourceRule, property: string): string {
+  try {
+    return source.rule.style.getPropertyValue(property).trim()
+  } catch {
+    return ''
+  }
+}
+
+/**
+ * 从规则列表中找出某个 CSS 属性真正的「级联赢家」规则。
+ *
+ * 判断优先级的顺序：!important > 选择器特指度 > 规则在样式表中的出现顺序（越靠后越优先）。
+ *
+ * 关键：!important 必须按属性维度判断，而不能看整条规则的 cssText。
+ *
+ * 反例（会出错的写法）：
+ *   .ccOtherPropImportant { color: #1570ef; background: #eff8ff !important; }
+ *   .ccScope .ccColorSpecificWinner { color: #067647; }  ← 特指度更高
+ *
+ *   如果用 cssText.includes('!important') 判断，.ccOtherPropImportant 整条规则
+ *   会被当成 important 而排在最后，color 的 winner 就会错误指向它。
+ *   但实际上只有 background 有 !important，color 没有，
+ *   color 的 winner 应该是特指度更高的 .ccScope .ccColorSpecificWinner。
+ *
+ *   正确做法是用 rule.style.getPropertyPriority('color') 单独判断 color 是否 important。
+ */
+function findCascadeWinner(
+  candidates: ZoneSourceRule[],
+  properties: string[]
+): ZoneSourceRule | undefined {
+  const declaring = candidates.filter((source) =>
+    properties.some((prop) => readStyleProperty(source, prop))
+  )
+  if (!declaring.length) return undefined
+
+  return declaring.reduce((winner, current) => {
+    const winImportant = properties.some(
+      (prop) => winner.rule.style.getPropertyPriority(prop) === 'important'
+    )
+    const curImportant = properties.some(
+      (prop) => current.rule.style.getPropertyPriority(prop) === 'important'
+    )
+    if (winImportant !== curImportant) return curImportant ? current : winner
+
+    const winSpec = calculateSafeSpecificity(winner.selectorPart, winner.target as HTMLElement)
+    const curSpec = calculateSafeSpecificity(current.selectorPart, current.target as HTMLElement)
+    if (winSpec && curSpec) {
+      const bySpec = compare(winSpec, curSpec)
+      if (bySpec !== 0) return bySpec > 0 ? winner : current
+    }
+    return current.sourceOrder >= winner.sourceOrder ? current : winner
+  })
+}
+
+function findStyleSource(tab: ZoneTab, styleKey: string): ZoneSourceRule | undefined {
+  const property = toLine(styleKey)
+  const fallbackProperties = PROPERTY_FALLBACKS[styleKey] || []
+  // getOrderedZoneSourceRules 负责去重；cascade 排序由 findCascadeWinner 按属性级重算
+  const deduped = getOrderedZoneSourceRules(tab)
+  return findCascadeWinner(deduped, [property]) ?? findCascadeWinner(deduped, fallbackProperties)
+}
+
+/**
+ * 当属性值为 unset 时，浏览器会将其 computedValue 还原为 initial，
+ * 对于 flex 等不可继承属性会得到 "0 1 auto" 这样的初始值，容易产生误导。
+ * 白名单中的属性若值为 unset，跳过 computedValue 的计算。
+ */
+const SKIP_COMPUTED_VALUE_WHEN_UNSET = new Set(['flex'])
+
+function readInheritedColorWithoutHover(target: HTMLElement): string | undefined {
+  let ancestor = target.parentElement
+  while (ancestor) {
+    const resolver = createCascadeResolver(ancestor)
+    const defaultWinner = resolver('color', 'default')
+    const hoverWinner = resolver('color', 'hover')
+    if (hoverWinner && !defaultWinner) {
+      ancestor = ancestor.parentElement
+      continue
+    }
+    return defaultWinner?.value || window.getComputedStyle(ancestor).getPropertyValue('color').trim() || undefined
+  }
+  return undefined
+}
+
+/** 状态面板只展示该状态的声明；基础态和内联仍留在解析器中供写入、清空判断。 */
+export function buildZoneStateStyle(
+  tab: ZoneTab,
+  keys: string[],
+  target: HTMLElement | null,
+): Record<string, EffectiveStyleValue> {
+  const resolution = getStyleResolution(tab, target)
+  const result: Record<string, EffectiveStyleValue> = {}
+  keys.forEach(key => {
+    const candidate = resolveEffectiveStyleSource(
+      resolution.get(key).candidates.filter(source => source.currentState)
+    )
+    if (!candidate) return
+    result[key] = {
+      value: candidate.value,
+      type: 'stylesheet',
+      sourceSelector: candidate.label,
+      selectorPart: candidate.source?.selectorPart,
+      sourceOrder: candidate.sourceOrder,
+      important: candidate.important,
+    }
+  })
+  return result
+}
+
+/** 常规态保留生效值回显；伪类/伪元素仅回显当前状态配置。 */
+export function buildZoneEffectiveStyle(
+  tab: ZoneTab,
+  styleValues: Record<string, unknown>,
+  target?: Element | null,
+): Record<string, EffectiveStyleValue> {
+  if (tab.pseudo) {
+    return buildZoneStateStyle(tab, Object.keys(styleValues), target instanceof HTMLElement ? target : null)
+  }
+  const result: Record<string, EffectiveStyleValue> = {}
+  const computedStyle = target instanceof HTMLElement ? window.getComputedStyle(target) : null
+  const cascadeResolver = target instanceof HTMLElement && !tab.pseudo
+    ? createCascadeResolver(target)
+    : null
+  Object.entries(styleValues).forEach(([styleKey, value]) => {
+    if (value == null || String(value).trim() === '') return
+    let effectiveValue: unknown = value
+    let hasEffectiveValue = true
+    const source = findStyleSource(tab, styleKey)
+    const cssProperty = toLine(styleKey)
+    const inlineStyle = target instanceof HTMLElement ? target.style : null
+    const inlineValue = inlineStyle?.getPropertyValue(cssProperty).trim()
+    const stylesheetImportant = !!source && source.rule.style.getPropertyPriority(cssProperty) === 'important'
+    const inlineWins = !!inlineValue && !stylesheetImportant
+    const skipComputedValue = SKIP_COMPUTED_VALUE_WHEN_UNSET.has(cssProperty) && String(value).trim() === 'unset'
+    let computedValue = skipComputedValue
+      ? undefined
+      : (computedStyle?.getPropertyValue(cssProperty).trim() || undefined)
+    if (!skipComputedValue && cascadeResolver && !inlineValue && cssProperty === 'color' && !source) {
+      const inheritedColor = readInheritedColorWithoutHover(target)
+      if (inheritedColor) {
+        hasEffectiveValue = false
+        computedValue = inheritedColor
+      }
+    }
+    if (!skipComputedValue && cascadeResolver && !inlineValue) {
+      const defaultWinner = cascadeResolver(cssProperty, 'default')
+      const hoverWinner = cascadeResolver(cssProperty, 'hover')
+      if (hoverWinner) {
+        // 点击元素时 getComputedStyle 可能仍混入 :hover；默认态只使用常规级联结果。
+        if (!defaultWinner && !source) {
+          hasEffectiveValue = false
+          if (cssProperty !== 'color') computedValue = undefined
+        } else {
+          computedValue = defaultWinner?.value
+        }
+      }
+    }
+    result[styleKey] = {
+      ...(hasEffectiveValue ? { value: effectiveValue } : {}),
+      computedValue,
+      type: source ? (inlineWins ? 'inline' : 'stylesheet') : (inlineValue ? 'inline' : 'computed'),
+      sourceSelector: inlineWins ? undefined : source?.sourceSelector,
+      selectorPart: inlineWins ? 'inline' : source?.selectorPart,
+      sourceOrder: inlineWins ? undefined : source?.sourceOrder,
+      important: inlineWins
+        ? inlineStyle?.getPropertyPriority(cssProperty) === 'important'
+        : stylesheetImportant || undefined,
+    }
+  })
+  return result
+}
+
+const PSEUDO_TAIL_RE = /(:{1,2}[a-zA-Z\-]+(?:\([^)]*\))?)$/
+
+function shortenClassLabel(rawLabel: string): string {
+  const classes = rawLabel.split('.')
+  const hashedClasses = classes.filter((cls) => cls.includes('--'))
+  return hashedClasses.length > 0
+    ? hashedClasses.map((cls) => cls.slice(cls.lastIndexOf('--') + 2)).join('.')
+    : rawLabel
+}
+
+function getPseudoLabel(pseudo: string): string {
+  const pseudoLabels: Record<string, string> = {
+    ':hover': '悬浮态',
+    ':active': '激活态',
+    ':focus': '聚焦态',
+    ':focus-visible': '键盘聚焦态',
+    ':focus-within': '后代聚焦态',
+    ':disabled': '禁用态',
+    '::before': '前缀元素',
+    '::after': '后缀元素',
+    '::placeholder': '占位符元素',
+  }
+  const pseudoLabel = pseudoLabels[pseudo] || pseudo
+  return pseudoLabel
+}
+
+function getZoneTabLabel(selector: string): string {
+  const parts = selector.trim().split(/\s+/)
+  const lastPart = parts[parts.length - 1] || ''
+  const pseudoMatch = lastPart.match(PSEUDO_TAIL_RE)
+  if (pseudoMatch) return getPseudoLabel(pseudoMatch[1])
+  return '常规'
+}
+
+function getDisambiguatedBaseLabel(selector: string): string {
+  const parts = selector.trim().split(/\s+/)
+  const lastPart = parts[parts.length - 1] || ''
+  const self = getZoneTabLabel(lastPart)
+  if (parts.length < 2) return self
+  const parent = shortenClassLabel(parts[parts.length - 2].replace(/^\./, ''))
+  return parent ? `${parent} ${self}` : self
+}
+
+function isPseudoSelector(selector: string): boolean {
+  const lastPart = selector.trim().split(/\s+/).pop() || ''
+  return PSEUDO_TAIL_RE.test(lastPart)
+}
+
+/** 生成与 zoneTabs 顺序一致的展示名称。 */
+export function getZoneTabLabels(selectors: string[]): string[] {
+  const labels = selectors.map(getZoneTabLabel)
+  const counts = new Map<string, number>()
+  labels.forEach((label) => counts.set(label, (counts.get(label) ?? 0) + 1))
+
+  return selectors.map((selector, index) => {
+    if (isPseudoSelector(selector)) return labels[index]
+    if (!isPseudoSelector(selector) && (counts.get(labels[index]) ?? 0) > 1) {
+      return getDisambiguatedBaseLabel(selector)
+    }
+    return labels[index]
+  })
+}
+
+export function mergeZoneTabsByState(tabs: ZoneTab[]): ZoneTab[] {
+  const merged = new Map<string, ZoneTab>()
+  const mergeRules = (target: ZoneSourceRule[], incoming: ZoneSourceRule[]) => {
+    incoming.forEach((rule) => {
+      if (!target.some((item) => item.rule === rule.rule && item.selectorPart === rule.selectorPart)) {
+        target.push(rule)
+      }
+    })
+  }
+
+  tabs.forEach((tab) => {
+    const stateKey = tab.pseudo || '__base__'
+    const existing = merged.get(stateKey)
+    if (!existing) {
+      merged.set(stateKey, {
+        ...tab,
+        affectedSelectors: Array.from(new Set(tab.affectedSelectors ?? [tab.selector])),
+        sourceRules: tab.sourceRules.slice(),
+        baseRules: tab.baseRules.slice(),
+        effectiveStyle: {},
+      })
+      return
+    }
+
+    mergeRules(existing.sourceRules, tab.sourceRules)
+    mergeRules(existing.baseRules, tab.baseRules)
+    existing.affectedSelectors = Array.from(new Set([
+      ...(existing.affectedSelectors ?? [existing.selector]),
+      ...(tab.affectedSelectors ?? [tab.selector]),
+    ]))
+  })
+
+  return Array.from(merged.values())
+}
+
 const PROPERTY_FALLBACKS: Record<string, string[]> = {
   backgroundColor: ['background'],
   backgroundImage: ['background'],
@@ -75,92 +364,29 @@ const PROPERTY_FALLBACKS: Record<string, string[]> = {
   ],
 }
 
-function readSourceProperty(source: ZoneSourceRule, cssProperty: string): string {
-  try {
-    return source.rule.style.getPropertyValue(cssProperty) || ''
-  } catch {
-    return ''
-  }
+/** 兼容旧调用点，实际来源只由公共解析器决定。 */
+export function resolveZonePropertySource(tab: ZoneTab, key: string): ZoneSourceRule | undefined {
+  return getStyleResolution(tab).get(key).winner?.source
 }
 
-function sourceDeclaresProperty(source: ZoneSourceRule, cssProperties: string[]): boolean {
-  return cssProperties.some((property) => !!readSourceProperty(source, property).trim())
+export function resolveZonePropertySelector(tab: ZoneTab, key: string): string | undefined {
+  const winner = getStyleResolution(tab).get(key).winner
+  return winner?.currentState ? winner.label || undefined : undefined
 }
 
-/**
- * 找到当前 ZoneTab 中最终声明某个样式属性的 Less 源码 selector。
- * 直接属性优先；只有没有直接声明时才使用少量简写兜底映射。
- */
-export function resolveZonePropertySelector(
-  tab: ZoneTab,
-  styleKey: string
-): string | undefined {
-  const cssProperty = toLine(styleKey)
-  const orderedRules = getOrderedZoneSourceRules(tab)
-  const fallbackProperties = PROPERTY_FALLBACKS[styleKey] || []
-  const findLastDeclaringRule = (properties: string[]) => {
-    let winner: ZoneSourceRule | undefined
-    for (const source of orderedRules) {
-      if (sourceDeclaresProperty(source, properties)) winner = source
-    }
-    return winner
-  }
-
-  const directWinner = findLastDeclaringRule([cssProperty])
-  const fallbackWinner = directWinner
-    ? undefined
-    : findLastDeclaringRule(fallbackProperties)
-
-  const winner = directWinner || fallbackWinner
-  return winner ? (winner.sourceSelector || tab.selector) : undefined
+export function resolveZoneDeletionTarget(tab: ZoneTab, key: string): ZoneDeletionTarget | undefined {
+  const winner = getStyleResolution(tab).get(key).winner
+  if (!winner?.currentState || !winner.label) return undefined
+  return { selector: winner.label, property: winner.property === 'gap' ? 'gap' : key }
 }
 
-/**
- * 找到删除某个样式时真正需要操作的源码 selector 和属性。
- * 删除不能使用新增样式的 fallback selector；Gap 还需要识别 gap 简写来源。
- */
-export function resolveZoneDeletionTarget(
-  tab: ZoneTab,
-  styleKey: string
-): ZoneDeletionTarget | undefined {
-  const cssProperty = toLine(styleKey)
-  const orderedRules = getOrderedZoneSourceRules(tab)
-  const findLastDeclaringRule = (properties: string[]) => {
-    let winner: ZoneSourceRule | undefined
-    for (const source of orderedRules) {
-      if (sourceDeclaresProperty(source, properties)) winner = source
-    }
-    return winner
-  }
-
-  const directWinner = findLastDeclaringRule([cssProperty])
-  if (directWinner) {
-    return {
-      selector: directWinner.sourceSelector || tab.selector,
-      property: styleKey,
-    }
-  }
-
-  if (styleKey === 'rowGap' || styleKey === 'columnGap') {
-    const shorthandWinner = findLastDeclaringRule(['gap'])
-    if (shorthandWinner) {
-      return {
-        selector: shorthandWinner.sourceSelector || tab.selector,
-        property: 'gap',
-      }
-    }
-  }
-
-  return undefined
-}
-
-/**
- * 属性没有现有声明时，返回当前 tab 最适合新增样式的 Less 源码 selector。
- * sourceRules 已按回显级联顺序排序，因此最后一条是优先级最高的来源。
- */
 export function resolveZoneFallbackSelector(tab: ZoneTab): string {
-  const orderedRules = getOrderedZoneSourceRules(tab)
-  return orderedRules[orderedRules.length - 1]?.sourceSelector || tab.selector
+  // 新增伪类 Tab 尚无状态规则时，沿用基础规则的完整源码选择器和作用域。
+  if (tab.pseudo && tab.baseRules.length) {
+    const lastBase = tab.baseRules[tab.baseRules.length - 1]
+    if (lastBase?.sourceSelector) return `${lastBase.sourceSelector}${tab.pseudo}`
+  }
+  return tab.selector
 }
 
 const EDITABLE_STATES = new Set([
@@ -327,6 +553,8 @@ export function collectZoneTabs(
       pseudo: null,
       sourceRules: [],
       baseRules: [],
+      target: elements[0],
+      effectiveStyle: {},
     })
   }
   if (!elements.length || !baseSelectors.length) return Array.from(tabs.values())
@@ -367,6 +595,8 @@ export function collectZoneTabs(
             pseudo: state.pseudo,
             sourceRules: [],
             baseRules: [],
+            target,
+            effectiveStyle: {},
           }
           tabs.set(pseudoKey, pseudoTab)
         }
@@ -387,5 +617,6 @@ export function collectZoneTabs(
     if (base) tab.baseRules = base.baseRules.slice()
   }
 
-  return Array.from(tabs.values()).filter((tab) => !tab.pseudo || tab.sourceRules.length > 0)
+  return Array.from(tabs.values())
+    .filter((tab) => !tab.pseudo || tab.sourceRules.length > 0)
 }

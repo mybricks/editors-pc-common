@@ -15,6 +15,8 @@ import type { GetDefaultConfigurationProps } from '../type'
 import type { Options } from '../StyleEditor/type'
 import { mapEffectedPanels, normalizeEffectOptions } from './effects-alias'
 import { getEffectedCssPropertyAndOptions } from './get-effected-css'
+import { buildZoneEffectiveStyle } from './zone-tab'
+import type { EffectiveStyleValue, ZoneTab } from './zone-tab'
 import { toElementArray } from './dom'
 import { hasCssVarReference } from './css-var'
 import { expandFourShorthand } from './shorthand-normalizer'
@@ -106,6 +108,7 @@ export function getDefaultConfiguration ({value, options}: GetDefaultConfigurati
   /** 自动收起没有生效的 CSS 插件 */
   let autoCollapseWhenUnusedProperty = true;
   let defaultValue: CSSProperties = {}
+  let effectiveStyle: Record<string, EffectiveStyleValue> = {}
   let finalSelector
   // value.get() 是业务侧保存的源码样式；先复制，避免本次计算修改外部对象。
   let setValue: Record<string, any> = deepCopy(value?.get?.() || {})
@@ -199,6 +202,7 @@ export function getDefaultConfiguration ({value, options}: GetDefaultConfigurati
       // getEffectedCssPropertyAndOptions 同时返回：当前样式值、自己规则命中的面板、
       // 祖先继承命中的面板，以及源码中明确声明的 authoredStyle。
       getDefaultValue = false;
+      // TODO: 此方法耗时比较多，平均耗时 30ms 左右
       const [styleValues, options, ownRulesPanels, ancestorPanels, authoredStyle] = getEffectedCssPropertyAndOptions(
         realDom,
         realSelectors.length > 1 ? realSelectors : (realSelector ?? ''),
@@ -206,10 +210,28 @@ export function getDefaultConfiguration ({value, options}: GetDefaultConfigurati
         zoneTab,
       );
 
+      if (zoneTab) {
+        effectiveStyle = buildZoneEffectiveStyle(
+          zoneTab as ZoneTab,
+          styleValues as Record<string, unknown>,
+          realDom,
+        )
+      }
+      const panelStyleValues = Object.entries(effectiveStyle).reduce<Record<string, unknown>>(
+        (result, [key, item]) => {
+          result[key] = item.value
+          return result
+        },
+        {},
+      )
+      const valuesForPanels = zoneTab ? panelStyleValues : styleValues
+
       effctedOptions = options == null ? options : mapEffectedPanels(options as string[]);
       effectedFromRulesOnly = mapEffectedPanels(ownRulesPanels as string[]);
       effectedFromAncestorsOnly = mapEffectedPanels(ancestorPanels as string[]);
       ownAuthoredStyle = authoredStyle || {};
+      // 宿主 value.get() 可能仍返回常规态；伪类的配置和展开状态只来自自己的规则。
+      if (zoneTab?.pseudo) setValue = deepCopy(ownAuthoredStyle)
       finalOptions = normalizeEffectOptions(finalOptions)
       // 每个面板只负责生成自己拥有的默认字段；Object.assign 的顺序遵循插件列表顺序。
       finalOptions.forEach((option) => {
@@ -224,7 +246,7 @@ export function getDefaultConfiguration ({value, options}: GetDefaultConfigurati
         // @ts-ignore
         if (DEFAULT_OPTIONS.includes(type)) {
           // @ts-ignore TODO: 类型补全
-          Object.assign(defaultValue, getDefaultValueFunctionMap[type](styleValues, config));
+          Object.assign(defaultValue, getDefaultValueFunctionMap[type](valuesForPanels, config));
         }
       });
     }
@@ -434,20 +456,20 @@ export function getDefaultConfiguration ({value, options}: GetDefaultConfigurati
     return merged as CSSProperties
   }
 
-  // 最终对象直接作为 StyleMount/CssEditor 的初始化输入；所有数组和样式对象都在这里
-  // 固化，避免调用方继续依赖本次计算过程中的临时引用。
+  const finalDefaultValue = mergeDefaultValue()
   return {
     options: finalOptions,
     collapsedOptions,
     readonlyExpandedOptions,
     autoCollapseWhenUnusedProperty,
-    defaultValue: mergeDefaultValue(),
+    defaultValue: finalDefaultValue,
     setValue: Object.assign({}, splitedSetValue),
     authoredStyle: Object.assign({}, ownAuthoredStyle),
     finalOpen,
     finalSelector,
     finnalExcludeOptions,
     targetDom: dom,
+    effectiveStyle,
   } as {
     options: Options,
     collapsedOptions: string[]
@@ -460,5 +482,6 @@ export function getDefaultConfiguration ({value, options}: GetDefaultConfigurati
     finalSelector: string,
     finnalExcludeOptions: any,
     targetDom: any,
+    effectiveStyle: Record<string, EffectiveStyleValue>,
   }
 }

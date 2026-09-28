@@ -32,13 +32,12 @@ export type PropSpec = {
 export const PROP_SPECS: PropSpec[] = [
   // font（可继承）
   { camel: 'color', inherit: true, fallback: 'computedIfInvalid', unsetMode: 'notSet' },
-  // 不回落 computed：未配置时留给 Font 用 placeholder「默认（N）」展示，避免删除后回显计算值
-  { camel: 'fontSize', inherit: true, fallback: 'none', unsetMode: 'notSet' },
+  { camel: 'fontSize', inherit: true, fallback: 'computed', unsetMode: 'notSet' },
   { camel: 'textAlign', inherit: true, fallback: 'computed', unsetMode: 'notSet' },
   { camel: 'fontWeight', inherit: true, fallback: 'computed', unsetMode: 'notSet' },
-  { camel: 'lineHeight', inherit: true, fallback: 'none', unsetMode: 'notSet' },
+  { camel: 'lineHeight', inherit: true, fallback: 'computed', unsetMode: 'notSet' },
   { camel: 'fontFamily', inherit: true, fallback: 'fontFamily' },
-  { camel: 'letterSpacing', inherit: true, fallback: 'none', unsetMode: 'notSet' },
+  { camel: 'letterSpacing', inherit: true, fallback: 'computed', unsetMode: 'notSet' },
   { camel: 'whiteSpace', inherit: true, fallback: 'computed', unsetMode: 'notSet' },
 
   // font（非继承；注意：旧实现在 inheritOnly return 之后才读 cursor，父级规则不会带入 cursor）
@@ -95,13 +94,13 @@ export const PROP_SPECS: PropSpec[] = [
   { camel: 'marginLeft', inherit: false, fallback: 'computed' },
 
   // background
-  { camel: 'backgroundColor', inherit: false, fallback: 'empty' },
-  { camel: 'backgroundImage', inherit: false, fallback: 'static', staticValue: 'none' },
+  { camel: 'backgroundColor', inherit: false, fallback: 'computed' },
+  { camel: 'backgroundImage', inherit: false, fallback: 'computed', staticValue: 'none' },
   { camel: 'backgroundRepeat', inherit: false, fallback: 'computed' },
-  { camel: 'backgroundPosition', inherit: false, fallback: 'static', staticValue: 'left top' },
+  { camel: 'backgroundPosition', inherit: false, fallback: 'computed', staticValue: 'left top' },
   { camel: 'backgroundSize', inherit: false, fallback: 'computed' },
-  { camel: 'backgroundOrigin', inherit: false, fallback: 'none' },
-  { camel: 'backgroundClip', inherit: false, fallback: 'none' },
+  { camel: 'backgroundOrigin', inherit: false, fallback: 'computed' },
+  { camel: 'backgroundClip', inherit: false, fallback: 'computed' },
 
   // border
   { camel: 'borderTopColor', inherit: false, fallback: 'computedIfInvalid' },

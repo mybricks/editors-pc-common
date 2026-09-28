@@ -1,8 +1,13 @@
-export type ShorthandChangeItem = { key: string; value: any }
+export type ShorthandChangeItem = { key: string; value: any; borderMode?: 'all' | 'split' }
 
 export type ShorthandNormalizeResult = {
   style: Record<string, any>
   deletions: string[]
+}
+
+export type ShorthandNormalizeOptions = {
+  /** 增量写入时只处理 changes 命中的属性组；默认保留全量快照归一化。 */
+  changedGroupsOnly?: boolean
 }
 
 type SimpleGroup = {
@@ -52,7 +57,7 @@ const BOX_GROUPS: SimpleGroup[] = [
 ]
 
 const BORDER_SIDES = ['Top', 'Right', 'Bottom', 'Left'] as const
-const BORDER_DETAIL_KEYS = BORDER_SIDES.flatMap((side) => [
+export const BORDER_DETAIL_KEYS = BORDER_SIDES.flatMap((side) => [
   `border${side}Width`,
   `border${side}Style`,
   `border${side}Color`,
@@ -67,7 +72,7 @@ const BORDER_SHORTHAND_KEYS = [
   'borderStyle',
   'borderColor',
 ]
-const BORDER_KEYS = [...BORDER_SHORTHAND_KEYS, ...BORDER_DETAIL_KEYS]
+export const BORDER_KEYS = [...BORDER_SHORTHAND_KEYS, ...BORDER_DETAIL_KEYS]
 const SIMPLE_KEYS = BOX_GROUPS.flatMap(({ shorthand, longhands }) => [shorthand, ...longhands])
 const SNAPSHOT_GROUPS = [
   ...BOX_GROUPS.map(({ shorthand, longhands }) => [shorthand, ...longhands]),
@@ -138,11 +143,21 @@ function compactFour(values: string[]): string[] {
 }
 
 function serializeFourValues(values: string[]): string | null {
-  return values.length === 4 ? compactFour(values).join(' ') : null
+  if (values.length !== 4) return null
+  // CSS-wide 关键字只能单独使用，不能生成 `0 unset 0 0` 这样的无效简写。
+  if (values.some(value => /^(initial|inherit|unset|revert|revert-layer)$/i.test(value))) {
+    return values.every(value => value === values[0]) ? values[0] : null
+  }
+  return compactFour(values.map(value =>
+    /^[-+]?0+(?:\.0+)?(?:px|em|rem|%|vh|vw|vmin|vmax|cm|mm|in|pt|pc)?$/i.test(value) ? '0' : value
+  )).join(' ')
 }
 
 function serializeTwoValues(values: string[]): string | null {
   if (values.length !== 2) return null
+  if (values.some(value => /^(initial|inherit|unset|revert|revert-layer)$/i.test(value))) {
+    return values[0] === values[1] ? values[0] : null
+  }
   return values[0] === values[1] ? values[0] : values.join(' ')
 }
 
@@ -219,6 +234,10 @@ function splitTopLevelComponents(value: string): string[] | null {
 /** border-radius longhand 每角允许一个或两个半径，shorthand 需用 `/` 分隔两组轴。 */
 function serializeBorderRadius(values: string[]): string | null {
   if (values.length !== 4) return null
+  // unset 等关键字不能和数值拼成简写；部分重置必须保留逐角声明。
+  if (values.some(value => /^(initial|inherit|unset|revert|revert-layer)$/i.test(value))) {
+    return values.every(value => value === values[0]) ? values[0] : null
+  }
   const corners = values.map(splitTopLevelComponents)
   if (corners.some((parts) => !parts || parts.length < 1 || parts.length > 2)) return null
 
@@ -245,6 +264,15 @@ function replaceGroup(
     delete style[key]
   })
   Object.assign(style, output)
+}
+
+/** 两轴简写按水平、垂直展开，保留声明值而非浏览器计算值。 */
+export function expandTwoShorthand(raw: unknown): string[] | null {
+  if (raw == null || String(raw).trim() === '') return null
+  const { value, important } = parsePriority(raw)
+  const parts = splitTopLevelComponents(value)
+  if (!parts || parts.length < 1 || parts.length > 2) return null
+  return [parts[0], parts[1] || parts[0]].map(part => `${part}${important ? '!important' : ''}`)
 }
 
 /** 将 padding/margin 四值简写展开，同时保留 var() 和 !important。 */
@@ -274,12 +302,12 @@ function expandShorthandForLonghandChange(
   deletions: string[]
 ) {
   if (
-    longhands.length !== 4 ||
+    (longhands.length !== 4 && shorthand !== 'overflow') ||
     !hasValue(style, shorthand) ||
     !longhands.some((key) => changedKeys.has(key))
   ) return
 
-  const expanded = expandFourShorthand(style[shorthand])
+  const expanded = shorthand === 'overflow' ? expandTwoShorthand(style[shorthand]) : expandFourShorthand(style[shorthand])
   if (!expanded || expanded.length !== longhands.length) return
 
   longhands.forEach((key, index) => {
@@ -297,18 +325,27 @@ function normalizeSimpleGroup(
   group: SimpleGroup,
   changedKeys: Set<string>,
   deletions: string[],
-  clearedKeys: Set<string>
+  clearedKeys: Set<string>,
+  split = false,
 ) {
   const { shorthand, longhands, serialize } = group
   const allKeys = [shorthand, ...longhands]
   const touched = allKeys.some((key) => changedKeys.has(key))
   const hasGroupValue = allKeys.some((key) => hasValue(style, key))
+  // 显式设置简写时，新简写优先于快照里残留的旧 longhand。
+  if (changedKeys.has(shorthand) && hasValue(style, shorthand) &&
+    !longhands.some(key => changedKeys.has(key))) {
+    const expanded = longhands.length === 4 ? expandFourShorthand(style[shorthand]) : null
+    const value = expanded ? withCommonPriority(expanded, serialize) : null
+    replaceGroup(style, { [shorthand]: value ?? style[shorthand] }, allKeys, deletions)
+    return
+  }
   // 编辑单一方向时，先将已有 shorthand 展开。否则删除一个 longhand 会直接移除
   // shorthand，导致未编辑方向的 margin/padding 也一并丢失。
   expandShorthandForLonghandChange(style, shorthand, longhands, changedKeys, deletions)
-  // liveStyle 可能已经把 shorthand 展开成四个 longhand。此时清除其中一边
-  // 不会再经过 shorthand 展开逻辑，需要用 CSS 初始值补回该边，才能保留其他边。
-  if (touched && hasGroupValue) {
+  // 间距和圆角的 clear 表示取消该方向的声明，保留其余长写，不能补零后重新压成简写。
+  // 其他属性组继续保留原来的初始值处理。
+  if (touched && hasGroupValue && shorthand !== 'margin' && shorthand !== 'padding' && shorthand !== 'borderRadius') {
     const existingValues = longhands
       .filter((key) => hasValue(style, key))
       .map((key) => parsePriority(style[key]))
@@ -330,6 +367,11 @@ function normalizeSimpleGroup(
   const completeLonghands = longhands.every((key) => hasValue(style, key))
 
   if (completeLonghands) {
+    if (split) {
+      if (hasValue(style, shorthand)) addDeletion(deletions, shorthand)
+      delete style[shorthand]
+      return
+    }
     const shorthandValue = withCommonPriority(
       longhands.map((key) => style[key]),
       serialize
@@ -360,41 +402,80 @@ function normalizeSimpleGroup(
   }
 }
 
-function buildBorderOutput(style: Record<string, any>): Record<string, any> | null {
-  if (!BORDER_DETAIL_KEYS.every((key) => hasValue(style, key))) return null
+/** 仅展开声明本身的值，不从 computedStyle 补全未配置字段。 */
+export function expandBorderShorthand(key: string, raw: unknown): Record<string, string> | null {
+  if (!BORDER_KEYS.includes(key) || raw == null || String(raw).trim() === '') return null
+  if (BORDER_DETAIL_KEYS.includes(key)) return { [key]: String(raw) }
+  const component = /^border(Width|Style|Color)$/.exec(key)?.[1]
+  if (component) {
+    const values = expandFourShorthand(raw)
+    return values && Object.fromEntries(BORDER_SIDES.map((side, i) => [`border${side}${component}`, values[i]]))
+  }
+  const { value, important } = parsePriority(raw)
+  const sides: readonly string[] = key === 'border' ? BORDER_SIDES : [key.slice('border'.length)]
+  const parts = splitTopLevelComponents(value)
+  if (!parts?.length) return null
+  let values: string[]
+  if (/^(initial|inherit|unset|revert|revert-layer)$/i.test(value)) {
+    values = [value, value, value]
+  } else {
+    const line = /^(none|hidden|dotted|dashed|solid|double|groove|ridge|inset|outset)$/i
+    const width = /^(thin|medium|thick|0|[+-]?(?:\d*\.)?\d+[a-z]+|(?:calc|min|max|clamp)\(.+\))$/i
+    // 本编辑器生成的简写固定为 width style color，也支持宽度/颜色变量。
+    if (parts.length === 3 && line.test(parts[1]) && (width.test(parts[0]) || /^var\(/i.test(parts[0]))) {
+      values = parts
+    } else {
+      // 整条 border 的变量无法安全拆分，保留其原始声明及后续覆盖。
+      if (parts.some(part => /^var\(/i.test(part))) return null
+      const widths = parts.filter(part => width.test(part))
+      const lines = parts.filter(part => line.test(part))
+      const colors = parts.filter(part => !width.test(part) && !line.test(part))
+      if (widths.length > 1 || lines.length > 1 || colors.length > 1) return null
+      values = [widths[0] || 'medium', lines[0] || 'none', colors[0] || 'currentcolor']
+    }
+  }
+  return Object.fromEntries(sides.flatMap(side => ['Width', 'Style', 'Color'].map((part, index) =>
+    [`border${side}${part}`, `${values[index]}${important ? '!important' : ''}`]
+  )))
+}
 
-  const sides = BORDER_SIDES.map((side) => {
+function buildBorderOutput(style: Record<string, any>, split: boolean): Record<string, any> {
+  // 每条边独立归一化：某边未配颜色或优先级不一致，不能阻止相邻完整边使用简写。
+  const normalizedSides: Array<{ side: string; value: string; important: boolean; visible: boolean }> = []
+  BORDER_SIDES.forEach((side) => {
+    if (!['Width', 'Style', 'Color'].every(part => hasValue(style, `border${side}${part}`))) return
     const raw = [
       style[`border${side}Width`],
       style[`border${side}Style`],
       style[`border${side}Color`],
     ]
     const parsed = raw.map(parsePriority)
-    if (parsed.some(({ value }) => !value)) return null
-    if (parsed.some(({ important }) => important !== parsed[0].important)) return null
+    if (parsed.some(({ value }) => !value)) return
+    if (parsed.some(({ important }) => important !== parsed[0].important)) return
+    const cssWide = parsed.some(({ value }) => /^(initial|inherit|unset|revert|revert-layer)$/i.test(value))
+    if (cssWide && !parsed.every(({ value }) => value === parsed[0].value)) return
     const [width, borderStyle] = parsed.map(({value}) => value)
-    return {
-      value: parsed.map(({ value }) => value).join(' '),
+    normalizedSides.push({
+      side,
+      value: cssWide ? parsed[0].value : parsed.map(({ value }) => value).join(' '),
       important: parsed[0].important,
       visible:
         !/^[+-]?(?:0+(?:\.0*)?|\.0+)(?:[a-z%]+)?$/i.test(width) &&
         borderStyle !== 'none' &&
         borderStyle !== 'hidden',
-    }
+    })
   })
-  if (sides.some((side) => !side)) return null
-
-  const normalizedSides = sides as Array<{ value: string; important: boolean; visible: boolean }>
+  const output = { ...style }
   // computedStyle 会补出 0px none currentColor；全部不可见时不要生成 authored border。
-  if (normalizedSides.every((side) => !side.visible)) return null
+  if (!split && normalizedSides.length === 4 && normalizedSides.every((side) => !side.visible)) return output
   const first = normalizedSides[0]
-  if (normalizedSides.every((side) => side.value === first.value && side.important === first.important)) {
+  if (!split && normalizedSides.length === 4 && normalizedSides.every((side) => side.value === first.value && side.important === first.important)) {
     return { border: `${first.value}${first.important ? '!important' : ''}` }
   }
 
-  const output: Record<string, any> = {}
-  normalizedSides.forEach((side, index) => {
-    output[`border${BORDER_SIDES[index]}`] = `${side.value}${side.important ? '!important' : ''}`
+  normalizedSides.forEach((side) => {
+    ;['Width', 'Style', 'Color'].forEach(part => { delete output[`border${side.side}${part}`] })
+    output[`border${side.side}`] = `${side.value}${side.important ? '!important' : ''}`
   })
   return output
 }
@@ -402,49 +483,80 @@ function buildBorderOutput(style: Record<string, any>): Record<string, any> | nu
 function normalizeBorder(
   style: Record<string, any>,
   changedKeys: Set<string>,
-  deletions: string[]
+  deletions: string[],
+  split: boolean
 ) {
-  const touched = BORDER_KEYS.some((key) => changedKeys.has(key))
-  if (touched) {
-    BORDER_KEYS.forEach((key) => {
-      if (!Object.prototype.hasOwnProperty.call(style, key) || hasValue(style, key)) return
-      delete style[key]
-      addDeletion(deletions, key)
-    })
-  }
-  const output = buildBorderOutput(style)
-  if (output) {
-    replaceGroup(style, output, BORDER_KEYS, deletions)
+  if (!BORDER_KEYS.some(key => changedKeys.has(key) || hasValue(style, key))) return
+  if (changedKeys.has('border') && hasValue(style, 'border') &&
+    !BORDER_KEYS.some(key => key !== 'border' && changedKeys.has(key))) {
+    replaceGroup(style, { border: style.border }, BORDER_KEYS, deletions)
     return
   }
-
-  const borderChanged = changedKeys.has('border')
-  const detailChanged = BORDER_DETAIL_KEYS.some((key) => changedKeys.has(key))
-  if (borderChanged && hasValue(style, 'border')) {
-    BORDER_KEYS.forEach((key) => {
-      if (key === 'border') return
-      delete style[key]
-      addDeletion(deletions, key)
-    })
-  } else if (detailChanged) {
-    BORDER_SHORTHAND_KEYS.forEach((key) => {
-      delete style[key]
-      addDeletion(deletions, key)
+  const details: Record<string, any> = {}
+  const opaque: Record<string, any> = {}
+  const apply = (key: string, changed: boolean) => {
+    if (!hasValue(style, key)) {
+      if (changed) {
+        const cleared = expandBorderShorthand(key, 'initial') || {}
+        Object.keys(cleared).forEach(name => delete details[name])
+      }
+      return
+    }
+    const expanded = expandBorderShorthand(key, style[key])
+    if (!expanded) {
+      if (changed) {
+        Object.keys(expandBorderShorthand(key, 'initial') || {}).forEach(name => delete details[name])
+      }
+      opaque[key] = style[key]
+      return
+    }
+    Object.entries(expanded).forEach(([name, value]) => {
+      if (changed || !hasValue(details, name) || !parsePriority(details[name]).important || parsePriority(value).important) {
+        details[name] = value
+      }
     })
   }
+  // 先还原已有简写，再覆盖本次增量。清空某个字段时其余字段仍保留。
+  BORDER_KEYS.filter(key => !changedKeys.has(key)).forEach(key => apply(key, false))
+  Array.from(changedKeys).filter(key => BORDER_KEYS.includes(key)).forEach(key => apply(key, true))
+  const output = Object.keys(opaque).length ? { ...opaque, ...details } : buildBorderOutput(details, split)
+  // 单独配置禁止跨边压缩。未配置的字段保持缺失，不补默认值覆盖其他来源。
+  if (!split) {
+    ;['Width', 'Style', 'Color'].forEach(part => {
+      const keys = BORDER_SIDES.map(side => `border${side}${part}`)
+      if (!keys.every(key => hasValue(output, key))) return
+      const value = withCommonPriority(keys.map(key => output[key]), serializeFourValues)
+      if (!value) return
+      keys.forEach(key => delete output[key])
+      output[`border${part}`] = value
+    })
+  }
+  replaceGroup(style, output, BORDER_KEYS, deletions)
 }
 
 export function normalizeStyleShorthands(
   input: Record<string, any>,
   changes: ShorthandChangeItem[] = [],
-  clearedKeys: Set<string> = new Set()
+  clearedKeys: Set<string> = new Set(),
+  options: ShorthandNormalizeOptions = {}
 ): ShorthandNormalizeResult {
   const style = { ...(input || {}) }
   const deletions: string[] = []
   const changedKeys = new Set(changes.map(({ key }) => key))
+  const shouldNormalize = (keys: string[]) =>
+    !options.changedGroupsOnly || keys.some((key) => changedKeys.has(key))
 
-  BOX_GROUPS.forEach((group) => normalizeSimpleGroup(style, group, changedKeys, deletions, clearedKeys))
-  normalizeBorder(style, changedKeys, deletions)
+  BOX_GROUPS.forEach((group) => {
+    if (!shouldNormalize([group.shorthand, ...group.longhands])) return
+    const split = group.shorthand === 'borderRadius' && changes.some(
+      change => group.longhands.includes(change.key) && change.borderMode === 'split'
+    )
+    normalizeSimpleGroup(style, group, changedKeys, deletions, clearedKeys, split)
+  })
+  if (shouldNormalize(BORDER_KEYS)) {
+    const split = changes.some(change => BORDER_KEYS.includes(change.key) && change.borderMode === 'split')
+    normalizeBorder(style, changedKeys, deletions, split)
+  }
 
   return { style, deletions }
 }

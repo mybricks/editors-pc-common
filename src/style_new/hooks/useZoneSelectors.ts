@@ -8,11 +8,19 @@ import {
 import { elMatchesSelectorTail } from '../core/css-modules-match'
 import { toElementArray } from '../core/dom'
 import { scanPseudoSelectors } from '../core/scan-pseudo-selectors'
-import { collectZoneTabs } from '../core/zone-tab'
+import { getEffectedCssPropertyAndOptions } from '../core/get-effected-css'
+import {
+  buildZoneEffectiveStyle,
+  collectZoneTabs,
+  getZoneTabLabels,
+  mergeZoneTabsByState,
+} from '../core/zone-tab'
 import type { ZoneTab } from '../core/zone-tab'
+import { uniqBy } from 'lodash'
 
 export function useZoneSelectors(editConfig: any, targetDom: any, _open: boolean) {
   const [activeZoneIdx, setActiveZoneIdx] = useState(0)
+  const [customZoneTabs, setCustomZoneTabs] = useState<ZoneTab[]>([])
   // 用户手动点 tab 后，禁止被「按 DOM class 对齐」立刻打回基础态（:hover / 状态类等）
   const userSelectedRef = useRef(false)
 
@@ -24,6 +32,7 @@ export function useZoneSelectors(editConfig: any, targetDom: any, _open: boolean
   // 换选中元素时，恢复自动对齐
   useEffect(() => {
     userSelectedRef.current = false
+    setCustomZoneTabs([])
   }, [targetDom])
 
   const zoneTabs = useMemo<ZoneTab[]>(() => {
@@ -53,21 +62,53 @@ export function useZoneSelectors(editConfig: any, targetDom: any, _open: boolean
     const tabKeys = new Set(tabs.map((tab) => tab.selector))
     for (const pseudo of scanPseudoSelectors(baseSelectors, comId, domList)) {
       if (!tabKeys.has(pseudo) && !/:nth-child\(\d+\)$/.test(pseudo)) {
-        const baseSelector = baseSelectors.find((base) => pseudo.startsWith(base)) || pseudo
+        const baseSelector = [...baseSelectors]
+          .sort((a, b) => b.length - a.length)
+          .find((base) => pseudo.startsWith(base)) || pseudo
         tabs.push({
           selector: pseudo,
           baseSelector,
           pseudo: pseudo.slice(baseSelector.length) || null,
           sourceRules: [],
           baseRules: [],
+          effectiveStyle: {},
         })
       }
     }
     // 保持 CSSOM 命中顺序，同时把没有可读 sourceRule 的兼容 fallback 放在末尾。
     const ordered = result.map((selector) => tabs.find((tab) => tab.selector === selector)).filter(Boolean) as ZoneTab[]
     tabs.filter((tab) => !result.includes(tab.selector)).forEach((tab) => ordered.push(tab))
-    return ordered
-  }, [targetDom, comId])
+    const merged = mergeZoneTabsByState(ordered)
+    const labels = getZoneTabLabels(merged.map((tab) => tab.selector))
+    const generatedTabs = merged.map((tab, index) => {
+      const target = domList[0] as HTMLElement | undefined
+      let effectiveStyle = tab.effectiveStyle ?? {}
+      if (target) {
+        const [styleValues] = getEffectedCssPropertyAndOptions(
+          target,
+          tab.selector,
+          comId,
+          tab,
+        )
+        effectiveStyle = buildZoneEffectiveStyle(tab, styleValues as Record<string, unknown>, target)
+      }
+      return {
+        ...tab,
+        label: labels[index],
+        effectiveStyle,
+      }
+    })
+    const customTabs = customZoneTabs.map((tab) => {
+      const target = domList[0] as HTMLElement | undefined
+      if (!target) return tab
+      const [styleValues] = getEffectedCssPropertyAndOptions(target, tab.selector, comId, tab)
+      return {
+        ...tab,
+        effectiveStyle: buildZoneEffectiveStyle(tab, styleValues as Record<string, unknown>, target),
+      }
+    })
+    return uniqBy([...generatedTabs, ...customTabs].reverse(), (tab) => tab.selector).reverse()
+  }, [targetDom, comId, customZoneTabs])
 
   const zoneSelectorList = useMemo(() => zoneTabs.map((tab) => tab.selector), [zoneTabs])
 
@@ -94,7 +135,7 @@ export function useZoneSelectors(editConfig: any, targetDom: any, _open: boolean
     if (!userSelectedRef.current) {
       syncActiveIdx()
     } else {
-      setActiveZoneIdx((prev) => (prev >= zoneSelectorList.length ? 0 : prev))
+      setActiveZoneIdx((prev) => (prev >= zoneSelectorList.length ? zoneSelectorList.length - 1 : prev))
     }
 
     const observer = new MutationObserver(() => {
@@ -110,10 +151,74 @@ export function useZoneSelectors(editConfig: any, targetDom: any, _open: boolean
     setActiveZoneIdx(idx)
   }, [])
 
+  const addZoneTab = useCallback((tab: ZoneTab) => {
+    const existingIndex = zoneTabs.findIndex((item) => item.selector === tab.selector)
+    const customIndex = customZoneTabs.findIndex((item) => item.selector === tab.selector)
+    if (existingIndex >= 0) {
+      setActiveZoneIdx(existingIndex)
+      userSelectedRef.current = true
+      return
+    }
+    if (customIndex >= 0) {
+      setActiveZoneIdx(zoneTabs.length + customIndex)
+      userSelectedRef.current = true
+      return
+    }
+    setCustomZoneTabs((tabs) => {
+      return [...tabs, tab]
+    })
+    setActiveZoneIdx(uniqBy([...zoneTabs, ...customZoneTabs], (t) => t.selector).length)
+    userSelectedRef.current = true
+  }, [customZoneTabs, zoneTabs])
+
+  const deleteZoneTab = useCallback((selector: string) => {
+    const addedTab = zoneTabs.find((tab) => tab.selector === selector && tab.isAdded)
+    if (!addedTab) return
+
+    // 样式写入后 CSSOM 可能已更新，但 zoneTabs 仍被 useMemo 缓存；删除前补扫一次，
+    // 确保能拿到新增状态刚写入的 CSSStyleRule。
+    const latestTabs = collectZoneTabs(
+      toElementArray(targetDom),
+      [addedTab.baseSelector],
+      comId,
+    )
+    const styleRules = [
+      ...zoneTabs.filter((tab) => tab.selector === selector).flatMap((tab) => tab.sourceRules),
+      ...latestTabs.filter((tab) => tab.selector === selector).flatMap((tab) => tab.sourceRules),
+    ]
+    const propertiesBySelector = new Map<string, string[]>()
+
+    styleRules.forEach(({ rule, sourceSelector }) => {
+      if (!rule?.style) return
+      const writeSelector = sourceSelector || addedTab.selector
+      const properties = propertiesBySelector.get(writeSelector) || []
+      for (let index = 0; index < rule.style.length; index++) {
+        const property = rule.style.item(index)
+        if (property && !properties.includes(property)) properties.push(property)
+      }
+      if (properties.length) propertiesBySelector.set(writeSelector, properties)
+    })
+
+    propertiesBySelector.forEach((properties, sourceSelector) => {
+      try {
+        // 宿主通过 side-channel 区分「删除声明」和「写入空对象」。
+        ;(window as any).__mybricks_style_deletions = properties
+        editConfig.value.set({}, { selector: sourceSelector })
+      } finally {
+        ;(window as any).__mybricks_style_deletions = null
+      }
+    })
+
+    setCustomZoneTabs((tabs) => tabs.filter((tab) => tab.selector !== selector))
+    userSelectedRef.current = true
+  }, [comId, editConfig, targetDom, zoneTabs])
+
   return {
     zoneSelectorList,
     zoneTabs,
     activeZoneIdx,
     setActiveZoneIdx: setActiveZoneIdxByUser,
+    addZoneTab,
+    deleteZoneTab,
   }
 }

@@ -1,6 +1,7 @@
-import React, { CSSProperties, useCallback, useEffect, useRef, useState } from 'react'
+import React, { CSSProperties, useCallback, useEffect, useRef, useState, KeyboardEvent } from 'react'
 
 import { Panel, ClearButton } from '../../components'
+import { useEffectiveStyleValue, useStyleChange } from '../../context'
 
 import type { ChangeEvent, PanelBaseProps } from '../../type'
 import css from './index.less'
@@ -13,14 +14,15 @@ interface ZIndexProps extends PanelBaseProps {
   onChange: ChangeEvent
 }
 
-export function ZIndex({ value, onChange, config, showTitle, collapse }: ZIndexProps) {
+export function ZIndex({ value: _value, onChange: fallbackOnChange, config, showTitle, collapse }: ZIndexProps) {
+  const value = useEffectiveStyleValue() as CSSProperties
+  const onChange = useStyleChange(fallbackOnChange)
   const rawValue = value?.zIndex
   const [localValue, setLocalValue] = useState(rawValue != null ? String(rawValue) : '')
   const isEditingRef = useRef(false)
   const numericValue = rawValue == null ? null : Number(rawValue)
   const [optimisticPreset, setOptimisticPreset] = useState<number | null>(null)
   const optimisticBaseValueRef = useRef<number | null>(numericValue)
-
   useEffect(() => {
     if (optimisticPreset == null) return
     const isConfirmed = numericValue === optimisticPreset
@@ -48,30 +50,36 @@ export function ZIndex({ value, onChange, config, showTitle, collapse }: ZIndexP
     isEditingRef.current = true
   }, [])
 
-  // onChange 处理键盘输入 + 原生 spinner 点击（type="number" 的步进箭头）
+  // 只更新本地状态，失焦或 Enter 才提交
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setOptimisticPreset(null)
-    const val = e.target.value
-    setLocalValue(val)
-    const num = parseInt(val, 10)
-    if (!isNaN(num)) {
-      onChange({ key: 'zIndex', value: num })
-    }
-  }, [onChange])
+    setLocalValue(e.target.value)
+  }, [])
 
-  const handleBlur = useCallback((e: React.FocusEvent<HTMLInputElement>) => {
-    setOptimisticPreset(null)
+  const commitValue = useCallback((val: string) => {
     isEditingRef.current = false
-    const val = e.target.value.trim()
-    if (!val) {
+    const trimmed = val.trim()
+    if (!trimmed) {
       onChange({ key: 'zIndex', value: null })
       setLocalValue('')
     } else {
-      const num = parseInt(val, 10)
+      const num = parseInt(trimmed, 10)
       onChange({ key: 'zIndex', value: isNaN(num) ? null : num })
       setLocalValue(isNaN(num) ? '' : String(num))
     }
   }, [onChange])
+
+  const handleKeyDown = useCallback((e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      commitValue((e.target as HTMLInputElement).value)
+      ;(e.target as HTMLInputElement).blur()
+    }
+  }, [commitValue])
+
+  const handleBlur = useCallback((e: React.FocusEvent<HTMLInputElement>) => {
+    setOptimisticPreset(null)
+    commitValue(e.target.value)
+  }, [commitValue])
 
   const setPreset = useCallback((preset: number) => {
     isEditingRef.current = false
@@ -120,6 +128,7 @@ export function ZIndex({ value, onChange, config, showTitle, collapse }: ZIndexP
             onChange={handleChange}
             onFocus={handleFocus}
             onBlur={handleBlur}
+            onKeyDown={handleKeyDown}
             style={{
               flex: '1 1 auto',
               width: 'auto',

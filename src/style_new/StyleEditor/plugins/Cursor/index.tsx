@@ -1,6 +1,7 @@
 import React, { CSSProperties, useCallback, useEffect, useState } from 'react'
 
 import { Panel, Select } from '../../components'
+import { useEffectiveStyleValue, useStyleChange } from '../../context'
 
 import type { ChangeEvent, PanelBaseProps } from '../../type'
 
@@ -21,9 +22,11 @@ const CURSOR_OPTIONS = [
 // tooltip 内容过长时做截断，避免超长 dataURI 把浮层撑爆
 const MAX_TIP_LENGTH = 300
 
-export function Cursor ({value, onChange, config, showTitle, collapse}: CursorProps) {
+export function Cursor ({onChange: fallbackOnChange, config, showTitle, collapse}: CursorProps) {
   const [forceRenderKey, setForceRenderKey] = useState<number>(Math.random())
   const [isReset, setIsReset] = useState(false)
+  const value = useEffectiveStyleValue() as CSSProperties
+  const onChange = useStyleChange(fallbackOnChange)
 
   const cursorValue = value?.cursor
   // 自定义光标（如 cursor: url("data:image/svg+xml;base64,...") ...）不在预置选项中，

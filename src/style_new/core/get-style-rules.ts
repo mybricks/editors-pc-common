@@ -78,6 +78,30 @@ function lastClassTokenMatches(rulePart: string, selectorLastToken: string): boo
   return !!selClass && classMatchesShortName(ruleClass, selClass)
 }
 
+/**
+ * 判断 selector 是否命中当前元素或它的任意祖先。
+ * 父级 hover 规则（如 `.card:hover { color: red }`）不会直接命中子元素，
+ * 但它的可继承属性仍会进入子元素的最终计算值。
+ */
+function matchesElementOrAncestor(element: HTMLElement, selector: string): boolean {
+  try {
+    if (element.matches(selector)) return true
+  } catch {
+    return false
+  }
+
+  let ancestor = element.parentElement
+  while (ancestor) {
+    try {
+      if (ancestor.matches(selector)) return true
+    } catch {
+      return false
+    }
+    ancestor = ancestor.parentElement
+  }
+  return false
+}
+
 /** 状态类场景下，单分支是否命中 lastSeg（含 CSS Modules / 复合类） */
 function statePartMatchesLastSeg(
   part: string,
@@ -169,19 +193,24 @@ export function getStyleRules (
         // 需把父级 :hover 规则纳入并标记 inheritOnly。
         if (isPseudoSelector && hasRealDom) {
           // 逗号合并（如 ".a:hover, .a:focus"）由 someSelectorPart 统一拆分后再取伪类
-          const matched = someSelectorPart(selectorText, (part) => {
+          const matchesPseudoPart = (part: string, includeAncestors: boolean): boolean => {
             const rulePseudoMatch = part.match(PSEUDO_REGEX)
             const rulePseudo = rulePseudoMatch ? rulePseudoMatch[0] : null
             if (rulePseudo !== selectorPseudo) return false
             const ruleBase = part.slice(0, part.length - (rulePseudo?.length ?? 0)).trim()
             try {
-              return element.matches(ruleBase)
+              if (element.matches(ruleBase)) return true
             } catch {
               return false
             }
-          })
+            return includeAncestors && selectorPseudo === ':hover' && matchesElementOrAncestor(element, ruleBase)
+          }
+          const directMatch = someSelectorPart(selectorText, (part) => matchesPseudoPart(part, false))
+          const matched = directMatch || someSelectorPart(selectorText, (part) => matchesPseudoPart(part, true))
           if (matched) {
             finalRules.push(rule)
+            // 当前元素自身的规则可以贡献全部属性；祖先规则只贡献 CSS 可继承属性。
+            if (!directMatch) inheritOnlyRules.add(rule)
             continue
           }
           // 情况1.5：末尾段是纯标签名时的父级伪类兜底

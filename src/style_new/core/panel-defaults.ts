@@ -35,10 +35,6 @@ export const getDefaultValueFunctionMap = {
       borderBottomColor: values.borderBottomColor,
       borderRightColor: values.borderRightColor,
       borderLeftColor: values.borderLeftColor,
-      borderTopLeftRadius: values.borderTopLeftRadius,
-      borderTopRightRadius: values.borderTopRightRadius,
-      borderBottomRightRadius: values.borderBottomRightRadius,
-      borderBottomLeftRadius: values.borderBottomLeftRadius,
       borderTopStyle: values.borderTopStyle,
       borderBottomStyle: values.borderBottomStyle,
       borderRightStyle: values.borderRightStyle,
@@ -53,6 +49,15 @@ export const getDefaultValueFunctionMap = {
       backgroundImage: values.backgroundImage,
       backgroundOrigin: values.backgroundOrigin,
       backgroundClip: values.backgroundClip
+    }
+  },
+  'border-radius'(values: CSSProperties, config: any) {
+    return {
+      borderTopLeftRadius: values.borderTopLeftRadius,
+      borderTopRightRadius: values.borderTopRightRadius,
+      borderBottomRightRadius: values.borderBottomRightRadius,
+      borderBottomLeftRadius: values.borderBottomLeftRadius,
+      borderRadius: values.borderRadius,
     }
   },
   background(values: CSSProperties, config: any) {
@@ -208,10 +213,6 @@ export const getDefaultValueFunctionMap2 = {
       borderBottomColor: '',
       borderRightColor: '',
       borderLeftColor: '',
-      borderTopLeftRadius: '0px',
-      borderTopRightRadius: '0px',
-      borderBottomRightRadius: '0px',
-      borderBottomLeftRadius: '0px',
       borderTopStyle: 'none',
       borderBottomStyle: 'none',
       borderRightStyle: 'none',
@@ -225,6 +226,15 @@ export const getDefaultValueFunctionMap2 = {
       backgroundImage: 'none',
       backgroundOrigin: '',
       backgroundClip: ''
+    }
+  },
+  'border-radius'() {
+    return {
+      borderTopLeftRadius: '0px',
+      borderTopRightRadius: '0px',
+      borderBottomRightRadius: '0px',
+      borderBottomLeftRadius: '0px',
+      borderRadius: '',
     }
   },
   background() {

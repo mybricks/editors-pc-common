@@ -1,27 +1,30 @@
 import React, { useMemo } from 'react'
+import { Button, Dropdown, Menu } from 'antd'
+import { CloseOutlined, PlusOutlined } from '@ant-design/icons'
 
 import css from './index.less'
 
 const PSEUDO_TAIL_RE = /(:{1,2}[a-zA-Z\-]+(?:\([^)]*\))?)$/
-
-function shortenClassLabel(rawLabel: string): string {
-  // 若复合类中含有 CSS Modules 哈希类名（形如 "pages_xxx--cyan"），
-  // 只显示哈希类名中 '--' 之后的原始部分（如 "cyan"），避免超长显示
-  const classes = rawLabel.split('.')
-  const hashedClasses = classes.filter((cls) => cls.includes('--'))
-  return hashedClasses.length > 0
-    ? hashedClasses.map((cls) => cls.slice(cls.lastIndexOf('--') + 2)).join('.')
-    : rawLabel
-}
 
 function getZoneTabLabel(selector: string): string {
   const parts = selector.trim().split(/\s+/)
   const lastPart = parts[parts.length - 1]
   // 含伪类的选择器只显示伪类部分（如 ":hover"），基础态选择器保持原逻辑
   const pseudoMatch = lastPart.match(PSEUDO_TAIL_RE)
-  if (pseudoMatch) return pseudoMatch[1]
+  if (pseudoMatch) {
+    const pseudoLabels: Record<string, string> = {
+      ':hover': '悬浮态',
+      ':focus': '聚焦态',
+      ':focus-visible': '键盘聚焦态',
+      ':active': '激活态',
+      ':disabled': '禁用态',
+      '::before': '前缀元素',
+      '::after': '后缀元素',
+    }
+    return pseudoLabels[pseudoMatch[1]] || pseudoMatch[1]
+  }
 
-  return shortenClassLabel(lastPart.replace(/^\./, ''))
+  return '常规'
 }
 
 /** 伪类标签带上基础类名，如 aiChat-inputArea::placeholder */
@@ -31,9 +34,7 @@ function getDisambiguatedZoneTabLabel(selector: string): string {
   const pseudoMatch = lastPart.match(PSEUDO_TAIL_RE)
   if (!pseudoMatch) return getZoneTabLabel(selector)
 
-  const base = lastPart.slice(0, -pseudoMatch[1].length).replace(/^\./, '')
-  if (!base) return pseudoMatch[1]
-  return `${shortenClassLabel(base)}${pseudoMatch[1]}`
+  return getZoneTabLabel(selector)
 }
 
 /**
@@ -41,13 +42,7 @@ function getDisambiguatedZoneTabLabel(selector: string): string {
  * 例：.aiChat-inputArea textarea / .inputArea textarea → "aiChat-inputArea textarea" / "inputArea textarea"
  */
 function getDisambiguatedBaseLabel(selector: string): string {
-  const parts = selector.trim().split(/\s+/)
-  const lastPart = parts[parts.length - 1] || ''
-  const self = shortenClassLabel(lastPart.replace(/^\./, ''))
-  if (parts.length < 2) return self
-  const parent = shortenClassLabel(parts[parts.length - 2].replace(/^\./, ''))
-  if (!parent) return self
-  return `${parent} ${self}`
+  return getZoneTabLabel(selector)
 }
 
 function isPseudoSelector(selector: string): boolean {
@@ -83,11 +78,28 @@ function getZoneTabLabels(selectors: string[]): string[] {
 
 export function ZoneTabBar(props: {
   selectors: string[]
+  labels?: string[]
   activeIdx: number
   onSelect: (idx: number) => void
+  onAdd?: (type: string) => void
+  addOptions?: Array<{ key: string; label: string }>
+  deletableSelectors?: string[]
+  onDelete?: (selector: string) => void
 }) {
-  const { selectors, activeIdx, onSelect } = props
-  const labels = useMemo(() => getZoneTabLabels(selectors), [selectors])
+  const {
+    selectors,
+    labels: providedLabels,
+    activeIdx,
+    onSelect,
+    onAdd,
+    addOptions = [],
+    deletableSelectors = [],
+    onDelete,
+  } = props
+  const labels = useMemo(
+    () => providedLabels ?? getZoneTabLabels(selectors),
+    [providedLabels, selectors]
+  )
 
   return (
     <div className={css.zoneTabBar}>
@@ -97,9 +109,43 @@ export function ZoneTabBar(props: {
           className={`${css.zoneTab}${idx === activeIdx ? ` ${css.zoneTabActive}` : ''}`}
           onClick={() => onSelect(idx)}
         >
-          {labels[idx]}
+          <span>{labels[idx]}</span>
+          {onDelete && deletableSelectors.includes(sel) && (
+            <button
+              className={css.zoneTabDelete}
+              type="button"
+              aria-label={`删除${labels[idx]}`}
+              onClick={(event) => {
+                event.stopPropagation()
+                onDelete(sel)
+              }}
+            >
+              <CloseOutlined />
+            </button>
+          )}
         </div>
       ))}
+      {onAdd && addOptions.length > 0 && (
+        <Dropdown
+          trigger={['click']}
+          overlayClassName={css.zoneTabDropdown}
+          overlay={
+            <Menu onClick={({ key }) => onAdd(String(key))}>
+              {addOptions.map((option) => (
+                <Menu.Item key={option.key}>{option.label}</Menu.Item>
+              ))}
+            </Menu>
+          }
+        >
+          <Button
+            className={css.zoneTabAdd}
+            type="text"
+            size="small"
+            icon={<PlusOutlined />}
+            aria-label="新增状态"
+          />
+        </Dropdown>
+      )}
     </div>
   )
 }

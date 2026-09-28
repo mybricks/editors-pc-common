@@ -49,7 +49,17 @@ export function scanPseudoSelectors(
     const base = part.slice(0, part.length - pseudo.length).trim()
     return targetElements.some((el) => {
       try {
-        return fromParent ? !!el.parentElement?.closest(base) : el.matches(base)
+        if (!fromParent) return el.matches(base)
+
+        // 父级 hover 可能来自任意祖先层级，例如：
+        // .card:hover .panel .toolbar .delete
+        // 这里沿祖先链查找，而不是只检查直接父元素。
+        let ancestor = el.parentElement
+        while (ancestor) {
+          if (ancestor.matches(base)) return true
+          ancestor = ancestor.parentElement
+        }
+        return false
       } catch {
         return false
       }
@@ -94,39 +104,33 @@ export function scanPseudoSelectors(
           escapeRegExp(comId) + '.*' + segmentPattern + PSEUDO_SUFFIX_PATTERN
         )
         // 逗号合并选择器由 forEachSelectorPart 统一拆分；否则 $ 锚定只会命中末段伪类
-        let matchedSelf = false
         forEachSelectorPart(selectorText, (part) => {
           const match = part.match(regex)
           if (match && matchesTarget(part, match[1])) {
             pseudoMap.get(sel)!.add(match[1])
-            matchedSelf = true
           }
         })
-        if (matchedSelf) continue
 
-        // ── 父级伪类兜底 ──────────────────────────────────────────────────────
-        // 场景：sel 末尾是纯 HTML 标签名（如 "span"），自身没有 :hover 规则，
-        // 但父级选择器（如 ".actionItem"）有 :hover 规则，子元素会继承其样式。
-        // 此时也应为 sel 生成 hover tab，让用户能感知/覆盖继承值。
-        // 判断条件：lastSegment 无 . # : 前缀（纯标签名），
-        //           且样式表中存在 comId 作用域内、以父级末尾段+伪类结尾的规则。
-        const lastSegIsTag = /^[a-z][a-zA-Z0-9]*$/.test(lastSegment)
-        if (lastSegIsTag) {
-          const segments = sel.trim().split(/\s+/)
-          if (segments.length >= 2) {
-            const parentLastSeg = segments[segments.length - 2]
-            const parentSegPattern = classSegmentPattern(parentLastSeg)
-            const parentPseudoRegex = new RegExp(
-              escapeRegExp(comId) + '.*' + parentSegPattern + PSEUDO_SUFFIX_PATTERN
-            )
-            forEachSelectorPart(selectorText, (part) => {
-              const parentMatch = part.match(parentPseudoRegex)
-              if (parentMatch && matchesTarget(part, parentMatch[1], true)) {
-                pseudoMap.get(sel)!.add(parentMatch[1])
-              }
-            })
+        // ── 多层父级伪类兜底 ──────────────────────────────────────────────────
+        // 场景：样式直接写在任意祖先上，例如：
+        // .card:hover { color: red; }
+        // .card:hover .panel:hover { color: blue; }
+        // 这些规则虽然没有把目标元素写在 selector 末尾，但它们可能通过
+        // CSS 继承或后代结构影响当前目标。把它们也归入同一个悬浮态集合，
+        // 后续由现有的有效样式计算和级联逻辑决定最终值。
+        const ancestorPseudoRegex = new RegExp(
+          escapeRegExp(comId) + '.*' + PSEUDO_SUFFIX_PATTERN
+        )
+        forEachSelectorPart(selectorText, (part) => {
+          const ancestorMatch = part.match(ancestorPseudoRegex)
+          if (
+            ancestorMatch &&
+            ancestorMatch[1] === ':hover' &&
+            matchesTarget(part, ancestorMatch[1], true)
+          ) {
+            pseudoMap.get(sel)!.add(ancestorMatch[1])
           }
-        }
+        })
       }
     }
   }

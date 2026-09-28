@@ -1,6 +1,6 @@
 import { deepCopy } from '../../utils'
 import { mergeCSSProperties } from '../StyleEditor/helper'
-import { preservePaintRoles } from '../StyleEditor/helper/paint-stack'
+import { decomposeBackgroundStack, preservePaintRoles } from '../StyleEditor/helper/paint-stack'
 import { PANEL_MAP } from './panel-defaults'
 import { findCascadeWinnerDetail } from './cascade-winner'
 import { toLine } from './css-code-codec'
@@ -11,14 +11,28 @@ import {
   overlayNormalizedShorthands,
 } from './shorthand-normalizer'
 import { isTextFillActive } from '../StyleEditor/helper/text-fill'
-import {
-  resolveZoneFallbackSelector,
-  resolveZoneDeletionTarget,
-  resolveZonePropertySelector,
-} from './zone-tab'
+import { resolveZoneDeletionTarget, splitZoneSelectorState } from './zone-tab'
 import type { ZoneTab } from './zone-tab'
+import {
+  collectStyleSourceCandidates, createBatchStyleClearPlans, createStyleClearPlan,
+  cssPropertyName, getStyleResolution,
+  hasFallbackStyleCandidate, readInlineStyleProperties, readStaticInlineStyleInfo, resolveEffectiveStyleSource,
+} from './style-property'
+import type { StyleClearPlan, StyleResolution } from './style-property'
+import { getShorthandFamily, STYLE_SHORTHANDS, stylePropertyKey } from './style-shorthand-groups'
+import { BOX_SPACING_KEYS, createSpacingWritePlans, getBoxSpacingProperty, getBoxSpacingSideClearKeys } from './box-spacing'
+import { createStyleWriteTargetResolver } from './style-write-target'
+import type { StyleWriteTarget } from './style-write-target'
+import { BORDER_DETAIL_KEYS, BORDER_RADIUS_KEYS, createBorderRadiusWritePlans, createBorderWritePlans, isBorderProperty, isBorderRadiusProperty } from './border-write'
+import { createOverflowWritePlans, isOverflowProperty } from './overflow'
 
-export type StyleChangeItem = { key: string; value: any }
+export type StyleChangeItem = {
+  key: string
+  value: any
+  intent?: 'clear-effective-style' | 'set-effective-style'
+  target?: 'current-rule'
+  borderMode?: 'all' | 'split'
+}
 
 type StyleWriteGroup = {
   style: Record<string, any>
@@ -32,6 +46,416 @@ export type ZoneWriteTarget = {
 
 const IMPORTANT_SUFFIX_RE = /!important\s*$/i
 const HOVER_SELECTOR_RE = /:hover\s*$/
+const INLINE_STYLE_LABEL = 'inline'
+const EXPLICIT_STYLE_SELECTOR_KEY = '__mybricks_style_explicit_selector'
+
+/**
+ * DOM 重编译后编辑器可能暂时仍持有已断开的旧节点，宿主此时会把 value.set 的
+ * selector options 回退成面板原 selector。用同步 side-channel 保留公共规划层已经
+ * 确定的实际写入目标；styleProxy 会优先读取它。嵌套调用结束后恢复原值。
+ */
+function withExplicitStyleSelector<T>(selector: string, write: () => T): T {
+  const scope = window as any
+  const hadPrevious = Object.prototype.hasOwnProperty.call(scope, EXPLICIT_STYLE_SELECTOR_KEY)
+  const previous = scope[EXPLICIT_STYLE_SELECTOR_KEY]
+  scope[EXPLICIT_STYLE_SELECTOR_KEY] = selector
+  try {
+    return write()
+  } finally {
+    if (hadPrevious) scope[EXPLICIT_STYLE_SELECTOR_KEY] = previous
+    else delete scope[EXPLICIT_STYLE_SELECTOR_KEY]
+  }
+}
+
+type StyleRemovalGroup = StyleWriteGroup & { selector: string }
+export type StyleRemovalPlan = {
+  groups: StyleRemovalGroup[]
+  canClear: boolean
+  disabledReason?: string
+}
+
+const BACKGROUND_INITIAL_VALUES: Record<string, string[]> = {
+  backgroundColor: ['transparent', 'rgba(0, 0, 0, 0)'],
+  backgroundImage: ['none'],
+  backgroundSize: ['auto', 'auto auto'],
+  backgroundPosition: ['0% 0%', '0px 0px'],
+  backgroundRepeat: ['repeat', 'repeat repeat'],
+  backgroundOrigin: ['padding-box'],
+  backgroundClip: ['border-box'],
+  backgroundAttachment: ['scroll'],
+}
+
+/**
+ * 取消配置与 clear-effective-style 共用级联保护：存在后备来源时写 unset，
+ * 没有后备来源时才删除当前声明；简写删除必须同源安全拆分。
+ * 预检与执行共用此计划，面板不需要理解 selector、简写或 JSX 写入限制。
+ */
+export function createStyleRemovalPlan(
+  keys: readonly string[], resolution: StyleResolution, target: HTMLElement | null,
+  liveStyle: Record<string, any> = {}
+): StyleRemovalPlan {
+  const blocked = (disabledReason: string): StyleRemovalPlan => ({ groups: [], canClear: false, disabledReason })
+  const requested = new Set(keys.flatMap(key => {
+    const property = cssPropertyName(key)
+    return (STYLE_SHORTHANDS[property] || [property]).map(stylePropertyKey)
+  }))
+  const backgroundKeys = STYLE_SHORTHANDS.background.map(stylePropertyKey)
+  if (backgroundKeys.some(key => requested.has(key))) {
+    const effective = { ...liveStyle }
+    ;[...backgroundKeys, 'WebkitBackgroundClip'].forEach(key => {
+      const winner = resolution.get(key).winner
+      if (winner) effective[key] = winner.value
+    })
+    const stack = decomposeBackgroundStack(effective)
+    if (stack.textLayer || stack.borderLayer) return blocked('背景与文字渐变或渐变边框共用图层，暂不支持直接删除')
+    // var()/env() 简写可能没有可读的 longhand，不能把它当作“没有配置”。
+    if (resolution.get('background').winner?.currentState &&
+      backgroundKeys.some(key => requested.has(key) && !resolution.get(key).winner)) {
+      return blocked('背景简写无法安全拆分，请在源码中调整')
+    }
+  }
+  const groups = new Map<string, StyleRemovalGroup>()
+  const inlineProperties = readInlineStyleProperties(target)
+  const wholeFamilies = Object.keys(STYLE_SHORTHANDS).filter(name =>
+    STYLE_SHORTHANDS[name].every(property => requested.has(stylePropertyKey(property)))
+  )
+  // flex: var(--flex) 或刚写入的简写可能暂时没有 longhand；整组删除不需要拆值。
+  const shorthandOnly = wholeFamilies.filter(name =>
+    STYLE_SHORTHANDS[name].every(property => !resolution.get(property).winner)
+  ).map(stylePropertyKey)
+  // 调用方明确提交整个简写族（如 flex + 三个 longhand）时，优先中和简写本身。
+  // 否则逐个 longhand 写 unset 会留下原 flex 声明，也会把一条配置膨胀成多条。
+  const handledKeys = new Set<string>()
+  const explicitProperties = new Set(keys.map(cssPropertyName))
+  const explicitWholeFamilies = wholeFamilies.filter(name => explicitProperties.has(name))
+  for (const family of explicitWholeFamilies) {
+    if (handledKeys.has(stylePropertyKey(family))) continue
+    const property = resolution.get(family)
+    if (family === 'border') {
+      const familyKeys = getShorthandFamily(family).map(stylePropertyKey)
+      const inlineKeys = familyKeys.filter(key => inlineProperties.has(cssPropertyName(key)))
+      const winners = BORDER_DETAIL_KEYS.map(key => resolution.get(key).winner)
+        .filter(winner => winner?.currentState)
+      const hasInlineBorder = winners.some(winner => winner!.inline) ||
+        (property.winner?.currentState && property.winner.inline)
+      const hasClassBorder = familyKeys.some(key => resolution.get(key).candidates.some(candidate => !candidate.inline))
+      const alreadyUnset = inlineKeys.length === 1 && inlineKeys[0] === 'border' && property.clearPlan.action === 'noop'
+      // 减号清除整个边框，与统一/单边模式无关；用一条 unset 替换内联属性族。
+      // important 仍按原有逐属性规则预检，JSX 无法写入 unset !important。
+      if (hasInlineBorder && hasClassBorder && !alreadyUnset &&
+        !property.winner?.important && !winners.some(winner => winner!.important)) {
+        const group = groups.get(INLINE_STYLE_LABEL) || { selector: INLINE_STYLE_LABEL, style: {}, deletions: [] }
+        group.style.border = 'unset'
+        group.deletions.push(...inlineKeys.filter(key => key !== 'border'))
+        groups.set(INLINE_STYLE_LABEL, group)
+        familyKeys.forEach(key => handledKeys.add(key))
+        continue
+      }
+    }
+    const winner = property.winner
+    if (!winner?.currentState) continue
+    // CSSOM 会把独立长写合成简写；内联只能原位改写 JSX 中真正存在的声明。
+    if (winner.inline && !inlineProperties.has(family)) continue
+    if (property.clearPlan.action === 'noop') {
+      getShorthandFamily(family).forEach(name => handledKeys.add(stylePropertyKey(name)))
+      continue
+    }
+    const hasFamilyFallback = hasFallbackStyleCandidate(property) ||
+      STYLE_SHORTHANDS[family].some(key => hasFallbackStyleCandidate(resolution.get(key)))
+    if (!hasFamilyFallback) continue
+    const plan = property.clearPlan
+    if (plan.action === 'unsupported') return blocked(plan.reason)
+    if (plan.action !== 'write-unset' && plan.action !== 'delete') return blocked('无法安全屏蔽后备样式来源')
+    const group = groups.get(plan.selector) || { selector: plan.selector, style: {}, deletions: [] }
+    group.style[plan.key] = winner.important ? 'unset !important' : 'unset'
+    // 同组的内联长写仍会覆盖简写，整组清除时一并中和。
+    if (winner.inline) getShorthandFamily(family).forEach(name => {
+      if (name !== family && inlineProperties.has(name)) group.style[stylePropertyKey(name)] = 'unset'
+    })
+    groups.set(plan.selector, group)
+    getShorthandFamily(family).forEach(name => handledKeys.add(stylePropertyKey(name)))
+  }
+  // 显式转数组，避免宿主降级编译时把 Set/Map 迭代器当作数组而跳过循环。
+  for (const key of Array.from(new Set([...Array.from(requested), ...shorthandOnly]))) {
+    if (handledKeys.has(key)) continue
+    const property = resolution.get(key)
+    const winner = property.winner
+    if (!winner?.currentState) continue
+    if (property.clearPlan.action === 'noop') continue
+    if (hasFallbackStyleCandidate(property)) {
+      const plan = property.clearPlan
+      if (plan.action === 'unsupported') return blocked(plan.reason)
+      if (plan.action !== 'write-unset') return blocked('无法安全屏蔽后备样式来源')
+      const group = groups.get(plan.selector) || { selector: plan.selector, style: {}, deletions: [] }
+      group.style[key] = plan.value
+      groups.set(plan.selector, group)
+      continue
+    }
+    if (!winner.label) return blocked('找不到可删除的样式来源')
+    const selector = winner.label
+    const group = groups.get(selector) || { selector, style: {}, deletions: [] }
+    groups.set(selector, group)
+    const family = wholeFamilies.find(name =>
+      name === cssPropertyName(key) || STYLE_SHORTHANDS[name].includes(cssPropertyName(key))
+    )
+    if (family) {
+      group.deletions.push(...getShorthandFamily(family).map(stylePropertyKey))
+      continue
+    }
+    const sameSource = (name: string) => resolution.get(name).candidates.filter(candidate =>
+      candidate.currentState && candidate.label === selector
+    )
+    const fromBackground = backgroundKeys.includes(key) && (
+      sameSource('background').length > 0 ||
+      backgroundKeys.some(name => sameSource(name).some(candidate => candidate.property === 'background'))
+    )
+    if (!fromBackground) {
+      if (winner.property !== cssPropertyName(key)) return blocked('此简写暂不支持局部删除')
+      group.deletions.push(key)
+      continue
+    }
+    // 同 selector 的多条规则无法通过当前宿主协议分别拆写，禁止混合它们的值。
+    const sources = new Set(backgroundKeys.flatMap(name => sameSource(name).map(candidate => candidate.source?.rule)))
+    if (sources.size > 1) return blocked('同一 selector 存在多条背景规则，无法安全拆分')
+    const preserved: Record<string, string> = {}
+    for (const name of backgroundKeys) {
+      const candidate = resolveEffectiveStyleSource(sameSource(name))
+      if (!candidate) return blocked('背景简写无法安全拆分，请在源码中调整')
+      if (!requested.has(name) || resolution.get(name).winner?.label !== selector) {
+        preserved[name] = `${candidate.value}${candidate.important ? ' !important' : ''}`
+      }
+    }
+    // 纯色简写/最后一层图片没有剩余图片时，不留下简写自动补出的默认配套声明。
+    const hasImage = preserved.backgroundImage && !/^none(?:\s*!important)?$/i.test(preserved.backgroundImage)
+    if (!hasImage) Object.keys(preserved).forEach(name => {
+      const raw = preserved[name].replace(IMPORTANT_SUFFIX_RE, '').trim().toLowerCase()
+      if (BACKGROUND_INITIAL_VALUES[name]?.includes(raw)) delete preserved[name]
+    })
+    Object.assign(group.style, preserved)
+    group.deletions.push('background', ...backgroundKeys)
+  }
+  for (const group of Array.from(groups.values())) {
+    const requestedInlineDeletion = group.deletions.length > 0
+    group.deletions = Array.from(new Set(group.deletions)).filter(key => !(key in group.style))
+    if (group.selector === INLINE_STYLE_LABEL) {
+      // 仅删除真实 JSX 属性；不能要求 CSSOM 展开的子属性都有源码范围。
+      group.deletions = group.deletions.filter(key => inlineProperties.has(cssPropertyName(key)))
+      const rewritingBorder = group.style.border === 'unset' && group.deletions.some(isBorderProperty)
+      if ((requestedInlineDeletion && !group.deletions.length) ||
+        group.deletions.some(key => !readStaticInlineStyleInfo(target, key, true)) ||
+        Object.keys(group.style).some(key => {
+          if (rewritingBorder && key === 'border' && !inlineProperties.has('border')) return false
+          return !readStaticInlineStyleInfo(target, key, rewritingBorder)
+        }) ||
+        Object.values(group.style).some(value => IMPORTANT_SUFFIX_RE.test(String(value)))) {
+        return blocked('动态 JSX 或缺少源码范围，无法安全删除/拆分')
+      }
+    } else if (!splitZoneSelectorState(group.selector).pseudo &&
+      [...group.deletions, ...Object.keys(group.style)].some(key => inlineProperties.has(cssPropertyName(key)))) {
+      return blocked('同名 JSX 样式会改变写入目标，无法安全删除')
+    }
+  }
+  return { groups: Array.from(groups.values()), canClear: groups.size > 0 }
+}
+
+function applyStyleRemoval(
+  plan: StyleRemovalPlan, liveStyle: Record<string, any>, resolution: StyleResolution,
+  target: HTMLElement | null, editConfig: any, zoneWriteTargets?: Map<string, ZoneWriteTarget>
+): ApplyStyleChangeResult {
+  if (plan.disabledReason) return { nextLiveStyle: liveStyle, applied: false, clearApplied: false, clearUnsupported: true }
+  const nextLiveStyle = { ...liveStyle }
+  const touched = new Set<string>()
+  plan.groups.forEach(({ selector, style, deletions }) => {
+    try {
+      ;(window as any).__mybricks_style_deletions = Object.keys(style).length ? deletions : null
+      withExplicitStyleSelector(selector, () => {
+        if (!Object.keys(style).length) {
+          editConfig.value.set(Object.fromEntries(deletions.map(key => [key, null])), { selector })
+        } else {
+          const usePreview = (editConfig.value.getBatchMeta?.()?.enabled ||
+            (!!target && !target.getAttribute('data-zone-selector'))) && !!editConfig.value.previewBatch
+          if (usePreview) editConfig.value.previewBatch(style, { selector })
+          else editConfig.value.set(style, { selector })
+        }
+      })
+    } finally {
+      ;(window as any).__mybricks_style_deletions = null
+    }
+    deletions.forEach(key => {
+      getShorthandFamily(cssPropertyName(key)).forEach(property => touched.add(stylePropertyKey(property)))
+      resolution.record(key, null, selector)
+      if (selector === INLINE_STYLE_LABEL) target?.style.removeProperty(cssPropertyName(key))
+    })
+    Object.entries(style).forEach(([key, value]) => {
+      touched.add(key)
+      resolution.record(key, value, selector)
+      if (selector === INLINE_STYLE_LABEL) target?.style.setProperty(cssPropertyName(key), String(value))
+    })
+    console.log('[样式编辑][取消配置]', { selector, 删除: deletions, 写入: style })
+  })
+  // 先完成所有删除/拆分，再按真实剩余来源刷新，避免清掉刚保留的兄弟属性。
+  touched.forEach(key => {
+    zoneWriteTargets?.delete(key)
+    const winner = resolution.get(key).winner
+    if (winner?.currentState) nextLiveStyle[key] = `${winner.value}${winner.important ? ' !important' : ''}`
+    else delete nextLiveStyle[key]
+  })
+  return { nextLiveStyle, applied: plan.canClear, clearApplied: plan.canClear, clearUnsupported: false }
+}
+
+function removeClearedLiveStyleKeys(style: Record<string, any>, key: string) {
+  getShorthandFamily(cssPropertyName(key)).forEach(property => delete style[stylePropertyKey(property)])
+}
+
+type StyleWriteLogContext = {
+  targetDom: HTMLElement | null
+  activeZoneTab: ZoneTab | null
+  zoneTabs: ZoneTab[]
+  deletion?: boolean
+  skipped?: boolean
+}
+
+type StyleOperationLogParams = {
+  key: string
+  value: any
+  action: '写入' | '清空'
+  candidates: ReturnType<typeof collectStyleSourceCandidates>
+  winner: ReturnType<typeof resolveEffectiveStyleSource>
+  writeSelectors: string[]
+  skipped?: boolean
+  reason?: string
+}
+
+function logStyleOperation({
+  key,
+  value,
+  action,
+  candidates,
+  winner,
+  writeSelectors,
+  skipped,
+  reason,
+}: StyleOperationLogParams) {
+  const selectors = Array.from(new Set(candidates.map((candidate) => candidate.label).filter(Boolean)))
+  const details: Record<string, any> = {
+    属性: key,
+    方式: action,
+    生效selector: winner?.label ?? null,
+    其他未生效selector: selectors.filter((selector) => selector !== winner?.label),
+    写入selector:
+      writeSelectors.length > 1
+        ? writeSelectors
+        : writeSelectors[0] ?? null,
+    值: value,
+  }
+  if (skipped) {
+    details.结果 = '跳过'
+    details.原因 = reason || null
+  }
+  console.log('[样式编辑]', details)
+}
+
+function logStyleClearPlan(plan: StyleClearPlan, execute = true) {
+  const canApply = execute && (plan.action === 'delete' || plan.action === 'write-unset')
+  logStyleOperation({
+    key: plan.key,
+    value: canApply ? plan.value : null,
+    action: '清空',
+    candidates: plan.candidates,
+    winner: plan.winner,
+    writeSelectors: canApply ? [plan.selector] : [],
+    skipped: !canApply,
+    reason:
+      plan.action === 'noop' || plan.action === 'unsupported'
+        ? plan.reason
+        : execute
+          ? undefined
+          : 'batch-clear-aborted',
+  })
+}
+
+function logStyleWriteTarget(
+  key: string, value: any, target: StyleWriteTarget, tab: ZoneTab,
+  patch?: Record<string, any>
+) {
+  console.log('[样式编辑][写入目标解析]', {
+    属性: key,
+    写入值: value,
+    计算出的classname: target.selector,
+    classname来源: target.source,
+    选择原因: target.reason,
+    当前ZoneTabSelector: tab.selector,
+    候选selector: target.candidates,
+    ...(patch ? { 实际写入样式: patch } : {}),
+  })
+}
+
+function applyStyleClearPlans(
+  plans: StyleClearPlan[],
+  editConfig: any,
+  zoneWriteTargets?: Map<string, ZoneWriteTarget>,
+  execute = true,
+  resolution?: StyleResolution
+): string[] {
+  const appliedKeys: string[] = []
+  const groups = new Map<string, Record<string, any>>()
+
+  plans.forEach((plan) => {
+    logStyleClearPlan(plan, execute)
+
+    if (!execute || plan.action === 'noop' || plan.action === 'unsupported') return
+
+    const patch = groups.get(plan.selector) || {}
+    patch[plan.key] = plan.value
+    groups.set(plan.selector, patch)
+  })
+
+  groups.forEach((patch, selector) => {
+    // 同一属性族一次提交，避免逐条删除期间读取到半清空的源码/CSSOM。
+    ;(window as any).__mybricks_style_deletions = null
+    withExplicitStyleSelector(selector, () => editConfig.value.set(patch, { selector }))
+    Object.entries(patch).forEach(([key, value]) => {
+      getShorthandFamily(cssPropertyName(key)).forEach(property =>
+        zoneWriteTargets?.delete(stylePropertyKey(property))
+      )
+      resolution?.record(key, value, selector)
+      appliedKeys.push(key)
+    })
+  })
+
+  return appliedKeys
+}
+
+/**
+ * 按组件库 styleProxy 当前路由规则推测实际落点：
+ * - 三方/无 zone 节点走 inline preview；
+ * - 已有静态 JSX style 的同名属性优先写 inline；
+ * - class 节点删除 inline 后还会继续处理 Less selector。
+ */
+function resolveSandboxWriteClassNames(
+  targetDom: HTMLElement | null,
+  styleKey: string,
+  targetSelector: string | undefined,
+  deletion: boolean
+): string[] {
+  if (!targetDom) return [targetSelector || '(宿主默认目标)']
+
+  const hasZoneSelector = !!targetDom.dataset?.zoneSelector
+  const hasDragInsert = targetDom.hasAttribute('data-drag-insert')
+  if ((!hasZoneSelector && !hasDragInsert) || targetDom.classList.length === 0 || hasDragInsert) {
+    return [INLINE_STYLE_LABEL]
+  }
+
+  if (readStaticInlineStyleInfo(targetDom, styleKey)) {
+    if (targetSelector && splitZoneSelectorState(targetSelector).pseudo) return [targetSelector]
+    if (deletion && targetSelector) {
+      return [INLINE_STYLE_LABEL, targetSelector]
+    }
+    return [INLINE_STYLE_LABEL]
+  }
+
+  return [targetSelector || '(宿主默认目标)']
+}
 
 function getStyleDiff(
   beforeStyle: Record<string, any>,
@@ -70,15 +494,37 @@ function addStyleWriteGroup(
 
 function logStyleWrite(
   style: Record<string, any>,
-  targetSelector: string | undefined
+  targetSelector: string | undefined,
+  context: StyleWriteLogContext
 ) {
   Object.entries(style).forEach(([key, value]) => {
-    // 排查样式写入目标时可取消下一行注释
-    // console.log('[style_new][style-write]', {
-    //   key,
-    //   value,
-    //   className: targetSelector || '(宿主默认目标)',
-    // })
+    const candidates = collectStyleSourceCandidates(
+      context.targetDom,
+      context.zoneTabs,
+      context.activeZoneTab,
+      key
+    )
+    const effective = resolveEffectiveStyleSource(candidates)
+    const isDeletion = !!context.deletion || value === null
+    const writeClassNames = context.skipped
+      ? []
+      : resolveSandboxWriteClassNames(
+        context.targetDom,
+        key,
+        targetSelector,
+        isDeletion
+      )
+
+    logStyleOperation({
+      key,
+      value,
+      action: isDeletion ? '清空' : '写入',
+      candidates,
+      winner: effective,
+      writeSelectors: writeClassNames,
+      skipped: !!context.skipped,
+      reason: context.skipped ? 'write-target-unavailable' : undefined,
+    })
   })
 }
 
@@ -115,6 +561,234 @@ const preserveCascadePriority = (
   })
 }
 
+/** 状态覆盖保留基础态的 inline，仅给存在内联竞争的属性提高优先级。 */
+function preserveStateInlinePriority(
+  items: StyleChangeItem[], tab: ZoneTab | null, target: HTMLElement | null
+): StyleChangeItem[] {
+  if (!tab?.pseudo || tab.pseudo.includes('::') || !target) return items
+  const resolution = getStyleResolution(tab, target)
+  const inlineProperties = readInlineStyleProperties(target)
+  const inlineLonghands = new Set(Array.from(inlineProperties).flatMap(property =>
+    STYLE_SHORTHANDS[property] || [property]
+  ))
+  return items.map(item => {
+    if (item.value == null || IMPORTANT_SUFFIX_RE.test(String(item.value))) return item
+    const property = cssPropertyName(item.key)
+    const properties = STYLE_SHORTHANDS[property] || [property]
+    const hasInline = properties.some(name => inlineLonghands.has(name) ||
+      resolution.get(name).candidates.some(candidate => candidate.inline))
+    return hasInline ? { ...item, value: `${item.value} !important` } : item
+  })
+}
+
+/** 共享属性决策；普通值沿用现有写入，清空单独提交 null/unset。 */
+function applyEffectiveStyleChanges(
+  items: StyleChangeItem[], liveStyle: Record<string, any>, tab: ZoneTab,
+  target: HTMLElement | null, editConfig: any, onBatchMetaChange?: () => void
+): ApplyStyleChangeResult {
+  const resolution = getStyleResolution(tab, target)
+  const changes = preserveStateInlinePriority(preservePaintRoles(items, liveStyle), tab, target)
+  const flexKeys = getShorthandFamily('flex').map(stylePropertyKey)
+  // Flex 面板提交的是整组替换；其中的 null 只是清理冲突写法，不是屏蔽级联。
+  const replacingFlex = flexKeys.every(key => changes.some(item => item.key === key)) &&
+    changes.some(item => flexKeys.includes(item.key) && item.value != null)
+  const sideClearKeys = getBoxSpacingSideClearKeys(changes)
+  const isInlineSpacing = (item: StyleChangeItem) =>
+    !!getBoxSpacingProperty(item.key) && resolution.get(item.key).winner?.inline
+  // 内联四方向属性由专用规划器一起处理 unset 和简写拆分。
+  const shouldUseCascadeClearPlan = (item: StyleChangeItem) =>
+    item.value === null &&
+    !(replacingFlex && flexKeys.includes(item.key)) &&
+    !isBorderProperty(item.key) &&
+    !(isBorderRadiusProperty(item.key) && resolution.get(item.key).winner?.inline) &&
+    !isInlineSpacing(item) &&
+    hasFallbackStyleCandidate(resolution.get(item.key))
+  const specializedChanges = changes.filter(item => !shouldUseCascadeClearPlan(item))
+  // 先预检整个用户动作，避免清空不可执行却先修改了共享图层。
+  const plans = createBatchStyleClearPlans(
+    changes.filter(item => item.value === null && (shouldUseCascadeClearPlan(item) || (
+      !sideClearKeys.has(item.key) && !isInlineSpacing(item) && !isBorderProperty(item.key) && !isBorderRadiusProperty(item.key) &&
+      !(replacingFlex && flexKeys.includes(item.key))
+    ))).map(item => item.key),
+    resolution,
+    target
+  )
+  const resolveWriteTarget = createStyleWriteTargetResolver(tab, target, resolution)
+  const writeTargets = new Map(changes.filter(item => item.value != null).map(item =>
+    [item.key, resolveWriteTarget(item.key, item.target)] as const
+  ))
+  const flexWrites = replacingFlex ? changes.filter(item => flexKeys.includes(item.key) && item.value != null) : []
+  const flexSelector = flexWrites.length ? writeTargets.get(flexWrites[0].key)?.selector || '' : ''
+  const flexImportant = flexKeys.some(key => resolution.get(key).candidates.some(candidate =>
+    candidate.currentState && candidate.label === flexSelector && candidate.important
+  ))
+  const flexStyle = Object.fromEntries(flexWrites.map(({ key, value }) => [key,
+    flexImportant && !IMPORTANT_SUFFIX_RE.test(String(value)) ? `${value} !important` : value,
+  ]))
+  const inlineProperties = readInlineStyleProperties(target)
+  const flexDeletions = flexKeys.filter(key => !(key in flexStyle) &&
+    (flexSelector !== INLINE_STYLE_LABEL || inlineProperties.has(cssPropertyName(key))))
+  const flexUnsupported = replacingFlex && (!flexSelector ||
+    flexWrites.some(item => writeTargets.get(item.key)?.selector !== flexSelector) ||
+    (flexSelector === INLINE_STYLE_LABEL
+      ? flexWrites.some(item => !readStaticInlineStyleInfo(target, item.key)) ||
+        flexDeletions.some(key => !readStaticInlineStyleInfo(target, key, true)) ||
+        Object.values(flexStyle).some(value => IMPORTANT_SUFFIX_RE.test(String(value)))
+      : !splitZoneSelectorState(flexSelector).pseudo &&
+        flexKeys.some(key => inlineProperties.has(cssPropertyName(key)))))
+  const propertyPlans = [
+    ...(replacingFlex ? [{ property: 'flex' as const, selector: flexSelector, style: flexStyle,
+      deletions: flexDeletions, clearedKeys: [] as string[], unsupported: flexUnsupported }] : []),
+    ...createSpacingWritePlans(specializedChanges, resolution, tab.selector, target,
+      change => writeTargets.get(change.key)?.selector || null),
+    ...createBorderRadiusWritePlans(specializedChanges, resolution, target,
+      change => writeTargets.get(change.key)?.selector || null),
+    ...createBorderWritePlans(specializedChanges, resolution, target,
+      change => writeTargets.get(change.key)?.selector || null),
+    ...createOverflowWritePlans(changes.filter(item => item.value != null), resolution, target,
+      change => writeTargets.get(change.key)?.selector || null),
+  ]
+  propertyPlans.filter(plan => plan.property === 'borderRadius' && plan.selector === INLINE_STYLE_LABEL)
+    .forEach(plan => plan.clearedKeys.forEach(key => console.log('[圆角清空诊断]', JSON.stringify({
+      属性: key,
+      当前class: target?.className || '',
+      目标仍在画布: target?.isConnected,
+      规则数量: tab.sourceRules.length,
+      单角来源: resolution.get(key).candidates.map(candidate => `${candidate.label}: ${candidate.value}`).join(' | '),
+      简写来源: resolution.get('borderRadius').candidates.map(candidate => `${candidate.label}: ${candidate.value}`).join(' | '),
+      计划写入: Object.entries(plan.style).map(([name, value]) => `${name}: ${value}`).join('; '),
+      删除属性: plan.deletions.join(', '),
+      可执行: !plan.unsupported,
+    }))))
+  if (plans.some(plan => plan.action === 'unsupported') || propertyPlans.some(plan => plan.unsupported) ||
+    Array.from(writeTargets.values()).some(item => !item.selector)) {
+    changes.forEach(item => {
+      const writeTarget = writeTargets.get(item.key)
+      if (writeTarget && !writeTarget.selector) logStyleWriteTarget(item.key, item.value, writeTarget, tab)
+    })
+    plans.forEach(plan => logStyleClearPlan(plan, false))
+    return { nextLiveStyle: liveStyle, applied: false, clearApplied: false, clearUnsupported: true }
+  }
+  const writes = changes.filter(item => item.value != null && !getBoxSpacingProperty(item.key) && !isBorderProperty(item.key) && !isBorderRadiusProperty(item.key) &&
+    !isOverflowProperty(item.key) &&
+    !(replacingFlex && flexKeys.includes(item.key)))
+    .map(({ key, value, borderMode, target }) => ({ key, value, borderMode, target }))
+  const normal = writes.length
+    ? applyStyleChange({ value: writes, liveStyle, editConfig })
+    : { nextLiveStyle: liveStyle, applied: false }
+  if ('clearUnsupported' in normal && normal.clearUnsupported) return normal
+  const nextLiveStyle = { ...normal.nextLiveStyle }
+  propertyPlans.forEach(plan => {
+    const { selector, style, deletions, clearedKeys } = plan
+    clearedKeys.forEach(key => logStyleOperation({
+      key, value: null, action: '清空', candidates: resolution.get(key).candidates,
+      winner: resolution.get(key).winner, writeSelectors: [selector],
+    }))
+    changes.filter(item => {
+      if (item.value == null) return false
+      if (plan.property === 'flex') return flexKeys.includes(item.key)
+      if (plan.property === 'border') return isBorderProperty(item.key)
+      if (plan.property === 'borderRadius') return isBorderRadiusProperty(item.key)
+      if (plan.property === 'overflow') return isOverflowProperty(item.key)
+      return getBoxSpacingProperty(item.key) === plan.property
+    })
+      .forEach(item => {
+        const writeTarget = writeTargets.get(item.key)!
+        if (writeTarget.selector === selector) logStyleWriteTarget(item.key, item.value, writeTarget, tab, style)
+      })
+    if (!Object.keys(style).length) {
+      // 独立声明清空仍沿用宿主的定向删除协议。
+      withExplicitStyleSelector(selector, () =>
+        editConfig.value.set(Object.fromEntries(deletions.map(key => [key, null])), { selector })
+      )
+    } else {
+      const usePreview = (editConfig.value.getBatchMeta?.()?.enabled ||
+        (!!target && !target.getAttribute('data-zone-selector'))) && !!editConfig.value.previewBatch
+      try {
+        // 简写拆分/压缩与旧声明删除必须在同一次源码写入中完成。
+        ;(window as any).__mybricks_style_deletions = deletions.length ? deletions : null
+        withExplicitStyleSelector(selector, () => {
+          if (usePreview) editConfig.value.previewBatch(style, { selector })
+          else editConfig.value.set(style, { selector })
+        })
+      } finally {
+        ;(window as any).__mybricks_style_deletions = null
+      }
+    }
+    deletions.forEach(key => {
+      delete nextLiveStyle[key]
+      resolution.record(key, null, selector)
+      if (selector === INLINE_STYLE_LABEL && target) target.style.removeProperty(cssPropertyName(key))
+    })
+    Object.entries(style).forEach(([key, value]) => {
+      nextLiveStyle[key] = value
+      resolution.record(key, value, selector)
+      if (selector === INLINE_STYLE_LABEL && target) target.style.setProperty(cssPropertyName(key), String(value))
+      logStyleOperation({
+        key, value, action: '写入', candidates: resolution.get(key).candidates,
+        winner: resolution.get(key).winner, writeSelectors: [selector],
+      })
+    })
+    if (clearedKeys.length && plan.property !== 'flex' && plan.property !== 'overflow') {
+      // 拆分后的本地快照保持稀疏，并保留其他来源真正生效的相邻方向。
+      delete nextLiveStyle[plan.property]
+      let keys: readonly string[]
+      if (plan.property === 'border') {
+        keys = BORDER_DETAIL_KEYS
+      } else if (plan.property === 'borderRadius') {
+        keys = BORDER_RADIUS_KEYS
+      } else {
+        keys = BOX_SPACING_KEYS[plan.property]
+      }
+      keys.forEach(key => {
+        const winner = resolution.get(key).winner
+        if (winner?.currentState) nextLiveStyle[key] = `${winner.value}${winner.important ? ' !important' : ''}`
+        else delete nextLiveStyle[key]
+      })
+    }
+  })
+  const groups = new Map<string, Record<string, any>>()
+  let clearApplied = propertyPlans.some(plan => plan.clearedKeys.length > 0)
+  plans.forEach(plan => {
+    logStyleClearPlan(plan)
+    if (plan.action === 'noop' || plan.action === 'unsupported') return
+    const patch = groups.get(plan.selector) || {}
+    patch[plan.key] = plan.value
+    groups.set(plan.selector, patch)
+  })
+  groups.forEach((patch, selector) => {
+    // 组件库现有协议：整包只包含 null/unset，就按 selector 定向清空。
+    withExplicitStyleSelector(selector, () => editConfig.value.set(patch, { selector }))
+    // JSX 内联样式经源码重编译后才会更新画布；同步更新当前节点，
+    // 让删除回调可以立即读取到清空后的真实计算值。
+    if (selector === INLINE_STYLE_LABEL && target) {
+      Object.entries(patch).forEach(([key, value]) => {
+        const property = cssPropertyName(key)
+        if (value === null) {
+          target.style.removeProperty(property)
+          return
+        }
+        const nextValue = String(value).trim()
+        const important = IMPORTANT_SUFFIX_RE.test(nextValue)
+        target.style.setProperty(
+          property,
+          nextValue.replace(IMPORTANT_SUFFIX_RE, '').trim(),
+          important ? 'important' : ''
+        )
+      })
+    }
+    Object.entries(patch).forEach(([key, value]) => {
+      if (value === null) removeClearedLiveStyleKeys(nextLiveStyle, key)
+      else nextLiveStyle[key] = value
+      resolution.record(key, value, selector)
+    })
+    clearApplied = true
+  })
+  const applied = normal.applied || propertyPlans.length > 0 || clearApplied
+  if (applied) onBatchMetaChange?.()
+  return { nextLiveStyle, applied, clearApplied, clearUnsupported: false }
+}
+
 export type ApplyStyleChangeParams = {
   value: StyleChangeItem | StyleChangeItem[]
   liveStyle: Record<string, any>
@@ -125,11 +799,15 @@ export type ApplyStyleChangeParams = {
   importantPriorityCache?: Map<string, boolean>
   zoneWriteTargets?: Map<string, ZoneWriteTarget>
   onBatchMetaChange?: () => void
+  /** 由 useStyleClear 的兼容删除模式提交；公共层仍根据后备来源决定 delete/unset。 */
+  removeKeys?: readonly string[]
 }
 
 export type ApplyStyleChangeResult = {
   nextLiveStyle: Record<string, any>
   applied: boolean
+  clearApplied: boolean
+  clearUnsupported: boolean
 }
 
 /**
@@ -146,6 +824,7 @@ export function applyStyleChange({
   importantPriorityCache,
   zoneWriteTargets,
   onBatchMetaChange,
+  removeKeys,
 }: ApplyStyleChangeParams): ApplyStyleChangeResult {
   // 每次操作开始前清空上次可能残留的删除信号，防止普通组件的删除操作污染 AI 组件
   ;(window as any).__mybricks_style_deletions = null
@@ -162,28 +841,114 @@ export function applyStyleChange({
       ? (editConfig.options as any).targetDom ?? null
       : null
   const realTargetDom = (toElementArray(targetDom)[0] ?? null) as HTMLElement | null
+  const activeZoneTab: ZoneTab | null =
+    !Array.isArray(editConfig.options) && editConfig.options
+      ? (editConfig.options as any).zoneTab ?? null
+      : null
+  const zoneTabs: ZoneTab[] =
+    !Array.isArray(editConfig.options) && editConfig.options
+      ? (editConfig.options as any).zoneTabs ?? (activeZoneTab ? [activeZoneTab] : [])
+      : (activeZoneTab ? [activeZoneTab] : [])
+  if (removeKeys) {
+    if (!activeZoneTab) return { nextLiveStyle: liveStyle, applied: false, clearApplied: false, clearUnsupported: true }
+    const resolution = getStyleResolution(activeZoneTab, realTargetDom)
+    const plan = createStyleRemovalPlan(removeKeys, resolution, realTargetDom, liveStyle)
+    const result = applyStyleRemoval(plan, liveStyle, resolution, realTargetDom, editConfig, zoneWriteTargets)
+    if (result.applied) {
+      importantPriorityCache?.clear()
+      onBatchMetaChange?.()
+    }
+    return result
+  }
+  if (activeZoneTab && rawItems.length && rawItems.every(item => item.intent)) {
+    return applyEffectiveStyleChanges(rawItems, liveStyle, activeZoneTab, realTargetDom, editConfig, onBatchMetaChange)
+  }
+  const clearItems = rawItems.filter(
+    (item) => item.intent === 'clear-effective-style'
+  )
+  const normalRawItems = rawItems.filter(
+    (item) => item.intent !== 'clear-effective-style'
+  )
+  // 必须在任何普通写入改变 DOM/CSSOM 之前确定来源、winner 和目标。
+  const clearResolution = activeZoneTab
+    ? getStyleResolution(activeZoneTab, realTargetDom)
+    : undefined
+  const clearPlans = clearResolution
+    ? createBatchStyleClearPlans(
+      clearItems.map(item => item.key),
+      clearResolution,
+      realTargetDom
+    )
+    : clearItems.map((item) =>
+      createStyleClearPlan(realTargetDom, zoneTabs, activeZoneTab, item.key)
+    )
+  const clearUnsupported = clearPlans.some(
+    (plan) => plan.action === 'unsupported'
+  )
+
+  // 显式清空是一个用户动作；目标不可写时不能只执行同批的
+  // paint-stack 清理，否则会留下“颜色未清、其他属性已删”的半完成状态。
+  if (clearUnsupported) {
+    applyStyleClearPlans(clearPlans, editConfig, zoneWriteTargets, false)
+    return {
+      nextLiveStyle: liveStyle,
+      applied: false,
+      clearApplied: false,
+      clearUnsupported: true,
+    }
+  }
+
+  if (normalRawItems.length === 0) {
+    const appliedKeys = applyStyleClearPlans(
+      clearPlans,
+      editConfig,
+      zoneWriteTargets,
+      true,
+      clearResolution
+    )
+    if (appliedKeys.length === 0) {
+      return {
+        nextLiveStyle: liveStyle,
+        applied: false,
+        clearApplied: false,
+        clearUnsupported: false,
+      }
+    }
+    const nextLiveStyle = deepCopy(liveStyle || {})
+    appliedKeys.forEach((key) => removeClearedLiveStyleKeys(nextLiveStyle, key))
+    onBatchMetaChange?.()
+    return {
+      nextLiveStyle,
+      applied: true,
+      clearApplied: true,
+      clearUnsupported: false,
+    }
+  }
+
   const isSolidTextFillTransition =
     isTextFillActive(liveStyle) &&
-    rawItems.some(
+    normalRawItems.some(
       (item) =>
         item.key === 'color' &&
         typeof item.value === 'string' &&
         item.value.trim() !== '' &&
         item.value.trim().toLowerCase() !== 'transparent'
     ) &&
-    rawItems.some(
+    normalRawItems.some(
       (item) =>
         (item.key === 'WebkitTextFillColor' || item.key === 'webkitTextFillColor') &&
         item.value == null
     )
   const priorityAwareItems = preserveCascadePriority(
-    rawItems,
+    normalRawItems,
     realTargetDom,
     selector,
     preserveImportantPriority,
     importantPriorityCache
   )
-  const changeItems = preservePaintRoles(priorityAwareItems, nextSetValue)
+  const changeItems = preserveStateInlinePriority(
+    preservePaintRoles(priorityAwareItems, nextSetValue), activeZoneTab, realTargetDom
+  )
 
   let hasRealChange = false
   const collapsedPanelSet = new Set(
@@ -258,7 +1023,13 @@ export function applyStyleChange({
     FLEX_LONGHAND_KEYS.forEach((k) => forceDelete(k))
   }
 
-  const normalized = normalizeStyleShorthands(nextSetValue, changeItems, new Set(deletedKeys))
+  // 增量修改只归一化本次触碰的属性组，避免修改 position 时误写 margin/padding。
+  const normalized = normalizeStyleShorthands(
+    nextSetValue,
+    changeItems,
+    new Set(deletedKeys),
+    { changedGroupsOnly: true }
+  )
   normalized.deletions.forEach((key) => {
     if (!deletedKeys.includes(key)) deletedKeys.push(key)
   })
@@ -271,7 +1042,30 @@ export function applyStyleChange({
 
   // 没有任何实际变更时直接返回，不触发样式写入（避免展开面板后折叠产生多余版本）
   if (!hasRealChange) {
-    return { nextLiveStyle: liveStyle, applied: false }
+    const appliedKeys = applyStyleClearPlans(
+      clearPlans,
+      editConfig,
+      zoneWriteTargets,
+      true,
+      clearResolution
+    )
+    if (appliedKeys.length === 0) {
+      return {
+        nextLiveStyle: liveStyle,
+        applied: false,
+        clearApplied: false,
+        clearUnsupported: false,
+      }
+    }
+    const nextLiveStyle = deepCopy(liveStyle || {})
+    appliedKeys.forEach((key) => removeClearedLiveStyleKeys(nextLiveStyle, key))
+    onBatchMetaChange?.()
+    return {
+      nextLiveStyle,
+      applied: true,
+      clearApplied: true,
+      clearUnsupported: false,
+    }
   }
 
   const mergedCssProperties = mergeCSSProperties(deepCopy(normalized.style))
@@ -297,10 +1091,26 @@ export function applyStyleChange({
   const setOptions = selector ? { selector } : undefined
   const batchMeta = editConfig.value.getBatchMeta?.()
   const isThirdPartyFocus = !!realTargetDom && !realTargetDom.getAttribute('data-zone-selector')
-  const activeZoneTab: ZoneTab | null =
-    !Array.isArray(editConfig.options) && editConfig.options
-      ? (editConfig.options as any).zoneTab ?? null
-      : null
+  const writeLogContext: StyleWriteLogContext = {
+    targetDom: realTargetDom,
+    activeZoneTab,
+    zoneTabs,
+  }
+
+  const resolveWriteTarget = activeZoneTab
+    ? createStyleWriteTargetResolver(activeZoneTab, realTargetDom)
+    : undefined
+  const pendingWrites = resolveWriteTarget
+    ? Object.entries(getStyleDiff(liveStyle || {}, finalCssProperties, effectiveDeletions))
+      // diff 中的 null 是删除信号，必须走原有删除来源，不能选最高权重规则。
+      .filter(([key]) => Object.prototype.hasOwnProperty.call(finalCssProperties, key))
+      .map(([key, value]) => ({ key, value, target: resolveWriteTarget(key) }))
+    : []
+  // 在文字渐变清理等副作用之前整批预检，避免只有部分属性写入成功。
+  if (activeZoneTab && pendingWrites.some(item => !item.target.selector)) {
+    pendingWrites.forEach(item => logStyleWriteTarget(item.key, item.value, item.target, activeZoneTab))
+    return { nextLiveStyle: liveStyle, applied: false, clearApplied: false, clearUnsupported: true }
+  }
 
   if (isSolidTextFillTransition && !isThirdPartyFocus) {
     const comId =
@@ -311,6 +1121,11 @@ export function applyStyleChange({
     cleanupTargets.forEach((target) => {
       ;(window as any).__mybricks_style_deletions = target.properties
       const cleanupOptions = { selector: target.selector }
+      logStyleWrite(
+        Object.fromEntries(target.properties.map((key) => [key, null])),
+        target.selector,
+        { ...writeLogContext, deletion: true }
+      )
       editConfig.value.set({}, cleanupOptions)
     })
   }
@@ -325,17 +1140,11 @@ export function applyStyleChange({
       editConfig.value.set(style, options)
   // Zone Tab 的 sourceRules 同时保存 CSSOM 运行时 selector 和可写回 Less 的源码 selector。
   // 只有这里才拆分本次变更；普通组件继续沿用原来的完整状态写回逻辑。
-  if (activeZoneTab?.sourceRules?.length) {
-    const writeStyle = getStyleDiff(liveStyle || {}, finalCssProperties, effectiveDeletions)
+  if (activeZoneTab) {
     const groups = new Map<string, StyleWriteGroup>()
-
-    Object.entries(writeStyle).forEach(([key, value]) => {
-      // getStyleDiff 用 null 表示删除；删除必须通过专用 side-channel 传递，
-      // 不能把 null 当作本次要写入的样式值。
-      if (!Object.prototype.hasOwnProperty.call(finalCssProperties, key)) return
-      const sourceSelector =
-        resolveZonePropertySelector(activeZoneTab, key) ||
-        resolveZoneFallbackSelector(activeZoneTab)
+    pendingWrites.forEach(({ key, value, target }) => {
+      const sourceSelector = target.selector!
+      logStyleWriteTarget(key, value, target, activeZoneTab)
       const group = addStyleWriteGroup(groups, sourceSelector)
       group.style[key] = deepCopy(value)
       zoneWriteTargets?.set(key, {
@@ -349,7 +1158,14 @@ export function applyStyleChange({
       const deletionTarget =
         rememberedTarget ||
         resolveZoneDeletionTarget(activeZoneTab, key)
-      if (!deletionTarget) return
+      if (!deletionTarget) {
+        logStyleWrite(
+          { [key]: null },
+          undefined,
+          { ...writeLogContext, deletion: true, skipped: true }
+        )
+        return
+      }
       const group = addStyleWriteGroup(groups, deletionTarget.selector)
       if (!group.deletions.includes(deletionTarget.property)) {
         group.deletions.push(deletionTarget.property)
@@ -357,7 +1173,30 @@ export function applyStyleChange({
     })
 
     if (groups.size === 0) {
-      return { nextLiveStyle: liveStyle, applied: false }
+      const appliedKeys = applyStyleClearPlans(
+        clearPlans,
+        editConfig,
+        zoneWriteTargets,
+        true,
+        clearResolution
+      )
+      if (appliedKeys.length === 0) {
+        return {
+          nextLiveStyle: liveStyle,
+          applied: false,
+          clearApplied: false,
+          clearUnsupported: false,
+        }
+      }
+      const nextLiveStyle = deepCopy(liveStyle || {})
+      appliedKeys.forEach((key) => removeClearedLiveStyleKeys(nextLiveStyle, key))
+      onBatchMetaChange?.()
+      return {
+        nextLiveStyle,
+        applied: true,
+        clearApplied: true,
+        clearUnsupported: false,
+      }
     }
 
     try {
@@ -365,28 +1204,64 @@ export function applyStyleChange({
         ;(window as any).__mybricks_style_deletions =
           group.deletions.length > 0 ? group.deletions : null
         const groupOptions = { selector: sourceSelector }
-        logStyleWrite(group.style, sourceSelector)
+        logStyleWrite(group.style, sourceSelector, writeLogContext)
         logStyleWrite(
           Object.fromEntries(group.deletions.map((key) => [key, null])),
-          sourceSelector
+          sourceSelector,
+          { ...writeLogContext, deletion: true }
         )
-        write(group.style, groupOptions)
+        if (activeZoneTab.pseudo) {
+          // 状态写入不能在宿主持有旧 DOM 时回退到常规 selector。
+          withExplicitStyleSelector(sourceSelector, () => write(group.style, groupOptions))
+        } else {
+          write(group.style, groupOptions)
+        }
+        Object.entries(group.style).forEach(([key, value]) => {
+          getStyleResolution(activeZoneTab, realTargetDom).record(key, value, sourceSelector)
+        })
       })
     } finally {
       ;(window as any).__mybricks_style_deletions = null
     }
+    const appliedKeys = applyStyleClearPlans(
+      clearPlans,
+      editConfig,
+      zoneWriteTargets,
+      true,
+      clearResolution
+    )
+    appliedKeys.forEach((key) => removeClearedLiveStyleKeys(finalCssProperties, key))
     onBatchMetaChange?.()
-    return { nextLiveStyle: finalCssProperties, applied: true }
+    return {
+      nextLiveStyle: finalCssProperties,
+      applied: true,
+      clearApplied: appliedKeys.length > 0,
+      clearUnsupported: false,
+    }
   }
 
   ;(window as any).__mybricks_style_deletions =
     effectiveDeletions.length > 0 ? effectiveDeletions : null
   logStyleWrite(
     getStyleDiff(liveStyle || {}, finalCssProperties, effectiveDeletions),
-    selector
+    selector,
+    writeLogContext
   )
   write(finalCssProperties, setOptions)
   ;(window as any).__mybricks_style_deletions = null
+  const appliedKeys = applyStyleClearPlans(
+    clearPlans,
+    editConfig,
+    zoneWriteTargets,
+    true,
+    clearResolution
+  )
+  appliedKeys.forEach((key) => removeClearedLiveStyleKeys(finalCssProperties, key))
   onBatchMetaChange?.()
-  return { nextLiveStyle: finalCssProperties, applied: true }
+  return {
+    nextLiveStyle: finalCssProperties,
+    applied: true,
+    clearApplied: appliedKeys.length > 0,
+    clearUnsupported: false,
+  }
 }

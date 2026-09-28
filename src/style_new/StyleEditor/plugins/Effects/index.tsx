@@ -24,6 +24,7 @@ import {
   APPLY_VARIABLE_ACTION,
 } from '../../components'
 import { useDragNumber, useCanvasColorVariables, useLengthVarBinding } from '../../hooks'
+import { useEffectiveStyleValue, useStyleChange } from '../../context'
 import type { UnitOption } from '../../components/InputNumber'
 import type { LengthVarBinding } from '../../hooks'
 import { resolveCssVarColor } from '../../../core/resolve-css-var-color'
@@ -88,8 +89,10 @@ function readCssBundle(value: CSSProperties): CssEffectsBundle {
   }
 }
 
-export function Effects({ value, onChange, showTitle, collapse }: EffectsProps) {
+export function Effects({ value: _value, onChange: fallbackOnChange, showTitle, collapse }: EffectsProps) {
   const { targetDom, variableOptions } = useCanvasColorVariables()
+  const value = useEffectiveStyleValue() as CSSProperties
+  const onChange = useStyleChange(fallbackOnChange)
   const parseBundle = useCallback(
     (bundle: CssEffectsBundle) => parseEffects(bundle, {
       classifyColorToken: (token) => {
@@ -270,7 +273,8 @@ export function Effects({ value, onChange, showTitle, collapse }: EffectsProps) 
     setOverState(null)
   }, [])
 
-  const effectiveCollapse = layers.length === 0 && collapse !== 'inherited' ? true : collapse
+  // collapse 可能一直保留初始的 true；按层数切换，确保删空时触发 Panel 收起。
+  const effectiveCollapse = collapse === 'inherited' ? collapse : layers.length === 0
   const activeLayer = activeIndex != null ? layers[activeIndex] : null
 
   const typeOptionsForActive = useMemo(() => {

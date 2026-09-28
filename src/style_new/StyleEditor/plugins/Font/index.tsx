@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useMemo, useRef, useEffect, CSSProperties } from "react";
 import { createPortal } from "react-dom";
 
-import { useStyleEditorContext } from "../..";
+import { useEffectiveStyleValue, useStyleChange, useStyleClear, useStyleEditorContext } from "../..";
 
 import {
   Panel,
@@ -25,8 +25,7 @@ import {
   APPLY_VARIABLE_ACTION,
 } from "../../components";
 import { splitValueAndUnit } from "../../utils";
-import { isObject } from "../../../../util/lodash/isObject";
-import { PanelBaseProps } from "../../type";
+import { PanelBaseProps, StyleChangeItem, StyleChangeResult } from "../../type";
 import { useDragNumber, useCanvasColorVariables, useLengthVarBinding, isCssVarValue } from "../../hooks";
 import { Variable } from "../../icons/Variable";
 import { FontSetting } from "../../icons/FontSetting";
@@ -40,7 +39,7 @@ import {
   parseTextFillDisplayValue,
 } from "../../helper/text-fill";
 import { getColorEditorValue } from "../../helper/get-color-editor-value";
-import { resolveCssVarColor } from "../../../core/resolve-css-var-color";
+import type { EffectiveStyleValue } from "../../../core/zone-tab";
 import css from "./index.less";
 
 /** 字号预置档位（对齐 Figma 的字号下拉） */
@@ -51,7 +50,7 @@ const FONT_SIZE_MENU_STYLE: CSSProperties = { maxHeight: 'none', maxWidth: 132 }
 
 interface FontProps extends PanelBaseProps {
   value: CSSProperties;
-  onChange: (value: { key: string; value: any } | Array<{ key: string; value: any }>) => void;
+  onChange: (value: StyleChangeItem | StyleChangeItem[]) => StyleChangeResult | void;
 }
 
 /** CSS 通用族名及关键字，无需加引号 */
@@ -173,27 +172,10 @@ const DEFAULT_CONFIG = {
 };
 
 const CSS_LENGTH_UNSET_KEYWORDS = ['unset', 'normal', 'inherit', 'initial'];
-const CSS_COLOR_INHERIT_KEYWORDS = ['', 'inherit', 'unset', 'revert', 'revert-layer'];
 
-function hasAuthoredTextFill(style: Record<string, any> = {}): boolean {
-  const hasExplicitColor = [
-    style.color,
-    style.WebkitTextFillColor,
-    style.webkitTextFillColor,
-  ].some((color) => {
-    if (color == null) return false;
-    return !CSS_COLOR_INHERIT_KEYWORDS.includes(String(color).trim().toLowerCase());
-  });
-
-  return hasExplicitColor || isTextFillActive(style);
-}
-
-/** 清除当前规则后，color 会从父元素继承；提前读取用于立即回显。 */
-function getInheritedTextColor(dom: HTMLElement | null | undefined): string {
-  const parent = dom?.parentElement;
-  if (!parent) return '';
-  const computed = window.getComputedStyle(parent);
-  return computed.getPropertyValue('-webkit-text-fill-color').trim() || computed.color || '';
+function isEffectiveStyleConfigured(item?: EffectiveStyleValue): boolean {
+  if (!item || item.type === 'computed') return false;
+  return !(typeof item.value === 'string' && /^unset$/i.test(item.value.trim()));
 }
 
 /** 是否为用户显式配置的长度类样式（非空、非关键字） */
@@ -202,22 +184,16 @@ function isConfiguredCssLength(value: unknown): boolean {
   return !CSS_LENGTH_UNSET_KEYWORDS.includes(String(value));
 }
 
-/** 读取 DOM 计算值（px），用于未配置时的 tip / 单位切换回填 */
-function getComputedCssLengthPx(
-  dom: HTMLElement | null | undefined,
-  prop: 'fontSize' | 'lineHeight' | 'letterSpacing'
-): number | null {
-  if (!dom) return null;
-  const raw = window.getComputedStyle(dom)[prop];
-  // letter-spacing: normal → 0
-  if (prop === 'letterSpacing' && (!raw || raw === 'normal')) return 0;
-  const n = parseFloat(raw);
-  if (isNaN(n)) return null;
-  return Math.round(n);
+/** 仅解析 EffectiveStyleValue 提供的最终计算值，不再读取 DOM。 */
+function getComputedCssLengthPx(item?: EffectiveStyleValue, normalValue?: number): number {
+  const value = String(item?.computedValue);
+  if (value === 'normal' && normalValue != null) return normalValue;
+  const parsed = parseFloat(value);
+  return Math.round(parsed);
 }
 
 function buildDefaultLengthTip(label: string, px: number | null): string {
-  return px != null ? `当前未配置${label}值，${px}为计算值` : label;
+  return px != null && Number.isFinite(px) ? `当前未配置${label}值，${px}为计算值` : label;
 }
 
 /** 行高单位互转：先归一到 px，再转到目标单位；无效时用 defaultPx */
@@ -228,7 +204,7 @@ function convertLineHeightValue(
   fontSizePx: number,
   defaultPx: number
 ): string {
-  const fs = fontSizePx > 0 ? fontSizePx : 14;
+  const fs = fontSizePx;
   let px: number;
   if (fromUnit === 'px') px = num;
   else if (fromUnit === '%') px = (num / 100) * fs;
@@ -343,31 +319,51 @@ function parseDecorationLength(value: string | undefined): string | null {
   return value;
 }
 
-export function Font({ value, onChange, config, showTitle }: FontProps) {
+export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProps) {
   const context = useStyleEditorContext();
+  const effectiveStyle = context?.effectiveStyle;
+  const value = useEffectiveStyleValue();
+  const onChange = useStyleChange(fallbackOnChange);
+  const colorField = useStyleClear('color');
+  const familyField = useStyleClear('fontFamily');
+  const sizeField = useStyleClear('fontSize');
+  const weightField = useStyleClear('fontWeight');
+  const imageField = useStyleClear('backgroundImage');
+  const colorConfigured = isEffectiveStyleConfigured(effectiveStyle?.color) || (
+    isTextFillActive(value as Record<string, any>) &&
+    isEffectiveStyleConfigured(effectiveStyle?.backgroundImage)
+  );
+  const colorResetToDefault = [
+    effectiveStyle?.color,
+    effectiveStyle?.WebkitTextFillColor,
+    effectiveStyle?.webkitTextFillColor,
+  ].some((item) => typeof item?.value === 'string' && /^unset$/i.test(item.value.trim()));
+  const familyConfigured = isEffectiveStyleConfigured(effectiveStyle?.fontFamily);
   const editConfig = context?.editConfig;
   const { targetDom, variableOptions: canvasColorVariables } = useCanvasColorVariables();
   const outterFontFamilyOptions = normalizeFontfaceOptions(editConfig?.fontfaces || []);
   const textFillStyleRef = useRef<Record<string, any>>(value as Record<string, any>);
   const [textFillAuthored, setTextFillAuthored] = useState(() =>
-    hasAuthoredTextFill(context?.authoredStyle) ||
-    isTextFillActive(value as Record<string, any>)
+    colorConfigured
   );
-  const [textFillDisplayOverride, setTextFillDisplayOverride] = useState<string | null>(null);
+  const [pendingTextFillDefault, setPendingTextFillDefault] = useState(false);
+  const [textFillPreviewColor, setTextFillPreviewColor] = useState<string>();
   const [textFillEditorRevision, setTextFillEditorRevision] = useState(0);
-
-  // 重置脏数据
-  if (isObject(value.fontFamily)) {
-    value.fontFamily = "inherit";
-    onChange({ key: "fontFamily", value: "inherit" });
-  }
 
   const [cfg] = useState({ ...DEFAULT_CONFIG, ...config });
 
+  useEffect(() => {
+    const snapshot = Object.fromEntries(
+      Object.entries(effectiveStyle || {}).map(([key, item]) => [key, { ...item }])
+    );
+    console.log('[样式编辑][EffectiveStyleValue][字体]', snapshot);
+  }, [effectiveStyle]);
   const handleTextFillChange = useCallback(
     (input: any) => {
       const next = getColorEditorValue(input);
       if (!next) return;
+      setPendingTextFillDefault(false);
+      setTextFillPreviewColor(undefined);
       setTextFillAuthored(true);
       const current = textFillStyleRef.current;
       const nextStyle = isGradientValue(next)
@@ -385,33 +381,76 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
       color: null,
       WebkitTextFillColor: null,
     };
+    const changes = toStyleChangeItems(cleared);
+    const clearWritesUnset = changes.some((change) =>
+      change.value == null &&
+      context?.getStyleProperty?.(change.key)?.clearPlan.action === 'write-unset'
+    );
+    const result = onChange(changes);
+    // 文字渐变可能没有独立 color 声明，但关联 paint 清理仍可成功；
+    // 只有目标明确不可写时才保留原 UI 状态。
+    if (result?.clearUnsupported && !result.clearApplied) return;
+    const getStylePreview = context?.getStylePreview;
+    const textFillColor = getStylePreview?.('WebkitTextFillColor', true).trim() || '';
+    const color = getStylePreview?.('color').trim() || '';
+    const previewColor = textFillColor && textFillColor.toLowerCase() !== 'currentcolor'
+      ? textFillColor
+      : color;
+    setPendingTextFillDefault(!!result?.clearApplied && clearWritesUnset);
+    setTextFillPreviewColor(previewColor || undefined);
     textFillStyleRef.current = { ...textFillStyleRef.current, ...cleared };
-    onChange(toStyleChangeItems(cleared));
     setTextFillAuthored(false);
-    setTextFillDisplayOverride(getInheritedTextColor(targetDom));
     setTextFillEditorRevision((revision) => revision + 1);
-  }, [onChange, targetDom]);
+  }, [onChange, context?.getStyleProperty, context?.getStylePreview]);
 
-  const sourceTextFillValue = parseTextFillDisplayValue(value as Record<string, any>);
-  const textFillValue = textFillDisplayOverride ?? sourceTextFillValue;
-  const textFillResolvedColor = resolveCssVarColor(textFillValue, targetDom);
-  const textFillEditorKey = `${textFillDisplayOverride == null && isTextFillActive(value as Record<string, any>)
+  const effectiveTextFillValue = parseTextFillDisplayValue(value as Record<string, any>);
+  const textFillValue = textFillPreviewColor ?? effectiveTextFillValue;
+  const textFillComputedColor = textFillPreviewColor ?? (
+    effectiveStyle?.WebkitTextFillColor?.computedValue ??
+    effectiveStyle?.webkitTextFillColor?.computedValue ??
+    effectiveStyle?.color?.computedValue
+  ) as string | undefined;
+  const textFillEditorKey = `${isTextFillActive(value as Record<string, any>)
     ? "text-fill-gradient"
-    : "text-fill-solid"}-${textFillValue}-${textFillResolvedColor ?? ""}-${textFillEditorRevision}`;
+    : "text-fill-solid"}-${textFillValue}-${textFillComputedColor ?? ""}-${textFillEditorRevision}`;
 
   useEffect(() => {
     textFillStyleRef.current = value as Record<string, any>;
     setTextFillAuthored(
-      hasAuthoredTextFill(context?.authoredStyle) ||
-      isTextFillActive(value as Record<string, any>)
+      colorConfigured
     );
-    setTextFillDisplayOverride(null);
+    setPendingTextFillDefault(false);
+    setTextFillPreviewColor(undefined);
     setTextFillEditorRevision((revision) => revision + 1);
-  }, [targetDom]);
+  }, [targetDom, effectiveStyle, colorConfigured, value.color, value.backgroundImage]);
 
-  const [innerFontFamily, setInnerFontFamily] = useState<string[] | undefined>(
-    parseFontFamily(value.fontFamily)
+  const [fontFamilyAuthored, setFontFamilyAuthored] = useState(() =>
+    familyConfigured
   );
+  const [innerFontFamily, setInnerFontFamily] = useState<string[] | undefined>(() =>
+    familyConfigured
+      ? parseFontFamily(value.fontFamily)
+      : []
+  );
+
+  useEffect(() => {
+    const authored = familyConfigured;
+    setFontFamilyAuthored(authored);
+    setInnerFontFamily(authored ? parseFontFamily(value.fontFamily) : []);
+  }, [targetDom, familyConfigured, value.fontFamily]);
+
+  const handleFontFamilyClear = useCallback(() => {
+    const result = onChange({ key: 'fontFamily', value: null });
+    if (result && !result.clearApplied) return;
+    setInnerFontFamily([]);
+    setFontFamilyAuthored(false);
+  }, [onChange]);
+
+  const computedFontFamily = effectiveStyle?.fontFamily?.computedValue;
+  const fontFamilyPreview = fontFamilyAuthored
+    ? innerFontFamily?.[0] ? quoteIfNeeded(innerFontFamily[0]) : ''
+    : computedFontFamily;
+  const fontFamilyPlaceholder = fontFamilyAuthored ? '未配置字体' : '继承';
 
   const [isMultiMode, setIsMultiMode] = useState(false);
   const getDragPropsFontSize = useDragNumber({ continuous: true });
@@ -458,48 +497,51 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
         tip: "居右对齐",
       },
     ];
-  }, []);
+  }, [cfg.textAlignMode, value.textAlign]);
 
+  const fontSizeConfigured = isEffectiveStyleConfigured(effectiveStyle?.fontSize);
+  const lineHeightConfigured = isEffectiveStyleConfigured(effectiveStyle?.lineHeight);
+  const letterSpacingConfigured = isEffectiveStyleConfigured(effectiveStyle?.letterSpacing);
   const [fontSize, setFontSize] = useState<string | number | null>(() =>
-    isConfiguredCssLength(value.fontSize) ? (value.fontSize as string | number) : null
+    fontSizeConfigured && isConfiguredCssLength(value.fontSize) ? (value.fontSize as string | number) : null
   );
   const [fontSizeDraftConfigured, setFontSizeDraftConfigured] = useState(false);
   const [fontSizeInputKey, setFontSizeInputKey] = useState(0);
   const [lineHeight, setLineHeight] = useState<string | number | null>(() =>
-    isConfiguredCssLength(value.lineHeight) ? (value.lineHeight as string | number) : null
+    lineHeightConfigured && isConfiguredCssLength(value.lineHeight) ? (value.lineHeight as string | number) : null
   );
   const lineHeightChangedByInputRef = useRef(false);
   const [letterSpacing, setLetterSpacing] = useState<string | number | null>(() =>
-    isConfiguredCssLength(value.letterSpacing) ? (value.letterSpacing as string | number) : null
+    letterSpacingConfigured && isConfiguredCssLength(value.letterSpacing) ? (value.letterSpacing as string | number) : null
   );
 
-  // 切换选中元素时按规则重算；同元素内以本地 onChange 为准，避免与乐观更新互相覆盖
+  // Tab/元素变化以及外部样式刷新时，按逐属性生效值同步输入框。
   useEffect(() => {
     setFontSizeDraftConfigured(false);
     lineHeightChangedByInputRef.current = false;
-    setFontSize(isConfiguredCssLength(value.fontSize) ? (value.fontSize as string | number) : null);
-    setLineHeight(isConfiguredCssLength(value.lineHeight) ? (value.lineHeight as string | number) : null);
+    setFontSize(fontSizeConfigured && isConfiguredCssLength(value.fontSize) ? (value.fontSize as string | number) : null);
+    setLineHeight(lineHeightConfigured && isConfiguredCssLength(value.lineHeight) ? (value.lineHeight as string | number) : null);
     setLetterSpacing(
-      isConfiguredCssLength(value.letterSpacing) ? (value.letterSpacing as string | number) : null
+      letterSpacingConfigured && isConfiguredCssLength(value.letterSpacing) ? (value.letterSpacing as string | number) : null
     );
-  }, [targetDom]);
+  }, [targetDom, fontSizeConfigured, lineHeightConfigured, letterSpacingConfigured, value.fontSize, value.lineHeight, value.letterSpacing]);
 
-  const defaultFontSizePx = getComputedCssLengthPx(targetDom, 'fontSize');
+  const defaultFontSizePx = getComputedCssLengthPx(effectiveStyle?.fontSize);
   const fontSizeUnconfigured = !isConfiguredCssLength(fontSize);
-  const showFontSizeDefaultAction = !fontSizeUnconfigured || fontSizeDraftConfigured;
+  const showFontSizeDefaultAction = !!sizeField.clear || fontSizeDraftConfigured;
   const fontSizePlaceholder = '默认';
   const fontSizeTip = fontSizeUnconfigured
     ? buildDefaultLengthTip('字号', defaultFontSizePx)
     : '字号';
 
-  const defaultLineHeightPx = getComputedCssLengthPx(targetDom, 'lineHeight');
+  const defaultLineHeightPx = getComputedCssLengthPx(effectiveStyle?.lineHeight);
   const lineHeightUnconfigured = !isConfiguredCssLength(lineHeight);
   const lineHeightPlaceholder = '默认';
   const lineHeightTip = lineHeightUnconfigured
     ? buildDefaultLengthTip('行高', defaultLineHeightPx)
     : '行高';
 
-  const defaultLetterSpacingPx = getComputedCssLengthPx(targetDom, 'letterSpacing');
+  const defaultLetterSpacingPx = getComputedCssLengthPx(effectiveStyle?.letterSpacing, 0);
   const letterSpacingUnconfigured = !isConfiguredCssLength(letterSpacing);
   const letterSpacingPlaceholder = '默认';
   const letterSpacingTip = letterSpacingUnconfigured
@@ -539,6 +581,38 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
   const [textTransformValue, setTextTransformValue] = useState<string>(
     () => (value as any).textTransform || 'none'
   );
+
+  useEffect(() => {
+    const current = value as Record<string, any>;
+    const clamp = current.webkitLineClamp ?? current.WebkitLineClamp;
+    const nextTruncated = current.textOverflow === 'ellipsis' || (clamp && clamp !== 'none');
+    const parsedLines = Number(clamp);
+    setTruncateLines(clamp && clamp !== 'none' && Number.isFinite(parsedLines)
+      ? Math.max(1, parsedLines)
+      : 1);
+    setIsTruncated(!!nextTruncated);
+    setTextDecorationValue(parseTextDecoration(current.textDecoration));
+    setTextDecorationStyleValue(parseTextDecorationStyle(
+      current.textDecorationStyle,
+      current.textDecoration
+    ));
+    setTextUnderlineOffsetValue(parseDecorationLength(current.textUnderlineOffset));
+    setTextDecorationThicknessValue(parseDecorationLength(current.textDecorationThickness));
+    setIsFontStyleItalic(current.fontStyle === 'italic');
+    setTextTransformValue(current.textTransform && !['unset', 'initial', 'inherit', 'revert'].includes(current.textTransform)
+      ? current.textTransform
+      : 'none');
+  }, [
+    (value as any).webkitLineClamp,
+    (value as any).WebkitLineClamp,
+    (value as any).textOverflow,
+    (value as any).textDecoration,
+    (value as any).textDecorationStyle,
+    (value as any).textUnderlineOffset,
+    (value as any).textDecorationThickness,
+    (value as any).fontStyle,
+    (value as any).textTransform,
+  ]);
 
   const [popoverOpen, setPopoverOpen] = useState(false);
   const popoverBtnRef = useRef<HTMLDivElement>(null);
@@ -636,7 +710,7 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
   const fontSizeVar = useLengthVarBinding({
     value: fontSize,
     onChange: onFontSizeChange,
-    fallback: `${defaultFontSizePx ?? 14}px`,
+    fallback: `${defaultFontSizePx}px`,
   });
 
   const onLineHeightChange = useCallback(
@@ -652,9 +726,9 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
         const fsSource = String(nextFontSize ?? fontSize ?? '');
         // 字号绑定变量时用解析出的数值做基准，否则 var(--x) 会让换算退化到兜底值
         const fontSizePx = isCssVarValue(fsSource)
-          ? (fontSizeVar.resolvedNumber ?? defaultFontSizePx ?? 14)
-          : Number(splitValueAndUnit(fsSource)[0] || defaultFontSizePx || 14) || 14;
-        const defaultPx = defaultLineHeightPx ?? Math.round(fontSizePx + 8);
+          ? (fontSizeVar.resolvedNumber ?? defaultFontSizePx)
+          : Number(splitValueAndUnit(fsSource)[0]) || defaultFontSizePx;
+        const defaultPx = defaultLineHeightPx;
         const [newNumStr, newUnitRaw] = splitValueAndUnit(String(value));
         const newUnit = newUnitRaw ?? '';
         const newNum = parseFloat(String(newNumStr));
@@ -732,13 +806,13 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
   const lineHeightVar = useLengthVarBinding({
     value: lineHeight,
     onChange: onLineHeightChange,
-    fallback: `${defaultLineHeightPx ?? Math.round((defaultFontSizePx ?? 14) + 8)}px`,
+    fallback: `${defaultLineHeightPx}px`,
   });
 
   const letterSpacingVar = useLengthVarBinding({
     value: letterSpacing,
     onChange: onLetterSpacingChange,
-    fallback: `${defaultLetterSpacingPx ?? 0}px`,
+    fallback: `${defaultLetterSpacingPx}px`,
   });
 
   /** 行高、字间距的单位菜单末尾统一挂「应用变量...」 */
@@ -894,7 +968,7 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
   );
 
   return (
-    <Panel title="字体" showTitle={showTitle} showReset={true} showDelete={false} resetFunction={refresh} collapse={false}>
+    <Panel title="字体" showTitle={showTitle} showReset={true} showDelete={false} resetFunction={refresh} collapse={false} keepTopBorder>
 
       {cfg.disableFontFamily ? null : (
         <Panel.Content style={truncateBtnInFamilyRow ? { position: 'relative' } : undefined}>
@@ -909,7 +983,10 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
                     if (!isMultiMode) return;
                     const first = innerFontFamily?.[0] && innerFontFamily[0] !== 'inherit' ? [innerFontFamily[0]] : [];
                     setInnerFontFamily(first);
-                    onChange({ key: 'fontFamily', value: first.length ? quoteIfNeeded(first[0]) : null });
+                    if (first.length) {
+                      setFontFamilyAuthored(true);
+                      onChange({ key: 'fontFamily', value: quoteIfNeeded(first[0]) });
+                    }
                     setIsMultiMode(false);
                   }}
                 >
@@ -950,18 +1027,13 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
                 style={{ padding: "0 8px", overflow: "hidden" }}
                 labelStyle={{
                   textAlign: "left",
-                  ...(innerFontFamily?.[0] && innerFontFamily[0] !== "inherit"
-                    ? { fontFamily: quoteIfNeeded(innerFontFamily[0]) }
-                    : {}),
+                  ...(fontFamilyPreview ? { fontFamily: fontFamilyPreview } : {}),
                 }}
                 options={fontFamilyOptions()}
                 multiple={true}
                 value={innerFontFamily}
-                clearable={!!(innerFontFamily?.length && innerFontFamily[0] !== 'inherit')}
-                onClear={() => {
-                  setInnerFontFamily([]);
-                  onChange({ key: 'fontFamily', value: null });
-                }}
+                clearable={!!familyField.clear}
+                onClear={handleFontFamilyClear}
                 onChange={(newValue: string[]) => {
                   let nextValue = newValue.filter((item) => item !== "inherit");
                   // 新增的字体插到第一位
@@ -972,15 +1044,27 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
                   }
                   // 最多保留 FONT_MULTI_MAX 个
                   nextValue = nextValue.slice(0, FONT_MULTI_MAX);
-                  onChange({ key: "fontFamily", value: nextValue.length ? nextValue.map(quoteIfNeeded).join(", ") : null });
+                  if (!nextValue.length) {
+                    handleFontFamilyClear();
+                    return;
+                  }
+                  setFontFamilyAuthored(true);
+                  onChange({
+                    key: 'fontFamily',
+                    value: nextValue.map(quoteIfNeeded).join(', '),
+                  });
                   setInnerFontFamily(nextValue);
                 }}
                 onReorder={(newOrder: string[]) => {
                   setInnerFontFamily(newOrder);
-                  onChange({ key: "fontFamily", value: newOrder.map(quoteIfNeeded).join(", ") });
+                  setFontFamilyAuthored(true);
+                  onChange({
+                    key: 'fontFamily',
+                    value: newOrder.map(quoteIfNeeded).join(', '),
+                  });
                 }}
                 footer={modeFooter}
-                placeholder="未配置字体"
+                placeholder={fontFamilyPlaceholder}
               />
             ) : (
               // 单字体模式：简洁单选
@@ -995,23 +1079,19 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
                 style={{ padding: "0 8px", overflow: "hidden" }}
                 labelStyle={{
                   textAlign: "left",
-                  ...(innerFontFamily?.[0] && innerFontFamily[0] !== "inherit"
-                    ? { fontFamily: quoteIfNeeded(innerFontFamily[0]) }
-                    : {}),
+                  ...(fontFamilyPreview ? { fontFamily: fontFamilyPreview } : {}),
                 }}
                 options={fontFamilyOptions()}
                 value={innerFontFamily?.[0] && innerFontFamily[0] !== 'inherit' ? (innerFontFamily[0]?.startsWith('var') ? '@字体变量' : innerFontFamily[0]) : undefined}
-                clearable={!!(innerFontFamily?.[0] && innerFontFamily[0] !== 'inherit')}
-                onClear={() => {
-                  setInnerFontFamily([]);
-                  onChange({ key: 'fontFamily', value: null });
-                }}
+                clearable={!!familyField.clear}
+                onClear={handleFontFamilyClear}
                 onChange={(newValue: string) => {
                   setInnerFontFamily([newValue]);
+                  setFontFamilyAuthored(true);
                   onChange({ key: 'fontFamily', value: quoteIfNeeded(newValue) });
                 }}
                 footer={modeFooter}
-                placeholder="未配置字体"
+                placeholder={fontFamilyPlaceholder}
               />
             );
           })()}
@@ -1028,14 +1108,15 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
               overflow: "hidden",
             }}
             defaultValue={textFillValue}
-            resolvedColor={textFillResolvedColor ?? undefined}
+            resolvedColor={textFillComputedColor}
             variableOptions={canvasColorVariables}
             scopeEl={targetDom}
             showSubTabs={true}
             disableBackgroundImage={true}
-            clearable={textFillAuthored}
+            clearable={!!colorField.clear || (isTextFillActive(value as Record<string, any>) && !!imageField.clear)}
             onClear={handleTextFillClear}
             inherited={!textFillAuthored}
+            emptyValueLabel={colorResetToDefault || pendingTextFillDefault ? '默认' : undefined}
             onChange={handleTextFillChange}
           />
         </Panel.Content>
@@ -1054,9 +1135,12 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
                 overflow: "hidden",
               }}
               labelStyle={{
-                textAlign:"left"
+                textAlign:"left",
+                marginLeft: '4px',
               }}
-              defaultValue={value.fontWeight}
+              value={value.fontWeight}
+              clearable={!!weightField.clear}
+              onClear={weightField.clear}
               options={FONT_WEIGHT_OPTIONS}
               onChange={(value) => onChange({ key: "fontWeight", value })}
             />
@@ -1070,7 +1154,7 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
                   ? fontSizeVar.dragProps('拖拽调整字号（将解除变量绑定）')
                   : getDragPropsFontSize(
                       fontSizeUnconfigured
-                        ? (defaultFontSizePx != null ? `${defaultFontSizePx}px` : '14px')
+                        ? `${defaultFontSizePx}px`
                         : fontSize,
                       '拖拽调整字号'
                     ))}
@@ -1191,7 +1275,7 @@ export function Font({ value, onChange, config, showTitle }: FontProps) {
                   ? letterSpacingVar.dragProps('拖拽调整字间距（将解除变量绑定）')
                   : getDragPropsLetterSpacing(
                       letterSpacingUnconfigured
-                        ? `${defaultLetterSpacingPx ?? 0}px`
+                        ? `${defaultLetterSpacingPx}px`
                         : letterSpacing,
                       '拖拽调整字间距'
                     ))}
