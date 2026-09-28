@@ -3,6 +3,7 @@ import { cssPropertyName, hasFallbackStyleCandidate, readInlineStyleProperties, 
 import type { StyleResolution } from './style-property'
 import type { StyleChangeItem } from './apply-style-change'
 import { STYLE_SHORTHANDS, stylePropertyKey } from './style-shorthand-groups'
+import { splitZoneSelectorState } from './zone-tab'
 
 /** 四方向属性在同一来源内拆写，保留未编辑方向及后备来源。 */
 export function createFourSideWritePlans<Property extends 'borderRadius' | 'margin' | 'padding'>(
@@ -53,9 +54,15 @@ export function createFourSideWritePlans<Property extends 'borderRadius' | 'marg
       }
     })
 
+    const pseudo = splitZoneSelectorState(selector).pseudo
     const nextChanges = groupChanges.map(change => {
       let value = resetKeys.has(change.key) ? 'unset' : change.value
-      const important = /!important\s*$/i.test(String(style[change.key] || ''))
+      // 状态声明保留在伪类规则中；用 important 覆盖默认态的内联值。
+      const affectedKeys = change.key === property ? [property, ...keys] : [property, change.key]
+      const overridesInline = !!pseudo && affectedKeys.some(key =>
+        resolution.get(key).candidates.some(candidate => candidate.inline)
+      )
+      const important = overridesInline || /!important\s*$/i.test(String(style[change.key] || ''))
       if (value != null && important && !/!important\s*$/i.test(String(value))) {
         value = `${value} !important`
       }
@@ -103,7 +110,7 @@ export function createFourSideWritePlans<Property extends 'borderRadius' | 'marg
           !(splittingInlineShorthand && !inlineProperties.has(cssPropertyName(key)))) ||
         Object.values(output).some(value => /!important\s*$/i.test(String(value)))
       deletions = requiredDeletions
-    } else {
+    } else if (!pseudo) {
       unsupported ||= [...Object.keys(output), ...deletions].some(key => inlineProperties.has(cssPropertyName(key)))
     }
     return { property, selector, style: output, deletions, clearedKeys, unsupported }
