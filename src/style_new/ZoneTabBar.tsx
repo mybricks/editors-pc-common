@@ -143,6 +143,7 @@ export function ZoneTabBar(props: {
             size="small"
             icon={<PlusOutlined />}
             aria-label="新增状态"
+            data-mybricks-tip={'<span style="display:block;text-align:center">为该元素添加悬浮、激活、聚焦、禁用状态下的样式</span>'}
           />
         </Dropdown>
       )}
