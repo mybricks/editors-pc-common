@@ -40,10 +40,10 @@ const DEFAULT_STYLE = {
   fontSize: 10,
   // minWidth: 41,
   // maxWidth: 41,
-  // marginLeft: 4
+  marginLeft: 4
 }
 /** 绑定态胶囊与输入框同宽，且不把相邻字段挤出面板 */
-const CHIP_STYLE = {flex: '1 1 0', minWidth: 0, width: 0}
+const CHIP_STYLE = {flex: '1 1 0', minWidth: 0, width: 0, marginLeft: 4}
 const UNIT_OPTIONS = [
   { label: '默认', value: 'default' },
   {label: '', value: '—divider_', type: 'divider'},

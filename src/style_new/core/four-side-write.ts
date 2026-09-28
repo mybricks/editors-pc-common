@@ -68,10 +68,10 @@ export function createFourSideWritePlans<Property extends 'borderRadius' | 'marg
     let unsupported = !selector
     const inlineProperties = readInlineStyleProperties(target)
     if (selector === 'inline') {
-      // 间距整组清空后四边均需 unset 时，可把已有长写合成一条简写。
-      const clearingSpacingGroup = property !== 'borderRadius' && output[property] === 'unset' &&
+      // 整组清空后四个方向均需 unset 时，可把已有长写合成一条简写。
+      const clearingGroup = output[property] === 'unset' &&
         keys.every(key => clearedKeys.includes(key))
-      const unifyingInlineSides = (clearingSpacingGroup ||
+      const unifyingInlineSides = (clearingGroup ||
         groupChanges.some(change => change.key === property && change.value != null)) &&
         !inlineProperties.has(cssPropertyName(property)) &&
         keys.some(key => inlineProperties.has(cssPropertyName(key)))

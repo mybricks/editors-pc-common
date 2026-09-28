@@ -85,6 +85,7 @@ export function BorderRadius({ value, onChange: fallbackOnChange, config }: Bord
   const radiusValueRef = useRef(radiusValue)
   const getDragProps = useDragNumber({ continuous: true })
   const allRadiusClear = useStyleClear(RADIUS_KEYS)
+  const canReset = !disableBorderRadius && !!allRadiusClear.clear
   const topLeftClear = useStyleClear('borderTopLeftRadius')
   const topRightClear = useStyleClear('borderTopRightRadius')
   const bottomRightClear = useStyleClear('borderBottomRightRadius')
@@ -134,6 +135,14 @@ export function BorderRadius({ value, onChange: fallbackOnChange, config }: Bord
   const bottomRightVar = useLengthVarBinding({ value: radiusValue.borderBottomRightRadius, onChange: next => handleChange({ borderBottomRightRadius: next }, 'split'), computedProp: 'borderBottomRightRadius' })
   const bottomLeftVar = useLengthVarBinding({ value: radiusValue.borderBottomLeftRadius, onChange: next => handleChange({ borderBottomLeftRadius: next }, 'split'), computedProp: 'borderBottomLeftRadius' })
   const unitOptions = useMemo(() => withApplyVariableOption(UNIT_OPTIONS, radiusAllVar.hasVariables), [radiusAllVar.hasVariables])
+
+  const handleReset = useCallback(() => {
+    const result = allRadiusClear.clear?.()
+    if (result && (result.clearUnsupported || !result.applied)) return
+    radiusValueRef.current = {}
+    setRadiusValue({})
+    setToggleValue({ radiusToggleValue: 'all' })
+  }, [allRadiusClear.clear])
 
   const handleSwitchToUnified = useCallback(() => {
     let configuredValue = radiusValueRef.current
@@ -247,11 +256,15 @@ export function BorderRadius({ value, onChange: fallbackOnChange, config }: Bord
       title='圆角'
       showTitle={true}
       collapse={false}
-      showDelete={false}
-      rightColumn={(
+      showReset={canReset}
+      showDelete={canReset}
+      resetFunction={handleReset}
+    >
+      <div className={css.content}>
+        <div className={css.values}>{content}</div>
         <div className={css.rightColumn}>
           <div
-            className={css.rightColumnBtn}
+            className={`${css.rightColumnBtn} ${radiusToggleValue === 'split' ? css.independentActionIcon : ''}`}
             data-mybricks-tip={toggleTo === 'split'
               ? "{content:'切换为单独配置',position:'left'}"
               : "{content:'切换为统一配置',position:'left'}"}
@@ -260,9 +273,7 @@ export function BorderRadius({ value, onChange: fallbackOnChange, config }: Bord
             <BorderRadiusSplitOutlined />
           </div>
         </div>
-      )}
-    >
-      {content}
+      </div>
     </Panel>
   )
 }
