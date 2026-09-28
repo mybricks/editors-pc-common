@@ -119,6 +119,7 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
   const [key, setKey] = useState(0)
   const isResetRef = useRef(false)
   const [isSoloEdit, setIsSoloEdit] = useState(false)
+  const editModeHintRef = useRef<HTMLDivElement | null>(null)
   const [soloSelector, setSoloSelector] = useState<string | null>(null)
   const skipSoloRehydrateRef = useRef(false)
   const soloStyleBackupRef = useRef(new Map<string, SavedSoloStyle>())
@@ -880,6 +881,15 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
 
   const showEditModeControl = affectedCount !== null && affectedCount > 1
 
+  useEffect(() => {
+    const hint = editModeHintRef.current
+    if (!hint?.parentElement?.matches(':hover')) return
+
+    // 宿主只在 mouseover 的目标节点变化时重读 data-mybricks-tip。
+    // 状态切换后从新的说明节点触发刷新，保留复选框节点及键盘焦点。
+    hint.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }))
+  }, [isSoloEdit])
+
   return {
     render: (
       <>
@@ -936,6 +946,9 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
             className={`${css.editModeControl} ${
               zoneSelectorList.length > 1 ? css.editModeControlWithTabs : ''
             } ${!isSoloEdit ? css.editModeControlBatch : ''}`}
+            data-mybricks-tip={isSoloEdit
+              ? '只修改当前区域'
+              : '同步修改使用同一套样式的全部区域'}
           >
             <Checkbox
               checked={!isSoloEdit}
@@ -944,6 +957,8 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
               应用至全部
             </Checkbox>
             <div
+              key={isSoloEdit ? 'solo' : 'batch'}
+              ref={editModeHintRef}
               className={`${css.affectedHint} ${
                 isSoloEdit ? css.soloAffectedHint : css.batchAffectedHint
               }`}
