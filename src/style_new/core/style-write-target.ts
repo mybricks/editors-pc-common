@@ -6,6 +6,7 @@ import { cssPropertyName, getStyleResolution, resolveEffectiveStyleSource } from
 import type { StyleResolution } from './style-property'
 import { resolveZoneFallbackSelector, splitZoneSelectorState, subjectClassNames } from './zone-tab'
 import { STYLE_SHORTHANDS } from './style-shorthand-groups'
+import { BORDER_KEYS, BORDER_DETAIL_KEYS } from './shorthand-normalizer'
 import type { ZoneSourceRule, ZoneTab } from './zone-tab'
 
 export type StyleWriteCandidate = {
@@ -127,8 +128,9 @@ export function createStyleWriteTargetResolver(
     }
     // unset 与数值混用时 CSSOM 无法合成 inline 简写；先看单边来源，
     // 避免把 class 中的后备简写误当成统一配置的写入目标。
-    if (key === 'borderRadius' || key === 'margin' || key === 'padding') {
-      const sides = STYLE_SHORTHANDS[cssPropertyName(key)]
+    if (key === 'borderRadius' || key === 'margin' || key === 'padding' || BORDER_KEYS.includes(key)) {
+      const relatedKeys = BORDER_KEYS.includes(key) ? BORDER_DETAIL_KEYS : STYLE_SHORTHANDS[cssPropertyName(key)]
+      const sides = relatedKeys
         .map(property => resolution.get(property).winner)
         .filter(candidate => candidate?.currentState)
       if (sides.length && sides.every(candidate => candidate!.inline)) {

@@ -130,18 +130,47 @@ export function createStyleRemovalPlan(
   for (const family of explicitWholeFamilies) {
     if (handledKeys.has(stylePropertyKey(family))) continue
     const property = resolution.get(family)
+    if (family === 'border') {
+      const familyKeys = getShorthandFamily(family).map(stylePropertyKey)
+      const inlineKeys = familyKeys.filter(key => inlineProperties.has(cssPropertyName(key)))
+      const winners = BORDER_DETAIL_KEYS.map(key => resolution.get(key).winner)
+        .filter(winner => winner?.currentState)
+      const hasInlineBorder = winners.some(winner => winner!.inline) ||
+        (property.winner?.currentState && property.winner.inline)
+      const hasClassBorder = familyKeys.some(key => resolution.get(key).candidates.some(candidate => !candidate.inline))
+      const alreadyUnset = inlineKeys.length === 1 && inlineKeys[0] === 'border' && property.clearPlan.action === 'noop'
+      // 减号清除整个边框，与统一/单边模式无关；用一条 unset 替换内联属性族。
+      // important 仍按原有逐属性规则预检，JSX 无法写入 unset !important。
+      if (hasInlineBorder && hasClassBorder && !alreadyUnset &&
+        !property.winner?.important && !winners.some(winner => winner!.important)) {
+        const group = groups.get(INLINE_STYLE_LABEL) || { selector: INLINE_STYLE_LABEL, style: {}, deletions: [] }
+        group.style.border = 'unset'
+        group.deletions.push(...inlineKeys.filter(key => key !== 'border'))
+        groups.set(INLINE_STYLE_LABEL, group)
+        familyKeys.forEach(key => handledKeys.add(key))
+        continue
+      }
+    }
     const winner = property.winner
     if (!winner?.currentState) continue
+    // CSSOM 会把独立长写合成简写；内联只能原位改写 JSX 中真正存在的声明。
+    if (winner.inline && !inlineProperties.has(family)) continue
     if (property.clearPlan.action === 'noop') {
       getShorthandFamily(family).forEach(name => handledKeys.add(stylePropertyKey(name)))
       continue
     }
-    if (!hasFallbackStyleCandidate(property)) continue
+    const hasFamilyFallback = hasFallbackStyleCandidate(property) ||
+      STYLE_SHORTHANDS[family].some(key => hasFallbackStyleCandidate(resolution.get(key)))
+    if (!hasFamilyFallback) continue
     const plan = property.clearPlan
     if (plan.action === 'unsupported') return blocked(plan.reason)
-    if (plan.action !== 'write-unset') return blocked('无法安全屏蔽后备样式来源')
+    if (plan.action !== 'write-unset' && plan.action !== 'delete') return blocked('无法安全屏蔽后备样式来源')
     const group = groups.get(plan.selector) || { selector: plan.selector, style: {}, deletions: [] }
-    group.style[plan.key] = plan.value
+    group.style[plan.key] = winner.important ? 'unset !important' : 'unset'
+    // 同组的内联长写仍会覆盖简写，整组清除时一并中和。
+    if (winner.inline) getShorthandFamily(family).forEach(name => {
+      if (name !== family && inlineProperties.has(name)) group.style[stylePropertyKey(name)] = 'unset'
+    })
     groups.set(plan.selector, group)
     getShorthandFamily(family).forEach(name => handledKeys.add(stylePropertyKey(name)))
   }
@@ -210,9 +239,13 @@ export function createStyleRemovalPlan(
     if (group.selector === INLINE_STYLE_LABEL) {
       // 仅删除真实 JSX 属性；不能要求 CSSOM 展开的子属性都有源码范围。
       group.deletions = group.deletions.filter(key => inlineProperties.has(cssPropertyName(key)))
+      const rewritingBorder = group.style.border === 'unset' && group.deletions.some(isBorderProperty)
       if ((requestedInlineDeletion && !group.deletions.length) ||
         group.deletions.some(key => !readStaticInlineStyleInfo(target, key, true)) ||
-        Object.keys(group.style).some(key => !readStaticInlineStyleInfo(target, key)) ||
+        Object.keys(group.style).some(key => {
+          if (rewritingBorder && key === 'border' && !inlineProperties.has('border')) return false
+          return !readStaticInlineStyleInfo(target, key, rewritingBorder)
+        }) ||
         Object.values(group.style).some(value => IMPORTANT_SUFFIX_RE.test(String(value)))) {
         return blocked('动态 JSX 或缺少源码范围，无法安全删除/拆分')
       }
@@ -565,6 +598,7 @@ function applyEffectiveStyleChanges(
   const shouldUseCascadeClearPlan = (item: StyleChangeItem) =>
     item.value === null &&
     !(replacingFlex && flexKeys.includes(item.key)) &&
+    !isBorderProperty(item.key) &&
     !(isBorderRadiusProperty(item.key) && resolution.get(item.key).winner?.inline) &&
     !isInlineSpacing(item) &&
     hasFallbackStyleCandidate(resolution.get(item.key))

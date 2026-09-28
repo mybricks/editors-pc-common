@@ -1135,7 +1135,8 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
                 overflow: "hidden",
               }}
               labelStyle={{
-                textAlign:"left"
+                textAlign:"left",
+                marginLeft: '4px',
               }}
               value={value.fontWeight}
               clearable={!!weightField.clear}

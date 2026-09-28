@@ -22,7 +22,7 @@ interface PanelProps {
   showDelete?: boolean
   deleteNode?: ReactNode
   onDelete?: () => void
-  rightColumn?: ReactNode
+  rightColumn?: ReactNode | ((actions: { showDelete: boolean; onDelete: () => void }) => ReactNode)
   deleteRef?: React.MutableRefObject<(() => void) | null>
   resetFunction?: () => void
   isActive?: boolean
@@ -88,6 +88,11 @@ export function Panel ({title, titleTip, children, showReset = false, showTitle 
   useEffect(() => {
     setPanelState(collapse === true ? 'collapsed' : 'expanded')
   }, [collapse])
+  const canDelete = !isInherited && (showDelete || panelState === 'added')
+  const handleDeleteClick = showDelete ? handleDelete : () => setPanelState('collapsed')
+  const renderedRightColumn = typeof rightColumn === 'function'
+    ? rightColumn({ showDelete: canDelete, onDelete: handleDeleteClick })
+    : rightColumn
   return (
     <div className={`${css.panel} ${collapsed ? css.collapsed : ''} ${isEmpty ? css.empty : ''} ${hideTopBorder ? css.hideTopBorder : ''} ${keepTopBorder ? css.keepTopBorder : ''}`}>
       <div className={css.header}>
@@ -141,12 +146,12 @@ export function Panel ({title, titleTip, children, showReset = false, showTitle 
             <div className={css.wrap}>
               {children}
             </div>
-            {rightColumn ? rightColumn : deleteNode ? (
+            {renderedRightColumn ? renderedRightColumn : deleteNode ? (
               <div className={css.deleteBtn} onClick={onDelete}>{deleteNode}</div>
-            ) : isInherited || (!showDelete && panelState !== 'added') ? (
+            ) : !canDelete ? (
               <div style={{ width: 22, flexShrink: 0 }} />
             ) : (
-              <div className={css.deleteBtn} onClick={showDelete ? handleDelete : () => setPanelState('collapsed')}>
+              <div className={css.deleteBtn} onClick={handleDeleteClick}>
                 <MinusOutlined />
               </div>
             )}

@@ -36,6 +36,7 @@ import {
 import { getColorEditorValue } from "../../helper/get-color-editor-value";
 import { getCssVarColorOptions, resolveCssVarColor } from "../../../core/resolve-css-var-color";
 import { buildBorderWidthChange, getBorderSideKeys, hasNoVisibleBorderLine } from "../../helper/border-value";
+import { createBorderWritePlans, isBorderProperty } from "../../../core/border-write";
 
 import type { ChangeEvent, PanelBaseProps, StyleChangeItem, StyleChangeResult } from "../../type";
 import type { EffectiveStyleValue } from "../../../core/zone-tab";
@@ -437,7 +438,6 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
   const [showStyleSettings, setShowStyleSettings] = useState(false);
   const styleSettingsBtnRef = useRef<HTMLDivElement>(null);
   const styleSettingsPopoverRef = useRef<HTMLDivElement>(null);
-  const panelDeleteRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     if (!showStyleSettings) return;
@@ -478,6 +478,9 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
   const commitStyleChanges = useCallback(
     (changes: BorderValue, borderMode: 'all' | 'split' = borderToggleValue) => {
       const unifiedWidthSet = borderMode === 'all' && BORDER_WIDTH_KEYS.every(key => changes[key] != null);
+      const winners = BORDER_LOGICAL_KEYS.map(key => context?.getStyleProperty?.(key).winner)
+        .filter(winner => winner?.currentState);
+      const unifyingInline = winners.length > 0 && winners.every(winner => winner!.inline);
       const items: StyleChangeItem[] = Object.entries(changes).map(([key, nextValue]) => ({
         key,
         value: nextValue == null
@@ -485,12 +488,12 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
           : `${nextValue}${useImportant ? '!important' : ''}`,
         ...(BORDER_LOGICAL_KEYS.includes(key) ? {
           borderMode,
-          ...(unifiedWidthSet && nextValue != null ? { target: 'current-rule' as const } : {}),
+          ...(unifiedWidthSet && !unifyingInline && nextValue != null ? { target: 'current-rule' as const } : {}),
         } : {}),
       }));
       return onChange(items);
     },
-    [onChange, useImportant, borderToggleValue]
+    [onChange, useImportant, borderToggleValue, context?.getStyleProperty]
   );
 
   const handleChange = useCallback(
@@ -573,15 +576,28 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
         buildClearGradientBorderValue(current, contentBackgroundLayersRef.current)
       );
     }
-    const result = handleChange(changes);
+    const removeBorder = !hasBorderGradientLayer && context?.removeStyleProperties;
+    let result: StyleChangeResult | void;
+    if (removeBorder) {
+      result = removeBorder(['border', ...keys]);
+    } else {
+      result = handleChange(changes);
+    }
     if (mutationFailed(result)) return;
 
+    if (removeBorder) {
+      const next = { ...borderValueRef.current };
+      keys.forEach((key) => { delete next[key]; });
+      borderValueRef.current = next;
+      setBorderValue(next);
+      setPreviewValues({});
+    }
     contentBackgroundLayersRef.current = null;
     setShowStyleSettings(false);
     borderPositionRef.current = 'center';
     setBorderPosition('center');
     setForceRenderKey(prev => prev + 1);
-  }, [handleChange]);
+  }, [handleChange, context?.removeStyleProperties]);
 
   const handleExpand = useCallback(() => {
     const next = {...NEW_BORDER_EDITOR_VALUE};
@@ -712,7 +728,6 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
   }, [commitStyleChanges, emitPositionCSS]);
 
   const hasBorderSection = !(disableBorderWidth && disableBorderColor && disableBorderStyle);
-  const isInherited = collapse === 'inherited';
 
   const getPreviewValue = (key: string) =>
     context?.getStylePreview?.(key) || previewValues[key] || effectiveStyle?.[key]?.computedValue;
@@ -742,6 +757,13 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
 
   const canClearKeys = (keys: string[]) => {
     if (standalone) return keys.some((key) => borderValue[key] != null);
+    if (keys.every(isBorderProperty)) {
+      const plans = createBorderWritePlans(
+        keys.map(key => ({ key, value: null, borderMode: borderToggleValue })),
+        { get: context!.getStyleProperty! }, targetDom, () => null
+      );
+      return plans.length > 0 && plans.every(plan => !plan.unsupported);
+    }
     const plans = context?.getStyleClearPlans?.(keys) ??
       keys.map((key) => context?.getStyleProperty?.(key)?.clearPlan).filter(Boolean);
     return !plans.some((plan) => plan?.action === 'unsupported') &&
@@ -766,11 +788,13 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
     BORDER_LOGICAL_KEYS.map((key) => [key, canClearKeys(key.endsWith('Width') ? getBorderSideKeys(key) : [key])])
   ) as Record<string, boolean>;
   const resetKeys = [
+    'border',
     ...BORDER_LOGICAL_KEYS,
     ...positionClearKeys,
     ...(borderGradientValue ? gradientMutationClearKeys : []),
   ];
-  const canReset = canClearKeys(resetKeys);
+  const removalState = !borderGradientValue ? context?.getStyleRemovalState?.(resetKeys) : undefined;
+  const canReset = removalState ? removalState.canClear : canClearKeys(resetKeys);
   const allWidthCanClear = borderPosition === 'center' ? canClearKeys(BORDER_WIDTH_KEYS) : canReset;
 
   // useEffect(() => {
@@ -1128,11 +1152,11 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
                           showIcon: true,
                           showIconOnHover: true,
                           clearable: fieldCanClear.borderLeftWidth,
-                          onClear: () => handleWidthChange(['borderLeftWidth'], 0),
+                          onClear: () => handleWidthChange(['borderLeftWidth'], null),
                           fallbackValue: 0,
                           onChange: (value) => {
                             if (value === 'default') {
-                              handleWidthChange(['borderLeftWidth'], 0);
+                              handleWidthChange(['borderLeftWidth'], null);
                               return;
                             }
                             handleWidthChange(['borderLeftWidth'], value);
@@ -1204,11 +1228,11 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
                           showIcon: true,
                           showIconOnHover: true,
                           clearable: fieldCanClear.borderTopWidth,
-                          onClear: () => handleWidthChange(['borderTopWidth'], 0),
+                          onClear: () => handleWidthChange(['borderTopWidth'], null),
                           fallbackValue: 0,
                           onChange: (value) => {
                             if (value === 'default') {
-                              handleWidthChange(['borderTopWidth'], 0);
+                              handleWidthChange(['borderTopWidth'], null);
                               return;
                             }
                             handleWidthChange(['borderTopWidth'], value);
@@ -1281,11 +1305,11 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
                           showIcon: true,
                           showIconOnHover: true,
                           clearable: fieldCanClear.borderRightWidth,
-                          onClear: () => handleWidthChange(['borderRightWidth'], 0),
+                          onClear: () => handleWidthChange(['borderRightWidth'], null),
                           fallbackValue: 0,
                           onChange: (value) => {
                             if (value === 'default') {
-                              handleWidthChange(['borderRightWidth'], 0);
+                              handleWidthChange(['borderRightWidth'], null);
                               return;
                             }
                             handleWidthChange(['borderRightWidth'], value);
@@ -1358,11 +1382,11 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
                           showIcon: true,
                           showIconOnHover: true,
                           clearable: fieldCanClear.borderBottomWidth,
-                          onClear: () => handleWidthChange(['borderBottomWidth'], 0),
+                          onClear: () => handleWidthChange(['borderBottomWidth'], null),
                           fallbackValue: 0,
                           onChange: (value) => {
                             if (value === 'default') {
-                              handleWidthChange(['borderBottomWidth'], 0);
+                              handleWidthChange(['borderBottomWidth'], null);
                               return;
                             }
                             handleWidthChange(['borderBottomWidth'], value);
@@ -1396,16 +1420,27 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
     (value: 'all' | 'split') => {
       if (value === 'all' && borderToggleValue !== 'all') {
         const current = borderValueRef.current;
-        const result = handleAllModeChange({
-          ...Object.fromEntries(BORDER_COLOR_KEYS.map((name) => [name, current.borderTopColor])),
-          ...Object.fromEntries(BORDER_STYLE_KEYS.map((name) => [name, current.borderTopStyle])),
-          ...Object.fromEntries(BORDER_WIDTH_KEYS.map((name) => [name, current.borderTopWidth])),
-        });
-        if (mutationFailed(result)) return;
+        const configured = (key: string) => {
+          if (borderPositionRef.current !== 'center' || !context?.getStyleProperty) return current[key];
+          const winner = context.getStyleProperty(key).winner;
+          return winner?.currentState ? stripImportant(winner.value) : undefined;
+        };
+        const side = ['Top', 'Right', 'Bottom', 'Left'].find(name =>
+          getBorderSideKeys(`border${name}`).some(key => configured(key) != null)
+        );
+        if (side) {
+          const changes = Object.fromEntries(['Width', 'Style', 'Color'].flatMap(part =>
+            ['Top', 'Right', 'Bottom', 'Left'].map(name => [
+              `border${name}${part}`, configured(`border${side}${part}`) ?? null,
+            ])
+          ));
+          const result = handleAllModeChange(changes);
+          if (mutationFailed(result)) return;
+        }
       }
       setBorderToggleValue(value);
     },
-    [borderToggleValue, handleAllModeChange]
+    [borderToggleValue, handleAllModeChange, context?.getStyleProperty]
   );
 
   const styleSettingsPortal = !disableBorderStyle && showStyleSettings
@@ -1437,20 +1472,20 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
       showTitle={showTitle}
       collapse={collapse}
       onExpand={handleExpand}
+      showDelete={canReset}
       resetFunction={refresh}
-      deleteRef={panelDeleteRef}
-      rightColumn={
+      rightColumn={({ showDelete, onDelete }) => (
         <div className={css.rightColumn}>
-          {!isInherited && canReset && (
+          {showDelete && (
             <div
               data-mybricks-tip={`{content:'删除边框',position:'left'}`}
               className={css.rightColumnBtn}
-              onClick={() => panelDeleteRef.current?.()}
+              onClick={onDelete}
             >
               <MinusOutlined />
             </div>
           )}
-          {(isInherited || !canReset) && (
+          {!showDelete && (
             <div className={css.rightColumnPlaceholder} aria-hidden="true" />
           )}
           {hasBorderSection && (
@@ -1468,7 +1503,7 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
             </div>
           )}
         </div>
-      }
+      )}
     >
       <React.Fragment key={forceRenderKey}>
         {borderConfig}
