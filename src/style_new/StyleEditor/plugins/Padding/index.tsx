@@ -1,6 +1,7 @@
 import React, {
   useMemo,
   useState,
+  useCallback,
   CSSProperties
 } from 'react'
 
@@ -55,6 +56,13 @@ export function Padding({value, onChange: fallbackOnChange, config, showTitle, c
   } = useBoxSpacingEditor({ property: 'padding', value, onChange: fallbackOnChange })
   const [splitPaddingIcon, setSplitPaddingIcon] = useState(<PaddingTopOutlined/>)
   const getDragProps = useDragNumber({ continuous: true })
+
+  // 点击 + 是新增内边距配置，通过统一入口写入 padding: 0px。
+  const handleExpand = useCallback(() => {
+    const result = handleUnifiedChange('0px')
+    if (result?.clearUnsupported || (result && !result.applied)) return
+    setToggle(true)
+  }, [handleUnifiedChange, setToggle])
 
   // 统一模式与四边各自持有绑定态：统一模式绑一个变量即写四边同值（对齐 Figma）
   const unifiedVar = useLengthVarBinding({
@@ -330,6 +338,7 @@ export function Padding({value, onChange: fallbackOnChange, config, showTitle, c
       showReset={canReset}
       showDelete={canReset}
       resetFunction={refresh}
+      onExpand={handleExpand}
       collapse={collapse}
     >
       <React.Fragment key={forceRenderKey}>

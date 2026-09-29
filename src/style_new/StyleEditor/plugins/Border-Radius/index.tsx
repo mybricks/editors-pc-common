@@ -1,5 +1,5 @@
 import React, { CSSProperties, useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { useEffectiveStyleValue, useStyleChange, useStyleClear, useStyleEditorContext } from '../../context'
+import { useStyleChange, useStyleClear, useStyleEditorContext } from '../../context'
 
 import {
   Panel,
@@ -76,9 +76,27 @@ function getUnifiedRadiusValue(value: Record<string, any>): string | null {
 
 export function BorderRadius({ value, onChange: fallbackOnChange, config }: BorderRadiusProps) {
   const context = useStyleEditorContext()
-  const effectiveValue = useEffectiveStyleValue()
   const onChange = useStyleChange(fallbackOnChange)
-  const editorValue = context?.effectiveStyle ? effectiveValue : value
+  // 圆角的计算值通常是 0px，但不能把它当成用户已配置的零圆角。
+  const configuredValue: Record<string, any> = {}
+  for (const key of ['borderRadius', ...RADIUS_KEYS]) {
+    const source = context?.effectiveStyle?.[key]
+    const winner = context?.getStyleProperty?.(key).winner
+    const raw = context?.getStyleProperty
+      ? (winner?.currentState ? winner.value : undefined)
+      : context?.effectiveStyle
+        ? (source?.type !== 'computed' ? source?.value : undefined)
+        : context?.authoredStyle ? context.authoredStyle[key] : value?.[key]
+    if (raw != null && String(raw).trim() !== '' && !/^unset(?:\s*!important)?$/i.test(String(raw).trim())) {
+      configuredValue[key] = raw
+    }
+  }
+  const editorValue = expandBorderRadiusShorthand(configuredValue)
+  for (const key of RADIUS_KEYS) {
+    // 单角的 unset/未配置优先于简写展开，不能被 borderRadius 再填回旧值。
+    if (context?.getStyleProperty || context?.effectiveStyle?.[key]) editorValue[key] = configuredValue[key]
+  }
+  delete editorValue.borderRadius
   const [{ useImportant, disableBorderRadius }] = useState({ useImportant: false, disableBorderRadius: false, ...config })
   const [{ radiusToggleValue }, setToggleValue] = useState(getToggleDefaultValue(editorValue))
   const [radiusValue, setRadiusValue] = useState(() => expandBorderRadiusShorthand(editorValue))
@@ -110,19 +128,20 @@ export function BorderRadius({ value, onChange: fallbackOnChange, config }: Bord
   const handleChange = useCallback((changes: CSSProperties & Record<string, any>, borderMode: 'all' | 'split' = radiusToggleValue) => {
     const current: Record<string, any> = { ...radiusValueRef.current }
     const next = { ...current, ...changes }
-    radiusValueRef.current = next
-    setRadiusValue(next)
     const hasClear = Object.values(changes).some(item => item == null || item === 'default')
     const complete = RADIUS_KEYS.every(key => next[key] !== null && next[key] !== undefined && next[key] !== '')
     let keys: readonly string[] = Object.keys(changes)
     if (!hasClear && complete) {
       keys = RADIUS_KEYS
     }
-    onChange(keys.map(key => ({
+    const result = onChange(keys.map(key => ({
       key,
       value: next[key] == null ? null : `${next[key]}${useImportant ? '!important' : ''}`,
       borderMode,
     })))
+    if (result?.clearUnsupported || (result && !result.applied)) return
+    radiusValueRef.current = next
+    setRadiusValue(next)
   }, [onChange, radiusToggleValue, useImportant])
 
   const radiusAllVar = useLengthVarBinding({
@@ -186,13 +205,15 @@ export function BorderRadius({ value, onChange: fallbackOnChange, config }: Bord
           style,
           defaultValue: rawValue,
           value: rawValue,
+          placeholder: '',
+          defaultUnitValue: 'px',
+          hideUnitWhenEmpty: true,
           unitOptions: withDefaultUnitOption(unitOptions, !!fieldClear[key].clear),
           unitDisabledList: UNIT_DISABLED_LIST,
           clearable: !!fieldClear[key].clear,
           onClear: () => fieldClear[key].clear?.(),
           showIcon: true,
           showIconOnHover: true,
-          fallbackValue: 0,
           onChange: next => handleChange({ [key]: next === 'default' ? null : next }, 'split'),
           onAction: action => { if (action === APPLY_VARIABLE_ACTION) binding.openPicker() },
         }}
@@ -213,11 +234,12 @@ export function BorderRadius({ value, onChange: fallbackOnChange, config }: Bord
             inputProps={{
               tip: '圆角半径', style: DEFAULT_STYLE, defaultValue: radiusValue.borderTopLeftRadius,
               value: radiusValue.borderTopLeftRadius,
+              placeholder: '', defaultUnitValue: 'px', hideUnitWhenEmpty: true,
               unitOptions: withDefaultUnitOption(unitOptions, !!allRadiusClear.clear),
               unitDisabledList: UNIT_DISABLED_LIST,
               clearable: !!allRadiusClear.clear,
               onClear: () => allRadiusClear.clear?.(),
-              showIcon: true, showIconOnHover: true, fallbackValue: 0,
+              showIcon: true, showIconOnHover: true,
               onChange: next => {
                 if (next === 'default') {
                   allRadiusClear.clear?.()

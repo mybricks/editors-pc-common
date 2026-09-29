@@ -1,78 +1,76 @@
 import React, { CSSProperties, useCallback, useEffect, useRef, useState } from 'react'
 
 import { Panel, ClearButton } from '../../components'
-import { useDragNumber } from '../../hooks'
-import { useEffectiveStyleValue, useStyleChange } from '../../context'
+import { useDragNumber } from '../../hooks/useDragNumber'
+import { useStyleEditorContext, useStyleChange } from '../../context'
 import { Ratation } from '../../icons/Rotation'
 import { Rotation90R } from '../../icons/Rotation90R'
 import { RotationFlipHorizontal } from '../../icons/RotationFlipHorizontal'
 import { RotationFlipVertical } from '../../icons/RotationFlipVertical'
+import { readRotation, readFlips, setRotation, toggleFlip, clearRotationAndFlips } from './transform-value'
 
 import type { ChangeEvent, PanelBaseProps } from '../../type'
 import css from './index.less'
-
-// ─── Transform utilities ───────────────────────────────────────────────
-
-function parseTransform(transform: string | undefined): { angle: number; flipX: boolean; flipY: boolean } {
-  let angle = 0, flipX = false, flipY = false
-  if (!transform || transform === 'none') return { angle, flipX, flipY }
-
-  const rotateMatch = transform.match(/rotate\((-?[\d.]+)deg\)/)
-  if (rotateMatch) angle = parseFloat(rotateMatch[1])
-
-  // scale(-1) / scale(-1, -1) / scale(-1, 1)
-  const scaleMatch = transform.match(/(?<![XY])scale\((-?[\d.]+)(?:,\s*(-?[\d.]+))?\)/)
-  if (scaleMatch) {
-    const sx = parseFloat(scaleMatch[1])
-    const sy = scaleMatch[2] !== undefined ? parseFloat(scaleMatch[2]) : sx
-    if (sx < 0) flipX = true
-    if (sy < 0) flipY = true
-  }
-
-  const scaleXMatch = transform.match(/scaleX\((-?[\d.]+)\)/)
-  if (scaleXMatch && parseFloat(scaleXMatch[1]) < 0) flipX = true
-
-  const scaleYMatch = transform.match(/scaleY\((-?[\d.]+)\)/)
-  if (scaleYMatch && parseFloat(scaleYMatch[1]) < 0) flipY = true
-
-  return { angle, flipX, flipY }
-}
-
-function composeTransform(angle: number, flipX: boolean, flipY: boolean): string | null {
-  const parts: string[] = []
-  if (angle !== 0) parts.push(`rotate(${angle}deg)`)
-  if (flipX && flipY) parts.push('scale(-1, -1)')
-  else if (flipX) parts.push('scaleX(-1)')
-  else if (flipY) parts.push('scaleY(-1)')
-  return parts.length > 0 ? parts.join(' ') : null
-}
-
-// ─── Component ────────────────────────────────────────────────────────
 
 interface RotationProps extends PanelBaseProps {
   value: CSSProperties
   onChange: ChangeEvent
 }
 
-export function Rotation({ value: _value, onChange: fallbackOnChange, showTitle, collapse }: RotationProps) {
-  const value = useEffectiveStyleValue() as CSSProperties
+export function Rotation({ value, onChange: fallbackOnChange, showTitle, collapse }: RotationProps) {
+  const context = useStyleEditorContext()
   const onChange = useStyleChange(fallbackOnChange)
-  const transformStr = value?.transform as string | undefined
-  const { angle: parsedAngle, flipX, flipY } = parseTransform(transformStr)
-
-  const [localAngle, setLocalAngle] = useState(String(parsedAngle))
+  const source = context?.effectiveStyle?.transform
+  const property = context?.getStyleProperty?.('transform')
+  const declaredTransform = context?.getStyleProperty
+    ? (property?.winner?.currentState ? property.winner.value : undefined)
+    : context?.effectiveStyle
+      ? (source?.type !== 'computed' ? source?.value : undefined)
+      : context?.authoredStyle ? context.authoredStyle.transform : value?.transform
+  const transformStr = typeof declaredTransform === 'string' && !/^unset$/i.test(declaredTransform.trim())
+    ? declaredTransform : null
+  const targetDom = context?.targetDom
+  const zoneSelector = (context?.editConfig.options as { zoneTab?: { selector: string } })?.zoneTab?.selector
+  const { angle: parsedAngle, hasRotation } = readRotation(transformStr)
+  const { flipX, flipY } = readFlips(transformStr)
+  const angleDisplay = parsedAngle == null ? '' : String(parsedAngle)
+  const [angleDraft, setAngleDraft] = useState<string | null>(null)
+  const localAngle = angleDraft ?? angleDisplay
   const isEditingRef = useRef(false)
-  const skipClearBlurRef = useRef(false)
+  const inputChangedRef = useRef(false)
+  const dragRef = useRef<{
+    start: number; input: HTMLInputElement | null; initialText: string; changed: boolean
+  } | null>(null)
+  // 连续拖拽、快捷按钮都从最近一次写入继续，避免父组件回传前丢掉其他变换。
+  const liveTransformRef = useRef(transformStr)
+  const sourceRef = useRef({ transformStr, targetDom, zoneSelector })
+  if (sourceRef.current.transformStr !== transformStr || sourceRef.current.targetDom !== targetDom ||
+    sourceRef.current.zoneSelector !== zoneSelector) {
+    liveTransformRef.current = transformStr
+    sourceRef.current = { transformStr, targetDom, zoneSelector }
+  }
 
   useEffect(() => {
-    if (!isEditingRef.current) {
-      setLocalAngle(String(parsedAngle))
-    }
-  }, [parsedAngle])
+    if (!isEditingRef.current && !dragRef.current) setAngleDraft(null)
+  }, [transformStr])
 
-  const commitTransform = useCallback((angle: number, fx: boolean, fy: boolean) => {
-    onChange({ key: 'transform', value: composeTransform(angle, fx, fy) })
+  useEffect(() => {
+    isEditingRef.current = false
+    inputChangedRef.current = false
+    dragRef.current = null
+    setAngleDraft(null)
+  }, [targetDom, zoneSelector])
+
+  const commitTransform = useCallback((next: string | null) => {
+    if (next === liveTransformRef.current) return true
+    const result = onChange({ key: 'transform', value: next })
+    if (result && !result.applied) return false
+    liveTransformRef.current = next
+    return true
   }, [onChange])
+
+  const commitAngle = useCallback((angle: number | null) =>
+    commitTransform(setRotation(liveTransformRef.current, angle)), [commitTransform])
 
   const handleFocus = useCallback(() => {
     isEditingRef.current = true
@@ -80,69 +78,102 @@ export function Rotation({ value: _value, onChange: fallbackOnChange, showTitle,
 
   const handleBlur = useCallback((e: React.FocusEvent<HTMLInputElement>) => {
     isEditingRef.current = false
-    if (skipClearBlurRef.current) {
-      skipClearBlurRef.current = false
+    if (!inputChangedRef.current) {
+      setAngleDraft(null)
       return
     }
-    const raw = e.target.value.trim()
-    const num = raw === '' ? 0 : parseFloat(raw)
-    const finalAngle = isNaN(num) ? 0 : num
-    setLocalAngle(String(finalAngle))
-    commitTransform(finalAngle, flipX, flipY)
-  }, [commitTransform, flipX, flipY])
+    inputChangedRef.current = false
+    const raw = e.currentTarget.value.trim()
+    if (e.currentTarget.validity?.badInput || (raw && !Number.isFinite(Number(raw)))) {
+      setAngleDraft(null)
+      return
+    }
+    const angle = raw ? Number(raw) : null
+    setAngleDraft(commitAngle(angle) ? (angle == null ? '' : String(angle)) : null)
+  }, [commitAngle])
 
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value
-    setLocalAngle(val)
-    const num = parseFloat(val)
-    if (!isNaN(num)) commitTransform(num, flipX, flipY)
-  }, [commitTransform, flipX, flipY])
+    const val = e.currentTarget.value
+    inputChangedRef.current = true
+    setAngleDraft(val)
+    if (val.trim() && Number.isFinite(Number(val))) commitAngle(Number(val))
+  }, [commitAngle])
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
       e.preventDefault()
       const delta = e.key === 'ArrowUp' ? 1 : -1
-      const next = (parseFloat(localAngle) || 0) + delta
-      setLocalAngle(String(next))
-      commitTransform(next, flipX, flipY)
+      const current = parseFloat(e.currentTarget.value)
+      const next = (Number.isFinite(current) ? current : 0) + delta
+      inputChangedRef.current = false
+      setAngleDraft(commitAngle(next) ? String(next) : null)
     } else if (e.key === 'Enter') {
-      ;(e.target as HTMLInputElement).blur()
+      e.currentTarget.blur()
     }
-  }, [localAngle, commitTransform, flipX, flipY])
+  }, [commitAngle])
 
   const getDragAngle = useDragNumber({
     min: -Infinity,
     max: Infinity,
-    continuous: true,
-    onDragEnd: (finalValue) => {
-      commitTransform(Math.round(finalValue), flipX, flipY)
+    onDragStart: (_current, input) => {
+      const draft = parseFloat(input?.value ?? '')
+      const start = hasRotation ? (Number.isFinite(draft) ? draft : parsedAngle ?? 0) : 0
+      dragRef.current = { start, input, initialText: input?.value ?? '', changed: false }
+      return start
+    },
+    onDragChange: angle => {
+      const drag = dragRef.current
+      if (!drag || (!drag.changed && angle === drag.start)) return
+      drag.changed = true
+      inputChangedRef.current = false
+      setAngleDraft(commitAngle(angle) ? String(angle) : null)
+    },
+    onDragEnd: angle => {
+      const drag = dragRef.current
+      dragRef.current = null
+      if (!drag) return
+      if (!drag.changed && (angle === drag.start || (drag.input && drag.input.value === drag.initialText))) {
+        if (drag.input) drag.input.value = drag.initialText
+        return
+      }
+      inputChangedRef.current = false
+      setAngleDraft(commitAngle(angle) ? String(angle) : null)
     },
   })
 
   const handleRotate90R = useCallback(() => {
-    const current = parseFloat(localAngle) || parsedAngle
+    const current = readRotation(liveTransformRef.current).angle ?? 0
     const next = (current + 90) % 360
-    setLocalAngle(String(next))
-    commitTransform(next, flipX, flipY)
-  }, [localAngle, parsedAngle, flipX, flipY, commitTransform])
+    inputChangedRef.current = false
+    setAngleDraft(commitAngle(next) ? String(next) : null)
+  }, [commitAngle])
 
   const handleFlipH = useCallback(() => {
-    commitTransform(parseFloat(localAngle) || parsedAngle, !flipX, flipY)
-  }, [localAngle, parsedAngle, flipX, flipY, commitTransform])
+    commitTransform(toggleFlip(liveTransformRef.current, 'x'))
+  }, [commitTransform])
 
   const handleFlipV = useCallback(() => {
-    commitTransform(parseFloat(localAngle) || parsedAngle, flipX, !flipY)
-  }, [localAngle, parsedAngle, flipX, flipY, commitTransform])
+    commitTransform(toggleFlip(liveTransformRef.current, 'y'))
+  }, [commitTransform])
 
   const handleReset = useCallback(() => {
-    onChange({ key: 'transform', value: null })
-    setLocalAngle('0')
-  }, [onChange])
+    inputChangedRef.current = false
+    isEditingRef.current = false
+    setAngleDraft(commitTransform(clearRotationAndFlips(liveTransformRef.current)) ? '' : null)
+  }, [commitTransform])
 
   const handleClear = useCallback(() => {
-    skipClearBlurRef.current = true
-    handleReset()
-  }, [handleReset])
+    inputChangedRef.current = false
+    isEditingRef.current = false
+    setAngleDraft(commitAngle(null) ? '' : null)
+  }, [commitAngle])
+
+  // 新增零度旋转，沿用角度写入入口以保留其他 transform 函数。
+  const handleExpand = useCallback(() => {
+    inputChangedRef.current = false
+    isEditingRef.current = false
+    setAngleDraft(commitAngle(0) ? '0' : null)
+  }, [commitAngle])
 
   return (
     <Panel
@@ -150,6 +181,7 @@ export function Rotation({ value: _value, onChange: fallbackOnChange, showTitle,
       showTitle={showTitle}
       showReset={true}
       resetFunction={handleReset}
+      onExpand={handleExpand}
       collapse={collapse}
     >
       <Panel.Content className={css.rotationPanelContent}>
@@ -172,7 +204,7 @@ export function Rotation({ value: _value, onChange: fallbackOnChange, showTitle,
           <input
             type="number"
             value={localAngle}
-            placeholder="0"
+            data-mybricks-tip="旋转角度"
             onChange={handleChange}
             onFocus={handleFocus}
             onBlur={handleBlur}
@@ -190,8 +222,8 @@ export function Rotation({ value: _value, onChange: fallbackOnChange, showTitle,
               cursor: 'text',
             }}
           />
-          {localAngle !== '' && (localAngle !== String(parsedAngle) || (!!transformStr && transformStr !== 'none')) && <ClearButton onClick={handleClear} />}
-          <span className={css.degUnit}>°</span>
+          {(hasRotation || localAngle !== '') && <ClearButton onClick={handleClear} />}
+          {localAngle !== '' && <span className={css.degUnit}>°</span>}
         </Panel.Item>
 
         {/* Action buttons: rotate 90R / flip H / flip V */}

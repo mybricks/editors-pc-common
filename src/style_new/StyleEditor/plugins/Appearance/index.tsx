@@ -1,4 +1,4 @@
-import React, { CSSProperties, useCallback, useMemo, useRef, useState } from 'react'
+import React, { CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { Panel, SketchPopup, VariableChip, VariableList, ClearButton } from '../../components'
 import { Opacity as OpacityIcon } from '../../icons/Opacity'
@@ -35,8 +35,15 @@ function percentToOpacity(percent: number): number {
 const DETACH_VARIABLE_ACTION = 'detachVariable'
 
 export function Appearance({ value, onChange: fallbackOnChange, showTitle, collapse }: AppearanceProps) {
-  const [opacityForceKey, setOpacityForceKey] = useState(0)
   const [opacityDraft, setOpacityDraft] = useState<string | null>(null)
+  const isEditingRef = useRef(false)
+  const inputChangedRef = useRef(false)
+  const dragRef = useRef<{
+    startValue: number
+    input: HTMLInputElement | null
+    initialText: string
+    changed: boolean
+  } | null>(null)
 
   const context = useStyleEditorContext()
   const targetDom = context?.targetDom ?? null
@@ -49,7 +56,19 @@ export function Appearance({ value, onChange: fallbackOnChange, showTitle, colla
   const [pickerMounted, setPickerMounted] = useState(false)
   const anchorRef = useRef<HTMLDivElement>(null)
 
-  const opacityRawValue = value?.opacity
+  const opacitySource = context?.effectiveStyle?.opacity
+  const opacityProperty = context?.getStyleProperty?.('opacity')
+  // 数值 1 既可能来自声明，也可能只是默认/计算值，必须按来源区分。
+  const declaredOpacity = context?.getStyleProperty
+    ? (opacityProperty?.winner?.currentState ? opacityProperty.winner.value : undefined)
+    : context?.effectiveStyle
+      ? (opacitySource?.type !== 'computed' ? opacitySource?.value : undefined)
+      : context?.authoredStyle
+        ? context.authoredStyle.opacity
+        : value?.opacity
+  const hasConfiguredOpacity = declaredOpacity != null && String(declaredOpacity).trim() !== '' &&
+    !/^unset$/i.test(String(declaredOpacity).trim())
+  const opacityRawValue = hasConfiguredOpacity ? declaredOpacity : undefined
 
   const varRef = isCssVarValue(opacityRawValue) ? (opacityRawValue as string) : undefined
 
@@ -74,38 +93,80 @@ export function Appearance({ value, onChange: fallbackOnChange, showTitle, colla
     if (varRef) return fallbackPercent
     return opacityToPercent(opacityRawValue)
   }, [varRef, fallbackPercent, opacityRawValue])
+  const opacityDisplay = hasConfiguredOpacity ? `${opacityPercent}%` : ''
+
+  useEffect(() => {
+    if (!isEditingRef.current && !dragRef.current) setOpacityDraft(null)
+  }, [opacityDisplay])
+
+  useEffect(() => {
+    isEditingRef.current = false
+    inputChangedRef.current = false
+    dragRef.current = null
+    setOpacityDraft(null)
+  }, [targetDom])
 
   const handleOpacityChange = useCallback(
-    (val: string) => {
-      const trimmed = val.trim()
-      if (!trimmed) {
-        onChange({ key: 'opacity', value: 0 })
-        return
-      }
-      const num = parseFloat(trimmed)
-      if (!isNaN(num)) {
-        const nextValue = percentToOpacity(num)
-        const currentValue = opacityPercent / 100
-        if (!varRef && nextValue === currentValue) return
-        onChange({ key: 'opacity', value: nextValue })
-      }
+    (percent: number) => {
+      const nextValue = percentToOpacity(percent)
+      // 未配置时输入 100% 也需要创建声明；比较原值，避免舍入损失。
+      if (hasConfiguredOpacity && !varRef && nextValue === Number(opacityRawValue)) return
+      onChange({ key: 'opacity', value: nextValue })
     },
-    [onChange, opacityPercent, varRef]
+    [onChange, hasConfiguredOpacity, opacityRawValue, varRef]
   )
 
   const getDragPropsOpacity = useDragNumber({
     min: 0,
     max: 100,
-    // 不 return → useCustomEnd=false → mouseup 时 hook 触发 blur → onBlur 里补回 %
     formatDisplay: v => `${v}%`,
+    onDragStart: (currentValue, input) => {
+      const draftValue = parseFloat(input?.value ?? '')
+      // 未配置时始终从 100% 起步，不能把空输入当成 0。
+      const startValue = hasConfiguredOpacity
+        ? (Number.isFinite(draftValue) ? draftValue : Number(currentValue))
+        : 100
+      dragRef.current = { startValue, input, initialText: input?.value ?? '', changed: false }
+      return startValue
+    },
     onDragChange: value => {
-      handleOpacityChange(String(value))
+      const drag = dragRef.current
+      if (!drag || (!drag.changed && value === drag.startValue)) return
+      drag.changed = true
+      inputChangedRef.current = false
+      setOpacityDraft(`${value}%`)
+      handleOpacityChange(value)
+    },
+    onDragEnd: value => {
+      const drag = dragRef.current
+      dragRef.current = null
+      if (!drag) return
+      // hook 在空输入上只按下/松开时会读到 0；此时不提交，也不解除变量。
+      if (!drag.changed && (value === drag.startValue ||
+        (drag.input && drag.input.value === drag.initialText))) {
+        if (drag.input) drag.input.value = drag.initialText
+        return
+      }
+      inputChangedRef.current = false
+      setOpacityDraft(`${value}%`)
+      handleOpacityChange(value)
     },
   })
 
   const handleReset = useCallback(() => {
-    onChange([{ key: 'opacity', value: null }])
-    setOpacityForceKey(k => k + 1)
+    const result = hasConfiguredOpacity ? onChange({ key: 'opacity', value: null }) : undefined
+    inputChangedRef.current = false
+    isEditingRef.current = false
+    setOpacityDraft(result && !result.applied ? null : '')
+  }, [onChange, hasConfiguredOpacity])
+
+  // 点击 + 是新增配置，显式写入完全不透明，而不是仅展开空输入框。
+  const handleExpand = useCallback(() => {
+    const result = onChange({ key: 'opacity', value: 1 })
+    if (result && !result.applied) return
+    inputChangedRef.current = false
+    isEditingRef.current = false
+    setOpacityDraft('100%')
   }, [onChange])
 
   const openPicker = useCallback(() => {
@@ -142,8 +203,8 @@ export function Appearance({ value, onChange: fallbackOnChange, showTitle, colla
     if (action === DETACH_VARIABLE_ACTION) detach()
   }, [detach])
 
-  // 未设置不透明度（默认 100%）时强制折叠，与效果面板空状态一致
-  const effectiveCollapse = (!varRef && opacityPercent === 100) ? true : collapse
+  // 显式 100% 也是有效配置，不能把它当成未配置自动折叠。
+  const effectiveCollapse = hasConfiguredOpacity ? collapse : true
 
   return (
     <Panel
@@ -152,6 +213,7 @@ export function Appearance({ value, onChange: fallbackOnChange, showTitle, colla
       showReset={true}
       showDelete={true}
       resetFunction={handleReset}
+      onExpand={handleExpand}
       collapse={effectiveCollapse}
     >
       <Panel.Content>
@@ -207,22 +269,32 @@ export function Appearance({ value, onChange: fallbackOnChange, showTitle, colla
           ) : (
             <>
               <input
-                key={opacityForceKey}
                 type='text'
                 className={css.opacityInput}
-                defaultValue={`${opacityPercent}%`}
-                onFocus={e => { setOpacityDraft(e.currentTarget.value); e.target.select() }}
-                onChange={e => setOpacityDraft(e.currentTarget.value)}
+                data-mybricks-tip='不透明度'
+                value={opacityDraft ?? opacityDisplay}
+                onFocus={e => { isEditingRef.current = true; e.target.select() }}
+                onChange={e => {
+                  inputChangedRef.current = true
+                  setOpacityDraft(e.currentTarget.value)
+                }}
                 onBlur={e => {
-                  setOpacityDraft(null)
-                  const raw = e.target.value.trim().replace(/%$/, '')
-                  if (!raw || isNaN(parseFloat(raw))) {
-                    handleOpacityChange('0')
-                    e.target.value = '0%'
+                  isEditingRef.current = false
+                  if (!inputChangedRef.current) {
+                    setOpacityDraft(null)
+                    return
+                  }
+                  inputChangedRef.current = false
+                  const text = e.currentTarget.value.trim()
+                  const raw = text.replace(/%$/, '').trim()
+                  if (!text) {
+                    handleReset()
+                  } else if (!raw || !Number.isFinite(Number(raw))) {
+                    setOpacityDraft(null)
                   } else {
-                    const num = Math.round(Math.min(100, Math.max(0, parseFloat(raw))))
-                    handleOpacityChange(String(num))
-                    e.target.value = `${num}%`
+                    const num = Math.round(Math.min(100, Math.max(0, Number(raw))))
+                    setOpacityDraft(`${num}%`)
+                    handleOpacityChange(num)
                   }
                 }}
                 onKeyDown={e => {
@@ -231,7 +303,7 @@ export function Appearance({ value, onChange: fallbackOnChange, showTitle, colla
                   }
                 }}
               />
-              {(opacityPercent !== 100 || (opacityDraft != null && opacityDraft !== `${opacityPercent}%`)) && <ClearButton onClick={handleReset} />}
+              {(hasConfiguredOpacity || !!opacityDraft) && <ClearButton onClick={handleReset} />}
               {hasVariables && (
                 <span
                   className={css.varBtn}
