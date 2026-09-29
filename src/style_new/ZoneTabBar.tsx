@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react'
-import { Button, Dropdown, Menu } from 'antd'
-import { CloseOutlined, PlusOutlined } from '@ant-design/icons'
+import { Dropdown, Menu } from 'antd'
+import { CloseOutlined } from '@ant-design/icons'
+import { PlusOutlined } from './StyleEditor/components/Icon'
 
 import css from './index.less'
 
@@ -103,28 +104,30 @@ export function ZoneTabBar(props: {
 
   return (
     <div className={css.zoneTabBar}>
-      {selectors.map((sel, idx) => (
-        <div
-          key={sel}
-          className={`${css.zoneTab}${idx === activeIdx ? ` ${css.zoneTabActive}` : ''}`}
-          onClick={() => onSelect(idx)}
-        >
-          <span>{labels[idx]}</span>
-          {onDelete && deletableSelectors.includes(sel) && (
-            <button
-              className={css.zoneTabDelete}
-              type="button"
-              aria-label={`删除${labels[idx]}`}
-              onClick={(event) => {
-                event.stopPropagation()
-                onDelete(sel)
-              }}
-            >
-              <CloseOutlined />
-            </button>
-          )}
-        </div>
-      ))}
+      <div className={css.zoneTabList}>
+        {selectors.map((sel, idx) => (
+          <div
+            key={sel}
+            className={`${css.zoneTab}${idx === activeIdx ? ` ${css.zoneTabActive}` : ''}`}
+            onClick={() => onSelect(idx)}
+          >
+            <span>{labels[idx]}</span>
+            {onDelete && deletableSelectors.includes(sel) && (
+              <button
+                className={css.zoneTabDelete}
+                type="button"
+                aria-label={`删除${labels[idx]}`}
+                onClick={(event) => {
+                  event.stopPropagation()
+                  onDelete(sel)
+                }}
+              >
+                <CloseOutlined />
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
       {onAdd && addOptions.length > 0 && (
         <Dropdown
           trigger={['click']}
@@ -137,14 +140,14 @@ export function ZoneTabBar(props: {
             </Menu>
           }
         >
-          <Button
+          <button
             className={css.zoneTabAdd}
-            type="text"
-            size="small"
-            icon={<PlusOutlined />}
+            type="button"
             aria-label="新增状态"
-            data-mybricks-tip={'<span style="display:block;text-align:center">为该元素添加悬浮、激活、聚焦、禁用状态下的样式</span>'}
-          />
+            data-mybricks-tip={JSON.stringify({ content: '<span style="display:block;text-align:center">为该元素添加悬浮、激活、聚焦、禁用状态下的样式</span>', position: 'left' })}
+          >
+            <PlusOutlined />
+          </button>
         </Dropdown>
       )}
     </div>
