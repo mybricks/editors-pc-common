@@ -1,5 +1,6 @@
 import { getDocument, escapeRegExp } from './dom'
 import { forEachSelectorPart } from './selector-utils'
+import { splitZoneSelectorState } from './zone-tab'
 
 /**
  * 伪类的展示优先级顺序。
@@ -44,9 +45,19 @@ export function scanPseudoSelectors(
   if (!baseSelectors.length || !comId) return []
 
   const matchesTarget = (part: string, pseudo: string, fromParent = false): boolean => {
+    let base = ''
+    if (fromParent) {
+      // 父级状态不属于当前主体，不能用 splitZoneSelectorState 解析末尾主体。
+      base = part.slice(0, part.length - pseudo.length).trim()
+    } else {
+      const state = splitZoneSelectorState(part)
+      // 条件匹配型伪类（如 :is / :where / :not）不会生成独立 Tab。
+      // :has(...) 虽然也是匹配条件，但同时属于可编辑状态，因此会通过这里。
+      if (state.pseudo !== pseudo) return false
+      // 去掉当前待编辑状态，保留 :not / :is / :where / :has 等匹配条件。
+      base = state.matchSelector.trim()
+    }
     if (!targetElements.length) return true
-    // 只去掉待编辑的末尾状态，保留 :not 等条件；无需当前真的处于 hover / focus。
-    const base = part.slice(0, part.length - pseudo.length).trim()
     return targetElements.some((el) => {
       try {
         if (!fromParent) return el.matches(base)

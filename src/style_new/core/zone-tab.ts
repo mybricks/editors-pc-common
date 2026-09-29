@@ -389,10 +389,24 @@ export function resolveZoneFallbackSelector(tab: ZoneTab): string {
   return tab.selector
 }
 
-const EDITABLE_STATES = new Set([
-  'hover', 'focus', 'focus-visible', 'focus-within', 'active', 'disabled',
-  'checked', 'indeterminate', 'placeholder-shown', 'visited', 'target',
-  'enabled', 'read-only', 'read-write', 'required', 'optional', 'valid', 'invalid',
+/**
+ * 这些伪类用于限制选择器匹配范围，本身不生成独立的编辑状态 Tab。
+ * 其他顶层单冒号 token 都按伪类拆出，避免新增结构伪类时再次混入常规态。
+ */
+const MATCH_ONLY_PSEUDO_CLASSES = new Set([
+  'not', 'is', 'where',
+  'host', 'host-context', 'slotted', 'scope',
+])
+
+/**
+ * 这些伪类既要参与目标元素匹配，也要作为可编辑状态展示。
+ * :has(...) 的关系条件不能从 matchSelector 中移除，否则会把不满足
+ * :has(...) 的元素也误认为命中了这条状态规则。
+ */
+const DUAL_ROLE_PSEUDO_CLASSES = new Set(['has'])
+
+const LEGACY_PSEUDO_ELEMENTS = new Set([
+  'before', 'after', 'first-line', 'first-letter',
 ])
 
 /** 只在括号、属性和引号之外分段，避免 :not(...) / :where(...) 内的空格变成祖先路径。 */
@@ -427,7 +441,11 @@ function balancedEnd(text: string, start: number): number {
   return text.length
 }
 
-/** 去掉当前主体的待编辑状态；:not、结构条件、祖先条件和页面作用域仍由 matches 校验。 */
+/**
+ * 拆出当前主体的伪类状态；匹配条件仍保留给 matches 校验。
+ * :has(...) 同时写入 pseudo 和 matchSelector，因此既能生成 Tab，
+ * 又不会丢失它本身的关系匹配条件。
+ */
 export function splitZoneSelectorState(selector: string) {
   const start = selectorSubjectStart(selector)
   const subject = selector.slice(start)
@@ -443,10 +461,17 @@ export function splitZoneSelectorState(selector: string) {
     let end = i + token[0].length
     if (subject[end] === '(') end = balancedEnd(subject, end)
     const name = token[2].toLowerCase()
-    const isElement = token[1] === '::' || /^(before|after|first-line|first-letter)$/.test(name)
-    if (isElement || EDITABLE_STATES.has(name)) {
-      pseudo += isElement ? '::' + subject.slice(i + token[1].length, end) : subject.slice(i, end)
-    } else {
+    const isElement = token[1] === '::' || LEGACY_PSEUDO_ELEMENTS.has(name)
+    const isMatchOnlyPseudoClass = token[1] === ':' && MATCH_ONLY_PSEUDO_CLASSES.has(name)
+    const isDualRolePseudoClass = token[1] === ':' && DUAL_ROLE_PSEUDO_CLASSES.has(name)
+    const tokenText = isElement
+      ? '::' + subject.slice(i + token[1].length, end)
+      : subject.slice(i, end)
+
+    if (isElement || !isMatchOnlyPseudoClass || isDualRolePseudoClass) {
+      pseudo += tokenText
+    }
+    if (!isElement && (isMatchOnlyPseudoClass || isDualRolePseudoClass)) {
       matchSubject += subject.slice(i, end)
     }
     i = end

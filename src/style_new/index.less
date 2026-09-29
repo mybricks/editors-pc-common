@@ -233,12 +233,19 @@
 
 .zoneTabBar {
   display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  margin: 4px 1px 6px 6px;
+  position: relative;
+}
+
+.zoneTabList {
+  display: flex;
+  flex: 1;
+  min-width: 0;
   flex-wrap: wrap;
-  align-items: center;
   justify-content: center;
   gap: 6px 4px;
-  margin: 4px 6px 6px;
-  position: relative;
 }
 
 .zoneTab {
@@ -304,8 +311,28 @@
 }
 
 .zoneTabAdd {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: @font-color-content;
+  opacity: 0.55;
+  cursor: pointer;
+
+  svg {
+    width: 14.5px;
+    height: 14.5px;
+  }
+
   &:hover {
-    background-color: rgba(0, 0, 0, 0.05) !important;
+    opacity: 1;
+    background-color: rgba(0, 0, 0, 0.05);
   }
 }
 
