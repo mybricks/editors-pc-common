@@ -194,7 +194,7 @@ interface DefaultModeBadgeProps {
   onApplyVariable?: () => void;
 }
 
-/** 未配置宽/高：placeholder 显示「默认」，右侧只保留下拉箭头 */
+/** 未配置宽/高：输入框回显实测尺寸，右侧只保留模式下拉箭头 */
 function DefaultModeBadge({
   dimension,
   actualSize,
@@ -401,23 +401,35 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
       { key: 'minWidth', value: null },
       { key: 'minHeight', value: null },
     ]);
+    if (targetDom) {
+      setActualWidth(targetDom.offsetWidth);
+      setActualHeight(targetDom.offsetHeight);
+    }
     // setShowWidthHeight(false);
     setShowMaxWidth(false);
     setShowMinWidth(false);
     setShowMaxHeight(false);
     setShowMinHeight(false);
-    setWidthPending(undefined);
-    setHeightPending(undefined);
+    setWidthPending(null);
+    setHeightPending(null);
     setMaxWidthPending(undefined);
     setMaxHeightPending(undefined);
     setMinWidthPending(undefined);
     setMinHeightPending(undefined);
     setWidthPreferPercent(false);
     setHeightPreferPercent(false);
-  }, [onChange]);
+  }, [onChange, targetDom]);
 
   const isDraggingWidth = useRef(false);
   const isDraggingHeight = useRef(false);
+
+  /** 清除宽高声明后同步读取最新布局尺寸，避免等待 ResizeObserver 下一帧才回填默认值。 */
+  const syncActualSizeFromDom = useCallback(() => {
+    const dom = targetDomRef.current;
+    if (!dom) return;
+    setActualWidth(dom.offsetWidth);
+    setActualHeight(dom.offsetHeight);
+  }, []);
 
   /** undefined=无覆盖；null=乐观清空（勿用 ?? 回退到旧 value，否则清空回车无法立即显示默认态） */
   const [widthPending, setWidthPending] = useState<string | null | undefined>();
@@ -515,8 +527,8 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
   const isHeightHug = heightEffective === 'fit-content';
   const isWidthDefault = !isWidthFill && !isWidthHug && !widthEffective;
   const isHeightDefault = !isHeightFill && !isHeightHug && !heightEffective;
-  const widthDefaultPx = actualWidth > 0 ? Math.round(actualWidth) : null;
-  const heightDefaultPx = actualHeight > 0 ? Math.round(actualHeight) : null;
+  const widthDefaultPx = targetDom ? Math.max(0, Math.round(actualWidth)) : null;
+  const heightDefaultPx = targetDom ? Math.max(0, Math.round(actualHeight)) : null;
 
   // 宽高比跟踪：px 用配置值；填满/%/适应/未配置用 DOM 实测值，避免比例停在初始 1
   const widthPxVal = useMemo(() => {
@@ -840,9 +852,10 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
     } else {
       onChange({ key: 'width', value: realVal });
     }
+    if (realVal === null) syncActualSizeFromDom();
     // null 表示乐观清空，保留 pending 覆盖，避免回退到尚未更新的 value.width
     if (!isDraggingWidth.current) setWidthPending(realVal);
-  }, [onChange, cfg.disableWidth, locked, value.width, widthPending, heightVarRef]);
+  }, [onChange, cfg.disableWidth, locked, value.width, widthPending, heightVarRef, syncActualSizeFromDom]);
 
   const handleHeightChange = useCallback((val: string | null) => {
     let realVal: string | null = val === 'default' || val == null ? null : val;
@@ -924,9 +937,10 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
     } else {
       onChange({ key: 'height', value: realVal });
     }
+    if (realVal === null) syncActualSizeFromDom();
     // null 表示乐观清空，保留 pending 覆盖，避免回退到尚未更新的 value.height
     if (!isDraggingHeight.current) setHeightPending(realVal);
-  }, [onChange, cfg.disableHeight, locked, value.height, heightPending, widthVarRef]);
+  }, [onChange, cfg.disableHeight, locked, value.height, heightPending, widthVarRef, syncActualSizeFromDom]);
 
   const constraintPendingSetters = useMemo(() => ({
     minWidth: setMinWidthPending,
@@ -1262,7 +1276,13 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
                   <InputNumber
                     key={`${isWidthFill ? 'fill-w' : (isWidthHug ? 'hug-w' : (isWidthDefault ? 'default-w' : getUnitKey(widthResolved)))}-wlk${widthLockKey}`}
                     style={{ flex: 1, minWidth: 0, marginLeft: 4 }}
-                    {...(isWidthFill || isWidthHug || isWidthDefault ? { value: null as any } : {})}
+                    value={
+                      isWidthFill || isWidthHug
+                        ? null
+                        : isWidthDefault && widthDefaultPx != null
+                          ? `${widthDefaultPx}px`
+                          : undefined
+                    }
                     defaultValue={
                       isWidthFill || isWidthHug || isWidthDefault
                         ? undefined
@@ -1285,19 +1305,9 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
                     unitIconClassName={css.sizeUnitIcon}
                     unitSelectStyle={SIZE_UNIT_SELECT_STYLE}
                     unitHideLabelList={SIZE_UNIT_HIDE_LABEL_LIST}
-                    clearable={!widthVarRef}
+                    clearable={!widthVarRef && !isWidthDefault}
                     onClear={() => handleWidthChange(null)}
-                    tip={
-                      cfg.disableWidth
-                        ? SIZE_DISABLED_TIP
-                        : isWidthFill && widthDefaultPx != null
-                          ? `当前宽填满父容器，${widthDefaultPx}为计算值`
-                          : isWidthHug && widthDefaultPx != null
-                            ? `当前宽适应内容，${widthDefaultPx}为计算值`
-                          : isWidthDefault && widthDefaultPx != null
-                            ? `未配置宽，${widthDefaultPx}为计算值`
-                            : undefined
-                    }
+                    tip={cfg.disableWidth ? `宽：${SIZE_DISABLED_TIP}` : '宽'}
                     badge={
                       isWidthFill ? (
                         <SizingModeBadge
@@ -1307,7 +1317,11 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
                           actualSize={Math.round(actualWidth)}
                           parentSize={parentWidth}
                           onPreferPercent={setWidthPreferPercent}
-                          onChange={(v) => { setWidthPending(v ?? 'auto'); onChange({ key: 'width', value: v }); }}
+                          onChange={(v) => {
+                            setWidthPending(v ?? 'auto');
+                            onChange({ key: 'width', value: v });
+                            if (v == null) syncActualSizeFromDom();
+                          }}
                           onAddMin={() => { setShowMinWidth(true); setShowWidthHeight(true); }}
                           onAddMax={() => { setShowMaxWidth(true); setShowWidthHeight(true); }}
                           hasVariables={hasLengthVariables}
@@ -1321,7 +1335,11 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
                           actualSize={Math.round(actualWidth)}
                           parentSize={parentWidth}
                           onPreferPercent={setWidthPreferPercent}
-                          onChange={(v) => { setWidthPending(v); onChange({ key: 'width', value: v }); }}
+                          onChange={(v) => {
+                            setWidthPending(v);
+                            onChange({ key: 'width', value: v });
+                            if (v == null) syncActualSizeFromDom();
+                          }}
                           onAddMin={() => { setShowMinWidth(true); setShowWidthHeight(true); }}
                           onAddMax={() => { setShowMaxWidth(true); setShowWidthHeight(true); }}
                           hasVariables={hasLengthVariables}
@@ -1362,7 +1380,13 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
                   <InputNumber
                     key={`${isHeightFill ? 'fill-h' : (isHeightHug ? 'hug-h' : (isHeightDefault ? 'default-h' : getUnitKey(heightResolved)))}-hlk${heightLockKey}`}
                     style={{ flex: 1, minWidth: 0, marginLeft: 4 }}
-                    {...(isHeightFill || isHeightHug || isHeightDefault ? { value: null as any } : {})}
+                    value={
+                      isHeightFill || isHeightHug
+                        ? null
+                        : isHeightDefault && heightDefaultPx != null
+                          ? `${heightDefaultPx}px`
+                          : undefined
+                    }
                     defaultValue={
                       isHeightFill || isHeightHug || isHeightDefault
                         ? undefined
@@ -1385,19 +1409,9 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
                     unitIconClassName={css.sizeUnitIcon}
                     unitSelectStyle={SIZE_UNIT_SELECT_STYLE}
                     unitHideLabelList={SIZE_UNIT_HIDE_LABEL_LIST}
-                    clearable={!heightVarRef}
+                    clearable={!heightVarRef && !isHeightDefault}
                     onClear={() => handleHeightChange(null)}
-                    tip={
-                      cfg.disableHeight
-                        ? SIZE_DISABLED_TIP
-                        : isHeightFill && heightDefaultPx != null
-                          ? `当前高填满父容器，${heightDefaultPx}为计算值`
-                          : isHeightHug && heightDefaultPx != null
-                            ? `当前高适应内容，${heightDefaultPx}为计算值`
-                          : isHeightDefault && heightDefaultPx != null
-                            ? `未配置高，${heightDefaultPx}为计算值`
-                            : undefined
-                    }
+                    tip={cfg.disableHeight ? `高：${SIZE_DISABLED_TIP}` : '高'}
                     badge={
                       isHeightFill ? (
                         <SizingModeBadge
@@ -1407,7 +1421,11 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
                           actualSize={Math.round(actualHeight)}
                           parentSize={parentHeight}
                           onPreferPercent={setHeightPreferPercent}
-                          onChange={(v) => { setHeightPending(v ?? 'auto'); onChange({ key: 'height', value: v }); }}
+                          onChange={(v) => {
+                            setHeightPending(v ?? 'auto');
+                            onChange({ key: 'height', value: v });
+                            if (v == null) syncActualSizeFromDom();
+                          }}
                           onAddMin={() => { setShowMinHeight(true); setShowWidthHeight(true); }}
                           onAddMax={() => { setShowMaxHeight(true); setShowWidthHeight(true); }}
                           hasVariables={hasLengthVariables}
@@ -1421,7 +1439,11 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
                           actualSize={Math.round(actualHeight)}
                           parentSize={parentHeight}
                           onPreferPercent={setHeightPreferPercent}
-                          onChange={(v) => { setHeightPending(v); onChange({ key: 'height', value: v }); }}
+                          onChange={(v) => {
+                            setHeightPending(v);
+                            onChange({ key: 'height', value: v });
+                            if (v == null) syncActualSizeFromDom();
+                          }}
                           onAddMin={() => { setShowMinHeight(true); setShowWidthHeight(true); }}
                           onAddMax={() => { setShowMaxHeight(true); setShowWidthHeight(true); }}
                           hasVariables={hasLengthVariables}
@@ -1469,6 +1491,7 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
                     {minWidthVarRef ? renderVariableChip('minWidth', minWidthVarRef) : (
                     <InputNumber
                       key={getUnitKey(minWidthEffective)}
+                      tip="最小宽度"
                       style={{ flex: 1, minWidth: 0, marginLeft: 4 }}
                       defaultValue={minWidthEffective}
                       defaultUnitValue="px"
@@ -1504,6 +1527,7 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
                     {maxWidthVarRef ? renderVariableChip('maxWidth', maxWidthVarRef) : (
                     <InputNumber
                       key={getUnitKey(maxWidthEffective)}
+                      tip="最大宽度"
                       style={{ flex: 1, minWidth: 0, marginLeft: 4 }}
                       defaultValue={maxWidthEffective}
                       defaultUnitValue="px"
@@ -1543,6 +1567,7 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
                     {minHeightVarRef ? renderVariableChip('minHeight', minHeightVarRef) : (
                     <InputNumber
                       key={getUnitKey(minHeightEffective)}
+                      tip="最小高度"
                       style={{ flex: 1, minWidth: 0, marginLeft: 4 }}
                       defaultValue={minHeightEffective}
                       defaultUnitValue="px"
@@ -1578,6 +1603,7 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
                     {maxHeightVarRef ? renderVariableChip('maxHeight', maxHeightVarRef) : (
                     <InputNumber
                       key={getUnitKey(maxHeightEffective)}
+                      tip="最大高度"
                       style={{ flex: 1, minWidth: 0, marginLeft: 4 }}
                       defaultValue={maxHeightEffective}
                       defaultUnitValue="px"

@@ -192,10 +192,6 @@ function getComputedCssLengthPx(item?: EffectiveStyleValue, normalValue?: number
   return Math.round(parsed);
 }
 
-function buildDefaultLengthTip(label: string, px: number | null): string {
-  return px != null && Number.isFinite(px) ? `当前未配置${label}值，${px}为计算值` : label;
-}
-
 /** 行高单位互转：先归一到 px，再转到目标单位；无效时用 defaultPx */
 function convertLineHeightValue(
   num: number,
@@ -427,6 +423,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
   const [fontFamilyAuthored, setFontFamilyAuthored] = useState(() =>
     familyConfigured
   );
+  const [fontFamilyDefaultPreview, setFontFamilyDefaultPreview] = useState<string>();
   const [innerFontFamily, setInnerFontFamily] = useState<string[] | undefined>(() =>
     familyConfigured
       ? parseFontFamily(value.fontFamily)
@@ -435,6 +432,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
 
   useEffect(() => {
     const authored = familyConfigured;
+    setFontFamilyDefaultPreview(undefined);
     setFontFamilyAuthored(authored);
     setInnerFontFamily(authored ? parseFontFamily(value.fontFamily) : []);
   }, [targetDom, familyConfigured, value.fontFamily]);
@@ -442,14 +440,18 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
   const handleFontFamilyClear = useCallback(() => {
     const result = onChange({ key: 'fontFamily', value: null });
     if (result && !result.clearApplied) return;
+    const preview = context?.getStylePreview?.('fontFamily', true)?.trim();
+    setFontFamilyDefaultPreview(preview || undefined);
     setInnerFontFamily([]);
     setFontFamilyAuthored(false);
-  }, [onChange]);
+  }, [onChange, context?.getStylePreview]);
 
-  const computedFontFamily = effectiveStyle?.fontFamily?.computedValue;
+  const computedFontFamily = fontFamilyDefaultPreview || effectiveStyle?.fontFamily?.computedValue;
+  const inheritedFontFamily = parseFontFamily(computedFontFamily)[0];
   const fontFamilyPreview = fontFamilyAuthored
     ? innerFontFamily?.[0] ? quoteIfNeeded(innerFontFamily[0]) : ''
     : computedFontFamily;
+  const fontFamilyDisplayValue = fontFamilyAuthored ? undefined : inheritedFontFamily;
   const fontFamilyPlaceholder = fontFamilyAuthored ? '未配置字体' : '继承';
 
   const [isMultiMode, setIsMultiMode] = useState(false);
@@ -505,6 +507,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
   const [fontSize, setFontSize] = useState<string | number | null>(() =>
     fontSizeConfigured && isConfiguredCssLength(value.fontSize) ? (value.fontSize as string | number) : null
   );
+  const [fontSizeDefaultPreviewPx, setFontSizeDefaultPreviewPx] = useState<number | null>(null);
   const [fontSizeDraftConfigured, setFontSizeDraftConfigured] = useState(false);
   const [fontSizeInputKey, setFontSizeInputKey] = useState(0);
   const [lineHeight, setLineHeight] = useState<string | number | null>(() =>
@@ -517,6 +520,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
 
   // Tab/元素变化以及外部样式刷新时，按逐属性生效值同步输入框。
   useEffect(() => {
+    setFontSizeDefaultPreviewPx(null);
     setFontSizeDraftConfigured(false);
     lineHeightChangedByInputRef.current = false;
     setFontSize(fontSizeConfigured && isConfiguredCssLength(value.fontSize) ? (value.fontSize as string | number) : null);
@@ -526,27 +530,30 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
     );
   }, [targetDom, fontSizeConfigured, lineHeightConfigured, letterSpacingConfigured, value.fontSize, value.lineHeight, value.letterSpacing]);
 
-  const defaultFontSizePx = getComputedCssLengthPx(effectiveStyle?.fontSize);
+  const effectiveDefaultFontSizePx = getComputedCssLengthPx(effectiveStyle?.fontSize);
+  const defaultFontSizePx = fontSizeDefaultPreviewPx ?? effectiveDefaultFontSizePx;
   const fontSizeUnconfigured = !isConfiguredCssLength(fontSize);
   const showFontSizeDefaultAction = !!sizeField.clear || fontSizeDraftConfigured;
   const fontSizePlaceholder = '默认';
-  const fontSizeTip = fontSizeUnconfigured
-    ? buildDefaultLengthTip('字号', defaultFontSizePx)
-    : '字号';
+  // 未配置字号时直接回显最终计算值，但仍保持 fontSize 为 null。
+  // 这样仅展示默认值不会把它误写成用户显式配置的 font-size。
+  const fontSizeDisplayValue = fontSizeUnconfigured && Number.isFinite(defaultFontSizePx)
+    ? `${defaultFontSizePx}px`
+    : fontSize;
 
   const defaultLineHeightPx = getComputedCssLengthPx(effectiveStyle?.lineHeight);
   const lineHeightUnconfigured = !isConfiguredCssLength(lineHeight);
   const lineHeightPlaceholder = '默认';
-  const lineHeightTip = lineHeightUnconfigured
-    ? buildDefaultLengthTip('行高', defaultLineHeightPx)
-    : '行高';
+  const lineHeightDisplayValue = lineHeightUnconfigured && Number.isFinite(defaultLineHeightPx)
+    ? `${defaultLineHeightPx}px`
+    : lineHeight;
 
   const defaultLetterSpacingPx = getComputedCssLengthPx(effectiveStyle?.letterSpacing, 0);
   const letterSpacingUnconfigured = !isConfiguredCssLength(letterSpacing);
   const letterSpacingPlaceholder = '默认';
-  const letterSpacingTip = letterSpacingUnconfigured
-    ? buildDefaultLengthTip('字间距', defaultLetterSpacingPx)
-    : '字间距';
+  const letterSpacingDisplayValue = letterSpacingUnconfigured && Number.isFinite(defaultLetterSpacingPx)
+    ? `${defaultLetterSpacingPx}px`
+    : letterSpacing;
 
   const [truncateLines, setTruncateLines] = useState<number>(() => {
     const clamp = (value as any).webkitLineClamp;
@@ -629,14 +636,21 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
         throttleTimerRef.current = null;
       }
       if (nextFontSize == null || nextFontSize === '') {
+        const result = onChange({ key: "fontSize", value: null });
+        if (result?.clearUnsupported && !result.clearApplied) return;
+        // 清除声明后直接读取 DOM 的最新计算值。effectiveStyle 的刷新可能晚一拍，
+        // 这里的本地预览可确保输入框在同一次交互中立即回填默认字号。
+        const preview = context?.getStylePreview?.('fontSize', true);
+        const previewPx = Math.round(parseFloat(String(preview ?? '')));
+        setFontSizeDefaultPreviewPx(Number.isFinite(previewPx) ? previewPx : null);
         setFontSize(null);
         // 默认态直接输入 0 时，0 只存在于 InputNumber 的草稿中；外部值仍为 null，
         // 因此选择「默认」需要重挂载输入框，确保草稿也立即清空。
         setFontSizeInputKey((key) => key + 1);
-        onChange({ key: "fontSize", value: null });
         return;
       }
 
+      setFontSizeDefaultPreviewPx(null);
       // 变量值无法参与数值计算，直接落盘并跳过行高联动
       if (isCssVarValue(nextFontSize)) {
         setFontSize(nextFontSize as string);
@@ -704,7 +718,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
         onChange({ key: "fontSize", value: nextFontSize });
       }
     },
-    [lineHeight]
+    [lineHeight, onChange, context?.getStylePreview]
   );
 
   const fontSizeVar = useLengthVarBinding({
@@ -1064,6 +1078,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
                   });
                 }}
                 footer={modeFooter}
+                displayValue={fontFamilyDisplayValue}
                 placeholder={fontFamilyPlaceholder}
               />
             ) : (
@@ -1091,6 +1106,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
                   onChange({ key: 'fontFamily', value: quoteIfNeeded(newValue) });
                 }}
                 footer={modeFooter}
+                displayValue={fontFamilyDisplayValue}
                 placeholder={fontFamilyPlaceholder}
               />
             );
@@ -1178,10 +1194,10 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
                 menuStyle={FONT_SIZE_MENU_STYLE}
                 onMenuSelect={(size) => onFontSizeChange(`${size}px`)}
                 inputProps={{
-                  tip: fontSizeTip,
+                  tip: '字号',
                   type: "number",
                   style: { flex: 1, minWidth: 0, marginLeft: 4 },
-                  value: fontSizeUnconfigured ? null : fontSize,
+                  value: fontSizeDisplayValue,
                   placeholder: fontSizePlaceholder,
                   unitOptions: FONT_SIZE_OPTIONS,
                   onInputValueChange: (nextValue) => {
@@ -1245,10 +1261,10 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
                 binding={lineHeightVar}
                 inputKey={`lineHeight-${getLineHeightUnitKey(lineHeight)}`}
                 inputProps={{
-                  tip: lineHeightTip,
+                  tip: '行高',
                   type: "number",
                   style: { flex: 1, minWidth: 0, marginLeft: 4 },
-                  value: lineHeightUnconfigured ? null : lineHeight,
+                  value: lineHeightDisplayValue,
                   placeholder: lineHeightPlaceholder,
                   defaultUnitValue: "default",
                   unitOptions: lineHeightUnitOptions,
@@ -1256,6 +1272,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
                   hideUnitWhenEmpty: true,
                   showIcon: true,
                   showIconOnHover: true,
+                  clearable: !lineHeightUnconfigured,
                   onInputValueChange: () => {
                     lineHeightChangedByInputRef.current = true;
                   },
@@ -1293,15 +1310,16 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
               <VariableNumberInput
                 binding={letterSpacingVar}
                 inputProps={{
-                  tip: letterSpacingTip,
+                  tip: '字间距',
                   type: "number",
                   style: { flex: 1, minWidth: 0, marginLeft: 4 },
-                  value: letterSpacingUnconfigured ? null : letterSpacing,
+                  value: letterSpacingDisplayValue,
                   placeholder: letterSpacingPlaceholder,
                   defaultUnitValue: "px",
                   unitOptions: letterSpacingUnitOptions,
                   showIcon: true,
                   showIconOnHover: true,
+                  clearable: !letterSpacingUnconfigured,
                   onChange: onLetterSpacingChange,
                   onAction: (action) => {
                     if (action === APPLY_VARIABLE_ACTION) letterSpacingVar.openPicker();

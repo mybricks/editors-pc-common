@@ -1,4 +1,4 @@
-import React, { CSSProperties, useCallback, useRef } from "react";
+import React, { CSSProperties, useCallback, useRef, useState } from "react";
 import { InputNumber } from "../../../components";
 import { useStyleEditorContext } from "../../../context";
 import Icon from "../Icon";
@@ -21,7 +21,6 @@ export interface GapProps {
 const PX_UNIT_OPTIONS = [{ label: "px", value: "px" }];
 
 function toInputValue(value: CSSProperties["rowGap"] | null): string | undefined {
-  // 清空后传入 undefined，让公共 InputNumber 回到“默认”占位态。
   if (value == null || value === "") return undefined;
   return typeof value === "number" ? `${value}px` : value;
 }
@@ -56,6 +55,7 @@ function getComputedGapValue(
 export default ({ value, cleared, onChange, flexDirection }: GapProps) => {
   const getDragProps = useDragNumber({ continuous: true });
   const targetDom = useStyleEditorContext()?.targetDom;
+  const [inputRevision, setInputRevision] = useState<Record<GapKey, number>>({ rowGap: 0, columnGap: 0 });
   // 失焦提交和点击清除可能连续发生在同一轮渲染中，不能让清除回调
   // 捕获上一次 render 的 value，否则会把刚提交的间距再次写回。
   const valueRef = useRef(value);
@@ -65,6 +65,10 @@ export default ({ value, cleared, onChange, flexDirection }: GapProps) => {
     const nextValue = getGapChange(valueRef.current, name, next);
     valueRef.current = nextValue;
     onChange(nextValue);
+    // 清除时即使计算值与原回显相同，也要重挂载以清掉输入框内的草稿。
+    if (next === null) {
+      setInputRevision((previous) => ({ ...previous, [name]: previous[name] + 1 }));
+    }
   }, [onChange]);
 
   const renderInput = (
@@ -73,26 +77,28 @@ export default ({ value, cleared, onChange, flexDirection }: GapProps) => {
     iconName: "column-gap" | "row-gap",
     title: string,
   ) => {
-    // const isDefault = !!cleared?.[name] || inputValue == null || inputValue === "";
-    // const computedValue = getComputedGapValue(targetDom, name, inputValue);
+    const isDefault = !!cleared?.[name] || inputValue == null || inputValue === "";
+    const displayValue = isDefault
+      ? `${getComputedGapValue(targetDom, name, null)}px`
+      : toInputValue(inputValue);
 
     return (
       <div className={styles.input}>
         <InputNumber
+          key={`${name}-${inputRevision[name]}`}
           type="number"
           prefix={
-            <div {...getDragProps(inputValue, `拖拽调整${title}`)}>
+            <div {...getDragProps(displayValue, `拖拽调整${title}`)}>
               <Icon name={iconName} />
             </div>
           }
           tip={title}
           style={{ padding: "0 8px" }}
-          value={toInputValue(cleared?.[name] ? null : inputValue)}
-          defaultValue={toInputValue(cleared?.[name] ? null : inputValue)}
+          value={displayValue}
           defaultUnitValue="px"
           unitOptions={PX_UNIT_OPTIONS}
-          // 0 也是有效回显值，需要保留“默认”入口；空值时公共组件会自动隐藏入口。
-          clearable
+          // 计算值只是回显；只有显式配置后才出现「默认」操作。
+          clearable={!isDefault}
           onClear={() => handleGapChange(name, null)}
           onChange={(next) => handleGapChange(name, next == null ? null : next)}
         />

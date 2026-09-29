@@ -37,6 +37,8 @@ interface SelectProps {
   clearable?: boolean;
   onClear?: () => void;
   placeholder?: string;
+  /** 仅覆盖当前回显文案，不改变真实选中值或下拉勾选状态。 */
+  displayValue?: ReactNode;
   /** 固定在下拉底部的自定义内容，不随列表滚动 */
   footer?: ReactNode;
 }
@@ -62,6 +64,7 @@ export function Select({
   clearable = false,
   onClear,
   placeholder,
+  displayValue,
   footer,
 }: SelectProps) {
   const [value, setValue] = useState(propsValue !== undefined ? propsValue : defaultValue);
@@ -133,6 +136,8 @@ export function Select({
     );
   }, [value]);
 
+  const hasDisplayValue = displayValue !== undefined && displayValue !== null && displayValue !== '';
+
   return (
     <Panel.Item
       style={style}
@@ -162,10 +167,10 @@ export function Select({
           {!hideLabel && (
             <div
               style={labelStyle}
-              className={`${css.value}${labelClassName ? ` ${labelClassName}` : ''}${!label && placeholder ? ` ${css.placeholder}` : ''}`}
+              className={`${css.value}${labelClassName ? ` ${labelClassName}` : ''}${!label && !hasDisplayValue && placeholder ? ` ${css.placeholder}` : ''}`}
             >
               <span className={css.valueText}>
-                {label || placeholder}
+                {label || (hasDisplayValue ? displayValue : placeholder)}
                 {!Array.isArray(value) && options.find(o => o.value === value)?.suffix
                   ? <span className={css.valueSuffix}>{options.find(o => o.value === value)?.suffix}</span>
                   : null
