@@ -21,7 +21,7 @@ export interface GapProps {
 const PX_UNIT_OPTIONS = [{ label: "px", value: "px" }];
 
 function toInputValue(value: CSSProperties["rowGap"] | null): string | undefined {
-  // 清空后传入 undefined，让公共 InputNumber 回到“默认”占位态。
+  // 清空后传入 undefined，让公共 InputNumber 回到空值状态。
   if (value == null || value === "") return undefined;
   return typeof value === "number" ? `${value}px` : value;
 }
@@ -86,6 +86,7 @@ export default ({ value, cleared, onChange, flexDirection }: GapProps) => {
             </div>
           }
           tip={title}
+          placeholder=""
           style={{ padding: "0 8px" }}
           value={toInputValue(cleared?.[name] ? null : inputValue)}
           defaultValue={toInputValue(cleared?.[name] ? null : inputValue)}

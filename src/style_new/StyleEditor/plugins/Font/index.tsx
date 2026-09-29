@@ -1132,6 +1132,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
             clearable={!!colorField.clear || (isTextFillActive(value as Record<string, any>) && !!imageField.clear)}
             onClear={handleTextFillClear}
             inherited={!textFillAuthored}
+            showInheritedColor
             emptyValueLabel={colorResetToDefault || pendingTextFillDefault ? '默认' : undefined}
             onChange={handleTextFillChange}
           />
