@@ -21,12 +21,8 @@ import {
 import { useDragNumber, useLengthVarBinding, useBoxSpacingEditor } from '../../hooks'
 
 import type { ChangeEvent, PanelBaseProps } from '../../type'
-import {
-  useStyleEditorContext
-} from '../../context'
 import type { LengthVarBinding } from '../../hooks/useLengthVarBinding'
 import type { InputNumberProps } from '../../components/InputNumber'
-import type { EffectiveStyleValue } from '../../../core/zone-tab'
 
 import css from './index.less'
 
@@ -55,16 +51,6 @@ function getUnitOptions(clearable: boolean) {
   return clearable ? UNIT_OPTIONS : UNIT_OPTIONS.slice(2)
 }
 
-function buildComputedTip(
-  label: string,
-  item?: EffectiveStyleValue,
-  previewValue?: string
-): string {
-  const computedValue = previewValue ?? item?.computedValue
-  return computedValue
-    ? `当前未配置${label}值，${computedValue}为计算值`
-    : label
-}
 interface MarginValueInputProps {
   binding: LengthVarBinding
   value: string | number | null | undefined
@@ -101,6 +87,7 @@ function AutoMarginBadge({inputProps}: {inputProps: InputNumberProps}) {
 
 function MarginValueInput({binding, value, label, inputProps}: MarginValueInputProps) {
   const normalizedInputProps = {
+    placeholder: '',
     ...inputProps,
     // InputNumber 对禁用单位会直接回写关键字，避免把数字和 auto/default 拼成 0auto。
     unitDisabledList: Array.from(new Set([...(inputProps.unitDisabledList ?? []), 'auto', 'default']))
@@ -118,7 +105,7 @@ function MarginValueInput({binding, value, label, inputProps}: MarginValueInputP
           defaultValue: undefined,
           placeholder: '自动',
           clearable: normalizedInputProps.clearable,
-          tip: `当前${label}为 auto，自动占用剩余空间；${binding.fallbackValue}为计算值`,
+          tip: label,
           badge: <AutoMarginBadge inputProps={normalizedInputProps} />
         }}
       />
@@ -136,9 +123,8 @@ const DEFAULT_CONFIG = {
 }
 
 export function Margin ({value, onChange: fallbackOnChange, config, showTitle, collapse}: MarginProps) {
-  const context = useStyleEditorContext()
   const {
-    spacingValue: marginValue, toggle, setToggle, previewValues, forceRenderKey,
+    spacingValue: marginValue, toggle, setToggle, forceRenderKey,
     handleChange, handleUnifiedChange, handleSwitchToUnified, refresh,
     canResetSide, unifiedCanClear, canReset,
   } = useBoxSpacingEditor({ property: 'margin', value, onChange: fallbackOnChange })
@@ -233,13 +219,7 @@ export function Margin ({value, onChange: fallbackOnChange, config, showTitle, c
                   onAction: (action) => {
                     if (action === APPLY_VARIABLE_ACTION) unifiedVar.openPicker()
                   },
-                  tip: marginValue.marginTop == null
-                    ? buildComputedTip(
-                      '外边距',
-                      context?.effectiveStyle?.marginTop,
-                      previewValues.marginTop
-                    )
-                    : '外边距'
+                  tip: '外边距'
                 }}
               />
             </Panel.Item>
@@ -289,13 +269,7 @@ export function Margin ({value, onChange: fallbackOnChange, config, showTitle, c
                         if (action === APPLY_VARIABLE_ACTION) leftVar.openPicker()
                       },
                       onFocus: () => setSplitMarginIcon(<MarginLeftOutlined/>),
-                      tip: marginValue.marginLeft == null
-                        ? buildComputedTip(
-                          '左外边距',
-                          context?.effectiveStyle?.marginLeft,
-                          previewValues.marginLeft
-                        )
-                        : '左外边距'
+                      tip: '左外边距'
                     }}
                   />
                 </Panel.Item>
@@ -331,13 +305,7 @@ export function Margin ({value, onChange: fallbackOnChange, config, showTitle, c
                         if (action === APPLY_VARIABLE_ACTION) topVar.openPicker()
                       },
                       onFocus: () => setSplitMarginIcon(<MarginTopOutlined/>),
-                      tip: marginValue.marginTop == null
-                        ? buildComputedTip(
-                          '上外边距',
-                          context?.effectiveStyle?.marginTop,
-                          previewValues.marginTop
-                        )
-                        : '上外边距'
+                      tip: '上外边距'
                     }}
                   />
                 </Panel.Item>
@@ -375,13 +343,7 @@ export function Margin ({value, onChange: fallbackOnChange, config, showTitle, c
                         if (action === APPLY_VARIABLE_ACTION) rightVar.openPicker()
                       },
                       onFocus: () => setSplitMarginIcon(<MarginRightOutlined/>),
-                      tip: marginValue.marginRight == null
-                        ? buildComputedTip(
-                          '右外边距',
-                          context?.effectiveStyle?.marginRight,
-                          previewValues.marginRight
-                        )
-                        : '右外边距'
+                      tip: '右外边距'
                     }}
                   />
                 </Panel.Item>
@@ -417,13 +379,7 @@ export function Margin ({value, onChange: fallbackOnChange, config, showTitle, c
                         if (action === APPLY_VARIABLE_ACTION) bottomVar.openPicker()
                       },
                       onFocus: () => setSplitMarginIcon(<MarginBottomOutlined/>),
-                      tip: marginValue.marginBottom == null
-                        ? buildComputedTip(
-                          '下外边距',
-                          context?.effectiveStyle?.marginBottom,
-                          previewValues.marginBottom
-                        )
-                        : '下外边距'
+                      tip: '下外边距'
                     }}
                   />
                 </Panel.Item>

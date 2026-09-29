@@ -118,7 +118,6 @@ export const OverFlow = ({ value: fallbackValue, onChange: fallbackOnChange, sho
                 </span>
               }
               value={overflowValue[key]}
-              placeholder='默认'
               labelStyle={overflowValue[key] == null ? { color: '#333333', opacity: 1 } : undefined}
               options={VALUE_OPTIONS}
               onChange={(val) => handleAxisChange(key, val)}
