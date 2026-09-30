@@ -25,6 +25,7 @@ import { createStyleWriteTargetResolver } from './style-write-target'
 import type { StyleWriteTarget } from './style-write-target'
 import { BORDER_DETAIL_KEYS, BORDER_RADIUS_KEYS, createBorderRadiusWritePlans, createBorderWritePlans, isBorderProperty, isBorderRadiusProperty } from './border-write'
 import { createOverflowWritePlans, isOverflowProperty } from './overflow'
+import { createFlexLonghandWritePlans } from './flex-write'
 
 export type StyleChangeItem = {
   key: string
@@ -636,9 +637,13 @@ function applyEffectiveStyleChanges(
         Object.values(flexStyle).some(value => IMPORTANT_SUFFIX_RE.test(String(value)))
       : !splitZoneSelectorState(flexSelector).pseudo &&
         flexKeys.some(key => inlineProperties.has(cssPropertyName(key)))))
+  const flexPlans = !replacingFlex ? [] : flexWrites.some(item => item.key === 'flex')
+    ? [{ property: 'flex' as const, selector: flexSelector, style: flexStyle,
+        deletions: flexDeletions, clearedKeys: [] as string[], unsupported: flexUnsupported }]
+    : createFlexLonghandWritePlans(changes, resolution, target,
+        change => writeTargets.get(change.key)?.selector || null)
   const propertyPlans = [
-    ...(replacingFlex ? [{ property: 'flex' as const, selector: flexSelector, style: flexStyle,
-      deletions: flexDeletions, clearedKeys: [] as string[], unsupported: flexUnsupported }] : []),
+    ...flexPlans,
     ...createSpacingWritePlans(specializedChanges, resolution, tab.selector, target,
       change => writeTargets.get(change.key)?.selector || null),
     ...createBorderRadiusWritePlans(specializedChanges, resolution, target,
@@ -747,6 +752,16 @@ function applyEffectiveStyleChanges(
       })
     }
   })
+  if (flexPlans.length > 1) {
+    // 同来源简写拆分会携带该规则自己的后备值，不能按写入顺序覆盖面板快照。
+    // 等各来源全部 record 后再取当前状态的赢家，连续编辑才与重新聚焦一致。
+    delete nextLiveStyle.flex
+    flexKeys.filter(key => key !== 'flex').forEach(key => {
+      const winner = resolveEffectiveStyleSource(resolution.get(key).candidates.filter(candidate => candidate.currentState))
+      if (winner) nextLiveStyle[key] = `${winner.value}${winner.important ? ' !important' : ''}`
+      else delete nextLiveStyle[key]
+    })
+  }
   const groups = new Map<string, Record<string, any>>()
   let clearApplied = propertyPlans.some(plan => plan.clearedKeys.length > 0)
   plans.forEach(plan => {

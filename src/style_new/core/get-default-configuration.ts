@@ -395,7 +395,7 @@ export function getDefaultConfiguration ({value, options}: GetDefaultConfigurati
     readonlyExpandedOptions = [...readonlyExpandedOptions, ...newReadonly];
   }
   // CSSOM 会把 flex:1 / 长写都序列化成 flex: 1 11 0%，无法区分简写与单独配置。
-  // Less/value.get 有源码值时以其为准，并清掉 CSSOM 合成项；长写优先时不带回 flex。
+  // Less/value.get 有源码简写时以其为准；只有部分长写时仍保留规则中其余字段的贡献。
   // 第四阶段：合并当前源码样式和 CSSOM/规则样式。
   // 有 DOM 时 computed/规则值优先，再用源码值补充；无 DOM 时源码值覆盖空白默认值。
   // flex 单独处理，因为 CSSOM 会把 flex:1 序列化成长写，反过来会改变面板语义。
@@ -437,21 +437,17 @@ export function getDefaultConfiguration ({value, options}: GetDefaultConfigurati
     const isPresent = (v: unknown) => v != null && String(v).trim() !== ''
     const hasAuthoredFlex = flexKeys.some((k) => isPresent(splitedSetValue[k]))
     if (hasAuthoredFlex) {
+      // 源码简写定义全部三项，清掉 CSSOM 展开项，保持 flex:N 的比例模式。
+      // 源码只有部分长写时不能清整组，否则规则里的 flex:0 0 33.3333%
+      // 会因为一个 flexGrow:0 而丢失 shrink/basis。
+      const hasAuthoredShorthand = isPresent(splitedSetValue.flex)
       flexKeys.forEach((k) => {
         if (isPresent(splitedSetValue[k])) {
           merged[k] = splitedSetValue[k]
-        } else {
+        } else if (hasAuthoredShorthand) {
           delete merged[k]
         }
       })
-      // 源码是长写：强制去掉简写，避免 CSSOM 的 flex: 1 11 0% 把面板打回「比例」
-      if (
-        isPresent(splitedSetValue.flexGrow) ||
-        isPresent(splitedSetValue.flexShrink) ||
-        isPresent(splitedSetValue.flexBasis)
-      ) {
-        delete merged.flex
-      }
     }
     return merged as CSSProperties
   }
