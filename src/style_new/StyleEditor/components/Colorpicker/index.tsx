@@ -406,7 +406,7 @@ function ColorSketch({
           )}
           <div className={css.subContent}>
             {subTab === "background" && <Sketch color={sketchColor()} onChange={handleSolidChange} />}
-            {subTab === "gradient" && (
+            {open && subTab === "gradient" && (
               <GradientEditor
                 defaultValue={gradientValue}
                 onChange={handleGradientChange}
