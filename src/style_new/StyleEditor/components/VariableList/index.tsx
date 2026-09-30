@@ -5,7 +5,6 @@ import type { CssVarOption } from "../../../core/css-var";
 import { formatLengthDisplay } from "../../utils";
 import { Search } from "../../icons/Search";
 import { VariableNumber } from "../../icons/VariableNumber";
-import { SketchCloseIcon } from "../SketchPopup";
 
 import css from "./index.less";
 
@@ -28,7 +27,7 @@ interface VariableListProps<T extends CssVarOption> {
   /** 弹层是否打开：打开时把选中项滚动到可视区中部 */
   open: boolean;
   onSelect: (item: T) => void;
-  /** 传入后展示搜索行右侧的关闭按钮，并支持 Esc 关闭 */
+  /** 传入后支持 Esc 关闭 */
   onClose?: () => void;
   /** 左侧类型图标，默认为数值型标识 */
   renderIcon?: (item: T) => ReactNode;
@@ -97,11 +96,6 @@ export function VariableList<T extends CssVarOption>({
           }}
           autoFocus={autoFocus}
         />
-        {onClose && (
-          <span className={css.closeIcon} onClick={onClose} data-mybricks-tip="关闭">
-            {SketchCloseIcon}
-          </span>
-        )}
       </div>
       <div ref={listRef} className={css.variableList}>
         {filteredList.length === 0 && <div className={css.empty}>{emptyText}</div>}

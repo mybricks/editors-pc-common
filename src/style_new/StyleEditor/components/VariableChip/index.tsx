@@ -46,6 +46,8 @@ interface VariableChipProps {
   onInputValue?: (value: string) => void
   /** 裸数字输入时补的单位，默认 px；如字间距绑定 em 变量时传 em */
   defaultUnit?: string
+  /** 与数值分开显示的单位文案，如不透明度的 % */
+  unitLabel?: string
   /** 光标处按删除键：变量退化为当前的固定数值 */
   onDetach?: () => void
   /** 胶囊左侧的图标，用于保留未绑定态输入框里的字段标识（如 X / Y） */
@@ -74,6 +76,7 @@ export function VariableChip({
   menuStyle,
   onInputValue,
   defaultUnit = 'px',
+  unitLabel,
   onDetach,
   prefix,
   style,
@@ -159,7 +162,12 @@ export function VariableChip({
         {prefix && <div className={css.prefix}>{prefix}</div>}
         <div className={css.main}>
           {/* 开始输入后隐藏胶囊，避免「旧变量值 + 新输入」同时出现 */}
-          {!draft && <span className={css.valueBox} onClick={onRequestPicker}>{displayText}</span>}
+          {!draft && (
+            <>
+              <span className={css.valueBox} onClick={onRequestPicker}>{displayText}</span>
+              {unitLabel && <span className={css.unit}>{unitLabel}</span>}
+            </>
+          )}
           {/* 与 Figma 一致：胶囊右侧仍可聚焦输入，输入数值即替换变量，删除键退化为固定值 */}
           <input
             className={css.input}
@@ -170,6 +178,7 @@ export function VariableChip({
             onKeyDown={handleKeyDown}
             onBlur={commitDraft}
           />
+          {draft && unitLabel && <span className={css.unit}>{unitLabel}</span>}
         </div>
         {/* Dropdown 容器是 width:100%，需外层限宽，否则会挤掉左侧的胶囊与输入区 */}
         <div className={css.arrowWrap}>
