@@ -75,6 +75,7 @@ export interface InputNumberProps extends Omit<InputProps, 'onChange' | 'value'>
   /** 在下拉菜单中提供“默认”选项 */
   clearable?: boolean;
   onClear?: () => void;
+  activeWhenBlur?: boolean;
 }
 
 export function InputNumber ({
@@ -110,6 +111,7 @@ export function InputNumber ({
   clearable = true,
   onClear,
   className,
+  activeWhenBlur = true,
 }: InputNumberProps) {
   // `defaultValue` 是各样式面板的外部回显值；未传受控 value 时也要随选中目标同步。
   const externalValue = value !== undefined ? value : defaultValue
@@ -521,6 +523,7 @@ export function InputNumber ({
       align={align}
       tip={tip}
       className={`${css.inputNumber}${className ? ` ${className}` : ''}`}
+      activeWhenBlur={activeWhenBlur}
       // numberTip={"光标键可增减"}
       type={showPreview && !previewIsNumeric ? undefined : type} // 关键字计算值也需要可见
     />

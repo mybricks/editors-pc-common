@@ -265,22 +265,26 @@ export function GradientEditor({
           stops.map((stop) => {
             const { color, position, id } = stop;
             if (!color) return null;
-            const border = curElementId === id ? "1px solid var(--mybricks-color-primary)" : "";
             return (
               <Panel.Content
                 key={id}
                 style={{
-                  padding: "3px 0",
+                  padding: 0,
+                  gap: 2,
+                  outline: curElementId === id ? "1px solid var(--mybricks-color-primary)" : undefined,
+                  borderRadius: 6,
+                  marginBottom: 2,
                 }}
               >
                 <InputNumber
                   key={position}
                   tip="停靠位置"
                   suffix="%"
-                  style={{ flex: 2, border }}
+                  style={{ flex: 2 }}
                   type={"number"}
                   defaultUnitValue=""
                   defaultValue={position}
+                  activeWhenBlur={false}
                   onChange={(position) => {
                     let newPosition = Number(position);
                     newPosition = newPosition > 100 ? 100 : newPosition;
@@ -293,7 +297,8 @@ export function GradientEditor({
                   defaultValue={color}
                   showSubTabs={false}
                   key={id}
-                  style={{ flex: 5, border }}
+                  style={{ flex: 5 }}
+                  activeWhenBlur={false}
                   variableOptions={variableOptions}
                   scopeEl={scopeEl}
                   resolvedColor={resolveCssVarColor(color, scopeEl) ?? undefined}
@@ -305,10 +310,12 @@ export function GradientEditor({
                 />
                 <div onClick={(event) => event.stopPropagation()}>
                   <Panel.Item
-                    style={{ width: 30, padding: 0, border }}
+                    style={{ width: 30, padding: 0 }}
                     onClick={() => removeColor(id)}
                   >
-                    <MinusButton />
+                    <div style={{ width: 30, height: 26, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+                      <MinusButton />
+                    </div>
                   </Panel.Item>
                 </div>
               </Panel.Content>

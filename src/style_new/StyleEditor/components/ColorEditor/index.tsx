@@ -117,6 +117,7 @@ interface ColorEditorProps {
   showInheritedColor?: boolean;
   /** 空值时的占位文案；配合透明色图标展示未配置状态 */
   emptyValueLabel?: string;
+  activeWhenBlur?: boolean;
 }
 
 interface State {
@@ -262,6 +263,7 @@ export function ColorEditor({
   inherited = false,
   showInheritedColor = false,
   emptyValueLabel,
+  activeWhenBlur = true,
 }: ColorEditorProps) {
   const presetRef = useRef<HTMLDivElement>(null);
   const scopeElRef = useRef(scopeEl);
@@ -914,7 +916,7 @@ export function ColorEditor({
   }, [state]);
 
   return (
-    <Panel.Item style={style} className={css.container}>
+    <Panel.Item style={style} className={css.container} activeWhenBlur={activeWhenBlur}>
       <div
         // className={`${css.color}${state.nonColorValue ? ` ${css.disabled}` : ''}`}
         className={css.color}

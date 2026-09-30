@@ -32,6 +32,7 @@ export interface InputProps {
   clearable?: boolean;
   onClear?: () => void;
   className?: string;
+  activeWhenBlur?: boolean;
 }
 
 export function Input({
@@ -54,6 +55,7 @@ export function Input({
   clearable = false,
   onClear,
   className = '',
+  activeWhenBlur = true,
 }: InputProps) {
   const [inputValue, setInputValue] = useState(defaultValue);
 
@@ -72,7 +74,7 @@ export function Input({
   }, [value]);
 
   return (
-    <Panel.Item style={style}>
+    <Panel.Item style={style} activeWhenBlur={activeWhenBlur}>
       <div className={`${css.input} ${className}`} data-mybricks-tip={tip}>
         {align == 'left' && (
           <>
