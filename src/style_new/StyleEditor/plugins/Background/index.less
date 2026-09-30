@@ -185,18 +185,23 @@
     font-size: 11px;
   }
 
-  input {
+  .opacityValue {
     text-align: right;
     width: 20px;
+    padding: 0;
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 500;
+    line-height: inherit;
+    color: @font-color-content;
+  }
+
+  input {
     height: 100%;
     border: none;
     box-sizing: border-box;
     background: transparent;
     cursor: text;
-    font-size: 11px;
-    font-weight: 500;
-    color: @font-color-content;
-
     // Hide spin buttons
     -moz-appearance: textfield;
     &::-webkit-inner-spin-button,

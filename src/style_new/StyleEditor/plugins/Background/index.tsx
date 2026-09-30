@@ -316,6 +316,7 @@ function LayerItem({
         <div className={css.opacity}>
           {layer.type === "solid" ? (
             <input
+              className={css.opacityValue}
               type="number"
               min={0}
               max={100}
@@ -323,7 +324,7 @@ function LayerItem({
               onChange={handleOpacityChange}
             />
           ) : (
-            <span style={{ width: 20, textAlign: "right", fontSize: 10 }}>100</span>
+            <span className={css.opacityValue}>100</span>
           )}
           {layer.type === "solid" ? (
             <div
