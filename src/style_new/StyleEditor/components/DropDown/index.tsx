@@ -297,7 +297,7 @@ const Items = React.forwardRef<HTMLDivElement, ItemsProps>((props, forwardRef) =
       <div
         ref={ref}
         className={css.items}
-        data-dropdown-menu-portal="true"
+        data-dropdown-portal="true"
         style={menuStyle}
         onDragOver={(e) => e.preventDefault()}
       >
@@ -340,7 +340,7 @@ const Items = React.forwardRef<HTMLDivElement, ItemsProps>((props, forwardRef) =
     <div
       ref={ref}
       className={css.items}
-      data-dropdown-menu-portal="true"
+      data-dropdown-portal="true"
       style={menuStyle}
     >
       <div className={css.scrollBody}>

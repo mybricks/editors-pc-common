@@ -112,13 +112,13 @@ export function Colorpicker(props:ColorpickerProps) {
   context.open = handleColorpickerClick
 
   const handleClick = useCallback((event: any) => {
-    if (childRef.current?.contains(event.target)) {
-      return;
+    if (event.target?.closest?.('[data-dropdown-portal="true"]')) {
+      return; 
     }
-    if (event.target?.closest?.('[data-dropdown-menu-portal="true"]')) {
-      return;
+    
+    if (!childRef.current?.contains(event.target)) {
+      setOpen(false);
     }
-    setOpen(false);
   }, []);
 
   const handleClose = useCallback(() => {
