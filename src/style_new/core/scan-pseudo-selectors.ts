@@ -142,6 +142,49 @@ export function scanPseudoSelectors(
             pseudoMap.get(sel)!.add(ancestorMatch[1])
           }
         })
+
+        // 3：祖先带伪类、末尾目标无伪类 
+        // 场景：.noticeIcon:hover .productDynamicIcon { }
+        // 伪类在中间祖先段，末尾是目标元素 class，不带伪类
+        const midPseudoRegex = new RegExp(
+          escapeRegExp(comId) +
+            '.+' +
+            '(?::not\\([^)]*\\))*(:{1,2}(?!not\\()[a-zA-Z\\-]+(?:\\([^)]*\\))?)' +
+            '\\s+' +
+            segmentPattern +
+            '$'
+        )
+        forEachSelectorPart(selectorText, (part) => {
+          const midMatch = part.match(midPseudoRegex)
+          if (!midMatch) return
+          const pseudo = midMatch[1]
+          if (!PSEUDO_ORDER.includes(pseudo)) return
+
+          const lastSpaceIdx = part.lastIndexOf(' ')
+          if (lastSpaceIdx < 0) return
+          const lastSeg = part.slice(lastSpaceIdx + 1).trim()
+          const ancestorFull = part.slice(0, lastSpaceIdx).trim()
+          const ancestorBase = ancestorFull.replace(/(:{1,2}[a-zA-Z\-]+(?:\([^)]*\))?)$/, '').trim()
+
+          if (!targetElements.length) {
+            pseudoMap.get(sel)!.add(pseudo)
+            return
+          }
+          const valid = targetElements.some((el) => {
+            try {
+              if (!el.matches(lastSeg)) return false
+              let ancestor = el.parentElement
+              while (ancestor) {
+                if (ancestor.matches(ancestorBase)) return true
+                ancestor = ancestor.parentElement
+              }
+              return false
+            } catch {
+              return false
+            }
+          })
+          if (valid) pseudoMap.get(sel)!.add(pseudo)
+        })
       }
     }
   }
