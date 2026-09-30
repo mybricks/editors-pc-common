@@ -118,6 +118,10 @@ interface ColorEditorProps {
   /** 空值时的占位文案；配合透明色图标展示未配置状态 */
   emptyValueLabel?: string;
   activeWhenBlur?: boolean;
+  /** 强制关闭内部 colorpicker 弹层 */
+  forceClose?: boolean;
+  /** colorpicker 打开时的回调 */
+  onOpen?: () => void;
 }
 
 interface State {
@@ -264,6 +268,8 @@ export function ColorEditor({
   showInheritedColor = false,
   emptyValueLabel,
   activeWhenBlur = true,
+  forceClose,
+  onOpen,
 }: ColorEditorProps) {
   const presetRef = useRef<HTMLDivElement>(null);
   const scopeElRef = useRef(scopeEl);
@@ -885,6 +891,8 @@ export function ColorEditor({
         disableBackgroundColor={disableBackgroundColor}
         disableBackgroundImage={disableBackgroundImage}
         disableGradient={disableGradient}
+        forceClose={forceClose}
+        onOpen={onOpen}
       >
         <div className={css.block} style={style} />
         <div className={css.icon}>
@@ -902,7 +910,7 @@ export function ColorEditor({
         </div>
       </Colorpicker>
     );
-  }, [state.finalValue, state.value, state.nonColorValue, state.optionsValueToAllMap, paintPreviewValue, resolvedColor, resolvedVarColor, varRef, variableOptions, scopeEl, handleColorpickerChange, showSubTabs, upload, imageValue, disableBackgroundColor, disableBackgroundImage, disableGradient, emptyValueLabel]);
+  }, [state.finalValue, state.value, state.nonColorValue, state.optionsValueToAllMap, paintPreviewValue, resolvedColor, resolvedVarColor, varRef, variableOptions, scopeEl, handleColorpickerChange, showSubTabs, upload, imageValue, disableBackgroundColor, disableBackgroundImage, disableGradient, emptyValueLabel, forceClose, onOpen]);
 
   const preset = useMemo(() => {
     if (!state.showPreset) {

@@ -42,6 +42,7 @@ export function GradientEditor({
   const [deg, setDeg] = useState(90);
   const [stops, setStops] = useState<GradientStop[]>([]);
   const [curElementId, setCurElementId] = useState<string | null>(null);
+  const [openPickerStopId, setOpenPickerStopId] = useState<string | null>(null);
   const lastEmittedGradientValue = useRef<string>();
 
   useEffect(() => {
@@ -299,10 +300,15 @@ export function GradientEditor({
                   key={id}
                   style={{ flex: 5 }}
                   activeWhenBlur={false}
+                  forceClose={openPickerStopId !== null && openPickerStopId !== id}
+                  onOpen={() => setOpenPickerStopId(id)}
                   variableOptions={variableOptions}
                   scopeEl={scopeEl}
                   resolvedColor={resolveCssVarColor(color, scopeEl) ?? undefined}
-                  onFocus={() => setCurElementId(id)}
+                  onFocus={() => {
+                    setCurElementId(id);
+                    setOpenPickerStopId(id);
+                  }}
                   onChange={(colorValue) => {
                     changeProperty("color", colorValue as string, id);
                     setCurElementId(id);

@@ -57,6 +57,10 @@ interface ColorpickerProps {
   disableBackgroundImage?: boolean;
   /** 禁用渐变 tab */
   disableGradient?: boolean;
+  /** 强制关闭弹层；用于同一列表中互斥 picker 场景 */
+  forceClose?: boolean;
+  /** picker 打开时的回调 */
+  onOpen?: () => void;
 }
 
 export function Colorpicker(props:ColorpickerProps) {
@@ -81,18 +85,29 @@ export function Colorpicker(props:ColorpickerProps) {
     disableBackgroundImage,
     disableGradient,
   } = props;
+  const forceClose = props.forceClose;
+  const onOpen = props.onOpen;
   const containerRef = useRef<HTMLDivElement>(null);
   const childRef = useRef<HTMLDivElement>(null);
   const [show, setShow] = useState(false);
   const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (forceClose) {
+      setOpen(false);
+    }
+  }, [forceClose]);
 
   const handleColorpickerClick = useCallback(() => {
     if (disabled) {
       return;
     }
     setShow(true);
-    setOpen((open) => !open);
-  }, [disabled, open]);
+    setOpen((prev) => {
+      if (!prev) onOpen?.();
+      return !prev;
+    });
+  }, [disabled, onOpen]);
 
   context.open = handleColorpickerClick
 
