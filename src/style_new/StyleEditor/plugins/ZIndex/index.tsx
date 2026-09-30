@@ -116,6 +116,7 @@ export function ZIndex({ value: _value, onChange: fallbackOnChange, config, show
       showTitle={showTitle}
       showReset={true}
       resetFunction={refresh}
+      onExpand={() => setPreset(0)}
       headerRight={modeSwitch}
       collapse={effectiveCollapse}
     >
@@ -124,7 +125,6 @@ export function ZIndex({ value: _value, onChange: fallbackOnChange, config, show
           <input
             type="number"
             value={localValue}
-            placeholder="默认"
             onChange={handleChange}
             onFocus={handleFocus}
             onBlur={handleBlur}

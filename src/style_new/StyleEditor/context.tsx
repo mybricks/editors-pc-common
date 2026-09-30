@@ -43,6 +43,8 @@ interface StyleEditorContextValue {
   removeStyleProperties?: (keys: readonly string[]) => StyleChangeResult | void
   getStyleRemovalState?: (keys: readonly string[]) => { canClear: boolean; disabledReason?: string }
   getStylePreview?: (key: string, refresh?: boolean) => string
+  /** 当前伪类未声明属性时的常规态计算值，仅供控件展示。 */
+  getStyleDisplayPreview?: (key: string) => string | undefined
 }
 
 const StyleEditorContext = createContext<StyleEditorContextValue | undefined>(undefined)
@@ -103,7 +105,8 @@ export function useStyleChange(fallbackOnChange?: ChangeEvent): ChangeEvent {
     const items = Array.isArray(input) ? input : [input]
     return applyStyleMutations(items.map((item) => item.value == null
       ? { type: 'clear', key: item.key, borderMode: item.borderMode }
-      : { type: 'set', key: item.key, value: item.value, target: item.target, borderMode: item.borderMode }
+      : { type: 'set', key: item.key, value: item.value, target: item.target, borderMode: item.borderMode,
+          ...(item.paintRole ? { paintRole: item.paintRole } : {}) }
     ))
   }, [applyStyleMutations])
 }

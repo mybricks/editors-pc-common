@@ -216,12 +216,16 @@ export function Effects({ value: _value, onChange: fallbackOnChange, showTitle, 
     ]
   }, [layers])
 
-  const openPopup = useCallback((index: number) => {
+  const togglePopup = useCallback((index: number) => {
+    if (popupOpen && activeIndex === index) {
+      setPopupOpen(false)
+      return
+    }
     activeTriggerRef.current = triggerRefs.current[index] ?? null
     setActiveIndex(index)
     setShowPopup(true)
     setPopupOpen(true)
-  }, [])
+  }, [activeIndex, popupOpen])
 
   // ── DnD：全部效果层可排序（会话内保序）──────────────────────────────────
   const [dragIndex, setDragIndex] = useState<number | null>(null)
@@ -347,7 +351,7 @@ export function Effects({ value: _value, onChange: fallbackOnChange, showTitle, 
                 <div
                   ref={(el) => { triggerRefs.current[index] = el }}
                   className={css.layerRowInner}
-                  onClick={() => openPopup(index)}
+                  onClick={() => togglePopup(index)}
                   data-mybricks-tip='点击编辑效果'
                 >
                   <span className={css.dragHandle} data-drag-handle onClick={(e) => e.stopPropagation()}>

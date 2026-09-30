@@ -19,6 +19,7 @@ export function buildStyleMutationChange(
       intent: 'set-effective-style',
       ...(mutation.target ? { target: mutation.target } : {}),
       ...(mutation.borderMode ? { borderMode: mutation.borderMode } : {}),
+      ...(mutation.paintRole ? { paintRole: mutation.paintRole } : {}),
     }
   })
 }

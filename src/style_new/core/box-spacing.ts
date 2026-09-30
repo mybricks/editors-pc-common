@@ -4,6 +4,7 @@ import {
 } from './style-property'
 import type { StyleResolution } from './style-property'
 import type { StyleChangeItem } from './apply-style-change'
+import { splitZoneSelectorState } from './zone-tab'
 import type { EffectiveStyleValue } from './zone-tab'
 import { createDirectionalWritePlans } from './four-side-write'
 
@@ -140,6 +141,7 @@ export function createSpacingWritePlans(
       ))
       if (candidate) style[key] = `${candidate.value}${candidate.important ? ' !important' : ''}`
     })
+    const pseudo = splitZoneSelectorState(selector).pseudo
     const nextChanges = groupChanges.map(change => {
       if (change.value == null) {
         style[change.key] = null
@@ -147,7 +149,14 @@ export function createSpacingWritePlans(
       }
       const preserveImportant = /!important\s*$/i.test(String(style[change.key] || '')) ||
         (change.key === property && keys.some(key => resolution.get(key).winner?.important))
-      const value = preserveImportant && !/!important\s*$/i.test(String(change.value))
+      // 伪类规则需要覆盖常规态的 inline 四边值。保留 inline 来源并给
+      // 当前状态写入 !important，避免一次展开被拆成“先删 inline、再写状态”
+      // 的两次源码更新，动态 JSX 或重编译时会丢掉后一个 0 值。
+      const affectedKeys = change.key === property ? [property, ...keys] : [property, change.key]
+      const overridesInline = !!pseudo && affectedKeys.some(key =>
+        resolution.get(key).candidates.some(candidate => candidate.inline)
+      )
+      const value = (preserveImportant || overridesInline) && !/!important\s*$/i.test(String(change.value))
         ? `${change.value} !important` : change.value
       style[change.key] = value
       return { ...change, value }
@@ -161,7 +170,7 @@ export function createSpacingWritePlans(
     const inlineConflicts = [...Object.keys(output), ...deletions]
       .filter(key => inlineProperties.has(cssPropertyName(key)))
     const consolidatingSources = groupChanges.some(change => change.target === 'current-rule')
-    if (inlineConflicts.length && consolidatingSources) {
+    if (inlineConflicts.length && consolidatingSources && !pseudo) {
       // “切换为统一配置”本身就是把分散来源归并到 current-rule。静态 JSX
       // 属性可作为同一动作的补充删除计划移除；动态/spread 仍整体阻止。
       const inlineDeletions = family.filter(key => inlineProperties.has(cssPropertyName(key)))
@@ -177,6 +186,8 @@ export function createSpacingWritePlans(
       unsupported ||= inlineUnsupported
     } else {
       unsupported ||= inlineConflicts.length > 0
+      // 状态规则通过上面的 !important 覆盖常规态 inline，不删除基础态声明。
+      if (pseudo) unsupported = !selector
     }
     return { property, selector, style: output, deletions, clearedKeys, unsupported }
   })

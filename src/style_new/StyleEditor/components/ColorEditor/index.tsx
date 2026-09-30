@@ -77,7 +77,7 @@ type ColorOptions = Array<ColorOption>;
 interface ColorEditorProps {
   options?: ColorOptions;
   defaultValue: any;
-  /** 外部解析出的实际色值，仅用于色块与取色器预览，不作为配置值写回 */
+  /** 外部解析出的实际色值，仅用于色块、取色器和继承态文本预览，不作为配置值写回 */
   resolvedColor?: string;
   /** 当前画布可用的 CSS 颜色变量 */
   variableOptions?: CssVarColorOption[];
@@ -111,10 +111,17 @@ interface ColorEditorProps {
   clearable?: boolean;
   /** 清空回调；具体需要删除的样式属性由使用方决定 */
   onClear?: () => void;
-  /** 当前值来自继承：保留真实色值预览，但输入区显示“继承” */
+  /** 当前值来自继承：保留真实色值预览，输入区默认显示“继承” */
   inherited?: boolean;
+  /** 继承态输入框直接回显计算色值；仅用户编辑时提交，不改变继承状态 */
+  showInheritedColor?: boolean;
   /** 空值时的占位文案；配合透明色图标展示未配置状态 */
   emptyValueLabel?: string;
+  activeWhenBlur?: boolean;
+  /** 强制关闭内部 colorpicker 弹层 */
+  forceClose?: boolean;
+  /** colorpicker 打开时的回调 */
+  onOpen?: () => void;
 }
 
 interface State {
@@ -258,7 +265,11 @@ export function ColorEditor({
   clearable = false,
   onClear,
   inherited = false,
+  showInheritedColor = false,
   emptyValueLabel,
+  activeWhenBlur = true,
+  forceClose,
+  onOpen,
 }: ColorEditorProps) {
   const presetRef = useRef<HTMLDivElement>(null);
   const scopeElRef = useRef(scopeEl);
@@ -411,6 +422,7 @@ export function ColorEditor({
   }, [state.value, state.nonColorValue]);
 
   const [userInput, setUserInput] = useState(inherited ? "" : colorString);
+  const [hasInheritedDraft, setHasInheritedDraft] = useState(false);
 
   /** 当前绑定的变量引用，如 var(--color-title) */
   const varRef = isCssVarRef(state.finalValue)
@@ -441,6 +453,7 @@ export function ColorEditor({
   const variableDisplayText = varName || varRef;
   const inheritedTipColor = useMemo(() => {
     const candidate = resolvedVarColor || resolvedColor || state.finalValue || state.value;
+    if (!candidate) return '';
     try {
       const color = new ColorUtil(candidate);
       return (color.alpha() === 1 ? color.hex() : color.hexa()).toUpperCase();
@@ -511,9 +524,11 @@ export function ColorEditor({
     const { value, finalValue, nonColorValue } = state;
 
     if (inherited) {
+      // 草稿结束后恢复只读计算值；回显不经过颜色提交入口。
+      setHasInheritedDraft(false);
       const committedColor = getHex(String(finalValue || value || '')).toLowerCase();
       const inputColor = getHex(userInput).toLowerCase();
-      // 继承态的空输入继续显示占位词；非法输入也回退到继承态。
+      // 清掉空值和非法草稿，由展示层恢复计算色值或继承占位。
       setUserInput(inputColor && inputColor === committedColor ? inputColor : '');
       if (value !== finalValue && finalValue) {
         dispatch({ value: finalValue });
@@ -544,6 +559,7 @@ export function ColorEditor({
       nonColorValue: true,
     });
     setUserInput("");
+    setHasInheritedDraft(false);
     setVarDraft("");
     onClear?.();
   }, [onClear]);
@@ -551,6 +567,7 @@ export function ColorEditor({
   useEffect(() => {
     if (!isFocus.current) {
       setUserInput(inherited ? "" : colorString);
+      setHasInheritedDraft(false);
     }
   }, [colorString, inherited]);
   const inputColorRef = useRef<HTMLInputElement>(null);
@@ -561,6 +578,7 @@ export function ColorEditor({
     // #RGB / #RRGGBB / 纯十六进制数字
     if (/^#[0-9a-fA-F]{3}$|^#[0-9a-fA-F]{6}$|^#[0-9a-fA-F]{8}$/.test(normalized)) {
       event.preventDefault();
+      if (inherited) setHasInheritedDraft(true);
       setUserInput(normalized);
       handleInputChange(normalized);
     }
@@ -632,16 +650,17 @@ export function ColorEditor({
         <input
           data-mybricks-tip={`${tip}；支持16进制、RGB、RGBA、HSL、HSLA、var()或颜色名称`}
           ref={inputColorRef}
-          value={userInput}
-          placeholder={emptyValueLabel ?? "继承"}
+          value={showInheritedColor && !hasInheritedDraft ? inheritedTipColor : userInput}
+          placeholder={emptyValueLabel ?? (showInheritedColor ? "" : "继承")}
           spellCheck={false}
-          className={`${css.input} ${css.inheritedInput}`}
+          className={showInheritedColor ? css.input : `${css.input} ${css.inheritedInput}`}
           onFocus={() => {
             isFocus.current = true;
             onFocus && onFocus?.();
           }}
           onChange={(e) => {
             const next = normalizeColorInput(e.target.value);
+            setHasInheritedDraft(true);
             setUserInput(next);
             handleInputChange(next);
           }}
@@ -732,7 +751,7 @@ export function ColorEditor({
         onPaste={handlePaste}
       />
     );
-  }, [userInput, state.value, state.nonColorValue, state.finalValue, inherited, inheritedTipColor, emptyValueLabel, paintPreviewValue, onPresetClick, handleReset, handleUnbind, handleInputChange, handleInputBlur, varDraft, varName, varRef, variableDisplayText, handleVarKeyDown, commitVarDraft]);
+  }, [userInput, state.value, state.nonColorValue, state.finalValue, inherited, showInheritedColor, hasInheritedDraft, inheritedTipColor, emptyValueLabel, paintPreviewValue, onPresetClick, handleReset, handleUnbind, handleInputChange, handleInputBlur, varDraft, varName, varRef, variableDisplayText, handleVarKeyDown, commitVarDraft]);
 
   const handleOpacityChange = useCallback(
     (value: string) => {
@@ -872,6 +891,8 @@ export function ColorEditor({
         disableBackgroundColor={disableBackgroundColor}
         disableBackgroundImage={disableBackgroundImage}
         disableGradient={disableGradient}
+        forceClose={forceClose}
+        onOpen={onOpen}
       >
         <div className={css.block} style={style} />
         <div className={css.icon}>
@@ -889,7 +910,7 @@ export function ColorEditor({
         </div>
       </Colorpicker>
     );
-  }, [state.finalValue, state.value, state.nonColorValue, state.optionsValueToAllMap, paintPreviewValue, resolvedColor, resolvedVarColor, varRef, variableOptions, scopeEl, handleColorpickerChange, showSubTabs, upload, imageValue, disableBackgroundColor, disableBackgroundImage, disableGradient, emptyValueLabel]);
+  }, [state.finalValue, state.value, state.nonColorValue, state.optionsValueToAllMap, paintPreviewValue, resolvedColor, resolvedVarColor, varRef, variableOptions, scopeEl, handleColorpickerChange, showSubTabs, upload, imageValue, disableBackgroundColor, disableBackgroundImage, disableGradient, emptyValueLabel, forceClose, onOpen]);
 
   const preset = useMemo(() => {
     if (!state.showPreset) {
@@ -903,7 +924,7 @@ export function ColorEditor({
   }, [state]);
 
   return (
-    <Panel.Item style={style} className={css.container}>
+    <Panel.Item style={style} className={css.container} activeWhenBlur={activeWhenBlur}>
       <div
         // className={`${css.color}${state.nonColorValue ? ` ${css.disabled}` : ''}`}
         className={css.color}

@@ -27,6 +27,8 @@ interface DragNumberOptions {
   onDragChange?: (value: number) => void
   /** 拖拽结束时的回调，当 onDragStart 返回了覆盖值时调用（替代 blur 提交） */
   onDragEnd?: (finalValue: number) => void
+  /** 松手时使用鼠标位移算出的最后值，避免受控输入框重渲染覆盖 DOM 值 */
+  endWithLastDraggedValue?: boolean
   /** 拖拽过程中 input 显示的格式化，默认直接用数字字符串；如 v => `${v}%` */
   formatDisplay?: (value: number) => string
 }
@@ -46,7 +48,7 @@ interface DragNumberOptions {
  * <InputNumber defaultValue={...} onChange={...} />
  */
 export function useDragNumber(options: DragNumberOptions = {}) {
-  const { min = 0, max = Infinity, sensitivity = 1, continuous = false, onDragStart, onDragChange, onDragEnd, formatDisplay } = options
+  const { min = 0, max = Infinity, sensitivity = 1, continuous = false, onDragStart, onDragChange, onDragEnd, endWithLastDraggedValue = false, formatDisplay } = options
 
   // 用 ref 保存回调，避免 handler 因回调变化而重建
   const onDragStartRef = useRef(onDragStart)
@@ -172,7 +174,9 @@ export function useDragNumber(options: DragNumberOptions = {}) {
     if (state.useCustomEnd && onDragEndRef.current) {
       // 当 onDragStart 覆盖了起始值时（如单位从 auto 切到 px），
       // 由外部回调直接提交最终值，绕过 InputNumber 内部可能还未同步的 unit 状态
-      const finalValue = state.inputEl ? (parseFloat(state.inputEl.value) || 0) : state.lastValue
+      const finalValue = endWithLastDraggedValue
+        ? state.lastValue
+        : state.inputEl ? (parseFloat(state.inputEl.value) || 0) : state.lastValue
       onDragEndRef.current(finalValue)
     } else {
       // 触发 input 的 focus -> blur，让 InputNumber 内部走 onBlur 逻辑提交值
@@ -186,7 +190,7 @@ export function useDragNumber(options: DragNumberOptions = {}) {
     state.inputEl = null
     document.body.style.cursor = ''
     document.body.style.userSelect = ''
-  }, [])
+  }, [endWithLastDraggedValue])
 
   // 全局事件监听
   useEffect(() => {

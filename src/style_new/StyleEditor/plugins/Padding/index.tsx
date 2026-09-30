@@ -1,6 +1,7 @@
 import React, {
   useMemo,
   useState,
+  useCallback,
   CSSProperties
 } from 'react'
 
@@ -18,10 +19,6 @@ import {
 import {useDragNumber, useLengthVarBinding, useBoxSpacingEditor} from '../../hooks'
 
 import type {ChangeEvent, PanelBaseProps} from '../../type'
-import {
-  useStyleEditorContext
-} from '../../context'
-import type {EffectiveStyleValue} from '../../../core/zone-tab'
 
 import css from './index.less'
 
@@ -51,26 +48,21 @@ function getUnitOptions(clearable: boolean) {
   return clearable ? UNIT_OPTIONS : UNIT_OPTIONS.slice(2)
 }
 
-function buildComputedTip(
-  label: string,
-  item?: EffectiveStyleValue,
-  previewValue?: string
-): string {
-  const computedValue = previewValue ?? item?.computedValue
-  return computedValue
-    ? `当前未配置${label}值，${computedValue}为计算值`
-    : label
-}
-
 export function Padding({value, onChange: fallbackOnChange, config, showTitle, collapse}: PaddingProps) {
-  const context = useStyleEditorContext()
   const {
-    spacingValue: paddingValue, toggle, setToggle, previewValues, forceRenderKey,
+    spacingValue: paddingValue, toggle, setToggle, forceRenderKey,
     handleChange, handleUnifiedChange, handleSwitchToUnified, refresh,
     canResetSide, unifiedCanClear, canReset,
   } = useBoxSpacingEditor({ property: 'padding', value, onChange: fallbackOnChange })
   const [splitPaddingIcon, setSplitPaddingIcon] = useState(<PaddingTopOutlined/>)
   const getDragProps = useDragNumber({ continuous: true })
+
+  // 点击 + 是新增内边距配置，通过统一入口写入 padding: 0px。
+  const handleExpand = useCallback(() => {
+    const result = handleUnifiedChange('0px')
+    if (result?.clearUnsupported || (result && !result.applied)) return
+    setToggle(true)
+  }, [handleUnifiedChange, setToggle])
 
   // 统一模式与四边各自持有绑定态：统一模式绑一个变量即写四边同值（对齐 Figma）
   const unifiedVar = useLengthVarBinding({
@@ -144,6 +136,7 @@ export function Padding({value, onChange: fallbackOnChange, config, showTitle, c
                 binding={unifiedVar}
                 chipStyle={CHIP_STYLE}
                 inputProps={{
+                  placeholder: '',
                   style: DEFAULT_STYLE,
                   defaultValue: paddingValue.paddingTop,
                   defaultUnitValue: 'default',
@@ -158,13 +151,7 @@ export function Padding({value, onChange: fallbackOnChange, config, showTitle, c
                   onAction: (action) => {
                     if (action === APPLY_VARIABLE_ACTION) unifiedVar.openPicker()
                   },
-                  tip: paddingValue.paddingTop == null
-                    ? buildComputedTip(
-                      '内边距',
-                      context?.effectiveStyle?.paddingTop,
-                      previewValues.paddingTop
-                    )
-                    : '内边距'
+                  tip: '内边距'
                 }}
               />
             </Panel.Item>
@@ -198,6 +185,7 @@ export function Padding({value, onChange: fallbackOnChange, config, showTitle, c
                     binding={leftVar}
                     chipStyle={CHIP_STYLE}
                     inputProps={{
+                      placeholder: '',
                       style: DEFAULT_STYLE,
                       defaultValue: paddingValue.paddingLeft,
                       defaultUnitValue: 'default',
@@ -213,13 +201,7 @@ export function Padding({value, onChange: fallbackOnChange, config, showTitle, c
                         if (action === APPLY_VARIABLE_ACTION) leftVar.openPicker()
                       },
                       onFocus: () => setSplitPaddingIcon(<PaddingLeftOutlined/>),
-                      tip: paddingValue.paddingLeft == null
-                        ? buildComputedTip(
-                          '左内边距',
-                          context?.effectiveStyle?.paddingLeft,
-                          previewValues.paddingLeft
-                        )
-                        : '左内边距'
+                      tip: '左内边距'
                     }}
                   />
                 </Panel.Item>
@@ -239,6 +221,7 @@ export function Padding({value, onChange: fallbackOnChange, config, showTitle, c
                     binding={topVar}
                     chipStyle={CHIP_STYLE}
                     inputProps={{
+                      placeholder: '',
                       style: DEFAULT_STYLE,
                       defaultValue: paddingValue.paddingTop,
                       defaultUnitValue: 'default',
@@ -254,13 +237,7 @@ export function Padding({value, onChange: fallbackOnChange, config, showTitle, c
                         if (action === APPLY_VARIABLE_ACTION) topVar.openPicker()
                       },
                       onFocus: () => setSplitPaddingIcon(<PaddingTopOutlined/>),
-                      tip: paddingValue.paddingTop == null
-                        ? buildComputedTip(
-                          '上内边距',
-                          context?.effectiveStyle?.paddingTop,
-                          previewValues.paddingTop
-                        )
-                        : '上内边距'
+                      tip: '上内边距'
                     }}
                   />
                 </Panel.Item>
@@ -282,6 +259,7 @@ export function Padding({value, onChange: fallbackOnChange, config, showTitle, c
                     binding={rightVar}
                     chipStyle={CHIP_STYLE}
                     inputProps={{
+                      placeholder: '',
                       style: DEFAULT_STYLE,
                       defaultValue: paddingValue.paddingRight,
                       defaultUnitValue: 'default',
@@ -297,13 +275,7 @@ export function Padding({value, onChange: fallbackOnChange, config, showTitle, c
                         if (action === APPLY_VARIABLE_ACTION) rightVar.openPicker()
                       },
                       onFocus: () => setSplitPaddingIcon(<PaddingRightOutlined/>),
-                      tip: paddingValue.paddingRight == null
-                        ? buildComputedTip(
-                          '右内边距',
-                          context?.effectiveStyle?.paddingRight,
-                          previewValues.paddingRight
-                        )
-                        : '右内边距'
+                      tip: '右内边距'
                     }}
                   />
                 </Panel.Item>
@@ -323,6 +295,7 @@ export function Padding({value, onChange: fallbackOnChange, config, showTitle, c
                     binding={bottomVar}
                     chipStyle={CHIP_STYLE}
                     inputProps={{
+                      placeholder: '',
                       style: DEFAULT_STYLE,
                       defaultValue: paddingValue.paddingBottom,
                       defaultUnitValue: 'default',
@@ -338,13 +311,7 @@ export function Padding({value, onChange: fallbackOnChange, config, showTitle, c
                         if (action === APPLY_VARIABLE_ACTION) bottomVar.openPicker()
                       },
                       onFocus: () => setSplitPaddingIcon(<PaddingBottomOutlined/>),
-                      tip: paddingValue.paddingBottom == null
-                        ? buildComputedTip(
-                          '下内边距',
-                          context?.effectiveStyle?.paddingBottom,
-                          previewValues.paddingBottom
-                        )
-                        : '下内边距'
+                      tip: '下内边距'
                     }}
                   />
                 </Panel.Item>
@@ -371,6 +338,7 @@ export function Padding({value, onChange: fallbackOnChange, config, showTitle, c
       showReset={canReset}
       showDelete={canReset}
       resetFunction={refresh}
+      onExpand={handleExpand}
       collapse={collapse}
     >
       <React.Fragment key={forceRenderKey}>

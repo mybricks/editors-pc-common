@@ -1,7 +1,7 @@
 import React, { CSSProperties, useCallback, useEffect, useState } from 'react'
 
 import { Panel, Select } from '../../components'
-import { useEffectiveStyleValue, useStyleChange } from '../../context'
+import { useEffectiveStyleValue, useStyleChange, useStyleEditorContext } from '../../context'
 
 import type { ChangeEvent, PanelBaseProps } from '../../type'
 
@@ -15,8 +15,7 @@ const CURSOR_OPTIONS = [
   {label: '手', value: 'pointer'},
   {label: '文本可选中', value: 'text'},
   {label: '不可点击', value: 'not-allowed'},
-  {label: '继承', value: 'inherit'},
-  {label: '默认', value: 'default'},
+  {label: '箭头', value: 'default'},
 ]
 
 // tooltip 内容过长时做截断，避免超长 dataURI 把浮层撑爆
@@ -25,10 +24,19 @@ const MAX_TIP_LENGTH = 300
 export function Cursor ({onChange: fallbackOnChange, config, showTitle, collapse}: CursorProps) {
   const [forceRenderKey, setForceRenderKey] = useState<number>(Math.random())
   const [isReset, setIsReset] = useState(false)
+  const context = useStyleEditorContext()
   const value = useEffectiveStyleValue() as CSSProperties
   const onChange = useStyleChange(fallbackOnChange)
 
-  const cursorValue = value?.cursor
+  const cursorSource = context?.effectiveStyle?.cursor
+  // 未配置时的 inherit 兜底和 unset 后的计算值不作为已选光标回显。
+  const hasConfiguredCursor = !!cursorSource && cursorSource.type !== 'computed' && !(
+    typeof cursorSource.value === 'string' && /^unset$/i.test(cursorSource.value.trim())
+  )
+  // 已有 inherit 声明保留原样，但下拉框留空，也不追加“自定义”选项。
+  const cursorValue = hasConfiguredCursor && !/^inherit$/i.test(String(value?.cursor).trim())
+    ? value?.cursor
+    : undefined
   // 自定义光标（如 cursor: url("data:image/svg+xml;base64,...") ...）不在预置选项中，
   // 若直接把这段超长原始字符串丢给 Select 展示，会被截断成一堆看似乱码的字符。
   // 这里临时补一个"自定义"选项，让 Select 能匹配到，展示为友好文案，完整值通过 tip 提示。
@@ -45,10 +53,10 @@ export function Cursor ({onChange: fallbackOnChange, config, showTitle, collapse
     : undefined
 
   useEffect(() => {
-    if (isReset && value?.cursor != null) {
+    if (isReset && cursorValue != null) {
       setIsReset(false)
     }
-  }, [value, isReset])
+  }, [cursorValue, isReset])
 
   const refresh = useCallback(() => {
     onChange({ key: 'cursor', value: null })
@@ -62,7 +70,7 @@ export function Cursor ({onChange: fallbackOnChange, config, showTitle, collapse
         <React.Fragment key={forceRenderKey}>
           <Select
             style={{padding: 0}}
-            defaultValue={isReset ? undefined : cursorValue}
+            value={isReset ? undefined : cursorValue}
             options={options}
             tip={tip}
             onChange={(value) => onChange({key: 'cursor', value})}

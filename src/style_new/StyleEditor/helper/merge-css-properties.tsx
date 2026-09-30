@@ -227,9 +227,10 @@ export const mergeCSSProperties = (
   delete mergedStyles.borderColor
 
   if (shouldKeepLayeredBackground) {
-    mergedStyles.backgroundImage = cssProperties.backgroundImage
-    mergedStyles.backgroundClip = cssProperties.backgroundClip
-    mergedStyles.backgroundOrigin = cssProperties.backgroundOrigin
+    // 保留已有栈属性，不给仅改文字背景色的操作补出未声明的 undefined 属性。
+    if (cssProperties.backgroundImage != null) mergedStyles.backgroundImage = cssProperties.backgroundImage
+    if (cssProperties.backgroundClip != null) mergedStyles.backgroundClip = cssProperties.backgroundClip
+    if (cssProperties.backgroundOrigin != null) mergedStyles.backgroundOrigin = cssProperties.backgroundOrigin
     if ((cssProperties as any).backgroundSize != null) {
       mergedStyles.backgroundSize = (cssProperties as any).backgroundSize
     }

@@ -1,5 +1,6 @@
 import { getDocument, escapeRegExp } from './dom'
 import { forEachSelectorPart } from './selector-utils'
+import { splitZoneSelectorState } from './zone-tab'
 
 /**
  * 伪类的展示优先级顺序。
@@ -44,9 +45,19 @@ export function scanPseudoSelectors(
   if (!baseSelectors.length || !comId) return []
 
   const matchesTarget = (part: string, pseudo: string, fromParent = false): boolean => {
+    let base = ''
+    if (fromParent) {
+      // 父级状态不属于当前主体，不能用 splitZoneSelectorState 解析末尾主体。
+      base = part.slice(0, part.length - pseudo.length).trim()
+    } else {
+      const state = splitZoneSelectorState(part)
+      // 条件匹配型伪类（如 :is / :where / :not）不会生成独立 Tab。
+      // :has(...) 虽然也是匹配条件，但同时属于可编辑状态，因此会通过这里。
+      if (state.pseudo !== pseudo) return false
+      // 去掉当前待编辑状态，保留 :not / :is / :where / :has 等匹配条件。
+      base = state.matchSelector.trim()
+    }
     if (!targetElements.length) return true
-    // 只去掉待编辑的末尾状态，保留 :not 等条件；无需当前真的处于 hover / focus。
-    const base = part.slice(0, part.length - pseudo.length).trim()
     return targetElements.some((el) => {
       try {
         if (!fromParent) return el.matches(base)
@@ -130,6 +141,49 @@ export function scanPseudoSelectors(
           ) {
             pseudoMap.get(sel)!.add(ancestorMatch[1])
           }
+        })
+
+        // 3：祖先带伪类、末尾目标无伪类 
+        // 场景：.noticeIcon:hover .productDynamicIcon { }
+        // 伪类在中间祖先段，末尾是目标元素 class，不带伪类
+        const midPseudoRegex = new RegExp(
+          escapeRegExp(comId) +
+            '.+' +
+            '(?::not\\([^)]*\\))*(:{1,2}(?!not\\()[a-zA-Z\\-]+(?:\\([^)]*\\))?)' +
+            '\\s+' +
+            segmentPattern +
+            '$'
+        )
+        forEachSelectorPart(selectorText, (part) => {
+          const midMatch = part.match(midPseudoRegex)
+          if (!midMatch) return
+          const pseudo = midMatch[1]
+          if (!PSEUDO_ORDER.includes(pseudo)) return
+
+          const lastSpaceIdx = part.lastIndexOf(' ')
+          if (lastSpaceIdx < 0) return
+          const lastSeg = part.slice(lastSpaceIdx + 1).trim()
+          const ancestorFull = part.slice(0, lastSpaceIdx).trim()
+          const ancestorBase = ancestorFull.replace(/(:{1,2}[a-zA-Z\-]+(?:\([^)]*\))?)$/, '').trim()
+
+          if (!targetElements.length) {
+            pseudoMap.get(sel)!.add(pseudo)
+            return
+          }
+          const valid = targetElements.some((el) => {
+            try {
+              if (!el.matches(lastSeg)) return false
+              let ancestor = el.parentElement
+              while (ancestor) {
+                if (ancestor.matches(ancestorBase)) return true
+                ancestor = ancestor.parentElement
+              }
+              return false
+            } catch {
+              return false
+            }
+          })
+          if (valid) pseudoMap.get(sel)!.add(pseudo)
         })
       }
     }

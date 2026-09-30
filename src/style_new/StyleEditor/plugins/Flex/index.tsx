@@ -129,23 +129,17 @@ function formatFlexEcho(value: CSSProperties & Record<string, any> | undefined):
   return ''
 }
 
-/** 高级三字段只读 value 长写；无长写时若比例有简写则解析供展开对照，绝不用 computed */
+/** 长写逐项覆盖简写；缺失的字段继续使用简写贡献的值，绝不用 computed 默认值补齐。 */
 function resolveFlexParts(
   value: CSSProperties & Record<string, any> | undefined,
   shorthandEcho: string
 ): { grow: string; shrink: string; basis: string } {
-  if (isNonEmpty(value?.flexGrow) || isNonEmpty(value?.flexShrink) || isNonEmpty(value?.flexBasis)) {
-    return {
-      grow: isNonEmpty(value?.flexGrow) ? String(value!.flexGrow) : '',
-      shrink: isNonEmpty(value?.flexShrink) ? String(value!.flexShrink) : '',
-      basis: isNonEmpty(value?.flexBasis) ? String(value!.flexBasis) : '',
-    }
+  const parsed = parseFlexShorthand(shorthandEcho)
+  return {
+    grow: isNonEmpty(value?.flexGrow) ? String(value!.flexGrow) : parsed?.grow ?? '',
+    shrink: isNonEmpty(value?.flexShrink) ? String(value!.flexShrink) : parsed?.shrink ?? '',
+    basis: isNonEmpty(value?.flexBasis) ? String(value!.flexBasis) : parsed?.basis ?? '',
   }
-  if (shorthandEcho) {
-    const parsed = parseFlexShorthand(shorthandEcho)
-    if (parsed) return parsed
-  }
-  return { grow: '', shrink: '', basis: '' }
 }
 
 /**

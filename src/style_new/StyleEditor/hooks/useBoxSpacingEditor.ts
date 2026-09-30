@@ -22,6 +22,16 @@ export function useBoxSpacingEditor({ property, value, onChange: fallbackOnChang
   const groupClear = useStyleClear(keys)
   const externalValue = context?.effectiveStyle ? effectiveValue : value
   const incoming = readBoxSpacingValue(property, externalValue, context?.effectiveStyle)
+  const editorOptions = context?.editConfig.options
+  if (editorOptions && 'zoneTab' in editorOptions && editorOptions.zoneTab?.pseudo) {
+    // 状态写入的即时回显会保留简写压缩后的 0；输入框以 default 为兜底单位，
+    // 0px -> 0 会被误判为切换到“默认”并再次清空。仅在间距回显中补齐零的单位。
+    keys.forEach(key => {
+      if (incoming[key] != null && /^[-+]?0+(?:\.0+)?$/.test(String(incoming[key]).trim())) {
+        incoming[key] = '0px'
+      }
+    })
+  }
   const allEqual = (values: Record<string, any>) => keys.every(key => values[key] === values[keys[0]])
   const hasConfiguredSide = keys.some(key => incoming[key] != null)
   const inheritedValues = Object.fromEntries(keys.map(key => [

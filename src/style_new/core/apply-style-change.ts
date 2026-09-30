@@ -25,6 +25,8 @@ import { createStyleWriteTargetResolver } from './style-write-target'
 import type { StyleWriteTarget } from './style-write-target'
 import { BORDER_DETAIL_KEYS, BORDER_RADIUS_KEYS, createBorderRadiusWritePlans, createBorderWritePlans, isBorderProperty, isBorderRadiusProperty } from './border-write'
 import { createOverflowWritePlans, isOverflowProperty } from './overflow'
+import { createFlexLonghandWritePlans } from './flex-write'
+import { getTextBackgroundShorthandWrite } from './text-background-write'
 
 export type StyleChangeItem = {
   key: string
@@ -32,6 +34,7 @@ export type StyleChangeItem = {
   intent?: 'clear-effective-style' | 'set-effective-style'
   target?: 'current-rule'
   borderMode?: 'all' | 'split'
+  paintRole?: 'text'
 }
 
 type StyleWriteGroup = {
@@ -636,9 +639,13 @@ function applyEffectiveStyleChanges(
         Object.values(flexStyle).some(value => IMPORTANT_SUFFIX_RE.test(String(value)))
       : !splitZoneSelectorState(flexSelector).pseudo &&
         flexKeys.some(key => inlineProperties.has(cssPropertyName(key)))))
+  const flexPlans = !replacingFlex ? [] : flexWrites.some(item => item.key === 'flex')
+    ? [{ property: 'flex' as const, selector: flexSelector, style: flexStyle,
+        deletions: flexDeletions, clearedKeys: [] as string[], unsupported: flexUnsupported }]
+    : createFlexLonghandWritePlans(changes, resolution, target,
+        change => writeTargets.get(change.key)?.selector || null)
   const propertyPlans = [
-    ...(replacingFlex ? [{ property: 'flex' as const, selector: flexSelector, style: flexStyle,
-      deletions: flexDeletions, clearedKeys: [] as string[], unsupported: flexUnsupported }] : []),
+    ...flexPlans,
     ...createSpacingWritePlans(specializedChanges, resolution, tab.selector, target,
       change => writeTargets.get(change.key)?.selector || null),
     ...createBorderRadiusWritePlans(specializedChanges, resolution, target,
@@ -672,9 +679,18 @@ function applyEffectiveStyleChanges(
   const writes = changes.filter(item => item.value != null && !getBoxSpacingProperty(item.key) && !isBorderProperty(item.key) && !isBorderRadiusProperty(item.key) &&
     !isOverflowProperty(item.key) &&
     !(replacingFlex && flexKeys.includes(item.key)))
-    .map(({ key, value, borderMode, target }) => ({ key, value, borderMode, target }))
+    .map(({ key, value, borderMode, target, paintRole }) => {
+      // 文字纯色可能来自 background: ... !important；新长写必须保持同等优先级。
+      const textFillSource = paintRole === 'text' && key === 'backgroundColor'
+        ? resolveEffectiveStyleSource(resolution.get(key).candidates.filter(candidate =>
+            candidate.currentState && candidate.label === writeTargets.get(key)?.selector))
+        : null
+      return { key, value: textFillSource?.important && !IMPORTANT_SUFFIX_RE.test(String(value))
+        ? `${value} !important` : value, borderMode, target,
+        ...(paintRole ? { paintRole } : {}) }
+    })
   const normal = writes.length
-    ? applyStyleChange({ value: writes, liveStyle, editConfig })
+    ? applyStyleChangeInternal({ value: writes, liveStyle, editConfig }, true)
     : { nextLiveStyle: liveStyle, applied: false }
   if ('clearUnsupported' in normal && normal.clearUnsupported) return normal
   const nextLiveStyle = { ...normal.nextLiveStyle }
@@ -747,6 +763,16 @@ function applyEffectiveStyleChanges(
       })
     }
   })
+  if (flexPlans.length > 1) {
+    // 同来源简写拆分会携带该规则自己的后备值，不能按写入顺序覆盖面板快照。
+    // 等各来源全部 record 后再取当前状态的赢家，连续编辑才与重新聚焦一致。
+    delete nextLiveStyle.flex
+    flexKeys.filter(key => key !== 'flex').forEach(key => {
+      const winner = resolveEffectiveStyleSource(resolution.get(key).candidates.filter(candidate => candidate.currentState))
+      if (winner) nextLiveStyle[key] = `${winner.value}${winner.important ? ' !important' : ''}`
+      else delete nextLiveStyle[key]
+    })
+  }
   const groups = new Map<string, Record<string, any>>()
   let clearApplied = propertyPlans.some(plan => plan.clearedKeys.length > 0)
   plans.forEach(plan => {
@@ -814,7 +840,11 @@ export type ApplyStyleChangeResult = {
  * 处理 StyleEditor onChange：删除守卫、paint roles、merge、batch preview / value.set。
  * 返回更新后的 liveStyle；未实际变更时 applied=false。
  */
-export function applyStyleChange({
+export function applyStyleChange(params: ApplyStyleChangeParams): ApplyStyleChangeResult {
+  return applyStyleChangeInternal(params)
+}
+
+function applyStyleChangeInternal({
   value,
   liveStyle,
   collapsedOptions,
@@ -825,7 +855,7 @@ export function applyStyleChange({
   zoneWriteTargets,
   onBatchMetaChange,
   removeKeys,
-}: ApplyStyleChangeParams): ApplyStyleChangeResult {
+}: ApplyStyleChangeParams, paintRolesPreserved = false): ApplyStyleChangeResult {
   // 每次操作开始前清空上次可能残留的删除信号，防止普通组件的删除操作污染 AI 组件
   ;(window as any).__mybricks_style_deletions = null
   const deletedKeys: string[] = []
@@ -946,8 +976,10 @@ export function applyStyleChange({
     preserveImportantPriority,
     importantPriorityCache
   )
+  // effective 路径已合并过共享背景层；再次判断会把生成的 text clip 当作字体修改，丢掉新增填充。
   const changeItems = preserveStateInlinePriority(
-    preservePaintRoles(priorityAwareItems, nextSetValue), activeZoneTab, realTargetDom
+    paintRolesPreserved ? priorityAwareItems : preservePaintRoles(priorityAwareItems, nextSetValue),
+    activeZoneTab, realTargetDom
   )
 
   let hasRealChange = false
@@ -1142,14 +1174,29 @@ export function applyStyleChange({
   // 只有这里才拆分本次变更；普通组件继续沿用原来的完整状态写回逻辑。
   if (activeZoneTab) {
     const groups = new Map<string, StyleWriteGroup>()
+    const textBackgroundWrites = new Map<string, any>()
+    const isTextBackgroundColorWrite = changeItems.length === 1 &&
+      changeItems[0].key === 'backgroundColor' && changeItems[0].paintRole === 'text'
     pendingWrites.forEach(({ key, value, target }) => {
       const sourceSelector = target.selector!
       logStyleWriteTarget(key, value, target, activeZoneTab)
       const group = addStyleWriteGroup(groups, sourceSelector)
-      group.style[key] = deepCopy(value)
+      const source = isTextBackgroundColorWrite && key === 'backgroundColor'
+        ? resolveEffectiveStyleSource(getStyleResolution(activeZoneTab, realTargetDom).get(key).candidates
+            .filter(candidate => candidate.currentState && candidate.label === sourceSelector))
+        : null
+      const shorthand = getTextBackgroundShorthandWrite(source, realTargetDom)
+      const writeKey = shorthand ? 'background' : key
+      group.style[writeKey] = deepCopy(value)
+      if (shorthand) {
+        group.deletions.push(...shorthand.deletions)
+        textBackgroundWrites.set(sourceSelector, value)
+        // 面板继续按长写回显；同时同步简写快照，避免连续拖色时使用旧 background。
+        finalCssProperties.background = value
+      }
       zoneWriteTargets?.set(key, {
         selector: sourceSelector,
-        property: key,
+        property: writeKey,
       })
     })
 
@@ -1219,6 +1266,11 @@ export function applyStyleChange({
         Object.entries(group.style).forEach(([key, value]) => {
           getStyleResolution(activeZoneTab, realTargetDom).record(key, value, sourceSelector)
         })
+        if (textBackgroundWrites.has(sourceSelector)) {
+          getStyleResolution(activeZoneTab, realTargetDom).record(
+            'backgroundColor', textBackgroundWrites.get(sourceSelector), sourceSelector, 'background'
+          )
+        }
       })
     } finally {
       ;(window as any).__mybricks_style_deletions = null

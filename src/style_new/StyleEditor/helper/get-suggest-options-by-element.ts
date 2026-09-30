@@ -15,22 +15,16 @@ export function getSuggestOptionsByElement(selectDom: HTMLElement): { type: stri
     const selectDomDisplay = selectDomStyle.display;
     const isFlexLike = ['flex', 'inline-flex', 'grid', 'inline-grid'].includes(selectDomDisplay);
 
-    // 字体面板始终可见；纯图标场景仍只展示适用的配置项。
+    // 沿用现有图标识别方式：目标自身或纯图标容器命中时，字体面板不适用。
     const hasText = !!selectDom.textContent?.trim();
     const hasIconChild = !!selectDom.querySelector('svg, .anticon, [role="img"]');
-    const fontOption = {
+    const isImgElement = ['IMG', 'IMAGE'].includes(selectDom.tagName.toUpperCase());
+    const isIconElement = selectDom.matches('svg, .anticon, [role="img"]');
+    const isIconOnlyElement = !hasText && hasIconChild;
+    const shouldHideFont = isImgElement || isIconElement || isIconOnlyElement;
+    const fontOption = shouldHideFont ? void 0 : {
       type: 'font',
       config: {
-        ...(!hasText && hasIconChild ? {
-          disableFontFamily: true,
-          disableColor: false,
-          disableFontSize: false,
-          disableFontWeight: true,
-          disableLetterSpacing: true,
-          disableLineHeight: true,
-          disableWhiteSpace: true,
-          disableTextAlign: false,
-        } : {}),
         ...(isFlexLike ? { textAlignMode: 'flex' } : {}),
       }
     };
@@ -73,8 +67,6 @@ export function getSuggestOptionsByElement(selectDom: HTMLElement): { type: stri
     const overflowOption = shouldOverflowDisabled(selectDom) ? void 0 : {
       type: 'overflow',
     }
-
-    const isImgElement = selectDom.tagName.toUpperCase() === 'IMG';
 
     // 子项弹性：父为 flex/inline-flex 且自身非绝对定位时建议展示
     const parentDom = selectDom.parentElement;

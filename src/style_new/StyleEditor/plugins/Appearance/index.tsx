@@ -1,8 +1,15 @@
 import React, { CSSProperties, useCallback, useMemo, useRef, useState } from 'react'
 
-import { Panel, SketchPopup, VariableChip, VariableList, ClearButton } from '../../components'
+import {
+  Panel,
+  SketchPopup,
+  InputNumber,
+  VariableChip,
+  VariableList,
+  withApplyVariableOption,
+  APPLY_VARIABLE_ACTION,
+} from '../../components'
 import { Opacity as OpacityIcon } from '../../icons/Opacity'
-import { Variable } from '../../icons/Variable'
 import { FixedWidth } from '../../icons/FixedWidth'
 import { useDragNumber } from '../../hooks/useDragNumber'
 import { isCssVarValue } from '../../hooks/useLengthVarBinding'
@@ -33,11 +40,11 @@ function percentToOpacity(percent: number): number {
 }
 
 const DETACH_VARIABLE_ACTION = 'detachVariable'
+const OPACITY_UNIT_OPTIONS = [{ label: '%', value: '%' }]
+const CHIP_STYLE = { flex: '1 1 0', minWidth: 0, width: 0, marginLeft: 4 }
+const INPUT_STYLE = { flex: '1 1 0', minWidth: 0, width: 0, marginLeft: 4, padding: 0 }
 
 export function Appearance({ value, onChange: fallbackOnChange, showTitle, collapse }: AppearanceProps) {
-  const [opacityForceKey, setOpacityForceKey] = useState(0)
-  const [opacityDraft, setOpacityDraft] = useState<string | null>(null)
-
   const context = useStyleEditorContext()
   const targetDom = context?.targetDom ?? null
   const onChange = useStyleChange(fallbackOnChange)
@@ -47,9 +54,21 @@ export function Appearance({ value, onChange: fallbackOnChange, showTitle, colla
 
   const [pickerOpen, setPickerOpen] = useState(false)
   const [pickerMounted, setPickerMounted] = useState(false)
-  const anchorRef = useRef<HTMLDivElement>(null)
+  const anchorRef = useRef<HTMLSpanElement>(null)
 
-  const opacityRawValue = value?.opacity
+  const opacitySource = context?.effectiveStyle?.opacity
+  const opacityProperty = context?.getStyleProperty?.('opacity')
+  // 数值 1 既可能来自声明，也可能只是默认/计算值，必须按来源区分。
+  const declaredOpacity = context?.getStyleProperty
+    ? (opacityProperty?.winner?.currentState ? opacityProperty.winner.value : undefined)
+    : context?.effectiveStyle
+      ? (opacitySource?.type !== 'computed' ? opacitySource?.value : undefined)
+      : context?.authoredStyle
+        ? context.authoredStyle.opacity
+        : value?.opacity
+  const hasConfiguredOpacity = declaredOpacity != null && String(declaredOpacity).trim() !== '' &&
+    !/^unset$/i.test(String(declaredOpacity).trim())
+  const opacityRawValue = hasConfiguredOpacity ? declaredOpacity : undefined
 
   const varRef = isCssVarValue(opacityRawValue) ? (opacityRawValue as string) : undefined
 
@@ -74,38 +93,55 @@ export function Appearance({ value, onChange: fallbackOnChange, showTitle, colla
     if (varRef) return fallbackPercent
     return opacityToPercent(opacityRawValue)
   }, [varRef, fallbackPercent, opacityRawValue])
+  const unitOptions = useMemo(
+    () => withApplyVariableOption(OPACITY_UNIT_OPTIONS, hasVariables),
+    [hasVariables]
+  )
 
   const handleOpacityChange = useCallback(
-    (val: string) => {
-      const trimmed = val.trim()
-      if (!trimmed) {
-        onChange({ key: 'opacity', value: 0 })
-        return
-      }
-      const num = parseFloat(trimmed)
-      if (!isNaN(num)) {
-        const nextValue = percentToOpacity(num)
-        const currentValue = opacityPercent / 100
-        if (!varRef && nextValue === currentValue) return
-        onChange({ key: 'opacity', value: nextValue })
-      }
+    (percent: number) => {
+      const nextValue = percentToOpacity(percent)
+      // 未配置时输入 100% 也需要创建声明；比较原值，避免舍入损失。
+      if (hasConfiguredOpacity && !varRef && nextValue === Number(opacityRawValue)) return
+      onChange({ key: 'opacity', value: nextValue })
     },
-    [onChange, opacityPercent, varRef]
+    [onChange, hasConfiguredOpacity, opacityRawValue, varRef]
   )
+
+  const handleReset = useCallback(() => {
+    if (!hasConfiguredOpacity) return
+    onChange({ key: 'opacity', value: null })
+  }, [onChange, hasConfiguredOpacity])
+
+  const handleInputChange = useCallback((inputValue: string | null) => {
+    if (inputValue == null) {
+      handleReset()
+      return
+    }
+    const percent = parseFloat(inputValue)
+    if (isNaN(percent)) return
+    handleOpacityChange(Math.min(100, Math.max(0, Math.round(percent))))
+  }, [handleOpacityChange, handleReset])
 
   const getDragPropsOpacity = useDragNumber({
     min: 0,
     max: 100,
-    // 不 return → useCustomEnd=false → mouseup 时 hook 触发 blur → onBlur 里补回 %
-    formatDisplay: v => `${v}%`,
+    onDragStart: currentValue => {
+      if (!varRef) return
+      return Number(currentValue)
+    },
     onDragChange: value => {
-      handleOpacityChange(String(value))
+      if (varRef) handleOpacityChange(value)
+    },
+    onDragEnd: value => {
+      handleOpacityChange(value)
     },
   })
 
-  const handleReset = useCallback(() => {
-    onChange([{ key: 'opacity', value: null }])
-    setOpacityForceKey(k => k + 1)
+  // 点击 + 是新增配置，显式写入完全不透明，而不是仅展开空输入框。
+  const handleExpand = useCallback(() => {
+    const result = onChange({ key: 'opacity', value: 1 })
+    if (result && !result.applied) return
   }, [onChange])
 
   const openPicker = useCallback(() => {
@@ -142,8 +178,8 @@ export function Appearance({ value, onChange: fallbackOnChange, showTitle, colla
     if (action === DETACH_VARIABLE_ACTION) detach()
   }, [detach])
 
-  // 未设置不透明度（默认 100%）时强制折叠，与效果面板空状态一致
-  const effectiveCollapse = (!varRef && opacityPercent === 100) ? true : collapse
+  // 显式 100% 也是有效配置，不能把它当成未配置自动折叠。
+  const effectiveCollapse = hasConfiguredOpacity ? collapse : true
 
   return (
     <Panel
@@ -152,6 +188,7 @@ export function Appearance({ value, onChange: fallbackOnChange, showTitle, colla
       showReset={true}
       showDelete={true}
       resetFunction={handleReset}
+      onExpand={handleExpand}
       collapse={effectiveCollapse}
     >
       <Panel.Content>
@@ -168,99 +205,60 @@ export function Appearance({ value, onChange: fallbackOnChange, showTitle, colla
           </span>
 
           {varRef ? (
-            <>
-              <VariableChip
-                value={varRef}
-                resolvedValue={resolvedValue}
-                display={chipDisplayText ? `${chipDisplayText}%` : undefined}
-                defaultUnit=''
-                onRequestPicker={openPicker}
-                menuOptions={chipMenuOptions}
-                onMenuAction={handleChipMenuAction}
-                onInputValue={(inputVal) => {
-                  const n = parseFloat(inputVal)
-                  if (!isNaN(n)) {
-                    onChange({ key: 'opacity', value: percentToOpacity(n) })
-                  }
-                }}
-                onDetach={detach}
-                style={{ flex: '1 1 0', minWidth: 0, width: 0, marginLeft: 4 }}
-              />
-              <SketchPopup
-                open={pickerOpen}
-                mounted={pickerMounted}
-                anchorRef={anchorRef}
-                onClose={closePicker}
-                className={css.variablePopup}
-              >
-                <VariableList
-                  list={variableOptions}
-                  open={pickerOpen}
-                  selectedName={varRef}
-                  onClose={closePicker}
-                  onSelect={(item) => selectVariable(item.name)}
-                  renderValue={(item) => `${Math.round(parseFloat(item.value) * 100)}%`}
-                  emptyText='当前画布没有可用的不透明度变量'
-                />
-              </SketchPopup>
-            </>
+            <VariableChip
+              value={varRef}
+              resolvedValue={resolvedValue}
+              display={chipDisplayText}
+              unitLabel='%'
+              defaultUnit=''
+              onRequestPicker={openPicker}
+              menuOptions={chipMenuOptions}
+              onMenuAction={handleChipMenuAction}
+              onInputValue={(inputVal) => {
+                const n = parseFloat(inputVal)
+                if (!isNaN(n)) {
+                  onChange({ key: 'opacity', value: percentToOpacity(n) })
+                }
+              }}
+              onDetach={detach}
+              style={CHIP_STYLE}
+            />
           ) : (
-            <>
-              <input
-                key={opacityForceKey}
-                type='text'
-                className={css.opacityInput}
-                defaultValue={`${opacityPercent}%`}
-                onFocus={e => { setOpacityDraft(e.currentTarget.value); e.target.select() }}
-                onChange={e => setOpacityDraft(e.currentTarget.value)}
-                onBlur={e => {
-                  setOpacityDraft(null)
-                  const raw = e.target.value.trim().replace(/%$/, '')
-                  if (!raw || isNaN(parseFloat(raw))) {
-                    handleOpacityChange('0')
-                    e.target.value = '0%'
-                  } else {
-                    const num = Math.round(Math.min(100, Math.max(0, parseFloat(raw))))
-                    handleOpacityChange(String(num))
-                    e.target.value = `${num}%`
-                  }
-                }}
-                onKeyDown={e => {
-                  if (e.key === 'Enter') {
-                    e.currentTarget.blur()
-                  }
-                }}
+            <InputNumber
+              style={INPUT_STYLE}
+              value={hasConfiguredOpacity ? opacityPercent : undefined}
+              defaultUnitValue='%'
+              unitOptions={unitOptions}
+              clearable={hasConfiguredOpacity}
+              onClear={handleReset}
+              placeholder=''
+              showIcon={true}
+              showIconOnHover={true}
+              onChange={handleInputChange}
+              onAction={action => {
+                if (action === APPLY_VARIABLE_ACTION) openPicker()
+              }}
+            />
+          )}
+
+          {pickerMounted && (
+            <SketchPopup
+              open={pickerOpen}
+              mounted={pickerMounted}
+              anchorRef={anchorRef}
+              className={css.variablePopup}
+              onClose={closePicker}
+            >
+              <VariableList
+                list={variableOptions}
+                open={pickerOpen}
+                selectedName={varRef}
+                onClose={closePicker}
+                onSelect={(item) => selectVariable(item.name)}
+                renderValue={(item) => `${Math.round(parseFloat(item.value) * 100)}%`}
+                emptyText='当前画布没有可用的不透明度变量'
               />
-              {(opacityPercent !== 100 || (opacityDraft != null && opacityDraft !== `${opacityPercent}%`)) && <ClearButton onClick={handleReset} />}
-              {hasVariables && (
-                <span
-                  className={css.varBtn}
-                  data-mybricks-tip='应用变量...'
-                  onClick={openPicker}
-                >
-                  <Variable />
-                </span>
-              )}
-              {pickerMounted && (
-                <SketchPopup
-                  open={pickerOpen}
-                  mounted={pickerMounted}
-                  anchorRef={anchorRef}
-                  className={css.variablePopup}
-                  onClose={closePicker}
-                >
-                  <VariableList
-                    list={variableOptions}
-                    open={pickerOpen}
-                    selectedName={varRef}
-                    onClose={closePicker}
-                    onSelect={(item) => selectVariable(item.name)}
-                    renderValue={(item) => `${Math.round(parseFloat(item.value) * 100)}%`}
-                    emptyText='当前画布没有可用的不透明度变量'
-                  />
-                </SketchPopup>
-              )}
-            </>
+            </SketchPopup>
           )}
         </Panel.Item>
       </Panel.Content>
