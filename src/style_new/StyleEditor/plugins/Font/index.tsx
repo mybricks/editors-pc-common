@@ -35,7 +35,9 @@ import { toStyleChangeItems } from "../../helper/paint-stack";
 import {
   buildGradientTextFill,
   buildSolidTextFill,
+  buildTextFillClear,
   isTextFillActive,
+  getSolidTextFillColor,
   parseTextFillDisplayValue,
 } from "../../helper/text-fill";
 import { getColorEditorValue } from "../../helper/get-color-editor-value";
@@ -331,9 +333,12 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
   const sizeField = useStyleClear('fontSize');
   const weightField = useStyleClear('fontWeight');
   const imageField = useStyleClear('backgroundImage');
+  const backgroundColorField = useStyleClear('backgroundColor');
+  const solidTextFillColor = getSolidTextFillColor(value as Record<string, any>);
   const colorConfigured = isEffectiveStyleConfigured(effectiveStyle?.color) || (
     isTextFillActive(value as Record<string, any>) &&
-    isEffectiveStyleConfigured(effectiveStyle?.backgroundImage)
+    isEffectiveStyleConfigured(solidTextFillColor
+      ? effectiveStyle?.backgroundColor : effectiveStyle?.backgroundImage)
   );
   const colorResetToDefault = [
     effectiveStyle?.color,
@@ -372,22 +377,20 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
         ? buildGradientTextFill(next, current)
         : buildSolidTextFill(next, current);
       textFillStyleRef.current = { ...current, ...nextStyle };
-      onChange(toStyleChangeItems(nextStyle));
+      onChange(toStyleChangeItems(nextStyle, 'text'));
     },
     [onChange]
   );
 
   const handleTextFillClear = useCallback(() => {
-    const cleared = {
-      ...buildSolidTextFill('', textFillStyleRef.current),
-      color: null,
-      WebkitTextFillColor: null,
-    };
+    const cleared = buildTextFillClear(textFillStyleRef.current);
     const changes = toStyleChangeItems(cleared);
-    const clearWritesUnset = changes.some((change) =>
-      change.value == null &&
-      context?.getStyleProperty?.(change.key)?.clearPlan.action === 'write-unset'
-    );
+    const clearKeys = changes.filter(change => change.value == null).map(change => change.key);
+    const clearPlans = context?.getStyleClearPlans?.(clearKeys) ?? clearKeys.flatMap(key => {
+      const plan = context?.getStyleProperty?.(key)?.clearPlan;
+      return plan ? [plan] : [];
+    });
+    const clearWritesUnset = clearPlans.some(plan => plan.action === 'write-unset');
     const result = onChange(changes);
     // 文字渐变可能没有独立 color 声明，但关联 paint 清理仍可成功；
     // 只有目标明确不可写时才保留原 UI 状态。
@@ -403,11 +406,12 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
     textFillStyleRef.current = { ...textFillStyleRef.current, ...cleared };
     setTextFillAuthored(false);
     setTextFillEditorRevision((revision) => revision + 1);
-  }, [onChange, context?.getStyleProperty, context?.getStylePreview]);
+  }, [onChange, context?.getStyleProperty, context?.getStyleClearPlans, context?.getStylePreview]);
 
   const effectiveTextFillValue = parseTextFillDisplayValue(value as Record<string, any>);
   const textFillValue = textFillPreviewColor ?? effectiveTextFillValue;
   const textFillComputedColor = textFillPreviewColor ?? (
+    solidTextFillColor ? effectiveStyle?.backgroundColor?.computedValue :
     effectiveStyle?.WebkitTextFillColor?.computedValue ??
     effectiveStyle?.webkitTextFillColor?.computedValue ??
     effectiveStyle?.color?.computedValue ??
@@ -425,7 +429,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
     setPendingTextFillDefault(false);
     setTextFillPreviewColor(undefined);
     setTextFillEditorRevision((revision) => revision + 1);
-  }, [targetDom, effectiveStyle, colorConfigured, value.color, value.backgroundImage]);
+  }, [targetDom, effectiveStyle, colorConfigured, value.color, value.backgroundImage, value.backgroundColor]);
 
   const [fontFamilyAuthored, setFontFamilyAuthored] = useState(() =>
     familyConfigured
@@ -1156,7 +1160,8 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
             scopeEl={targetDom}
             showSubTabs={true}
             disableBackgroundImage={true}
-            clearable={!!colorField.clear || (isTextFillActive(value as Record<string, any>) && !!imageField.clear)}
+            clearable={!!colorField.clear || (isTextFillActive(value as Record<string, any>) &&
+              !!(solidTextFillColor ? backgroundColorField.clear : imageField.clear))}
             onClear={handleTextFillClear}
             inherited={!textFillAuthored}
             showInheritedColor

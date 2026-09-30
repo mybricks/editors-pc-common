@@ -140,7 +140,7 @@ export const initLiveStyle = (
     if (dv.backgroundColor && !initial.backgroundColor) initial.backgroundColor = dv.backgroundColor;
   }
 
-  // 文字渐变：setValue 可能缺 clip/text-fill，从 defaultValue（DOM）补齐
+  // 文字填充：setValue 可能缺 clip/text-fill/纯色背景，从 defaultValue（DOM）补齐
   // 用 splitBackgroundLayers 判断 text，与 paint-stack.clipHasText 语义一致（避免循环依赖）
   const dvClip = dv.backgroundClip || dv.WebkitBackgroundClip || dv.webkitBackgroundClip;
   const initialClip =
@@ -148,6 +148,9 @@ export const initLiveStyle = (
   const clipListHasText = (clip?: string) =>
     typeof clip === 'string' &&
     splitBackgroundLayers(clip).some((c) => c.trim() === 'text');
+  if (clipListHasText(dvClip) && dv.backgroundColor && !initial.backgroundColor) {
+    initial.backgroundColor = dv.backgroundColor;
+  }
   if (clipListHasText(dvClip) && !clipListHasText(initialClip)) {
     if (dv.backgroundImage) initial.backgroundImage = dv.backgroundImage;
     if (dvClip) {
@@ -167,4 +170,4 @@ export const initLiveStyle = (
   return initial;
 };
 
-export type StyleChangeItem = { key: string; value: any };
+export type StyleChangeItem = { key: string; value: any; paintRole?: 'text' };

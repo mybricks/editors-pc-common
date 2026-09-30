@@ -36,6 +36,8 @@ export type StyleChangeItem = {
   target?: 'current-rule';
   /** 单独配置固定按边写入，不因四边相同而跨边合并。 */
   borderMode?: 'all' | 'split';
+  /** Font 修改共用的 backgroundColor 时保留文字填充角色。 */
+  paintRole?: 'text';
 };
 
 export type StyleChangeResult = {
@@ -52,6 +54,7 @@ export type StyleMutation =
       value: any;
       target?: 'current-rule';
       borderMode?: 'all' | 'split';
+      paintRole?: 'text';
     }
   | {
       type: 'clear';

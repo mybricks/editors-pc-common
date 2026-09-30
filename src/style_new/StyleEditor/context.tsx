@@ -105,7 +105,8 @@ export function useStyleChange(fallbackOnChange?: ChangeEvent): ChangeEvent {
     const items = Array.isArray(input) ? input : [input]
     return applyStyleMutations(items.map((item) => item.value == null
       ? { type: 'clear', key: item.key, borderMode: item.borderMode }
-      : { type: 'set', key: item.key, value: item.value, target: item.target, borderMode: item.borderMode }
+      : { type: 'set', key: item.key, value: item.value, target: item.target, borderMode: item.borderMode,
+          ...(item.paintRole ? { paintRole: item.paintRole } : {}) }
     ))
   }, [applyStyleMutations])
 }

@@ -52,6 +52,22 @@ export const clipHasText = (clip?: string): boolean => {
   return splitBackgroundLayers(clip).some((c) => c.trim() === 'text');
 };
 
+/** background-color 使用最底层的 clip；文字填充不能同时当作容器底色。 */
+export const getTextBackgroundColor = (
+  style: Record<string, any> = {},
+  includeTransparent = false
+): string | undefined => {
+  const clips = splitBackgroundLayers(getBackgroundClip(style));
+  const color = style.backgroundColor;
+  return clips[clips.length - 1] === 'text' &&
+    typeof color === 'string' && !!color.trim() && (includeTransparent || !isTransparentColor(color)) &&
+    !/^(initial|inherit|unset|revert|revert-layer)$/i.test(color.trim())
+    ? color : undefined;
+};
+
+export const getContentBackgroundColor = (style: Record<string, any> = {}): string | undefined =>
+  getTextBackgroundColor(style) ? undefined : style.backgroundColor;
+
 /** 是否为渐变边框用的双层 clip */
 export const hasGradientBorderClip = (clip?: string): boolean => {
   if (!clip || typeof clip !== 'string') return false;
@@ -108,6 +124,10 @@ export const refineEffectedPanel = (
   const textOnlyStack =
     !!stack.textLayer && !borderActive && stack.contentLayers.length === 0;
 
+  if (property === 'backgroundColor' && getTextBackgroundColor(styleBag)) {
+    return 'font';
+  }
+
   if (
     property === 'WebkitTextFillColor' ||
     property === 'webkitTextFillColor'
@@ -148,6 +168,7 @@ export const isPaintStackPropOwnedByTextFill = (
   property: string,
   styleBag: Record<string, any> = {}
 ): boolean => {
+  if (property === 'backgroundColor') return !!getTextBackgroundColor(styleBag);
   if (!TEXT_FILL_OWNED_PROPS.has(property)) return false;
   const refined = refineEffectedPanel(property, 'border', styleBag);
   // 若修正后归 font，说明该属性由文字填充占用
@@ -189,6 +210,9 @@ export const decomposeBackgroundStack = (
   style: Record<string, any> = {}
 ): BackgroundStack => {
   let layers = splitBackgroundLayers(style.backgroundImage);
+  if (layers.length === 1 && /^(initial|inherit|unset|revert|revert-layer)$/i.test(layers[0])) {
+    layers = [];
+  }
   const clips = splitBackgroundLayers(getBackgroundClip(style));
   let sizes = splitBackgroundLayers(style.backgroundSize);
   let repeats = splitBackgroundLayers(style.backgroundRepeat);
@@ -203,6 +227,11 @@ export const decomposeBackgroundStack = (
     sizes = sizes.slice(1);
     repeats = repeats.slice(1);
     positions = positions.slice(1);
+  }
+  const textBackgroundColor = getTextBackgroundColor(style);
+  if (!textLayer && textBackgroundColor) {
+    // 栈重组时用等色渐变保住字形填充；字体控件仍回显原始纯色/变量。
+    textLayer = toSolidBackgroundLayer(textBackgroundColor);
   }
 
   let borderLayer: string | undefined;
@@ -373,6 +402,7 @@ export const getContentBackgroundImage = (
 export const getContentBackgroundMeta = (
   style: Record<string, any> = {}
 ): {
+  backgroundColor?: string;
   backgroundImage: string;
   backgroundSize: string;
   backgroundRepeat: string;
@@ -381,6 +411,7 @@ export const getContentBackgroundMeta = (
   const stack = decomposeBackgroundStack(style);
   if (!stack.contentLayers.length) {
     return {
+      backgroundColor: getContentBackgroundColor(style),
       backgroundImage: 'none',
       backgroundSize: '',
       backgroundRepeat: '',
@@ -388,6 +419,7 @@ export const getContentBackgroundMeta = (
     };
   }
   return {
+    backgroundColor: getContentBackgroundColor(style),
     backgroundImage: stack.contentLayers.join(', '),
     backgroundSize: (stack.contentSizes || []).join(', '),
     backgroundRepeat: (stack.contentRepeats || []).join(', '),
@@ -396,9 +428,10 @@ export const getContentBackgroundMeta = (
 };
 
 export const toStyleChangeItems = (
-  props: Record<string, any>
+  props: Record<string, any>,
+  paintRole?: 'text'
 ): StyleChangeItem[] =>
-  Object.entries(props).map(([key, value]) => ({ key, value }));
+  Object.entries(props).map(([key, value]) => ({ key, value, ...(paintRole ? { paintRole } : {}) }));
 
 const STACK_KEYS = new Set([
   'backgroundImage',
@@ -479,6 +512,29 @@ export const preservePaintRoles = (
   currentSetValue: Record<string, any>
 ): StyleChangeItem[] => {
   const currentStack = decomposeBackgroundStack(currentSetValue);
+  // Font 的纯色修改按最新文字层落盘；新增容器填充后，面板可能仍持有旧 backgroundColor 快照。
+  if (items.length > 0 && items.every(item =>
+    item.paintRole === 'text' && item.key === 'backgroundColor' && item.value != null
+  )) {
+    const images = splitBackgroundLayers(currentSetValue.backgroundImage);
+    if (currentStack.textLayer && images[0] === currentStack.textLayer) {
+      return items.map(item => ({
+        ...item,
+        key: 'backgroundImage',
+        value: [toSolidBackgroundLayer(item.value), ...images.slice(1)].join(', '),
+      }));
+    }
+    // 尚未转成图片层的纯色字形，继续保留原 background/background-color 写法。
+    return items;
+  }
+
+  const contentBackgroundColor = getContentBackgroundColor(currentSetValue);
+  const patchPaintItems = (items: StyleChangeItem[], patch: Record<string, any>) =>
+    patchBackgroundItems(items, {
+      ...(getTextBackgroundColor(currentSetValue) && !items.some(item => item.key === 'backgroundColor')
+        ? { backgroundColor: null } : {}),
+      ...patch,
+    });
 
   const getItem = (key: string) => items.find((i) => i.key === key);
   const incomingClip = getItem('backgroundClip')?.value;
@@ -527,12 +583,12 @@ export const preservePaintRoles = (
       textLayer: currentStack.textLayer,
       contentLayers: currentStack.contentLayers,
       borderLayer: undefined,
-      backgroundColor: currentSetValue.backgroundColor,
+      backgroundColor: contentBackgroundColor,
       contentSizes: currentStack.contentSizes,
       contentRepeats: currentStack.contentRepeats,
       contentPositions: currentStack.contentPositions,
     });
-    return patchBackgroundItems(
+    return patchPaintItems(
       items,
       withTextFillIfNeeded(composed, !!currentStack.textLayer)
     );
@@ -552,12 +608,12 @@ export const preservePaintRoles = (
         contentLayers: currentStack.contentLayers,
         borderLayer: currentStack.borderLayer,
         backgroundColor:
-          getItem('backgroundColor')?.value ?? currentSetValue.backgroundColor,
+          getItem('backgroundColor')?.value ?? contentBackgroundColor,
         contentSizes: currentStack.contentSizes,
         contentRepeats: currentStack.contentRepeats,
         contentPositions: currentStack.contentPositions,
       });
-      return patchBackgroundItems(items, {
+      return patchPaintItems(items, {
         ...composed,
         WebkitTextFillColor: null,
       });
@@ -579,13 +635,13 @@ export const preservePaintRoles = (
       textLayer: incomingStack.textLayer,
       contentLayers: currentStack.contentLayers,
       borderLayer: nextBorderLayer,
-      backgroundColor: currentSetValue.backgroundColor,
+      backgroundColor: contentBackgroundColor,
       contentSizes: currentStack.contentSizes,
       contentRepeats: currentStack.contentRepeats,
       contentPositions: currentStack.contentPositions,
     });
 
-    return patchBackgroundItems(items, {
+    return patchPaintItems(items, {
       ...composed,
       color: 'transparent',
       WebkitTextFillColor: 'transparent',
@@ -616,7 +672,7 @@ export const preservePaintRoles = (
       textLayer: currentStack.textLayer,
       contentLayers,
       borderLayer: incomingStack.borderLayer,
-      backgroundColor: currentSetValue.backgroundColor,
+      backgroundColor: contentBackgroundColor,
       contentSizes:
         currentStack.contentLayers.length > 0
           ? currentStack.contentSizes
@@ -630,7 +686,7 @@ export const preservePaintRoles = (
           ? currentStack.contentPositions
           : incomingStack.contentPositions,
     });
-    return patchBackgroundItems(
+    return patchPaintItems(
       items,
       withTextFillIfNeeded(composed, !!currentStack.textLayer)
     );
@@ -656,7 +712,7 @@ export const preservePaintRoles = (
 
   const nextBackgroundColor =
     getItem('backgroundColor')?.value ??
-    currentSetValue.backgroundColor ??
+    contentBackgroundColor ??
     'transparent';
 
   if (hasBackgroundImageChange || hasParallelChange) {
@@ -696,7 +752,7 @@ export const preservePaintRoles = (
       ...parallel,
     });
 
-    return patchBackgroundItems(
+    return patchPaintItems(
       items,
       withTextFillIfNeeded(composed, !!currentStack.textLayer)
     );
@@ -716,7 +772,7 @@ export const preservePaintRoles = (
         contentRepeats: [ROLE_LAYER_REPEAT],
         contentPositions: [ROLE_LAYER_POSITION],
       });
-      return patchBackgroundItems(items, composed);
+      return patchPaintItems(items, composed);
     }
   }
 
@@ -731,7 +787,7 @@ export const preservePaintRoles = (
       contentRepeats: currentStack.contentRepeats,
       contentPositions: currentStack.contentPositions,
     });
-    return patchBackgroundItems(items, {
+    return patchPaintItems(items, {
       ...composed,
       WebkitTextFillColor: 'transparent',
       color:

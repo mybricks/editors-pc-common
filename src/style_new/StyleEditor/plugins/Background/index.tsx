@@ -24,7 +24,7 @@ import {
   mergeResolvedLayersWithReadonly,
   interpretPickerChange,
 } from "./layers";
-import { getContentBackgroundMeta } from "../../helper/paint-stack";
+import { clipHasText, getBackgroundClip, getContentBackgroundMeta } from "../../helper/paint-stack";
 import {
   parseCssVar,
   resolveCssVarColor,
@@ -361,8 +361,15 @@ export function Background({
 
   // ── Layer state ──────────────────────────────────────────────────────────
 
+  // 字体与填充共用 image 时，删最后一层填充仍是改图层列表，不能直接删除整条 background-image。
+  // 来源索引随写入立即更新，常规态 value 可能仍停留在添加文字渐变之前。
+  const sharesTextBackground = clipHasText(
+    context?.getStyleProperty?.('backgroundClip').winner?.value ??
+    context?.getStyleProperty?.('WebkitBackgroundClip').winner?.value ??
+    getBackgroundClip(value)
+  );
   const ownership = {
-    backgroundImage: !!clearImages.clear && (!context?.getStyleProperty || !!context.getStyleProperty('backgroundImage').winner?.currentState),
+    backgroundImage: (!!clearImages.clear || sharesTextBackground) && (!context?.getStyleProperty || !!context.getStyleProperty('backgroundImage').winner?.currentState),
     backgroundColor: !!clearColor.clear,
   };
   const ownershipFingerprint = `${ownership.backgroundImage}:${ownership.backgroundColor}`;
@@ -370,7 +377,7 @@ export function Background({
 
   const buildContentFingerprint = (style: Record<string, any>) => {
     const meta = getContentBackgroundMeta(style);
-    const bgColor = (style?.backgroundColor as string) ?? "";
+    const bgColor = meta.backgroundColor ?? "";
     return [
       meta.backgroundImage,
       bgColor,
@@ -384,7 +391,7 @@ export function Background({
     const meta = getContentBackgroundMeta(value as Record<string, any>);
     return parseLayers(
       meta.backgroundImage,
-      value?.backgroundColor as string,
+      meta.backgroundColor,
       meta.backgroundSize,
       meta.backgroundRepeat,
       meta.backgroundPosition,
@@ -419,7 +426,7 @@ export function Background({
     setLayers(
       parseLayers(
         meta.backgroundImage,
-        (style?.backgroundColor as string) ?? "",
+        meta.backgroundColor ?? "",
         meta.backgroundSize,
         meta.backgroundRepeat,
         meta.backgroundPosition,
@@ -534,15 +541,16 @@ export function Background({
       const changes = getLayerRemovalChanges(currentLayers, index);
       if (!changes.length) return;
       const nextLayers = currentLayers.filter((_, i) => i !== index);
-      if (changes.every(change => change.value == null)) {
+      const updatesSharedImages = sharesTextBackground && currentLayers[index].sourceProperty === 'backgroundImage';
+      if (!updatesSharedImages && changes.every(change => change.value == null)) {
         const remove = currentLayers[index].sourceProperty === 'backgroundColor' ? clearColor.clear : clearImages.clear;
         if (remove) emitLayers(nextLayers, changes, remove);
       } else {
-        // 多图层删其中一层是更新列表；只有最后一层才删除 CSS 声明。
+        // 共用背景时由 paint-stack 保留文字层；普通多图层删除仍是更新列表。
         emitLayers(nextLayers, changes);
       }
     },
-    [emitLayers, clearColor.clear, clearImages.clear]
+    [emitLayers, clearColor.clear, clearImages.clear, sharesTextBackground]
   );
 
   const handleAddLayer = useCallback(() => {
@@ -623,9 +631,9 @@ export function Background({
 
   // ── Render ───────────────────────────────────────────────────────────────
 
-  // 没有背景图层时默认折叠；inherited（CSSOM/父级回显、非本文件写入）展开且无减号
+  // 图层从有到无时必须改变 collapse，才能同步收起 Panel 的手动添加状态。
   const isInherited = collapse === 'inherited';
-  const effectiveCollapse = layers.length === 0 && !isInherited ? true : collapse;
+  const effectiveCollapse = layers.length === 0 ? true : isInherited ? 'inherited' : false;
 
   return (
     <Panel

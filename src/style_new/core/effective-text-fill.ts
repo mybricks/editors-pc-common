@@ -1,6 +1,7 @@
 import {
   clipHasText,
   isTransparentColor,
+  getTextBackgroundColor,
 } from '../StyleEditor/helper/paint-stack'
 import { isGradientValue } from '../StyleEditor/helper/gradient-border'
 import {
@@ -235,19 +236,26 @@ export function reconcileEffectiveTextFill(
   )
   const ownsBackgroundImage =
     hasBackgroundImage(authoredBackgroundImage) || ambiguousBackgroundVar
-
-  // TODO: 没支持 background: var(--color-accent-cyan); 结合 clip 的 case，也需要回显到字体颜色上
-  if (
-    !ownsBackgroundImage ||
-    !effectiveClip ||
-    !hasBackgroundImage(computedBackgroundImage)
-  ) {
+  const computedHasImage = hasBackgroundImage(computedBackgroundImage)
+  const computedBackgroundColor = readComputed(
+    computedValues,
+    'background-color',
+    'backgroundColor'
+  )
+  const ownsSolidTextFill = !!getTextBackgroundColor({
+    backgroundColor: values.backgroundColor,
+    backgroundClip: effectiveClip,
+  }) && !!getTextBackgroundColor({
+    backgroundColor: computedBackgroundColor,
+    backgroundClip: effectiveClip,
+  })
+  if (!effectiveClip || !(computedHasImage ? ownsBackgroundImage : ownsSolidTextFill)) {
     return false
   }
 
   // `background: var(--gradient)` 已确认实际解析为图片时，将当前 Zone 自有的
   // 原始变量迁到 image 槽；不能写入 computed 展开值，否则编辑会丢失变量绑定。
-  if (!hasBackgroundImage(authoredBackgroundImage) && ambiguousBackgroundVar) {
+  if (computedHasImage && !hasBackgroundImage(authoredBackgroundImage) && ambiguousBackgroundVar) {
     values.backgroundImage = values.backgroundColor
   }
   values.backgroundClip = effectiveClip
@@ -264,11 +272,6 @@ export function reconcileEffectiveTextFill(
     values.WebkitTextFillColor = computedTextFill
   }
 
-  const computedBackgroundColor = readComputed(
-    computedValues,
-    'background-color',
-    'backgroundColor'
-  )
   if (
     ambiguousBackgroundVar &&
     !!computedBackgroundColor &&

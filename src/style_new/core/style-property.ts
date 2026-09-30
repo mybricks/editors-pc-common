@@ -115,6 +115,8 @@ function planClear(key: string, candidates: StyleSourceCandidate[], target: HTML
 export function createStyleResolution(tab: ZoneTab, target: HTMLElement | null = tab.target as HTMLElement || null) {
   const index = new Map<string, StyleSourceCandidate[]>()
   const cache = new Map<string, StyleProperty>()
+  // 源码/CSSOM 更新晚于连续编辑，不能把已清除的 background 再从旧文本恢复回来。
+  const recordedBackgroundSources = new Set<string>()
   const addStyle = (style: CSSStyleDeclaration, source?: ZoneSourceRule) => {
     const declared = Array.from({ length: style.length }, (_, i) => style.item(i))
     const expanded = new Set(declared)
@@ -167,6 +169,7 @@ export function createStyleResolution(tab: ZoneTab, target: HTMLElement | null =
     const existing = index.get('background-color') || []
     const additions: StyleSourceCandidate[] = []
     uniqueSources.forEach(source => {
+      if (recordedBackgroundSources.has(source.sourceSelector)) return
       if (existing.some(candidate => candidate.source === source)) return
       const declarations = readAuthoredBackgroundDeclarations(source.rule)
       let authoredValue = ''
@@ -214,16 +217,17 @@ export function createStyleResolution(tab: ZoneTab, target: HTMLElement | null =
       }
       return cache.get(property)!
     },
-    /** 连续编辑时先记录本次实际目标，避免源码重编译前读到上次 CSSOM。 */
-    record(key: string, value: any, selector: string) {
+    /** 连续编辑记录实际目标；authoredProperty 保留由简写提供的长写来源。 */
+    record(key: string, value: any, selector: string, authoredProperty = cssPropertyName(key)) {
       const property = cssPropertyName(key)
+      if (property === 'background' || property === 'background-color') recordedBackgroundSources.add(selector)
       const candidates = index.get(property) || []
       const previous = candidates.find(c => c.label === selector)
       const remaining = candidates.filter(c => c.label !== selector)
       if (value != null) {
         const source = tab.sourceRules.find(s => s.sourceSelector === selector)
         remaining.push({
-          property,
+          property: authoredProperty,
           value: String(value).replace(/\s*!important\s*$/i, '').trim(),
           important: /!important\s*$/i.test(String(value)),
           label: selector,
@@ -284,7 +288,7 @@ export function createStyleResolution(tab: ZoneTab, target: HTMLElement | null =
       // 写一个 longhand 后，CSSOM 尚未刷新，旧的合成简写已经不能再作为来源。
       const affected = STYLE_SHORTHANDS[property] || [property]
       Object.entries(STYLE_SHORTHANDS).forEach(([name, longhands]) => {
-        if (name === property || !longhands.some(key => affected.includes(key))) return
+        if (name === property || name === authoredProperty || !longhands.some(key => affected.includes(key))) return
         index.set(name, (index.get(name) || []).filter(candidate => candidate.label !== selector))
         cache.delete(name)
       })
@@ -349,11 +353,14 @@ export function createBatchStyleClearPlans(
       }
       return
     }
-    const winner = longhandProperties[0]?.winner
+    // background: var(...) 在 CSSOM 中可能无法展开；允许未声明的长写为空。
+    const winner = property === 'background'
+      ? longhandProperties.find(item => item.winner)?.winner
+      : longhandProperties[0]?.winner
     if (!winner) return
     const family = getShorthandFamily(property)
     const sameSource = longhandProperties.every(({ winner: current }) =>
-      !!current &&
+      (property === 'background' && !current) || !!current &&
       current.currentState &&
       family.includes(current.property) &&
       current.label === winner.label &&

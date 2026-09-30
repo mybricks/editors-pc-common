@@ -24,6 +24,7 @@ export const STYLE_SHORTHANDS: Record<string, string[]> = {
 
 /** 先匹配覆盖范围大的组，避免整个 border 被提前拆成各边/颜色/宽度。 */
 export const BATCH_CLEAR_SHORTHANDS = [
+  'background',
   'border',
   ...SIDES.map(side => `border-${side}`),
   'border-color', 'border-width', 'border-style',
