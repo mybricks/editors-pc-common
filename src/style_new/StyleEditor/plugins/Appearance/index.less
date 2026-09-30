@@ -44,56 +44,6 @@
   }
 }
 
-.opacityInput {
-  flex: 1;
-  min-width: 0;
-  background: transparent;
-  border: none;
-  outline: none;
-  font-size: 11px;
-  font-weight: 500;
-  font-family: inherit;
-  color: @font-color-content;
-  text-align: left;
-  padding: 0 2px;
-  margin-left: 2px;
-}
-
-.varBtn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  width: 20px;
-  height: 20px;
-  color: @font-color-content;
-  opacity: 0;
-  cursor: pointer;
-  border-radius: 3px;
-  background: transparent;
-  transition: opacity 0.15s;
-
-  svg {
-    width: 20px;
-    height: 20px;
-  }
-
-  &:hover {
-    opacity: 1 !important;
-    background: transparent;
-  }
-}
-
-.inputItem:hover .varBtn {
-  opacity: 0.55;
-}
-
-.inputItem:hover [data-input-clear],
-.inputItem:focus-within [data-input-clear] {
-  opacity: 1;
-  pointer-events: auto;
-}
-
 .variablePopup {
   z-index: 1000;
   position: fixed;
