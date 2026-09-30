@@ -13,7 +13,8 @@ import {
   APPLY_VARIABLE_ACTION,
 } from '../../components'
 import { allEqual } from '../../utils'
-import { useDragNumber, useLengthVarBinding } from '../../hooks'
+import { useDragNumber, useLengthInputDrag, useLengthVarBinding } from '../../hooks'
+import { useStyleDisplayValue } from '../../hooks/useStyleDisplayValue'
 import { expandFourShorthand } from '../../../core/shorthand-normalizer'
 import type { ChangeEvent, PanelBaseProps } from '../../type'
 import css from './index.less'
@@ -77,14 +78,30 @@ function getUnifiedRadiusValue(value: Record<string, any>): string | null {
 export function BorderRadius({ value, onChange: fallbackOnChange, config }: BorderRadiusProps) {
   const context = useStyleEditorContext()
   const onChange = useStyleChange(fallbackOnChange)
+  const topLeftDisplay = useStyleDisplayValue('borderTopLeftRadius')
+  const topRightDisplay = useStyleDisplayValue('borderTopRightRadius')
+  const bottomRightDisplay = useStyleDisplayValue('borderBottomRightRadius')
+  const bottomLeftDisplay = useStyleDisplayValue('borderBottomLeftRadius')
+  const radiusPreview: Record<typeof RADIUS_KEYS[number], string | undefined> = {
+    borderTopLeftRadius: topLeftDisplay.displaySource === 'normal-computed' ? topLeftDisplay.computedPreview : undefined,
+    borderTopRightRadius: topRightDisplay.displaySource === 'normal-computed' ? topRightDisplay.computedPreview : undefined,
+    borderBottomRightRadius: bottomRightDisplay.displaySource === 'normal-computed' ? bottomRightDisplay.computedPreview : undefined,
+    borderBottomLeftRadius: bottomLeftDisplay.displaySource === 'normal-computed' ? bottomLeftDisplay.computedPreview : undefined,
+  }
+  const previewCorners = RADIUS_KEYS.map(key => radiusPreview[key])
+  const allCornersAvailable = previewCorners.every(item => item !== undefined)
+  const unifiedPreview = allCornersAvailable && allEqual(previewCorners) ? previewCorners[0] : undefined
+  const mixedPreview = allCornersAvailable && !unifiedPreview
   // 圆角的计算值通常是 0px，但不能把它当成用户已配置的零圆角。
   const configuredValue: Record<string, any> = {}
   for (const key of ['borderRadius', ...RADIUS_KEYS]) {
     const source = context?.effectiveStyle?.[key]
     const winner = context?.getStyleProperty?.(key).winner
-    const raw = context?.getStyleProperty
-      ? (winner?.currentState ? winner.value : undefined)
-      : context?.effectiveStyle
+    const raw = source && source.type !== 'computed'
+      ? source.value
+      : context?.getStyleProperty
+        ? (winner?.currentState ? winner.value : undefined)
+        : context?.effectiveStyle
         ? (source?.type !== 'computed' ? source?.value : undefined)
         : context?.authoredStyle ? context.authoredStyle[key] : value?.[key]
     if (raw != null && String(raw).trim() !== '' && !/^unset(?:\s*!important)?$/i.test(String(raw).trim())) {
@@ -97,11 +114,14 @@ export function BorderRadius({ value, onChange: fallbackOnChange, config }: Bord
     if (context?.getStyleProperty || context?.effectiveStyle?.[key]) editorValue[key] = configuredValue[key]
   }
   delete editorValue.borderRadius
+  const modeValue = Object.keys(configuredValue).length === 0 && allCornersAvailable
+    ? radiusPreview
+    : editorValue
   const [{ useImportant, disableBorderRadius }] = useState({ useImportant: false, disableBorderRadius: false, ...config })
-  const [{ radiusToggleValue }, setToggleValue] = useState(getToggleDefaultValue(editorValue))
+  const [{ radiusToggleValue }, setToggleValue] = useState(getToggleDefaultValue(modeValue))
   const [radiusValue, setRadiusValue] = useState(() => expandBorderRadiusShorthand(editorValue))
   const radiusValueRef = useRef(radiusValue)
-  const getDragProps = useDragNumber({ continuous: true })
+  const getConfiguredDragProps = useDragNumber({ continuous: true })
   const allRadiusClear = useStyleClear(RADIUS_KEYS)
   const canReset = !disableBorderRadius && !!allRadiusClear.clear
   const topLeftClear = useStyleClear('borderTopLeftRadius')
@@ -119,11 +139,11 @@ export function BorderRadius({ value, onChange: fallbackOnChange, config }: Bord
     const next = expandBorderRadiusShorthand(editorValue)
     radiusValueRef.current = next
     setRadiusValue(previous => RADIUS_KEYS.every(key => previous[key] === next[key]) ? previous : next)
-    const nextToggle = getToggleDefaultValue(editorValue).radiusToggleValue
+    const nextToggle = getToggleDefaultValue(modeValue).radiusToggleValue
     if (nextToggle !== radiusToggleValue) {
       setToggleValue({ radiusToggleValue: nextToggle })
     }
-  }, [context?.targetDom, context?.effectiveStyle, editorValue.borderRadius, editorValue.borderTopLeftRadius, editorValue.borderTopRightRadius, editorValue.borderBottomRightRadius, editorValue.borderBottomLeftRadius])
+  }, [context?.targetDom, context?.effectiveStyle, editorValue.borderRadius, editorValue.borderTopLeftRadius, editorValue.borderTopRightRadius, editorValue.borderBottomRightRadius, editorValue.borderBottomLeftRadius, ...previewCorners])
 
   const handleChange = useCallback((changes: CSSProperties & Record<string, any>, borderMode: 'all' | 'split' = radiusToggleValue) => {
     const current: Record<string, any> = { ...radiusValueRef.current }
@@ -143,6 +163,21 @@ export function BorderRadius({ value, onChange: fallbackOnChange, config }: Bord
     radiusValueRef.current = next
     setRadiusValue(next)
   }, [onChange, radiusToggleValue, useImportant])
+
+  const commitUnifiedDrag = (next: string) => handleChange(Object.fromEntries(
+    RADIUS_KEYS.map(key => [key, next])
+  ), 'all')
+  const getUnifiedDragProps = useLengthInputDrag(radiusValue.borderTopLeftRadius ?? unifiedPreview, commitUnifiedDrag)
+  const getTopLeftDragProps = useLengthInputDrag(radiusValue.borderTopLeftRadius ?? radiusPreview.borderTopLeftRadius, next => handleChange({ borderTopLeftRadius: next }, 'split'))
+  const getTopRightDragProps = useLengthInputDrag(radiusValue.borderTopRightRadius ?? radiusPreview.borderTopRightRadius, next => handleChange({ borderTopRightRadius: next }, 'split'))
+  const getBottomRightDragProps = useLengthInputDrag(radiusValue.borderBottomRightRadius ?? radiusPreview.borderBottomRightRadius, next => handleChange({ borderBottomRightRadius: next }, 'split'))
+  const getBottomLeftDragProps = useLengthInputDrag(radiusValue.borderBottomLeftRadius ?? radiusPreview.borderBottomLeftRadius, next => handleChange({ borderBottomLeftRadius: next }, 'split'))
+  const splitDragProps = {
+    borderTopLeftRadius: getTopLeftDragProps,
+    borderTopRightRadius: getTopRightDragProps,
+    borderBottomRightRadius: getBottomRightDragProps,
+    borderBottomLeftRadius: getBottomLeftDragProps,
+  }
 
   const radiusAllVar = useLengthVarBinding({
     value: radiusValue.borderTopLeftRadius,
@@ -196,7 +231,11 @@ export function BorderRadius({ value, onChange: fallbackOnChange, config }: Bord
 
   const renderInput = (binding: ReturnType<typeof useLengthVarBinding>, icon: React.ReactNode, key: typeof RADIUS_KEYS[number], tip: string, rawValue: unknown, style: CSSProperties) => (
     <>
-      <div className={css.icon} ref={binding.anchorRef} {...(binding.varRef ? binding.dragProps(`拖拽调整${tip}（将解除变量绑定）`) : getDragProps(rawValue, `拖拽调整${tip}`))}>{icon}</div>
+      <div className={css.icon} ref={binding.anchorRef} {...(binding.varRef
+        ? binding.dragProps(`拖拽调整${tip}（将解除变量绑定）`)
+        : (rawValue == null || rawValue === '') && radiusPreview[key]
+          ? splitDragProps[key](radiusPreview[key], `拖拽调整${tip}`)
+          : getConfiguredDragProps(rawValue, `拖拽调整${tip}`))}>{icon}</div>
       <VariableNumberInput
         binding={binding}
         chipStyle={CHIP_STYLE}
@@ -205,6 +244,7 @@ export function BorderRadius({ value, onChange: fallbackOnChange, config }: Bord
           style,
           defaultValue: rawValue,
           value: rawValue,
+          previewValue: radiusPreview[key],
           placeholder: '',
           defaultUnitValue: 'px',
           hideUnitWhenEmpty: true,
@@ -227,14 +267,19 @@ export function BorderRadius({ value, onChange: fallbackOnChange, config }: Bord
     <div className={css.row}>
       <Panel.Content style={{ padding: 3 }}>
         <Panel.Item className={css.editArea} style={{ padding: '0 8px' }}>
-          <div className={css.icon} ref={radiusAllVar.anchorRef} {...(radiusAllVar.varRef ? radiusAllVar.dragProps('拖拽调整圆角（将解除变量绑定）') : getDragProps(radiusValue.borderTopLeftRadius, '拖拽调整圆角半径'))}><BorderRadiusSplitOutlined /></div>
+          <div className={css.icon} ref={radiusAllVar.anchorRef} {...(radiusAllVar.varRef
+            ? radiusAllVar.dragProps('拖拽调整圆角（将解除变量绑定）')
+            : (radiusValue.borderTopLeftRadius == null || radiusValue.borderTopLeftRadius === '') && unifiedPreview
+              ? getUnifiedDragProps(unifiedPreview, '拖拽调整圆角半径')
+              : getConfiguredDragProps(radiusValue.borderTopLeftRadius, '拖拽调整圆角半径'))}><BorderRadiusSplitOutlined /></div>
           <VariableNumberInput
             binding={radiusAllVar}
             chipStyle={CHIP_STYLE}
             inputProps={{
               tip: '圆角半径', style: DEFAULT_STYLE, defaultValue: radiusValue.borderTopLeftRadius,
               value: radiusValue.borderTopLeftRadius,
-              placeholder: '', defaultUnitValue: 'px', hideUnitWhenEmpty: true,
+              previewValue: unifiedPreview,
+              placeholder: mixedPreview ? '混合' : '', defaultUnitValue: 'px', hideUnitWhenEmpty: true,
               unitOptions: withDefaultUnitOption(unitOptions, !!allRadiusClear.clear),
               unitDisabledList: UNIT_DISABLED_LIST,
               clearable: !!allRadiusClear.clear,

@@ -68,6 +68,8 @@ export interface InputNumberProps extends Omit<InputProps, 'onChange' | 'value'>
   /** 这些单位不显示文案（仍保留下拉箭头），如 ['px'] */
   unitHideLabelList?: Array<string>;
   value?: string | number | null;
+  /** 未配置时只读展示的计算值；自动回显不会触发 onChange。 */
+  previewValue?: string | number;
   /** 空值回车/失焦且无 fallbackValue 时传 null，供上层删除对应 CSS 属性 */
   onChange?: (value: string | null) => void;
   /** 在下拉菜单中提供“默认”选项 */
@@ -79,6 +81,7 @@ export function InputNumber ({
   defaultValue,
   onChange,
   value,
+  previewValue,
   prefix,
   prefixTip,
   suffix: customSuffix,
@@ -134,6 +137,14 @@ export function InputNumber ({
   const isEmptyValue =
     (displayValue == null || displayValue === '') &&
     (externalValue == null || externalValue === '')
+  const showPreview = isEmptyValue && previewValue != null && previewValue !== ''
+  const previewText = showPreview ? String(previewValue) : ''
+  const numericPreview = previewText.trim().match(/^(-?(?:\d+(?:\.\d+)?|\.\d+))([a-z%]*)$/i)
+  const previewNumber = numericPreview?.[1]
+  const previewUnit = numericPreview?.[2]
+  const previewIsNumeric = showPreview && !!numericPreview
+  const renderedValue = showPreview ? (previewIsNumeric ? String(previewNumber) : previewText) : displayValue
+  const renderedUnit = showPreview && previewIsNumeric && previewUnit ? previewUnit : unit
 
   const isDisabledUnit = useCallback(() => {
     // default 表示未配置：输入框与下拉仍可用，便于继续输入或切换单位
@@ -145,8 +156,17 @@ export function InputNumber ({
   const handleFocus = useCallback((e: React.FocusEvent<HTMLInputElement>) => {
     focusValueRef.current = e.target.value
     inputChangedSinceFocusRef.current = false
+    if (showPreview && previewIsNumeric) {
+      const nextUnit = previewUnit || unit
+      if (number !== previewNumber || unit !== nextUnit) {
+        // 准备用户草稿时同步数字和单位；这一轮内部同步不是一次编辑。
+        skipUnitNumberOnChangeRef.current = true
+        handleNumberChange(String(previewNumber))
+        setUnit(nextUnit)
+      }
+    }
     onFocus?.()
-  }, [onFocus])
+  }, [onFocus, showPreview, previewIsNumeric, previewNumber, previewUnit, number, unit, handleNumberChange])
 
   const handleInputChange = useCallback((nextValue: string) => {
     inputChangedSinceFocusRef.current = true
@@ -165,6 +185,7 @@ export function InputNumber ({
       e.preventDefault();
     } else if (code === 'Enter') {
       e.preventDefault();
+      if (showPreview && !inputChangedSinceFocusRef.current) return;
       const trimmed = e.target.value.trim();
       if (!trimmed || isNaN(parseFloat(trimmed))) {
         e.preventDefault();
@@ -218,17 +239,17 @@ export function InputNumber ({
       inputChangedSinceFocusRef.current = false;
       // useUpdateEffect([unit, number]) 只在 unit/number 变化时触发；
     }
-  }, [number, unit, unitDisabledList, fallbackValue, onChange, handleNumberChange, allowNegative]);
+  }, [number, unit, unitDisabledList, fallbackValue, onChange, handleNumberChange, allowNegative, showPreview]);
 
   const onBlur = useCallback((e: {
     target: any,
   }) => {
-    const trimmed = e.target.value.trim();
-
     if (skipClearBlurRef.current) {
       skipClearBlurRef.current = false
       return
     }
+    if (showPreview && !inputChangedSinceFocusRef.current) return
+    const trimmed = e.target.value.trim();
 
     // 空值或非法值：若有兜底值则补填并提交，否则回到默认状态并删除属性
     if (!trimmed || isNaN(parseFloat(trimmed))) {
@@ -281,10 +302,11 @@ export function InputNumber ({
     }
 
     // useUpdateEffect([unit, number]) 只在 unit 或 number 发生变化时才触发 onChange。
-  }, [number, allowNegative, unit, unitDisabledList, onChange, fallbackValue, handleNumberChange]);
+  }, [number, allowNegative, unit, unitDisabledList, onChange, fallbackValue, handleNumberChange, showPreview]);
 
   const isDefaultUnit = unitDisabledList.includes(unit)
   const hasNumericDisplayValue =
+    !showPreview &&
     displayValue !== '' &&
     displayValue != null &&
     !isNaN(parseFloat(String(displayValue)))
@@ -372,20 +394,27 @@ export function InputNumber ({
       // 无值 / 指定单位（如 px）隐藏文案，仍保留下拉箭头与布局
       const hideUnitLabel =
         defaultOnly ||
-        isDefaultUnit ||
-        (hideUnitWhenEmpty && isEmptyValue) ||
-        unitHideLabelList.includes(unit)
+        (isDefaultUnit && !showPreview) ||
+        (showPreview && !previewIsNumeric) ||
+        (hideUnitWhenEmpty && isEmptyValue && !showPreview) ||
+        unitHideLabelList.includes(renderedUnit)
       const unitSelect = (
         <Select
             tip='单位'
             style={{ padding: 0, fontSize: 10, marginLeft: clearable ? 0 : undefined, ...unitSelectStyle }}
-            value={unit}
+            value={renderedUnit}
             options={menuOptions}
             showIcon={showIcon || showDefaultAction}
             showIconOnHover={showIconOnHover}
             hideLabel={hideUnitLabel}
             iconClassName={unitIconClassName}
-            onChange={setUnit}
+            onChange={(nextUnit) => {
+              if (showPreview && previewIsNumeric) {
+                handleNumberChange(String(previewNumber))
+                setDisplayValue(String(previewNumber))
+              }
+              setUnit(nextUnit)
+            }}
             onAction={handleMenuAction}
             disabled={isDisabledUnit()}
         />
@@ -394,7 +423,7 @@ export function InputNumber ({
     }
 
     return renderDefaultSelect()
-  }, [unit, isDefaultUnit, badge, renderDefaultSelect, unitOptions, menuOptions, handleMenuAction, hideUnitWhenEmpty, isEmptyValue, unitHideLabelList, showIcon, showIconOnHover, showDefaultAction, unitSelectStyle, unitIconClassName])
+  }, [unit, renderedUnit, showPreview, previewIsNumeric, previewNumber, handleNumberChange, isDefaultUnit, badge, renderDefaultSelect, unitOptions, menuOptions, handleMenuAction, hideUnitWhenEmpty, isEmptyValue, unitHideLabelList, showIcon, showIconOnHover, showDefaultAction, unitSelectStyle, unitIconClassName])
 
   // 新选中组件的值在首帧绘制前同步到内部 state，避免旧值短暂闪现。
   useLayoutEffect(() => {
@@ -481,7 +510,7 @@ export function InputNumber ({
       style={style}
       prefix={prefix}
       prefixTip={prefixTip}
-      value={displayValue}
+      value={renderedValue}
       placeholder={placeholder}
       onChange={handleInputChange}
       suffix={suffix}
@@ -493,7 +522,7 @@ export function InputNumber ({
       tip={tip}
       className={`${css.inputNumber}${className ? ` ${className}` : ''}`}
       // numberTip={"光标键可增减"}
-      type={type} // TODO 后续调整 现在因为面板宽度不够只给小部分加 type = 'number'
+      type={showPreview && !previewIsNumeric ? undefined : type} // 关键字计算值也需要可见
     />
   )
 }

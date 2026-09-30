@@ -43,6 +43,8 @@ interface StyleEditorContextValue {
   removeStyleProperties?: (keys: readonly string[]) => StyleChangeResult | void
   getStyleRemovalState?: (keys: readonly string[]) => { canClear: boolean; disabledReason?: string }
   getStylePreview?: (key: string, refresh?: boolean) => string
+  /** 当前伪类未声明属性时的常规态计算值，仅供控件展示。 */
+  getStyleDisplayPreview?: (key: string) => string | undefined
 }
 
 const StyleEditorContext = createContext<StyleEditorContextValue | undefined>(undefined)

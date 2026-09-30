@@ -26,7 +26,7 @@ import {
 } from "../../components";
 import { splitValueAndUnit } from "../../utils";
 import { PanelBaseProps, StyleChangeItem, StyleChangeResult } from "../../type";
-import { useDragNumber, useCanvasColorVariables, useLengthVarBinding, isCssVarValue } from "../../hooks";
+import { useDragNumber, useLengthInputDrag, useCanvasColorVariables, useLengthVarBinding, useStyleDisplayValue, isCssVarValue } from "../../hooks";
 import { Variable } from "../../icons/Variable";
 import { FontSetting } from "../../icons/FontSetting";
 import { FontSettingTruncation } from "../../icons/FontSettingTruncation";
@@ -184,12 +184,12 @@ function isConfiguredCssLength(value: unknown): boolean {
   return !CSS_LENGTH_UNSET_KEYWORDS.includes(String(value));
 }
 
-/** 仅解析 EffectiveStyleValue 提供的最终计算值，不再读取 DOM。 */
-function getComputedCssLengthPx(item?: EffectiveStyleValue, normalValue?: number): number {
-  const value = String(item?.computedValue);
+/** 只把已解析的 px 计算值当成数值；em、var() 等不能误当成 px。 */
+function getComputedCssLengthPx(item?: EffectiveStyleValue, normalValue?: number, preview?: string): number {
+  const value = preview ?? item?.computedValue ?? '';
   if (value === 'normal' && normalValue != null) return normalValue;
-  const parsed = parseFloat(value);
-  return Math.round(parsed);
+  const match = String(value).trim().match(/^(-?(?:\d+(?:\.\d+)?|\.\d+))px$/i);
+  return match ? Number(match[1]) : NaN;
 }
 
 /** 行高单位互转：先归一到 px，再转到目标单位；无效时用 defaultPx */
@@ -319,6 +319,12 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
   const context = useStyleEditorContext();
   const effectiveStyle = context?.effectiveStyle;
   const value = useEffectiveStyleValue();
+  const fontFamilyField = useStyleDisplayValue('fontFamily');
+  const colorDisplayField = useStyleDisplayValue('color');
+  const fontWeightField = useStyleDisplayValue('fontWeight');
+  const fontSizeField = useStyleDisplayValue('fontSize');
+  const lineHeightField = useStyleDisplayValue('lineHeight');
+  const letterSpacingField = useStyleDisplayValue('letterSpacing');
   const onChange = useStyleChange(fallbackOnChange);
   const colorField = useStyleClear('color');
   const familyField = useStyleClear('fontFamily');
@@ -404,7 +410,8 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
   const textFillComputedColor = textFillPreviewColor ?? (
     effectiveStyle?.WebkitTextFillColor?.computedValue ??
     effectiveStyle?.webkitTextFillColor?.computedValue ??
-    effectiveStyle?.color?.computedValue
+    effectiveStyle?.color?.computedValue ??
+    (colorDisplayField.displaySource === 'normal-computed' ? colorDisplayField.computedPreview : undefined)
   ) as string | undefined;
   const textFillEditorKey = `${isTextFillActive(value as Record<string, any>)
     ? "text-fill-gradient"
@@ -446,18 +453,19 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
     setFontFamilyAuthored(false);
   }, [onChange, context?.getStylePreview]);
 
-  const computedFontFamily = fontFamilyDefaultPreview || effectiveStyle?.fontFamily?.computedValue;
+  const computedFontFamily = fontFamilyDefaultPreview ||
+    (fontFamilyField.displaySource === 'normal-computed'
+      ? fontFamilyField.computedPreview
+      : effectiveStyle?.fontFamily?.computedValue);
   const inheritedFontFamily = parseFontFamily(computedFontFamily)[0];
   const fontFamilyPreview = fontFamilyAuthored
     ? innerFontFamily?.[0] ? quoteIfNeeded(innerFontFamily[0]) : ''
     : computedFontFamily;
-  const fontFamilyDisplayValue = fontFamilyAuthored ? undefined : inheritedFontFamily;
+  const fontFamilyDisplayValue = fontFamilyAuthored ? undefined
+    : fontFamilyField.displaySource === 'normal-computed' ? computedFontFamily : inheritedFontFamily;
   const fontFamilyPlaceholder = fontFamilyAuthored ? '未配置字体' : '继承';
 
   const [isMultiMode, setIsMultiMode] = useState(false);
-  const getDragPropsFontSize = useDragNumber({ continuous: true });
-  const getDragPropsLineHeight = useDragNumber({ continuous: true });
-  const getDragPropsLetterSpacing = useDragNumber({ continuous: true });
 
   const fontFamilyOptions = useCallback(() => {
     const configFontfaces = normalizeFontfaceOptions(cfg.fontfaces as ExternalFontface[]);
@@ -530,28 +538,31 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
     );
   }, [targetDom, fontSizeConfigured, lineHeightConfigured, letterSpacingConfigured, value.fontSize, value.lineHeight, value.letterSpacing]);
 
-  const effectiveDefaultFontSizePx = getComputedCssLengthPx(effectiveStyle?.fontSize);
+  const fontSizePreview = fontSizeField.displaySource === 'normal-computed' ? fontSizeField.computedPreview : undefined;
+  const effectiveDefaultFontSizePx = getComputedCssLengthPx(effectiveStyle?.fontSize, undefined, fontSizePreview);
   const defaultFontSizePx = fontSizeDefaultPreviewPx ?? effectiveDefaultFontSizePx;
   const fontSizeUnconfigured = !isConfiguredCssLength(fontSize);
   const showFontSizeDefaultAction = !!sizeField.clear || fontSizeDraftConfigured;
   const fontSizePlaceholder = '默认';
   // 未配置字号时直接回显最终计算值，但仍保持 fontSize 为 null。
   // 这样仅展示默认值不会把它误写成用户显式配置的 font-size。
-  const fontSizeDisplayValue = fontSizeUnconfigured && Number.isFinite(defaultFontSizePx)
+  const fontSizeDisplayValue = fontSizePreview ? fontSize : fontSizeUnconfigured && Number.isFinite(defaultFontSizePx)
     ? `${defaultFontSizePx}px`
     : fontSize;
 
-  const defaultLineHeightPx = getComputedCssLengthPx(effectiveStyle?.lineHeight);
+  const lineHeightPreview = lineHeightField.displaySource === 'normal-computed' ? lineHeightField.computedPreview : undefined;
+  const defaultLineHeightPx = getComputedCssLengthPx(effectiveStyle?.lineHeight, undefined, lineHeightPreview);
   const lineHeightUnconfigured = !isConfiguredCssLength(lineHeight);
   const lineHeightPlaceholder = '默认';
-  const lineHeightDisplayValue = lineHeightUnconfigured && Number.isFinite(defaultLineHeightPx)
+  const lineHeightDisplayValue = lineHeightPreview ? lineHeight : lineHeightUnconfigured && Number.isFinite(defaultLineHeightPx)
     ? `${defaultLineHeightPx}px`
     : lineHeight;
 
-  const defaultLetterSpacingPx = getComputedCssLengthPx(effectiveStyle?.letterSpacing, 0);
+  const letterSpacingPreview = letterSpacingField.displaySource === 'normal-computed' ? letterSpacingField.computedPreview : undefined;
+  const defaultLetterSpacingPx = getComputedCssLengthPx(effectiveStyle?.letterSpacing, 0, letterSpacingPreview);
   const letterSpacingUnconfigured = !isConfiguredCssLength(letterSpacing);
   const letterSpacingPlaceholder = '默认';
-  const letterSpacingDisplayValue = letterSpacingUnconfigured && Number.isFinite(defaultLetterSpacingPx)
+  const letterSpacingDisplayValue = letterSpacingPreview ? letterSpacing : letterSpacingUnconfigured && Number.isFinite(defaultLetterSpacingPx)
     ? `${defaultLetterSpacingPx}px`
     : letterSpacing;
 
@@ -724,7 +735,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
   const fontSizeVar = useLengthVarBinding({
     value: fontSize,
     onChange: onFontSizeChange,
-    fallback: `${defaultFontSizePx}px`,
+    fallback: Number.isFinite(defaultFontSizePx) ? `${defaultFontSizePx}px` : undefined,
   });
 
   const onLineHeightChange = useCallback(
@@ -757,6 +768,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
           }
         } else if (!changedByInput) {
           // 未配置且仅切换单位时，按计算默认值填充；首次手动输入需保留用户提交值。
+          if (!Number.isFinite(defaultPx) || !Number.isFinite(fontSizePx) || fontSizePx === 0) return;
           value = convertLineHeightValue(defaultPx, 'px', newUnit, fontSizePx, defaultPx);
         }
       }
@@ -817,16 +829,31 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
     [onChange]
   );
 
+  // 仅只读预览值需要直接提交；已有配置继续由 InputNumber 的 blur 路径处理。
+  const onLineHeightDragChange = useCallback((next: string) => {
+    lineHeightChangedByInputRef.current = true;
+    onLineHeightChange(next);
+  }, [onLineHeightChange]);
+  const getConfiguredFontSizeDragProps = useDragNumber({ continuous: true });
+  const getConfiguredLineHeightDragProps = useDragNumber({ continuous: true });
+  const getConfiguredLetterSpacingDragProps = useDragNumber({ continuous: true });
+  const getPreviewFontSizeDragProps = useLengthInputDrag(fontSizePreview, onFontSizeChange);
+  const getPreviewLineHeightDragProps = useLengthInputDrag(lineHeightPreview, onLineHeightDragChange);
+  const getPreviewLetterSpacingDragProps = useLengthInputDrag(letterSpacingPreview, onLetterSpacingChange);
+  const getDragPropsFontSize = fontSizeUnconfigured && !!fontSizePreview ? getPreviewFontSizeDragProps : getConfiguredFontSizeDragProps;
+  const getDragPropsLineHeight = lineHeightUnconfigured && !!lineHeightPreview ? getPreviewLineHeightDragProps : getConfiguredLineHeightDragProps;
+  const getDragPropsLetterSpacing = letterSpacingUnconfigured && !!letterSpacingPreview ? getPreviewLetterSpacingDragProps : getConfiguredLetterSpacingDragProps;
+
   const lineHeightVar = useLengthVarBinding({
     value: lineHeight,
     onChange: onLineHeightChange,
-    fallback: `${defaultLineHeightPx}px`,
+    fallback: Number.isFinite(defaultLineHeightPx) ? `${defaultLineHeightPx}px` : undefined,
   });
 
   const letterSpacingVar = useLengthVarBinding({
     value: letterSpacing,
     onChange: onLetterSpacingChange,
-    fallback: `${defaultLetterSpacingPx}px`,
+    fallback: Number.isFinite(defaultLetterSpacingPx) ? `${defaultLetterSpacingPx}px` : undefined,
   });
 
   /** 行高、字间距的单位菜单末尾统一挂「应用变量...」 */
@@ -1156,6 +1183,10 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
                 marginLeft: '4px',
               }}
               value={value.fontWeight}
+              displayValue={fontWeightField.displaySource === 'normal-computed'
+                ? FONT_WEIGHT_OPTIONS.find(option => option.value === fontWeightField.computedPreview)?.label
+                  ?? fontWeightField.computedPreview
+                : undefined}
               clearable={!!weightField.clear}
               onClear={weightField.clear}
               options={FONT_WEIGHT_OPTIONS}
@@ -1199,6 +1230,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
                   type: "number",
                   style: { flex: 1, minWidth: 0, marginLeft: 4 },
                   value: fontSizeDisplayValue,
+                  previewValue: fontSizeUnconfigured ? fontSizePreview : undefined,
                   placeholder: fontSizePlaceholder,
                   unitOptions: FONT_SIZE_OPTIONS,
                   onInputValueChange: (nextValue) => {
@@ -1266,6 +1298,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
                   type: "number",
                   style: { flex: 1, minWidth: 0, marginLeft: 4 },
                   value: lineHeightDisplayValue,
+                  previewValue: lineHeightUnconfigured ? lineHeightPreview : undefined,
                   placeholder: lineHeightPlaceholder,
                   defaultUnitValue: "default",
                   unitOptions: lineHeightUnitOptions,
@@ -1315,6 +1348,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
                   type: "number",
                   style: { flex: 1, minWidth: 0, marginLeft: 4 },
                   value: letterSpacingDisplayValue,
+                  previewValue: letterSpacingUnconfigured ? letterSpacingPreview : undefined,
                   placeholder: letterSpacingPlaceholder,
                   defaultUnitValue: "px",
                   unitOptions: letterSpacingUnitOptions,

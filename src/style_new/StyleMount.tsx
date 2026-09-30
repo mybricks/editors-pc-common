@@ -13,11 +13,14 @@ import { createBatchStyleClearPlans, cssPropertyName, getStyleResolution, invali
 import { buildZoneStateStyle, collectZoneTabs, mergeZoneTabsByState } from './core/zone-tab'
 import type { ZoneTab } from './core/zone-tab'
 import { expandFourShorthand } from './core/shorthand-normalizer'
+import { readNormalComputedStyle, readNormalStyleSignature } from './core/normal-style-preview'
 
 const BOX_MODEL_KEYS = {
   margin: ['marginTop', 'marginRight', 'marginBottom', 'marginLeft'],
   padding: ['paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft'],
 }
+
+const PREVIEW_PSEUDO_STATES = new Set([':hover', ':focus', ':active', ':disabled'])
 
 function mergeAuthoredBoxModelValues(
   setValue: Record<string, any>,
@@ -62,6 +65,15 @@ export function StyleMount({
   onBatchMetaChange,
 }: StyleProps) {
   const [styleRevision, setStyleRevision] = useState(0)
+  const [previewRevision, setPreviewRevision] = useState(0)
+  const normalPreviewRef = useRef<{
+    target: HTMLElement
+    baseSelector: string
+    styleRevision: number
+    styleSources: readonly unknown[]
+    normalStyleSignature?: string
+    values: Map<string, string | undefined>
+  } | null>(null)
   const zoneOptions = !Array.isArray(editConfig.options) ? editConfig.options as any : null
   const zoneTab: ZoneTab | undefined = zoneOptions?.zoneTab
   const target = (toElementArray(zoneOptions?.targetDom)[0] ?? null) as HTMLElement | null
@@ -105,6 +117,26 @@ export function StyleMount({
       attributes: true, attributeFilter: ['style', 'class', 'data-style-info'],
     })
     return () => { observer.disconnect(); cancelAnimationFrame(frame) }
+  }, [zoneTab, target])
+
+  useEffect(() => {
+    if (!zoneTab?.pseudo || !PREVIEW_PSEUDO_STATES.has(zoneTab.pseudo) || !target) return
+    const doc = target.ownerDocument
+    const view = doc.defaultView
+    let frame = 0
+    const refreshPreview = () => {
+      view?.cancelAnimationFrame(frame)
+      frame = view?.requestAnimationFrame(() => setPreviewRevision(revision => revision + 1)) ?? 0
+    }
+    const refreshStyle = () => setStyleRevision(revision => revision + 1)
+    const events = ['pointerover', 'pointerout', 'pointerdown', 'pointerup', 'focusin', 'focusout']
+    events.forEach(event => doc.addEventListener(event, refreshPreview, true))
+    view?.addEventListener('resize', refreshStyle)
+    return () => {
+      events.forEach(event => doc.removeEventListener(event, refreshPreview, true))
+      view?.removeEventListener('resize', refreshStyle)
+      view?.cancelAnimationFrame(frame)
+    }
   }, [zoneTab, target])
 
   // 追踪每次 handleChange 实际写入后的完整样式快照，
@@ -161,6 +193,21 @@ export function StyleMount({
     [handleChange]
   )
 
+  const panelEffectiveStyle = useMemo(() => zoneTab?.pseudo
+    ? buildZoneStateStyle(
+        zoneTab, Object.keys({ ...defaultValue, ...liveStyleRef.current, ...effectiveStyle }), target
+      )
+    : effectiveStyle,
+    [zoneTab, defaultValue, effectiveStyle, setValue, target, styleRevision]
+  )
+
+  // 仅样式来源更新时比较常规态依赖；鼠标进出只刷新预览，不重复扫描样式表。
+  const normalStyleSignature = useMemo(() => zoneTab?.pseudo && PREVIEW_PSEUDO_STATES.has(zoneTab.pseudo)
+    ? readNormalStyleSignature(target)
+    : undefined,
+    [target, zoneTab, styleRevision, setValue, authoredStyle, effectiveStyle, defaultValue]
+  )
+
   const editorContext = useMemo(() => {
     const dom =
       !editConfig.options || Array.isArray(editConfig.options)
@@ -170,7 +217,7 @@ export function StyleMount({
     const previewCache = new Map<string, string>()
     let computed: CSSStyleDeclaration | undefined
     const getStylePreview = (key: string, refresh = false) => {
-      // 状态未配置的字段保持默认，不用常规态的计算值补回输入框。
+      // 原有清除/联动预览保持语义；伪类的只读输入框回显走独立接口。
       if (zoneTab?.pseudo) return ''
       if (!realDom) return ''
       const property = cssPropertyName(key)
@@ -186,11 +233,41 @@ export function StyleMount({
       }
       return previewCache.get(property)!
     }
-    let panelEffectiveStyle = effectiveStyle
-    if (zoneTab?.pseudo) {
-      panelEffectiveStyle = buildZoneStateStyle(
-        zoneTab, Object.keys({ ...defaultValue, ...liveStyleRef.current, ...effectiveStyle }), realDom
-      )
+    // 真实交互态下不读取被污染的计算值。当前目标仅修改伪类规则时，
+    // 常规态来源未变，可继续使用已有可信快照，避免其他字段瞬间变空。
+    const normalComputed = zoneTab?.pseudo && PREVIEW_PSEUDO_STATES.has(zoneTab.pseudo)
+      ? readNormalComputedStyle(realDom)
+      : undefined
+    const styleSources = [setValue, authoredStyle, effectiveStyle, defaultValue]
+    const previousNormalPreview = normalPreviewRef.current
+    const reusablePreview = previousNormalPreview &&
+      previousNormalPreview.target === realDom &&
+      previousNormalPreview.baseSelector === zoneTab?.baseSelector &&
+      ((previousNormalPreview.styleRevision === styleRevision &&
+        previousNormalPreview.styleSources.every((source, index) => source === styleSources[index])) ||
+        (normalStyleSignature !== undefined && previousNormalPreview.normalStyleSignature === normalStyleSignature))
+      ? previousNormalPreview.values
+      : undefined
+    const displayPreviewCache = normalComputed
+      ? new Map<string, string | undefined>()
+      : reusablePreview
+    if (normalComputed && realDom && zoneTab) {
+      normalPreviewRef.current = {
+        target: realDom,
+        baseSelector: zoneTab.baseSelector,
+        styleRevision,
+        styleSources,
+        normalStyleSignature,
+        values: displayPreviewCache!,
+      }
+    }
+    const getStyleDisplayPreview = (key: string) => {
+      if (!displayPreviewCache) return undefined
+      const property = cssPropertyName(key)
+      if (normalComputed && !displayPreviewCache.has(property)) {
+        displayPreviewCache.set(property, normalComputed.getPropertyValue(property).trim() || undefined)
+      }
+      return displayPreviewCache.get(property)
     }
     const CDN = (editConfig as any).getDefaultOptions?.('stylenew')?.CDN
     return {
@@ -210,17 +287,22 @@ export function StyleMount({
       getStyleRemovalState: zoneTab ? (keys: readonly string[]) =>
         createStyleRemovalPlan(keys, getStyleResolution(zoneTab, realDom), realDom, liveStyleRef.current) : undefined,
       getStylePreview,
+      getStyleDisplayPreview,
     }
   }, [
     editConfig,
     autoCollapseWhenUnusedProperty,
     authoredStyle,
-    effectiveStyle,
     defaultValue,
+    effectiveStyle,
+    setValue,
+    panelEffectiveStyle,
     applyStyleMutations,
     removeStyleProperties,
     zoneTab,
     styleRevision,
+    previewRevision,
+    normalStyleSignature,
   ])
 
   const panelValue = { ...defaultValue }
