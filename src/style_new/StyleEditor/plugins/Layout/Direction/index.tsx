@@ -1,4 +1,4 @@
-import React, { CSSProperties, useMemo } from "react";
+import React, { CSSProperties, useEffect, useMemo } from "react";
 import Icon from "../Icon";
 import { Layout } from "../types";
 import styles from "./index.less";
@@ -76,7 +76,7 @@ export default ({
         className={styles.directionWrap}
         style={{ "--active-index": activeIndex, "--n": flexFlow.length } as React.CSSProperties}
       >
-        <div className={styles.slider} />
+        {activeIndex >= 0 && <div className={styles.slider} />}
         {flexFlow.map(({ title, value, render }) => (
           <div
             key={value}

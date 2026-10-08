@@ -106,9 +106,13 @@ const defaultValue: LayoutModel = {
   columnGap: 0,
 };
 
-export function Layout({ onChange: fallbackOnChange, showTitle, collapse, config }: LayoutEditorProps) {
+export function Layout({ value: panelValue, onChange: fallbackOnChange, showTitle, collapse, config }: LayoutEditorProps) {
   const context = useStyleEditorContext();
-  const value = useEffectiveStyleValue();
+  const effectiveValue = useEffectiveStyleValue();
+  const options = context?.editConfig.options;
+  const hasZoneTab = !!(options && !Array.isArray(options) && "zoneTab" in options && options.zoneTab);
+  // 非 Zone 模式（如单独编辑）的回显值来自 props，effectiveStyle 在此模式下为空。
+  const value = hasZoneTab ? effectiveValue : panelValue;
   const onChange = useStyleChange(fallbackOnChange);
   /** 替换元素（如 img）：面板只提供 display 切换，不提供 flex 容器能力 */
   const displayOnly = !!config?.displayOnly;
