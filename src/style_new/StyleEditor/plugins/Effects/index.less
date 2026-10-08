@@ -159,6 +159,7 @@
     margin-bottom: 2px;
     padding: 8px;
     width: 100%;
+    box-sizing: border-box;
     border-bottom: 1px solid @boder-color;
     position: relative;
 
@@ -178,7 +179,8 @@
       outline: none;
       position: absolute;
       right: 10px;
-      top: 12px;
+      top: 50%;
+      transform: translateY(-50%);
 
       &:hover {
         background-color: @bg-color-hover;
