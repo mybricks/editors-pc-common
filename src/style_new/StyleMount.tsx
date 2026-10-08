@@ -278,6 +278,7 @@ export function StyleMount({
       autoCollapseWhenUnusedProperty,
       targetDom: realDom,
       authoredStyle,
+      langType: (window as any).__lang_type__,
       effectiveStyle: panelEffectiveStyle,
       applyStyleMutations,
       getStyleProperty: zoneTab ? (key: string) => getStyleResolution(zoneTab, realDom).get(key) : undefined,

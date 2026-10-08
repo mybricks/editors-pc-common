@@ -7,6 +7,7 @@ import { getStyleResolution, resolveEffectiveStyleSource } from './style-propert
 import { createCascadeResolver } from './cascade-winner'
 import { getDocument } from './dom'
 import { calculateSafeSpecificity, splitTopLevelSelectors } from './selector-utils'
+import lang from '../index.i18n'
 
 export type ZoneSourceRule = {
   rule: CSSStyleRule
@@ -285,7 +286,7 @@ function getZoneTabLabel(selector: string): string {
   const lastPart = parts[parts.length - 1] || ''
   const pseudoMatch = lastPart.match(PSEUDO_TAIL_RE)
   if (pseudoMatch) return getPseudoLabel(pseudoMatch[1])
-  return '常规'
+  return lang.commonTab
 }
 
 function getDisambiguatedBaseLabel(selector: string): string {

@@ -2,6 +2,7 @@ import React, { useMemo } from 'react'
 import { Dropdown, Menu } from 'antd'
 import { CloseOutlined } from '@ant-design/icons'
 import { PlusOutlined } from './StyleEditor/components/Icon'
+import lang from './index.i18n'
 
 import css from './index.less'
 
@@ -25,7 +26,7 @@ function getZoneTabLabel(selector: string): string {
     return pseudoLabels[pseudoMatch[1]] || pseudoMatch[1]
   }
 
-  return '常规'
+  return lang.commonTab
 }
 
 /** 伪类标签带上基础类名，如 aiChat-inputArea::placeholder */
