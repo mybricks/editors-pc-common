@@ -10,7 +10,7 @@ import { applyStyleChange, createStyleRemovalPlan } from './core/apply-style-cha
 import type { ZoneWriteTarget } from './core/apply-style-change'
 import { toElementArray } from './core/dom'
 import { createBatchStyleClearPlans, cssPropertyName, getStyleResolution, invalidateStyleResolution } from './core/style-property'
-import { buildZoneEffectiveStyle, buildZoneStateStyle, collectZoneTabs, mergeZoneTabsByState } from './core/zone-tab'
+import { buildZoneEffectiveStyle, buildZoneStateStyle, collectZoneTabs, mergeZoneTabsByState, refreshZoneTabSources } from './core/zone-tab'
 import type { ZoneTab } from './core/zone-tab'
 import { expandFourShorthand } from './core/shorthand-normalizer'
 import { readNormalComputedStyle, readNormalStyleSignature } from './core/normal-style-preview'
@@ -65,6 +65,7 @@ export function StyleMount({
   defaultValue,
   preserveImportantPriority,
   onBatchMetaChange,
+  onStyleSourceChange,
 }: StyleProps) {
   const [styleRevision, setStyleRevision] = useState(0)
   const [previewRevision, setPreviewRevision] = useState(0)
@@ -84,7 +85,9 @@ export function StyleMount({
   useEffect(() => {
     if (!zoneTab || !target) return
     let frame = 0
-    const refresh = () => {
+    let sourceChangePending = false
+    const refresh = (sourceChanged: boolean) => {
+      sourceChangePending = sourceChangePending || sourceChanged
       cancelAnimationFrame(frame)
       frame = requestAnimationFrame(() => {
         // 重编译后的旧节点已失去祖先作用域，不能用它清空 class 来源。
@@ -97,30 +100,35 @@ export function StyleMount({
           const tabs = mergeZoneTabsByState(collectZoneTabs([target], selectors, zoneOptions?.comId))
           const current = tabs.find(tab => tab.pseudo === zoneTab.pseudo)
           if (current) {
-            zoneTab.sourceRules = current.sourceRules
-            zoneTab.baseRules = current.baseRules
+            refreshZoneTabSources(zoneTab, current)
           }
         }
         invalidateStyleResolution(zoneTab)
         setStyleRevision(revision => revision + 1)
+        if (sourceChangePending) onStyleSourceChange?.()
+        sourceChangePending = false
       })
     }
     const observer = new MutationObserver(records => {
-      const relevant = records.some(record => {
+      const sourceChanged = records.some(record => {
         const el = record.target.nodeType === 1 ? record.target as Element : record.target.parentElement
         return el?.tagName === 'STYLE' || el?.closest?.('style') ||
-          (record.type === 'attributes' && !!el?.contains(target)) ||
           Array.from(record.addedNodes).concat(Array.from(record.removedNodes))
             .some(node => node.nodeType === 1 && /^(STYLE|LINK)$/.test((node as Element).tagName))
       })
-      if (relevant) refresh()
+      const targetChanged = records.some(record => {
+        if (record.type !== 'attributes') return false
+        const el = record.target as Element
+        return el.contains(target)
+      })
+      if (sourceChanged || targetChanged) refresh(sourceChanged)
     })
     observer.observe(target.getRootNode(), {
       subtree: true, childList: true, characterData: true,
       attributes: true, attributeFilter: ['style', 'class', 'data-style-info'],
     })
     return () => { observer.disconnect(); cancelAnimationFrame(frame) }
-  }, [zoneTab, target])
+  }, [zoneTab, target, onStyleSourceChange])
 
   useEffect(() => {
     if (!zoneTab?.pseudo || !PREVIEW_PSEUDO_STATES.has(zoneTab.pseudo) || !target) return
@@ -212,7 +220,19 @@ export function StyleMount({
         zoneTab, Object.keys({ ...defaultValue, ...liveStyleRef.current, ...effectiveStyle }), target
       )
     }
-    if (!isSoloEdit || !zoneTab) return effectiveStyle
+    if (!isSoloEdit || !zoneTab) {
+      if (!zoneTab?.excludedStyleKeys?.length) return effectiveStyle
+      const resolution = getStyleResolution(zoneTab, target)
+      const batchStyle = { ...effectiveStyle }
+      zoneTab.excludedStyleKeys.forEach(key => {
+        const item = batchStyle[key]
+        const winner = resolution.get(key).winner
+        if (item && winner) {
+          batchStyle[key] = { ...item, computedValue: String(item.value ?? winner.value) }
+        }
+      })
+      return batchStyle
+    }
 
     const resolution = getStyleResolution(zoneTab, target)
     const styleValues: Record<string, unknown> = { ...defaultValue, ...liveStyleRef.current }
@@ -249,6 +269,9 @@ export function StyleMount({
       // 原有清除/联动预览保持语义；伪类的只读输入框回显走独立接口。
       if (zoneTab?.pseudo) return ''
       if (!realDom) return ''
+      if (zoneTab?.excludedStyleKeys?.includes(key)) {
+        return getStyleResolution(zoneTab, realDom).get(key).winner?.value ?? ''
+      }
       const property = cssPropertyName(key)
       if (refresh) {
         computed = (realDom.ownerDocument.defaultView || window).getComputedStyle(
@@ -344,7 +367,8 @@ export function StyleMount({
         return
       }
       const winner = resolution.get(key).winner
-      panelValue[key] = winner?.value ?? (editorContext.getStylePreview(key) || defaultValue[key])
+      const soloOnly = zoneTab.excludedStyleKeys?.includes(key) && !winner
+      panelValue[key] = winner?.value ?? (soloOnly ? defaultValue[key] : (editorContext.getStylePreview(key) || defaultValue[key]))
     })
   }
 

@@ -16,6 +16,7 @@ import type { Options } from '../StyleEditor/type'
 import { mapEffectedPanels, normalizeEffectOptions } from './effects-alias'
 import { getEffectedCssPropertyAndOptions } from './get-effected-css'
 import { buildZoneEffectiveStyle } from './zone-tab'
+import { getStyleResolution } from './style-property'
 import type { EffectiveStyleValue, ZoneTab } from './zone-tab'
 import { toElementArray } from './dom'
 import { hasCssVarReference } from './css-var'
@@ -210,6 +211,13 @@ export function getDefaultConfiguration ({value, options}: GetDefaultConfigurati
         zoneTab,
       );
 
+      if (zoneTab?.excludedStyleKeys?.length) {
+        const resolution = getStyleResolution(zoneTab, realDom)
+        zoneTab.excludedStyleKeys.forEach(key => {
+          // 当前字段只存在于单独规则时，不用该元素的 computed 值冒充公共样式。
+          if (!resolution.get(key).winner) delete (styleValues as Record<string, unknown>)[key]
+        })
+      }
       if (zoneTab) {
         effectiveStyle = buildZoneEffectiveStyle(
           zoneTab as ZoneTab,

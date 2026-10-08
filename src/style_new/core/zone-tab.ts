@@ -4,6 +4,7 @@ import { compare } from 'specificity'
 import { isPageScopedSelector, resolveCssomSourceSelector } from './build-zone-selectors-from-cssom'
 import { toLine } from './css-code-codec'
 import { getStyleResolution, resolveEffectiveStyleSource } from './style-property'
+import { getShorthandFamily, stylePropertyKey } from './style-shorthand-groups'
 import { createCascadeResolver } from './cascade-winner'
 import { getDocument } from './dom'
 import { calculateSafeSpecificity, splitTopLevelSelectors } from './selector-utils'
@@ -43,6 +44,41 @@ export type ZoneTab = {
   effectiveStyle?: Record<string, EffectiveStyleValue>
   /** 是否由右侧新增状态按钮临时添加。 */
   isAdded?: boolean
+  /** 批量回显忽略当前元素的单独规则，供 CSSOM 重编译后继续过滤。 */
+  excludedSourceSelectors?: readonly string[]
+  excludedRules?: readonly CSSStyleRule[]
+  excludedStyleKeys?: readonly string[]
+}
+
+/** 批量面板只读取公共规则；单独规则依然留在 CSSOM 中作用于当前节点。 */
+export function excludeSoloSources(tab: ZoneTab, soloSelectors: readonly string[]): ZoneTab {
+  if (!soloSelectors.length) return tab
+  const excluded = new Set(soloSelectors)
+  const sourceRules = tab.sourceRules.filter(source => !excluded.has(source.sourceSelector))
+  const baseRules = tab.baseRules.filter(source => !excluded.has(source.sourceSelector))
+  if (sourceRules.length === tab.sourceRules.length && baseRules.length === tab.baseRules.length) return tab
+  const removed = [...tab.sourceRules, ...tab.baseRules].filter(source => excluded.has(source.sourceSelector))
+  const excludedRules = Array.from(new Set(removed.map(source => source.rule)))
+  const excludedStyleKeys = Array.from(new Set(removed.flatMap(source =>
+    Array.from({ length: source.rule.style.length }, (_, index) =>
+      getShorthandFamily(source.rule.style.item(index)).map(stylePropertyKey)
+    ).flat()
+  )))
+  return { ...tab, sourceRules, baseRules, effectiveStyle: {},
+    excludedSourceSelectors: soloSelectors, excludedRules, excludedStyleKeys }
+}
+
+/** CSSOM 更新后，同步批量视图的规则与排除元数据，避免保留旧 CSSRule 引用。 */
+export function refreshZoneTabSources(tab: ZoneTab, current: ZoneTab): void {
+  const refreshed = tab.excludedSourceSelectors
+    ? excludeSoloSources(current, tab.excludedSourceSelectors)
+    : current
+  tab.sourceRules = refreshed.sourceRules
+  tab.baseRules = refreshed.baseRules
+  if (tab.excludedSourceSelectors) {
+    tab.excludedRules = refreshed.excludedRules ?? []
+    tab.excludedStyleKeys = refreshed.excludedStyleKeys ?? []
+  }
 }
 
 export type ZoneDeletionTarget = {

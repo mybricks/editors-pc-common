@@ -41,6 +41,7 @@ import {
   getSavedSoloStyle,
 } from './core/build-solo-selector'
 import type { SavedSoloStyle } from './core/build-solo-selector'
+import { excludeSoloSources } from './core/zone-tab'
 import type { ZoneTab } from './core/zone-tab'
 import { getDocument, toElementArray } from './core/dom'
 import { backToVisualIcon } from './icon'
@@ -122,6 +123,7 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
   const editModeHintRef = useRef<HTMLDivElement | null>(null)
   const [soloSelector, setSoloSelector] = useState<string | null>(null)
   const skipSoloRehydrateRef = useRef(false)
+  const pendingBatchStyleRefreshRef = useRef(false)
   const soloStyleBackupRef = useRef(new Map<string, SavedSoloStyle>())
   const suggestOptionsCacheRef = useRef<SuggestOptionsCache>(new WeakMap())
   const cssEditorHandleRef = useRef<CssEditorHandle | null>(null)
@@ -391,6 +393,7 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
         refreshBatchMeta()
       }
     }
+    pendingBatchStyleRefreshRef.current = false
     skipSoloRehydrateRef.current = true
     setSoloSelector(savedBackup?.selector || expectedSoloSelector)
 
@@ -427,7 +430,13 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
             editConfig.value.set({}, { selector: savedRule.selector })
             removed = true
           })
-          if (removed) refreshBatchMeta()
+          if (removed) {
+            refreshBatchMeta()
+            // 宿主异步重编译时才等待源码通知；同步删除已经由本次切换刷新。
+            pendingBatchStyleRefreshRef.current = !!getSavedSoloStyle(
+              selectedTarget, baseSelector, componentRoot, getDocument()
+            )
+          }
         }
       }
     }
@@ -715,8 +724,32 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
     )
   }, [open, editMode, titleContent, batchMeta, onBatchDiscard, onBatchCommit, onCopyStyle, onPasteStyle])
 
+  const onBatchStyleSourceChange = useCallback(() => {
+    if (!pendingBatchStyleRefreshRef.current || !selectedTarget || !baseSelector) return
+    if (getSavedSoloStyle(selectedTarget, baseSelector, componentRoot, getDocument())) return
+    pendingBatchStyleRefreshRef.current = false
+    setKey(k => k + 1)
+  }, [selectedTarget, baseSelector, componentRoot])
+
   const editor = useMemo(() => {
-    const { resolvedEditConfig, activeSelector } = resolveActiveEditContext()
+    let { resolvedEditConfig, activeSelector } = resolveActiveEditContext()
+
+    // 有手写短规则时退出单独编辑不会删除 CSS；批量面板应按公共来源回显，
+    // 而不是继续把当前节点的 nth-child 覆盖当成公共值。
+    if (!isSoloEdit && selectedTarget && baseSelector && !Array.isArray(resolvedEditConfig.options)) {
+      const savedSoloStyle = getSavedSoloStyle(selectedTarget, baseSelector, componentRoot, getDocument())
+        || (expectedSoloSelector ? soloStyleBackupRef.current.get(expectedSoloSelector) : null)
+      const zoneTab = (resolvedEditConfig.options as { zoneTab?: ZoneTab }).zoneTab
+      if (savedSoloStyle && zoneTab) {
+        resolvedEditConfig = {
+          ...resolvedEditConfig,
+          options: {
+            ...resolvedEditConfig.options,
+            zoneTab: excludeSoloSources(zoneTab, savedSoloStyle.rules.map(rule => rule.selector)),
+          },
+        }
+      }
+    }
 
     const configEditConfig = isSoloEdit && baseSelector && !Array.isArray(resolvedEditConfig.options)
       ? { ...resolvedEditConfig, options: { ...(resolvedEditConfig.options as any), selector: baseSelector } }
@@ -765,6 +798,7 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
               editConfig={resolvedEditConfig}
               preserveImportantPriority={isSoloEdit}
               onBatchMetaChange={invalidateInactiveStyleEditors}
+              onStyleSourceChange={onBatchStyleSourceChange}
               {...activeStyleProps}
             />
           ),
@@ -820,6 +854,8 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
     baseSelector,
     selectedTarget,
     componentRoot,
+    expectedSoloSelector,
+    onBatchStyleSourceChange,
     styleEditorCacheGeneration,
   ])
 
