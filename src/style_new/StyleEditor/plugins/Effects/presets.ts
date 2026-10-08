@@ -13,8 +13,8 @@ interface ShadowPreset {
 
 export const SHADOW_PRESETS: ShadowPreset[] = [
   { id: 'subtle', label: '轻微', offsetY: '1px', blurRadius: '2px', color: 'rgba(0, 0, 0, 0.08)' },
-  { id: 'soft', label: '柔和', offsetY: '2px', blurRadius: '6px', color: 'rgba(0, 0, 0, 0.12)' },
-  { id: 'floating', label: '悬浮', offsetY: '4px', blurRadius: '12px', color: 'rgba(0, 0, 0, 0.16)' },
+  { id: 'soft', label: '适中', offsetY: '2px', blurRadius: '6px', color: 'rgba(0, 0, 0, 0.12)' },
+  { id: 'floating', label: '明显', offsetY: '4px', blurRadius: '12px', color: 'rgba(0, 0, 0, 0.16)' },
   { id: 'strong', label: '强烈', offsetY: '8px', blurRadius: '24px', color: 'rgba(0, 0, 0, 0.20)' },
 ]
 
