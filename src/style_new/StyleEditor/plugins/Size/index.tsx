@@ -113,7 +113,6 @@ function isWidthField(field: SizeFieldKey): boolean {
 
 interface SizingModeBadgeProps {
   mode: 'hug' | 'fill';
-  compactDisplay?: boolean;
   dimension: 'width' | 'height';
   actualSize: number;
   parentSize?: number;
@@ -126,7 +125,7 @@ interface SizingModeBadgeProps {
   onApplyVariable?: () => void;
 }
 
-function SizingModeBadge({ mode, compactDisplay = false, dimension, actualSize, parentSize = 0, onChange, onPreferPercent, onAddMin, onAddMax, hasVariables = false, onApplyVariable }: SizingModeBadgeProps) {
+function SizingModeBadge({ mode, dimension, actualSize, parentSize = 0, onChange, onPreferPercent, onAddMin, onAddMax, hasVariables = false, onApplyVariable }: SizingModeBadgeProps) {
   const dim = dimension === 'width' ? 'width' : 'height';
   const options = [
     { label: '默认', value: SIZE_DEFAULT_ACTION, type: 'action' as const },
@@ -168,12 +167,10 @@ function SizingModeBadge({ mode, compactDisplay = false, dimension, actualSize, 
   }, [onChange, onPreferPercent, onAddMin, onAddMax, onApplyVariable]);
 
   return (
-    <Dropdown value={mode} options={options} onClick={handleClick} onAction={handleAction}>
-      <span className={compactDisplay ? css.defaultBadgeArrow : (mode === 'fill' ? css.fillBadge : css.hugBadge)} data-mybricks-tip="单位">
-        {compactDisplay ? <DownOutlined /> : <>
-          <span className={css.badgeLabel}>{mode === 'fill' ? '填满' : '适应'}</span>
-          <span className={css.badgeArrow}><DownOutlined /></span>
-        </>}
+    <Dropdown className={css.sizingModeDropdown} value={mode} options={options} onClick={handleClick} onAction={handleAction}>
+      <span className={mode === 'fill' ? css.fillBadge : css.hugBadge} data-mybricks-tip="单位">
+        <span className={css.badgeLabel}>{mode === 'fill' ? '填满' : '适应'}</span>
+        <span className={css.badgeArrow}><DownOutlined /></span>
       </span>
     </Dropdown>
   );
@@ -527,8 +524,8 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
   const isHeightHug = heightEffective === 'fit-content';
   const isWidthDefault = !isWidthFill && !isWidthHug && !widthEffective;
   const isHeightDefault = !isHeightFill && !isHeightHug && !heightEffective;
-  const widthDefaultPx = targetDom ? Math.max(0, Math.round(actualWidth)) : null;
-  const heightDefaultPx = targetDom ? Math.max(0, Math.round(actualHeight)) : null;
+  const widthActualPx = targetDom ? Math.max(0, Math.round(actualWidth)) : null;
+  const heightActualPx = targetDom ? Math.max(0, Math.round(actualHeight)) : null;
 
   // 宽高比跟踪：px 用配置值；填满/%/适应/未配置用 DOM 实测值，避免比例停在初始 1
   const widthPxVal = useMemo(() => {
@@ -1261,7 +1258,7 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
       <div className={css.sizeRows} ref={sizeRowsRef}>
           {showWidthHeight && (
             <Panel.Content style={{ position: 'relative' }}>
-              <Panel.Item style={{ display: "flex", alignItems: "center", paddingLeft: 4, minWidth: 0 }}>
+              <Panel.Item className={isWidthFill || isWidthHug ? css.sizingModeField : undefined} style={{ display: "flex", alignItems: "center", paddingLeft: 4, minWidth: 0 }}>
                 <div
                   ref={setFieldAnchor('width')}
                   {...(widthVarRef
@@ -1279,10 +1276,11 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
                     value={
                       isWidthFill || isWidthHug
                         ? null
-                        : isWidthDefault && widthDefaultPx != null
-                          ? `${widthDefaultPx}px`
+                        : isWidthDefault && widthActualPx != null
+                          ? `${widthActualPx}px`
                           : undefined
                     }
+                    previewValue={isWidthFill || isWidthHug ? widthActualPx ?? undefined : undefined}
                     defaultValue={
                       isWidthFill || isWidthHug || isWidthDefault
                         ? undefined
@@ -1292,7 +1290,7 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
                     unitOptions={widthUnitOptions}
                     unitDisabledList={UNIT_DISABLED_LIST}
                     unitDisplayLabelMap={UNIT_DISPLAY_LABEL_MAP}
-                    placeholder={isWidthFill ? '填满' : isWidthHug ? '适应' : isWidthDefault ? '默认' : ''}
+                    placeholder={isWidthDefault ? '默认' : ''}
                     onChange={handleWidthChange}
                     onAction={(val) => {
                       if (val === 'hug' || val === 'fill') applySizingMode('width', val);
@@ -1312,7 +1310,6 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
                       isWidthFill ? (
                         <SizingModeBadge
                           mode="fill"
-                          compactDisplay
                           dimension="width"
                           actualSize={Math.round(actualWidth)}
                           parentSize={parentWidth}
@@ -1330,7 +1327,6 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
                       ) : isWidthHug ? (
                         <SizingModeBadge
                           mode="hug"
-                          compactDisplay
                           dimension="width"
                           actualSize={Math.round(actualWidth)}
                           parentSize={parentWidth}
@@ -1365,7 +1361,7 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
                   )}
                 </div>
               </Panel.Item>
-              <Panel.Item style={{ display: "flex", alignItems: "center", paddingLeft: 4, minWidth: 0 }}>
+              <Panel.Item className={isHeightFill || isHeightHug ? css.sizingModeField : undefined} style={{ display: "flex", alignItems: "center", paddingLeft: 4, minWidth: 0 }}>
                 <div
                   ref={setFieldAnchor('height')}
                   {...(heightVarRef
@@ -1383,10 +1379,11 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
                     value={
                       isHeightFill || isHeightHug
                         ? null
-                        : isHeightDefault && heightDefaultPx != null
-                          ? `${heightDefaultPx}px`
+                        : isHeightDefault && heightActualPx != null
+                          ? `${heightActualPx}px`
                           : undefined
                     }
+                    previewValue={isHeightFill || isHeightHug ? heightActualPx ?? undefined : undefined}
                     defaultValue={
                       isHeightFill || isHeightHug || isHeightDefault
                         ? undefined
@@ -1396,7 +1393,7 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
                     unitOptions={heightUnitOptions}
                     unitDisabledList={UNIT_DISABLED_LIST}
                     unitDisplayLabelMap={UNIT_DISPLAY_LABEL_MAP}
-                    placeholder={isHeightFill ? '填满' : isHeightHug ? '适应' : isHeightDefault ? '默认' : ''}
+                    placeholder={isHeightDefault ? '默认' : ''}
                     onChange={handleHeightChange}
                     onAction={(val) => {
                       if (val === 'hug' || val === 'fill') applySizingMode('height', val);
@@ -1416,7 +1413,6 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
                       isHeightFill ? (
                         <SizingModeBadge
                           mode="fill"
-                          compactDisplay
                           dimension="height"
                           actualSize={Math.round(actualHeight)}
                           parentSize={parentHeight}
@@ -1434,7 +1430,6 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
                       ) : isHeightHug ? (
                         <SizingModeBadge
                           mode="hug"
-                          compactDisplay
                           dimension="height"
                           actualSize={Math.round(actualHeight)}
                           parentSize={parentHeight}

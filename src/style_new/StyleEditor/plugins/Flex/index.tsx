@@ -62,8 +62,6 @@ const BASIS_UNIT_OPTIONS = [
   { label: '%', value: '%' },
 ]
 
-const DEFAULT_PLACEHOLDER = '默认'
-
 function isFlexChildVisible(targetDom: HTMLElement | null | undefined): boolean {
   if (!targetDom) return false
   const selfPos = window.getComputedStyle(targetDom).position
@@ -456,7 +454,6 @@ export function Flex({ value: fallbackValue, onChange: fallbackOnChange, showTit
                 <input
                   type="text"
                   value={localValue}
-                  placeholder={DEFAULT_PLACEHOLDER}
                   onChange={handleChange}
                   onFocus={handleFocus}
                   onBlur={handleBlur}
@@ -476,7 +473,6 @@ export function Flex({ value: fallbackValue, onChange: fallbackOnChange, showTit
                   <input
                     type="text"
                     value={localGrow}
-                    placeholder={DEFAULT_PLACEHOLDER}
                     onChange={(e) => setLocalGrow(e.target.value)}
                     onFocus={() => {
                       isEditingGrowRef.current = true
@@ -497,7 +493,6 @@ export function Flex({ value: fallbackValue, onChange: fallbackOnChange, showTit
                   <input
                     type="text"
                     value={localShrink}
-                    placeholder={DEFAULT_PLACEHOLDER}
                     onChange={(e) => setLocalShrink(e.target.value)}
                     onFocus={() => {
                       isEditingShrinkRef.current = true
@@ -521,7 +516,7 @@ export function Flex({ value: fallbackValue, onChange: fallbackOnChange, showTit
                     defaultUnitValue="%"
                     unitOptions={BASIS_UNIT_OPTIONS}
                     unitHideLabelList={[]}
-                    placeholder={DEFAULT_PLACEHOLDER}
+                    placeholder=""
                     onFocus={() => {
                       isEditingBasisRef.current = true
                     }}

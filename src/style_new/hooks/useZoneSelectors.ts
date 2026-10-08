@@ -110,6 +110,11 @@ export function useZoneSelectors(editConfig: any, targetDom: any, _open: boolean
       }
     })
     const customTabs = customZoneTabs.map((tab) => {
+      // 手动新增的 Tab 合入最新扫描规则，保留新增标记。
+      const generated = generatedTabs.find((item) => item.selector === tab.selector)
+      if (generated) {
+        return { ...tab, ...generated, isAdded: tab.isAdded }
+      }
       const target = domList[0] as HTMLElement | undefined
       if (!target) return tab
       const [styleValues] = getEffectedCssPropertyAndOptions(target, tab.selector, comId, tab)

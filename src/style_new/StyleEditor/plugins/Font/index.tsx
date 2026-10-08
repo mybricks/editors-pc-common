@@ -41,6 +41,8 @@ import {
   parseTextFillDisplayValue,
 } from "../../helper/text-fill";
 import { getColorEditorValue } from "../../helper/get-color-editor-value";
+import { collectZoneTabs, mergeZoneTabsByState } from "../../../core/zone-tab";
+import { createStyleResolution } from "../../../core/style-property";
 import type { EffectiveStyleValue } from "../../../core/zone-tab";
 import css from "./index.less";
 
@@ -348,6 +350,21 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
   const familyConfigured = isEffectiveStyleConfigured(effectiveStyle?.fontFamily);
   const editConfig = context?.editConfig;
   const { targetDom, variableOptions: canvasColorVariables } = useCanvasColorVariables();
+  const options = editConfig?.options;
+  const zoneTab = options && !Array.isArray(options) && 'zoneTab' in options ? options.zoneTab : null;
+  const normalFontResolution = useMemo(() => {
+    if (!zoneTab?.pseudo || ![':hover', ':focus', ':active', ':disabled'].includes(zoneTab.pseudo) || !targetDom?.isConnected) return null;
+    // 新增伪类的基础规则可能尚未刷新；只在字体内读取最新常规声明，保留变量和单位。
+    const selectors = [zoneTab.baseSelector, ...Array.from(targetDom.classList, name => '.' + name)];
+    const normalTab = mergeZoneTabsByState(collectZoneTabs([targetDom], selectors, (options as any)?.comId))
+      .find(tab => !tab.pseudo);
+    return normalTab ? createStyleResolution(normalTab, targetDom) : null;
+  }, [zoneTab, targetDom, options, effectiveStyle]);
+  const getFontPreview = (key: string, computed?: string) => {
+    if (effectiveStyle?.[key] && effectiveStyle[key].type !== 'computed') return undefined;
+    const declared = normalFontResolution?.get(key).winner?.value;
+    return declared && !/^(inherit|initial|unset|revert|revert-layer)$/i.test(declared.trim()) ? declared : computed;
+  };
   const outterFontFamilyOptions = normalizeFontfaceOptions(editConfig?.fontfaces || []);
   const textFillStyleRef = useRef<Record<string, any>>(value as Record<string, any>);
   const [textFillAuthored, setTextFillAuthored] = useState(() =>
@@ -409,7 +426,13 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
   }, [onChange, context?.getStyleProperty, context?.getStyleClearPlans, context?.getStylePreview]);
 
   const effectiveTextFillValue = parseTextFillDisplayValue(value as Record<string, any>);
-  const textFillValue = textFillPreviewColor ?? effectiveTextFillValue;
+  const normalTextFillPreview = !colorConfigured && !colorResetToDefault && !pendingTextFillDefault
+    ? parseTextFillDisplayValue(Object.fromEntries(
+        ['color', 'backgroundColor', 'backgroundImage', 'backgroundClip', 'WebkitBackgroundClip'].map(key =>
+          [key, getFontPreview(key, key === 'color' ? colorDisplayField.computedPreview : undefined)])
+      ))
+    : undefined;
+  const textFillValue = textFillPreviewColor ?? (textFillAuthored ? effectiveTextFillValue : normalTextFillPreview || effectiveTextFillValue);
   const textFillComputedColor = textFillPreviewColor ?? (
     solidTextFillColor ? effectiveStyle?.backgroundColor?.computedValue :
     effectiveStyle?.WebkitTextFillColor?.computedValue ??
@@ -461,12 +484,11 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
     (fontFamilyField.displaySource === 'normal-computed'
       ? fontFamilyField.computedPreview
       : effectiveStyle?.fontFamily?.computedValue);
+  const normalFontFamily = fontFamilyDefaultPreview ? undefined : getFontPreview('fontFamily', fontFamilyField.computedPreview);
   const inheritedFontFamily = parseFontFamily(computedFontFamily)[0];
   const fontFamilyPreview = fontFamilyAuthored
     ? innerFontFamily?.[0] ? quoteIfNeeded(innerFontFamily[0]) : ''
-    : computedFontFamily;
-  const fontFamilyDisplayValue = fontFamilyAuthored ? undefined
-    : fontFamilyField.displaySource === 'normal-computed' ? computedFontFamily : inheritedFontFamily;
+    : normalFontFamily || computedFontFamily;
   const fontFamilyPlaceholder = fontFamilyAuthored ? '未配置字体' : '继承';
 
   const [isMultiMode, setIsMultiMode] = useState(false);
@@ -488,6 +510,13 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
       : baseOptions;
   }, [cfg.fontfaces, innerFontFamily, outterFontFamilyOptions]);
 
+  const previewFamily = parseFontFamily(normalFontFamily)[0] || inheritedFontFamily;
+  const fontFamilyDisplayValue = fontFamilyAuthored ? undefined
+    : isCssVarValue(previewFamily) ? '@字体变量'
+      : fontFamilyOptions().find(option => option.value === previewFamily)?.label ?? previewFamily;
+  const textAlignValue = value.textAlign ?? getFontPreview('textAlign', context?.getStyleDisplayPreview?.('textAlign'));
+  const justifyContentValue = value.justifyContent ?? getFontPreview('justifyContent', context?.getStyleDisplayPreview?.('justifyContent'));
+
   const getTextAlignOptions = useCallback(() => {
     // flex 模式下固定用 left/right，与 justifyContentToAlign 的返回值保持一致
     if (cfg.textAlignMode === 'flex') {
@@ -497,7 +526,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
         { label: <TextAlignRightOutlined />, value: "right", tip: "居右对齐" },
       ];
     }
-    const useStart = ["start", "end"].includes(value.textAlign as any);
+    const useStart = ["start", "end"].includes(textAlignValue as any);
     return [
       {
         label: <TextAlignLeftOutlined />,
@@ -511,7 +540,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
         tip: "居右对齐",
       },
     ];
-  }, [cfg.textAlignMode, value.textAlign]);
+  }, [cfg.textAlignMode, textAlignValue]);
 
   const fontSizeConfigured = isEffectiveStyleConfigured(effectiveStyle?.fontSize);
   const lineHeightConfigured = isEffectiveStyleConfigured(effectiveStyle?.lineHeight);
@@ -542,8 +571,8 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
     );
   }, [targetDom, fontSizeConfigured, lineHeightConfigured, letterSpacingConfigured, value.fontSize, value.lineHeight, value.letterSpacing]);
 
-  const fontSizePreview = fontSizeField.displaySource === 'normal-computed' ? fontSizeField.computedPreview : undefined;
-  const effectiveDefaultFontSizePx = getComputedCssLengthPx(effectiveStyle?.fontSize, undefined, fontSizePreview);
+  const fontSizePreview = getFontPreview('fontSize', fontSizeField.computedPreview);
+  const effectiveDefaultFontSizePx = getComputedCssLengthPx(effectiveStyle?.fontSize, undefined, fontSizeField.computedPreview);
   const defaultFontSizePx = fontSizeDefaultPreviewPx ?? effectiveDefaultFontSizePx;
   const fontSizeUnconfigured = !isConfiguredCssLength(fontSize);
   const showFontSizeDefaultAction = !!sizeField.clear || fontSizeDraftConfigured;
@@ -554,16 +583,16 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
     ? `${defaultFontSizePx}px`
     : fontSize;
 
-  const lineHeightPreview = lineHeightField.displaySource === 'normal-computed' ? lineHeightField.computedPreview : undefined;
-  const defaultLineHeightPx = getComputedCssLengthPx(effectiveStyle?.lineHeight, undefined, lineHeightPreview);
+  const lineHeightPreview = getFontPreview('lineHeight', lineHeightField.computedPreview);
+  const defaultLineHeightPx = getComputedCssLengthPx(effectiveStyle?.lineHeight, undefined, lineHeightField.computedPreview);
   const lineHeightUnconfigured = !isConfiguredCssLength(lineHeight);
   const lineHeightPlaceholder = '默认';
   const lineHeightDisplayValue = lineHeightPreview ? lineHeight : lineHeightUnconfigured && Number.isFinite(defaultLineHeightPx)
     ? `${defaultLineHeightPx}px`
     : lineHeight;
 
-  const letterSpacingPreview = letterSpacingField.displaySource === 'normal-computed' ? letterSpacingField.computedPreview : undefined;
-  const defaultLetterSpacingPx = getComputedCssLengthPx(effectiveStyle?.letterSpacing, 0, letterSpacingPreview);
+  const letterSpacingPreview = getFontPreview('letterSpacing', letterSpacingField.computedPreview);
+  const defaultLetterSpacingPx = getComputedCssLengthPx(effectiveStyle?.letterSpacing, 0, letterSpacingField.computedPreview);
   const letterSpacingUnconfigured = !isConfiguredCssLength(letterSpacing);
   const letterSpacingPlaceholder = '默认';
   const letterSpacingDisplayValue = letterSpacingPreview ? letterSpacing : letterSpacingUnconfigured && Number.isFinite(defaultLetterSpacingPx)
@@ -737,7 +766,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
   );
 
   const fontSizeVar = useLengthVarBinding({
-    value: fontSize,
+    value: fontSize ?? fontSizePreview,
     onChange: onFontSizeChange,
     fallback: Number.isFinite(defaultFontSizePx) ? `${defaultFontSizePx}px` : undefined,
   });
@@ -849,13 +878,13 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
   const getDragPropsLetterSpacing = letterSpacingUnconfigured && !!letterSpacingPreview ? getPreviewLetterSpacingDragProps : getConfiguredLetterSpacingDragProps;
 
   const lineHeightVar = useLengthVarBinding({
-    value: lineHeight,
+    value: lineHeight ?? lineHeightPreview,
     onChange: onLineHeightChange,
     fallback: Number.isFinite(defaultLineHeightPx) ? `${defaultLineHeightPx}px` : undefined,
   });
 
   const letterSpacingVar = useLengthVarBinding({
-    value: letterSpacing,
+    value: letterSpacing ?? letterSpacingPreview,
     onChange: onLetterSpacingChange,
     fallback: Number.isFinite(defaultLetterSpacingPx) ? `${defaultLetterSpacingPx}px` : undefined,
   });
@@ -1163,7 +1192,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
             clearable={!!colorField.clear || (isTextFillActive(value as Record<string, any>) &&
               !!(solidTextFillColor ? backgroundColorField.clear : imageField.clear))}
             onClear={handleTextFillClear}
-            inherited={!textFillAuthored}
+            inherited={!textFillAuthored && !normalTextFillPreview}
             showInheritedColor
             emptyValueLabel={colorResetToDefault || pendingTextFillDefault ? '默认' : undefined}
             onChange={handleTextFillChange}
@@ -1297,7 +1326,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
               </div>
               <VariableNumberInput
                 binding={lineHeightVar}
-                inputKey={`lineHeight-${getLineHeightUnitKey(lineHeight)}`}
+                inputKey={`lineHeight-${getLineHeightUnitKey(lineHeight ?? lineHeightPreview)}`}
                 inputProps={{
                   tip: '行高',
                   type: "number",
@@ -1305,7 +1334,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
                   value: lineHeightDisplayValue,
                   previewValue: lineHeightUnconfigured ? lineHeightPreview : undefined,
                   placeholder: lineHeightPlaceholder,
-                  defaultUnitValue: "default",
+                  defaultUnitValue: lineHeightPreview ? splitValueAndUnit(lineHeightPreview)[1] ?? 'default' : 'default',
                   unitOptions: lineHeightUnitOptions,
                   unitDisabledList: LINEHEIGHT_UNIT_DISABLED_LIST,
                   hideUnitWhenEmpty: true,
@@ -1400,12 +1429,12 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
         <Panel.Content style={{ position: 'relative' }}>
           <Toggle
             key={cfg.textAlignMode === 'flex'
-              ? `flex-${value.justifyContent || ''}`
-              : `text-${value.textAlign || ''}`}
+              ? `flex-${justifyContentValue || ''}`
+              : `text-${textAlignValue || ''}`}
             defaultValue={
               cfg.textAlignMode === 'flex'
-                ? justifyContentToAlign(value.justifyContent as string)
-                : value.textAlign
+                ? justifyContentToAlign(justifyContentValue as string)
+                : textAlignValue
             }
             options={getTextAlignOptions()}
             onChange={(v) => {

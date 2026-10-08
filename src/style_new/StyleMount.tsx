@@ -9,7 +9,7 @@ import type { EditorProps } from './type'
 import { applyStyleChange, createStyleRemovalPlan } from './core/apply-style-change'
 import type { ZoneWriteTarget } from './core/apply-style-change'
 import { toElementArray } from './core/dom'
-import { createBatchStyleClearPlans, cssPropertyName, getStyleResolution, invalidateStyleResolution } from './core/style-property'
+import { createBatchStyleClearPlans, cssPropertyName, getStyleResolution, invalidateStyleResolution, resolveEffectiveStyleSource } from './core/style-property'
 import { buildZoneStateStyle, collectZoneTabs, mergeZoneTabsByState } from './core/zone-tab'
 import type { ZoneTab } from './core/zone-tab'
 import { expandFourShorthand } from './core/shorthand-normalizer'
@@ -95,7 +95,11 @@ export function StyleMount({
           const current = tabs.find(tab => tab.pseudo === zoneTab.pseudo)
           if (current) {
             zoneTab.sourceRules = current.sourceRules
-            zoneTab.baseRules = current.baseRules
+            // CSSOM 重编译可能先出现状态规则、稍后才恢复基础规则。
+            // 基础态仍用于布局预览和清除判断，不能被这次空扫描清掉。
+            if (current.baseRules.length || !current.sourceRules.length || !zoneTab.baseRules.length) {
+              zoneTab.baseRules = current.baseRules
+            }
           }
         }
         invalidateStyleResolution(zoneTab)
@@ -262,8 +266,16 @@ export function StyleMount({
       }
     }
     const getStyleDisplayPreview = (key: string) => {
-      if (!displayPreviewCache) return undefined
       const property = cssPropertyName(key)
+      if (zoneTab?.pseudo && PREVIEW_PSEUDO_STATES.has(zoneTab.pseudo) && ['top', 'right', 'bottom', 'left'].includes(property)) {
+        if (!realDom?.isConnected) return undefined
+        // 绝对定位的 computed 会把 auto 换成实际距离，不能据此把未配置的边显示成 0。
+        // 偏移预览保留基础态声明（含 inline）的单位和 auto，当前态声明仍由控件优先读取。
+        return resolveEffectiveStyleSource(
+          getStyleResolution(zoneTab, realDom).get(property).candidates.filter(source => !source.currentState)
+        )?.value
+      }
+      if (!displayPreviewCache) return undefined
       if (normalComputed && !displayPreviewCache.has(property)) {
         displayPreviewCache.set(property, normalComputed.getPropertyValue(property).trim() || undefined)
       }

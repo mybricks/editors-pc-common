@@ -641,6 +641,16 @@ export function ColorEditor({
   const input = useMemo(() => {
     const { value, nonColorValue, finalValue } = state;
 
+    // 渐变文字的透明填充色仅用于 CSS 绘制，继承态也应按实际渐变回显。
+    const isGradient = isGradientValue(paintPreviewValue);
+    if (isGradient) {
+      return (
+          <div className={css.text} style={{ marginLeft: 5 }} onClick={onPresetClick}>
+            渐变色
+          </div>
+      );
+    }
+
     if (inherited) {
       const emptyValueType = emptyValueLabel ?? '继承';
       const tip = inheritedTipColor
@@ -670,15 +680,6 @@ export function ColorEditor({
           }}
           onPaste={handlePaste}
         />
-      );
-    }
-
-    const isGradient = isGradientValue(paintPreviewValue);
-    if (isGradient) {
-      return (
-          <div className={css.text} style={{ marginLeft: 5 }} onClick={onPresetClick}>
-            渐变色
-          </div>
       );
     }
 

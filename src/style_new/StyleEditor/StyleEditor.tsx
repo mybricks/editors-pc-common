@@ -22,6 +22,7 @@ import {
 } from "./plugins";
 
 import type { StyleEditorProps, Option } from "./type";
+import { useStyleDisplayValue } from "./hooks/useStyleDisplayValue";
 
 import css from "./StyleEditor.less";
 
@@ -55,22 +56,24 @@ export default function ({
   finnalExcludeOptions,
   onChange,
 }: StyleEditorProps) {
-  const [positionForOrder, setPositionForOrder] = useState(defaultValue?.position);
+  const positionField = useStyleDisplayValue('position');
+  const displayedPosition = defaultValue?.position ?? positionField.computedPreview;
+  const [positionForOrder, setPositionForOrder] = useState(displayedPosition);
 
   useEffect(() => {
-    setPositionForOrder(defaultValue?.position);
-  }, [defaultValue?.position]);
+    setPositionForOrder(displayedPosition);
+  }, [displayedPosition]);
 
   const handleValueChange: StyleEditorProps["onChange"] = useCallback(
     (value) => {
       const changes = Array.isArray(value) ? value : [value];
       const positionChange = changes.find((change) => change.key === 'position');
       if (positionChange) {
-        setPositionForOrder(positionChange.value);
+        setPositionForOrder(positionChange.value ?? positionField.computedPreview);
       }
       return onChange(value);
     },
-    [onChange]
+    [onChange, positionField.computedPreview]
   );
 
   const fixedOrderKeys = useMemo(() => {
@@ -129,7 +132,8 @@ export default function ({
         pluginKey === 'ZINDEX' &&
         String(positionForOrder).toLowerCase() === 'absolute' &&
         defaultValue?.zIndex == null;
-      let panelCollapse: boolean | 'inherited' = false;
+      // 沿用常规态定位时，层级置顶但默认折叠。
+      let panelCollapse: boolean | 'inherited' = autoExpandZIndex && defaultValue?.position == null && positionField.computedPreview != null;
       if (!autoExpandZIndex) {
         if (collapsedOptions.includes(pluginKey.toLowerCase())) {
           panelCollapse = true;

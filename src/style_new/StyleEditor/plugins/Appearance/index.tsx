@@ -44,7 +44,7 @@ const OPACITY_UNIT_OPTIONS = [{ label: '%', value: '%' }]
 const CHIP_STYLE = { flex: '1 1 0', minWidth: 0, width: 0, marginLeft: 4 }
 const INPUT_STYLE = { flex: '1 1 0', minWidth: 0, width: 0, marginLeft: 4, padding: 0 }
 
-export function Appearance({ value, onChange: fallbackOnChange, showTitle, collapse }: AppearanceProps) {
+export function Appearance({ value, onChange: fallbackOnChange, showTitle }: AppearanceProps) {
   const context = useStyleEditorContext()
   const targetDom = context?.targetDom ?? null
   const onChange = useStyleChange(fallbackOnChange)
@@ -57,15 +57,12 @@ export function Appearance({ value, onChange: fallbackOnChange, showTitle, colla
   const anchorRef = useRef<HTMLSpanElement>(null)
 
   const opacitySource = context?.effectiveStyle?.opacity
-  const opacityProperty = context?.getStyleProperty?.('opacity')
   // 数值 1 既可能来自声明，也可能只是默认/计算值，必须按来源区分。
-  const declaredOpacity = context?.getStyleProperty
-    ? (opacityProperty?.winner?.currentState ? opacityProperty.winner.value : undefined)
-    : context?.effectiveStyle
-      ? (opacitySource?.type !== 'computed' ? opacitySource?.value : undefined)
-      : context?.authoredStyle
-        ? context.authoredStyle.opacity
-        : value?.opacity
+  const declaredOpacity = context?.effectiveStyle
+    ? (opacitySource?.type !== 'computed' ? opacitySource?.value : undefined)
+    : context?.authoredStyle
+      ? context.authoredStyle.opacity
+      : value?.opacity
   const hasConfiguredOpacity = declaredOpacity != null && String(declaredOpacity).trim() !== '' &&
     !/^unset$/i.test(String(declaredOpacity).trim())
   const opacityRawValue = hasConfiguredOpacity ? declaredOpacity : undefined
@@ -179,7 +176,7 @@ export function Appearance({ value, onChange: fallbackOnChange, showTitle, colla
   }, [detach])
 
   // 显式 100% 也是有效配置，不能把它当成未配置自动折叠。
-  const effectiveCollapse = hasConfiguredOpacity ? collapse : true
+  const effectiveCollapse = !hasConfiguredOpacity
 
   return (
     <Panel

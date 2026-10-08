@@ -36,6 +36,22 @@
   flex-direction: column;
 }
 
+/* 适应 / 填满的实测数值默认置灰，悬停或编辑整个尺寸框时恢复原色。 */
+.sizingModeField {
+  input {
+    font-family: inherit;
+    line-height: 16px;
+    padding-top: 0;
+    padding-bottom: 0;
+    opacity: 0.6;
+  }
+
+  &:hover input,
+  &:focus-within input {
+    opacity: 1;
+  }
+}
+
 /* 变量选择弹层：与颜色变量弹层同一套视觉 */
 .variablePopup {
   z-index: 1000;
@@ -180,7 +196,7 @@
   }
 }
 
-/* 默认 / 填满 / 适应：右侧仅保留模式下拉箭头 */
+/* 默认尺寸：右侧仅保留模式下拉箭头 */
 .defaultBadgeArrow {
   display: inline-flex;
   align-items: center;
@@ -200,13 +216,20 @@
   }
 }
 
+.sizingModeDropdown {
+  display: flex;
+  align-items: center;
+}
+
+/* 适应 / 填满：悬停或聚焦整个尺寸框时，模式文字原位切换为下拉箭头。 */
 .hugBadge,
 .fillBadge {
   position: relative;
   display: inline-flex;
   align-items: center;
   font-size: 10px;
-  font-weight: 500;
+  line-height: 16px;
+  font-weight: 400;
   color: @font-color-content;
   border-radius: 3px;
   padding: 0 4px;
@@ -224,16 +247,28 @@
 
   .badgeArrow {
     position: absolute;
-    inset: 0;
+    top: 0;
+    right: 0;
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    width: 14px;
+    height: 16px;
     font-size: 10px;
+    color: #777;
     opacity: 0;
     transition: opacity 0.1s;
+
+    // 与普通尺寸单位箭头保持同一图标尺寸，避免被外层 SVG 样式影响。
+    svg {
+      display: block;
+      width: 15px;
+      height: 15px;
+    }
   }
 
-  &:hover {
+  .sizingModeField:hover &,
+  .sizingModeField:focus-within & {
     .badgeLabel {
       opacity: 0;
     }
