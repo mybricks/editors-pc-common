@@ -361,8 +361,8 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
       activeSelector = soloSelector
       resolvedEditConfig = {
         ...resolvedEditConfig,
-        // 单独编辑写入专属 selector，不能再按 zoneTab 的来源规则拆分到公共 class。
-        options: { ...resolvedEditConfig.options, selector: soloSelector, zoneTab: null },
+        // 写入目标与回显来源分离：保留 zoneTab 汇总完整生效样式，单独编辑的写入仍固定到专属 selector。
+        options: { ...resolvedEditConfig.options, selector: soloSelector, soloEdit: true },
       }
     }
 
@@ -718,13 +718,18 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
   const editor = useMemo(() => {
     const { resolvedEditConfig, activeSelector } = resolveActiveEditContext()
 
-    const hasSavedSoloRule = isSoloEdit && selectedTarget && baseSelector
-      ? !!getSavedSoloStyle(selectedTarget, baseSelector, componentRoot, getDocument())
-      : false
-    const configEditConfig = isSoloEdit && !hasSavedSoloRule && baseSelector && !Array.isArray(resolvedEditConfig.options)
+    const configEditConfig = isSoloEdit && baseSelector && !Array.isArray(resolvedEditConfig.options)
       ? { ...resolvedEditConfig, options: { ...(resolvedEditConfig.options as any), selector: baseSelector } }
       : resolvedEditConfig
     const config = getDefaultConfiguration(configEditConfig, suggestOptionsCacheRef.current)
+    if (isSoloEdit && selectedTarget && baseSelector) {
+      const savedSoloStyle = getSavedSoloStyle(selectedTarget, baseSelector, componentRoot, getDocument())
+      const soloStyle = Object.assign({}, ...((savedSoloStyle?.rules || []).map((rule) =>
+        parseToStyleData(buildCssRule(rule.selector, rule.body), rule.selector)
+      )))
+      config.setValue = soloStyle
+      config.authoredStyle = { ...config.authoredStyle, ...soloStyle }
+    }
 
     // CssEditor 仍然按 zone 强制 remount；它的 initialStyle 不是受控值。
     const editorRemountKey = `${key}:${activeZoneIdx}:${String(activeSelector ?? '')}`
