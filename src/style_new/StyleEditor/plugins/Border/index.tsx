@@ -877,7 +877,7 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
       current,
       contentBackgroundLayersRef.current
     );
-    console.log("clearGradient",clearGradient)
+    // console.log("clearGradient",clearGradient)
     const result = handleChange({
       ...Object.fromEntries(BORDER_COLOR_KEYS.map((key) => [key, null])),
       ...clearGradient,

@@ -275,7 +275,7 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
       effectiveStyle: {},
       isAdded: true,
     }
-    console.log('[添加Tab]', tab);
+    // console.log('[添加Tab]', tab);
     addZoneTab(tab)
   }, [activeZoneTab, addZoneTab, baseSelector, selectedTarget, zoneTabs])
 
@@ -304,10 +304,10 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
         ...((nextTab?.sourceRules || []).map((item) => item.sourceSelector || item.selectorPart)),
         ...(selectedTarget && (selectedTarget as HTMLElement).style?.length ? ['inline'] : []),
       ].filter(Boolean)))
-      console.log('[样式编辑][切换Tab]', {
-        tab: nextTab?.label || nextTab?.selector || null,
-        selectors,
-      })
+      // console.log('[样式编辑][切换Tab]', {
+      //   tab: nextTab?.label || nextTab?.selector || null,
+      //   selectors,
+      // })
 
       // Solo 模式下同步更新写入目标，避免先用旧 soloSelector 构建一遍，
       // 再由 rehydrate effect 根据新 tab selector 触发第二次构建。
