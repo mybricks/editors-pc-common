@@ -127,9 +127,13 @@ function PositionInput({
   )
 }
 
-export function Position({ onChange: fallbackOnChange, showTitle }: PositionProps) {
+export function Position({ value: panelValue, onChange: fallbackOnChange, showTitle }: PositionProps) {
   const editorContext = useStyleEditorContext();
-  const value = useEffectiveStyleValue();
+  const effectiveValue = useEffectiveStyleValue();
+  const options = editorContext?.editConfig.options;
+  const hasZoneTab = !!(options && !Array.isArray(options) && "zoneTab" in options && options.zoneTab);
+  // 非 Zone 模式（如单独编辑）的回显值来自 props，effectiveStyle 在此模式下为空。
+  const value = hasZoneTab ? effectiveValue : panelValue;
   const [leftVal, setLeftVal] = useState(value?.left)
   const [topVal, setTopVal] = useState(value?.top)
   const [rightVal, setRightVal] = useState(value?.right)
