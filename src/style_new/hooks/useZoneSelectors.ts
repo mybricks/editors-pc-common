@@ -80,7 +80,18 @@ export function useZoneSelectors(editConfig: any, targetDom: any, _open: boolean
     tabs.filter((tab) => !result.includes(tab.selector)).forEach((tab) => ordered.push(tab))
     const merged = mergeZoneTabsByState(ordered)
     const labels = getZoneTabLabels(merged.map((tab) => tab.selector))
-    const generatedTabs = merged.map((tab, index) => {
+    // 未配置中文名的伪类保留 CSSOM 顺序，但整体排在已命名状态之后。
+    const displayTabs = merged
+      .map((tab, index) => ({ tab, label: labels[index], index }))
+      .sort((a, b) => {
+        const getRank = (item: { tab: ZoneTab; label: string }) => {
+          if (!item.tab.pseudo) return 0
+          return item.label === item.tab.pseudo ? 2 : 1
+        }
+        const byRank = getRank(a) - getRank(b)
+        return byRank || a.index - b.index
+      })
+    const generatedTabs = displayTabs.map(({ tab, label }) => {
       const target = domList[0] as HTMLElement | undefined
       let effectiveStyle = tab.effectiveStyle ?? {}
       if (target) {
@@ -94,7 +105,7 @@ export function useZoneSelectors(editConfig: any, targetDom: any, _open: boolean
       }
       return {
         ...tab,
-        label: labels[index],
+        label,
         effectiveStyle,
       }
     })
