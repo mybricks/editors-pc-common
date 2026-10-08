@@ -75,7 +75,7 @@ function getUnifiedRadiusValue(value: Record<string, any>): string | null {
   return String(values[0])
 }
 
-export function BorderRadius({ value, onChange: fallbackOnChange, config }: BorderRadiusProps) {
+export function BorderRadius({ value, onChange: fallbackOnChange, config, collapse }: BorderRadiusProps) {
   const context = useStyleEditorContext()
   const onChange = useStyleChange(fallbackOnChange)
   const topLeftDisplay = useStyleDisplayValue('borderTopLeftRadius')
@@ -322,7 +322,7 @@ export function BorderRadius({ value, onChange: fallbackOnChange, config }: Bord
     <Panel
       title='圆角'
       showTitle={true}
-      collapse={false}
+      collapse={collapse}
       showReset={canReset}
       showDelete={canReset}
       resetFunction={handleReset}
