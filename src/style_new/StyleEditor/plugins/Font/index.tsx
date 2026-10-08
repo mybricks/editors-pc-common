@@ -363,7 +363,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
     const snapshot = Object.fromEntries(
       Object.entries(effectiveStyle || {}).map(([key, item]) => [key, { ...item }])
     );
-    console.log('[样式编辑][EffectiveStyleValue][字体]', snapshot);
+    // console.log('[样式编辑][EffectiveStyleValue][字体]', snapshot);
   }, [effectiveStyle]);
   const handleTextFillChange = useCallback(
     (input: any) => {

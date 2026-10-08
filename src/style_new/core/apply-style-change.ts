@@ -294,7 +294,7 @@ function applyStyleRemoval(
       resolution.record(key, value, selector)
       if (selector === INLINE_STYLE_LABEL) target?.style.setProperty(cssPropertyName(key), String(value))
     })
-    console.log('[样式编辑][取消配置]', { selector, 删除: deletions, 写入: style })
+    // console.log('[样式编辑][取消配置]', { selector, 删除: deletions, 写入: style })
   })
   // 先完成所有删除/拆分，再按真实剩余来源刷新，避免清掉刚保留的兄弟属性。
   touched.forEach(key => {
@@ -355,7 +355,7 @@ function logStyleOperation({
     details.结果 = '跳过'
     details.原因 = reason || null
   }
-  console.log('[样式编辑]', details)
+  // console.log('[样式编辑]', details)
 }
 
 function logStyleClearPlan(plan: StyleClearPlan, execute = true) {
@@ -381,16 +381,16 @@ function logStyleWriteTarget(
   key: string, value: any, target: StyleWriteTarget, tab: ZoneTab,
   patch?: Record<string, any>
 ) {
-  console.log('[样式编辑][写入目标解析]', {
-    属性: key,
-    写入值: value,
-    计算出的classname: target.selector,
-    classname来源: target.source,
-    选择原因: target.reason,
-    当前ZoneTabSelector: tab.selector,
-    候选selector: target.candidates,
-    ...(patch ? { 实际写入样式: patch } : {}),
-  })
+  // console.log('[样式编辑][写入目标解析]', {
+  //   属性: key,
+  //   写入值: value,
+  //   计算出的classname: target.selector,
+  //   classname来源: target.source,
+  //   选择原因: target.reason,
+  //   当前ZoneTabSelector: tab.selector,
+  //   候选selector: target.candidates,
+  //   ...(patch ? { 实际写入样式: patch } : {}),
+  // })
 }
 
 function applyStyleClearPlans(
