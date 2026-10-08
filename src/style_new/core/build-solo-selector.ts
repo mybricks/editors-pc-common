@@ -290,7 +290,10 @@ export const getSavedSoloStyle = (
 ): SavedSoloStyle | null => {
   const sourceSelector = buildSoloSelector(targetDom, baseSelector, componentRoot)
   const runtimeSelector = getRuntimeSoloSelector(targetDom, baseSelector, componentRoot)
-  const matchedRules = runtimeSelector ? findMatchingSoloRules(root, runtimeSelector) : []
+  const baseTail = baseSelector.trim().split(/\s+/).pop() || baseSelector
+  // 唯一子节点等场景可能只生成基础类名；普通类规则不能被认作已保存的单独规则。
+  const hasSoloScope = sourceSelector !== baseSelector && sourceSelector !== baseTail
+  const matchedRules = runtimeSelector && hasSoloScope ? findMatchingSoloRules(root, runtimeSelector) : []
   const targetTailRules = matchedRules.length
     ? []
     : findTargetTailNthRules(root, targetDom, baseSelector)
