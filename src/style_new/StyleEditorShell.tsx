@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 
-import { Button, Checkbox, message, Tooltip } from 'antd'
+import { Button, Checkbox, Menu, message, Tooltip } from 'antd'
 import {
   AppstoreOutlined,
   CaretRightOutlined,
@@ -629,99 +629,107 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
 
   const title = useMemo(() => {
     return (
-      <>
-        {/* 可视化编辑态的工具条 */}
-        {editMode && (
-          <div className={css.titleContainer}>
-            <div className={css.title} onClick={onOpenClick}>
-              <div>{editConfig.title}</div>
-            </div>
-            <div className={css.actions_allawys_display}>
-              <div className={css.selector} data-mybricks-tip={finalSelector} onClick={copy}>
-                {finalSelector}
-              </div>
-              <div className={css.iconActions}>
-                <div
-                  className={`${css.icon} ${css.codeIcon}`}
-                  data-mybricks-tip={`{content:'复制样式',position:'left'}`}
-                  onClick={onCopyStyle}
-                >
-                  <Copy />
-                </div>
-                <div
-                  className={`${css.icon} ${css.codeIcon}`}
-                  data-mybricks-tip={`{content:'粘贴样式',position:'left'}`}
-                  onClick={onPasteStyle}
-                >
-                  <Paste />
-                </div>
-                <div
-                  className={`${css.icon} ${css.codeIcon}`}
-                  data-mybricks-tip={`{content:'CSS编辑',position:'left'}`}
-                  onClick={onEditModeClick}
-                >
-                  {editMode ? <Code /> : <AppstoreOutlined />}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-        {/* 代码编辑的工具条 */}
-        {!editMode && (
-          <div
-            onMouseEnter={onMouseEnter}
-            onMouseLeave={onMouseLeave}
-            className={css.titleContainer}
-          >
-            <div className={css.title} style={{ fontWeight: 'normal' }} onClick={onOpenClick}>
-              {finalDisabledSwitch ? null : (
-                <div
-                  className={`${css.icon}${open ? ` ${css.iconOpen}` : ''}`}
-                  data-mybricks-tip={open ? '收起' : '展开'}
-                >
-                  <CaretRightOutlined />
-                </div>
-              )}
-              <div>{editConfig.title}</div>
-            </div>
-            <div className={css.actions_allawys_display}>
-              <div className={css.selector} data-mybricks-tip={finalSelector} onClick={copy}>
-                {finalSelector}
-              </div>
-              <div className={css.iconActions}>
-                <div
-                  className={`${css.icon} ${css.codeIcon}`}
-                  data-mybricks-tip={`{content:'复制样式',position:'left'}`}
-                  onClick={onCopyStyle}
-                >
-                  <Copy />
-                </div>
-                <div
-                  className={`${css.icon} ${css.codeIcon}`}
-                  data-mybricks-tip={`{content:'粘贴样式',position:'left'}`}
-                  onClick={onPasteStyle}
-                >
-                  <Paste />
-                </div>
-                <div
-                  className={`${css.icon} ${css.codeIcon}`}
-                  data-mybricks-tip={`{content:'返回可视化编辑',position:'left'}`}
-                  onClick={onEditModeClick}
-                >
-                  {backToVisualIcon}
-                </div>
-              </div>
-              {/* <div className={css.icon} data-mybricks-tip={'复制selector'} onClick={copy}>
-                <CopyOutlined />
-              </div> */}
-              {/* <div className={css.icon} data-mybricks-tip={'重置'} onClick={refresh}>
-                <ReloadOutlined />
-              </div> */}
-            </div>
-          </div>
-        )}
-      </>
-    )
+      <Menu>
+        <Menu.Item key="copy" onClick={onCopyStyle}>复制样式</Menu.Item>
+        <Menu.Item key="paste" onClick={onPasteStyle}>粘贴样式</Menu.Item>
+        <Menu.Item key="edit" onClick={onEditModeClick}>编辑样式</Menu.Item>
+      </Menu>
+    );
+    // 先保留，估计后续还会改回来
+    // return (
+    //   <>
+    //     {/* 可视化编辑态的工具条 */}
+    //     {editMode && (
+    //       <div className={css.titleContainer}>
+    //         <div className={css.title} onClick={onOpenClick}>
+    //           <div>{editConfig.title}</div>
+    //         </div>
+    //         <div className={css.actions_allawys_display}>
+    //           <div className={css.selector} data-mybricks-tip={finalSelector} onClick={copy}>
+    //             {finalSelector}
+    //           </div>
+    //           <div className={css.iconActions}>
+    //             <div
+    //               className={`${css.icon} ${css.codeIcon}`}
+    //               data-mybricks-tip={`{content:'复制样式',position:'left'}`}
+    //               onClick={onCopyStyle}
+    //             >
+    //               <Copy />
+    //             </div>
+    //             <div
+    //               className={`${css.icon} ${css.codeIcon}`}
+    //               data-mybricks-tip={`{content:'粘贴样式',position:'left'}`}
+    //               onClick={onPasteStyle}
+    //             >
+    //               <Paste />
+    //             </div>
+    //             <div
+    //               className={`${css.icon} ${css.codeIcon}`}
+    //               data-mybricks-tip={`{content:'CSS编辑',position:'left'}`}
+    //               onClick={onEditModeClick}
+    //             >
+    //               {editMode ? <Code /> : <AppstoreOutlined />}
+    //             </div>
+    //           </div>
+    //         </div>
+    //       </div>
+    //     )}
+    //     {/* 代码编辑的工具条 */}
+    //     {!editMode && (
+    //       <div
+    //         onMouseEnter={onMouseEnter}
+    //         onMouseLeave={onMouseLeave}
+    //         className={css.titleContainer}
+    //       >
+    //         <div className={css.title} style={{ fontWeight: 'normal' }} onClick={onOpenClick}>
+    //           {finalDisabledSwitch ? null : (
+    //             <div
+    //               className={`${css.icon}${open ? ` ${css.iconOpen}` : ''}`}
+    //               data-mybricks-tip={open ? '收起' : '展开'}
+    //             >
+    //               <CaretRightOutlined />
+    //             </div>
+    //           )}
+    //           <div>{editConfig.title}</div>
+    //         </div>
+    //         <div className={css.actions_allawys_display}>
+    //           <div className={css.selector} data-mybricks-tip={finalSelector} onClick={copy}>
+    //             {finalSelector}
+    //           </div>
+    //           <div className={css.iconActions}>
+    //             <div
+    //               className={`${css.icon} ${css.codeIcon}`}
+    //               data-mybricks-tip={`{content:'复制样式',position:'left'}`}
+    //               onClick={onCopyStyle}
+    //             >
+    //               <Copy />
+    //             </div>
+    //             <div
+    //               className={`${css.icon} ${css.codeIcon}`}
+    //               data-mybricks-tip={`{content:'粘贴样式',position:'left'}`}
+    //               onClick={onPasteStyle}
+    //             >
+    //               <Paste />
+    //             </div>
+    //             <div
+    //               className={`${css.icon} ${css.codeIcon}`}
+    //               data-mybricks-tip={`{content:'返回可视化编辑',position:'left'}`}
+    //               onClick={onEditModeClick}
+    //             >
+    //               {backToVisualIcon}
+    //             </div>
+    //           </div>
+    //           {/* <div className={css.icon} data-mybricks-tip={'复制selector'} onClick={copy}>
+    //             <CopyOutlined />
+    //           </div> */}
+    //           {/* <div className={css.icon} data-mybricks-tip={'重置'} onClick={refresh}>
+    //             <ReloadOutlined />
+    //           </div> */}
+    //         </div>
+    //       </div>
+    //     )}
+    //   </>
+    // )
   }, [open, editMode, titleContent, batchMeta, onBatchDiscard, onBatchCommit, onCopyStyle, onPasteStyle])
 
   const onBatchStyleSourceChange = useCallback(() => {
@@ -980,6 +988,7 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
             addOptions={zoneTabAddOptions}
             deletableSelectors={zoneTabs.filter((tab) => tab.isAdded).map((tab) => tab.selector)}
             onDelete={onDeleteZoneTab}
+            moreMenus={title}
           />
         )}
         {showEditModeControl && (
@@ -1011,7 +1020,6 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
           </div>
         )}
         <div className={css.styleSection}>
-          {title}
           <div style={{ display: open ? 'block' : 'none' }}>
             {show && editor}
           </div>

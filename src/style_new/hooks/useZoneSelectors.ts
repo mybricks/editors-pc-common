@@ -18,6 +18,7 @@ import {
 import type { ZoneTab } from '../core/zone-tab'
 import { uniqBy } from 'lodash'
 
+const INIT_TABS: ZoneTab[] = [];
 export function useZoneSelectors(editConfig: any, targetDom: any, _open: boolean) {
   const [activeZoneIdx, setActiveZoneIdx] = useState(0)
   const [customZoneTabs, setCustomZoneTabs] = useState<ZoneTab[]>([])
@@ -32,7 +33,7 @@ export function useZoneSelectors(editConfig: any, targetDom: any, _open: boolean
   // 换选中元素时，恢复自动对齐
   useEffect(() => {
     userSelectedRef.current = false
-    setCustomZoneTabs([])
+    setCustomZoneTabs(INIT_TABS)
   }, [targetDom])
 
   const zoneTabs = useMemo<ZoneTab[]>(() => {

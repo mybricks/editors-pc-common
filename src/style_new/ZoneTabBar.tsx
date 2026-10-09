@@ -1,7 +1,7 @@
-import React, { useMemo } from 'react'
+import React, { ReactElement, useMemo } from 'react'
 import { Dropdown, Menu } from 'antd'
 import { CloseOutlined } from '@ant-design/icons'
-import { PlusOutlined } from './StyleEditor/components/Icon'
+import { PlusOutlined, MoreOutlined } from './StyleEditor/components/Icon'
 
 import css from './index.less'
 
@@ -86,6 +86,7 @@ export function ZoneTabBar(props: {
   addOptions?: Array<{ key: string; label: string }>
   deletableSelectors?: string[]
   onDelete?: (selector: string) => void
+  moreMenus: ReactElement
 }) {
   const {
     selectors,
@@ -96,6 +97,7 @@ export function ZoneTabBar(props: {
     addOptions = [],
     deletableSelectors = [],
     onDelete,
+    moreMenus,
   } = props
   const labels = useMemo(
     () => providedLabels ?? getZoneTabLabels(selectors),
@@ -150,6 +152,19 @@ export function ZoneTabBar(props: {
           </button>
         </Dropdown>
       )}
+      <Dropdown
+        overlayClassName={css.zoneTabDropdown}
+        overlay={moreMenus}
+      >
+        <button
+          className={css.moreBtn}
+          type="button"
+          aria-label="更多操作"
+          style={{ transform: 'rotate(90deg)' }}
+        >
+          <MoreOutlined />
+        </button>
+      </Dropdown>
     </div>
   )
 }
