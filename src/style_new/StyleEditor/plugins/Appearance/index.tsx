@@ -189,7 +189,7 @@ export function Appearance({ value, onChange: fallbackOnChange, showTitle }: App
       collapse={effectiveCollapse}
     >
       <Panel.Content>
-        <Panel.Item className={css.inputItem}>
+        <Panel.Item className={css.inputItem} style={{paddingRight: '7px'}}>
           <span
             className={`${css.inputIcon} ${css.opacityIcon}`}
             ref={anchorRef}

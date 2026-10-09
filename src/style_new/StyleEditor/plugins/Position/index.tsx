@@ -106,7 +106,7 @@ function PositionInput({
 
   return (
     <InputNumber
-      style={{ flex: 1, minWidth: 0 }}
+      style={{ flex: 1, minWidth: 0, paddingRight: '6px' }}
       prefix={(
         <span
           {...(!isLocked ? dragProps(dragValue, `拖拽调整 ${label}`) : {})}

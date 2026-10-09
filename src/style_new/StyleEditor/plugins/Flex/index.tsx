@@ -527,7 +527,7 @@ export function Flex({ value: fallbackValue, onChange: fallbackOnChange, showTit
                     {COPY.basisLabel}
                   </span>
                   <InputNumber
-                    style={{ flex: 1, minWidth: 0, marginLeft: 0, padding: 0 }}
+                    style={{ flex: 1, minWidth: 0, marginLeft: 0, padding: '0 6px 0 0' }}
                     defaultValue={localBasis === 'auto' ? undefined : localBasis || undefined}
                     defaultUnitValue="%"
                     unitOptions={BASIS_UNIT_OPTIONS}
