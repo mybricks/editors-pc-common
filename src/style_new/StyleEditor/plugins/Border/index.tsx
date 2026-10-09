@@ -921,7 +921,7 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
                     key={borderColorEditorKey}
                     style={{ padding: 0, flex: 1, minWidth: 26 }}
                     defaultValue={borderColorValue}
-                    emptyValueLabel="默认"
+                    emptyValueLabel=""
                     resolvedColor={resolveCssVarColor(
                       borderValue.borderTopColor || getPreviewValue('borderTopColor') || "",
                       targetDom
@@ -1057,6 +1057,7 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
                         style: { padding: 0, fontSize: 10, marginLeft: shouldShowMiniLayout ? 2 : 4, flex: 1, minWidth: 0 },
                         defaultValue: borderValue.borderTopWidth,
                         value: borderValue.borderTopWidth,
+                        placeholder: '',
                         defaultUnitValue: 'px',
                         unitOptions: withDefaultUnitOption(borderWidthUnitOptions, allWidthCanClear),
                         unitDisabledList: ['default'],
@@ -1118,7 +1119,7 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
                       key={`left-${borderColorEditorKey}`}
                       style={{ padding: 0, marginLeft: 2, flex: 1, minWidth: 26 }}
                       defaultValue={isConfiguredKey('borderLeftColor') ? borderValue.borderLeftColor : ''}
-                      emptyValueLabel="默认"
+                      emptyValueLabel=""
                       resolvedColor={resolveCssVarColor(borderValue.borderLeftColor || getPreviewValue('borderLeftColor') || "", targetDom) ?? undefined}
                       variableOptions={canvasColorVariables}
                       scopeEl={targetDom}
@@ -1155,6 +1156,7 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
                           style: WIDTH_STYLE_SPLIT,
                           defaultValue: borderValue.borderLeftWidth,
                           value: borderValue.borderLeftWidth,
+                          placeholder: '',
                           defaultUnitValue: 'px',
                           unitOptions: withDefaultUnitOption(borderWidthUnitOptions, fieldCanClear.borderLeftWidth),
                           unitDisabledList: ['default'],
@@ -1194,7 +1196,7 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
                       key={`top-${borderColorEditorKey}`}
                       style={{ padding: 0, marginLeft: 2, flex: 1, minWidth: 26 }}
                       defaultValue={isConfiguredKey('borderTopColor') ? borderValue.borderTopColor : ''}
-                      emptyValueLabel="默认"
+                      emptyValueLabel=""
                       resolvedColor={resolveCssVarColor(borderValue.borderTopColor || getPreviewValue('borderTopColor') || "", targetDom) ?? undefined}
                       variableOptions={canvasColorVariables}
                       scopeEl={targetDom}
@@ -1231,6 +1233,7 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
                           style: WIDTH_STYLE_SPLIT,
                           defaultValue: borderValue.borderTopWidth,
                           value: borderValue.borderTopWidth,
+                          placeholder: '',
                           defaultUnitValue: 'px',
                           unitOptions: withDefaultUnitOption(borderWidthUnitOptions, fieldCanClear.borderTopWidth),
                           unitDisabledList: ['default'],
@@ -1271,7 +1274,7 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
                       key={`right-${borderColorEditorKey}`}
                       style={{ padding: 0, marginLeft: 2, flex: 1, minWidth: 26 }}
                       defaultValue={isConfiguredKey('borderRightColor') ? borderValue.borderRightColor : ''}
-                      emptyValueLabel="默认"
+                      emptyValueLabel=""
                       resolvedColor={resolveCssVarColor(borderValue.borderRightColor || getPreviewValue('borderRightColor') || "", targetDom) ?? undefined}
                       variableOptions={canvasColorVariables}
                       scopeEl={targetDom}
@@ -1308,6 +1311,7 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
                           style: WIDTH_STYLE_SPLIT,
                           defaultValue: borderValue.borderRightWidth,
                           value: borderValue.borderRightWidth,
+                          placeholder: '',
                           defaultUnitValue: 'px',
                           unitOptions: withDefaultUnitOption(borderWidthUnitOptions, fieldCanClear.borderRightWidth),
                           unitDisabledList: ['default'],
@@ -1348,7 +1352,7 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
                       key={`bottom-${borderColorEditorKey}`}
                       style={{ padding: 0, marginLeft: 2, flex: 1, minWidth: 26 }}
                       defaultValue={isConfiguredKey('borderBottomColor') ? borderValue.borderBottomColor : ''}
-                      emptyValueLabel="默认"
+                      emptyValueLabel=""
                       resolvedColor={resolveCssVarColor(borderValue.borderBottomColor || getPreviewValue('borderBottomColor') || "", targetDom) ?? undefined}
                       variableOptions={canvasColorVariables}
                       scopeEl={targetDom}
@@ -1385,6 +1389,7 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
                           style: WIDTH_STYLE_SPLIT,
                           defaultValue: borderValue.borderBottomWidth,
                           value: borderValue.borderBottomWidth,
+                          placeholder: '',
                           defaultUnitValue: 'px',
                           unitOptions: withDefaultUnitOption(borderWidthUnitOptions, fieldCanClear.borderBottomWidth),
                           unitDisabledList: ['default'],

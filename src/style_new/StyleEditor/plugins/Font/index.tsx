@@ -495,7 +495,6 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
   const fontFamilyPreview = fontFamilyAuthored
     ? innerFontFamily?.[0] ? quoteIfNeeded(innerFontFamily[0]) : ''
     : normalFontFamily || computedFontFamily;
-  const fontFamilyPlaceholder = fontFamilyAuthored ? '未配置字体' : '继承';
 
   const [isMultiMode, setIsMultiMode] = useState(false);
 
@@ -582,7 +581,6 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
   const defaultFontSizePx = fontSizeDefaultPreviewPx ?? effectiveDefaultFontSizePx;
   const fontSizeUnconfigured = !isConfiguredCssLength(fontSize);
   const showFontSizeDefaultAction = !!sizeField.clear || fontSizeDraftConfigured;
-  const fontSizePlaceholder = '默认';
   // 未配置字号时直接回显最终计算值，但仍保持 fontSize 为 null。
   // 这样仅展示默认值不会把它误写成用户显式配置的 font-size。
   const fontSizeDisplayValue = fontSizePreview ? fontSize : fontSizeUnconfigured && Number.isFinite(defaultFontSizePx)
@@ -592,7 +590,6 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
   const lineHeightPreview = getFontPreview('lineHeight', lineHeightField.computedPreview);
   const defaultLineHeightPx = getComputedCssLengthPx(effectiveStyle?.lineHeight, undefined, lineHeightField.computedPreview);
   const lineHeightUnconfigured = !isConfiguredCssLength(lineHeight);
-  const lineHeightPlaceholder = '默认';
   const lineHeightDisplayValue = lineHeightPreview ? lineHeight : lineHeightUnconfigured && Number.isFinite(defaultLineHeightPx)
     ? `${defaultLineHeightPx}px`
     : lineHeight;
@@ -600,7 +597,6 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
   const letterSpacingPreview = getFontPreview('letterSpacing', letterSpacingField.computedPreview);
   const defaultLetterSpacingPx = getComputedCssLengthPx(effectiveStyle?.letterSpacing, 0, letterSpacingField.computedPreview);
   const letterSpacingUnconfigured = !isConfiguredCssLength(letterSpacing);
-  const letterSpacingPlaceholder = '默认';
   const letterSpacingDisplayValue = letterSpacingPreview ? letterSpacing : letterSpacingUnconfigured && Number.isFinite(defaultLetterSpacingPx)
     ? `${defaultLetterSpacingPx}px`
     : letterSpacing;
@@ -1145,7 +1141,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
                 }}
                 footer={modeFooter}
                 displayValue={fontFamilyDisplayValue}
-                placeholder={fontFamilyPlaceholder}
+                placeholder=""
               />
             ) : (
               // 单字体模式：简洁单选
@@ -1173,7 +1169,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
                 }}
                 footer={modeFooter}
                 displayValue={fontFamilyDisplayValue}
-                placeholder={fontFamilyPlaceholder}
+                placeholder=""
               />
             );
           })()}
@@ -1200,7 +1196,6 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
             onClear={handleTextFillClear}
             inherited={!textFillAuthored && !normalTextFillPreview}
             showInheritedColor
-            emptyValueLabel={colorResetToDefault || pendingTextFillDefault ? '默认' : undefined}
             onChange={handleTextFillChange}
           />
         </Panel.Content>
@@ -1271,7 +1266,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
                   style: { flex: 1, minWidth: 0, marginLeft: 4 },
                   value: fontSizeDisplayValue,
                   previewValue: fontSizeUnconfigured ? fontSizePreview : undefined,
-                  placeholder: fontSizePlaceholder,
+                  placeholder: '',
                   unitOptions: FONT_SIZE_OPTIONS,
                   onInputValueChange: (nextValue) => {
                     const parsed = parseFloat(nextValue);
@@ -1339,7 +1334,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
                   style: { flex: 1, minWidth: 0, marginLeft: 4 },
                   value: lineHeightDisplayValue,
                   previewValue: lineHeightUnconfigured ? lineHeightPreview : undefined,
-                  placeholder: lineHeightPlaceholder,
+                  placeholder: '',
                   defaultUnitValue: lineHeightPreview ? splitValueAndUnit(lineHeightPreview)[1] ?? 'default' : 'default',
                   unitOptions: lineHeightUnitOptions,
                   unitDisabledList: LINEHEIGHT_UNIT_DISABLED_LIST,
@@ -1389,7 +1384,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
                   style: { flex: 1, minWidth: 0, marginLeft: 4 },
                   value: letterSpacingDisplayValue,
                   previewValue: letterSpacingUnconfigured ? letterSpacingPreview : undefined,
-                  placeholder: letterSpacingPlaceholder,
+                  placeholder: '',
                   defaultUnitValue: "px",
                   unitOptions: letterSpacingUnitOptions,
                   showIcon: true,
@@ -1651,6 +1646,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
               style={{ flex: 1, maxWidth: 120, padding: '0 8px' }}
               defaultUnitValue=""
               value={String(truncateLines)}
+              placeholder=""
               fallbackValue={1}
               onChange={(lines) => {
                 const parsed = parseInt(String(lines), 10);

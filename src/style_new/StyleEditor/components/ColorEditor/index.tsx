@@ -115,7 +115,7 @@ interface ColorEditorProps {
   inherited?: boolean;
   /** 继承态输入框直接回显计算色值；仅用户编辑时提交，不改变继承状态 */
   showInheritedColor?: boolean;
-  /** 空值时的占位文案；配合透明色图标展示未配置状态 */
+  /** 空值时的占位文案；空字符串保留可编辑输入框但不显示文案，配合透明色图标展示未配置状态 */
   emptyValueLabel?: string;
   activeWhenBlur?: boolean;
   /** 强制关闭内部 colorpicker 弹层 */
@@ -652,7 +652,7 @@ export function ColorEditor({
     }
 
     if (inherited) {
-      const emptyValueType = emptyValueLabel ?? '继承';
+      const emptyValueType = emptyValueLabel || '继承';
       const tip = inheritedTipColor
         ? `未配置颜色，${inheritedTipColor}为${emptyValueType}值`
         : '未配置颜色';
@@ -693,7 +693,7 @@ export function ColorEditor({
     }
 
     // 主题色标题等仍走绑定展示；var() 回显走下方输入框
-    if (nonColorValue && !isCssVarRef(value) && (finalValue || !emptyValueLabel)) {
+    if (nonColorValue && !isCssVarRef(value) && (finalValue || emptyValueLabel == null)) {
       return (
         <>
           <div className={css.text} onClick={onPresetClick}>
@@ -903,7 +903,7 @@ export function ColorEditor({
             ) : resolvedColor ? (
               <TransparentColorOutlined />
             ) : (
-              emptyValueLabel ? <TransparentColorOutlined /> : <QuestionCircleOutlined />
+              emptyValueLabel != null ? <TransparentColorOutlined /> : <QuestionCircleOutlined />
             )
           ) : (
             <TransparentColorOutlined />

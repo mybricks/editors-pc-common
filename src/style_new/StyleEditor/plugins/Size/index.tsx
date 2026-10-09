@@ -1290,7 +1290,7 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
                     unitOptions={widthUnitOptions}
                     unitDisabledList={UNIT_DISABLED_LIST}
                     unitDisplayLabelMap={UNIT_DISPLAY_LABEL_MAP}
-                    placeholder={isWidthDefault ? '默认' : ''}
+                    placeholder=""
                     onChange={handleWidthChange}
                     onAction={(val) => {
                       if (val === 'hug' || val === 'fill') applySizingMode('width', val);
@@ -1393,7 +1393,7 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
                     unitOptions={heightUnitOptions}
                     unitDisabledList={UNIT_DISABLED_LIST}
                     unitDisplayLabelMap={UNIT_DISPLAY_LABEL_MAP}
-                    placeholder={isHeightDefault ? '默认' : ''}
+                    placeholder=""
                     onChange={handleHeightChange}
                     onAction={(val) => {
                       if (val === 'hug' || val === 'fill') applySizingMode('height', val);

@@ -460,6 +460,7 @@ function EffectNumberField({
           allowNegative,
           prefix: handle,
           defaultValue: value,
+          placeholder: '',
           defaultUnitValue: 'px',
           unitOptions,
           showIcon: true,
