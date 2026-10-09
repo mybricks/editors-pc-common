@@ -1,7 +1,7 @@
 import React, { ReactElement, useMemo } from 'react'
 import { Dropdown, Menu } from 'antd'
-import { CloseOutlined } from '@ant-design/icons'
-import { PlusOutlined, MoreOutlined } from './StyleEditor/components/Icon'
+import { CloseOutlined, QuestionCircleOutlined } from '@ant-design/icons'
+import { MoreOutlined } from './StyleEditor/components/Icon'
 
 import css from './index.less'
 
@@ -104,57 +104,78 @@ export function ZoneTabBar(props: {
     [providedLabels, selectors]
   )
 
+  const moreOverlay = useMemo(() => {
+    if (!onAdd || addOptions.length === 0) {
+      return moreMenus
+    }
+    const addStateSubMenu = (
+      <Menu.SubMenu
+        key="__addState"
+        popupClassName={css.zoneTabDropdown}
+        popupOffset={[-0.5, 0]}
+        title={
+          <span style={{ fontWeight: 'normal', display: 'inline-flex', alignItems: 'center' }}>
+            添加状态
+            <QuestionCircleOutlined
+              onClick={(e) => e.stopPropagation()}
+              style={{ marginLeft: 4, color: '#8c8c8c', fontSize: 12, verticalAlign: 'middle' }}
+              data-mybricks-tip={JSON.stringify({ content: '<span style="display:block;text-align:center">为该元素添加悬浮、激活、聚焦、禁用状态下的样式</span>', position: 'left' })}
+            />
+          </span>
+        }
+      >
+        {addOptions.map((option) => (
+          <Menu.Item key={option.key} onClick={() => onAdd(String(option.key))}>
+            {option.label}
+          </Menu.Item>
+        ))}
+      </Menu.SubMenu>
+    )
+    const existingChildren = moreMenus.props.children
+    const childrenArray = Array.isArray(existingChildren)
+      ? existingChildren
+      : existingChildren != null
+      ? [existingChildren]
+      : []
+    return React.cloneElement(moreMenus, {}, addStateSubMenu, ...childrenArray)
+  }, [onAdd, addOptions, moreMenus])
+
+  const isSingleNormalTab =
+    selectors.length === 1 && !isPseudoSelector(selectors[0])
+
   return (
     <div className={css.zoneTabBar}>
-      <div className={css.zoneTabList}>
-        {selectors.map((sel, idx) => (
-          <div
-            key={sel}
-            className={`${css.zoneTab}${idx === activeIdx ? ` ${css.zoneTabActive}` : ''}`}
-            onClick={() => onSelect(idx)}
-          >
-            <span>{labels[idx]}</span>
-            {onDelete && deletableSelectors.includes(sel) && (
-              <button
-                className={css.zoneTabDelete}
-                type="button"
-                aria-label={`删除${labels[idx]}`}
-                onClick={(event) => {
-                  event.stopPropagation()
-                  onDelete(sel)
-                }}
-              >
-                <CloseOutlined />
-              </button>
-            )}
-          </div>
-        ))}
-      </div>
-      {onAdd && addOptions.length > 0 && (
-        <Dropdown
-          trigger={['click']}
-          overlayClassName={css.zoneTabDropdown}
-          overlay={
-            <Menu onClick={({ key }) => onAdd(String(key))}>
-              {addOptions.map((option) => (
-                <Menu.Item key={option.key}>{option.label}</Menu.Item>
-              ))}
-            </Menu>
-          }
-        >
-          <button
-            className={css.zoneTabAdd}
-            type="button"
-            aria-label="新增状态"
-            data-mybricks-tip={JSON.stringify({ content: '<span style="display:block;text-align:center">为该元素添加悬浮、激活、聚焦、禁用状态下的样式</span>', position: 'left' })}
-          >
-            <PlusOutlined />
-          </button>
-        </Dropdown>
+      {isSingleNormalTab ? (
+        <span className={css.zoneTabSingleTitle}>常规样式</span>
+      ) : (
+        <div className={css.zoneTabList}>
+          {selectors.map((sel, idx) => (
+            <div
+              key={sel}
+              className={`${css.zoneTab}${idx === activeIdx ? ` ${css.zoneTabActive}` : ''}`}
+              onClick={() => onSelect(idx)}
+            >
+              <span>{labels[idx]}</span>
+              {onDelete && deletableSelectors.includes(sel) && (
+                <button
+                  className={css.zoneTabDelete}
+                  type="button"
+                  aria-label={`删除${labels[idx]}`}
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    onDelete(sel)
+                  }}
+                >
+                  <CloseOutlined />
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
       )}
       <Dropdown
         overlayClassName={css.zoneTabDropdown}
-        overlay={moreMenus}
+        overlay={moreOverlay}
       >
         <button
           className={css.moreBtn}

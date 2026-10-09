@@ -353,6 +353,14 @@
   height: 18px;
 }
 
+.zoneTabSingleTitle {
+  font-size: 13px;
+  font-weight: 500;
+  color: #000;
+  flex: 1;
+  margin-left: -4px;
+}
+
 .zoneTabDropdown {
   background: #fff;
   border-radius: 6px;
@@ -364,8 +372,18 @@
     box-shadow: none;
   }
 
-  :global(.ant-dropdown-menu-item) {
+  :global(.ant-dropdown-menu-item),
+  :global(.ant-dropdown-menu-submenu-title),
+  :global(.ant-menu-item) {
     font-size: 12px;
+  }
+
+  :global(.ant-dropdown-menu-submenu-expand-icon) {
+    display: none;
+  }
+
+  :global(.ant-dropdown-menu-submenu-title) {
+    padding-right: 12px;
   }
 }
 
