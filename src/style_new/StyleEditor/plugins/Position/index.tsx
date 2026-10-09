@@ -21,6 +21,8 @@ const EDITABLE_POSITIONS = new Set(['absolute', 'fixed', 'relative', 'sticky'])
 /** 自由定位：按钮高亮，可一键取消 */
 const FREE_POSITIONS = new Set(['absolute', 'fixed'])
 const POSITION_UNIT_OPTIONS = [
+  { label: '默认', value: 'default' },
+  {label: '', value: '—divider_', type: 'divider'},
   { label: 'px', value: 'px' },
   { label: '%', value: '%' },
 ]
@@ -87,7 +89,7 @@ function PositionInput({
   const dragValue = toInputValue(rawValue) ?? toInputValue(previewValue)
 
   const handleChange = useCallback((nextValue: string | null) => {
-    if (nextValue == null) {
+    if (nextValue == null || nextValue?.includes('default')) {
       onChange({ key: cssKey, value: null })
       return
     }
@@ -120,6 +122,7 @@ function PositionInput({
       defaultValue={toInputValue(rawValue)}
       defaultUnitValue='px'
       unitOptions={POSITION_UNIT_OPTIONS}
+      unitDisabledList={['default']}
       unitSelectStyle={POSITION_UNIT_SELECT_STYLE}
       placeholder=''
       allowNegative
