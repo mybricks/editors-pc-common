@@ -243,7 +243,14 @@ export function StyleMount({
     const resolution = getStyleResolution(zoneTab, target)
     const styleValues: Record<string, unknown> = { ...defaultValue, ...liveStyleRef.current }
     Object.entries(effectiveStyle || {}).forEach(([key, item]) => {
-      if (!(key in styleValues)) styleValues[key] = item.value ?? item.computedValue
+      // defaultValue 里每个字段的 key 都是提前占好位的，哪怕元素没配置这个样式，
+      // key 也在、只是值为 undefined。所以不能用「key 是否存在」判断要不要补值，
+      // 得看「这个值到底是不是空的」。否则像继承来的颜色这种只有 computedValue、
+      // 没有 value 的字段，会一直被当成「已经有值」，实际上面板会显示成没颜色。
+      const current = styleValues[key]
+      if (current == null || String(current).trim() === '') {
+        styleValues[key] = item.value ?? item.computedValue
+      }
     })
     Object.keys(styleValues).forEach(key => {
       const winner = resolution.get(key).winner
