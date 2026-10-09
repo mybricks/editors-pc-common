@@ -188,22 +188,35 @@
     position: relative;
 
     &:hover {
+      .back,
       .plus {
         visibility: visible;
       }
     }
 
+    .back,
     .plus {
       position: absolute;
       top: 2px;
-      right: 7px;
+      right: 2px;
       z-index: 1;
+      padding: 0 5px;
       cursor: pointer;
-      visibility: hidden;
+      background: rgba(204, 204, 204, 0.3);
+      height: 20px;
+      border-radius: 1px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      // visibility: hidden;
 
       &:hover {
         color: @color-primary;
       }
+    }
+
+    .back {
+      right: 27px;
     }
   }
 }

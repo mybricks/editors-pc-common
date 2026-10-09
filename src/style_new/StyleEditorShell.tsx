@@ -838,6 +838,7 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
     return (
       <CssEditor
         key={editorRemountKey}
+        onBackEditor={onEditModeClick}
         popView={(editConfig as any).popView}
         getDefaultOptions={editConfig.getDefaultOptions}
         editConfig={resolvedEditConfig}
