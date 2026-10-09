@@ -221,18 +221,18 @@ export function Position({ value: panelValue, onChange: fallbackOnChange, showTi
     setTopVal(`${offset.top}px`)
   }, [onChange, targetDom, value.height, value.width])
 
-  /** 取消自由定位：清理 position 及四个偏移属性 / zIndex */
+  /** 取消自由定位：伪类显式覆盖基础态定位，并清理四个偏移属性 / zIndex。 */
   const handleDeactivate = useCallback(() => {
     setOptimisticFree(false)
     onChange([
-      { key: 'position', value: null },
+      { key: 'position', value: isPseudoState ? 'static' : null },
       { key: 'top', value: null },
       { key: 'right', value: null },
       { key: 'bottom', value: null },
       { key: 'left', value: null },
       { key: 'zIndex', value: null },
     ])
-  }, [onChange])
+  }, [isPseudoState, onChange])
 
   return (
     <Panel
