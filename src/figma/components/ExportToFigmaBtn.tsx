@@ -339,7 +339,7 @@ export function ExportToFigmaBtn({ comEle, comId, fontfaces, getCanvasList }: Ex
         <button
           type="button"
           onClick={() => setComponentLibraryEnabled(prev => !prev)}
-          data-mybricks-tip={`{"content":"${componentLibraryEnabled ? '点击关闭变体库映射' : '点击开启变体库映射'}","position":"left"}`}
+          data-mybricks-tip={`{"content":"${componentLibraryEnabled ? '关闭变体库映射' : '开启变体库映射'}","position":"left"}`}
           style={{
             ...figmaButtonStyle,
             width: 28,
