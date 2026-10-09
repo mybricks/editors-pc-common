@@ -142,10 +142,12 @@ export function ZoneTabBar(props: {
 
   const isSingleNormalTab =
     selectors.length === 1 && !isPseudoSelector(selectors[0])
+  // 无 selector 时，只展示"常规样式"，不展示 MoreOutlined 按钮
+  const isNoSelector = selectors.length === 0
 
   return (
     <div className={css.zoneTabBar}>
-      {isSingleNormalTab ? (
+      {(isSingleNormalTab || isNoSelector) ? (
         <span className={css.zoneTabSingleTitle}>常规样式</span>
       ) : (
         <div className={css.zoneTabList}>
@@ -173,19 +175,21 @@ export function ZoneTabBar(props: {
           ))}
         </div>
       )}
-      <Dropdown
-        overlayClassName={css.zoneTabDropdown}
-        overlay={moreOverlay}
-      >
-        <button
-          className={css.moreBtn}
-          type="button"
-          aria-label="更多操作"
-          style={{ transform: 'rotate(90deg)' }}
+      {!isNoSelector && (
+        <Dropdown
+          overlayClassName={css.zoneTabDropdown}
+          overlay={moreOverlay}
         >
-          <MoreOutlined />
-        </button>
-      </Dropdown>
+          <button
+            className={css.moreBtn}
+            type="button"
+            aria-label="更多操作"
+            style={{ transform: 'rotate(90deg)' }}
+          >
+            <MoreOutlined />
+          </button>
+        </Dropdown>
+      )}
     </div>
   )
 }

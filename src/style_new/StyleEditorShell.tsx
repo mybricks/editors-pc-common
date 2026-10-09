@@ -949,7 +949,7 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
     } catch {}
   }
 
-  const showEditModeControl = affectedCount !== null && affectedCount > 1
+  const showEditModeControl = affectedCount !== null && affectedCount > 1 && zoneSelectorList.length > 0
 
   useEffect(() => {
     const hint = editModeHintRef.current
@@ -999,19 +999,17 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
             </div>
           </div>
         )}
-        {zoneSelectorList.length > 0 && (
-          <ZoneTabBar
-            selectors={zoneSelectorList}
-            labels={zoneTabs.map((tab) => tab.label || tab.selector)}
-            activeIdx={activeZoneIdx}
-            onSelect={onZoneTabSelect}
-            onAdd={onAddZoneTab}
-            addOptions={zoneTabAddOptions}
-            deletableSelectors={zoneTabs.filter((tab) => tab.isAdded).map((tab) => tab.selector)}
-            onDelete={onDeleteZoneTab}
-            moreMenus={title}
-          />
-        )}
+        <ZoneTabBar
+          selectors={zoneSelectorList}
+          labels={zoneTabs.map((tab) => tab.label || tab.selector)}
+          activeIdx={activeZoneIdx}
+          onSelect={onZoneTabSelect}
+          onAdd={zoneSelectorList.length > 0 ? onAddZoneTab : undefined}
+          addOptions={zoneTabAddOptions}
+          deletableSelectors={zoneTabs.filter((tab) => tab.isAdded).map((tab) => tab.selector)}
+          onDelete={onDeleteZoneTab}
+          moreMenus={title}
+        />
         {showEditModeControl && (
           <div
             className={`${css.editModeControl} ${
