@@ -38,7 +38,7 @@ function getSourceZoneClassName(element: Element): string | null {
  */
 function getZoneClassSelector(element: Element): string | null {
   const className = getSourceZoneClassName(element)
-  return className ? `.${className}` : null
+  return className && getRuntimeZoneClassSelector(element) ? `.${className}` : null
 }
 
 /** 将源码类名映射到当前 DOM 上经过 CSS Modules 编译的运行时类名。 */
