@@ -871,10 +871,10 @@ function applyStyleChangeInternal({
       ? (editConfig.options as any).targetDom ?? null
       : null
   const realTargetDom = (toElementArray(targetDom)[0] ?? null) as HTMLElement | null
-  const activeZoneTab: ZoneTab | null =
-    !Array.isArray(editConfig.options) && editConfig.options
-      ? (editConfig.options as any).zoneTab ?? null
-      : null
+  const editOptions = !Array.isArray(editConfig.options) ? editConfig.options : null
+  const activeZoneTab: ZoneTab | null = editOptions && !(editOptions as any).soloEdit
+    ? (editOptions as any).zoneTab ?? null
+    : null
   const zoneTabs: ZoneTab[] =
     !Array.isArray(editConfig.options) && editConfig.options
       ? (editConfig.options as any).zoneTabs ?? (activeZoneTab ? [activeZoneTab] : [])
@@ -1299,7 +1299,12 @@ function applyStyleChangeInternal({
     selector,
     writeLogContext
   )
-  write(finalCssProperties, setOptions)
+  if (editOptions && 'soloEdit' in editOptions && editOptions.soloEdit && typeof selector === 'string') {
+    // 单独编辑在源码重编译后可能仍持有旧 DOM；宿主回退 selector 时也要锁定 nth-child 规则。
+    withExplicitStyleSelector(selector, () => write(finalCssProperties, setOptions))
+  } else {
+    write(finalCssProperties, setOptions)
+  }
   ;(window as any).__mybricks_style_deletions = null
   const appliedKeys = applyStyleClearPlans(
     clearPlans,

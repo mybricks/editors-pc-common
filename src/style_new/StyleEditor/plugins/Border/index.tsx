@@ -372,6 +372,11 @@ const buildClearGradientBorderValue = (
 export function Border({ value, onChange: fallbackOnChange, config, showTitle, collapse }: BorderProps) {
   const context = useStyleEditorContext();
   const effectiveStyle = context?.effectiveStyle;
+  const editOptions = context?.editConfig?.options;
+  const isSoloEdit = !!(
+    editOptions && !Array.isArray(editOptions) &&
+    'soloEdit' in editOptions && editOptions.soloEdit
+  );
   const effectiveValue = useEffectiveStyleValue();
   const onChange = useStyleChange(fallbackOnChange);
   const targetDom = context?.targetDom ?? null;
@@ -401,6 +406,7 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
   const [previewValues, setPreviewValues] = useState<Record<string, string | undefined>>({});
   const [forceRenderKey, setForceRenderKey] = useState<number>(Math.random());
   const [borderColorEditorKey, setBorderColorEditorKey] = useState(0);
+  const colorEditorTargetRef = useRef(targetDom);
   const getDragPropsBorder = useDragNumber({ continuous: true });
 
   // ── 边框宽度 CSS 变量绑定 ────────────────────────────────────────────────────
@@ -556,9 +562,13 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
     setBorderValue(next);
     setPreviewValues({});
     setBorderPosition(nextPosition);
-    setBorderToggleValue(getBorderToggleDefaultValue(next));
-    setBorderColorEditorKey((key) => key + 1);
-  }, [targetDom, defaultBorderValue]);
+    const targetChanged = colorEditorTargetRef.current !== targetDom;
+    colorEditorTargetRef.current = targetDom;
+    if (!isSoloEdit || targetChanged) {
+      setBorderToggleValue(getBorderToggleDefaultValue(next));
+      setBorderColorEditorKey((key) => key + 1);
+    }
+  }, [targetDom, defaultBorderValue, isSoloEdit]);
 
   const refresh = useCallback(() => {
     const current = borderValueRef.current;

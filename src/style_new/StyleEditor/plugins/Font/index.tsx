@@ -349,6 +349,10 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
   ].some((item) => typeof item?.value === 'string' && /^unset$/i.test(item.value.trim()));
   const familyConfigured = isEffectiveStyleConfigured(effectiveStyle?.fontFamily);
   const editConfig = context?.editConfig;
+  const isSoloEdit = !!(
+    editConfig?.options && !Array.isArray(editConfig.options) &&
+    'soloEdit' in editConfig.options && editConfig.options.soloEdit
+  );
   const { targetDom, variableOptions: canvasColorVariables } = useCanvasColorVariables();
   const options = editConfig?.options;
   const zoneTab = options && !Array.isArray(options) && 'zoneTab' in options ? options.zoneTab : null;
@@ -440,9 +444,11 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
     effectiveStyle?.color?.computedValue ??
     (colorDisplayField.displaySource === 'normal-computed' ? colorDisplayField.computedPreview : undefined)
   ) as string | undefined;
-  const textFillEditorKey = `${isTextFillActive(value as Record<string, any>)
+  const textFillMode = isTextFillActive(value as Record<string, any>)
     ? "text-fill-gradient"
-    : "text-fill-solid"}-${textFillValue}-${textFillComputedColor ?? ""}-${textFillEditorRevision}`;
+    : "text-fill-solid";
+  let textFillEditorKey = `${textFillMode}-${textFillValue}-${textFillComputedColor ?? ""}-${textFillEditorRevision}`;
+  if (isSoloEdit) textFillEditorKey = `text-fill-solo-${textFillEditorRevision}`;
 
   useEffect(() => {
     textFillStyleRef.current = value as Record<string, any>;
@@ -451,8 +457,8 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
     );
     setPendingTextFillDefault(false);
     setTextFillPreviewColor(undefined);
-    setTextFillEditorRevision((revision) => revision + 1);
-  }, [targetDom, effectiveStyle, colorConfigured, value.color, value.backgroundImage, value.backgroundColor]);
+    if (!isSoloEdit) setTextFillEditorRevision((revision) => revision + 1);
+  }, [targetDom, effectiveStyle, colorConfigured, value.color, value.backgroundImage, value.backgroundColor, isSoloEdit]);
 
   const [fontFamilyAuthored, setFontFamilyAuthored] = useState(() =>
     familyConfigured

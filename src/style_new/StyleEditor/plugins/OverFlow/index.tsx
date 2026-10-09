@@ -22,8 +22,8 @@ const VALUE_OPTIONS = [
   // {label: '默认', value: 'unset'},
   { label: '自动', value: 'auto' },
   { label: '显示滚动条', value: 'scroll' },
-  { label: '隐藏内容', value: 'hidden' },
-  { label: '显示内容', value: 'visible' }
+  { label: '隐藏', value: 'hidden' },
+  { label: '显示', value: 'visible' }
 ];
 
 const OVERFLOW_KEYS = ['overflow', 'overflowX', 'overflowY'] as const
@@ -111,6 +111,7 @@ export const OverFlow = ({ value: fallbackValue, onChange: fallbackOnChange, sho
           {OVERFLOW_AXIS_KEYS.map((key, index) => (
             <Select
               key={key}
+              style={{ flex: 1, minWidth: 0, padding: '0 8px' }}
               prefix={
                 <span className={css.tip} data-mybricks-tip={axisTips[index]}>
                   {index === 0 ? '水平' : '垂直'}
