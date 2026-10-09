@@ -69,7 +69,7 @@ export function Cursor ({onChange: fallbackOnChange, config, showTitle, collapse
       <Panel.Content>
         <React.Fragment key={forceRenderKey}>
           <Select
-            style={{padding: 0}}
+            style={{padding: 0, paddingRight: 12 }}
             value={isReset ? undefined : cursorValue}
             options={options}
             tip={tip}
