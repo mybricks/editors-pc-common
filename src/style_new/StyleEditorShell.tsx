@@ -437,7 +437,9 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
               // 同时需要 explicit_selector side-channel，否则宿主重编译后会忽略 selector option
               // 回退到面板原始 selector，导致基础规则（如 .featureTag{}）的属性被误删。
               ;(window as any).__mybricks_style_explicit_selector = savedRule.selector
-              ;(window as any).__mybricks_style_deletions = Object.keys(soloStyle)
+              ;(window as any).__mybricks_style_deletions = Array.from(new Set([
+                ...Object.keys(soloStyle), ...savedRule.declarationKeys,
+              ]))
               try {
                 editConfig.value.set({}, { selector: savedRule.selector })
               } finally {

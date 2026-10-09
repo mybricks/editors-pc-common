@@ -1,4 +1,5 @@
-import { getShorthandFamily } from './style-shorthand-groups'
+import { getShorthandFamily, STYLE_SHORTHANDS, stylePropertyKey } from './style-shorthand-groups'
+import { expandFourShorthand } from './shorthand-normalizer'
 import { cssPropertyName } from './style-property'
 
 export type PendingSoloValue = {
@@ -22,6 +23,17 @@ export function recordPendingSoloValues(
     const normalizedValue = nextStyle[key]
     if (normalizedValue !== undefined) {
       pending.set(key, { value: normalizedValue, sourceKey: key, sourceValue: normalizedValue })
+      // 圆角和间距简写同时覆盖四个方向的待回写值，避免旧长写把面板重新同步成单独配置。
+      if (key === 'borderRadius' || key === 'margin' || key === 'padding') {
+        const expanded = expandFourShorthand(normalizedValue)
+        if (expanded) {
+          STYLE_SHORTHANDS[cssPropertyName(key)].forEach((property, index) => {
+            pending.set(stylePropertyKey(property), {
+              value: expanded[index], sourceKey: key, sourceValue: normalizedValue,
+            })
+          })
+        }
+      }
       return
     }
 
