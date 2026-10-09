@@ -409,7 +409,7 @@ export function InputNumber ({
         unitHideLabelList.includes(renderedUnit)
       const unitSelect = (
         <Select
-            tip='单位'
+            // tip='单位'
             style={{ padding: 0, fontSize: 10, marginLeft: clearable ? 0 : undefined, ...unitSelectStyle }}
             value={renderedUnit}
             options={menuOptions}
