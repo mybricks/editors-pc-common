@@ -2,7 +2,7 @@ import React, { CSSProperties, useCallback, useRef } from "react";
 import { InputNumber } from "../../../components";
 import { useStyleEditorContext } from "../../../context";
 import Icon from "../Icon";
-import { useDragNumber } from "../../../hooks";
+import { useDragNumber, useLengthInputDrag, useStyleDisplayValue } from "../../../hooks";
 import styles from "./index.less";
 
 type Value = Partial<{
@@ -55,7 +55,12 @@ function getComputedGapValue(
 
 export default ({ value, cleared, onChange, flexDirection }: GapProps) => {
   const getDragProps = useDragNumber({ continuous: true });
-  const targetDom = useStyleEditorContext()?.targetDom;
+  const context = useStyleEditorContext();
+  const options = context?.editConfig.options;
+  const pseudo = options && !Array.isArray(options) && "zoneTab" in options ? options.zoneTab?.pseudo : null;
+  const isPseudoState = !!pseudo && !pseudo.startsWith("::");
+  const rowGapField = useStyleDisplayValue("rowGap");
+  const columnGapField = useStyleDisplayValue("columnGap");
   // 失焦提交和点击清除可能连续发生在同一轮渲染中，不能让清除回调
   // 捕获上一次 render 的 value，否则会把刚提交的间距再次写回。
   const valueRef = useRef(value);
@@ -64,8 +69,12 @@ export default ({ value, cleared, onChange, flexDirection }: GapProps) => {
   const handleGapChange = useCallback((name: GapKey, next: string | null) => {
     const nextValue = getGapChange(valueRef.current, name, next);
     valueRef.current = nextValue;
-    onChange(nextValue);
-  }, [onChange]);
+    // 伪类只提交本次编辑的轴，避免把另一轴的常规态预览写成配置。
+    onChange(isPseudoState ? { [name]: next } : nextValue);
+  }, [onChange, isPseudoState]);
+
+  const getRowPreviewDragProps = useLengthInputDrag(rowGapField.computedPreview, next => handleGapChange("rowGap", next));
+  const getColumnPreviewDragProps = useLengthInputDrag(columnGapField.computedPreview, next => handleGapChange("columnGap", next));
 
   const renderInput = (
     name: "rowGap" | "columnGap",
@@ -73,23 +82,30 @@ export default ({ value, cleared, onChange, flexDirection }: GapProps) => {
     iconName: "column-gap" | "row-gap",
     title: string,
   ) => {
-    // const isDefault = !!cleared?.[name] || inputValue == null || inputValue === "";
-    // const computedValue = getComputedGapValue(targetDom, name, inputValue);
+    const field = name === "rowGap" ? rowGapField : columnGapField;
+    // 当前态声明和只读预览直接随 Context 更新，不受旧 model/cleared 标记影响。
+    inputValue = isPseudoState ? field.configuredValue : cleared?.[name] ? null : inputValue;
+    // 未设置间距时浏览器返回 normal，沿用常规态的空白显示。
+    const previewValue = isPseudoState && field.computedPreview !== "normal" ? field.computedPreview : undefined;
+    const dragProps = previewValue != null
+      ? name === "rowGap" ? getRowPreviewDragProps : getColumnPreviewDragProps
+      : getDragProps;
 
     return (
       <div className={styles.input}>
         <InputNumber
           type="number"
           prefix={
-            <div {...getDragProps(inputValue, `拖拽调整${title}`)}>
+            <div {...dragProps(inputValue ?? previewValue, `拖拽调整${title}`)}>
               <Icon name={iconName} />
             </div>
           }
           tip={title}
           placeholder=""
           style={{ padding: "0 8px" }}
-          value={toInputValue(cleared?.[name] ? null : inputValue)}
-          defaultValue={toInputValue(cleared?.[name] ? null : inputValue)}
+          value={toInputValue(inputValue)}
+          defaultValue={toInputValue(inputValue)}
+          previewValue={previewValue}
           defaultUnitValue="px"
           unitOptions={PX_UNIT_OPTIONS}
           // 0 也是有效回显值，需要保留“默认”入口；空值时公共组件会自动隐藏入口。

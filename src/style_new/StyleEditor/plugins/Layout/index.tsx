@@ -1,4 +1,4 @@
-import React, { CSSProperties, useCallback, useEffect, useLayoutEffect, useState } from "react";
+import React, { CSSProperties, useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import Direction from "./Direction";
 import AlignItems from "./AlignItems";
 import JustifyContent from "./JustifyContent";
@@ -9,6 +9,9 @@ import { Panel } from "../../components";
 import type { ChangeEvent, PanelBaseProps } from "../../type";
 import { useEffectiveStyleValue, useStyleChange, useStyleEditorContext } from "../../context";
 import { useStyleDisplayValue } from "../../hooks/useStyleDisplayValue";
+import { toElementArray } from "../../../core/dom";
+import { createStyleResolution } from "../../../core/style-property";
+import { collectZoneTabs, excludeSoloSources, mergeZoneTabsByState } from "../../../core/zone-tab";
 import styles from "./index.less";
 
 interface LayoutEditorProps extends PanelBaseProps {
@@ -122,10 +125,27 @@ export function Layout({ value: panelValue, onChange: fallbackOnChange, showTitl
   const justifyField = useStyleDisplayValue('justifyContent');
   const wrapField = useStyleDisplayValue('flexWrap');
   const overflowField = useStyleDisplayValue('overflow');
+  const inlineDisplayPreview = useMemo(() => {
+    const target = context?.targetDom;
+    if (!zoneTab?.pseudo || zoneTab.pseudo.startsWith('::') || displayField.hasDeclaration ||
+      !target?.isConnected || !options || Array.isArray(options)) return undefined;
+    // computed 会将 flex/grid 子项的 inline-flex 等块化；只为 Layout 读取最新声明，不改动共享 Tab。
+    const targets = 'targetDom' in options ? toElementArray(options.targetDom) : [target];
+    const selectors = Array.from(new Set([
+      zoneTab.baseSelector,
+      ...targets.flatMap(element => Array.from(element.classList, name => '.' + name)),
+    ]));
+    const baseTab = mergeZoneTabsByState(collectZoneTabs(targets, selectors, options.comId)).find(tab => !tab.pseudo);
+    if (!baseTab) return undefined;
+    const value = createStyleResolution(
+      excludeSoloSources(baseTab, zoneTab.excludedSourceSelectors ?? []), target
+    ).get('display').winner?.value;
+    return /^inline(?:-|$)/.test(value || '') ? value : undefined;
+  }, [context, zoneTab, options, displayField.hasDeclaration]);
   // 预览仅用于展示模型，不进入 editValue、重置属性列表或样式写入。
   const previewValue = zoneTab?.pseudo && !zoneTab.pseudo.startsWith('::')
     ? Object.fromEntries(Object.entries({
-        display: displayField.computedPreview,
+        display: inlineDisplayPreview ?? displayField.computedPreview,
         position: positionField.computedPreview,
         flexDirection: directionField.computedPreview,
         alignItems: alignField.computedPreview,
