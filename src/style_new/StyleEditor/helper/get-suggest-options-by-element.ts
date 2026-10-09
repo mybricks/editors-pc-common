@@ -20,8 +20,7 @@ export function getSuggestOptionsByElement(selectDom: HTMLElement): { type: stri
     const hasIconChild = !!selectDom.querySelector('svg, .anticon, [role="img"]');
     const isImgElement = ['IMG', 'IMAGE'].includes(selectDom.tagName.toUpperCase());
     const isIconElement = selectDom.matches('svg, .anticon, [role="img"]');
-    const isIconOnlyElement = !hasText && hasIconChild;
-    const shouldHideFont = isImgElement || isIconElement || isIconOnlyElement;
+    const shouldHideFont = isImgElement || isIconElement;
     const fontOption = shouldHideFont ? void 0 : {
       type: 'font',
       config: {
