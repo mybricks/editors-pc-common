@@ -594,12 +594,15 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
     ? `${defaultLineHeightPx}px`
     : lineHeight;
 
-  const letterSpacingPreview = getFontPreview('letterSpacing', letterSpacingField.computedPreview);
+  // 常规态和伪类态共用只读预览格式化；px/normal 沿用数值展示，其他单位和变量保留原样。
+  const letterSpacingPreviewSource = getFontPreview('letterSpacing', letterSpacingField.computedPreview)
+    ?? effectiveStyle?.letterSpacing?.computedValue;
+  const letterSpacingPreviewPx = getComputedCssLengthPx(undefined, 0, letterSpacingPreviewSource);
+  const letterSpacingPreview = Number.isFinite(letterSpacingPreviewPx)
+    ? `${letterSpacingPreviewPx}px`
+    : letterSpacingPreviewSource;
   const defaultLetterSpacingPx = getComputedCssLengthPx(effectiveStyle?.letterSpacing, 0, letterSpacingField.computedPreview);
   const letterSpacingUnconfigured = !isConfiguredCssLength(letterSpacing);
-  const letterSpacingDisplayValue = letterSpacingPreview ? letterSpacing : letterSpacingUnconfigured && Number.isFinite(defaultLetterSpacingPx)
-    ? `${defaultLetterSpacingPx}px`
-    : letterSpacing;
 
   const [truncateLines, setTruncateLines] = useState<number>(() => {
     const clamp = (value as any).webkitLineClamp;
@@ -1361,7 +1364,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
                   ? letterSpacingVar.dragProps('拖拽调整字间距（将解除变量绑定）')
                   : getDragPropsLetterSpacing(
                       letterSpacingUnconfigured
-                        ? `${defaultLetterSpacingPx}px`
+                        ? letterSpacingPreview
                         : letterSpacing,
                       '拖拽调整字间距'
                     ))}
@@ -1382,7 +1385,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
                   tip: '字间距',
                   type: "number",
                   style: { flex: 1, minWidth: 0, marginLeft: 4 },
-                  value: letterSpacingDisplayValue,
+                  value: letterSpacing,
                   previewValue: letterSpacingUnconfigured ? letterSpacingPreview : undefined,
                   placeholder: '',
                   defaultUnitValue: "px",
