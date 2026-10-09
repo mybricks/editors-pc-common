@@ -121,9 +121,8 @@ function getLayerLabel(layer: BgLayer): string {
   const varName = parseCssVar(layer.value)?.varName;
   if (varName) return varName;
   try {
-    const c = new ColorUtil(layer.value);
-    const hex = c.alpha() === 1 ? c.hex() : c.hexa();
-    return hex.toUpperCase();
+    // 不透明度由右侧百分比单独展示，颜色标签始终显示六位 RGB。
+    return new ColorUtil(layer.value).hex().toUpperCase();
   } catch {
     return layer.value || "纯色";
   }

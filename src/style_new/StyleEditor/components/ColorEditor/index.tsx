@@ -455,8 +455,8 @@ export function ColorEditor({
     const candidate = resolvedVarColor || resolvedColor || state.finalValue || state.value;
     if (!candidate) return '';
     try {
-      const color = new ColorUtil(candidate);
-      return (color.alpha() === 1 ? color.hex() : color.hexa()).toUpperCase();
+      // 继承色回显与普通颜色输入一致，只展示六位 RGB，保留原始色值中的不透明度。
+      return new ColorUtil(candidate).hex().toUpperCase();
     } catch {
       return String(candidate || '');
     }
