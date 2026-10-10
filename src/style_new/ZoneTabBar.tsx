@@ -1,6 +1,6 @@
 import React, { ReactElement, useMemo } from 'react'
 import { Dropdown, Menu } from 'antd'
-import { CloseOutlined, QuestionCircleOutlined } from '@ant-design/icons'
+import { CloseOutlined } from '@ant-design/icons'
 import { MoreOutlined } from './StyleEditor/components/Icon'
 
 import css from './index.less'
@@ -116,11 +116,6 @@ export function ZoneTabBar(props: {
         title={
           <span style={{ fontWeight: 'normal', display: 'inline-flex', alignItems: 'center' }}>
             添加状态
-            <QuestionCircleOutlined
-              onClick={(e) => e.stopPropagation()}
-              style={{ marginLeft: 4, color: '#8c8c8c', fontSize: 12, verticalAlign: 'middle' }}
-              data-mybricks-tip={JSON.stringify({ content: '<span style="display:block;text-align:center">为该元素添加悬浮、激活、聚焦、禁用状态下的样式</span>', position: 'left' })}
-            />
           </span>
         }
       >

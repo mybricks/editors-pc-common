@@ -250,6 +250,7 @@
   gap: 4px;
   margin: 4px 1px 6px 6px;
   position: relative;
+  padding-right: 3px;
 }
 
 .zoneTabList {
@@ -366,10 +367,18 @@
   border-radius: 6px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 
+  &:global(.ant-dropdown-menu),
   :global(.ant-dropdown-menu) {
+    padding: 0;
     background: #fff;
     border-radius: 6px;
     box-shadow: none;
+  }
+
+  &:global(.ant-dropdown-menu-submenu-popup) ul,
+  :global(.ant-dropdown-menu-submenu-popup ul) {
+    margin-right: 0;
+    margin-left: 0;
   }
 
   :global(.ant-dropdown-menu-item),
@@ -378,13 +387,20 @@
     font-size: 12px;
   }
 
-  :global(.ant-dropdown-menu-submenu-expand-icon) {
-    display: none;
+  :global(.ant-dropdown-menu-item:hover),
+  :global(.ant-dropdown-menu-submenu-title:hover),
+  :global(.ant-menu-item:hover) {
+    background-color: rgba(82,49,253,.2);
+    color: #864cf3;
   }
 
-  :global(.ant-dropdown-menu-submenu-title) {
-    padding-right: 12px;
+  :global(.ant-dropdown-menu-submenu-expand-icon) {
+    transform: translateY(-0.5px);
   }
+
+  // :global(.ant-dropdown-menu-submenu-title) {
+  //   padding-right: 12px;
+  // }
 }
 
 .affectedHint {
