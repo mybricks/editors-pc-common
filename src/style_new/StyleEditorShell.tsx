@@ -103,6 +103,16 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
   const [titleContent, setTitleContent] = useState('')
   const [targetStyle, setTargetStyle] = useState<any>(null)
 
+  useMemo(() => {
+    // 暂时兼容 editConfig.options.selector 值不对的情况
+    if (editConfig && editConfig.options && editConfig.options.targetDom instanceof Element) {
+      if (editConfig.options.targetDom?.dataset.zoneSelector) {
+        const originSelectorString = editConfig.options.targetDom?.dataset.zoneSelector
+        editConfig.options.selector = `[data-zone-selector='${originSelectorString}']`
+      }
+    }
+  }, [editConfig])
+
   const [{ finalOpen, finalDisabledSwitch, finalSelector }, canvasEle] = useMemo(() => {
     return [
       getDefaultConfiguration2(editConfig),
