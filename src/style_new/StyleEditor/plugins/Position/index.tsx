@@ -10,6 +10,7 @@ import { createStyleResolution } from '../../../core/style-property'
 import type { ChangeEvent, PanelBaseProps } from '../../type'
 
 import css from './index.less'
+import lang from '../../../index.i18n'
 
 interface PositionProps extends PanelBaseProps {
   value: CSSProperties
@@ -113,7 +114,7 @@ function PositionInput({
       style={{ flex: 1, minWidth: 0, paddingRight: '6px' }}
       prefix={(
         <span
-          {...(!isLocked ? dragProps(dragValue, `拖拽调整 ${label}`) : {})}
+          {...(!isLocked ? dragProps(dragValue, `${lang.dragPosition} ${label}`) : {})}
           className={`${css.dragLabel} ${isLocked ? css.dragLabelDisabled : ''}`}
         >
           {label}
@@ -242,26 +243,26 @@ export function Position({ value: panelValue, onChange: fallbackOnChange, showTi
 
   return (
     <Panel
-      title='位置'
+      title={lang.positionPanelTitle}
       showTitle={false}
       showDelete={false}
       collapse={false}
       // keepTopBorder={!isFreePosition}
     >
       <div className={css.headerRow}>
-        {showTitle !== false && <div className={css.title}>位置</div>}
+        {showTitle !== false && <div className={css.title}>{lang.positionPanelTitle}</div>}
         <div className={css.modeSwitch}>
           <div
             className={`${css.modeOption} ${!isFreePosition ? css.modeOptionActive : ''}`}
             onClick={() => { if (isFreePosition) handleDeactivate() }}
           >
-            默认
+            {lang.positionDefault}
           </div>
           <div
             className={`${css.modeOption} ${isFreePosition ? css.modeOptionActive : ''}`}
             onClick={() => { if (!isFreePosition) handleActivate() }}
           >
-            自由定位
+            {lang.positionAbsolute}
           </div>
         </div>
       </div>
@@ -269,7 +270,7 @@ export function Position({ value: panelValue, onChange: fallbackOnChange, showTi
         <>
           <Panel.Content>
             <PositionInput
-              label='上'
+              label={lang.positionTopLabel}
               tip='相对顶部定位'
               rawValue={topVal}
               previewValue={isPseudoState ? offsetPreview ? offsetPreview.top : topField.computedPreview : undefined}
@@ -279,7 +280,7 @@ export function Position({ value: panelValue, onChange: fallbackOnChange, showTi
               onActivate={handleActivate}
             />
             <PositionInput
-              label='右'
+              label={lang.positionRightLabel}
               tip='相对右侧定位'
               rawValue={rightVal}
               previewValue={isPseudoState ? offsetPreview ? offsetPreview.right : rightField.computedPreview : undefined}
@@ -291,7 +292,7 @@ export function Position({ value: panelValue, onChange: fallbackOnChange, showTi
           </Panel.Content>
           <Panel.Content>
             <PositionInput
-              label='下'
+              label={lang.positionBottomLabel}
               tip='相对底部定位'
               rawValue={bottomVal}
               previewValue={isPseudoState ? offsetPreview ? offsetPreview.bottom : bottomField.computedPreview : undefined}
@@ -301,7 +302,7 @@ export function Position({ value: panelValue, onChange: fallbackOnChange, showTi
               onActivate={handleActivate}
             />
             <PositionInput
-              label='左'
+              label={lang.positionLeftLabel}
               tip='相对左侧定位'
               rawValue={leftVal}
               previewValue={isPseudoState ? offsetPreview ? offsetPreview.left : leftField.computedPreview : undefined}

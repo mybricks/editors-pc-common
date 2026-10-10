@@ -2,6 +2,7 @@ import React, { CSSProperties, useEffect, useMemo } from "react";
 import Icon from "../Icon";
 import { Layout } from "../types";
 import styles from "./index.less";
+import lang from '../../../../index.i18n'
 
 export interface AlignItemsProps {
   defaultDirection?: Layout[];
@@ -14,22 +15,22 @@ export interface AlignItemsProps {
 
 const defaultFlexFlow = [
   {
-    title: "默认",
+    title: lang.directionNone,
     value: "default",
     render: () => <Icon name="smart" />,
   },
   {
-    title: "内联",
+    title: lang.directionInline,
     value: "inline",
     render: () => <Icon className={styles.inlineIcon} name="inline" />,
   },
   {
-    title: "纵向排版",
+    title: lang.directionColumn,
     value: "column",
     render: () => <Icon name="column-direction" />,
   },
   {
-    title: "横向排版",
+    title: lang.directionRow,
     value: "row",
     render: () => <Icon name="row-direction" />,
   },

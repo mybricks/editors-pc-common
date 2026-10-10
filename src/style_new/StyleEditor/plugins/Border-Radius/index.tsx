@@ -18,6 +18,7 @@ import { useStyleDisplayValue } from '../../hooks/useStyleDisplayValue'
 import { expandFourShorthand } from '../../../core/shorthand-normalizer'
 import type { ChangeEvent, PanelBaseProps } from '../../type'
 import css from './index.less'
+import lang from '../../../index.i18n'
 
 interface BorderRadiusProps extends PanelBaseProps {
   value: CSSProperties
@@ -28,7 +29,7 @@ const UNIT_OPTIONS = [
   { label: 'px', value: 'px' },
   { label: '%', value: '%' },
 ]
-const DEFAULT_UNIT_OPTION = { label: '默认', value: 'default' }
+const DEFAULT_UNIT_OPTION = { label: lang.defaultLabel, value: 'default' }
 const DEFAULT_UNIT_DIVIDER = { label: '', value: '__borderRadiusDefaultDivider__', type: 'divider' as const }
 const UNIT_DISABLED_LIST = ['default']
 const DEFAULT_STYLE = { padding: 0, fontSize: 10, minWidth: 71, marginLeft: 4 }
@@ -232,10 +233,10 @@ export function BorderRadius({ value, onChange: fallbackOnChange, config, collap
   const renderInput = (binding: ReturnType<typeof useLengthVarBinding>, icon: React.ReactNode, key: typeof RADIUS_KEYS[number], tip: string, rawValue: unknown, style: CSSProperties) => (
     <>
       <div className={css.icon} ref={binding.anchorRef} {...(binding.varRef
-        ? binding.dragProps(`拖拽调整${tip}（将解除变量绑定）`)
+        ? binding.dragProps(`${lang.dragAdjust} ${tip}${lang.dragUnbindSuffix}`)
         : (rawValue == null || rawValue === '') && radiusPreview[key]
-          ? splitDragProps[key](radiusPreview[key], `拖拽调整${tip}`)
-          : getConfiguredDragProps(rawValue, `拖拽调整${tip}`))}>{icon}</div>
+          ? splitDragProps[key](radiusPreview[key], `${lang.dragAdjust} ${tip}`)
+          : getConfiguredDragProps(rawValue, `${lang.dragAdjust} ${tip}`))}>{icon}</div>
       <VariableNumberInput
         binding={binding}
         chipStyle={CHIP_STYLE}
@@ -268,18 +269,18 @@ export function BorderRadius({ value, onChange: fallbackOnChange, config, collap
       <Panel.Content style={{ padding: 3 }}>
         <Panel.Item className={css.editArea} style={{ padding: '0 8px' }}>
           <div className={css.icon} ref={radiusAllVar.anchorRef} {...(radiusAllVar.varRef
-            ? radiusAllVar.dragProps('拖拽调整圆角（将解除变量绑定）')
+            ? radiusAllVar.dragProps(`${lang.dragAdjust} ${lang.radiusTip}${lang.dragUnbindSuffix}`)
             : (radiusValue.borderTopLeftRadius == null || radiusValue.borderTopLeftRadius === '') && unifiedPreview
-              ? getUnifiedDragProps(unifiedPreview, '拖拽调整圆角半径')
-              : getConfiguredDragProps(radiusValue.borderTopLeftRadius, '拖拽调整圆角半径'))}><BorderRadiusSplitOutlined /></div>
+              ? getUnifiedDragProps(unifiedPreview, `${lang.dragAdjust} ${lang.radiusTip}`)
+              : getConfiguredDragProps(radiusValue.borderTopLeftRadius, `${lang.dragAdjust} ${lang.radiusTip}`))}><BorderRadiusSplitOutlined /></div>
           <VariableNumberInput
             binding={radiusAllVar}
             chipStyle={CHIP_STYLE}
             inputProps={{
-              tip: '圆角半径', style: DEFAULT_STYLE, defaultValue: radiusValue.borderTopLeftRadius,
+              tip: lang.radiusTip, style: DEFAULT_STYLE, defaultValue: radiusValue.borderTopLeftRadius,
               value: radiusValue.borderTopLeftRadius,
               previewValue: unifiedPreview,
-              placeholder: mixedPreview ? '混合' : '', defaultUnitValue: 'px', hideUnitWhenEmpty: true,
+              placeholder: mixedPreview ? lang.mixedPlaceholder : '', defaultUnitValue: 'px', hideUnitWhenEmpty: true,
               unitOptions: withDefaultUnitOption(unitOptions, !!allRadiusClear.clear),
               unitDisabledList: UNIT_DISABLED_LIST,
               clearable: !!allRadiusClear.clear,
@@ -303,8 +304,8 @@ export function BorderRadius({ value, onChange: fallbackOnChange, config, collap
     content = (
     <div className={css.independentBox}>
       <div style={{ minWidth: 120, flex: 1 }}>
-        <div className={css.row} style={{ paddingRight: 0 }}><Panel.Content style={{ padding: 3 }}><Panel.Item className={css.editArea} style={{ padding: '0 8px' }}>{renderInput(topLeftVar, <BorderTopLeftRadiusOutlined />, 'borderTopLeftRadius', '左上圆角', radiusValue.borderTopLeftRadius, DEFAULT_STYLE_NEW)}</Panel.Item></Panel.Content><Panel.Content style={{ padding: 3 }}><Panel.Item className={css.editArea} style={{ padding: '0 8px' }}>{renderInput(topRightVar, <BorderTopRightRadiusOutlined />, 'borderTopRightRadius', '右上圆角', radiusValue.borderTopRightRadius, DEFAULT_STYLE_NEW)}</Panel.Item></Panel.Content></div>
-        <div className={css.row} style={{ paddingRight: 0 }}><Panel.Content style={{ padding: 3 }}><Panel.Item className={css.editArea} style={{ padding: '0 8px' }}>{renderInput(bottomLeftVar, <BorderBottomLeftRadiusOutlined />, 'borderBottomLeftRadius', '左下圆角', radiusValue.borderBottomLeftRadius, DEFAULT_STYLE_NEW)}</Panel.Item></Panel.Content><Panel.Content style={{ padding: 3 }}><Panel.Item className={css.editArea} style={{ padding: '0 8px' }}>{renderInput(bottomRightVar, <BorderBottomRightRadiusOutlined />, 'borderBottomRightRadius', '右下圆角', radiusValue.borderBottomRightRadius, DEFAULT_STYLE_NEW)}</Panel.Item></Panel.Content></div>
+        <div className={css.row} style={{ paddingRight: 0 }}><Panel.Content style={{ padding: 3 }}><Panel.Item className={css.editArea} style={{ padding: '0 8px' }}>{renderInput(topLeftVar, <BorderTopLeftRadiusOutlined />, 'borderTopLeftRadius', lang.topLeftRadiusLabel, radiusValue.borderTopLeftRadius, DEFAULT_STYLE_NEW)}</Panel.Item></Panel.Content><Panel.Content style={{ padding: 3 }}><Panel.Item className={css.editArea} style={{ padding: '0 8px' }}>{renderInput(topRightVar, <BorderTopRightRadiusOutlined />, 'borderTopRightRadius', lang.topRightRadiusLabel, radiusValue.borderTopRightRadius, DEFAULT_STYLE_NEW)}</Panel.Item></Panel.Content></div>
+        <div className={css.row} style={{ paddingRight: 0 }}><Panel.Content style={{ padding: 3 }}><Panel.Item className={css.editArea} style={{ padding: '0 8px' }}>{renderInput(bottomLeftVar, <BorderBottomLeftRadiusOutlined />, 'borderBottomLeftRadius', lang.bottomLeftRadiusLabel, radiusValue.borderBottomLeftRadius, DEFAULT_STYLE_NEW)}</Panel.Item></Panel.Content><Panel.Content style={{ padding: 3 }}><Panel.Item className={css.editArea} style={{ padding: '0 8px' }}>{renderInput(bottomRightVar, <BorderBottomRightRadiusOutlined />, 'borderBottomRightRadius', lang.bottomRightRadiusLabel, radiusValue.borderBottomRightRadius, DEFAULT_STYLE_NEW)}</Panel.Item></Panel.Content></div>
       </div>
     </div>
     )
@@ -320,7 +321,7 @@ export function BorderRadius({ value, onChange: fallbackOnChange, config, collap
   }
   return (
     <Panel
-      title='圆角'
+      title={lang.radiusPanelTitle}
       showTitle={true}
       collapse={collapse}
       showReset={canReset}
@@ -333,8 +334,8 @@ export function BorderRadius({ value, onChange: fallbackOnChange, config, collap
           <div
             className={`${css.rightColumnBtn} ${radiusToggleValue === 'split' ? css.independentActionIcon : ''}`}
             data-mybricks-tip={toggleTo === 'split'
-              ? "{content:'切换为单独配置',position:'left'}"
-              : "{content:'切换为统一配置',position:'left'}"}
+              ? `{content:'${lang.toggleSplitTip}',position:'left'}`
+              : `{content:'${lang.toggleUnifiedTip}',position:'left'}`}
             onClick={handleToggle}
           >
             <BorderRadiusSplitOutlined />

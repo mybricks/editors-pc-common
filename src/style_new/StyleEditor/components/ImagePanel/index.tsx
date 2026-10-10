@@ -1,6 +1,7 @@
 import React, { useRef, useState, useCallback } from "react";
 import { Input, Select } from "../";
 import { ExtractBackground } from "../Image/ExtractBackground";
+import lang from "../../../index.i18n";
 
 import css from "./index.less";
 
@@ -8,27 +9,27 @@ import css from "./index.less";
 const DEFAULT_IMAGE = '';
 
 const BACKGROUND_SIZE_OPTIONS = [
-  { label: "填充（无留白）", value: "cover" },
-  { label: "适应（有留白）", value: "contain" },
-  { label: "拉伸", value: "100% 100%" },
-  { label: "原始大小", value: "auto" },
+  { label: lang.imgSizeCover, value: "cover" },
+  { label: lang.imgSizeContain, value: "contain" },
+  { label: lang.imgSizeStretch, value: "100% 100%" },
+  { label: lang.imgSizeOriginal, value: "auto" },
 ];
 
 const BACKGROUND_REPEAT_OPTIONS = [
-  { label: '平铺', value: 'repeat' },
-  { label: '不平铺', value: 'no-repeat' }
+  { label: lang.imgRepeatOn, value: 'repeat' },
+  { label: lang.imgRepeatOff, value: 'no-repeat' }
 ];
 
 const BACKGROUND_POSITION_OPTIONS = [
-  { label: '居上', value: 'center top' },
-  { label: '居中', value: 'center center' },
-  { label: '居下', value: 'center bottom' },
-  { label: '居左', value: 'left center' },
-  { label: '居右', value: 'right center' },
-  { label: '左上', value: 'left top' },
-  { label: '左下', value: 'left bottom' },
-  { label: '右上', value: 'right top' },
-  { label: '右下', value: 'right bottom' }
+  { label: lang.imgPosTop, value: 'center top' },
+  { label: lang.imgPosCenter, value: 'center center' },
+  { label: lang.imgPosBottom, value: 'center bottom' },
+  { label: lang.imgPosLeft, value: 'left center' },
+  { label: lang.imgPosRight, value: 'right center' },
+  { label: lang.imgPosTopLeft, value: 'left top' },
+  { label: lang.imgPosBottomLeft, value: 'left bottom' },
+  { label: lang.imgPosTopRight, value: 'right top' },
+  { label: lang.imgPosBottomRight, value: 'right bottom' }
 ];
 
 function getBackgroundImage(image: string = '', defaultValue = '') {
@@ -109,9 +110,9 @@ export function ImagePanel({
           <img 
             style={{ opacity: imageSrc === DEFAULT_IMAGE ? 0.5 : 1 }} 
             src={imageSrc} 
-            alt="背景图片"
+            alt={lang.imageAltBg}
           />
-          <button className={css.uploadButton}>点击上传</button>
+          <button className={css.uploadButton}>{lang.clickToUpload}</button>
         </div>
         <input
           type="file"
@@ -128,7 +129,7 @@ export function ImagePanel({
         />
       </div>
       <div className={css.imageItem}>
-        <div className={css.imageLabel}>大小</div>
+        <div className={css.imageLabel}>{lang.imageSizeLabel}</div>
         <div className={css.imageValue}>
           <Select
             style={{ padding: 0 }}
@@ -140,7 +141,7 @@ export function ImagePanel({
       </div>
       {!["100% 100%", "cover"].includes(localImageValue.backgroundSize || '') && (
         <div className={css.imageItem}>
-          <div className={css.imageLabel}>平铺</div>
+          <div className={css.imageLabel}>{lang.imageRepeatLabel}</div>
           <div className={css.imageValue}>
             <Select
               style={{ padding: 0 }}
@@ -153,7 +154,7 @@ export function ImagePanel({
       )}
       {localImageValue.backgroundSize !== "100% 100%" && (
         <div className={css.imageItem}>
-          <div className={css.imageLabel}>位置</div>
+          <div className={css.imageLabel}>{lang.imagePositionLabel}</div>
           <div className={css.imageValue}>
             <Select
               style={{ padding: 0 }}

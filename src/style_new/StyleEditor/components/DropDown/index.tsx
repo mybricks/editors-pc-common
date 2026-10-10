@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 
 import { CheckOutlined } from "../";
 import { question as QuestionIcon } from "../../../icon/question";
+import lang from "../../../index.i18n";
 
 import css from "./index.less";
 
@@ -270,7 +271,7 @@ const Items = React.forwardRef<HTMLDivElement, ItemsProps>((props, forwardRef) =
         {multiple && isChecked && !isAction && (
           <span
             className={css.itemRemove}
-            data-mybricks-tip="移除该字体"
+            data-mybricks-tip={lang.removeFontTip}
             onClick={(e) => {
               e.stopPropagation();
               onClick(value, isAction);
@@ -282,7 +283,7 @@ const Items = React.forwardRef<HTMLDivElement, ItemsProps>((props, forwardRef) =
         {isDraggable && (
           <span
             className={css.itemDragHandle}
-            data-mybricks-tip="拖拽调整顺序"
+            data-mybricks-tip={lang.dragReorderTip}
             onClick={(e) => e.stopPropagation()}
           >
             <DragHandleIcon />
@@ -305,8 +306,8 @@ const Items = React.forwardRef<HTMLDivElement, ItemsProps>((props, forwardRef) =
         {checkedItems.length > 0 && (
           <div className={css.selectedArea}>
             <div className={css.sectionHeader}>
-              已选字体
-              <span className={css.sectionHeaderTip} data-mybricks-tip="字体优先级从上到下递减">
+              {lang.selectedFonts}
+              <span className={css.sectionHeaderTip} data-mybricks-tip={lang.fontPriorityTip}>
                 <QuestionIcon />
               </span>
             </div>
@@ -320,7 +321,7 @@ const Items = React.forwardRef<HTMLDivElement, ItemsProps>((props, forwardRef) =
         <div className={css.scrollBody}>
           {uncheckedItems.length > 0 && (
             <>
-              <div className={css.sectionHeader}>更多字体</div>
+              <div className={css.sectionHeader}>{lang.moreFonts}</div>
               {uncheckedItems.map((opt, index) => renderItem(opt, opt.value))}
             </>
           )}

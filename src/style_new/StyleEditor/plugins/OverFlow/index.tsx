@@ -7,6 +7,7 @@ import { getOverflowAdjustment, OVERFLOW_AXIS_KEYS } from '../../../core/overflo
 
 import type {ChangeEvent, PanelBaseProps} from '../../type';
 import css from './index.less'
+import lang from '../../../index.i18n'
 
 type OverFlowValueType = Partial<{
   overflowX: CSSProperties['overflowX'];
@@ -20,10 +21,10 @@ export interface OverFlowProps extends PanelBaseProps {
 
 const VALUE_OPTIONS = [
   // {label: '默认', value: 'unset'},
-  { label: '自动', value: 'auto' },
-  { label: '显示滚动条', value: 'scroll' },
-  { label: '隐藏', value: 'hidden' },
-  { label: '显示', value: 'visible' }
+  { label: lang.overflowAuto, value: 'auto' },
+  { label: lang.overflowScroll, value: 'scroll' },
+  { label: lang.overflowHidden, value: 'hidden' },
+  { label: lang.overflowVisible, value: 'visible' }
 ];
 
 const OVERFLOW_KEYS = ['overflow', 'overflowX', 'overflowY'] as const
@@ -84,11 +85,11 @@ export const OverFlow = ({ value: fallbackValue, onChange: fallbackOnChange, sho
     }
     const adjusted = getOverflowAdjustment(current, other)
     if (!adjusted) return undefined
-    const direction = index === 0 ? '水平' : '垂直'
-    const selected = current === 'clip' ? '裁剪内容' : '显示内容'
-    const actual = adjusted === 'auto' ? '自动' : '隐藏内容'
-    const configured = overflowValue[key] == null ? '当前为' : '设置为'
-    return `${direction}${configured}“${selected}”，受另一方向影响，浏览器实际按“${actual}”处理。`
+    const direction = index === 0 ? lang.horizontal : lang.vertical
+    const selected = current === 'clip' ? lang.overflowClip : lang.overflowVisible
+    const actual = adjusted === 'auto' ? lang.overflowAuto : lang.overflowHidden
+    const configured = overflowValue[key] == null ? lang.overflowCurrentIs : lang.overflowSetTo
+    return `${direction} ${configured} "${selected}" — affected by the other axis, browser treats as "${actual}".`
   })
 
   const refresh = useCallback(() => {
@@ -104,7 +105,7 @@ export const OverFlow = ({ value: fallbackValue, onChange: fallbackOnChange, sho
   }, [clear, editorContext?.getStyleProperty])
 
   return (
-    <Panel title='内容溢出' showTitle={showTitle} showReset={true} showDelete={!!clear}
+    <Panel title={lang.overflowPanelTitle} showTitle={showTitle} showReset={true} showDelete={!!clear}
       resetFunction={refresh} collapse={effectiveCollapse}>
       <React.Fragment key={forceRenderKey}>
         <Panel.Content>
@@ -114,7 +115,7 @@ export const OverFlow = ({ value: fallbackValue, onChange: fallbackOnChange, sho
               style={{ flex: 1, minWidth: 0, padding: '0 8px' }}
               prefix={
                 <span className={css.tip} data-mybricks-tip={axisTips[index]}>
-                  {index === 0 ? '水平' : '垂直'}
+                  {index === 0 ? lang.horizontal : lang.vertical}
                   {axisTips[index] && <span className={css.tipIcon}><QuestionCircleOutlined /></span>}
                 </span>
               }

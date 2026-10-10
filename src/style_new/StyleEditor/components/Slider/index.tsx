@@ -4,6 +4,7 @@ import type { CSSProperties } from 'react'
 
 import { Panel } from '../'
 import { Variable } from '../../icons/Variable'
+import lang from '../../../index.i18n'
 
 import css from './index.less'
 
@@ -52,7 +53,7 @@ export function Slider ({
         {hasVariables && (
           <span
             className={css.varBtn}
-            data-mybricks-tip='应用变量...'
+            data-mybricks-tip={lang.applyVariableTip}
             onClick={onApplyVariable}
           >
             <Variable />

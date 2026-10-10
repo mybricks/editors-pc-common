@@ -45,6 +45,7 @@ import { collectZoneTabs, mergeZoneTabsByState } from "../../../core/zone-tab";
 import { createStyleResolution } from "../../../core/style-property";
 import type { EffectiveStyleValue } from "../../../core/zone-tab";
 import css from "./index.less";
+import lang from '../../../index.i18n'
 
 /** 字号预置档位（对齐 Figma 的字号下拉） */
 const FONT_SIZE_PRESETS = [10, 11, 12, 13, 14, 15, 16, 20, 24, 32, 36, 40, 48, 64, 96, 128];
@@ -103,15 +104,15 @@ const FONT_FAMILY_OPTIONS = [
 ];
 
 const FONT_WEIGHT_OPTIONS = [
-  { label: "极细",  value: "100", suffix: "100" },
-  { label: "特细",  value: "200", suffix: "200" },
-  { label: "细体",  value: "300", suffix: "300" },
-  { label: "标准",  value: "400", suffix: "400" },
-  { label: "中等",  value: "500", suffix: "500" },
-  { label: "中黑",  value: "600", suffix: "600" },
-  { label: "粗体",  value: "700", suffix: "700" },
-  { label: "特粗",  value: "800", suffix: "800" },
-  { label: "极粗",  value: "900", suffix: "900" },
+  { label: lang.fontWeight100,  value: "100", suffix: "100" },
+  { label: lang.fontWeight200,  value: "200", suffix: "200" },
+  { label: lang.fontWeight300,  value: "300", suffix: "300" },
+  { label: lang.fontWeight400,  value: "400", suffix: "400" },
+  { label: lang.fontWeight500,  value: "500", suffix: "500" },
+  { label: lang.fontWeight600,  value: "600", suffix: "600" },
+  { label: lang.fontWeight700,  value: "700", suffix: "700" },
+  { label: lang.fontWeight800,  value: "800", suffix: "800" },
+  { label: lang.fontWeight900,  value: "900", suffix: "900" },
 ];
 
 const WHITE_SPACE_OPTIONS = [
@@ -131,8 +132,8 @@ const FONT_SIZE_DEFAULT_ACTION = 'fontSizeDefault';
 const FONT_SIZE_DISABLED_LIST = ["inherit"];
 
 const LINEHEIGHT_UNIT_OPTIONS = [
-  { label: "默认", value: "default" },
-  { label: "倍数", value: "" },
+  { label: lang.lineHeightDefault, value: "default" },
+  { label: lang.lineHeightMultiple, value: "" },
   { label: "px", value: "px" },
   { label: "%", value: "%" },
 ];
@@ -145,11 +146,11 @@ const LETTERSPACING_UNIT_OPTIONS = [
 const LETTERSPACING_UNIT_DISABLED_LIST = ["normal", "inherit"];
 
 const TEXT_DECORATION_STYLE_OPTIONS = [
-  { label: "实线", value: "solid" },
-  { label: "点状", value: "dotted" },
-  { label: "虚线", value: "dashed" },
-  { label: "双线", value: "double" },
-  { label: "波浪", value: "wavy" },
+  { label: lang.decorationSolid, value: "solid" },
+  { label: lang.decorationDotted, value: "dotted" },
+  { label: lang.decorationDashed, value: "dashed" },
+  { label: lang.decorationDouble, value: "double" },
+  { label: lang.decorationWavy, value: "wavy" },
 ];
 
 const TEXT_DECORATION_LENGTH_UNITS = [
@@ -526,9 +527,9 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
     // flex 模式下固定用 left/right，与 justifyContentToAlign 的返回值保持一致
     if (cfg.textAlignMode === 'flex') {
       return [
-        { label: <TextAlignLeftOutlined />, value: "left", tip: "居左对齐" },
-        { label: <TextAlignCenterOutlined />, value: "center", tip: "居中对齐" },
-        { label: <TextAlignRightOutlined />, value: "right", tip: "居右对齐" },
+        { label: <TextAlignLeftOutlined />, value: "left", tip: lang.alignLeft },
+        { label: <TextAlignCenterOutlined />, value: "center", tip: lang.alignCenter },
+        { label: <TextAlignRightOutlined />, value: "right", tip: lang.alignRight },
       ];
     }
     const useStart = ["start", "end"].includes(textAlignValue as any);
@@ -536,13 +537,13 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
       {
         label: <TextAlignLeftOutlined />,
         value: useStart ? "start" : "left",
-        tip: "居左对齐",
+        tip: lang.alignLeft,
       },
-      { label: <TextAlignCenterOutlined />, value: "center", tip: "居中对齐" },
+      { label: <TextAlignCenterOutlined />, value: "center", tip: lang.alignCenter },
       {
         label: <TextAlignRightOutlined />,
         value: useStart ? "end" : "right",
-        tip: "居右对齐",
+        tip: lang.alignRight,
       },
     ];
   }, [cfg.textAlignMode, textAlignValue]);
@@ -832,7 +833,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
   /** 字号预置列表 + 底部变量入口（图标居中、无文案，对齐 Figma） */
   const fontSizePresetOptions = useMemo(() => ([
     ...(showFontSizeDefaultAction ? [
-      { label: '默认', value: FONT_SIZE_DEFAULT_ACTION, type: 'action' as const },
+      { label: lang.defaultLabel, value: FONT_SIZE_DEFAULT_ACTION, type: 'action' as const },
       { label: '', value: '__fontSizeDefaultDivider__', type: 'divider' as const },
     ] : []),
     ...fontSizePresetItems,
@@ -843,7 +844,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
       type: 'action' as const,
       icon: <Variable />,
       disabled: !fontSizeVar.hasVariables,
-      tip: fontSizeVar.hasVariables ? '应用变量...' : '当前画布没有可用的尺寸变量',
+      tip: fontSizeVar.hasVariables ? lang.applyVariableShort : lang.noSizeVariables,
     },
   ]), [fontSizePresetItems, showFontSizeDefaultAction, fontSizeVar.hasVariables]);
 
@@ -1037,14 +1038,14 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
       className={`${css.truncateBtn}${popoverOpen ? ` ${css.active}` : ''}`}
       style={{ position: 'absolute', right: -22, top: '50%', transform: 'translateY(-50%)' }}
       onClick={() => setPopoverOpen(v => !v)}
-      data-mybricks-tip={`{content:'文字设置',position:'left'}`}
+      data-mybricks-tip={`{content:'${lang.fontPanelTitle}',position:'left'}`}
     >
       <FontSetting />
     </div>
   );
 
   return (
-    <Panel title="字体" showTitle={showTitle} showReset={true} showDelete={false} resetFunction={refresh} collapse={false} keepTopBorder>
+    <Panel title={lang.fontPanelTitle} showTitle={showTitle} showReset={true} showDelete={false} resetFunction={refresh} collapse={false} keepTopBorder>
 
       {cfg.disableFontFamily ? null : (
         <Panel.Content style={truncateBtnInFamilyRow ? { position: 'relative' } : undefined}>
@@ -1066,7 +1067,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
                     setIsMultiMode(false);
                   }}
                 >
-                  单字体
+                  {lang.fontSingle}
                 </span>
                 <span
                   className={`${css.modeTab} ${isMultiMode ? css.modeTabActive : ''}`}
@@ -1076,7 +1077,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
                     setIsMultiMode(true);
                   }}
                 >
-                  多字体
+                  {lang.fontMultiple}
                 </span>
               </div>
             );
@@ -1085,7 +1086,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
               // 多字体模式：多选 + 拖拽排序 + 序号徽标
               <Select
                 tip={
-                  "字体" +
+                  lang.fontPanelTitle +
                   (innerFontFamily?.length && innerFontFamily[0] !== "inherit"
                     ? "：" +
                     innerFontFamily
@@ -1147,7 +1148,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
               // 单字体模式：简洁单选
               <Select
                 tip={
-                  "字体" +
+                  lang.fontPanelTitle +
                   (innerFontFamily?.[0] && innerFontFamily[0] !== "inherit"
                     ? "：" + (fontFamilyOptions().find(o => o.value === innerFontFamily[0])?.label ?? innerFontFamily[0])
                     : "")
@@ -1159,7 +1160,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
                   ...(fontFamilyPreview ? { fontFamily: fontFamilyPreview } : {}),
                 }}
                 options={fontFamilyOptions()}
-                value={innerFontFamily?.[0] && innerFontFamily[0] !== 'inherit' ? (innerFontFamily[0]?.startsWith('var') ? '@字体变量' : innerFontFamily[0]) : undefined}
+                value={innerFontFamily?.[0] && innerFontFamily[0] !== 'inherit' ? (innerFontFamily[0]?.startsWith('var') ? lang.colorVariableAt : innerFontFamily[0]) : undefined}
                 clearable={!!familyField.clear}
                 onClear={handleFontFamilyClear}
                 onChange={(newValue: string) => {
@@ -1206,7 +1207,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
 
           {cfg.disableFontWeight ? null : (
             <Select
-              tip="粗体"
+              tip={lang.fontWeight700}
               prefix={<FontWeightOutlined />}
               style={{
                 flex: 1,
@@ -1234,12 +1235,12 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
               <div
                 ref={fontSizeVar.anchorRef}
                 {...(fontSizeVar.varRef
-                  ? fontSizeVar.dragProps('拖拽调整字号（将解除变量绑定）')
+                  ? fontSizeVar.dragProps(lang.dragFontSizeUnbind)
                   : getDragPropsFontSize(
                       fontSizeUnconfigured
                         ? `${defaultFontSizePx}px`
                         : fontSize,
-                      '拖拽调整字号'
+                      lang.dragFontSize
                     ))}
                 style={{
                   height: "100%",
@@ -1261,7 +1262,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
                 menuStyle={FONT_SIZE_MENU_STYLE}
                 onMenuSelect={(size) => onFontSizeChange(`${size}px`)}
                 inputProps={{
-                  tip: '字号',
+                  tip: lang.fontSizeTip,
                   type: "number",
                   style: { flex: 1, minWidth: 0, marginLeft: 4 },
                   value: fontSizeDisplayValue,
@@ -1288,7 +1289,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
                         else if (action === APPLY_VARIABLE_ACTION) fontSizeVar.openPicker();
                       }}
                     >
-                      <span className={css.fontSizeArrow} data-mybricks-tip="字号档位">
+                      <span className={css.fontSizeArrow} data-mybricks-tip={lang.fontSizeGradeTip}>
                         <DownOutlined />
                       </span>
                     </Dropdown>
@@ -1307,12 +1308,12 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
               <div 
                 ref={lineHeightVar.anchorRef}
                 {...(lineHeightVar.varRef
-                  ? lineHeightVar.dragProps('拖拽调整行高（将解除变量绑定）')
+                  ? lineHeightVar.dragProps(lang.dragLineHeightUnbind)
                   : getDragPropsLineHeight(
                       lineHeight == null || lineHeight === '' || ['unset', 'normal', 'inherit'].includes(lineHeight as string)
                         ? '1'
                         : lineHeight,
-                      '拖拽调整行高'
+                      lang.dragLineHeight
                     ))}
                 style={{ 
                   height: "100%", 
@@ -1329,7 +1330,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
                 binding={lineHeightVar}
                 inputKey={`lineHeight-${getLineHeightUnitKey(lineHeight ?? lineHeightPreview)}`}
                 inputProps={{
-                  tip: '行高',
+                  tip: lang.lineHeightTip,
                   type: "number",
                   style: { flex: 1, minWidth: 0, marginLeft: 4 },
                   value: lineHeightDisplayValue,
@@ -1358,12 +1359,12 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
               <div 
                 ref={letterSpacingVar.anchorRef}
                 {...(letterSpacingVar.varRef
-                  ? letterSpacingVar.dragProps('拖拽调整字间距（将解除变量绑定）')
+                  ? letterSpacingVar.dragProps(lang.dragLetterSpacingUnbind)
                   : getDragPropsLetterSpacing(
                       letterSpacingUnconfigured
                         ? `${defaultLetterSpacingPx}px`
                         : letterSpacing,
-                      '拖拽调整字间距'
+                      lang.dragLetterSpacing
                     ))}
                 style={{ 
                   height: "100%", 
@@ -1379,7 +1380,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
               <VariableNumberInput
                 binding={letterSpacingVar}
                 inputProps={{
-                  tip: '字间距',
+                  tip: lang.letterSpacingTip,
                   type: "number",
                   style: { flex: 1, minWidth: 0, marginLeft: 4 },
                   value: letterSpacingDisplayValue,
@@ -1404,7 +1405,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
               className={`${css.truncateBtn}${popoverOpen ? ` ${css.active}` : ''}`}
               style={{ position: 'absolute', right: -22, top: '50%', transform: 'translateY(-50%)' }}
               onClick={() => setPopoverOpen(v => !v)}
-              data-mybricks-tip={`{content:'文字设置',position:'left'}`}
+              data-mybricks-tip={`{content:'${lang.fontPanelTitle}',position:'left'}`}
             >
               <FontSetting />
             </div>
@@ -1414,7 +1415,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
       {/* {cfg.disableWhiteSpace ? null : (
         <Panel.Content>
           <Select
-            tip="空白字符合并、换行"
+            tip={lang.textWrapTip}
             prefix={<WhiteSpaceOutlined />}
             style={{ padding: 0, overflow: "hidden" }}
             defaultValue={value.whiteSpace}
@@ -1455,7 +1456,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
               className={`${css.truncateBtn}${popoverOpen ? ` ${css.active}` : ''}`}
               style={{ position: 'absolute', right: -22, top: '50%', transform: 'translateY(-50%)' }}
               onClick={() => setPopoverOpen(v => !v)}
-              data-mybricks-tip={`{content:'文字设置',position:'left'}`}
+              data-mybricks-tip={`{content:'${lang.fontPanelTitle}',position:'left'}`}
             >
               <FontSetting />
             </div>
@@ -1469,13 +1470,13 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
         onClick={e => e.stopPropagation()}
       >
         <div className={css.popoverInlineRow}>
-          <div className={css.popoverLabel} style={{ marginBottom: 0 }}>装饰</div>
+          <div className={css.popoverLabel} style={{ marginBottom: 0 }}>{lang.decorationLabel}</div>
           <Panel.Item style={{ padding: 2 }}>
             <div className={css.decoGroup}>
               {([
-                { label: <span style={{ fontWeight: 500, fontSize: 13 }}>—</span>, value: 'none', tip: '无装饰' },
-                { label: <span style={{ textDecoration: 'underline', fontWeight: 500, fontSize: 13 }}>U</span>, value: 'underline', tip: '下划线' },
-                { label: <span style={{ textDecoration: 'line-through', fontWeight: 500, fontSize: 13 }}>S</span>, value: 'line-through', tip: '删除线' },
+                { label: <span style={{ fontWeight: 500, fontSize: 13 }}>—</span>, value: 'none', tip: lang.decorationNone },
+                { label: <span style={{ textDecoration: 'underline', fontWeight: 500, fontSize: 13 }}>U</span>, value: 'underline', tip: lang.decorationUnderline },
+                { label: <span style={{ textDecoration: 'line-through', fontWeight: 500, fontSize: 13 }}>S</span>, value: 'line-through', tip: lang.decorationStrikethrough },
               ] as const).map(({ label, value: v, tip }) => (
                 <div
                   key={v}
@@ -1507,10 +1508,10 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
         {textDecorationValue !== 'none' && (
           <>
             <div className={css.popoverInlineRow}>
-              <div className={css.popoverLabel} style={{ marginBottom: 0 }}>样式</div>
+              <div className={css.popoverLabel} style={{ marginBottom: 0 }}>{lang.decorationStyleLabel}</div>
               <Select
                 key={`deco-style-${textDecorationStyleValue}`}
-                tip="装饰线样式"
+                tip={lang.decorationStyleTip}
                 style={{ flex: 1, maxWidth: 120, padding: '0 8px' }}
                 value={textDecorationStyleValue}
                 options={TEXT_DECORATION_STYLE_OPTIONS}
@@ -1522,9 +1523,9 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
             </div>
             {textDecorationValue === 'underline' && (
               <div className={css.popoverInlineRow}>
-                <div className={css.popoverLabel} style={{ marginBottom: 0 }}>偏移</div>
+                <div className={css.popoverLabel} style={{ marginBottom: 0 }}>{lang.decorationOffsetLabel}</div>
                 <InputNumber
-                  tip="下划线偏移"
+                  tip={lang.underlineOffsetTip}
                   type="number"
                   style={{ flex: 1, maxWidth: 120, padding: '0 8px' }}
                   defaultUnitValue="px"
@@ -1542,9 +1543,9 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
               </div>
             )}
             <div className={css.popoverInlineRow}>
-              <div className={css.popoverLabel} style={{ marginBottom: 0 }}>粗细</div>
+              <div className={css.popoverLabel} style={{ marginBottom: 0 }}>{lang.decorationWeightLabel}</div>
               <InputNumber
-                tip="装饰线粗细"
+                tip={lang.decorationWeightTip}
                 type="number"
                 style={{ flex: 1, maxWidth: 120, padding: '0 8px' }}
                 defaultUnitValue="px"
@@ -1562,12 +1563,12 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
           </>
         )}
         <div className={css.popoverInlineRow}>
-          <div className={css.popoverLabel} style={{ marginBottom: 0 }}>斜体</div>
+          <div className={css.popoverLabel} style={{ marginBottom: 0 }}>{lang.italicLabel}</div>
           <Panel.Item style={{ padding: 2 }}>
             <div className={css.decoGroup}>
               {([
-                { label: <span style={{ fontWeight: 500, fontSize: 13 }}>—</span>, value: false, tip: '无斜体' },
-                { label: <span style={{ fontStyle: 'italic', fontWeight: 500, fontSize: 13 }}>I</span>, value: true, tip: '斜体' },
+                { label: <span style={{ fontWeight: 500, fontSize: 13 }}>—</span>, value: false, tip: lang.italicNone },
+                { label: <span style={{ fontStyle: 'italic', fontWeight: 500, fontSize: 13 }}>I</span>, value: true, tip: lang.italicLabel },
               ] as const).map(({ label, value: v, tip }) => (
                 <div
                   key={String(v)}
@@ -1585,15 +1586,15 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
           </Panel.Item>
         </div>
         <div className={css.popoverInlineRow}>
-          <div className={css.popoverLabel} style={{ marginBottom: 0 }}>大小写</div>
+          <div className={css.popoverLabel} style={{ marginBottom: 0 }}>{lang.textCaseLabel}</div>
           <Toggle
             key={`textTransform-${textTransformValue}`}
             defaultValue={textTransformValue}
             options={[
-              { label: <span style={{ fontWeight: 500, fontSize: 12 }}>Ag</span>, value: 'none', tip: '默认' },
-              { label: <span style={{ fontWeight: 700, fontSize: 12 }}>AG</span>, value: 'uppercase', tip: '全大写' },
-              { label: <span style={{ fontWeight: 500, fontSize: 12 }}>ag</span>, value: 'lowercase', tip: '全小写' },
-              { label: <span style={{ fontWeight: 500, fontSize: 12, textTransform: 'capitalize' }}>ab</span>, value: 'capitalize', tip: '首字母大写' },
+              { label: <span style={{ fontWeight: 500, fontSize: 12 }}>Ag</span>, value: 'none', tip: lang.textCaseDefault },
+              { label: <span style={{ fontWeight: 700, fontSize: 12 }}>AG</span>, value: 'uppercase', tip: lang.textCaseUpper },
+              { label: <span style={{ fontWeight: 500, fontSize: 12 }}>ag</span>, value: 'lowercase', tip: lang.textCaseLower },
+              { label: <span style={{ fontWeight: 500, fontSize: 12, textTransform: 'capitalize' }}>ab</span>, value: 'capitalize', tip: lang.textCaseCapitalize },
             ]}
             onChange={(v) => {
               const next = v as string;
@@ -1603,7 +1604,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
           />
         </div>
         <div className={css.popoverInlineRow}>
-          <div className={css.popoverLabel} style={{ marginBottom: 0 }}>截断文字</div>
+          <div className={css.popoverLabel} style={{ marginBottom: 0 }}>{lang.textTruncateLabel}</div>
           <Toggle
             key={`truncate-${(value as any).textOverflow || ''}-${(value as any).webkitLineClamp || ''}`}
             defaultValue={
@@ -1613,8 +1614,8 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
                 : 'clip'
             }
             options={[
-              { label: <span style={{ fontWeight: 500, fontSize: 13 }}>—</span>, value: 'clip', tip: '不截断' },
-              { label: <FontSettingTruncation />, value: 'ellipsis', tip: '省略号截断' },
+              { label: <span style={{ fontWeight: 500, fontSize: 13 }}>—</span>, value: 'clip', tip: lang.textTruncateNone },
+              { label: <FontSettingTruncation />, value: 'ellipsis', tip: lang.textTruncateEllipsis },
             ]}
             onChange={(v) => {
               if (v === 'ellipsis') {
@@ -1639,9 +1640,9 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
         </div>
         {isTruncated && (
           <div className={css.popoverInlineRow}>
-            <div className={css.popoverLabel} style={{ marginBottom: 0 }}>最大行数</div>
+            <div className={css.popoverLabel} style={{ marginBottom: 0 }}>{lang.maxLinesLabel}</div>
             <InputNumber
-              tip="最大行数"
+              tip={lang.maxLinesLabel}
               type="number"
               style={{ flex: 1, maxWidth: 120, padding: '0 8px' }}
               defaultUnitValue=""

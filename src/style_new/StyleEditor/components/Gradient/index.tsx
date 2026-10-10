@@ -13,6 +13,7 @@ import {DeleteOutlined, ReloadOutlined} from "@ant-design/icons";
 
 import css from "./index.less";
 import {gradientOptions, shapeOptions} from "../GradientEditor/constants";
+import lang from "../../../index.i18n";
 
 // import { Angle, Circle, Ellipse, Linear, Radial } from "../GradientEditor/Icon";
 
@@ -68,13 +69,13 @@ export function Gradient({
     [onChange, backgroundImage]
   );
 
-  const [gradientType, setGradientType] = useState<string>("线性");
+  const [gradientType, setGradientType] = useState<string>(lang.linearGradient);
   const onTypeChange = (type: string) => {
-    return setGradientType(mapGradientOptions(type, gradientOptions) || "线性");
+    return setGradientType(mapGradientOptions(type, gradientOptions) || lang.linearGradient);
   };
   useEffect(() => {
     if (/radial-gradient\(/.test(defaultValue)) {
-      setGradientType("径向");
+      setGradientType(lang.radialGradient);
     }
   }, []);
   return (
@@ -95,8 +96,8 @@ export function Gradient({
             </div>
           )}
         </div>
-        <div className={css.text} data-mybricks-tip="渐变颜色">
-          <span>{gradientType}颜色渐变</span>
+        <div className={css.text} data-mybricks-tip={lang.gradientColorTip}>
+          <span>{`${gradientType} ${lang.gradientTypeSuffix}`}</span>
         </div>
       </div>
       <div
@@ -105,7 +106,7 @@ export function Gradient({
           onGradientChange("none");
           setShow(false);
         }}
-        data-mybricks-tip={"重置"}
+        data-mybricks-tip={lang.resetTip}
       >
         <DeleteOutlined/>
       </div>

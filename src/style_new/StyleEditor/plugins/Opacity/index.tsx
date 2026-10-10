@@ -11,6 +11,7 @@ import type { VariableChipMenuOption } from '../../components/VariableChip'
 import type { ChangeEvent, PanelBaseProps } from '../../type'
 
 import css from './index.less'
+import lang from '../../../index.i18n'
 
 interface OpacityProps extends PanelBaseProps {
   value: CSSProperties
@@ -95,7 +96,7 @@ export function Opacity ({ onChange: fallbackOnChange, config, showTitle, collap
 
   const chipMenuOptions = useMemo<VariableChipMenuOption[]>(() => [
     {
-      label: `固定值 (${Math.round(fallbackOpacity * 100)}%)`,
+      label: `${lang.fixedValuePrefix} (${Math.round(fallbackOpacity * 100)}%)`,
       value: DETACH_VARIABLE_ACTION,
       type: 'action',
       icon: <FixedWidth />,
@@ -107,7 +108,7 @@ export function Opacity ({ onChange: fallbackOnChange, config, showTitle, collap
   }, [detach])
 
   return (
-    <Panel title='不透明度' showTitle={showTitle} showReset={true} resetFunction={refresh} collapse={collapse}>
+    <Panel title={lang.opacityPanelTitle} showTitle={showTitle} showReset={true} resetFunction={refresh} collapse={collapse}>
       <Panel.Content>
         <React.Fragment key={forceRenderKey}>
           {/* 锚点始终挂在面板容器上，供 SketchPopup 对齐 */}
@@ -155,7 +156,7 @@ export function Opacity ({ onChange: fallbackOnChange, config, showTitle, collap
               onClose={closePicker}
               onSelect={(item) => selectVariable(item.name)}
               renderValue={(item) => `${Math.round(parseFloat(item.value) * 100)}%`}
-              emptyText='当前画布没有可用的不透明度变量'
+              emptyText={lang.noOpacityVariables}
             />
           </SketchPopup>
         </React.Fragment>

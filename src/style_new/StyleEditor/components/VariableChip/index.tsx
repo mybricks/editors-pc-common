@@ -3,6 +3,7 @@ import React, { CSSProperties, ReactNode, useCallback, useMemo, useState } from 
 import { Panel, Dropdown, DownOutlined } from '../'
 import { getCssVarName } from '../VariableList'
 import { Variable } from '../../icons/Variable'
+import lang from '../../../index.i18n'
 
 import css from './index.less'
 
@@ -96,15 +97,15 @@ export function VariableChip({
     // 当前绑定的变量单列一行并勾选：与框内一致显示变量的值，变量名放在 hover 提示里
     ...(isPresetList && varName
       ? [
-          { label: displayText, value: varName, tip: `变量：${varName}` },
+          { label: displayText, value: varName, tip: `${lang.variablePrefix}${varName}` },
           { label: '', value: '__currentVariableDivider__', type: 'divider' as const },
         ]
       : []),
     ...menuOptions,
     ...(menuOptions.length ? [{ label: '', value: '__chipDivider__', type: 'divider' as const }] : []),
     isPresetList
-      ? { label: '', value: REPLACE_ACTION, type: 'action' as const, icon: <Variable />, tip: '替换变量...' }
-      : { label: '替换变量...', value: REPLACE_ACTION, type: 'action' as const, icon: <Variable /> },
+      ? { label: '', value: REPLACE_ACTION, type: 'action' as const, icon: <Variable />, tip: lang.replaceVariable }
+      : { label: lang.replaceVariable, value: REPLACE_ACTION, type: 'action' as const, icon: <Variable /> },
   ]), [menuOptions, isPresetList, varName, displayText])
 
   const handleAction = useCallback((actionValue: string) => {
@@ -154,8 +155,8 @@ export function VariableChip({
         className={`${css.chip}${compact ? ` ${css.compact}` : ''}${showIconOnHover ? ` ${css.iconOnHover}` : ''}`}
         data-mybricks-tip={JSON.stringify({
           content: resolvedValue && resolvedValue !== displayText
-            ? `变量：${varName || value}\n${resolvedValue}`
-            : `变量：${varName || value}`,
+            ? `${lang.variablePrefix}${varName || value}\n${resolvedValue}`
+            : `${lang.variablePrefix}${varName || value}`,
           position: 'left',
         })}
       >

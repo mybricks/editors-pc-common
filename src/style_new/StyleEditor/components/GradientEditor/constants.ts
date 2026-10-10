@@ -3,6 +3,7 @@ import ColorUtil from "color";
 import { uuid } from "../../../../utils";
 import { color2rgba } from "../../utils";
 import type { CssVarColorOption } from "../../../core/resolve-css-var-color";
+import lang from "../../../index.i18n";
 export * from "./GradientParser";
 interface GradientEditorProps {
   defaultValue?: string;
@@ -30,13 +31,13 @@ type GradientType = "linear-gradient" | "radial-gradient";
 type ShapeType = "ellipse" | "radial";
 
 const gradientOptions = [
-  { value: "linear-gradient", label: "线性" },
-  { value: "radial-gradient", label: "径向" },
+  { value: "linear-gradient", label: lang.linearGradient },
+  { value: "radial-gradient", label: lang.radialGradient },
 ];
 
 const shapeOptions = [
-  { value: "ellipse", label: "椭圆" },
-  { value: "circle", label: "圆形" },
+  { value: "ellipse", label: lang.ellipseShape },
+  { value: "circle", label: lang.circleShape },
 ];
 
 function interpolateColor(

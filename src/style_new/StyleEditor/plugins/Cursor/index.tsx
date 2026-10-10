@@ -4,6 +4,7 @@ import { Panel, Select } from '../../components'
 import { useEffectiveStyleValue, useStyleChange, useStyleEditorContext } from '../../context'
 
 import type { ChangeEvent, PanelBaseProps } from '../../type'
+import lang from '../../../index.i18n'
 
 interface CursorProps extends PanelBaseProps {
   value: CSSProperties
@@ -11,11 +12,11 @@ interface CursorProps extends PanelBaseProps {
 }
 
 const CURSOR_OPTIONS = [
-  {label: '帮助', value: 'help'},
-  {label: '手', value: 'pointer'},
-  {label: '文本可选中', value: 'text'},
-  {label: '不可点击', value: 'not-allowed'},
-  {label: '箭头', value: 'default'},
+  {label: lang.cursorHelp, value: 'help'},
+  {label: lang.cursorPointer, value: 'pointer'},
+  {label: lang.cursorText, value: 'text'},
+  {label: lang.cursorNotAllowed, value: 'not-allowed'},
+  {label: lang.cursorDefault, value: 'default'},
 ]
 
 // tooltip 内容过长时做截断，避免超长 dataURI 把浮层撑爆
@@ -44,10 +45,10 @@ export function Cursor ({onChange: fallbackOnChange, config, showTitle, collapse
     && cursorValue.length > 0
     && !CURSOR_OPTIONS.some(({value}) => value === cursorValue)
   const options = isCustomCursor
-    ? [{label: '自定义', value: cursorValue}, ...CURSOR_OPTIONS]
+    ? [{label: lang.cursorCustom, value: cursorValue}, ...CURSOR_OPTIONS]
     : CURSOR_OPTIONS
   const tip = isCustomCursor
-    ? `{content:'自定义光标：${
+    ? `{content:'${lang.cursorCustom}: ${
         cursorValue.length > MAX_TIP_LENGTH ? `${cursorValue.slice(0, MAX_TIP_LENGTH)}...` : cursorValue
       }',position:'top'}`
     : undefined
@@ -65,7 +66,7 @@ export function Cursor ({onChange: fallbackOnChange, config, showTitle, collapse
   }, [onChange])
 
   return (
-    <Panel title='光标' showTitle={showTitle} showReset={true} resetFunction={refresh} collapse={collapse}>
+    <Panel title={lang.cursorPanelTitle} showTitle={showTitle} showReset={true} resetFunction={refresh} collapse={collapse}>
       <Panel.Content>
         <React.Fragment key={forceRenderKey}>
           <Select

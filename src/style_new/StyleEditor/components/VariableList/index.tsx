@@ -7,6 +7,7 @@ import { Search } from "../../icons/Search";
 import { VariableNumber } from "../../icons/VariableNumber";
 
 import css from "./index.less";
+import lang from "../../../index.i18n";
 
 /** 归一化成 --name，便于对比「当前已绑定的变量」 */
 export const getCssVarName = (value?: string): string | undefined => {
@@ -46,8 +47,8 @@ export function VariableList<T extends CssVarOption>({
   onClose,
   renderIcon,
   renderValue,
-  filterPlaceholder = '搜索',
-  emptyText = '当前画布没有可用变量',
+  filterPlaceholder = lang.searchPlaceholder,
+  emptyText = lang.noVariables,
   autoFocus = true,
 }: VariableListProps<T>) {
   const [keyword, setKeyword] = useState('');

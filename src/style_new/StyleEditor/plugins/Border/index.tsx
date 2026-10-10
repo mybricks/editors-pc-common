@@ -42,6 +42,7 @@ import type { ChangeEvent, PanelBaseProps, StyleChangeItem, StyleChangeResult } 
 import type { EffectiveStyleValue } from "../../../core/zone-tab";
 
 import css from "./index.less";
+import lang from "../../../index.i18n";
 
 interface BorderProps extends PanelBaseProps {
   value: CSSProperties;
@@ -49,9 +50,9 @@ interface BorderProps extends PanelBaseProps {
 }
 
 const STROKE_STYLE_POPUP_OPTIONS = [
-  { value: 'none', label: '无' },
-  { value: 'solid', label: '实线' },
-  { value: 'dashed', label: '虚线' },
+  { value: 'none', label: lang.noBorder },
+  { value: 'solid', label: lang.solidLine },
+  { value: 'dashed', label: lang.dashedLine },
 ];
 
 const BORDER_WIDTH_KEYWORD_VALUES: Record<string, string> = {
@@ -75,11 +76,11 @@ const normalizeBorderWidthValue = (value: unknown, style: unknown) => {
 type BorderPosition = "outside" | "center" | "inside";
 
 const BORDER_POSITION_OPTIONS = [
-  { label: "外部", value: "outside" },
-  { label: "居中", value: "center" },
-  { label: "内部", value: "inside" },
+  { label: lang.borderOutside, value: "outside" },
+  { label: lang.borderCenter, value: "center" },
+  { label: lang.borderInside, value: "inside" },
 ];
-const DEFAULT_UNIT_OPTION = { label: '默认', value: 'default' };
+const DEFAULT_UNIT_OPTION = { label: lang.defaultOption, value: 'default' };
 const DEFAULT_UNIT_DIVIDER = { label: '', value: '__borderDefaultDivider__', type: 'divider' as const };
 
 function withDefaultUnitOption<T extends { label: string; value: string }>(
@@ -227,7 +228,7 @@ function buildComputedTip(
 ): string {
   const computedValue = previewValue ?? item?.computedValue;
   return computedValue
-    ? `当前未配置${label}，${computedValue}为计算值`
+    ? `${label} — ${computedValue} (computed)`
     : label;
 }
 
@@ -1023,7 +1024,7 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
             <Panel.Content style={{ padding: 3, flex: 1, minWidth: 0 }}>
               <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
                 <Select
-                  tip="线条样式"
+                  tip={lang.lineStyleTip}
                   style={{ padding: 0, flex: 1 }}
                   value={popupStyleValue}
                   options={STROKE_STYLE_POPUP_OPTIONS}
@@ -1058,8 +1059,8 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
                     className={css.icon}
                     ref={widthAllVar.anchorRef}
                     {...(widthAllVar.varRef
-                      ? widthAllVar.dragProps('拖拽调整边框宽度（将解除变量绑定）')
-                      : getDragPropsBorder(borderValue.borderTopWidth, '拖拽调整边框宽度'))}
+                      ? widthAllVar.dragProps(lang.borderWidthTip + lang.dragUnbindSuffix)
+                      : getDragPropsBorder(borderValue.borderTopWidth, lang.borderWidthTip))}
                   >
                     <BorderWeightOutlined />
                   </div>
@@ -1069,8 +1070,8 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
                       chipStyle={CHIP_STYLE}
                       inputProps={{
                         tip: borderValue.borderTopWidth == null
-                          ? buildComputedTip('边框宽度', effectiveStyle?.borderTopWidth, getPreviewValue('borderTopWidth'))
-                          : '边框宽度',
+                          ? buildComputedTip(lang.borderWidthTip, effectiveStyle?.borderTopWidth, getPreviewValue('borderTopWidth'))
+                          : lang.borderWidthTip,
                         style: { padding: 0, fontSize: 10, marginLeft: shouldShowMiniLayout ? 2 : 4, flex: 1, minWidth: 0 },
                         defaultValue: borderValue.borderTopWidth,
                         value: borderValue.borderTopWidth,
@@ -1104,7 +1105,7 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
               <div
                 ref={styleSettingsBtnRef}
                 className={css.styleSettingsBtn}
-                data-mybricks-tip="边框位置设置"
+                data-mybricks-tip={lang.borderPositionTip}
                     onClick={() => setShowStyleSettings(v => !v)}
               >
                     <SettingIcon size={22} />
@@ -1168,8 +1169,8 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
                         compact
                         inputProps={{
                           tip: borderValue.borderLeftWidth == null
-                            ? buildComputedTip('左边框宽度', effectiveStyle?.borderLeftWidth, getPreviewValue('borderLeftWidth'))
-                            : '左边框宽度',
+                            ? buildComputedTip(lang.leftBorderWidthTip, effectiveStyle?.borderLeftWidth, getPreviewValue('borderLeftWidth'))
+                            : lang.leftBorderWidthTip,
                           style: WIDTH_STYLE_SPLIT,
                           defaultValue: borderValue.borderLeftWidth,
                           value: borderValue.borderLeftWidth,
@@ -1245,8 +1246,8 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
                         compact
                         inputProps={{
                           tip: borderValue.borderTopWidth == null
-                            ? buildComputedTip('上边框宽度', effectiveStyle?.borderTopWidth, getPreviewValue('borderTopWidth'))
-                            : '上边框宽度',
+                            ? buildComputedTip(lang.topBorderWidthTip, effectiveStyle?.borderTopWidth, getPreviewValue('borderTopWidth'))
+                            : lang.topBorderWidthTip,
                           style: WIDTH_STYLE_SPLIT,
                           defaultValue: borderValue.borderTopWidth,
                           value: borderValue.borderTopWidth,
@@ -1323,8 +1324,8 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
                         compact
                         inputProps={{
                           tip: borderValue.borderRightWidth == null
-                            ? buildComputedTip('右边框宽度', effectiveStyle?.borderRightWidth, getPreviewValue('borderRightWidth'))
-                            : '右边框宽度',
+                            ? buildComputedTip(lang.rightBorderWidthTip, effectiveStyle?.borderRightWidth, getPreviewValue('borderRightWidth'))
+                            : lang.rightBorderWidthTip,
                           style: WIDTH_STYLE_SPLIT,
                           defaultValue: borderValue.borderRightWidth,
                           value: borderValue.borderRightWidth,
@@ -1401,8 +1402,8 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
                         compact
                         inputProps={{
                           tip: borderValue.borderBottomWidth == null
-                            ? buildComputedTip('下边框宽度', effectiveStyle?.borderBottomWidth, getPreviewValue('borderBottomWidth'))
-                            : '下边框宽度',
+                            ? buildComputedTip(lang.bottomBorderWidthTip, effectiveStyle?.borderBottomWidth, getPreviewValue('borderBottomWidth'))
+                            : lang.bottomBorderWidthTip,
                           style: WIDTH_STYLE_SPLIT,
                           defaultValue: borderValue.borderBottomWidth,
                           value: borderValue.borderBottomWidth,
@@ -1481,9 +1482,9 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
           ref={styleSettingsPopoverRef}
           className={css.styleSettingsPopover}
         >
-          <div className={css.strokePopoverTitle}>边框位置</div>
+          <div className={css.strokePopoverTitle}>{lang.borderPositionTitle}</div>
           <div className={css.strokePopoverRow}>
-            <span className={css.strokePopoverLabel}>位置</span>
+            <span className={css.strokePopoverLabel}>{lang.borderPositionLabel}</span>
             <Select
               style={{ flex: 1, padding: '0 8px' }}
               value={borderPosition}
@@ -1500,7 +1501,7 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
     <>
     {styleSettingsPortal as React.ReactNode}
     <Panel
-      title="边框"
+      title={lang.borderPanelTitle}
       showTitle={showTitle}
       collapse={collapse}
       onExpand={handleExpand}
@@ -1510,7 +1511,7 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
         <div className={css.rightColumn}>
           {showDelete && (
             <div
-              data-mybricks-tip={`{content:'删除边框',position:'left'}`}
+              data-mybricks-tip={`{content:'${lang.deleteBorderTip}',position:'left'}`}
               className={css.rightColumnBtn}
               onClick={onDelete}
             >
@@ -1523,8 +1524,8 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
           {hasBorderSection && (
             <div
               data-mybricks-tip={borderToggleValue === 'all'
-                ? `{content:'切换为单独配置',position:'left'}`
-                : `{content:'切换为统一配置',position:'left'}`}
+                ? `{content:'${lang.toggleSplitTip}',position:'left'}`
+                : `{content:'${lang.toggleUnifiedTip}',position:'left'}`}
               className={`${css.rightColumnBtn} ${css.rightColumnBtnSmall}`}
               onClick={() => {
                 setShowStyleSettings(false);
