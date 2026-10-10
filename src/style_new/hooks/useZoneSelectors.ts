@@ -16,6 +16,7 @@ import {
   mergeZoneTabsByState,
 } from '../core/zone-tab'
 import type { ZoneTab } from '../core/zone-tab'
+import { collectSourceAntClassNames } from '../core/style-write-target'
 import { uniqBy } from 'lodash'
 
 const INIT_TABS: ZoneTab[] = [];
@@ -49,6 +50,9 @@ export function useZoneSelectors(editConfig: any, targetDom: any, _open: boolean
       let bases = comId
         ? buildZoneSelectorsFromCssom(dom, comId)
         : collectSubjectClassSelectors(dom)
+      if (!bases.length && dom.classList.length && dom.getAttribute('data-zone-selector') && !dom.hasAttribute('data-drag-insert')) {
+        bases = collectSourceAntClassNames(dom).map(name => `.${name}`)
+      }
       if (!bases.length) {
         bases = fallbackZoneSelectorsFromClassnames(dom)
       }

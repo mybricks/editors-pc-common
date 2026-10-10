@@ -29,8 +29,15 @@ function compareWriteCandidates(a: StyleWriteCandidate, b: StyleWriteCandidate):
   return compare(b.specificity, a.specificity) || b.sourceOrder - a.sourceOrder
 }
 
+/** 仅供原选址失败后的 Ant 兜底使用，信任源码打标中的 class 顺序。 */
+export function collectSourceAntClassNames(target: Element): string[] {
+  return (target.getAttribute('data-zone-classnames') || '').split(/[\s,]+/)
+    .filter(name => /^ant-[\w-]+$/.test(name))
+}
+
 function collectRuleCandidates(
-  sources: ZoneSourceRule[], target: HTMLElement, pseudo: string | null, appendState = false
+  sources: ZoneSourceRule[], target: HTMLElement, pseudo: string | null, appendState = false,
+  sourceAntClasses?: string[]
 ): StyleWriteCandidate[] {
   const candidates: StyleWriteCandidate[] = []
   sources.forEach(source => {
@@ -42,7 +49,10 @@ function collectRuleCandidates(
       if (!target.matches(state.matchSelector)) return
     } catch { return }
     const ownClasses = subjectClassNames(state.subject, target)
-    if (!ownClasses.some(name => target.classList.contains(name) && !isZoneTabNoiseClass(name))) return
+    if (sourceAntClasses) {
+      // Ant 兜底只接受页面源码规则，主体不能混入未声明的运行时 class。
+      if (!source.isPageStyle || !ownClasses.length || !ownClasses.every(name => sourceAntClasses.includes(name))) return
+    } else if (!ownClasses.some(name => target.classList.contains(name) && !isZoneTabNoiseClass(name))) return
 
     // 保留完整源码路径。把 .parent .title 缩成 .title 会改变落盘规则和权重。
     const selector = source.sourceSelector + (appendState ? pseudo || '' : '')
@@ -58,7 +68,7 @@ function collectRuleCandidates(
  * 从当前元素的匹配规则选默认写入目标。复用 Tab 收集的 CSSOM，不在各面板重新扫描样式表。
  * 现有状态规则优先；新增状态从基础规则选址后追加状态；无匹配规则才使用自身源码 class。
  */
-function resolveDefaultWriteTarget(tab: ZoneTab, target: HTMLElement | null): StyleWriteTarget {
+function resolveDefaultWriteTarget(tab: ZoneTab, target: HTMLElement | null, sourceAntClasses?: string[]): StyleWriteTarget {
   if (!target) {
     return { selector: null, source: 'unsupported', candidates: [], reason: 'target-unavailable' }
   }
@@ -79,9 +89,9 @@ function resolveDefaultWriteTarget(tab: ZoneTab, target: HTMLElement | null): St
     }
   }
 
-  let candidates = collectRuleCandidates(tab.sourceRules, target, tab.pseudo)
+  let candidates = collectRuleCandidates(tab.sourceRules, target, tab.pseudo, false, sourceAntClasses)
   if (!candidates.length && tab.pseudo) {
-    candidates = collectRuleCandidates(tab.baseRules, target, tab.pseudo, true)
+    candidates = collectRuleCandidates(tab.baseRules, target, tab.pseudo, true, sourceAntClasses)
   }
   if (candidates.length) {
     return {
@@ -90,7 +100,8 @@ function resolveDefaultWriteTarget(tab: ZoneTab, target: HTMLElement | null): St
     }
   }
 
-  candidates = collectSubjectClassSelectors(target).flatMap(classSelector => {
+  const classSelectors = sourceAntClasses?.map(name => `.${name}`) || collectSubjectClassSelectors(target)
+  candidates = classSelectors.flatMap(classSelector => {
     const selector = classSelector + (tab.pseudo || '')
     const specificity = calculateSafeSpecificity(selector)
     return specificity ? [{ selector, specificity, sourceOrder: -1 }] : []
@@ -100,6 +111,11 @@ function resolveDefaultWriteTarget(tab: ZoneTab, target: HTMLElement | null): St
       selector: candidates[0].selector, source: 'classname-fallback', candidates,
       reason: 'no-matching-rule-use-first-source-class',
     }
+  }
+  // 普通规则和普通 class 均不可写时，带源码 Ant class 复用同一套选址，仅重试一次。
+  if (!sourceAntClasses) {
+    const antClasses = collectSourceAntClassNames(target)
+    if (antClasses.length) return resolveDefaultWriteTarget(tab, target, antClasses)
   }
   return {
     selector: null, source: 'unsupported', candidates: [], reason: 'no-writable-classname',
