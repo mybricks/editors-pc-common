@@ -372,6 +372,11 @@ const buildClearGradientBorderValue = (
 export function Border({ value, onChange: fallbackOnChange, config, showTitle, collapse }: BorderProps) {
   const context = useStyleEditorContext();
   const effectiveStyle = context?.effectiveStyle;
+  const editOptions = context?.editConfig?.options;
+  const isSoloEdit = !!(
+    editOptions && !Array.isArray(editOptions) &&
+    'soloEdit' in editOptions && editOptions.soloEdit
+  );
   const effectiveValue = useEffectiveStyleValue();
   const onChange = useStyleChange(fallbackOnChange);
   const targetDom = context?.targetDom ?? null;
@@ -401,6 +406,7 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
   const [previewValues, setPreviewValues] = useState<Record<string, string | undefined>>({});
   const [forceRenderKey, setForceRenderKey] = useState<number>(Math.random());
   const [borderColorEditorKey, setBorderColorEditorKey] = useState(0);
+  const colorEditorTargetRef = useRef(targetDom);
   const getDragPropsBorder = useDragNumber({ continuous: true });
 
   // ── 边框宽度 CSS 变量绑定 ────────────────────────────────────────────────────
@@ -556,9 +562,13 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
     setBorderValue(next);
     setPreviewValues({});
     setBorderPosition(nextPosition);
-    setBorderToggleValue(getBorderToggleDefaultValue(next));
-    setBorderColorEditorKey((key) => key + 1);
-  }, [targetDom, defaultBorderValue]);
+    const targetChanged = colorEditorTargetRef.current !== targetDom;
+    colorEditorTargetRef.current = targetDom;
+    if (!isSoloEdit || targetChanged) {
+      setBorderToggleValue(getBorderToggleDefaultValue(next));
+      setBorderColorEditorKey((key) => key + 1);
+    }
+  }, [targetDom, defaultBorderValue, isSoloEdit]);
 
   const refresh = useCallback(() => {
     const current = borderValueRef.current;
@@ -731,6 +741,26 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
 
   const getPreviewValue = (key: string) =>
     context?.getStylePreview?.(key) || previewValues[key] || effectiveStyle?.[key]?.computedValue;
+  // 未配置的边框色默认是 currentColor，计算值会跟随字体颜色实时变化。
+  // 只有边框本身可见（有宽度且非 none/hidden）时，计算值才代表真实渲染色，
+  // 可以拿来做色块预览；否则预览会随无关的 color 修改跳动。
+  const resolveBorderPreviewColor = (side: string) => {
+    const styleKey = `border${side}Style`;
+    const widthKey = `border${side}Width`;
+    const colorKey = `border${side}Color`;
+    if (
+      hasNoVisibleBorderLine(
+        borderValue[styleKey] ?? getPreviewValue(styleKey),
+        borderValue[widthKey] ?? getPreviewValue(widthKey)
+      )
+    ) {
+      return undefined;
+    }
+    return resolveCssVarColor(
+      borderValue[colorKey] || getPreviewValue(colorKey) || "",
+      targetDom
+    ) ?? undefined;
+  };
   const currentBorderStyle = borderValue.borderTopStyle ?? getPreviewValue('borderTopStyle') ?? 'none';
   const borderHasNoVisibleLine = hasNoVisibleBorderLine(
     currentBorderStyle, borderValue.borderTopWidth ?? getPreviewValue('borderTopWidth')
@@ -877,7 +907,7 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
       current,
       contentBackgroundLayersRef.current
     );
-    console.log("clearGradient",clearGradient)
+    // console.log("clearGradient",clearGradient)
     const result = handleChange({
       ...Object.fromEntries(BORDER_COLOR_KEYS.map((key) => [key, null])),
       ...clearGradient,
@@ -911,11 +941,8 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
                     key={borderColorEditorKey}
                     style={{ padding: 0, flex: 1, minWidth: 26 }}
                     defaultValue={borderColorValue}
-                    emptyValueLabel="默认"
-                    resolvedColor={resolveCssVarColor(
-                      borderValue.borderTopColor || getPreviewValue('borderTopColor') || "",
-                      targetDom
-                    ) ?? undefined}
+                    emptyValueLabel=""
+                    resolvedColor={resolveBorderPreviewColor('Top')}
                     variableOptions={canvasColorVariables}
                     scopeEl={targetDom}
                     showSubTabs={borderPosition === 'center'}
@@ -1047,6 +1074,7 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
                         style: { padding: 0, fontSize: 10, marginLeft: shouldShowMiniLayout ? 2 : 4, flex: 1, minWidth: 0 },
                         defaultValue: borderValue.borderTopWidth,
                         value: borderValue.borderTopWidth,
+                        placeholder: '',
                         defaultUnitValue: 'px',
                         unitOptions: withDefaultUnitOption(borderWidthUnitOptions, allWidthCanClear),
                         unitDisabledList: ['default'],
@@ -1108,8 +1136,8 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
                       key={`left-${borderColorEditorKey}`}
                       style={{ padding: 0, marginLeft: 2, flex: 1, minWidth: 26 }}
                       defaultValue={isConfiguredKey('borderLeftColor') ? borderValue.borderLeftColor : ''}
-                      emptyValueLabel="默认"
-                      resolvedColor={resolveCssVarColor(borderValue.borderLeftColor || getPreviewValue('borderLeftColor') || "", targetDom) ?? undefined}
+                      emptyValueLabel=""
+                      resolvedColor={resolveBorderPreviewColor('Left')}
                       variableOptions={canvasColorVariables}
                       scopeEl={targetDom}
                       showSubTabs={false}
@@ -1145,6 +1173,7 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
                           style: WIDTH_STYLE_SPLIT,
                           defaultValue: borderValue.borderLeftWidth,
                           value: borderValue.borderLeftWidth,
+                          placeholder: '',
                           defaultUnitValue: 'px',
                           unitOptions: withDefaultUnitOption(borderWidthUnitOptions, fieldCanClear.borderLeftWidth),
                           unitDisabledList: ['default'],
@@ -1184,8 +1213,8 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
                       key={`top-${borderColorEditorKey}`}
                       style={{ padding: 0, marginLeft: 2, flex: 1, minWidth: 26 }}
                       defaultValue={isConfiguredKey('borderTopColor') ? borderValue.borderTopColor : ''}
-                      emptyValueLabel="默认"
-                      resolvedColor={resolveCssVarColor(borderValue.borderTopColor || getPreviewValue('borderTopColor') || "", targetDom) ?? undefined}
+                      emptyValueLabel=""
+                      resolvedColor={resolveBorderPreviewColor('Top')}
                       variableOptions={canvasColorVariables}
                       scopeEl={targetDom}
                       showSubTabs={false}
@@ -1221,6 +1250,7 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
                           style: WIDTH_STYLE_SPLIT,
                           defaultValue: borderValue.borderTopWidth,
                           value: borderValue.borderTopWidth,
+                          placeholder: '',
                           defaultUnitValue: 'px',
                           unitOptions: withDefaultUnitOption(borderWidthUnitOptions, fieldCanClear.borderTopWidth),
                           unitDisabledList: ['default'],
@@ -1261,8 +1291,8 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
                       key={`right-${borderColorEditorKey}`}
                       style={{ padding: 0, marginLeft: 2, flex: 1, minWidth: 26 }}
                       defaultValue={isConfiguredKey('borderRightColor') ? borderValue.borderRightColor : ''}
-                      emptyValueLabel="默认"
-                      resolvedColor={resolveCssVarColor(borderValue.borderRightColor || getPreviewValue('borderRightColor') || "", targetDom) ?? undefined}
+                      emptyValueLabel=""
+                      resolvedColor={resolveBorderPreviewColor('Right')}
                       variableOptions={canvasColorVariables}
                       scopeEl={targetDom}
                       showSubTabs={false}
@@ -1298,6 +1328,7 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
                           style: WIDTH_STYLE_SPLIT,
                           defaultValue: borderValue.borderRightWidth,
                           value: borderValue.borderRightWidth,
+                          placeholder: '',
                           defaultUnitValue: 'px',
                           unitOptions: withDefaultUnitOption(borderWidthUnitOptions, fieldCanClear.borderRightWidth),
                           unitDisabledList: ['default'],
@@ -1338,8 +1369,8 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
                       key={`bottom-${borderColorEditorKey}`}
                       style={{ padding: 0, marginLeft: 2, flex: 1, minWidth: 26 }}
                       defaultValue={isConfiguredKey('borderBottomColor') ? borderValue.borderBottomColor : ''}
-                      emptyValueLabel="默认"
-                      resolvedColor={resolveCssVarColor(borderValue.borderBottomColor || getPreviewValue('borderBottomColor') || "", targetDom) ?? undefined}
+                      emptyValueLabel=""
+                      resolvedColor={resolveBorderPreviewColor('Bottom')}
                       variableOptions={canvasColorVariables}
                       scopeEl={targetDom}
                       showSubTabs={false}
@@ -1375,6 +1406,7 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
                           style: WIDTH_STYLE_SPLIT,
                           defaultValue: borderValue.borderBottomWidth,
                           value: borderValue.borderBottomWidth,
+                          placeholder: '',
                           defaultUnitValue: 'px',
                           unitOptions: withDefaultUnitOption(borderWidthUnitOptions, fieldCanClear.borderBottomWidth),
                           unitDisabledList: ['default'],

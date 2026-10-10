@@ -123,6 +123,7 @@ export function InputNumber ({
   const focusValueRef = useRef('')
   const inputChangedSinceFocusRef = useRef(false)
   const skipClearBlurRef = useRef(false)
+  const [hasInputDraft, setHasInputDraft] = useState(false)
   const [displayValue, setDisplayValue] = useState(() => {
     const initVal = externalValue
     if (initVal == null || initVal === '') return ''
@@ -139,7 +140,7 @@ export function InputNumber ({
   const isEmptyValue =
     (displayValue == null || displayValue === '') &&
     (externalValue == null || externalValue === '')
-  const showPreview = isEmptyValue && previewValue != null && previewValue !== ''
+  const showPreview = !hasInputDraft && isEmptyValue && previewValue != null && previewValue !== ''
   const previewText = showPreview ? String(previewValue) : ''
   const numericPreview = previewText.trim().match(/^(-?(?:\d+(?:\.\d+)?|\.\d+))([a-z%]*)$/i)
   const previewNumber = numericPreview?.[1]
@@ -172,6 +173,7 @@ export function InputNumber ({
 
   const handleInputChange = useCallback((nextValue: string) => {
     inputChangedSinceFocusRef.current = true
+    setHasInputDraft(true)
     setDisplayValue(nextValue)
     onInputValueChange?.(nextValue)
   }, [onInputValueChange])
@@ -180,14 +182,17 @@ export function InputNumber ({
     target: any, code: any; preventDefault: () => void
   }) => {
     const code = e.code
-    const newValue = incrementDecrement(e.target.value, code, allowNegative);
     if (['ArrowUp', 'ArrowDown'].includes(code)) {
+      const newValue = incrementDecrement(e.target.value, code, allowNegative);
       e.target.value = newValue;
+      handleInputChange(newValue);
       e.target.select();// 光标增减时依旧选中
       e.preventDefault();
     } else if (code === 'Enter') {
       e.preventDefault();
-      if (showPreview && !inputChangedSinceFocusRef.current) return;
+      if (showPreview && !inputChangedSinceFocusRef.current) {
+        return;
+      }
       const trimmed = e.target.value.trim();
       if (!trimmed || isNaN(parseFloat(trimmed))) {
         e.preventDefault();
@@ -241,7 +246,7 @@ export function InputNumber ({
       inputChangedSinceFocusRef.current = false;
       // useUpdateEffect([unit, number]) 只在 unit/number 变化时触发；
     }
-  }, [number, unit, unitDisabledList, fallbackValue, onChange, handleNumberChange, allowNegative, showPreview]);
+  }, [number, unit, unitDisabledList, fallbackValue, onChange, handleNumberChange, handleInputChange, allowNegative, showPreview]);
 
   const onBlur = useCallback((e: {
     target: any,
@@ -250,7 +255,9 @@ export function InputNumber ({
       skipClearBlurRef.current = false
       return
     }
-    if (showPreview && !inputChangedSinceFocusRef.current) return
+    if (showPreview && !inputChangedSinceFocusRef.current) {
+      return
+    }
     const trimmed = e.target.value.trim();
 
     // 空值或非法值：若有兜底值则补填并提交，否则回到默认状态并删除属性
@@ -402,7 +409,7 @@ export function InputNumber ({
         unitHideLabelList.includes(renderedUnit)
       const unitSelect = (
         <Select
-            tip='单位'
+            // tip='单位'
             style={{ padding: 0, fontSize: 10, marginLeft: clearable ? 0 : undefined, ...unitSelectStyle }}
             value={renderedUnit}
             options={menuOptions}
@@ -429,6 +436,7 @@ export function InputNumber ({
 
   // 新选中组件的值在首帧绘制前同步到内部 state，避免旧值短暂闪现。
   useLayoutEffect(() => {
+    setHasInputDraft(false)
     if (!isValueSyncInitializedRef.current) {
       isValueSyncInitializedRef.current = true
       return
@@ -548,6 +556,9 @@ function getUnit (value: any, defaultUnitValue: string | undefined = void 0, uni
 }
 
 function incrementDecrement(inputNumber: string, keyEvent: 'ArrowUp' | 'ArrowDown', allowNegative = false) {
+  // 未配置或输入中的非法数字从 0 开始调整，避免把 NaN 写入输入框。
+  if (!Number.isFinite(parseFloat(inputNumber))) inputNumber = '0'
+
   if (inputNumber.includes('.')) {
     var decimalPlaces = inputNumber.split('.')[1].length
     var increment = Math.pow(10, -decimalPlaces)

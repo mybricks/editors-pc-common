@@ -106,6 +106,7 @@ export default ({ value, cleared, onChange, flexDirection }: GapProps) => {
       {flexDirection === "row" && renderInput("columnGap", value.columnGap, "column-gap", "列间距")}
       {flexDirection === "row" && renderInput("rowGap", value.rowGap, "row-gap", "行间距")}
       {flexDirection === "column" && renderInput("rowGap", value.rowGap, "row-gap", "行间距")}
+      {flexDirection === "column" && renderInput("columnGap", value.columnGap, "column-gap", "列间距")}
     </div>
   );
 };

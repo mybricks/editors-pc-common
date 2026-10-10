@@ -209,6 +209,7 @@ export function getEffectedCssPropertyAndOptions (
       }
 
       if (!metadataRules.length) finalRules = Array.from(rulesMap.values()).filter((finalRule: any) => {
+        if (zoneTab?.excludedRules?.includes(finalRule)) return false
         // calculate 不支持逗号合并选择器，需走 calculateSafeSpecificity
         const tempCompare = calculateSafeSpecificity(finalRule.selectorText, computedElement)
 

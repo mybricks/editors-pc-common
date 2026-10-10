@@ -20,7 +20,7 @@ import {
   validateCssRuleSyntax,
 } from './core/css-code-codec'
 import { registerCSSPropertiesLanguage } from './css-properties-language'
-import { fullScreenIcon } from './icon'
+import { backToVisualIcon, fullScreenIcon } from './icon'
 import css from './index.less'
 
 const CSS_EDITOR_TITLE = 'CSS样式编辑'
@@ -39,6 +39,7 @@ export function CssEditor({
   onBatchMetaChange,
   getDefaultOptions,
   editorHandleRef,
+  onBackEditor,
 }: any) {
   const displaySelector = resolveDisplaySelector(selector)
   // baseline：编辑器回显快照，用于 blur 时 diff（含 CSSOM 回显值）
@@ -209,6 +210,9 @@ export function CssEditor({
     <div className={css.codeWrap}>
       <div className={css.inlineWrap}>
         <div className={css.body} style={{ height: editorHeight }}>
+          <div data-mybricks-tip={`{content:'返回可视化编辑',position:'left'}`} className={css.back} onClick={onBackEditor}>
+            {backToVisualIcon}
+          </div>
           <div data-mybricks-tip="放大" className={css.plus} onClick={onFullscreen}>
             {fullScreenIcon}
           </div>

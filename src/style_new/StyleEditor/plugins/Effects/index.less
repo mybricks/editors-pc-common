@@ -189,6 +189,60 @@
     }
   }
 
+  .effectPresets {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    flex: 1;
+    min-width: 0;
+    gap: 6px;
+    margin-left: 4px;
+  }
+
+  .effectPreset {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    min-width: 0;
+    height: 36px;
+    margin: 0;
+    padding: 0;
+    border: 1px solid transparent;
+    border-radius: @border-radius;
+    background: @bg-color-main-secondary;
+    color: @font-color-content;
+    cursor: pointer;
+    overflow: hidden;
+
+    &:hover {
+      border-color: @boder-color;
+    }
+
+    &[aria-pressed='true'] {
+      border-color: var(--mybricks-color-primary, #FA6400);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--mybricks-color-primary, #FA6400);
+      outline-offset: 2px;
+    }
+  }
+
+  .effectPresetPreview {
+    width: 16px;
+    height: 16px;
+    box-sizing: border-box;
+    border: 1px solid @boder-color;
+    border-radius: 3px;
+    background: @bg-color-main;
+  }
+
+  .effectPresetText {
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 1;
+  }
+
   .effectRow {
     display: flex;
     align-items: center;

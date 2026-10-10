@@ -75,13 +75,13 @@ function getUnifiedRadiusValue(value: Record<string, any>): string | null {
   return String(values[0])
 }
 
-export function BorderRadius({ value, onChange: fallbackOnChange, config }: BorderRadiusProps) {
+export function BorderRadius({ value, onChange: fallbackOnChange, config, collapse }: BorderRadiusProps) {
   const context = useStyleEditorContext()
   const onChange = useStyleChange(fallbackOnChange)
-  const topLeftDisplay = useStyleDisplayValue('borderTopLeftRadius')
-  const topRightDisplay = useStyleDisplayValue('borderTopRightRadius')
-  const bottomRightDisplay = useStyleDisplayValue('borderBottomRightRadius')
-  const bottomLeftDisplay = useStyleDisplayValue('borderBottomLeftRadius')
+  const topLeftDisplay = useStyleDisplayValue('borderTopLeftRadius', { preview: 'none' })
+  const topRightDisplay = useStyleDisplayValue('borderTopRightRadius', { preview: 'none' })
+  const bottomRightDisplay = useStyleDisplayValue('borderBottomRightRadius', { preview: 'none' })
+  const bottomLeftDisplay = useStyleDisplayValue('borderBottomLeftRadius', { preview: 'none' })
   const radiusPreview: Record<typeof RADIUS_KEYS[number], string | undefined> = {
     borderTopLeftRadius: topLeftDisplay.displaySource === 'normal-computed' ? topLeftDisplay.computedPreview : undefined,
     borderTopRightRadius: topRightDisplay.displaySource === 'normal-computed' ? topRightDisplay.computedPreview : undefined,
@@ -322,7 +322,7 @@ export function BorderRadius({ value, onChange: fallbackOnChange, config }: Bord
     <Panel
       title='圆角'
       showTitle={true}
-      collapse={false}
+      collapse={collapse}
       showReset={canReset}
       showDelete={canReset}
       resetFunction={handleReset}

@@ -62,8 +62,6 @@ const BASIS_UNIT_OPTIONS = [
   { label: '%', value: '%' },
 ]
 
-const DEFAULT_PLACEHOLDER = '默认'
-
 function isFlexChildVisible(targetDom: HTMLElement | null | undefined): boolean {
   if (!targetDom) return false
   const selfPos = window.getComputedStyle(targetDom).position
@@ -200,6 +198,8 @@ export function Flex({ value: fallbackValue, onChange: fallbackOnChange, showTit
   const [localShrink, setLocalShrink] = useState(parts.shrink)
   const [localBasis, setLocalBasis] = useState(parts.basis)
   const [mode, setMode] = useState<FlexMode>(() => resolveFlexMode(value))
+  // 展开后保持面板打开，避免单独编辑写入时样式快照短暂为空导致自动收起。
+  const [expandedByUser, setExpandedByUser] = useState(collapse !== true)
   const isEditingRef = useRef(false)
   const isEditingGrowRef = useRef(false)
   const isEditingShrinkRef = useRef(false)
@@ -208,6 +208,9 @@ export function Flex({ value: fallbackValue, onChange: fallbackOnChange, showTit
   const focusShrinkValueRef = useRef('')
   // 切回比例时 advanced 输入会卸载并触发 blur；抑制这次 blur 落盘，避免盖掉简写写入
   const suppressLonghandBlurRef = useRef(false)
+  // CSSOM 可能把长写重新序列化成 `flex: 1 1 0%`；用户已进入单独配置后，
+  // 不能因此把编辑器模式误切回比例配置。
+  const modeOverrideRef = useRef<FlexMode | null>(null)
 
   useEffect(() => {
     if (!isEditingRef.current) setLocalValue(echo)
@@ -228,7 +231,9 @@ export function Flex({ value: fallbackValue, onChange: fallbackOnChange, showTit
   // 按长写或非常规多段 flex 同步模式，重新聚焦后保持单独配置按钮选中
   useEffect(() => {
     if (suppressLonghandBlurRef.current) return
-    setMode(resolveFlexMode(value))
+    const modeOverride = modeOverrideRef.current
+    modeOverrideRef.current = null
+    setMode(modeOverride || resolveFlexMode(value))
   }, [targetDom, value?.flexGrow, value?.flexShrink, value?.flexBasis, value?.flex])
 
   const hasFlexValue =
@@ -260,6 +265,8 @@ export function Flex({ value: fallbackValue, onChange: fallbackOnChange, showTit
 
   const refresh = useCallback(() => {
     if (!clear) return
+    modeOverrideRef.current = null
+    setExpandedByUser(false)
     const result = clear()
     if (result?.clearUnsupported || (result && !result.applied)) return
     const remaining = Object.fromEntries(FLEX_KEYS.map(key => [key, editorContext?.getStyleProperty?.(key).winner?.value]))
@@ -271,6 +278,10 @@ export function Flex({ value: fallbackValue, onChange: fallbackOnChange, showTit
     setLocalBasis(nextParts.basis)
     setMode(resolveFlexMode(remaining))
   }, [clear, editorContext?.getStyleProperty])
+
+  const handleExpand = useCallback(() => {
+    setExpandedByUser(true)
+  }, [])
 
   const commitShorthand = useCallback(
     (raw: string) => {
@@ -299,6 +310,7 @@ export function Flex({ value: fallbackValue, onChange: fallbackOnChange, showTit
         { key: 'flexBasis', value: null },
       ])
       if (result?.clearUnsupported || (result && !result.applied)) return
+      modeOverrideRef.current = 'ratio'
       setLocalValue(normalized)
       setLocalGrow('')
       setLocalShrink('')
@@ -358,6 +370,7 @@ export function Flex({ value: fallbackValue, onChange: fallbackOnChange, showTit
       const result = onChange(changes)
       if (result?.clearUnsupported || (result && !result.applied)) return
       setLocalBasis(basis)
+      modeOverrideRef.current = 'advanced'
       // 走长写后比例清空，并保持单独配置模式
       setLocalValue('')
       setMode('advanced')
@@ -424,7 +437,7 @@ export function Flex({ value: fallbackValue, onChange: fallbackOnChange, showTit
 
   if (!visible) return null
 
-  const effectiveCollapse = hasVisibleFlexValue ? false : collapse
+  const effectiveCollapse = hasVisibleFlexValue || expandedByUser ? false : collapse
   const isAdvanced = mode === 'advanced'
 
   return (
@@ -441,6 +454,7 @@ export function Flex({ value: fallbackValue, onChange: fallbackOnChange, showTit
       onDelete={clear ? refresh : undefined}
       resetFunction={refresh}
       collapse={effectiveCollapse}
+      onExpand={handleExpand}
       onAdd={!hasVisibleFlexValue ? handleAdd : undefined}
       hideTopBorder
     >
@@ -456,7 +470,6 @@ export function Flex({ value: fallbackValue, onChange: fallbackOnChange, showTit
                 <input
                   type="text"
                   value={localValue}
-                  placeholder={DEFAULT_PLACEHOLDER}
                   onChange={handleChange}
                   onFocus={handleFocus}
                   onBlur={handleBlur}
@@ -476,7 +489,6 @@ export function Flex({ value: fallbackValue, onChange: fallbackOnChange, showTit
                   <input
                     type="text"
                     value={localGrow}
-                    placeholder={DEFAULT_PLACEHOLDER}
                     onChange={(e) => setLocalGrow(e.target.value)}
                     onFocus={() => {
                       isEditingGrowRef.current = true
@@ -497,7 +509,6 @@ export function Flex({ value: fallbackValue, onChange: fallbackOnChange, showTit
                   <input
                     type="text"
                     value={localShrink}
-                    placeholder={DEFAULT_PLACEHOLDER}
                     onChange={(e) => setLocalShrink(e.target.value)}
                     onFocus={() => {
                       isEditingShrinkRef.current = true
@@ -516,12 +527,12 @@ export function Flex({ value: fallbackValue, onChange: fallbackOnChange, showTit
                     {COPY.basisLabel}
                   </span>
                   <InputNumber
-                    style={{ flex: 1, minWidth: 0, marginLeft: 0, padding: 0 }}
+                    style={{ flex: 1, minWidth: 0, marginLeft: 0, padding: '0 6px 0 0' }}
                     defaultValue={localBasis === 'auto' ? undefined : localBasis || undefined}
                     defaultUnitValue="%"
                     unitOptions={BASIS_UNIT_OPTIONS}
                     unitHideLabelList={[]}
-                    placeholder={DEFAULT_PLACEHOLDER}
+                    placeholder=""
                     onFocus={() => {
                       isEditingBasisRef.current = true
                     }}

@@ -188,22 +188,35 @@
     position: relative;
 
     &:hover {
+      .back,
       .plus {
         visibility: visible;
       }
     }
 
+    .back,
     .plus {
       position: absolute;
       top: 2px;
-      right: 7px;
+      right: 2px;
       z-index: 1;
+      padding: 0 5px;
       cursor: pointer;
-      visibility: hidden;
+      background: rgba(204, 204, 204, 0.3);
+      height: 20px;
+      border-radius: 1px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      // visibility: hidden;
 
       &:hover {
         color: @color-primary;
       }
+    }
+
+    .back {
+      right: 27px;
     }
   }
 }
@@ -237,6 +250,7 @@
   gap: 4px;
   margin: 4px 1px 6px 6px;
   position: relative;
+  padding-right: 3px;
 }
 
 .zoneTabList {
@@ -310,19 +324,19 @@
   }
 }
 
+.moreBtn,
 .zoneTabAdd {
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  width: 22px;
+  width: 15px;
   height: 22px;
   padding: 0;
   border: 0;
-  border-radius: 5px;
   background: transparent;
   color: @font-color-content;
-  opacity: 0.55;
+  opacity: 0.8;
   cursor: pointer;
 
   svg {
@@ -332,8 +346,20 @@
 
   &:hover {
     opacity: 1;
-    background-color: rgba(0, 0, 0, 0.05);
   }
+}
+
+.moreBtn svg {
+  width: 18px;
+  height: 18px;
+}
+
+.zoneTabSingleTitle {
+  font-size: 13px;
+  font-weight: 500;
+  color: #000;
+  flex: 1;
+  margin-left: -4px;
 }
 
 .zoneTabDropdown {
@@ -341,15 +367,40 @@
   border-radius: 6px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 
+  &:global(.ant-dropdown-menu),
   :global(.ant-dropdown-menu) {
+    padding: 0;
     background: #fff;
     border-radius: 6px;
     box-shadow: none;
   }
 
-  :global(.ant-dropdown-menu-item) {
+  &:global(.ant-dropdown-menu-submenu-popup) ul,
+  :global(.ant-dropdown-menu-submenu-popup ul) {
+    margin-right: 0;
+    margin-left: 0;
+  }
+
+  :global(.ant-dropdown-menu-item),
+  :global(.ant-dropdown-menu-submenu-title),
+  :global(.ant-menu-item) {
     font-size: 12px;
   }
+
+  :global(.ant-dropdown-menu-item:hover),
+  :global(.ant-dropdown-menu-submenu-title:hover),
+  :global(.ant-menu-item:hover) {
+    background-color: rgba(82,49,253,.18);
+    color: #864cf3;
+  }
+
+  :global(.ant-dropdown-menu-submenu-expand-icon) {
+    transform: translateY(-0.5px);
+  }
+
+  // :global(.ant-dropdown-menu-submenu-title) {
+  //   padding-right: 12px;
+  // }
 }
 
 .affectedHint {
@@ -459,7 +510,7 @@
 
 .styleSection {
   min-width: 0;
-  padding: 0 1px;
+  padding: 0 1px 40px;
   background-color: @bg-color-main;
 }
 

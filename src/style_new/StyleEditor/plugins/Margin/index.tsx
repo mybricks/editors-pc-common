@@ -198,7 +198,7 @@ export function Margin ({value, onChange: fallbackOnChange, config, showTitle, c
         <div className={css.row}
         >
           <Panel.Content style={{padding: 2}}>
-            <Panel.Item className={css.editArea} style={{padding: '0px 8px'}}>
+            <Panel.Item className={css.editArea} style={{padding: '0px 6px 0 8px'}}>
               <div 
                 className={css.icon}
                 ref={unifiedVar.anchorRef}
@@ -247,7 +247,7 @@ export function Margin ({value, onChange: fallbackOnChange, config, showTitle, c
           <div style={{ minWidth: "120px", flex: 1 }}>
             <div className={css.row} style={{ paddingRight: 0 }}>
               <Panel.Content style={{ padding: 2 }}>
-                <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
+                <Panel.Item className={css.editArea} style={{ padding: "0px 6px 0 8px" }}>
                   <div 
                     className={`${css.icon} ${css.leftMarginIcon}`} 
                     ref={leftVar.anchorRef}
@@ -283,7 +283,7 @@ export function Margin ({value, onChange: fallbackOnChange, config, showTitle, c
                 </Panel.Item>
               </Panel.Content>
               <Panel.Content style={{ padding: 2 }}>
-                <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
+                <Panel.Item className={css.editArea} style={{ padding: "0px 6px 0 8px" }}>
                   <div 
                     className={css.icon} 
                     ref={topVar.anchorRef}
@@ -321,7 +321,7 @@ export function Margin ({value, onChange: fallbackOnChange, config, showTitle, c
             </div>
             <div className={css.row} style={{ paddingRight: 0 }}>
               <Panel.Content style={{ padding: 2 }}>
-                <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
+                <Panel.Item className={css.editArea} style={{ padding: "0px 6px 0 8px" }}>
                   <div 
                     className={css.icon}
                     ref={rightVar.anchorRef}
@@ -357,7 +357,7 @@ export function Margin ({value, onChange: fallbackOnChange, config, showTitle, c
                 </Panel.Item>
               </Panel.Content>
               <Panel.Content style={{ padding: 2 }}>
-                <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
+                <Panel.Item className={css.editArea} style={{ padding: "0px 6px 0 8px" }}>
                   <div 
                     className={css.icon} 
                     ref={bottomVar.anchorRef}

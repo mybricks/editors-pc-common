@@ -33,6 +33,8 @@ export function Rotation({ value, onChange: fallbackOnChange, showTitle, collaps
   const zoneSelector = (context?.editConfig.options as { zoneTab?: { selector: string } })?.zoneTab?.selector
   const { angle: parsedAngle, hasRotation } = readRotation(transformStr)
   const { flipX, flipY } = readFlips(transformStr)
+  // 位移、正向缩放等 transform 不属于旋转面板的配置。
+  const effectiveCollapse = hasRotation || flipX || flipY ? collapse : true
   const angleDisplay = parsedAngle == null ? '' : String(parsedAngle)
   const [angleDraft, setAngleDraft] = useState<string | null>(null)
   const localAngle = angleDraft ?? angleDisplay
@@ -182,7 +184,7 @@ export function Rotation({ value, onChange: fallbackOnChange, showTitle, collaps
       showReset={true}
       resetFunction={handleReset}
       onExpand={handleExpand}
-      collapse={collapse}
+      collapse={effectiveCollapse}
     >
       <Panel.Content className={css.rotationPanelContent}>
         {/* Angle input with drag-on-icon */}

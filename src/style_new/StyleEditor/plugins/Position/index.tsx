@@ -1,8 +1,11 @@
-import React, { CSSProperties, useCallback, useEffect, useState } from 'react'
+import React, { CSSProperties, useCallback, useEffect, useMemo, useState } from 'react'
 
 import { Panel, InputNumber } from '../../components'
 import { useEffectiveStyleValue, useStyleChange, useStyleEditorContext } from '../../context'
 import { useDragNumber } from '../../hooks'
+import { useStyleDisplayValue } from '../../hooks/useStyleDisplayValue'
+import { collectZoneTabs, mergeZoneTabsByState } from '../../../core/zone-tab'
+import { createStyleResolution } from '../../../core/style-property'
 
 import type { ChangeEvent, PanelBaseProps } from '../../type'
 
@@ -18,6 +21,8 @@ const EDITABLE_POSITIONS = new Set(['absolute', 'fixed', 'relative', 'sticky'])
 /** 自由定位：按钮高亮，可一键取消 */
 const FREE_POSITIONS = new Set(['absolute', 'fixed'])
 const POSITION_UNIT_OPTIONS = [
+  { label: '默认', value: 'default' },
+  {label: '', value: '—divider_', type: 'divider'},
   { label: 'px', value: 'px' },
   { label: '%', value: '%' },
 ]
@@ -25,7 +30,7 @@ const POSITION_UNIT_SELECT_STYLE: CSSProperties = {
   background: 'transparent',
 }
 
-/** 未声明或使用默认值时交给 InputNumber 通过 placeholder 显示「默认」。 */
+/** 未声明或使用默认值时让输入框保持空白。 */
 function toInputValue(value: unknown): string | undefined {
   if (value == null || value === '' || value === 'auto' || value === 'inherit') {
     return undefined
@@ -61,13 +66,17 @@ type PositionDirection = 'top' | 'right' | 'bottom' | 'left'
 function PositionInput({
   label,
   rawValue,
+  previewValue,
+  tip,
   cssKey,
   onChange,
   needsActivation,
   onActivate,
 }: {
   label: string
+  tip: string
   rawValue: unknown
+  previewValue?: string
   cssKey: PositionDirection
   onChange: ChangeEvent
   /**
@@ -79,9 +88,10 @@ function PositionInput({
   onActivate: () => void
 }) {
   const isLocked = needsActivation
+  const dragValue = toInputValue(rawValue) ?? toInputValue(previewValue)
 
   const handleChange = useCallback((nextValue: string | null) => {
-    if (nextValue == null) {
+    if (nextValue == null || nextValue?.includes('default')) {
       onChange({ key: cssKey, value: null })
       return
     }
@@ -94,27 +104,30 @@ function PositionInput({
     sensitivity: 1,
     onDragChange: (newVal) => {
       if (needsActivation) onActivate()
-      onChange({ key: cssKey, value: `${newVal}${String(rawValue).trim().endsWith('%') ? '%' : 'px'}` })
+      onChange({ key: cssKey, value: `${newVal}${String(dragValue).trim().endsWith('%') ? '%' : 'px'}` })
     },
   })
 
   return (
     <InputNumber
-      style={{ flex: 1, minWidth: 0 }}
+      style={{ flex: 1, minWidth: 0, paddingRight: '6px' }}
       prefix={(
         <span
-          {...(!isLocked ? dragProps(toInputValue(rawValue), `拖拽调整 ${label}`) : {})}
+          {...(!isLocked ? dragProps(dragValue, `拖拽调整 ${label}`) : {})}
           className={`${css.dragLabel} ${isLocked ? css.dragLabelDisabled : ''}`}
         >
           {label}
         </span>
       )}
+      tip={tip}
       value={toInputValue(rawValue)}
+      previewValue={toInputValue(previewValue)}
       defaultValue={toInputValue(rawValue)}
       defaultUnitValue='px'
       unitOptions={POSITION_UNIT_OPTIONS}
+      unitDisabledList={['default']}
       unitSelectStyle={POSITION_UNIT_SELECT_STYLE}
-      placeholder='默认'
+      placeholder=''
       allowNegative
       showIcon
       showIconOnHover
@@ -127,19 +140,43 @@ function PositionInput({
   )
 }
 
-export function Position({ onChange: fallbackOnChange, showTitle }: PositionProps) {
+export function Position({ value: panelValue, onChange: fallbackOnChange, showTitle }: PositionProps) {
   const editorContext = useStyleEditorContext();
-  const value = useEffectiveStyleValue();
+  const effectiveValue = useEffectiveStyleValue();
+  const options = editorContext?.editConfig.options;
+  const zoneTab = options && !Array.isArray(options) && "zoneTab" in options ? options.zoneTab : null;
+  const hasZoneTab = !!zoneTab;
+  const isPseudoState = !!zoneTab?.pseudo && !zoneTab.pseudo.startsWith('::');
+  // 非 Zone 模式（如单独编辑）的回显值来自 props，effectiveStyle 在此模式下为空。
+  const value = hasZoneTab ? effectiveValue : panelValue;
+  const positionField = useStyleDisplayValue('position');
+  const topField = useStyleDisplayValue('top');
+  const rightField = useStyleDisplayValue('right');
+  const bottomField = useStyleDisplayValue('bottom');
+  const leftField = useStyleDisplayValue('left');
   const [leftVal, setLeftVal] = useState(value?.left)
   const [topVal, setTopVal] = useState(value?.top)
   const [rightVal, setRightVal] = useState(value?.right)
   const [bottomVal, setBottomVal] = useState(value?.bottom)
   const onChange = useStyleChange(fallbackOnChange);
 
-  const positionVal = (value as any)?.position
+  const positionVal = value?.position ?? (isPseudoState ? positionField.computedPreview : undefined)
   const positionStr = positionVal != null ? String(positionVal) : 'static'
 
   const targetDom = editorContext?.targetDom ?? null
+  const offsetPreview = useMemo(() => {
+    if (!isPseudoState || !targetDom?.isConnected || !zoneTab) return null
+    // 新增伪类尚无 CSS 规则，Tab 的基础规则可能早于上一次编辑；位置预览单独读取最新常规声明。
+    const selectors = [zoneTab.baseSelector, ...Array.from(targetDom.classList, name => '.' + name)]
+    const normalTab = mergeZoneTabsByState(collectZoneTabs([targetDom], selectors, (options as any)?.comId))
+      .find(tab => !tab.pseudo)
+    if (!normalTab) return null
+    const resolution = createStyleResolution(normalTab, targetDom)
+    return Object.fromEntries(['top', 'right', 'bottom', 'left'].map(key => {
+      const declaration = editorContext?.effectiveStyle?.[key]
+      return [key, declaration && declaration.type !== 'computed' ? undefined : resolution.get(key).winner?.value]
+    }))
+  }, [zoneTab, targetDom, options, editorContext?.effectiveStyle])
   /**
    * 切换瞬间的乐观状态。不能用 getComputedStyle 兜底高亮：
    * 取消后 value 已清掉，但 DOM/computed 可能短暂仍是 absolute，且之后无重渲染，高亮会卡住。
@@ -147,9 +184,10 @@ export function Position({ onChange: fallbackOnChange, showTitle }: PositionProp
   const [optimisticFree, setOptimisticFree] = useState<boolean | null>(null)
 
   const isFreeFromValue = FREE_POSITIONS.has(positionStr)
-  const isFreePosition = optimisticFree ?? isFreeFromValue
+  // 伪类未配置时仍可能沿用基础态定位，清空不能把只读预览锁成“默认”。
+  const isFreePosition = isPseudoState ? isFreeFromValue : optimisticFree ?? isFreeFromValue
   // static / 未设置：修改偏移时需自动开启自由定位
-  const needsActivation = !(optimisticFree ?? EDITABLE_POSITIONS.has(positionStr))
+  const needsActivation = !(isPseudoState ? EDITABLE_POSITIONS.has(positionStr) : optimisticFree ?? EDITABLE_POSITIONS.has(positionStr))
 
   // value 回传与乐观状态对齐后，清除乐观标记
   useEffect(() => {
@@ -189,18 +227,18 @@ export function Position({ onChange: fallbackOnChange, showTitle }: PositionProp
     setTopVal(`${offset.top}px`)
   }, [onChange, targetDom, value.height, value.width])
 
-  /** 取消自由定位：清理 position 及四个偏移属性 / zIndex */
+  /** 取消自由定位：伪类显式覆盖基础态定位，并清理四个偏移属性 / zIndex。 */
   const handleDeactivate = useCallback(() => {
     setOptimisticFree(false)
     onChange([
-      { key: 'position', value: null },
+      { key: 'position', value: isPseudoState ? 'static' : null },
       { key: 'top', value: null },
       { key: 'right', value: null },
       { key: 'bottom', value: null },
       { key: 'left', value: null },
       { key: 'zIndex', value: null },
     ])
-  }, [onChange])
+  }, [isPseudoState, onChange])
 
   return (
     <Panel
@@ -232,7 +270,9 @@ export function Position({ onChange: fallbackOnChange, showTitle }: PositionProp
           <Panel.Content>
             <PositionInput
               label='上'
+              tip='相对顶部定位'
               rawValue={topVal}
+              previewValue={isPseudoState ? offsetPreview ? offsetPreview.top : topField.computedPreview : undefined}
               cssKey='top'
               onChange={onChange}
               needsActivation={needsActivation}
@@ -240,7 +280,9 @@ export function Position({ onChange: fallbackOnChange, showTitle }: PositionProp
             />
             <PositionInput
               label='右'
+              tip='相对右侧定位'
               rawValue={rightVal}
+              previewValue={isPseudoState ? offsetPreview ? offsetPreview.right : rightField.computedPreview : undefined}
               cssKey='right'
               onChange={onChange}
               needsActivation={needsActivation}
@@ -250,7 +292,9 @@ export function Position({ onChange: fallbackOnChange, showTitle }: PositionProp
           <Panel.Content>
             <PositionInput
               label='下'
+              tip='相对底部定位'
               rawValue={bottomVal}
+              previewValue={isPseudoState ? offsetPreview ? offsetPreview.bottom : bottomField.computedPreview : undefined}
               cssKey='bottom'
               onChange={onChange}
               needsActivation={needsActivation}
@@ -258,7 +302,9 @@ export function Position({ onChange: fallbackOnChange, showTitle }: PositionProp
             />
             <PositionInput
               label='左'
+              tip='相对左侧定位'
               rawValue={leftVal}
+              previewValue={isPseudoState ? offsetPreview ? offsetPreview.left : leftField.computedPreview : undefined}
               cssKey='left'
               onChange={onChange}
               needsActivation={needsActivation}

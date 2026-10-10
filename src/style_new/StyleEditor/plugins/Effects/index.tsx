@@ -52,6 +52,7 @@ import {
   isTextShadowLayer,
 } from './layers'
 import type { CssEffectsBundle } from './layers'
+import { SHADOW_PRESETS, getPresetPatch, findMatchingPreset } from './presets'
 
 interface EffectsProps extends PanelBaseProps {
   value: CSSProperties
@@ -142,7 +143,11 @@ export function Effects({ value: _value, onChange: fallbackOnChange, showTitle, 
     const effectType = type as EffectType
     if (!EFFECT_TYPE_LABELS[effectType]) return
     if (isBlurType(effectType) && hasEffectType(layersRef.current, effectType)) return
-    emitLayers([createDefaultLayer(effectType), ...layersRef.current])
+    const layer = createDefaultLayer(effectType)
+    if (isShadowLayer(layer)) {
+      Object.assign(layer, getPresetPatch(SHADOW_PRESETS[0], layer.type))
+    }
+    emitLayers([layer, ...layersRef.current])
   }, [emitLayers])
 
   const handleLayerRemove = useCallback((index: number) => {
@@ -455,6 +460,7 @@ function EffectNumberField({
           allowNegative,
           prefix: handle,
           defaultValue: value,
+          placeholder: '',
           defaultUnitValue: 'px',
           unitOptions,
           showIcon: true,
@@ -494,8 +500,9 @@ function EffectSketchBody({
   // 切层/切类型时重挂非受控子组件。不要把颜色值并进来：ColorEditor 的取色浮层
   // 是它自己的 portal，颜色一变就重挂会让拖色盘时弹层被反复关掉。
   const forceKey = `${layer.id}-${layer.type}`
-  const shadow = isShadowLayer(layer)
   const textShadow = isTextShadowLayer(layer)
+  const selectedPresetId = findMatchingPreset(layer)?.id
+  const [colorEditorVersion, setColorEditorVersion] = useState(0)
 
   // ── 长度字段的 CSS 变量绑定 ─────────────────────────────────────────────
   // 模糊层没有偏移与扩散，这里仍无条件建 binding（hooks 顺序），取值给 0px 占位
@@ -553,8 +560,46 @@ function EffectSketchBody({
       </div>
 
       <React.Fragment key={forceKey}>
-        {shadow ? (
+        {isShadowLayer(layer) ? (
           <>
+            <div className={css.effectRow}>
+              <span className={css.effectLabel}>预设</span>
+              <div className={css.effectPresets}>
+                {SHADOW_PRESETS.map((preset) => {
+                  const patch = getPresetPatch(preset, layer.type)
+                  const shadowValue = [patch.offsetX, patch.offsetY, patch.blurRadius, patch.spreadRadius, patch.color].filter(Boolean).join(' ')
+                  return (
+                    <button
+                      key={preset.id}
+                      type='button'
+                      className={css.effectPreset}
+                      aria-label={`${preset.label}阴影预设`}
+                      aria-pressed={selectedPresetId === preset.id}
+                      data-mybricks-tip={preset.label}
+                      onClick={() => {
+                        offsetXVar.closePicker()
+                        offsetYVar.closePicker()
+                        blurRadiusVar.closePicker()
+                        spreadRadiusVar.closePicker()
+                        onChange(patch)
+                        // ColorEditor 仅用 defaultValue 初始化；只在套用预设时重挂，避免打断取色拖拽。
+                        setColorEditorVersion((version) => version + 1)
+                      }}
+                    >
+                      <span
+                        aria-hidden='true'
+                        className={textShadow ? css.effectPresetText : css.effectPresetPreview}
+                        style={textShadow
+                          ? { textShadow: shadowValue }
+                          : { boxShadow: `${layer.type === 'innerShadow' ? 'inset ' : ''}${shadowValue}` }}
+                      >
+                        {textShadow ? 'A' : null}
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
             <EffectNumberField
               label='位置'
               icon='X'
@@ -603,6 +648,7 @@ function EffectSketchBody({
               <span className={css.effectLabel}>颜色</span>
               {/* showSubTabs=false 只关渐变/图片，变量 tab 由 variableOptions 是否为空决定 */}
               <ColorEditor
+                key={colorEditorVersion}
                 style={{ flex: 1 }}
                 defaultValue={layer.color}
                 resolvedColor={resolvedColor}

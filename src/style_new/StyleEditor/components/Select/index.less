@@ -47,14 +47,14 @@
   }
 
   .icon {
-    color: initial;
-    margin-right: 3px;
+    color: var(--mybricks-text-color-main, #333);
+    margin-right: -2px;
+    font-size: 10px;
+    opacity: 0.55;
+  }
 
-    svg {
-      path {
-        fill: #777;
-      }
-    }
+  .icon:hover {
+    opacity: 1;
   }
 
   .clearIcon {
@@ -87,13 +87,19 @@
   .icon {
     position: absolute;
     inset: 0;
+    top: 50%;
     display: inline-flex;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-end;
     margin: 0;
     opacity: 0;
     transition: opacity 0.1s;
+    transform: translateY(-50%);
     pointer-events: none;
+    color: var(--mybricks-text-color-main, #333);
+    margin-right: -3px;
+    font-size: 10px;
+    opacity: 0;
   }
 
   &:hover {
@@ -113,7 +119,7 @@
     opacity: 0;
     transition: opacity 0.15s;
     // 仅箭头时贴右，避免默认 margin-right: 3px 在窄字段里显得离右缘太远
-    margin-right: 0;
+    margin-right: -1px;
   }
 
   &:hover .icon {

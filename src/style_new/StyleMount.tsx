@@ -9,11 +9,13 @@ import type { EditorProps } from './type'
 import { applyStyleChange, createStyleRemovalPlan } from './core/apply-style-change'
 import type { ZoneWriteTarget } from './core/apply-style-change'
 import { toElementArray } from './core/dom'
-import { createBatchStyleClearPlans, cssPropertyName, getStyleResolution, invalidateStyleResolution } from './core/style-property'
-import { buildZoneStateStyle, collectZoneTabs, mergeZoneTabsByState } from './core/zone-tab'
+import { createBatchStyleClearPlans, cssPropertyName, getStyleResolution, invalidateStyleResolution, resolveEffectiveStyleSource } from './core/style-property'
+import { buildZoneEffectiveStyle, buildZoneStateStyle, collectZoneTabs, mergeZoneTabsByState, refreshZoneTabSources } from './core/zone-tab'
 import type { ZoneTab } from './core/zone-tab'
 import { expandFourShorthand } from './core/shorthand-normalizer'
 import { readNormalComputedStyle, readNormalStyleSignature } from './core/normal-style-preview'
+import { recordPendingSoloValues, reconcilePendingSoloValues } from './core/solo-pending-style'
+import type { PendingSoloValue } from './core/solo-pending-style'
 
 const BOX_MODEL_KEYS = {
   margin: ['marginTop', 'marginRight', 'marginBottom', 'marginLeft'],
@@ -63,6 +65,7 @@ export function StyleMount({
   defaultValue,
   preserveImportantPriority,
   onBatchMetaChange,
+  onStyleSourceChange,
 }: StyleProps) {
   const [styleRevision, setStyleRevision] = useState(0)
   const [previewRevision, setPreviewRevision] = useState(0)
@@ -76,12 +79,15 @@ export function StyleMount({
   } | null>(null)
   const zoneOptions = !Array.isArray(editConfig.options) ? editConfig.options as any : null
   const zoneTab: ZoneTab | undefined = zoneOptions?.zoneTab
+  const isSoloEdit = !!zoneOptions?.soloEdit
   const target = (toElementArray(zoneOptions?.targetDom)[0] ?? null) as HTMLElement | null
 
   useEffect(() => {
     if (!zoneTab || !target) return
     let frame = 0
-    const refresh = () => {
+    let sourceChangePending = false
+    const refresh = (sourceChanged: boolean) => {
+      sourceChangePending = sourceChangePending || sourceChanged
       cancelAnimationFrame(frame)
       frame = requestAnimationFrame(() => {
         // 重编译后的旧节点已失去祖先作用域，不能用它清空 class 来源。
@@ -95,29 +101,40 @@ export function StyleMount({
           const current = tabs.find(tab => tab.pseudo === zoneTab.pseudo)
           if (current) {
             zoneTab.sourceRules = current.sourceRules
-            zoneTab.baseRules = current.baseRules
+            // CSSOM 重编译可能先出现状态规则、稍后才恢复基础规则。
+            // 基础态仍用于布局预览和清除判断，不能被这次空扫描清掉。
+            if (current.baseRules.length || !current.sourceRules.length || !zoneTab.baseRules.length) {
+              zoneTab.baseRules = current.baseRules
+            }
+            refreshZoneTabSources(zoneTab, current)
           }
         }
         invalidateStyleResolution(zoneTab)
         setStyleRevision(revision => revision + 1)
+        if (sourceChangePending) onStyleSourceChange?.()
+        sourceChangePending = false
       })
     }
     const observer = new MutationObserver(records => {
-      const relevant = records.some(record => {
+      const sourceChanged = records.some(record => {
         const el = record.target.nodeType === 1 ? record.target as Element : record.target.parentElement
         return el?.tagName === 'STYLE' || el?.closest?.('style') ||
-          (record.type === 'attributes' && !!el?.contains(target)) ||
           Array.from(record.addedNodes).concat(Array.from(record.removedNodes))
             .some(node => node.nodeType === 1 && /^(STYLE|LINK)$/.test((node as Element).tagName))
       })
-      if (relevant) refresh()
+      const targetChanged = records.some(record => {
+        if (record.type !== 'attributes') return false
+        const el = record.target as Element
+        return el.contains(target)
+      })
+      if (sourceChanged || targetChanged) refresh(sourceChanged)
     })
     observer.observe(target.getRootNode(), {
       subtree: true, childList: true, characterData: true,
       attributes: true, attributeFilter: ['style', 'class', 'data-style-info'],
     })
     return () => { observer.disconnect(); cancelAnimationFrame(frame) }
-  }, [zoneTab, target])
+  }, [zoneTab, target, onStyleSourceChange])
 
   useEffect(() => {
     if (!zoneTab?.pseudo || !PREVIEW_PSEUDO_STATES.has(zoneTab.pseudo) || !target) return
@@ -143,9 +160,10 @@ export function StyleMount({
   // 替代 stale 的 setValue prop，作为渐变边框保护逻辑的数据源。
   const importantPriorityCacheRef = useRef(new Map<string, boolean>())
   const zoneWriteTargetsRef = useRef(new Map<string, ZoneWriteTarget>())
+  const pendingSoloValuesRef = useRef(new Map<string, PendingSoloValue>())
   const liveStyleRef = useRef<Record<string, any>>(
     initLiveStyle(
-      mergeAuthoredBoxModelValues(setValue || {}, authoredStyle),
+      mergeAuthoredBoxModelValues(setValue || {}, isSoloEdit ? undefined : authoredStyle),
       (defaultValue as any) || {}
     )
   )
@@ -153,13 +171,17 @@ export function StyleMount({
   // 当 setValue 被外部改写时，同步更新 liveStyleRef。
   useEffect(() => {
     liveStyleRef.current = initLiveStyle(
-      mergeAuthoredBoxModelValues(setValue || {}, authoredStyle),
+      mergeAuthoredBoxModelValues(setValue || {}, isSoloEdit ? undefined : authoredStyle),
       (defaultValue as any) || {}
     )
-  }, [setValue, authoredStyle])
+    if (isSoloEdit) {
+      reconcilePendingSoloValues(pendingSoloValuesRef.current, setValue, liveStyleRef.current)
+    }
+  }, [setValue, authoredStyle, isSoloEdit])
 
   const handleChange = useCallback(
     (value: Parameters<ChangeEvent>[0], removeKeys?: readonly string[]) => {
+      const previousLiveStyle = liveStyleRef.current
       const result = applyStyleChange({
         value: value as any,
         liveStyle: liveStyleRef.current,
@@ -175,11 +197,16 @@ export function StyleMount({
       const { nextLiveStyle, applied } = result
       if (applied) {
         liveStyleRef.current = nextLiveStyle
+        if (isSoloEdit) {
+          const changes = Array.isArray(value) ? value : [value]
+          recordPendingSoloValues(pendingSoloValuesRef.current, changes, previousLiveStyle, nextLiveStyle)
+          removeKeys?.forEach(key => pendingSoloValuesRef.current.delete(key))
+        }
         setStyleRevision(revision => revision + 1)
       }
       return result
     },
-    [editConfig, options, collapsedOptions, preserveImportantPriority, onBatchMetaChange]
+    [editConfig, options, collapsedOptions, preserveImportantPriority, onBatchMetaChange, isSoloEdit]
   )
 
   const applyStyleMutations = useCallback(
@@ -193,13 +220,48 @@ export function StyleMount({
     [handleChange]
   )
 
-  const panelEffectiveStyle = useMemo(() => zoneTab?.pseudo
-    ? buildZoneStateStyle(
+  const panelEffectiveStyle = useMemo(() => {
+    if (zoneTab?.pseudo) {
+      return buildZoneStateStyle(
         zoneTab, Object.keys({ ...defaultValue, ...liveStyleRef.current, ...effectiveStyle }), target
       )
-    : effectiveStyle,
-    [zoneTab, defaultValue, effectiveStyle, setValue, target, styleRevision]
-  )
+    }
+    if (!isSoloEdit || !zoneTab) {
+      if (!zoneTab?.excludedStyleKeys?.length) return effectiveStyle
+      const resolution = getStyleResolution(zoneTab, target)
+      const batchStyle = { ...effectiveStyle }
+      zoneTab.excludedStyleKeys.forEach(key => {
+        const item = batchStyle[key]
+        const winner = resolution.get(key).winner
+        if (item && winner) {
+          batchStyle[key] = { ...item, computedValue: String(item.value ?? winner.value) }
+        }
+      })
+      return batchStyle
+    }
+
+    const resolution = getStyleResolution(zoneTab, target)
+    const styleValues: Record<string, unknown> = { ...defaultValue, ...liveStyleRef.current }
+    Object.entries(effectiveStyle || {}).forEach(([key, item]) => {
+      // defaultValue 里每个字段的 key 都是提前占好位的，哪怕元素没配置这个样式，
+      // key 也在、只是值为 undefined。所以不能用「key 是否存在」判断要不要补值，
+      // 得看「这个值到底是不是空的」。否则像继承来的颜色这种只有 computedValue、
+      // 没有 value 的字段，会一直被当成「已经有值」，实际上面板会显示成没颜色。
+      const current = styleValues[key]
+      if (current == null || String(current).trim() === '') {
+        styleValues[key] = item.value ?? item.computedValue
+      }
+    })
+    Object.keys(styleValues).forEach(key => {
+      const winner = resolution.get(key).winner
+      if (winner) styleValues[key] = winner.value
+      const pending = pendingSoloValuesRef.current.get(key)
+      if (pending && setValue?.[pending.sourceKey] !== pending.sourceValue) {
+        styleValues[key] = pending.value
+      }
+    })
+    return buildZoneEffectiveStyle(zoneTab, styleValues, target)
+  }, [zoneTab, isSoloEdit, defaultValue, effectiveStyle, setValue, target, styleRevision])
 
   // 仅样式来源更新时比较常规态依赖；鼠标进出只刷新预览，不重复扫描样式表。
   const normalStyleSignature = useMemo(() => zoneTab?.pseudo && PREVIEW_PSEUDO_STATES.has(zoneTab.pseudo)
@@ -220,6 +282,9 @@ export function StyleMount({
       // 原有清除/联动预览保持语义；伪类的只读输入框回显走独立接口。
       if (zoneTab?.pseudo) return ''
       if (!realDom) return ''
+      if (zoneTab?.excludedStyleKeys?.includes(key)) {
+        return getStyleResolution(zoneTab, realDom).get(key).winner?.value ?? ''
+      }
       const property = cssPropertyName(key)
       if (refresh) {
         computed = (realDom.ownerDocument.defaultView || window).getComputedStyle(
@@ -262,8 +327,16 @@ export function StyleMount({
       }
     }
     const getStyleDisplayPreview = (key: string) => {
-      if (!displayPreviewCache) return undefined
       const property = cssPropertyName(key)
+      if (zoneTab?.pseudo && PREVIEW_PSEUDO_STATES.has(zoneTab.pseudo) && ['top', 'right', 'bottom', 'left'].includes(property)) {
+        if (!realDom?.isConnected) return undefined
+        // 绝对定位的 computed 会把 auto 换成实际距离，不能据此把未配置的边显示成 0。
+        // 偏移预览保留基础态声明（含 inline）的单位和 auto，当前态声明仍由控件优先读取。
+        return resolveEffectiveStyleSource(
+          getStyleResolution(zoneTab, realDom).get(property).candidates.filter(source => !source.currentState)
+        )?.value
+      }
+      if (!displayPreviewCache) return undefined
       if (normalComputed && !displayPreviewCache.has(property)) {
         displayPreviewCache.set(property, normalComputed.getPropertyValue(property).trim() || undefined)
       }
@@ -281,11 +354,11 @@ export function StyleMount({
       langType: (window as any).__lang_type__,
       effectiveStyle: panelEffectiveStyle,
       applyStyleMutations,
-      getStyleProperty: zoneTab ? (key: string) => getStyleResolution(zoneTab, realDom).get(key) : undefined,
-      getStyleClearPlans: zoneTab ? (keys: readonly string[]) =>
+      getStyleProperty: zoneTab && !isSoloEdit ? (key: string) => getStyleResolution(zoneTab, realDom).get(key) : undefined,
+      getStyleClearPlans: zoneTab && !isSoloEdit ? (keys: readonly string[]) =>
         createBatchStyleClearPlans(keys, getStyleResolution(zoneTab, realDom), realDom) : undefined,
-      removeStyleProperties: zoneTab ? removeStyleProperties : undefined,
-      getStyleRemovalState: zoneTab ? (keys: readonly string[]) =>
+      removeStyleProperties: zoneTab && !isSoloEdit ? removeStyleProperties : undefined,
+      getStyleRemovalState: zoneTab && !isSoloEdit ? (keys: readonly string[]) =>
         createStyleRemovalPlan(keys, getStyleResolution(zoneTab, realDom), realDom, liveStyleRef.current) : undefined,
       getStylePreview,
       getStyleDisplayPreview,
@@ -301,6 +374,7 @@ export function StyleMount({
     applyStyleMutations,
     removeStyleProperties,
     zoneTab,
+    isSoloEdit,
     styleRevision,
     previewRevision,
     normalStyleSignature,
@@ -310,12 +384,13 @@ export function StyleMount({
   if (zoneTab) {
     const resolution = getStyleResolution(zoneTab, target)
     Object.keys({ ...defaultValue, ...liveStyleRef.current }).forEach(key => {
-      if (zoneTab.pseudo) {
-        panelValue[key] = editorContext.effectiveStyle?.[key]?.value
+      if (zoneTab.pseudo || isSoloEdit) {
+        panelValue[key] = editorContext.effectiveStyle?.[key]?.value ?? defaultValue[key]
         return
       }
       const winner = resolution.get(key).winner
-      panelValue[key] = winner?.value ?? (editorContext.getStylePreview(key) || defaultValue[key])
+      const soloOnly = zoneTab.excludedStyleKeys?.includes(key) && !winner
+      panelValue[key] = winner?.value ?? (soloOnly ? defaultValue[key] : (editorContext.getStylePreview(key) || defaultValue[key]))
     })
   }
 

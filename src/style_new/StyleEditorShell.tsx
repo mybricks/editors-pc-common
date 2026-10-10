@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 
-import { Button, Checkbox, message, Tooltip } from 'antd'
+import { Button, Checkbox, Menu, message, Tooltip } from 'antd'
 import {
   AppstoreOutlined,
   CaretRightOutlined,
@@ -41,6 +41,7 @@ import {
   getSavedSoloStyle,
 } from './core/build-solo-selector'
 import type { SavedSoloStyle } from './core/build-solo-selector'
+import { excludeSoloSources } from './core/zone-tab'
 import type { ZoneTab } from './core/zone-tab'
 import { getDocument, toElementArray } from './core/dom'
 import { backToVisualIcon } from './icon'
@@ -122,6 +123,7 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
   const editModeHintRef = useRef<HTMLDivElement | null>(null)
   const [soloSelector, setSoloSelector] = useState<string | null>(null)
   const skipSoloRehydrateRef = useRef(false)
+  const pendingBatchStyleRefreshRef = useRef(false)
   const soloStyleBackupRef = useRef(new Map<string, SavedSoloStyle>())
   const suggestOptionsCacheRef = useRef<SuggestOptionsCache>(new WeakMap())
   const cssEditorHandleRef = useRef<CssEditorHandle | null>(null)
@@ -275,7 +277,7 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
       effectiveStyle: {},
       isAdded: true,
     }
-    console.log('[添加Tab]', tab);
+    // console.log('[添加Tab]', tab);
     addZoneTab(tab)
   }, [activeZoneTab, addZoneTab, baseSelector, selectedTarget, zoneTabs])
 
@@ -304,10 +306,10 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
         ...((nextTab?.sourceRules || []).map((item) => item.sourceSelector || item.selectorPart)),
         ...(selectedTarget && (selectedTarget as HTMLElement).style?.length ? ['inline'] : []),
       ].filter(Boolean)))
-      console.log('[样式编辑][切换Tab]', {
-        tab: nextTab?.label || nextTab?.selector || null,
-        selectors,
-      })
+      // console.log('[样式编辑][切换Tab]', {
+      //   tab: nextTab?.label || nextTab?.selector || null,
+      //   selectors,
+      // })
 
       // Solo 模式下同步更新写入目标，避免先用旧 soloSelector 构建一遍，
       // 再由 rehydrate effect 根据新 tab selector 触发第二次构建。
@@ -361,8 +363,8 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
       activeSelector = soloSelector
       resolvedEditConfig = {
         ...resolvedEditConfig,
-        // 单独编辑写入专属 selector，不能再按 zoneTab 的来源规则拆分到公共 class。
-        options: { ...resolvedEditConfig.options, selector: soloSelector, zoneTab: null },
+        // 写入目标与回显来源分离：保留 zoneTab 汇总完整生效样式，单独编辑的写入仍固定到专属 selector。
+        options: { ...resolvedEditConfig.options, selector: soloSelector, soloEdit: true },
       }
     }
 
@@ -383,7 +385,14 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
           savedRule.selector
         )
         if (Object.keys(restoredStyle).length > 0) {
-          editConfig.value.set(restoredStyle, { selector: savedRule.selector })
+          // 宿主重编译后 value.set 的 selector option 会回退到面板原始选择器；
+          // 必须通过 side-channel 强制写入目标，与 apply-style-change 保持一致。
+          ;(window as any).__mybricks_style_explicit_selector = savedRule.selector
+          try {
+            editConfig.value.set(restoredStyle, { selector: savedRule.selector })
+          } finally {
+            delete (window as any).__mybricks_style_explicit_selector
+          }
           restored = true
         }
       })
@@ -391,6 +400,7 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
         refreshBatchMeta()
       }
     }
+    pendingBatchStyleRefreshRef.current = false
     skipSoloRehydrateRef.current = true
     setSoloSelector(savedBackup?.selector || expectedSoloSelector)
 
@@ -416,18 +426,37 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
         if (!hasShortSelector) {
           soloStyleBackupRef.current.set(expectedSoloSelector || soloSelector, savedSoloStyle)
           let removed = false
-          savedSoloStyle.rules.forEach((savedRule) => {
-            const soloStyle = parseToStyleData(
-              buildCssRule(savedRule.selector, savedRule.body),
-              savedRule.selector
+          try {
+            savedSoloStyle.rules.forEach((savedRule) => {
+              const soloStyle = parseToStyleData(
+                buildCssRule(savedRule.selector, savedRule.body),
+                savedRule.selector
+              )
+              if (Object.keys(soloStyle).length === 0) return
+              // value.set({}) 只会覆盖空值；删除已有声明需要显式传递删除字段。
+              // 同时需要 explicit_selector side-channel，否则宿主重编译后会忽略 selector option
+              // 回退到面板原始 selector，导致基础规则（如 .featureTag{}）的属性被误删。
+              ;(window as any).__mybricks_style_explicit_selector = savedRule.selector
+              ;(window as any).__mybricks_style_deletions = Array.from(new Set([
+                ...Object.keys(soloStyle), ...savedRule.declarationKeys,
+              ]))
+              try {
+                editConfig.value.set({}, { selector: savedRule.selector })
+              } finally {
+                delete (window as any).__mybricks_style_explicit_selector
+              }
+              removed = true
+            })
+          } finally {
+            ;(window as any).__mybricks_style_deletions = null
+          }
+          if (removed) {
+            refreshBatchMeta()
+            // 宿主异步重编译时才等待源码通知；同步删除已经由本次切换刷新。
+            pendingBatchStyleRefreshRef.current = !!getSavedSoloStyle(
+              selectedTarget, baseSelector, componentRoot, getDocument()
             )
-            if (Object.keys(soloStyle).length === 0) return
-            // value.set({}) 只会覆盖空值；删除已有声明需要显式传递删除字段。
-            ;(window as any).__mybricks_style_deletions = Object.keys(soloStyle)
-            editConfig.value.set({}, { selector: savedRule.selector })
-            removed = true
-          })
-          if (removed) refreshBatchMeta()
+          }
         }
       }
     }
@@ -620,111 +649,148 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
 
   const title = useMemo(() => {
     return (
-      <>
-        {/* 可视化编辑态的工具条 */}
-        {editMode && (
-          <div className={css.titleContainer}>
-            <div className={css.title} onClick={onOpenClick}>
-              <div>{editConfig.title}</div>
-            </div>
-            <div className={css.actions_allawys_display}>
-              <div className={css.selector} data-mybricks-tip={finalSelector} onClick={copy}>
-                {finalSelector}
-              </div>
-              <div className={css.iconActions}>
-                <div
-                  className={`${css.icon} ${css.codeIcon}`}
-                  data-mybricks-tip={`{content:'复制样式',position:'left'}`}
-                  onClick={onCopyStyle}
-                >
-                  <Copy />
-                </div>
-                <div
-                  className={`${css.icon} ${css.codeIcon}`}
-                  data-mybricks-tip={`{content:'粘贴样式',position:'left'}`}
-                  onClick={onPasteStyle}
-                >
-                  <Paste />
-                </div>
-                <div
-                  className={`${css.icon} ${css.codeIcon}`}
-                  data-mybricks-tip={`{content:'CSS编辑',position:'left'}`}
-                  onClick={onEditModeClick}
-                >
-                  {editMode ? <Code /> : <AppstoreOutlined />}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-        {/* 代码编辑的工具条 */}
-        {!editMode && (
-          <div
-            onMouseEnter={onMouseEnter}
-            onMouseLeave={onMouseLeave}
-            className={css.titleContainer}
-          >
-            <div className={css.title} style={{ fontWeight: 'normal' }} onClick={onOpenClick}>
-              {finalDisabledSwitch ? null : (
-                <div
-                  className={`${css.icon}${open ? ` ${css.iconOpen}` : ''}`}
-                  data-mybricks-tip={open ? '收起' : '展开'}
-                >
-                  <CaretRightOutlined />
-                </div>
-              )}
-              <div>{editConfig.title}</div>
-            </div>
-            <div className={css.actions_allawys_display}>
-              <div className={css.selector} data-mybricks-tip={finalSelector} onClick={copy}>
-                {finalSelector}
-              </div>
-              <div className={css.iconActions}>
-                <div
-                  className={`${css.icon} ${css.codeIcon}`}
-                  data-mybricks-tip={`{content:'复制样式',position:'left'}`}
-                  onClick={onCopyStyle}
-                >
-                  <Copy />
-                </div>
-                <div
-                  className={`${css.icon} ${css.codeIcon}`}
-                  data-mybricks-tip={`{content:'粘贴样式',position:'left'}`}
-                  onClick={onPasteStyle}
-                >
-                  <Paste />
-                </div>
-                <div
-                  className={`${css.icon} ${css.codeIcon}`}
-                  data-mybricks-tip={`{content:'返回可视化编辑',position:'left'}`}
-                  onClick={onEditModeClick}
-                >
-                  {backToVisualIcon}
-                </div>
-              </div>
-              {/* <div className={css.icon} data-mybricks-tip={'复制selector'} onClick={copy}>
-                <CopyOutlined />
-              </div> */}
-              {/* <div className={css.icon} data-mybricks-tip={'重置'} onClick={refresh}>
-                <ReloadOutlined />
-              </div> */}
-            </div>
-          </div>
-        )}
-      </>
-    )
+      <Menu>
+        <Menu.Item key="copy" onClick={onCopyStyle}>复制样式</Menu.Item>
+        <Menu.Item key="paste" onClick={onPasteStyle}>粘贴样式</Menu.Item>
+        <Menu.Item key="edit" onClick={onEditModeClick}>编辑样式</Menu.Item>
+      </Menu>
+    );
+    // 先保留，估计后续还会改回来
+    // return (
+    //   <>
+    //     {/* 可视化编辑态的工具条 */}
+    //     {editMode && (
+    //       <div className={css.titleContainer}>
+    //         <div className={css.title} onClick={onOpenClick}>
+    //           <div>{editConfig.title}</div>
+    //         </div>
+    //         <div className={css.actions_allawys_display}>
+    //           <div className={css.selector} data-mybricks-tip={finalSelector} onClick={copy}>
+    //             {finalSelector}
+    //           </div>
+    //           <div className={css.iconActions}>
+    //             <div
+    //               className={`${css.icon} ${css.codeIcon}`}
+    //               data-mybricks-tip={`{content:'复制样式',position:'left'}`}
+    //               onClick={onCopyStyle}
+    //             >
+    //               <Copy />
+    //             </div>
+    //             <div
+    //               className={`${css.icon} ${css.codeIcon}`}
+    //               data-mybricks-tip={`{content:'粘贴样式',position:'left'}`}
+    //               onClick={onPasteStyle}
+    //             >
+    //               <Paste />
+    //             </div>
+    //             <div
+    //               className={`${css.icon} ${css.codeIcon}`}
+    //               data-mybricks-tip={`{content:'CSS编辑',position:'left'}`}
+    //               onClick={onEditModeClick}
+    //             >
+    //               {editMode ? <Code /> : <AppstoreOutlined />}
+    //             </div>
+    //           </div>
+    //         </div>
+    //       </div>
+    //     )}
+    //     {/* 代码编辑的工具条 */}
+    //     {!editMode && (
+    //       <div
+    //         onMouseEnter={onMouseEnter}
+    //         onMouseLeave={onMouseLeave}
+    //         className={css.titleContainer}
+    //       >
+    //         <div className={css.title} style={{ fontWeight: 'normal' }} onClick={onOpenClick}>
+    //           {finalDisabledSwitch ? null : (
+    //             <div
+    //               className={`${css.icon}${open ? ` ${css.iconOpen}` : ''}`}
+    //               data-mybricks-tip={open ? '收起' : '展开'}
+    //             >
+    //               <CaretRightOutlined />
+    //             </div>
+    //           )}
+    //           <div>{editConfig.title}</div>
+    //         </div>
+    //         <div className={css.actions_allawys_display}>
+    //           <div className={css.selector} data-mybricks-tip={finalSelector} onClick={copy}>
+    //             {finalSelector}
+    //           </div>
+    //           <div className={css.iconActions}>
+    //             <div
+    //               className={`${css.icon} ${css.codeIcon}`}
+    //               data-mybricks-tip={`{content:'复制样式',position:'left'}`}
+    //               onClick={onCopyStyle}
+    //             >
+    //               <Copy />
+    //             </div>
+    //             <div
+    //               className={`${css.icon} ${css.codeIcon}`}
+    //               data-mybricks-tip={`{content:'粘贴样式',position:'left'}`}
+    //               onClick={onPasteStyle}
+    //             >
+    //               <Paste />
+    //             </div>
+    //             <div
+    //               className={`${css.icon} ${css.codeIcon}`}
+    //               data-mybricks-tip={`{content:'返回可视化编辑',position:'left'}`}
+    //               onClick={onEditModeClick}
+    //             >
+    //               {backToVisualIcon}
+    //             </div>
+    //           </div>
+    //           {/* <div className={css.icon} data-mybricks-tip={'复制selector'} onClick={copy}>
+    //             <CopyOutlined />
+    //           </div> */}
+    //           {/* <div className={css.icon} data-mybricks-tip={'重置'} onClick={refresh}>
+    //             <ReloadOutlined />
+    //           </div> */}
+    //         </div>
+    //       </div>
+    //     )}
+    //   </>
+    // )
   }, [open, editMode, titleContent, batchMeta, onBatchDiscard, onBatchCommit, onCopyStyle, onPasteStyle])
 
-  const editor = useMemo(() => {
-    const { resolvedEditConfig, activeSelector } = resolveActiveEditContext()
+  const onBatchStyleSourceChange = useCallback(() => {
+    if (!pendingBatchStyleRefreshRef.current || !selectedTarget || !baseSelector) return
+    if (getSavedSoloStyle(selectedTarget, baseSelector, componentRoot, getDocument())) return
+    pendingBatchStyleRefreshRef.current = false
+    setKey(k => k + 1)
+  }, [selectedTarget, baseSelector, componentRoot])
 
-    const hasSavedSoloRule = isSoloEdit && selectedTarget && baseSelector
-      ? !!getSavedSoloStyle(selectedTarget, baseSelector, componentRoot, getDocument())
-      : false
-    const configEditConfig = isSoloEdit && !hasSavedSoloRule && baseSelector && !Array.isArray(resolvedEditConfig.options)
+  const editor = useMemo(() => {
+    let { resolvedEditConfig, activeSelector } = resolveActiveEditContext()
+
+    // 有手写短规则时退出单独编辑不会删除 CSS；批量面板应按公共来源回显，
+    // 而不是继续把当前节点的 nth-child 覆盖当成公共值。
+    if (!isSoloEdit && selectedTarget && baseSelector && !Array.isArray(resolvedEditConfig.options)) {
+      const savedSoloStyle = getSavedSoloStyle(selectedTarget, baseSelector, componentRoot, getDocument())
+        || (expectedSoloSelector ? soloStyleBackupRef.current.get(expectedSoloSelector) : null)
+      const zoneTab = (resolvedEditConfig.options as { zoneTab?: ZoneTab }).zoneTab
+      if (savedSoloStyle && zoneTab) {
+        resolvedEditConfig = {
+          ...resolvedEditConfig,
+          options: {
+            ...resolvedEditConfig.options,
+            zoneTab: excludeSoloSources(zoneTab, savedSoloStyle.rules.map(rule => rule.selector)),
+          },
+        }
+      }
+    }
+
+    const configEditConfig = isSoloEdit && baseSelector && !Array.isArray(resolvedEditConfig.options)
       ? { ...resolvedEditConfig, options: { ...(resolvedEditConfig.options as any), selector: baseSelector } }
       : resolvedEditConfig
     const config = getDefaultConfiguration(configEditConfig, suggestOptionsCacheRef.current)
+    if (isSoloEdit && selectedTarget && baseSelector) {
+      const savedSoloStyle = getSavedSoloStyle(selectedTarget, baseSelector, componentRoot, getDocument())
+      const soloStyle = Object.assign({}, ...((savedSoloStyle?.rules || []).map((rule) =>
+        parseToStyleData(buildCssRule(rule.selector, rule.body), rule.selector)
+      )))
+      config.setValue = soloStyle
+      config.authoredStyle = { ...config.authoredStyle, ...soloStyle }
+    }
 
     // CssEditor 仍然按 zone 强制 remount；它的 initialStyle 不是受控值。
     const editorRemountKey = `${key}:${activeZoneIdx}:${String(activeSelector ?? '')}`
@@ -760,6 +826,7 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
               editConfig={resolvedEditConfig}
               preserveImportantPriority={isSoloEdit}
               onBatchMetaChange={invalidateInactiveStyleEditors}
+              onStyleSourceChange={onBatchStyleSourceChange}
               {...activeStyleProps}
             />
           ),
@@ -791,6 +858,7 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
     return (
       <CssEditor
         key={editorRemountKey}
+        onBackEditor={onEditModeClick}
         popView={(editConfig as any).popView}
         getDefaultOptions={editConfig.getDefaultOptions}
         editConfig={resolvedEditConfig}
@@ -815,6 +883,8 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
     baseSelector,
     selectedTarget,
     componentRoot,
+    expectedSoloSelector,
+    onBatchStyleSourceChange,
     styleEditorCacheGeneration,
   ])
 
@@ -879,7 +949,7 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
     } catch {}
   }
 
-  const showEditModeControl = affectedCount !== null && affectedCount > 1
+  const showEditModeControl = affectedCount !== null && affectedCount > 1 && zoneSelectorList.length > 0
 
   useEffect(() => {
     const hint = editModeHintRef.current
@@ -929,18 +999,17 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
             </div>
           </div>
         )}
-        {zoneSelectorList.length > 0 && (
-          <ZoneTabBar
-            selectors={zoneSelectorList}
-            labels={zoneTabs.map((tab) => tab.label || tab.selector)}
-            activeIdx={activeZoneIdx}
-            onSelect={onZoneTabSelect}
-            onAdd={onAddZoneTab}
-            addOptions={zoneTabAddOptions}
-            deletableSelectors={zoneTabs.filter((tab) => tab.isAdded).map((tab) => tab.selector)}
-            onDelete={onDeleteZoneTab}
-          />
-        )}
+        <ZoneTabBar
+          selectors={zoneSelectorList}
+          labels={zoneTabs.map((tab) => tab.label || tab.selector)}
+          activeIdx={activeZoneIdx}
+          onSelect={onZoneTabSelect}
+          onAdd={zoneSelectorList.length > 0 ? onAddZoneTab : undefined}
+          addOptions={zoneTabAddOptions}
+          deletableSelectors={zoneTabs.filter((tab) => tab.isAdded).map((tab) => tab.selector)}
+          onDelete={onDeleteZoneTab}
+          moreMenus={title}
+        />
         {showEditModeControl && (
           <div
             className={`${css.editModeControl} ${
@@ -970,7 +1039,6 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
           </div>
         )}
         <div className={css.styleSection}>
-          {title}
           <div style={{ display: open ? 'block' : 'none' }}>
             {show && editor}
           </div>
