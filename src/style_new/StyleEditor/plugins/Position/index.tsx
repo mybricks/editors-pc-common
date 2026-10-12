@@ -6,6 +6,7 @@ import { useDragNumber } from '../../hooks'
 import { useStyleDisplayValue } from '../../hooks/useStyleDisplayValue'
 import { collectZoneTabs, mergeZoneTabsByState } from '../../../core/zone-tab'
 import { createStyleResolution } from '../../../core/style-property'
+import { isZh } from '../../../core/i18n'
 
 import type { ChangeEvent, PanelBaseProps } from '../../type'
 
@@ -115,7 +116,7 @@ function PositionInput({
       prefix={(
         <span
           {...(!isLocked ? dragProps(dragValue, `${lang.dragPosition} ${label}`) : {})}
-          className={`${css.dragLabel}${(window as any).__lang_type__ !== 'zh' ? ` ${css.dragLabelFixed}` : ''}${isLocked ? ` ${css.dragLabelDisabled}` : ''}`}
+          className={`${css.dragLabel}${!isZh() ? ` ${css.dragLabelFixed}` : ''}${isLocked ? ` ${css.dragLabelDisabled}` : ''}`}
         >
           {label}
         </span>
