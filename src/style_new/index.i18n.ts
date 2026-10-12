@@ -150,6 +150,10 @@ export default {
   }),
 
   // ImagePanel
+  imageUrlLabel: i18n({
+    zh: '图片链接',
+    en: 'Image url',
+  }),
   imageSizeLabel: i18n({
     zh: '大小',
     en: 'Size',

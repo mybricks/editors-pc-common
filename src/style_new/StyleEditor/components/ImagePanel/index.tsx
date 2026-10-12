@@ -123,10 +123,13 @@ export function ImagePanel({
         />
       </div>
       <div className={css.imageItem}>
-        <Input clearable onClear={() => handleUrlInputChange('')}
-          onChange={handleUrlInputChange} 
-          value={getBackgroundImage(localImageValue.backgroundImage || '', '')}
-        />
+        <div className={css.imageLabel}>{lang.imageUrlLabel}</div>
+        <div className={css.imageValue}>
+          <Input clearable onClear={() => handleUrlInputChange('')}
+            onChange={handleUrlInputChange} 
+            value={getBackgroundImage(localImageValue.backgroundImage || '', '')}
+          />
+        </div>
       </div>
       <div className={css.imageItem}>
         <div className={css.imageLabel}>{lang.imageSizeLabel}</div>
