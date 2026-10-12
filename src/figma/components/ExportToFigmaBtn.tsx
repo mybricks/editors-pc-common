@@ -209,7 +209,7 @@ export function ExportToFigmaBtn({ comEle, comId, fontfaces, getCanvasList }: Ex
             indeterminate={!isAllSelected && selectedCount > 0}
             onChange={handleToggleAll}
           />
-          <span>全选</span>
+          <span>{lang.selectAllLabel}</span>
           <span style={{ marginLeft: 'auto', color: 'var(--mybricks-text-color-secondary, #999)', fontSize: 11 }}>
             {selectedCount} / {pageInfos.length}
           </span>
@@ -318,7 +318,7 @@ export function ExportToFigmaBtn({ comEle, comId, fontfaces, getCanvasList }: Ex
               <button
                 type="button"
                 onClick={handleOpenDropdown}
-                data-mybricks-tip={`{"content":"选择要导出的页面","position":"left"}`}
+                data-mybricks-tip={`{"content":"${lang.selectPageToExportTip}","position":"left"}`}
                 style={{
                   ...figmaButtonStyle,
                   width: 24,

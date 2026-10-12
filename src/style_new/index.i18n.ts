@@ -932,4 +932,12 @@ export default {
   copyAllPagesToFigma: i18n({ zh: '复制全部页面到 Figma', en: 'Copy all pages to Figma' }),
   enableVariantMapping: i18n({ zh: '开启变体库映射', en: 'Enable variant mapping' }),
   disableVariantMapping: i18n({ zh: '关闭变体库映射', en: 'Disable variant mapping' }),
+  figmaReading: i18n({ zh: '读取中…', en: 'Reading…' }),
+  syncStyleFromFigma: i18n({ zh: '从 Figma 同步样式', en: 'Sync styles from Figma' }),
+  figmaSyncSuccess: i18n({ zh: '成功从Figma同步{n}条样式改动', en: 'Synced {n} style change(s) from Figma' }),
+  figmaParsedCandidates: i18n({ zh: '已解析{n}条候选样式，{m}条组件变体', en: 'Parsed {n} candidate style(s), {m} component variant(s)' }),
+  figmaNoNodeParsed: i18n({ zh: '未解析到可同步节点（图层名需为单个 class，如 myCard）', en: 'No syncable node found (layer name must be a single class, e.g. myCard)' }),
+  figmaDecodeDone: i18n({ zh: '已解码完成', en: 'Decoded' }),
+  selectAllLabel: i18n({ zh: '全选', en: 'Select all' }),
+  selectPageToExportTip: i18n({ zh: '选择要导出的页面', en: 'Select pages to export' }),
 }
