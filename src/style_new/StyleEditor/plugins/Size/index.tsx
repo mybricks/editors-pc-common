@@ -243,7 +243,7 @@ function DefaultModeBadge({
 
   return (
     <Dropdown value="default" options={options} onClick={handleClick} onAction={handleAction}>
-      <span className={css.defaultBadgeArrow} data-mybricks-tip={lang.unitTip}>
+      <span className={css.defaultBadgeArrow}>
         <DownOutlined />
       </span>
     </Dropdown>
@@ -1492,7 +1492,7 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
                       defaultValue={minWidthEffective}
                       defaultUnitValue="px"
                       unitOptions={constraintUnitOptions.minWidth}
-                      placeholder={lang.notConfiguredPlaceholder}
+                      placeholder=""
                       hideUnitWhenEmpty
                       onChange={(val) => onChange({key: 'minWidth', value: val})}
                       onAction={(val) => {
@@ -1528,7 +1528,7 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
                       defaultValue={maxWidthEffective}
                       defaultUnitValue="px"
                       unitOptions={constraintUnitOptions.maxWidth}
-                      placeholder={lang.notConfiguredPlaceholder}
+                      placeholder=""
                       hideUnitWhenEmpty
                       onChange={(val) => onChange({key: 'maxWidth', value: val})}
                       onAction={(val) => {
@@ -1568,7 +1568,7 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
                       defaultValue={minHeightEffective}
                       defaultUnitValue="px"
                       unitOptions={constraintUnitOptions.minHeight}
-                      placeholder={lang.notConfiguredPlaceholder}
+                      placeholder=""
                       hideUnitWhenEmpty
                       onChange={(val) => onChange({key: 'minHeight', value: val})}
                       onAction={(val) => {
@@ -1604,7 +1604,7 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
                       defaultValue={maxHeightEffective}
                       defaultUnitValue="px"
                       unitOptions={constraintUnitOptions.maxHeight}
-                      placeholder={lang.notConfiguredPlaceholder}
+                      placeholder=""
                       hideUnitWhenEmpty
                       onChange={(val) => onChange({key: 'maxHeight', value: val})}
                       onAction={(val) => {
