@@ -8,6 +8,7 @@ import type { VariableChipMenuOption } from '../VariableChip'
 import type { LengthVarBinding } from '../../hooks/useLengthVarBinding'
 
 import css from './index.less'
+import lang from '../../../index.i18n'
 
 /** flex-basis 显式为 0：胶囊与输入区都不能把列宽撑开，否则会挤掉相邻字段 */
 const DEFAULT_FIELD_STYLE: CSSProperties = { flex: '1 1 0', minWidth: 0, width: 0, marginLeft: 4 }
@@ -18,12 +19,12 @@ export const DETACH_VARIABLE_ACTION = 'detachVariable'
 /** 各处单位菜单共用的「应用变量...」项，统一放在菜单末尾 */
 export function getApplyVariableOption(hasVariables: boolean) {
   return {
-    label: '应用变量...',
+    label: lang.applyVariableTip,
     value: APPLY_VARIABLE_ACTION,
     type: 'action' as const,
     icon: <Variable />,
     disabled: !hasVariables,
-    tip: hasVariables ? undefined : '当前画布没有可用的尺寸变量',
+    tip: hasVariables ? undefined : lang.noSizeVariables,
   }
 }
 
@@ -43,7 +44,7 @@ export function withApplyVariableOption(
 export function buildDetachMenuOptions(fallbackValue: string): VariableChipMenuOption[] {
   return [
     {
-      label: `固定值 (${fallbackValue})`,
+      label: `${lang.fixedValuePrefix} (${fallbackValue})`,
       value: DETACH_VARIABLE_ACTION,
       type: 'action',
       icon: <FixedWidth />,
@@ -90,7 +91,7 @@ export function VariableNumberInput({
   chipStyle = DEFAULT_FIELD_STYLE,
   chipPrefix,
   nestedPicker = false,
-  emptyText = '当前画布没有可用的尺寸变量',
+  emptyText = lang.noSizeVariables,
   compact = false,
 }: VariableNumberInputProps) {
   // 「固定值」是所有字段共有的解绑出口，调用方不传菜单时兜底给它

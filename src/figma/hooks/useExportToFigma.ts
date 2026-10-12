@@ -12,6 +12,7 @@ import {
   sleep,
   startProgressTrickle,
 } from '../export/progress-utils';
+import lang from '../../style_new/index.i18n';
 
 export type { ExportProgress };
 
@@ -30,7 +31,7 @@ export function useExportToFigma(
   const [loading, setLoading] = React.useState(false);
   const [progress, setProgress] = React.useState<ExportProgress>({
     percent: 0,
-    text: '准备中...',
+    text: lang.figmaPreparing,
   });
   const progressRef = React.useRef<ExportProgress>(progress);
   const [pendingClipboardHtml, setPendingClipboardHtml] = React.useState<string | null>(null);
@@ -154,23 +155,23 @@ export function useExportToFigma(
     const msg = (window as any).antd?.message;
 
     if (!primaryEle && (!canvasList || canvasList.length === 0)) {
-      const tip = '未找到可复制的页面，请聚焦到一个页面后重试';
+      const tip = lang.figmaNoPageFound;
       if (msg) msg.warning(tip);
       else alert(tip);
       return;
     }
     setPendingClipboardHtml(null);
-    setProgress({ percent: 0, text: '准备中...' });
+    setProgress({ percent: 0, text: lang.figmaPreparing });
     setLoading(true);
 
     requestAnimationFrame(() => {
       requestAnimationFrame(async () => {
         let generatedHtml = '';
         try {
-          await setStage(8, '准备中...');
+          await setStage(8, lang.figmaPreparing);
 
           await waitStageWithTrickle({
-            text: '解析页面结构...',
+            text: lang.figmaParsingPageStructure,
             from: 10,
             to: 25,
             task: () => sleep(650),
@@ -179,7 +180,7 @@ export function useExportToFigma(
           // ===== 阶段 1: 同步构建 DOM 模型（25 → 32）=====
           // 注意：elementToMybricksJson 是纯同步的 DOM walking，会阻塞主线程
           //       不能用 trickle 包裹（setInterval 会被冻结），改为前后插 waitForPaint 让 UI 刷新一帧
-          await setStage(25, '构建 DOM 模型...', { smooth: true, durationMs: 200 });
+          await setStage(25, lang.figmaBuildingDomModel, { smooth: true, durationMs: 200 });
           await waitForPaint();
           await waitForPaint(); // 双帧确保浏览器已绘制
 
@@ -198,7 +199,7 @@ export function useExportToFigma(
               })
             );
             const rootFrames = allIRs.map((ir: any) => ir?.page?.content?.[0]).filter(Boolean) as any[];
-            if (rootFrames.length === 0) throw new Error('canvasList 中未找到任何有效帧');
+            if (rootFrames.length === 0) throw new Error(lang.figmaNoValidFrameInCanvasList);
             if (rootFrames.length === 1) {
               irPayload = allIRs[0];
             } else {
@@ -209,7 +210,7 @@ export function useExportToFigma(
                 page: {
                   'component-def': allIRs.flatMap((ir: any) => ir?.page?.['component-def'] || []),
                   content: [{
-                    name: `复制的 ${rootFrames.length} 个页面`,
+                    name: lang.figmaCopiedPagesName.replace('{n}', String(rootFrames.length)),
                     style: {
                       x: 0, y: 0,
                       width: totalWidth,
@@ -225,7 +226,7 @@ export function useExportToFigma(
             }
           }
 
-          await setStage(32, '构建 DOM 模型...', { smooth: true, durationMs: 200 });
+          await setStage(32, lang.figmaBuildingDomModel, { smooth: true, durationMs: 200 });
 
           // ===== 阶段 2: 异步拉取图片资源（32 → 55）=====
           // 图片进度回调：
@@ -240,7 +241,7 @@ export function useExportToFigma(
             const raw = PROGRESS_FROM + Math.sqrt(done / total) * (PROGRESS_TO - PROGRESS_FROM);
             const next = Math.max(imgHwm, Math.round(raw));
             imgHwm = next;
-            setProgress({ percent: next, text: `拉取图片资源 (${done}/${total})...` });
+            setProgress({ percent: next, text: lang.figmaFetchingImageResources.replace('{done}', String(done)).replace('{total}', String(total)) });
           };
 
           const rootContent = irPayload?.page?.content?.[0];
@@ -253,11 +254,11 @@ export function useExportToFigma(
             });
           }
 
-          await setStage(55, '拉取图片资源完成', { smooth: true, durationMs: 200 });
+          await setStage(55, lang.figmaFetchImageResourcesDone, { smooth: true, durationMs: 200 });
 
           const _fontFamilies = collectFontFamiliesFromIR(irPayload);
           const fontCtx = await waitStageWithTrickle({
-            text: `加载字体（${_fontFamilies.filter(f => f !== 'PingFang SC').join('、') || 'PingFang SC'}）...`,
+            text: lang.figmaLoadingFonts.replace('{fonts}', _fontFamilies.filter(f => f !== 'PingFang SC').join('、') || 'PingFang SC'),
             from: 55,
             to: 70,
             task: () => loadFontContextMapForFamilies(_fontFamilies, fontUrlMap, (text) => {
@@ -265,35 +266,35 @@ export function useExportToFigma(
             }),
           });
 
-          await setStage(75, '生成 Figma 数据...', { smooth: true, durationMs: 360 });
+          await setStage(75, lang.figmaGeneratingData, { smooth: true, durationMs: 360 });
           // 提前生成并缓存，便于剪贴板失败时复用
           generatedHtml = convertIRToFigmaClipboardHtml(irPayload, fontCtx);
 
           await waitStageWithTrickle({
-            text: '写入剪贴板...',
+            text: lang.figmaWritingClipboard,
             from: 90,
             to: 98,
             task: () => writeHtmlToClipboard(generatedHtml),
           });
 
-          await setStage(100, '完成', { smooth: true, durationMs: 280 });
+          await setStage(100, lang.figmaDone, { smooth: true, durationMs: 280 });
           await sleep(220);
           setLoading(false);
 
-          if (msg) msg.success('已复制，请前往 Figma 直接 Cmd+V / Ctrl+V 粘贴');
-          else alert('已复制，请前往 Figma 直接 Cmd+V / Ctrl+V 粘贴');
+          if (msg) msg.success(lang.figmaCopiedPastePrompt);
+          else alert(lang.figmaCopiedPastePrompt);
         } catch (err: any) {
           setLoading(false);
           // 若剪贴板写入因失焦失败，但数据已生成 → 缓存数据，提示用户点击按钮手动复制
           if (isNotFocusedClipboardError(err) && generatedHtml) {
             setPendingClipboardHtml(generatedHtml);
-            setProgress({ percent: 100, text: '数据已就绪，点击按钮复制' });
-            const tip = '请点击「复制已生成的 Figma 数据」按钮，在 Figma 中 Ctrl+V 进行粘贴';
+            setProgress({ percent: 100, text: lang.figmaDataReadyClickToCopy });
+            const tip = lang.figmaClickToCopyManuallyTip;
             if (msg) msg.warning(tip);
             else alert(tip);
           } else {
-            setProgress({ percent: 0, text: '准备中...' });
-            const failMsg = '导出失败: ' + (err?.message || '未知错误');
+            setProgress({ percent: 0, text: lang.figmaPreparing });
+            const failMsg = lang.figmaExportFailed.replace('{error}', err?.message || lang.figmaUnknownError);
             if (msg) msg.error(failMsg);
             else alert(failMsg);
           }
@@ -308,13 +309,13 @@ export function useExportToFigma(
     try {
       await writeHtmlToClipboard(pendingClipboardHtml);
       setPendingClipboardHtml(null);
-      setProgress({ percent: 0, text: '准备中...' });
-      if (msg) msg.success('已复制，请前往 Figma 直接 Cmd+V / Ctrl+V 粘贴');
-      else alert('已复制，请前往 Figma 直接 Cmd+V / Ctrl+V 粘贴');
+      setProgress({ percent: 0, text: lang.figmaPreparing });
+      if (msg) msg.success(lang.figmaCopiedPastePrompt);
+      else alert(lang.figmaCopiedPastePrompt);
     } catch (err: any) {
       const failMsg = isNotFocusedClipboardError(err)
-        ? '复制失败：请先点击页面聚焦后再重试'
-        : '复制失败: ' + (err?.message || '未知错误');
+        ? lang.figmaCopyFailedNotFocused
+        : lang.figmaCopyFailed.replace('{error}', err?.message || lang.figmaUnknownError);
       if (msg) msg.error(failMsg);
       else alert(failMsg);
     }

@@ -1,5 +1,6 @@
 // @ts-ignore
 import { toJSON } from 'cssjson'
+import lang from '../index.i18n'
 
 export interface StyleData {
   styleKey: string
@@ -38,20 +39,20 @@ function validateDeclarationSegment(
   const clean = stripCssComments(segment).trim()
   if (!clean) return null
   if (colonOffsets.length === 0) {
-    return createSyntaxIssue(source, segmentOffset, 'CSS 声明缺少冒号')
+    return createSyntaxIssue(source, segmentOffset, lang.cssMissingColon)
   }
 
   const firstColon = colonOffsets[0] - segmentOffset
   const property = stripCssComments(segment.slice(0, firstColon)).trim()
   const value = stripCssComments(segment.slice(firstColon + 1)).trim()
   if (!/^(?:--[\w-]+|-?[a-zA-Z][\w-]*)$/.test(property)) {
-    return createSyntaxIssue(source, segmentOffset, `无效的 CSS 属性名：${property || '(空)'}`)
+    return createSyntaxIssue(source, segmentOffset, `${lang.cssInvalidPropertyName}: ${property || lang.cssEmptyPlaceholder}`)
   }
   if (!value) {
-    return createSyntaxIssue(source, colonOffsets[0] + 1, `${property} 缺少属性值`)
+    return createSyntaxIssue(source, colonOffsets[0] + 1, `${property} ${lang.cssMissingValue}`)
   }
   if (!property.startsWith('--') && colonOffsets.length > 1) {
-    return createSyntaxIssue(source, colonOffsets[1], 'CSS 声明之间可能缺少分号')
+    return createSyntaxIssue(source, colonOffsets[1], lang.cssMissingSemicolon)
   }
   return null
 }
@@ -75,10 +76,10 @@ function validateDeclarationBlock(
     const absoluteOffset = bodyOffset + index
 
     if (index === body.length) {
-      if (quote) return createSyntaxIssue(source, absoluteOffset, 'CSS 字符串未闭合')
-      if (inComment) return createSyntaxIssue(source, absoluteOffset, 'CSS 注释未闭合')
-      if (parenDepth !== 0) return createSyntaxIssue(source, absoluteOffset, 'CSS 函数括号未闭合')
-      if (bracketDepth !== 0) return createSyntaxIssue(source, absoluteOffset, 'CSS 方括号未闭合')
+      if (quote) return createSyntaxIssue(source, absoluteOffset, lang.cssUnclosedString)
+      if (inComment) return createSyntaxIssue(source, absoluteOffset, lang.cssUnclosedComment)
+      if (parenDepth !== 0) return createSyntaxIssue(source, absoluteOffset, lang.cssUnclosedParen)
+      if (bracketDepth !== 0) return createSyntaxIssue(source, absoluteOffset, lang.cssUnclosedBracket)
       return validateDeclarationSegment(
         source,
         body.slice(segmentStart),
@@ -118,7 +119,7 @@ function validateDeclarationBlock(
       continue
     }
     if (char === ')') {
-      if (parenDepth < 1) return createSyntaxIssue(source, absoluteOffset, '存在多余的右括号')
+      if (parenDepth < 1) return createSyntaxIssue(source, absoluteOffset, lang.cssExtraCloseParen)
       parenDepth -= 1
       continue
     }
@@ -127,13 +128,13 @@ function validateDeclarationBlock(
       continue
     }
     if (char === ']') {
-      if (bracketDepth < 1) return createSyntaxIssue(source, absoluteOffset, '存在多余的右方括号')
+      if (bracketDepth < 1) return createSyntaxIssue(source, absoluteOffset, lang.cssExtraCloseBracket)
       bracketDepth -= 1
       continue
     }
     if (parenDepth !== 0 || bracketDepth !== 0) continue
     if (char === '{' || char === '}') {
-      return createSyntaxIssue(source, absoluteOffset, '样式规则内不支持嵌套规则')
+      return createSyntaxIssue(source, absoluteOffset, lang.cssNoNestedRules)
     }
     if (char === ':') colonOffsets.push(absoluteOffset)
     if (char === ';') {
@@ -195,31 +196,31 @@ export function validateCssRuleSyntax(cssCode: string): CssSyntaxIssue | null {
       continue
     }
     if (char === ')') {
-      if (parenDepth < 1) return createSyntaxIssue(source, index, '存在多余的右括号')
+      if (parenDepth < 1) return createSyntaxIssue(source, index, lang.cssExtraCloseParen)
       parenDepth -= 1
       continue
     }
     if (parenDepth !== 0) continue
     if (char === '{') {
-      if (openBrace >= 0) return createSyntaxIssue(source, index, '仅支持编辑单条 CSS 规则')
+      if (openBrace >= 0) return createSyntaxIssue(source, index, lang.cssOnlySingleRule)
       openBrace = index
       continue
     }
     if (char === '}') {
-      if (openBrace < 0) return createSyntaxIssue(source, index, '存在多余的右花括号')
-      if (closeBrace >= 0) return createSyntaxIssue(source, index, '仅支持编辑单条 CSS 规则')
+      if (openBrace < 0) return createSyntaxIssue(source, index, lang.cssExtraCloseBrace)
+      if (closeBrace >= 0) return createSyntaxIssue(source, index, lang.cssOnlySingleRule)
       closeBrace = index
     }
   }
 
-  if (inComment) return createSyntaxIssue(source, source.length, 'CSS 注释未闭合')
-  if (quote) return createSyntaxIssue(source, source.length, 'CSS 字符串未闭合')
-  if (parenDepth !== 0) return createSyntaxIssue(source, source.length, 'CSS 函数括号未闭合')
-  if (openBrace < 0) return createSyntaxIssue(source, 0, 'CSS 规则缺少左花括号')
-  if (closeBrace < 0) return createSyntaxIssue(source, source.length, 'CSS 规则缺少右花括号')
-  if (!source.slice(0, openBrace).trim()) return createSyntaxIssue(source, 0, 'CSS 规则缺少选择器')
+  if (inComment) return createSyntaxIssue(source, source.length, lang.cssUnclosedComment)
+  if (quote) return createSyntaxIssue(source, source.length, lang.cssUnclosedString)
+  if (parenDepth !== 0) return createSyntaxIssue(source, source.length, lang.cssUnclosedParen)
+  if (openBrace < 0) return createSyntaxIssue(source, 0, lang.cssMissingOpenBrace)
+  if (closeBrace < 0) return createSyntaxIssue(source, source.length, lang.cssMissingCloseBrace)
+  if (!source.slice(0, openBrace).trim()) return createSyntaxIssue(source, 0, lang.cssMissingSelector)
   if (stripCssComments(source.slice(closeBrace + 1)).trim()) {
-    return createSyntaxIssue(source, closeBrace + 1, '右花括号后存在多余内容')
+    return createSyntaxIssue(source, closeBrace + 1, lang.cssExtraContentAfterBrace)
   }
   return validateDeclarationBlock(
     source,

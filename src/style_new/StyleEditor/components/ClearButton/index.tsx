@@ -1,4 +1,5 @@
 import React from 'react'
+import lang from '../../../index.i18n'
 import css from './index.less'
 
 interface ClearButtonProps {
@@ -12,9 +13,9 @@ export function ClearButton({ onClick, visible = false, className = '' }: ClearB
     <button
       type="button"
       className={`${css.button}${visible ? ` ${css.visible}` : ''}${className ? ` ${className}` : ''}`}
-      aria-label="清空"
+      aria-label={lang.clearLabel}
       data-input-clear="true"
-      data-mybricks-tip="清空"
+      data-mybricks-tip={lang.clearLabel}
       onMouseDown={(e) => e.preventDefault()}
       onClick={(e) => {
         e.stopPropagation()

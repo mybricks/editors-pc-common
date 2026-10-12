@@ -28,6 +28,7 @@ import { ExtractBackground } from "../Image/ExtractBackground";
 import debounce from "lodash/debounce";
 import { AngleKnob } from "./AngleKnob"; // 导入旋钮组件
 import { resolveCssVarColor } from "../../../core/resolve-css-var-color";
+import lang from "../../../index.i18n";
 
 export function GradientEditor({
   defaultValue,
@@ -218,7 +219,7 @@ export function GradientEditor({
       />
       <div className={css.top}>
         <Select
-          tip="渐变类型"
+          tip={lang.gradientTypeTip}
           key={gradientType}
           style={{ flex: 1 }}
           value={gradientType}
@@ -231,7 +232,7 @@ export function GradientEditor({
         />
         {gradientType === "linear-gradient" ? (
           <InputNumber
-            tip="渐变线方向角度"
+            tip={lang.gradientAngleTip}
             prefix={
               <div onClick={onClickAngle}>
                 <Angle />
@@ -239,7 +240,7 @@ export function GradientEditor({
             }
             key={deg}
             suffix="°"
-            prefixTip="角度"
+            prefixTip={lang.anglePrefixTip}
             style={{ flex: 1 }}
             type={"number"}
             defaultUnitValue=""
@@ -249,7 +250,7 @@ export function GradientEditor({
         ) : (
           <Select
             key={shapeType}
-            tip="辐射形状"
+            tip={lang.radialShapeTip}
             style={{ flex: 1 }}
             value={shapeType}
             options={shapeOptions}
@@ -279,7 +280,7 @@ export function GradientEditor({
               >
                 <InputNumber
                   key={position}
-                  tip="停靠位置"
+                  tip={lang.stopPositionTip}
                   suffix="%"
                   style={{ flex: 2 }}
                   type={"number"}

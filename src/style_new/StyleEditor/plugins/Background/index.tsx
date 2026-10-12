@@ -13,6 +13,7 @@ import { Panel, Colorpicker } from "../../components";
 import { MinusOutlined, TransparentColorOutlined } from "../../components/Icon";
 import { useDragNumber, useCanvasColorVariables } from "../../hooks";
 import css from "./index.less";
+import lang from "../../../index.i18n";
 import {
   BgLayer,
   generateLayerId,
@@ -115,8 +116,8 @@ function getSwatchStyle(layer: BgLayer, scopeEl?: Element | null, resolvedColor?
 }
 
 function getLayerLabel(layer: BgLayer): string {
-  if (layer.type === "image") return "图片";
-  if (layer.type === "gradient") return "渐变";
+  if (layer.type === "image") return lang.imageLayerLabel;
+  if (layer.type === "gradient") return lang.gradientLayerLabel;
   // 变量引用只显示变量名，var() 包裹在窄面板里都是噪音
   const varName = parseCssVar(layer.value)?.varName;
   if (varName) return varName;
@@ -125,7 +126,7 @@ function getLayerLabel(layer: BgLayer): string {
     const hex = c.alpha() === 1 ? c.hex() : c.hexa();
     return hex.toUpperCase();
   } catch {
-    return layer.value || "纯色";
+    return layer.value || lang.solidLayerLabel;
   }
 }
 
@@ -303,11 +304,11 @@ function LayerItem({
       ) : (
         <div
           className={css.layerLabel}
-          data-mybricks-tip={isVariableReference ? `变量：${getLayerLabel(layer)}` : undefined}
+          data-mybricks-tip={isVariableReference ? `${lang.variablePrefix}${getLayerLabel(layer)}` : undefined}
           onClick={startEditing}
         >
           {/* 暂时去掉具体变量名的展示，直接展示文案 {getLayerLabel(layer)} */}
-          {isVariableReference ? '@颜色变量' : getLayerLabel(layer)}
+          {isVariableReference ? lang.colorVariableAt : getLayerLabel(layer)}
         </div>
       )}
 
@@ -328,7 +329,7 @@ function LayerItem({
           )}
           {layer.type === "solid" ? (
             <div
-              {...getDragProps(Math.round(opacity), "{content:'拖拽调整不透明度',position:'left'}")}
+                           {...getDragProps(Math.round(opacity), `{content:'${lang.dragOpacityShort}',position:'left'}`)}
               className={css.opacityUnit}
             >
               %
@@ -638,7 +639,7 @@ export function Background({
 
   return (
     <Panel
-      title="填充"
+      title={lang.fillPanelTitle}
       showTitle={showTitle}
       collapse={effectiveCollapse}
       onAdd={handleAddLayer}
