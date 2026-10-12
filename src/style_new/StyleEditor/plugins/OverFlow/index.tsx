@@ -2,6 +2,8 @@ import React, { CSSProperties, useCallback, useLayoutEffect, useState } from 're
 
 import {Panel, Select} from '../../components';
 import { QuestionCircleOutlined } from '../../components/Icon/QuestionCircleOutlined';
+import { OverflowHorizontal } from '../../icons/OverflowHorizontal';
+import { OverflowVertical } from '../../icons/OverflowVertical';
 import { useEffectiveStyleValue, useStyleChange, useStyleClear, useStyleEditorContext } from '../../context';
 import { getOverflowAdjustment, OVERFLOW_AXIS_KEYS } from '../../../core/overflow';
 
@@ -114,8 +116,8 @@ export const OverFlow = ({ value: fallbackValue, onChange: fallbackOnChange, sho
               key={key}
               style={{ flex: 1, minWidth: 0, padding: '0 8px' }}
               prefix={
-                <span className={css.tip} data-mybricks-tip={axisTips[index]}>
-                  {index === 0 ? lang.horizontal : lang.vertical}
+                <span className={css.tip} data-mybricks-tip={axisTips[index] ?? (index === 0 ? lang.horizontal : lang.vertical)}>
+                  {index === 0 ? <OverflowHorizontal /> : <OverflowVertical />}
                   {axisTips[index] && <span className={css.tipIcon}><QuestionCircleOutlined /></span>}
                 </span>
               }

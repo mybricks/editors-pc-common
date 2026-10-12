@@ -518,7 +518,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
 
   const previewFamily = parseFontFamily(normalFontFamily)[0] || inheritedFontFamily;
   const fontFamilyDisplayValue = fontFamilyAuthored ? undefined
-    : isCssVarValue(previewFamily) ? '@字体变量'
+    : isCssVarValue(previewFamily) ? lang.fontVariableAt
       : fontFamilyOptions().find(option => option.value === previewFamily)?.label ?? previewFamily;
   const textAlignValue = value.textAlign ?? getFontPreview('textAlign', context?.getStyleDisplayPreview?.('textAlign'));
   const justifyContentValue = value.justifyContent ?? getFontPreview('justifyContent', context?.getStyleDisplayPreview?.('justifyContent'));
@@ -1038,7 +1038,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
       className={`${css.truncateBtn}${popoverOpen ? ` ${css.active}` : ''}`}
       style={{ position: 'absolute', right: -22, top: '50%', transform: 'translateY(-50%)' }}
       onClick={() => setPopoverOpen(v => !v)}
-      data-mybricks-tip={`{content:'${lang.fontPanelTitle}',position:'left'}`}
+      data-mybricks-tip={`{content:'${lang.fontSettingsTip}',position:'left'}`}
     >
       <FontSetting />
     </div>
@@ -1086,7 +1086,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
               // 多字体模式：多选 + 拖拽排序 + 序号徽标
               <Select
                 tip={
-                  lang.fontPanelTitle +
+                  lang.fontFamilyTip +
                   (innerFontFamily?.length && innerFontFamily[0] !== "inherit"
                     ? "：" +
                     innerFontFamily
@@ -1148,7 +1148,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
               // 单字体模式：简洁单选
               <Select
                 tip={
-                  lang.fontPanelTitle +
+                  lang.fontFamilyTip +
                   (innerFontFamily?.[0] && innerFontFamily[0] !== "inherit"
                     ? "：" + (fontFamilyOptions().find(o => o.value === innerFontFamily[0])?.label ?? innerFontFamily[0])
                     : "")
@@ -1405,7 +1405,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
               className={`${css.truncateBtn}${popoverOpen ? ` ${css.active}` : ''}`}
               style={{ position: 'absolute', right: -22, top: '50%', transform: 'translateY(-50%)' }}
               onClick={() => setPopoverOpen(v => !v)}
-              data-mybricks-tip={`{content:'${lang.fontPanelTitle}',position:'left'}`}
+              data-mybricks-tip={`{content:'${lang.fontSettingsTip}',position:'left'}`}
             >
               <FontSetting />
             </div>
@@ -1456,7 +1456,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
               className={`${css.truncateBtn}${popoverOpen ? ` ${css.active}` : ''}`}
               style={{ position: 'absolute', right: -22, top: '50%', transform: 'translateY(-50%)' }}
               onClick={() => setPopoverOpen(v => !v)}
-              data-mybricks-tip={`{content:'${lang.fontPanelTitle}',position:'left'}`}
+              data-mybricks-tip={`{content:'${lang.fontSettingsTip}',position:'left'}`}
             >
               <FontSetting />
             </div>

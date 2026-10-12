@@ -1059,8 +1059,8 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
                     className={css.icon}
                     ref={widthAllVar.anchorRef}
                     {...(widthAllVar.varRef
-                      ? widthAllVar.dragProps(lang.borderWidthTip + lang.dragUnbindSuffix)
-                      : getDragPropsBorder(borderValue.borderTopWidth, lang.borderWidthTip))}
+                      ? widthAllVar.dragProps(lang.dragBorderWidthTip + lang.dragUnbindSuffix)
+                      : getDragPropsBorder(borderValue.borderTopWidth, lang.dragBorderWidthTip))}
                   >
                     <BorderWeightOutlined />
                   </div>
@@ -1105,7 +1105,7 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
               <div
                 ref={styleSettingsBtnRef}
                 className={css.styleSettingsBtn}
-                data-mybricks-tip={lang.borderPositionTip}
+                data-mybricks-tip={`{content:'${lang.borderPositionTip}',position:'left'}`}
                     onClick={() => setShowStyleSettings(v => !v)}
               >
                     <SettingIcon size={22} />

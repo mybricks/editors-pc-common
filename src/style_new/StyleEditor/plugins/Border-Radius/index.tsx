@@ -277,7 +277,7 @@ export function BorderRadius({ value, onChange: fallbackOnChange, config, collap
             binding={radiusAllVar}
             chipStyle={CHIP_STYLE}
             inputProps={{
-              tip: lang.radiusTip, style: DEFAULT_STYLE, defaultValue: radiusValue.borderTopLeftRadius,
+              tip: '', style: DEFAULT_STYLE, defaultValue: radiusValue.borderTopLeftRadius,
               value: radiusValue.borderTopLeftRadius,
               previewValue: unifiedPreview,
               placeholder: mixedPreview ? lang.mixedPlaceholder : '', defaultUnitValue: 'px', hideUnitWhenEmpty: true,

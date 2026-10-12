@@ -46,6 +46,7 @@ import type { ZoneTab } from './core/zone-tab'
 import { getDocument, toElementArray } from './core/dom'
 import { backToVisualIcon } from './icon'
 import { ZoneTabBar } from './ZoneTabBar'
+import lang from './index.i18n'
 import css from './index.less'
 
 const STYLE_EDITOR_CACHE_LIMIT = 5
@@ -64,10 +65,10 @@ type CachedStyleEditor = {
 }
 
 const ZONE_TAB_ADD_OPTIONS = [
-  { key: 'hover', suffix: ':hover', label: '悬浮态' },
-  { key: 'focus', suffix: ':focus', label: '聚焦态' },
-  { key: 'active', suffix: ':active', label: '激活态' },
-  { key: 'disabled', suffix: ':disabled', label: '禁用态' },
+  { key: 'hover', suffix: ':hover', label: lang.hoverState },
+  { key: 'focus', suffix: ':focus', label: lang.focusState },
+  { key: 'active', suffix: ':active', label: lang.activeState },
+  { key: 'disabled', suffix: ':disabled', label: lang.disabledState },
   // { key: 'before', suffix: '::before', label: '前缀元素' },
   // { key: 'after', suffix: '::after', label: '后缀元素' },
 ] as const
@@ -256,12 +257,12 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
     if (!suffix) return
     const selector = `${currentBaseSelector}${suffix}`
     const labels: Record<string, string> = {
-      hover: '悬浮态',
-      focus: '聚焦态',
-      active: '激活态',
-      disabled: '禁用态',
-      before: '前缀元素',
-      after: '后缀元素',
+      hover: lang.hoverState,
+      focus: lang.focusState,
+      active: lang.activeState,
+      disabled: lang.disabledState,
+      before: lang.beforePseudo,
+      after: lang.afterPseudo,
     }
     // 优先使用对应基础态；状态合并后则从常规 Tab 取得完整的源码规则。
     const baseTab = zoneTabs.find((tab) => tab.selector === currentBaseSelector && !tab.pseudo)
@@ -498,7 +499,7 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
           )
         )
       }
-      message.success('复制成功')
+      message.success(lang.copySuccessMsg)
     }
   }, [])
 
@@ -513,9 +514,9 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
     }
     const ok = await writeClipboardText(body)
     if (ok) {
-      message.success(body ? '样式已复制' : '已复制（当前无样式）')
+      message.success(body ? lang.stylesCopiedMsg : lang.emptyStylesCopiedMsg)
     } else {
-      message.error('复制失败')
+      message.error(lang.copyFailedMsg)
     }
   }, [resolveActiveEditContext])
 
@@ -524,12 +525,12 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
     try {
       text = await readClipboardText()
     } catch {
-      message.error('无法读取剪切板，请检查浏览器权限')
+      message.error(lang.clipboardPermissionMsg)
       return
     }
     const body = extractCssRuleBody(text)
     if (!body.trim()) {
-      message.warning('剪切板中没有可粘贴的样式')
+      message.warning(lang.noStyleToPasteMsg)
       return
     }
 
@@ -545,7 +546,7 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
       scopeEl
     )
     if (Object.keys(pastedStyle).length === 0) {
-      message.warning('剪切板样式无法解析')
+      message.warning(lang.styleParseFailMsg)
       return
     }
 
@@ -560,7 +561,7 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
       const mergedStyle = mergeStylesWithPasteConflicts(currentStyle, pastedStyle)
       const mergedBody = extractCssRuleBody(parseToCssCode(mergedStyle, displaySelector))
       cssEditorHandleRef.current.replaceCssBody(mergedBody)
-      message.success('样式已粘贴')
+      message.success(lang.stylesPastedMsg)
       return
     }
 
@@ -572,7 +573,7 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
     const mergedStyle = mergeStylesWithPasteConflicts(currentStyle, pastedStyle)
     const changes = diffStyleData(currentStyle, mergedStyle)
     if (changes.length === 0) {
-      message.warning('没有可应用的样式')
+      message.warning(lang.noStyleAppliedMsg)
       return
     }
     const { applied } = applyStyleChange({
@@ -584,9 +585,9 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
     })
     if (applied) {
       setKey((k) => k + 1)
-      message.success('样式已粘贴')
+      message.success(lang.stylesPastedMsg)
     } else {
-      message.warning('样式未发生变化')
+      message.warning(lang.styleUnchangedMsg)
     }
   }, [resolveActiveEditContext, refreshBatchMeta, targetDom, canvasEle])
 
@@ -650,9 +651,9 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
   const title = useMemo(() => {
     return (
       <Menu>
-        <Menu.Item key="copy" onClick={onCopyStyle}>复制样式</Menu.Item>
-        <Menu.Item key="paste" onClick={onPasteStyle}>粘贴样式</Menu.Item>
-        <Menu.Item key="edit" onClick={onEditModeClick}>编辑样式</Menu.Item>
+        <Menu.Item key="copy" onClick={onCopyStyle}>{lang.copyStyleTip}</Menu.Item>
+        <Menu.Item key="paste" onClick={onPasteStyle}>{lang.pasteStyleTip}</Menu.Item>
+        <Menu.Item key="edit" onClick={onEditModeClick}>{lang.cssEditorTip}</Menu.Item>
       </Menu>
     );
     // 先保留，估计后续还会改回来
@@ -891,7 +892,7 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
   function onMouseEnter() {
     try {
       if (canvasEle && targetDom.length) {
-        setTitleContent('(已标记)')
+        setTitleContent(lang.markedLabel)
         const res: any = Array.from(targetDom).reduce(
           (res: any, dom: any) => {
             const rect = dom.getBoundingClientRect()
@@ -935,7 +936,7 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
           },
         })
       } else {
-        setTitleContent('(非dom节点)')
+        setTitleContent(lang.nonDomNode)
       }
     } catch {}
   }
@@ -966,18 +967,18 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
         {batchMeta.enabled && (
           <div className={css.batchActionStickyWrap}>
             <div className={css.batchActionBar}>
-              <div className={css.batchMetaInfo}>{batchMeta.dirtyCount} 处变更</div>
+              <div className={css.batchMetaInfo}>{batchMeta.dirtyCount} {lang.changesCount}</div>
               <div className={css.batchActions}>
                 <Button
                   size="small"
                   type="default"
                   shape="circle"
                   className={css.batchIconBtn}
-                  data-tip="全部丢弃"
-                  data-mybricks-tip="全部丢弃"
+                  data-tip={lang.discardAllTip}
+                  data-mybricks-tip={lang.discardAllTip}
                   disabled={batchMeta.submitting || batchMeta.dirtyCount === 0}
                   onClick={onBatchDiscard}
-                  aria-label="清空暂存"
+                  aria-label={lang.discardAllAriaLabel}
                 >
                   <CloseOutlined />
                 </Button>
@@ -986,12 +987,12 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
                   type="default"
                   shape="circle"
                   className={`${css.batchIconBtn} ${css.batchConfirmBtn}`}
-                  data-tip="交给AI应用"
-                  data-mybricks-tip={`{content:'交给AI应用',position:'left'}`}
+                  data-tip={lang.aiApplyTip}
+                  data-mybricks-tip={`{content:'${lang.aiApplyTip}',position:'left'}`}
                   loading={batchMeta.submitting}
                   disabled={batchMeta.dirtyCount === 0}
                   onClick={onBatchCommit}
-                  aria-label="提交给AI修改"
+                  aria-label={lang.aiApplyAriaLabel}
                 >
                   {!batchMeta.submitting && <CheckOutlined />}
                 </Button>
@@ -1016,14 +1017,14 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
               zoneSelectorList.length > 1 ? css.editModeControlWithTabs : ''
             } ${!isSoloEdit ? css.editModeControlBatch : ''}`}
             data-mybricks-tip={isSoloEdit
-              ? '只修改当前区域'
-              : '同步修改使用同一套样式的全部区域'}
+              ? lang.onlyCurrentZone
+              : lang.syncAllZones}
           >
             <Checkbox
               checked={!isSoloEdit}
               onChange={(event) => (event.target.checked ? onExitSoloEdit() : onEnterSoloEdit())}
             >
-              应用至全部
+              {lang.applyToAll}
             </Checkbox>
             <div
               key={isSoloEdit ? 'solo' : 'batch'}
@@ -1033,8 +1034,8 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
               }`}
             >
               {isSoloEdit
-                ? '仅编辑选中区域'
-                : <>影响 <span className={css.affectedCount}>{affectedCount}</span> 个区域</>}
+                ? lang.editCurrentZoneOnly
+                : <>{lang.affectedLabel} <span className={css.affectedCount}>{affectedCount}</span> {lang.affectedZones}</>}
             </div>
           </div>
         )}
@@ -1050,7 +1051,7 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
               <div className={css.popupTips} style={targetStyle.canvas}></div>
               <Tooltip
                 placement="topLeft"
-                title={editConfig.title || '当前dom区域'}
+                title={editConfig.title || lang.currentDomZone}
                 visible={true}
                 overlayInnerStyle={{
                   color: '#555',

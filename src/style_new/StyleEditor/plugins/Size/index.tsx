@@ -136,8 +136,8 @@ function SizingModeBadge({ mode, dimension, actualSize, parentSize = 0, onChange
     { label: lang.sizeHugContent,                          value: 'hug',   icon: <HugContents /> },
     { label: lang.sizeFillParent,                          value: 'fill',  icon: <FillContainer /> },
     { label: '', value: '__divider__', type: 'divider' as const },
-    { label: `${lang.addMinLabel}${dim === 'width' ? lang.widthLabel : lang.heightLabel}...`, value: 'addMin', type: 'action' as const, icon: <AddMin />, iconSize: 'sm' as const },
-    { label: `${lang.addMaxLabel}${dim === 'width' ? lang.widthLabel : lang.heightLabel}...`, value: 'addMax', type: 'action' as const, icon: <AddMax />, iconSize: 'sm' as const },
+    { label: dim === 'width' ? lang.addMinWidthLabel : lang.addMinHeightLabel, value: 'addMin', type: 'action' as const, icon: <AddMin />, iconSize: 'sm' as const },
+    { label: dim === 'width' ? lang.addMaxWidthLabel : lang.addMaxHeightLabel, value: 'addMax', type: 'action' as const, icon: <AddMax />, iconSize: 'sm' as const },
     { label: '', value: '__variableDivider__', type: 'divider' as const },
     getApplyVariableOption(hasVariables),
   ];
@@ -170,7 +170,7 @@ function SizingModeBadge({ mode, dimension, actualSize, parentSize = 0, onChange
   return (
     <Dropdown className={css.sizingModeDropdown} value={mode} options={options} onClick={handleClick} onAction={handleAction}>
       <span className={mode === 'fill' ? css.fillBadge : css.hugBadge}>
-        <span className={css.badgeLabel}>{mode === 'fill' ? '填满' : '适应'}</span>
+        <span className={css.badgeLabel}>{mode === 'fill' ? lang.sizeFillBadge : lang.sizeAdaptive}</span>
         <span className={css.badgeArrow}><DownOutlined /></span>
       </span>
     </Dropdown>
@@ -206,15 +206,15 @@ function DefaultModeBadge({
   hasVariables = false,
   onApplyVariable,
 }: DefaultModeBadgeProps) {
-  const dimLabel = dimension === 'width' ? '宽' : '高';
+  const dimLabel = dimension === 'width' ? lang.widthLabel : lang.heightLabel;
   const options = useMemo(() => [
     { label: 'px', value: 'px' },
     { label: '%', value: '%' },
     { label: lang.sizeHugContent, value: 'hug', type: 'action' as const, icon: <HugContents /> },
     { label: lang.sizeFillParent, value: 'fill', type: 'action' as const, icon: <FillContainer /> },
     ...((showAddMin || showAddMax) ? [{ label: '', value: '__divider__', type: 'divider' as const }] : []),
-    ...(showAddMin ? [{ label: `${lang.addMinLabel}${dimLabel}...`, value: 'addMin', type: 'action' as const, icon: <AddMin />, iconSize: 'sm' as const }] : []),
-    ...(showAddMax ? [{ label: `${lang.addMaxLabel}${dimLabel}...`, value: 'addMax', type: 'action' as const, icon: <AddMax />, iconSize: 'sm' as const }] : []),
+    ...(showAddMin ? [{ label: dimension === 'width' ? lang.addMinWidthLabel : lang.addMinHeightLabel, value: 'addMin', type: 'action' as const, icon: <AddMin />, iconSize: 'sm' as const }] : []),
+    ...(showAddMax ? [{ label: dimension === 'width' ? lang.addMaxWidthLabel : lang.addMaxHeightLabel, value: 'addMax', type: 'action' as const, icon: <AddMax />, iconSize: 'sm' as const }] : []),
     { label: '', value: '__variableDivider__', type: 'divider' as const },
     getApplyVariableOption(hasVariables),
   ], [dimension, dimLabel, showAddMin, showAddMax, hasVariables]);
@@ -1111,8 +1111,8 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
     { label: lang.sizeHugContent, value: 'hug', type: 'action' as const, icon: <HugContents /> },
     { label: lang.sizeFillParent, value: 'fill', type: 'action' as const, icon: <FillContainer /> },
     ...(!showMinWidth || !showMaxWidth ? [{ label: '', value: '__divider__', type: 'divider' as const }] : []),
-    ...(!showMinWidth ? [{ label: lang.addMinLabel + lang.widthLabel + '...', value: 'addMinWidth', type: 'action' as const, icon: <AddMin />, iconSize: 'sm' as const }] : []),
-    ...(!showMaxWidth ? [{ label: lang.addMaxLabel + lang.widthLabel + '...', value: 'addMaxWidth', type: 'action' as const, icon: <AddMax />, iconSize: 'sm' as const }] : []),
+    ...(!showMinWidth ? [{ label: lang.addMinWidthLabel, value: 'addMinWidth', type: 'action' as const, icon: <AddMin />, iconSize: 'sm' as const }] : []),
+    ...(!showMaxWidth ? [{ label: lang.addMaxWidthLabel, value: 'addMaxWidth', type: 'action' as const, icon: <AddMax />, iconSize: 'sm' as const }] : []),
     { label: '', value: '__variableDivider__', type: 'divider' as const },
     getApplyVariableOption(hasLengthVariables),
   ], [showMinWidth, showMaxWidth, hasLengthVariables]);
@@ -1122,8 +1122,8 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
     { label: lang.sizeHugContent, value: 'hug', type: 'action' as const, icon: <HugContents /> },
     { label: lang.sizeFillParent, value: 'fill', type: 'action' as const, icon: <FillContainer /> },
     ...(!showMinHeight || !showMaxHeight ? [{ label: '', value: '__divider__', type: 'divider' as const }] : []),
-    ...(!showMinHeight ? [{ label: lang.addMinLabel + lang.heightLabel + '...', value: 'addMinHeight', type: 'action' as const, icon: <AddMin />, iconSize: 'sm' as const }] : []),
-    ...(!showMaxHeight ? [{ label: lang.addMaxLabel + lang.heightLabel + '...', value: 'addMaxHeight', type: 'action' as const, icon: <AddMax />, iconSize: 'sm' as const }] : []),
+    ...(!showMinHeight ? [{ label: lang.addMinHeightLabel, value: 'addMinHeight', type: 'action' as const, icon: <AddMin />, iconSize: 'sm' as const }] : []),
+    ...(!showMaxHeight ? [{ label: lang.addMaxHeightLabel, value: 'addMaxHeight', type: 'action' as const, icon: <AddMax />, iconSize: 'sm' as const }] : []),
     { label: '', value: '__variableDivider__', type: 'divider' as const },
     getApplyVariableOption(hasLengthVariables),
   ], [showMinHeight, showMaxHeight, hasLengthVariables]);
@@ -1267,7 +1267,7 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
                     : getDragPropsWidth(widthResolved ?? (actualWidth > 0 ? `${Math.round(actualWidth)}px` : undefined), cfg.disableWidth ? lang.sizeDisabledTip : lang.dragWidth))}
                   style={{ height: "100%", display: "flex", alignItems: "center", cursor: "ew-resize" }}
                 >
-                  <span className={css.tip} style={{ flexShrink: 0}}>宽</span>
+                  <span className={css.tip} style={{ flexShrink: 0}}>{lang.widthLabel}</span>
                 </div>
                 <div ref={widthInputWrapRef} style={{ flex: 1, minWidth: 0, display: 'contents' }}>
                   {widthVarRef ? renderVariableChip('width', widthVarRef) : (
@@ -1306,7 +1306,7 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
                     unitHideLabelList={SIZE_UNIT_HIDE_LABEL_LIST}
                     clearable={!widthVarRef && !isWidthDefault}
                     onClear={() => handleWidthChange(null)}
-                    tip={cfg.disableWidth ? `${lang.widthLabel}：${SIZE_DISABLED_TIP}` : lang.widthLabel}
+                    tip={cfg.disableWidth ? `${lang.widthTip}: ${SIZE_DISABLED_TIP}` : lang.widthTip}
                     badge={
                       isWidthFill ? (
                         <SizingModeBadge
@@ -1370,7 +1370,7 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
                     : getDragPropsHeight(heightResolved ?? (actualHeight > 0 ? `${Math.round(actualHeight)}px` : undefined), cfg.disableHeight ? lang.sizeDisabledTip : lang.dragHeight))}
                   style={{ height: "100%", display: "flex", alignItems: "center", cursor: "ew-resize" }}
                 >
-                  <span className={css.tip} style={{ flexShrink: 0 }}>高</span>
+                  <span className={css.tip} style={{ flexShrink: 0 }}>{lang.heightLabel}</span>
                 </div>
                 <div ref={heightInputWrapRef} style={{ flex: 1, minWidth: 0, display: 'contents' }}>
                   {heightVarRef ? renderVariableChip('height', heightVarRef) : (
@@ -1409,7 +1409,7 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
                     unitHideLabelList={SIZE_UNIT_HIDE_LABEL_LIST}
                     clearable={!heightVarRef && !isHeightDefault}
                     onClear={() => handleHeightChange(null)}
-                    tip={cfg.disableHeight ? `${lang.heightLabel}：${SIZE_DISABLED_TIP}` : lang.heightLabel}
+                    tip={cfg.disableHeight ? `${lang.heightTip}: ${SIZE_DISABLED_TIP}` : lang.heightTip}
                     badge={
                       isHeightFill ? (
                         <SizingModeBadge

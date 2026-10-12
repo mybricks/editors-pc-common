@@ -647,7 +647,7 @@ export function ColorEditor({
     if (isGradient) {
       return (
           <div className={css.text} style={{ marginLeft: 5 }} onClick={onPresetClick}>
-            渐变色
+            {lang.gradientColorText}
           </div>
       );
     }
@@ -655,11 +655,11 @@ export function ColorEditor({
     if (inherited) {
       const emptyValueType = emptyValueLabel || lang.inheritFallback;
       const tip = inheritedTipColor
-        ? `${lang.noColorConfigured}，${inheritedTipColor}为${emptyValueType}值`
+        ? `${lang.noColorConfigured} (${inheritedTipColor} as ${emptyValueType})`
         : lang.noColorConfigured;
       return (
         <input
-          data-mybricks-tip={`${tip}；${lang.colorInputTip}`}
+          data-mybricks-tip={`${tip}; ${lang.colorInputTip}`}
           ref={inputColorRef}
           value={showInheritedColor && !hasInheritedDraft ? inheritedTipColor : userInput}
           placeholder={emptyValueLabel ?? (showInheritedColor ? "" : lang.inheritFallback)}
@@ -711,7 +711,7 @@ export function ColorEditor({
     // 变量态与尺寸编辑器一致：框内显示解析出的色值并套描边衬底，右侧仍可聚焦输入
     if (nonColorValue && isCssVarRef(value)) {
       return (
-        <div className={css.variableMain} data-mybricks-tip={`变量：${varName || varRef}`}>
+        <div className={css.variableMain} data-mybricks-tip={`${lang.variablePrefix}${varName || varRef}`}>
           {/* 开始输入后隐藏胶囊，避免「旧变量值 + 新输入」同时出现 */}
           {!varDraft && (
             <span className={css.variableValue} onClick={onPresetClick}>
@@ -801,7 +801,7 @@ export function ColorEditor({
     return (
       <div className={css.opacity}>
         <input
-          data-mybricks-tip={"透明度"}
+          data-mybricks-tip={lang.opacityPanelTitle}
           ref={inputRef}
           type="inputNumber"
           value={Math.round(opacityNumber * 100)}

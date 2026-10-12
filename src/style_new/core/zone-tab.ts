@@ -303,15 +303,15 @@ function shortenClassLabel(rawLabel: string): string {
 
 function getPseudoLabel(pseudo: string): string {
   const pseudoLabels: Record<string, string> = {
-    ':hover': '悬浮态',
-    ':active': '激活态',
-    ':focus': '聚焦态',
-    ':focus-visible': '键盘聚焦态',
-    ':focus-within': '后代聚焦态',
-    ':disabled': '禁用态',
-    '::before': '前缀元素',
-    '::after': '后缀元素',
-    '::placeholder': '占位符元素',
+    ':hover': lang.hoverState,
+    ':active': lang.activeState,
+    ':focus': lang.focusState,
+    ':focus-visible': lang.focusVisibleState,
+    ':focus-within': lang.focusWithinState,
+    ':disabled': lang.disabledState,
+    '::before': lang.beforePseudo,
+    '::after': lang.afterPseudo,
+    '::placeholder': lang.placeholderPseudo,
   }
   const pseudoLabel = pseudoLabels[pseudo] || pseudo
   return pseudoLabel

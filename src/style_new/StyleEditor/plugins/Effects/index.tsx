@@ -564,7 +564,7 @@ function EffectSketchBody({
         {isShadowLayer(layer) ? (
           <>
             <div className={css.effectRow}>
-              <span className={css.effectLabel}>预设</span>
+              <span className={css.effectLabel}>{lang.presetLabel}</span>
               <div className={css.effectPresets}>
                 {SHADOW_PRESETS.map((preset) => {
                   const patch = getPresetPatch(preset, layer.type)
@@ -574,7 +574,7 @@ function EffectSketchBody({
                       key={preset.id}
                       type='button'
                       className={css.effectPreset}
-                      aria-label={`${preset.label}阴影预设`}
+                      aria-label={`${preset.label} ${lang.shadowPresetAriaLabel}`}
                       aria-pressed={selectedPresetId === preset.id}
                       data-mybricks-tip={preset.label}
                       onClick={() => {
@@ -662,9 +662,9 @@ function EffectSketchBody({
           </>
         ) : (
           <EffectNumberField
-            label='模糊'
+            label={lang.blurLabel}
             icon={layer.type === 'backgroundBlur' ? <BackgroundBlurIcon /> : <BlurIcon />}
-            tip='拖拽调整模糊半径'
+            tip={lang.dragBlurTip}
             value={layer.blurRadius}
             binding={blurRadiusVar}
             unitOptions={unitOptions}

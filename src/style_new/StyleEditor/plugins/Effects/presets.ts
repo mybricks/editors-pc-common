@@ -1,4 +1,5 @@
 import ColorUtil from 'color'
+import lang from '../../../index.i18n'
 
 import { isBoxShadowLayer, isShadowLayer } from './layers'
 import type { EffectLayer, ShadowEffectType } from './layers'
@@ -12,10 +13,10 @@ interface ShadowPreset {
 }
 
 export const SHADOW_PRESETS: ShadowPreset[] = [
-  { id: 'subtle', label: '轻微', offsetY: '1px', blurRadius: '2px', color: 'rgba(0, 0, 0, 0.08)' },
-  { id: 'soft', label: '适中', offsetY: '2px', blurRadius: '6px', color: 'rgba(0, 0, 0, 0.12)' },
-  { id: 'floating', label: '明显', offsetY: '4px', blurRadius: '12px', color: 'rgba(0, 0, 0, 0.16)' },
-  { id: 'strong', label: '强烈', offsetY: '8px', blurRadius: '24px', color: 'rgba(0, 0, 0, 0.20)' },
+  { id: 'subtle', label: lang.shadowPresetSubtle, offsetY: '1px', blurRadius: '2px', color: 'rgba(0, 0, 0, 0.08)' },
+  { id: 'soft', label: lang.shadowPresetSoft, offsetY: '2px', blurRadius: '6px', color: 'rgba(0, 0, 0, 0.12)' },
+  { id: 'floating', label: lang.shadowPresetFloating, offsetY: '4px', blurRadius: '12px', color: 'rgba(0, 0, 0, 0.16)' },
+  { id: 'strong', label: lang.shadowPresetStrong, offsetY: '8px', blurRadius: '24px', color: 'rgba(0, 0, 0, 0.20)' },
 ]
 
 /** 只生成当前层的参数补丁，保留 id、类型和排序。 */

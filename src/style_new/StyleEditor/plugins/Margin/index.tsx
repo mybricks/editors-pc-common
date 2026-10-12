@@ -228,7 +228,7 @@ export function Margin ({value, onChange: fallbackOnChange, config, showTitle, c
                   onAction: (action) => {
                     if (action === APPLY_VARIABLE_ACTION) unifiedVar.openPicker()
                   },
-                  tip: lang.marginUnifiedTip
+                  tip: ''
                 }}
               />
             </Panel.Item>

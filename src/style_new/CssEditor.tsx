@@ -211,10 +211,10 @@ export function CssEditor({
     <div className={css.codeWrap}>
       <div className={css.inlineWrap}>
         <div className={css.body} style={{ height: editorHeight }}>
-          <div data-mybricks-tip={`{content:'返回可视化编辑',position:'left'}`} className={css.back} onClick={onBackEditor}>
+          <div data-mybricks-tip={`{content:'${lang.backToVisual}',position:'left'}`} className={css.back} onClick={onBackEditor}>
             {backToVisualIcon}
           </div>
-          <div data-mybricks-tip={lang.zoomIn} className={css.plus} onClick={onFullscreen}>
+          <div data-mybricks-tip={`{content:'${lang.zoomIn}',position:'left'}`} className={css.plus} onClick={onFullscreen}>
             {fullScreenIcon}
           </div>
           {monaco}

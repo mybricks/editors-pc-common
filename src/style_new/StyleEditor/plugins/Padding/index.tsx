@@ -152,7 +152,7 @@ export function Padding({value, onChange: fallbackOnChange, config, showTitle, c
                   onAction: (action) => {
                     if (action === APPLY_VARIABLE_ACTION) unifiedVar.openPicker()
                   },
-                  tip: lang.paddingUnifiedLabel
+                  tip: ''
                 }}
               />
             </Panel.Item>

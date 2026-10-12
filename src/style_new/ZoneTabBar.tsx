@@ -15,13 +15,13 @@ function getZoneTabLabel(selector: string): string {
   const pseudoMatch = lastPart.match(PSEUDO_TAIL_RE)
   if (pseudoMatch) {
     const pseudoLabels: Record<string, string> = {
-      ':hover': '悬浮态',
-      ':focus': '聚焦态',
-      ':focus-visible': '键盘聚焦态',
-      ':active': '激活态',
-      ':disabled': '禁用态',
-      '::before': '前缀元素',
-      '::after': '后缀元素',
+      ':hover': lang.hoverState,
+      ':focus': lang.focusState,
+      ':focus-visible': lang.focusVisibleState,
+      ':active': lang.activeState,
+      ':disabled': lang.disabledState,
+      '::before': lang.beforePseudo,
+      '::after': lang.afterPseudo,
     }
     return pseudoLabels[pseudoMatch[1]] || pseudoMatch[1]
   }
@@ -116,7 +116,7 @@ export function ZoneTabBar(props: {
         popupOffset={[-0.5, 0]}
         title={
           <span style={{ fontWeight: 'normal', display: 'inline-flex', alignItems: 'center' }}>
-            添加状态
+            {lang.addStateLabel}
           </span>
         }
       >
@@ -144,7 +144,7 @@ export function ZoneTabBar(props: {
   return (
     <div className={css.zoneTabBar}>
       {(isSingleNormalTab || isNoSelector) ? (
-        <span className={css.zoneTabSingleTitle}>常规样式</span>
+        <span className={css.zoneTabSingleTitle}>{lang.commonStyleLabel}</span>
       ) : (
         <div className={css.zoneTabList}>
           {selectors.map((sel, idx) => (
@@ -153,12 +153,12 @@ export function ZoneTabBar(props: {
               className={`${css.zoneTab}${idx === activeIdx ? ` ${css.zoneTabActive}` : ''}`}
               onClick={() => onSelect(idx)}
             >
-              <span>{labels[idx]}</span>
+              <span data-mybricks-tip={sel.includes('::before') ? lang.beforePseudoTip : sel.includes('::after') ? lang.afterPseudoTip : undefined}>{labels[idx]}</span>
               {onDelete && deletableSelectors.includes(sel) && (
                 <button
                   className={css.zoneTabDelete}
                   type="button"
-                  aria-label={`删除${labels[idx]}`}
+                  aria-label={`${lang.deleteLabel}${labels[idx]}`}
                   onClick={(event) => {
                     event.stopPropagation()
                     onDelete(sel)
@@ -179,7 +179,7 @@ export function ZoneTabBar(props: {
           <button
             className={css.moreBtn}
             type="button"
-            aria-label="更多操作"
+            aria-label={lang.moreActionsLabel}
             style={{ transform: 'rotate(90deg)' }}
           >
             <MoreOutlined />
