@@ -4,5 +4,5 @@ export function i18n(langs: Record<string, string>) {
     return langs[type] || `${type} not found`;
   }
 
-  return langs['en'] || 'en not found'
+  return langs['zh'] || 'zh not found'
 }
