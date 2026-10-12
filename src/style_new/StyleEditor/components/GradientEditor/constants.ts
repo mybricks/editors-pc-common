@@ -18,8 +18,46 @@ interface GradientEditorProps {
 
 interface GradientStop {
   color: string;
-  position: number;
+  /** null 表示由 CSS 自动分配位置，不能当作显式的 0%。 */
+  position: number | null;
   id: string;
+}
+
+type ResolvedGradientStop = GradientStop & { position: number };
+
+// 仅为预览、拖拽和颜色插值计算位置，不回填到用户配置。
+function resolveGradientStops(stops: GradientStop[]): ResolvedGradientStop[] {
+  if (!stops.length) return [];
+  const positions = stops.map((stop) => stop.position);
+  positions[0] = positions[0] ?? 0;
+  const lastIndex = positions.length - 1;
+  positions[lastIndex] = positions[lastIndex] ?? 100;
+
+  let previousPosition = positions[0]!;
+  for (let index = 1; index < positions.length; index++) {
+    const position = positions[index];
+    if (position !== null) {
+      positions[index] = previousPosition = Math.max(previousPosition, position);
+    }
+  }
+
+  let start = 0;
+  for (let end = 1; end < positions.length; end++) {
+    if (positions[end] === null) continue;
+    for (let index = start + 1; index < end; index++) {
+      positions[index] = positions[start]! +
+        (positions[end]! - positions[start]!) * (index - start) / (end - start);
+    }
+    start = end;
+  }
+  return stops.map((stop, index) => ({ ...stop, position: positions[index]! }));
+}
+
+function sortGradientStops(stops: GradientStop[]): GradientStop[] {
+  const resolved = resolveGradientStops(stops);
+  return stops.map((stop, index) => ({
+    stop, position: stop.position ?? resolved[index].position,
+  })).sort((a, b) => a.position - b.position).map(({ stop }) => stop);
 }
 
 const defalutGradientStops: GradientStop[] = [
@@ -40,8 +78,8 @@ const shapeOptions = [
 ];
 
 function interpolateColor(
-  stop1: GradientStop,
-  stop2: GradientStop,
+  stop1: ResolvedGradientStop,
+  stop2: ResolvedGradientStop,
   targetPosition: number
 ): string {
   const { color: color1Hex, position: position1 } = stop1;
@@ -67,9 +105,10 @@ function interpolateColor(
   return targetColorHex;
 }
 function findColorByPosition(
-  colorsArray: GradientStop[],
+  stops: GradientStop[],
   position: number
 ): string {
+  const colorsArray = resolveGradientStops(stops);
   // 检查位置是否在数组范围内
   if (position < colorsArray[0].position) {
     return colorsArray[0].color;
@@ -109,4 +148,6 @@ export {
   gradientOptions,
   interpolateColor,
   computePercentage,
+  resolveGradientStops,
+  sortGradientStops,
 };

@@ -106,11 +106,7 @@ export function ImagePanel({
           className={`${css.imageContainer} ${imageSrc !== DEFAULT_IMAGE ? css.hasImage : ""}`}
           onClick={handleImageClick}
         >
-          <img 
-            style={{ opacity: imageSrc === DEFAULT_IMAGE ? 0.5 : 1 }} 
-            src={imageSrc} 
-            alt="背景图片"
-          />
+          {imageSrc && <img src={imageSrc} alt="背景图片" />}
           <button className={css.uploadButton}>点击上传</button>
         </div>
         <input

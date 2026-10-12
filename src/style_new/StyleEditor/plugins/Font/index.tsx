@@ -21,6 +21,7 @@ import {
   Dropdown,
   DownOutlined,
   VariableNumberInput,
+  buildDetachMenuOptions,
   getApplyVariableOption,
   APPLY_VARIABLE_ACTION,
 } from "../../components";
@@ -590,9 +591,10 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
   const lineHeightPreview = getFontPreview('lineHeight', lineHeightField.computedPreview);
   const defaultLineHeightPx = getComputedCssLengthPx(effectiveStyle?.lineHeight, undefined, lineHeightField.computedPreview);
   const lineHeightUnconfigured = !isConfiguredCssLength(lineHeight);
-  const lineHeightDisplayValue = lineHeightPreview ? lineHeight : lineHeightUnconfigured && Number.isFinite(defaultLineHeightPx)
+  const lineHeightPreviewValue = lineHeightPreview ?? (lineHeightUnconfigured && Number.isFinite(defaultLineHeightPx)
     ? `${defaultLineHeightPx}px`
-    : lineHeight;
+    : undefined);
+  const lineHeightDisplayValue = lineHeightUnconfigured ? null : lineHeight;
 
   // 常规态和伪类态共用只读预览格式化；px/normal 沿用数值展示，其他单位和变量保留原样。
   const letterSpacingPreviewSource = getFontPreview('letterSpacing', letterSpacingField.computedPreview)
@@ -831,6 +833,11 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
     () => FONT_SIZE_PRESETS.map((size) => ({ label: String(size), value: String(size) })),
     []
   );
+  const fontSizeVariableMenuOptions = useMemo(() => [
+    { label: '默认', value: 'default' },
+    { label: '', value: '__fontSizeVariableDefaultDivider__', type: 'divider' as const },
+    ...fontSizePresetItems,
+  ], [fontSizePresetItems]);
 
   /** 字号预置列表 + 底部变量入口（图标居中、无文案，对齐 Figma） */
   const fontSizePresetOptions = useMemo(() => ([
@@ -876,10 +883,10 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
   const getConfiguredLineHeightDragProps = useDragNumber({ continuous: true });
   const getConfiguredLetterSpacingDragProps = useDragNumber({ continuous: true });
   const getPreviewFontSizeDragProps = useLengthInputDrag(fontSizePreview, onFontSizeChange);
-  const getPreviewLineHeightDragProps = useLengthInputDrag(lineHeightPreview, onLineHeightDragChange);
+  const getPreviewLineHeightDragProps = useLengthInputDrag(lineHeightPreviewValue, onLineHeightDragChange);
   const getPreviewLetterSpacingDragProps = useLengthInputDrag(letterSpacingPreview, onLetterSpacingChange);
   const getDragPropsFontSize = fontSizeUnconfigured && !!fontSizePreview ? getPreviewFontSizeDragProps : getConfiguredFontSizeDragProps;
-  const getDragPropsLineHeight = lineHeightUnconfigured && !!lineHeightPreview ? getPreviewLineHeightDragProps : getConfiguredLineHeightDragProps;
+  const getDragPropsLineHeight = lineHeightUnconfigured && !!lineHeightPreviewValue ? getPreviewLineHeightDragProps : getConfiguredLineHeightDragProps;
   const getDragPropsLetterSpacing = letterSpacingUnconfigured && !!letterSpacingPreview ? getPreviewLetterSpacingDragProps : getConfiguredLetterSpacingDragProps;
 
   const lineHeightVar = useLengthVarBinding({
@@ -893,6 +900,10 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
     onChange: onLetterSpacingChange,
     fallback: Number.isFinite(defaultLetterSpacingPx) ? `${defaultLetterSpacingPx}px` : undefined,
   });
+  const letterSpacingVariableMenuOptions = useMemo(() => [
+    { label: '默认', value: 'default' },
+    ...buildDetachMenuOptions(letterSpacingVar.fallbackValue),
+  ], [letterSpacingVar.fallbackValue]);
 
   /** 行高、字间距的单位菜单末尾统一挂「应用变量...」 */
   const lineHeightUnitOptions = useMemo(() => [
@@ -1260,7 +1271,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
                 inputKey={`font-size-${fontSizeInputKey}`}
                 // 绑定态也给出完整档位列表：顶部单列当前变量，点档位即解绑成固定值
                 menuLayout="presetList"
-                menuOptions={fontSizePresetItems}
+                menuOptions={fontSizeVariableMenuOptions}
                 menuStyle={FONT_SIZE_MENU_STYLE}
                 onMenuSelect={(size) => onFontSizeChange(`${size}px`)}
                 inputProps={{
@@ -1336,9 +1347,9 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
                   type: "number",
                   style: { flex: 1, minWidth: 0, marginLeft: 4 },
                   value: lineHeightDisplayValue,
-                  previewValue: lineHeightUnconfigured ? lineHeightPreview : undefined,
+                  previewValue: lineHeightUnconfigured ? lineHeightPreviewValue : undefined,
                   placeholder: '',
-                  defaultUnitValue: lineHeightPreview ? splitValueAndUnit(lineHeightPreview)[1] ?? 'default' : 'default',
+                  defaultUnitValue: lineHeightPreviewValue ? splitValueAndUnit(lineHeightPreviewValue)[1] ?? 'default' : 'default',
                   unitOptions: lineHeightUnitOptions,
                   unitDisabledList: LINEHEIGHT_UNIT_DISABLED_LIST,
                   hideUnitWhenEmpty: true,
@@ -1381,6 +1392,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
               </div>
               <VariableNumberInput
                 binding={letterSpacingVar}
+                menuOptions={letterSpacingVariableMenuOptions}
                 inputProps={{
                   tip: '字间距',
                   type: "number",
