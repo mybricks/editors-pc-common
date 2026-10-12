@@ -204,8 +204,8 @@ export function Margin ({value, onChange: fallbackOnChange, config, showTitle, c
                 className={css.icon}
                 ref={unifiedVar.anchorRef}
                 {...(unifiedVar.varRef
-                  ? unifiedVar.dragProps(`{content:lang.dragMarginUnifiedUnbind,position:'top'}`)
-                  : getDragProps(marginValue.marginTop, `{content:lang.dragMarginUnified,position:'top'}`))}
+                  ? unifiedVar.dragProps(lang.dragMarginUnifiedUnbind)
+                  : getDragProps(marginValue.marginTop, lang.dragMarginUnified))}
               >
                 <PaddingAllOutlined />
               </div>

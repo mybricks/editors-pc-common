@@ -128,8 +128,8 @@ export function Padding({value, onChange: fallbackOnChange, config, showTitle, c
                 className={css.icon}
                 ref={unifiedVar.anchorRef}
                 {...(unifiedVar.varRef
-                  ? unifiedVar.dragProps(`{content:lang.dragPaddingUnifiedUnbind,position:'top'}`)
-                  : getDragProps(paddingValue.paddingTop, `{content:lang.dragPaddingUnified,position:'top'}`))}
+                  ? unifiedVar.dragProps(lang.dragPaddingUnifiedUnbind)
+                  : getDragProps(paddingValue.paddingTop, lang.dragPaddingUnified))}
               >
                 <PaddingAllOutlined/>
               </div>
