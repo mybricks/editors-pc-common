@@ -67,12 +67,14 @@ function PositionInput({
   label,
   rawValue,
   previewValue,
+  tip,
   cssKey,
   onChange,
   needsActivation,
   onActivate,
 }: {
   label: string
+  tip: string
   rawValue: unknown
   previewValue?: string
   cssKey: PositionDirection
@@ -117,6 +119,7 @@ function PositionInput({
           {label}
         </span>
       )}
+      tip={tip}
       value={toInputValue(rawValue)}
       previewValue={toInputValue(previewValue)}
       defaultValue={toInputValue(rawValue)}
@@ -267,6 +270,7 @@ export function Position({ value: panelValue, onChange: fallbackOnChange, showTi
           <Panel.Content>
             <PositionInput
               label='上'
+              tip='相对顶部定位'
               rawValue={topVal}
               previewValue={isPseudoState ? offsetPreview ? offsetPreview.top : topField.computedPreview : undefined}
               cssKey='top'
@@ -276,6 +280,7 @@ export function Position({ value: panelValue, onChange: fallbackOnChange, showTi
             />
             <PositionInput
               label='右'
+              tip='相对右侧定位'
               rawValue={rightVal}
               previewValue={isPseudoState ? offsetPreview ? offsetPreview.right : rightField.computedPreview : undefined}
               cssKey='right'
@@ -287,6 +292,7 @@ export function Position({ value: panelValue, onChange: fallbackOnChange, showTi
           <Panel.Content>
             <PositionInput
               label='下'
+              tip='相对底部定位'
               rawValue={bottomVal}
               previewValue={isPseudoState ? offsetPreview ? offsetPreview.bottom : bottomField.computedPreview : undefined}
               cssKey='bottom'
@@ -296,6 +302,7 @@ export function Position({ value: panelValue, onChange: fallbackOnChange, showTi
             />
             <PositionInput
               label='左'
+              tip='相对左侧定位'
               rawValue={leftVal}
               previewValue={isPseudoState ? offsetPreview ? offsetPreview.left : leftField.computedPreview : undefined}
               cssKey='left'

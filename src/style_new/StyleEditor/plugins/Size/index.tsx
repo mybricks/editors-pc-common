@@ -168,7 +168,7 @@ function SizingModeBadge({ mode, dimension, actualSize, parentSize = 0, onChange
 
   return (
     <Dropdown className={css.sizingModeDropdown} value={mode} options={options} onClick={handleClick} onAction={handleAction}>
-      <span className={mode === 'fill' ? css.fillBadge : css.hugBadge} data-mybricks-tip="单位">
+      <span className={mode === 'fill' ? css.fillBadge : css.hugBadge}>
         <span className={css.badgeLabel}>{mode === 'fill' ? '填满' : '适应'}</span>
         <span className={css.badgeArrow}><DownOutlined /></span>
       </span>
@@ -242,7 +242,7 @@ function DefaultModeBadge({
 
   return (
     <Dropdown value="default" options={options} onClick={handleClick} onAction={handleAction}>
-      <span className={css.defaultBadgeArrow} data-mybricks-tip="单位">
+      <span className={css.defaultBadgeArrow}>
         <DownOutlined />
       </span>
     </Dropdown>

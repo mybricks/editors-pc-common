@@ -1,5 +1,6 @@
 import { classMatchesShortName } from './css-modules-match'
 import { splitTopLevelSelectors } from './selector-utils'
+import { stylePropertyKey } from './style-shorthand-groups'
 
 function getChildIndex(element: Element): number {
   const parent = element.parentElement
@@ -104,6 +105,7 @@ type MatchedSoloRule = {
 export type SavedSoloRule = {
   body: string
   selector: string
+  declarationKeys: string[]
 }
 
 export type SavedSoloStyle = SavedSoloRule & {
@@ -301,6 +303,10 @@ export const getSavedSoloStyle = (
     .filter(({ rule }) => rule.style.length > 0)
     .map(({ rule, selector }): SavedSoloRule => ({
       body: rule.style.cssText,
+      // cssText 会合并 flex/flex-flow 等简写，删除时仍需保留实际枚举的长写字段。
+      declarationKeys: Array.from({ length: rule.style.length }, (_, index) =>
+        stylePropertyKey(rule.style.item(index))
+      ),
       selector: matchedRules.length
         ? resolveSourceSelector(sourceSelector, runtimeSelector!, selector)
         : selector,
@@ -310,6 +316,7 @@ export const getSavedSoloStyle = (
     const existingRule = savedRulesBySelector.get(savedRule.selector)
     if (existingRule) {
       existingRule.body = `${existingRule.body};${savedRule.body}`
+      existingRule.declarationKeys = Array.from(new Set([...existingRule.declarationKeys, ...savedRule.declarationKeys]))
     } else {
       savedRulesBySelector.set(savedRule.selector, { ...savedRule })
     }

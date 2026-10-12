@@ -257,6 +257,21 @@ export function getDefaultConfiguration ({value, options}: GetDefaultConfigurati
           Object.assign(defaultValue, getDefaultValueFunctionMap[type](valuesForPanels, config));
         }
       });
+      // 无 class 的纯标签节点（如 <div>找达人</div>， editconfig不会传入selector，这种情况下会导致 effectiveStyle 始终为 {}，样式面板无法回显。
+      // 这种情况下直接用getcomputedValue读取dom获取样式
+      if (!zoneTab && realDom && Object.keys(effectiveStyle).length === 0) {
+        const computedStyle = window.getComputedStyle(realDom)
+        Object.keys(defaultValue).forEach(styleKey => {
+          const cssProperty = styleKey.replace(/([A-Z])/g, (m) => `-${m.toLowerCase()}`)
+          const computedValue = computedStyle.getPropertyValue(cssProperty).trim() || undefined
+          if (!computedValue) return
+          effectiveStyle[styleKey] = {
+            value: computedValue,
+            computedValue,
+            type: 'computed',
+          }
+        })
+      }
     }
   }
 

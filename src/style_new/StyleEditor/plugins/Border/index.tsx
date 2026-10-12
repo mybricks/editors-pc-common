@@ -741,6 +741,26 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
 
   const getPreviewValue = (key: string) =>
     context?.getStylePreview?.(key) || previewValues[key] || effectiveStyle?.[key]?.computedValue;
+  // 未配置的边框色默认是 currentColor，计算值会跟随字体颜色实时变化。
+  // 只有边框本身可见（有宽度且非 none/hidden）时，计算值才代表真实渲染色，
+  // 可以拿来做色块预览；否则预览会随无关的 color 修改跳动。
+  const resolveBorderPreviewColor = (side: string) => {
+    const styleKey = `border${side}Style`;
+    const widthKey = `border${side}Width`;
+    const colorKey = `border${side}Color`;
+    if (
+      hasNoVisibleBorderLine(
+        borderValue[styleKey] ?? getPreviewValue(styleKey),
+        borderValue[widthKey] ?? getPreviewValue(widthKey)
+      )
+    ) {
+      return undefined;
+    }
+    return resolveCssVarColor(
+      borderValue[colorKey] || getPreviewValue(colorKey) || "",
+      targetDom
+    ) ?? undefined;
+  };
   const currentBorderStyle = borderValue.borderTopStyle ?? getPreviewValue('borderTopStyle') ?? 'none';
   const borderHasNoVisibleLine = hasNoVisibleBorderLine(
     currentBorderStyle, borderValue.borderTopWidth ?? getPreviewValue('borderTopWidth')
@@ -922,10 +942,7 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
                     style={{ padding: 0, flex: 1, minWidth: 26 }}
                     defaultValue={borderColorValue}
                     emptyValueLabel=""
-                    resolvedColor={resolveCssVarColor(
-                      borderValue.borderTopColor || getPreviewValue('borderTopColor') || "",
-                      targetDom
-                    ) ?? undefined}
+                    resolvedColor={resolveBorderPreviewColor('Top')}
                     variableOptions={canvasColorVariables}
                     scopeEl={targetDom}
                     showSubTabs={borderPosition === 'center'}
@@ -1120,7 +1137,7 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
                       style={{ padding: 0, marginLeft: 2, flex: 1, minWidth: 26 }}
                       defaultValue={isConfiguredKey('borderLeftColor') ? borderValue.borderLeftColor : ''}
                       emptyValueLabel=""
-                      resolvedColor={resolveCssVarColor(borderValue.borderLeftColor || getPreviewValue('borderLeftColor') || "", targetDom) ?? undefined}
+                      resolvedColor={resolveBorderPreviewColor('Left')}
                       variableOptions={canvasColorVariables}
                       scopeEl={targetDom}
                       showSubTabs={false}
@@ -1197,7 +1214,7 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
                       style={{ padding: 0, marginLeft: 2, flex: 1, minWidth: 26 }}
                       defaultValue={isConfiguredKey('borderTopColor') ? borderValue.borderTopColor : ''}
                       emptyValueLabel=""
-                      resolvedColor={resolveCssVarColor(borderValue.borderTopColor || getPreviewValue('borderTopColor') || "", targetDom) ?? undefined}
+                      resolvedColor={resolveBorderPreviewColor('Top')}
                       variableOptions={canvasColorVariables}
                       scopeEl={targetDom}
                       showSubTabs={false}
@@ -1275,7 +1292,7 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
                       style={{ padding: 0, marginLeft: 2, flex: 1, minWidth: 26 }}
                       defaultValue={isConfiguredKey('borderRightColor') ? borderValue.borderRightColor : ''}
                       emptyValueLabel=""
-                      resolvedColor={resolveCssVarColor(borderValue.borderRightColor || getPreviewValue('borderRightColor') || "", targetDom) ?? undefined}
+                      resolvedColor={resolveBorderPreviewColor('Right')}
                       variableOptions={canvasColorVariables}
                       scopeEl={targetDom}
                       showSubTabs={false}
@@ -1353,7 +1370,7 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
                       style={{ padding: 0, marginLeft: 2, flex: 1, minWidth: 26 }}
                       defaultValue={isConfiguredKey('borderBottomColor') ? borderValue.borderBottomColor : ''}
                       emptyValueLabel=""
-                      resolvedColor={resolveCssVarColor(borderValue.borderBottomColor || getPreviewValue('borderBottomColor') || "", targetDom) ?? undefined}
+                      resolvedColor={resolveBorderPreviewColor('Bottom')}
                       variableOptions={canvasColorVariables}
                       scopeEl={targetDom}
                       showSubTabs={false}

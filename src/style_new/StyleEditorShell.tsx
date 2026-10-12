@@ -103,6 +103,16 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
   const [titleContent, setTitleContent] = useState('')
   const [targetStyle, setTargetStyle] = useState<any>(null)
 
+  useMemo(() => {
+    // 暂时兼容 editConfig.options.selector 值不对的情况
+    if (editConfig && editConfig.options && editConfig.options.targetDom instanceof Element) {
+      if (editConfig.options.targetDom?.dataset.zoneSelector) {
+        const originSelectorString = editConfig.options.targetDom?.dataset.zoneSelector
+        editConfig.options.selector = `[data-zone-selector='${originSelectorString}']`
+      }
+    }
+  }, [editConfig])
+
   const [{ finalOpen, finalDisabledSwitch, finalSelector }, canvasEle] = useMemo(() => {
     return [
       getDefaultConfiguration2(editConfig),
@@ -385,7 +395,14 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
           savedRule.selector
         )
         if (Object.keys(restoredStyle).length > 0) {
-          editConfig.value.set(restoredStyle, { selector: savedRule.selector })
+          // 宿主重编译后 value.set 的 selector option 会回退到面板原始选择器；
+          // 必须通过 side-channel 强制写入目标，与 apply-style-change 保持一致。
+          ;(window as any).__mybricks_style_explicit_selector = savedRule.selector
+          try {
+            editConfig.value.set(restoredStyle, { selector: savedRule.selector })
+          } finally {
+            delete (window as any).__mybricks_style_explicit_selector
+          }
           restored = true
         }
       })
@@ -419,17 +436,30 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
         if (!hasShortSelector) {
           soloStyleBackupRef.current.set(expectedSoloSelector || soloSelector, savedSoloStyle)
           let removed = false
-          savedSoloStyle.rules.forEach((savedRule) => {
-            const soloStyle = parseToStyleData(
-              buildCssRule(savedRule.selector, savedRule.body),
-              savedRule.selector
-            )
-            if (Object.keys(soloStyle).length === 0) return
-            // value.set({}) 只会覆盖空值；删除已有声明需要显式传递删除字段。
-            ;(window as any).__mybricks_style_deletions = Object.keys(soloStyle)
-            editConfig.value.set({}, { selector: savedRule.selector })
-            removed = true
-          })
+          try {
+            savedSoloStyle.rules.forEach((savedRule) => {
+              const soloStyle = parseToStyleData(
+                buildCssRule(savedRule.selector, savedRule.body),
+                savedRule.selector
+              )
+              if (Object.keys(soloStyle).length === 0) return
+              // value.set({}) 只会覆盖空值；删除已有声明需要显式传递删除字段。
+              // 同时需要 explicit_selector side-channel，否则宿主重编译后会忽略 selector option
+              // 回退到面板原始 selector，导致基础规则（如 .featureTag{}）的属性被误删。
+              ;(window as any).__mybricks_style_explicit_selector = savedRule.selector
+              ;(window as any).__mybricks_style_deletions = Array.from(new Set([
+                ...Object.keys(soloStyle), ...savedRule.declarationKeys,
+              ]))
+              try {
+                editConfig.value.set({}, { selector: savedRule.selector })
+              } finally {
+                delete (window as any).__mybricks_style_explicit_selector
+              }
+              removed = true
+            })
+          } finally {
+            ;(window as any).__mybricks_style_deletions = null
+          }
           if (removed) {
             refreshBatchMeta()
             // 宿主异步重编译时才等待源码通知；同步删除已经由本次切换刷新。
@@ -929,7 +959,7 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
     } catch {}
   }
 
-  const showEditModeControl = affectedCount !== null && affectedCount > 1
+  const showEditModeControl = affectedCount !== null && affectedCount > 1 && zoneSelectorList.length > 0
 
   useEffect(() => {
     const hint = editModeHintRef.current
@@ -979,19 +1009,17 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
             </div>
           </div>
         )}
-        {zoneSelectorList.length > 0 && (
-          <ZoneTabBar
-            selectors={zoneSelectorList}
-            labels={zoneTabs.map((tab) => tab.label || tab.selector)}
-            activeIdx={activeZoneIdx}
-            onSelect={onZoneTabSelect}
-            onAdd={onAddZoneTab}
-            addOptions={zoneTabAddOptions}
-            deletableSelectors={zoneTabs.filter((tab) => tab.isAdded).map((tab) => tab.selector)}
-            onDelete={onDeleteZoneTab}
-            moreMenus={title}
-          />
-        )}
+        <ZoneTabBar
+          selectors={zoneSelectorList}
+          labels={zoneTabs.map((tab) => tab.label || tab.selector)}
+          activeIdx={activeZoneIdx}
+          onSelect={onZoneTabSelect}
+          onAdd={zoneSelectorList.length > 0 ? onAddZoneTab : undefined}
+          addOptions={zoneTabAddOptions}
+          deletableSelectors={zoneTabs.filter((tab) => tab.isAdded).map((tab) => tab.selector)}
+          onDelete={onDeleteZoneTab}
+          moreMenus={title}
+        />
         {showEditModeControl && (
           <div
             className={`${css.editModeControl} ${

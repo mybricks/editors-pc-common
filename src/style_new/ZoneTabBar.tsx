@@ -1,6 +1,6 @@
 import React, { ReactElement, useMemo } from 'react'
 import { Dropdown, Menu } from 'antd'
-import { CloseOutlined, QuestionCircleOutlined } from '@ant-design/icons'
+import { CloseOutlined } from '@ant-design/icons'
 import { MoreOutlined } from './StyleEditor/components/Icon'
 
 import css from './index.less'
@@ -116,11 +116,6 @@ export function ZoneTabBar(props: {
         title={
           <span style={{ fontWeight: 'normal', display: 'inline-flex', alignItems: 'center' }}>
             添加状态
-            <QuestionCircleOutlined
-              onClick={(e) => e.stopPropagation()}
-              style={{ marginLeft: 4, color: '#8c8c8c', fontSize: 12, verticalAlign: 'middle' }}
-              data-mybricks-tip={JSON.stringify({ content: '<span style="display:block;text-align:center">为该元素添加悬浮、激活、聚焦、禁用状态下的样式</span>', position: 'left' })}
-            />
           </span>
         }
       >
@@ -142,10 +137,12 @@ export function ZoneTabBar(props: {
 
   const isSingleNormalTab =
     selectors.length === 1 && !isPseudoSelector(selectors[0])
+  // 无 selector 时，只展示"常规样式"，不展示 MoreOutlined 按钮
+  const isNoSelector = selectors.length === 0
 
   return (
     <div className={css.zoneTabBar}>
-      {isSingleNormalTab ? (
+      {(isSingleNormalTab || isNoSelector) ? (
         <span className={css.zoneTabSingleTitle}>常规样式</span>
       ) : (
         <div className={css.zoneTabList}>
@@ -173,19 +170,21 @@ export function ZoneTabBar(props: {
           ))}
         </div>
       )}
-      <Dropdown
-        overlayClassName={css.zoneTabDropdown}
-        overlay={moreOverlay}
-      >
-        <button
-          className={css.moreBtn}
-          type="button"
-          aria-label="更多操作"
-          style={{ transform: 'rotate(90deg)' }}
+      {!isNoSelector && (
+        <Dropdown
+          overlayClassName={css.zoneTabDropdown}
+          overlay={moreOverlay}
         >
-          <MoreOutlined />
-        </button>
-      </Dropdown>
+          <button
+            className={css.moreBtn}
+            type="button"
+            aria-label="更多操作"
+            style={{ transform: 'rotate(90deg)' }}
+          >
+            <MoreOutlined />
+          </button>
+        </Dropdown>
+      )}
     </div>
   )
 }
