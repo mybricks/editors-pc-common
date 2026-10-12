@@ -944,4 +944,31 @@ export default {
   figmaDecodeDone: i18n({ zh: '已解码完成', en: 'Decoded' }),
   selectAllLabel: i18n({ zh: '全选', en: 'Select all' }),
   selectPageToExportTip: i18n({ zh: '选择要导出的页面', en: 'Select pages to export' }),
+  unnamedPage: i18n({ zh: '未命名页面', en: 'Unnamed page' }),
+  copyGeneratedFigmaData: i18n({ zh: '复制已生成的 Figma 数据', en: 'Copy generated Figma data' }),
+
+  // useExportToFigma
+  figmaPreparing: i18n({ zh: '准备中...', en: 'Preparing...' }),
+  figmaNoPageFound: i18n({ zh: '未找到可复制的页面，请聚焦到一个页面后重试', en: 'No exportable page found, please focus on a page and try again' }),
+  figmaParsingPageStructure: i18n({ zh: '解析页面结构...', en: 'Parsing page structure...' }),
+  figmaBuildingDomModel: i18n({ zh: '构建 DOM 模型...', en: 'Building DOM model...' }),
+  figmaNoValidFrameInCanvasList: i18n({ zh: 'canvasList 中未找到任何有效帧', en: 'No valid frame found in canvasList' }),
+  figmaCopiedPagesName: i18n({ zh: '复制的 {n} 个页面', en: 'Copied {n} page(s)' }),
+  figmaFetchingImageResources: i18n({ zh: '拉取图片资源 ({done}/{total})...', en: 'Fetching image resources ({done}/{total})...' }),
+  figmaFetchImageResourcesDone: i18n({ zh: '拉取图片资源完成', en: 'Image resources fetched' }),
+  figmaLoadingFonts: i18n({ zh: '加载字体（{fonts}）...', en: 'Loading fonts ({fonts})...' }),
+  figmaGeneratingData: i18n({ zh: '生成 Figma 数据...', en: 'Generating Figma data...' }),
+  figmaWritingClipboard: i18n({ zh: '写入剪贴板...', en: 'Writing to clipboard...' }),
+  figmaDone: i18n({ zh: '完成', en: 'Done' }),
+  figmaCopiedPastePrompt: i18n({ zh: '已复制，请前往 Figma 直接 Cmd+V / Ctrl+V 粘贴', en: 'Copied, please go to Figma and paste with Cmd+V / Ctrl+V' }),
+  figmaDataReadyClickToCopy: i18n({ zh: '数据已就绪，点击按钮复制', en: 'Data is ready, click the button to copy' }),
+  figmaClickToCopyManuallyTip: i18n({ zh: '请点击「复制已生成的 Figma 数据」按钮，在 Figma 中 Ctrl+V 进行粘贴', en: 'Please click the "Copy generated Figma data" button, then paste in Figma with Ctrl+V' }),
+  figmaExportFailed: i18n({ zh: '导出失败: {error}', en: 'Export failed: {error}' }),
+  figmaUnknownError: i18n({ zh: '未知错误', en: 'Unknown error' }),
+  figmaCopyFailedNotFocused: i18n({ zh: '复制失败：请先点击页面聚焦后再重试', en: 'Copy failed: please click the page to focus and try again' }),
+  figmaCopyFailed: i18n({ zh: '复制失败: {error}', en: 'Copy failed: {error}' }),
+
+  // read-clipboard
+  figmaClipboardReadUnsupported: i18n({ zh: '当前环境不支持读取剪贴板', en: 'Reading clipboard is not supported in this environment' }),
+  figmaClipboardNoDataDetected: i18n({ zh: '剪贴板中未检测到 Figma 数据，请在 Figma 内选中节点后使用 Ctrl/Cmd+C 复制', en: 'No Figma data detected in clipboard. Please select a node in Figma and copy it with Ctrl/Cmd+C' }),
 }

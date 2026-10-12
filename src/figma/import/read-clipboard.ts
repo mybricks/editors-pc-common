@@ -1,6 +1,8 @@
 /**
  * 从系统剪贴板读取 Figma 复制的 HTML（优先 text/html，否则纯文本）。
  */
+import lang from '../../style_new/index.i18n';
+
 export async function readFigmaClipboardHtml(): Promise<string> {
   if (navigator.clipboard && typeof navigator.clipboard.read === 'function') {
     try {
@@ -22,9 +24,9 @@ export async function readFigmaClipboardHtml(): Promise<string> {
     }
   }
   if (!navigator.clipboard || typeof navigator.clipboard.readText !== 'function') {
-    throw new Error('当前环境不支持读取剪贴板');
+    throw new Error(lang.figmaClipboardReadUnsupported);
   }
   const text = await navigator.clipboard.readText();
   if (text && (text.includes('(figma)') || text.includes('fig-kiwi'))) return text;
-  throw new Error('剪贴板中未检测到 Figma 数据，请在 Figma 内选中节点后使用 Ctrl/Cmd+C 复制');
+  throw new Error(lang.figmaClipboardNoDataDetected);
 }

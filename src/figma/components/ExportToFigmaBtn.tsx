@@ -130,7 +130,7 @@ export function ExportToFigmaBtn({ comEle, comId, fontfaces, getCanvasList }: Ex
     const list = getCanvasList?.() ?? [];
     const infos: PageInfo[] = Array.from(list).map(el => ({
       element: el,
-      title: el.getAttribute('data-zone-title') || '未命名页面',
+      title: el.getAttribute('data-zone-title') || lang.unnamedPage,
       kind: el.getAttribute('data-zone-kind') || 'page',
     }));
     setPageInfos(infos);
@@ -366,7 +366,7 @@ export function ExportToFigmaBtn({ comEle, comId, fontfaces, getCanvasList }: Ex
       <>
         <CheckIcon />
         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          复制已生成的 Figma 数据
+          {lang.copyGeneratedFigmaData}
         </span>
       </>
     );
