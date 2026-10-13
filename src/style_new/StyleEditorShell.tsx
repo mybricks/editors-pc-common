@@ -101,7 +101,6 @@ async function readClipboardText(): Promise<string> {
 }
 
 export default function StyleEditorShell({ editConfig }: EditorProps) {
-  console.log('###', editConfig)
   const [titleContent, setTitleContent] = useState('')
   const [targetStyle, setTargetStyle] = useState<any>(null)
 
