@@ -18,7 +18,7 @@ import { getStyleRules } from './get-style-rules'
 import type { StyleRulesScanCache } from './get-style-rules'
 import { getValues } from './get-values'
 import { reconcileEffectiveTextFill } from './effective-text-fill'
-import { getDefaultValueFunctionMap2, PANEL_MAP } from './panel-defaults'
+import { PANEL_MAP } from './panel-defaults'
 import { calculateSafeSpecificity, someSelectorPart } from './selector-utils'
 import { hasCssVarReference } from './css-var'
 import {
@@ -334,20 +334,15 @@ export function getEffectedCssPropertyAndOptions (
     const cascadeResolver = element ? createCascadeResolver(element) : null
 
     /**
-     * computedStyle 是整個元素的级联结果，同一节点挂多个 classname 时，
-     * 没有当前 tab 声明的边框字段可能来自兄弟 classname。只在确实找到一个
-     * CSS 规则且该规则不属于当前 tab 时清掉回退值；没有规则的 UA 默认边框仍保留。
+     * 当前 tab 自身的边框/圆角声明优先于整元素 computedStyle（包括更高优先级兄弟规则），
+     * 保证回显与写入落在同一条规则上。
+     * 外部来源（第三方库如 antd、兄弟 classname）的边框值不再清空：它们以 computed
+     * 类型保留在回显数据中，由边框/圆角面板以只读预览展示，用户编辑后写入自己的 class 覆盖。
      */
-    const sanitizeBorderFallback = (mode: 'default' | 'hover') => {
+    const prioritizeOwnBorderDeclaration = () => {
       if (!element) return
 
-      const cascadeWinner = cascadeResolver
-
       const ownRules = finalRules.filter((rule) => !allInheritOnlyRules.has(rule))
-      const emptyValues = {
-        ...getDefaultValueFunctionMap2.border(),
-        ...getDefaultValueFunctionMap2['border-radius'](),
-      } as Record<string, any>
       const borderProps: Array<[string, string]> = [
         ['borderTopColor', 'border-top-color'],
         ['borderRightColor', 'border-right-color'],
@@ -374,14 +369,6 @@ export function getEffectedCssPropertyAndOptions (
           if (ownValue) {
             // 当前 tab 自身声明优先于整元素 computedStyle（包括更高优先级兄弟规则）。
             ;(values as any)[camel] = ownValue
-            return
-          }
-
-          const winner = cascadeWinner
-            ? cascadeWinner(hyphen, mode)
-            : findCascadeWinnerDetail(element, hyphen, mode)
-          if (winner?.rule && !ownRules.includes(winner.rule)) {
-            ;(values as any)[camel] = emptyValues[camel]
           }
         } catch {}
       })
@@ -530,7 +517,7 @@ export function getEffectedCssPropertyAndOptions (
         }
       }
 
-      sanitizeBorderFallback('default')
+      prioritizeOwnBorderDeclaration()
     }
 
     // ── hover 态级联校正：同默认态，自身声明优先；仅当前 tab 未声明时用级联补值。
@@ -623,7 +610,7 @@ export function getEffectedCssPropertyAndOptions (
         }
       }
 
-      sanitizeBorderFallback('hover')
+      prioritizeOwnBorderDeclaration()
     }
     // ────────────────────────────────────────────────────────────────────────
 
