@@ -8,6 +8,7 @@ import { useEffectiveStyleValue, useStyleChange, useStyleClear, useStyleEditorCo
 import type { ChangeEvent, PanelBaseProps } from '../../type'
 
 import css from './index.less'
+import lang from '../../../index.i18n'
 
 interface FlexProps extends PanelBaseProps {
   value: CSSProperties & Record<string, any>
@@ -20,39 +21,39 @@ type FlexMode = 'ratio' | 'advanced'
 
 /** 面板与字段文案（面向设计） */
 const COPY = {
-  panelTitle: '弹性',
+  panelTitle: lang.flexPanelTitle,
   panelTip: JSON.stringify({
-    content: '自动填充父级的剩余空间，多个元素按比例分配',
+    content: lang.flexAutoFill,
     position: 'left',
   }),
-  fieldLabel: '比例',
+  fieldLabel: lang.flexRatioLabel,
   fieldTip: JSON.stringify({
     content:
-      '父级为横向/纵向排列时，决定本元素占多少剩余空间。填 1 表示参与均分；多个子项分别填 1 和 2 时按 1:2 分配。清空则不弹性拉伸。',
+      lang.flexRatioTip,
     position: 'left',
   }),
   toAdvancedTip: JSON.stringify({
-    content: '切换为单独配置（增长 / 收缩 / 基础长度）',
+    content: lang.flexSplitTip,
     position: 'left',
   }),
   toRatioTip: JSON.stringify({
-    content: '切换为统一配置（比例）',
+    content: lang.flexUnifiedTip,
     position: 'left',
   }),
-  growLabel: '增长系数',
+  growLabel: lang.flexGrowLabel,
   growTip: JSON.stringify({
-    content: '空间有多余时，按该数值比例放大。常用 1；填 0 表示不放大。',
+    content: lang.flexGrowTip,
     position: 'left',
   }),
-  shrinkLabel: '收缩系数',
+  shrinkLabel: lang.flexShrinkLabel,
   shrinkTip: JSON.stringify({
-    content: '空间不够时，按该数值比例缩小。常用 1；填 0 表示不缩小。',
+    content: lang.flexShrinkTip,
     position: 'left',
   }),
-  basisLabel: '基础长度',
+  basisLabel: lang.flexBasisLabel,
   basisTip: JSON.stringify({
     content:
-      '分配剩余空间前的初始尺寸。填 0 表示尺寸完全由比例决定；也可填具体长度，如 100px、50%。留空时按元素自身尺寸或内容计算。',
+      lang.flexBasisTip,
     position: 'left',
   }),
 }
@@ -448,7 +449,7 @@ export function Flex({ value: fallbackValue, onChange: fallbackOnChange, showTit
       showReset={true}
       showDelete={!!clear}
       deleteNode={hasVisibleFlexValue || clear ? (
-        <span aria-disabled={!clear} title={!clear ? disabledReason || '样式来源尚未就绪，暂不能删除' : undefined}
+        <span aria-disabled={!clear} title={!clear ? disabledReason || lang.styleSourceNotReady : undefined}
           style={{ opacity: clear ? 1 : 0.4 }}><MinusOutlined /></span>
       ) : undefined}
       onDelete={clear ? refresh : undefined}

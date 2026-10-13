@@ -23,6 +23,7 @@ import {
   resolveCssVarColor,
 } from "../../../core/resolve-css-var-color";
 import { isGradientValue } from "../../helper/gradient-border";
+import lang from "../../../index.i18n";
 
 import css from "./index.less";
 
@@ -646,22 +647,22 @@ export function ColorEditor({
     if (isGradient) {
       return (
           <div className={css.text} style={{ marginLeft: 5 }} onClick={onPresetClick}>
-            渐变色
+            {lang.gradientColorText}
           </div>
       );
     }
 
     if (inherited) {
-      const emptyValueType = emptyValueLabel || '继承';
+      const emptyValueType = emptyValueLabel || lang.inheritFallback;
       const tip = inheritedTipColor
-        ? `未配置颜色，${inheritedTipColor}为${emptyValueType}值`
-        : '未配置颜色';
+        ? `${lang.noColorConfigured} (${inheritedTipColor} as ${emptyValueType})`
+        : lang.noColorConfigured;
       return (
         <input
-          data-mybricks-tip={`${tip}；支持16进制、RGB、RGBA、HSL、HSLA、var()或颜色名称`}
+          data-mybricks-tip={`${tip}; ${lang.colorInputTip}`}
           ref={inputColorRef}
           value={showInheritedColor && !hasInheritedDraft ? inheritedTipColor : userInput}
-          placeholder={emptyValueLabel ?? (showInheritedColor ? "" : "继承")}
+          placeholder={emptyValueLabel ?? (showInheritedColor ? "" : lang.inheritFallback)}
           spellCheck={false}
           className={showInheritedColor ? css.input : `${css.input} ${css.inheritedInput}`}
           onFocus={() => {
@@ -687,7 +688,7 @@ export function ColorEditor({
     if (isImage) {
       return (
           <div className={css.text} style={{ marginLeft: 5 }} onClick={onPresetClick}>
-            背景图
+            {lang.backgroundImageText}
           </div>
       );
     }
@@ -701,7 +702,7 @@ export function ColorEditor({
           </div>
           {finalValue && <div
             className={css.unbind}
-            data-mybricks-tip={`解除绑定`}
+            data-mybricks-tip={lang.unbind}
             onClick={handleUnbind}
           >{UnBindingIcon}</div>}
         </>
@@ -710,12 +711,12 @@ export function ColorEditor({
     // 变量态与尺寸编辑器一致：框内显示解析出的色值并套描边衬底，右侧仍可聚焦输入
     if (nonColorValue && isCssVarRef(value)) {
       return (
-        <div className={css.variableMain} data-mybricks-tip={`变量：${varName || varRef}`}>
+        <div className={css.variableMain} data-mybricks-tip={`${lang.variablePrefix}${varName || varRef}`}>
           {/* 开始输入后隐藏胶囊，避免「旧变量值 + 新输入」同时出现 */}
           {!varDraft && (
             <span className={css.variableValue} onClick={onPresetClick}>
               {/* 暂时去掉具体变量名的展示，直接展示文案 {variableDisplayText} */}
-              @颜色变量
+              {lang.colorVariable}
             </span>
           )}
           <input
@@ -731,7 +732,7 @@ export function ColorEditor({
     }
     return (
       <input
-        data-mybricks-tip="支持16进制、RGB、RGBA、HSL、HSLA、var()或颜色名称"
+        data-mybricks-tip={lang.colorInputTip}
         ref={inputColorRef}
         value={userInput}
         placeholder={emptyValueLabel}
@@ -800,7 +801,7 @@ export function ColorEditor({
     return (
       <div className={css.opacity}>
         <input
-          data-mybricks-tip={"透明度"}
+          data-mybricks-tip={lang.opacityPanelTitle}
           ref={inputRef}
           type="inputNumber"
           value={Math.round(opacityNumber * 100)}

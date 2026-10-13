@@ -13,6 +13,7 @@ import { toElementArray } from "../../../core/dom";
 import { createStyleResolution } from "../../../core/style-property";
 import { collectZoneTabs, excludeSoloSources, mergeZoneTabsByState } from "../../../core/zone-tab";
 import styles from "./index.less";
+import lang from '../../../index.i18n'
 
 interface LayoutEditorProps extends PanelBaseProps {
   value: Record<string, any>;
@@ -187,7 +188,7 @@ export function Layout({ value: panelValue, onChange: fallbackOnChange, showTitl
   }, [value, isReset]);
 
   return (
-    <Panel title="布局" showTitle={showTitle} showReset={true} showDelete={false} resetFunction={refresh} collapse={false} keepTopBorder>
+    <Panel title={lang.layoutPanelTitle} showTitle={showTitle} showReset={true} showDelete={false} resetFunction={refresh} collapse={false} keepTopBorder>
       <React.Fragment key={forceRenderKey}>
         <LayoutEditor
           editValue={editValue}
@@ -482,9 +483,9 @@ function LayoutEditor({ editValue, previewValue, clearedGapKeys, onChangeValue, 
           className={styles.overflowLabel}
           onClick={toggle}
           style={{ marginRight: 12 }}
-          data-mybricks-tip="开启后超出容器大小的内容将会被隐藏"
+          data-mybricks-tip={lang.overflowHiddenTip}
         >
-          超出容器不显示
+          {lang.overflowHiddenLabel}
         </span>
         {renderInlineBlock()}
       </div>
@@ -531,9 +532,9 @@ function LayoutEditor({ editValue, previewValue, clearedGapKeys, onChangeValue, 
         <span
           className={styles.overflowLabel}
           onClick={toggle}
-          data-mybricks-tip="与相邻内容同行显示"
+          data-mybricks-tip={lang.inlineTip}
         >
-          内联显示
+          {lang.inlineLabel}
         </span>
       </>
     );

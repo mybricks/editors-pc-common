@@ -9,6 +9,7 @@ import React, {
 import { Input, Select } from '..'
 import { splitValueAndUnit } from '../../utils'
 import { useInputNumber, useUpdateEffect } from '../../hooks'
+import lang from '../../../index.i18n'
 
 import type { InputProps } from '..'
 
@@ -27,7 +28,7 @@ export interface UnitOption {
 
 const DEFAULT_ACTION_VALUE = '__input_number_default__'
 const DEFAULT_ACTION_OPTION: UnitOption = {
-  label: '默认',
+  label: lang.defaultLabel,
   value: DEFAULT_ACTION_VALUE,
   type: 'action',
 }
@@ -106,12 +107,12 @@ export function InputNumber ({
   unitIconClassName,
   unitSelectStyle,
   badge,
-  placeholder = '默认',
+  placeholder = lang.defaultLabel,
   fallbackValue,
   hideUnitWhenEmpty = false,
   unitHideLabelList = ['px'],
   clearable = true,
-  defaultActionTip = '设置',
+  defaultActionTip = lang.settingsTip,
   onClear,
   className,
   activeWhenBlur = true,

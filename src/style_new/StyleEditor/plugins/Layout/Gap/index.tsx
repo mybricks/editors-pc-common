@@ -4,6 +4,7 @@ import { useStyleEditorContext } from "../../../context";
 import Icon from "../Icon";
 import { useDragNumber, useLengthInputDrag, useStyleDisplayValue } from "../../../hooks";
 import styles from "./index.less";
+import lang from '../../../../index.i18n'
 
 type Value = Partial<{
   rowGap: CSSProperties["rowGap"] | null;
@@ -96,7 +97,7 @@ export default ({ value, cleared, onChange, flexDirection }: GapProps) => {
         <InputNumber
           type="number"
           prefix={
-            <div {...dragProps(inputValue ?? previewValue, `拖拽调整${title}`)}>
+            <div {...dragProps(inputValue ?? previewValue, `${lang.dragGap} ${title}`)}>
               <Icon name={iconName} />
             </div>
           }
@@ -119,10 +120,10 @@ export default ({ value, cleared, onChange, flexDirection }: GapProps) => {
 
   return (
     <div className={styles.gap}>
-      {flexDirection === "row" && renderInput("columnGap", value.columnGap, "column-gap", "列间距")}
-      {flexDirection === "row" && renderInput("rowGap", value.rowGap, "row-gap", "行间距")}
-      {flexDirection === "column" && renderInput("rowGap", value.rowGap, "row-gap", "行间距")}
-      {flexDirection === "column" && renderInput("columnGap", value.columnGap, "column-gap", "列间距")}
+      {flexDirection === "row" && renderInput("columnGap", value.columnGap, "column-gap", lang.columnGapLabel)}
+      {flexDirection === "row" && renderInput("rowGap", value.rowGap, "row-gap", lang.rowGapLabel)}
+      {flexDirection === "column" && renderInput("rowGap", value.rowGap, "row-gap", lang.rowGapLabel)}
+      {flexDirection === "column" && renderInput("columnGap", value.columnGap, "column-gap", lang.columnGapLabel)}
     </div>
   );
 };

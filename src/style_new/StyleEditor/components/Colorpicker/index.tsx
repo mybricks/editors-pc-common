@@ -16,6 +16,7 @@ import { ImagePanel } from "../ImagePanel"
 import { isDefaultWhiteGradientLayer, isGradientValue } from "../../helper/gradient-border";
 import { CssVarColorOption } from "../../../core/resolve-css-var-color";
 import { VariableColorPreview, VariableList } from "../VariableList";
+import lang from "../../../index.i18n";
 
 import css from "./index.less";
 
@@ -384,7 +385,7 @@ function ColorSketch({
             <button
               type="button"
               className={css.closeBtn}
-              title="关闭"
+              title={lang.close}
               onClick={(e) => {
                 e.stopPropagation();
                 onClose();
@@ -399,22 +400,22 @@ function ColorSketch({
             <div className={css.subTabs}>
               {!disableBackgroundColor && (
                 <button data-active={subTab === "background"} onClick={() => subTabClick("background")}>
-                  填充
+                  {lang.fillTab}
                 </button>
               )}
               {showSubTabs && !disableGradient && (
                 <button data-active={subTab === "gradient"} onClick={() => subTabClick("gradient")}>
-                  渐变
+                  {lang.gradientTab}
                 </button>
               )}
               {showSubTabs && !disableBackgroundImage && (
                 <button data-active={subTab === "image"} onClick={() => subTabClick("image")}>
-                  图片
+                  {lang.imageTab}
                 </button>
               )}
               {hasVariableOptions && (
                 <button data-active={subTab === "variable"} onClick={() => subTabClick("variable")}>
-                  变量
+                  {lang.variableTab}
                 </button>
               )}
             </div>
@@ -469,7 +470,7 @@ const ColorVariableList = ({
         value: `var(${item.name})`,
         resetValue: item.value,
       })}
-      emptyText="当前画布没有可用的颜色变量"
+      emptyText={lang.noColorVariables}
     />
   )
 }

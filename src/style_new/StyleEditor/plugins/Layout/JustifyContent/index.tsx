@@ -1,6 +1,7 @@
 import React, { CSSProperties } from "react";
 import Icon from "../Icon";
 import styles from "./index.less";
+import lang from '../../../../index.i18n'
 
 export interface JustifyContentProps {
   flexDirection: CSSProperties["flexDirection"];
@@ -12,7 +13,7 @@ export interface JustifyContentProps {
 
 const defaultJustifyContent = [
   {
-    title: "均匀",
+    title: lang.justifyEven,
     value: "space-around",
     render: (direction: CSSProperties["flexDirection"]) =>
       direction === "row" ? (
@@ -22,7 +23,7 @@ const defaultJustifyContent = [
       ),
   },
   {
-    title: "两端",
+    title: lang.justifyBetween,
     value: "space-between",
     render: (direction: CSSProperties["flexDirection"]) =>
       direction === "row" ? (
@@ -42,7 +43,7 @@ export default ({
 }: JustifyContentProps) => {
   const renderWrap = () => {
     // const title = flexWrap === "wrap" ? "换行" : "不换行";
-    const title = "换行"; // 这里提示词不应该变
+    const title = lang.wrapLabel; // 这里提示词不应该变
     return (
       <div
         data-mybricks-tip={title}

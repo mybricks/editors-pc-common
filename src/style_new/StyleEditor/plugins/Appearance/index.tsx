@@ -21,6 +21,7 @@ import type { VariableChipMenuOption } from '../../components/VariableChip'
 import type { ChangeEvent, PanelBaseProps } from '../../type'
 
 import css from './index.less'
+import lang from '../../../index.i18n'
 
 interface AppearanceProps extends PanelBaseProps {
   value: CSSProperties
@@ -164,7 +165,7 @@ export function Appearance({ value, onChange: fallbackOnChange, showTitle }: App
 
   const chipMenuOptions = useMemo<VariableChipMenuOption[]>(() => [
     {
-      label: `固定值 (${fallbackPercent}%)`,
+      label: `${lang.fixedValuePrefix} (${fallbackPercent}%)`,
       value: DETACH_VARIABLE_ACTION,
       type: 'action',
       icon: <FixedWidth />,
@@ -180,7 +181,7 @@ export function Appearance({ value, onChange: fallbackOnChange, showTitle }: App
 
   return (
     <Panel
-      title='不透明度'
+      title={lang.opacityPanelTitle}
       showTitle={showTitle}
       showReset={true}
       showDelete={true}
@@ -194,8 +195,8 @@ export function Appearance({ value, onChange: fallbackOnChange, showTitle }: App
             className={`${css.inputIcon} ${css.opacityIcon}`}
             ref={anchorRef}
             {...(varRef
-              ? getDragPropsOpacity(fallbackPercent, "{content:'拖拽调整不透明度（将解除变量绑定）',position:'left'}")
-              : getDragPropsOpacity(opacityPercent, "{content:'拖拽调整不透明度',position:'left'}")
+              ? getDragPropsOpacity(fallbackPercent, `{content:'${lang.dragOpacityUnbind}',position:'left'}`)
+              : getDragPropsOpacity(opacityPercent, `{content:'${lang.dragOpacity}',position:'left'}`)
             )}
           >
             <OpacityIcon />
@@ -253,7 +254,7 @@ export function Appearance({ value, onChange: fallbackOnChange, showTitle }: App
                 onClose={closePicker}
                 onSelect={(item) => selectVariable(item.name)}
                 renderValue={(item) => `${Math.round(parseFloat(item.value) * 100)}%`}
-                emptyText='当前画布没有可用的不透明度变量'
+                emptyText={lang.noOpacityVariables}
               />
             </SketchPopup>
           )}

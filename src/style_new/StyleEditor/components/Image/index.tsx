@@ -17,6 +17,7 @@ import {
 } from '..'
 
 import {DeleteOutlined, ReloadOutlined} from '@ant-design/icons'
+import lang from '../../../index.i18n'
 
 import css from './index.less'
 import {ExtractBackground} from './ExtractBackground'
@@ -108,7 +109,7 @@ export function Image({
     const src = getBackgroundImage(value.backgroundImage)
     if (src) {
       return (
-        <img src={src} alt={`图片`}/>
+        <img src={src} alt={lang.imageAlt}/>
       )
     }
 
@@ -121,7 +122,7 @@ export function Image({
         <div ref={ref} className={css.block} onClick={handleImageClick}>
           {icon}
         </div>
-        <div className={css.reset} onClick={handleReset} data-mybricks-tip={'重置'}>
+        <div className={css.reset} onClick={handleReset} data-mybricks-tip={lang.resetTip}>
           <DeleteOutlined onPointerOverCapture={void 0} onPointerMoveCapture={void 0}/>
         </div>
       </div>
@@ -148,36 +149,36 @@ interface PopupProps {
 }
 
 const BACKGROUND_REPEAT_OPTIONS = [
-  {label: '平铺', value: 'repeat'},
-  {label: '不平铺', value: 'no-repeat'}
+  {label: lang.imgRepeatOn, value: 'repeat'},
+  {label: lang.imgRepeatOff, value: 'no-repeat'}
 ]
 
 const BACKGROUND_POSITION_OPTIONS = [
-  {label: '居上', value: 'center top'},
-  {label: '居中', value: 'center center'},
-  {label: '居下', value: 'center bottom'},
-  {label: '居左', value: 'left center'},
-  {label: '居右', value: 'right center'},
-  {label: '左上', value: 'left top'},
-  {label: '左下', value: 'left bottom'},
-  {label: '右上', value: 'right top'},
-  {label: '右下', value: 'right bottom'}
+  {label: lang.imgPosTop, value: 'center top'},
+  {label: lang.imgPosCenter, value: 'center center'},
+  {label: lang.imgPosBottom, value: 'center bottom'},
+  {label: lang.imgPosLeft, value: 'left center'},
+  {label: lang.imgPosRight, value: 'right center'},
+  {label: lang.imgPosTopLeft, value: 'left top'},
+  {label: lang.imgPosBottomLeft, value: 'left bottom'},
+  {label: lang.imgPosTopRight, value: 'right top'},
+  {label: lang.imgPosBottomRight, value: 'right bottom'}
 ]
 
 const BACKGROUND_SIZE_OPTIONS = [
-  {label: '默认', value: 'auto'},
-  {label: '适应', value: 'contain'},
-  {label: '填充', value: 'cover'},
-  {label: '铺满', value: '100% 100%'},
-  {label: '铺满x轴', value: '100% auto'},
-  {label: '铺满y轴', value: 'auto 100%'}
+  {label: lang.imgSizeDefault, value: 'auto'},
+  {label: lang.imgSizeFit, value: 'contain'},
+  {label: lang.imgSizeFill, value: 'cover'},
+  {label: lang.imgSizeTile, value: '100% 100%'},
+  {label: lang.imgSizeTileX, value: '100% auto'},
+  {label: lang.imgSizeTileY, value: 'auto 100%'}
 ]
 
 const BACKGROUND_SIZE_OPTIONS_NEW = [
-  {label: "填充（无留白）", value: "cover"},
-  {label: "适应（有留白）", value: "contain"},
-  {label: "拉伸", value: "100% 100%"},
-  {label: "原始大小", value: "auto"},
+  {label: lang.imgSizeCover, value: "cover"},
+  {label: lang.imgSizeContain, value: "contain"},
+  {label: lang.imgSizeStretch, value: "100% 100%"},
+  {label: lang.imgSizeOriginal, value: "auto"},
 ]
 
 function Popup({
@@ -246,8 +247,8 @@ function Popup({
       <div className={css.image}>
         <div className={`${css.imageContainer} ${imgSrc !== DEFAULT_IMAGE ? css.hasImage : ""}`}
              onClick={handleImageClick}>
-          <img style={{opacity: imgSrc === DEFAULT_IMAGE ? 0.5 : 1}} src={imgSrc} alt={`图片`}/>
-          <button className={css.uploadButton}>点击上传</button>
+          <img style={{opacity: imgSrc === DEFAULT_IMAGE ? 0.5 : 1}} src={imgSrc} alt={lang.imageAlt}/>
+          <button className={css.uploadButton}>{lang.clickToUpload}</button>
         </div>
 
         <input
@@ -262,7 +263,7 @@ function Popup({
       </div>
       <div className={css.item}>
         <div className={css.label}>
-          大小
+          {lang.imageSizeLabel}
         </div>
         <div className={css.value}>
           <Select
@@ -277,7 +278,7 @@ function Popup({
       </div>
       {!["100% 100%", "cover"].includes(value.backgroundSize) && (
         <div className={css.item}>
-          <div className={css.label}>平铺</div>
+          <div className={css.label}>{lang.imageRepeatLabel}</div>
           <div className={css.value}>
             <Select
               style={{padding: 0}}
@@ -290,7 +291,7 @@ function Popup({
       )}
       {value.backgroundSize !== "100% 100%" && (
         <div className={css.item}>
-          <div className={css.label}>位置</div>
+          <div className={css.label}>{lang.imagePositionLabel}</div>
           <div className={css.value}>
             <Select
               style={{padding: 0}}

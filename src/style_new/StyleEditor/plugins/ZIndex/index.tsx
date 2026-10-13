@@ -5,6 +5,7 @@ import { useEffectiveStyleValue, useStyleChange } from '../../context'
 
 import type { ChangeEvent, PanelBaseProps } from '../../type'
 import css from './index.less'
+import lang from '../../../index.i18n'
 
 const TOP_Z_INDEX = 9999
 const BOTTOM_Z_INDEX = -1
@@ -96,15 +97,11 @@ export function ZIndex({ value: _value, onChange: fallbackOnChange, config, show
       <div
         className={`${css.modeOption} ${activePreset === TOP_Z_INDEX ? css.modeOptionActive : ''}`}
         onClick={() => { if (activePreset !== TOP_Z_INDEX) setPreset(TOP_Z_INDEX) }}
-      >
-        置顶
-      </div>
+      >{lang.toTopLabel}</div>
       <div
         className={`${css.modeOption} ${activePreset === BOTTOM_Z_INDEX ? css.modeOptionActive : ''}`}
         onClick={() => { if (activePreset !== BOTTOM_Z_INDEX) setPreset(BOTTOM_Z_INDEX) }}
-      >
-        置底
-      </div>
+      >{lang.toBottomLabel}</div>
     </div>
   )
 
@@ -112,7 +109,7 @@ export function ZIndex({ value: _value, onChange: fallbackOnChange, config, show
 
   return (
     <Panel
-      title='层级'
+      title={lang.zIndexPanelTitle}
       showTitle={showTitle}
       showReset={true}
       resetFunction={refresh}
