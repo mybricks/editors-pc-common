@@ -30,10 +30,59 @@ import {
 } from './panel-effected'
 import {
   buildZoneStateStyle,
+  collectZoneStyleRules,
   getOrderedZoneSourceRules,
   resolveZonePropertySource,
+  selectorSubjectStart,
 } from './zone-tab'
 import type { ZoneTab } from './zone-tab'
+
+/**
+ * 真实复现：在常规 Tab 选中 td.ant-table-cell，它没有常规背景声明，但鼠标还停在表格行上，
+ * 命中 `.ant-table-tbody > tr.ant-table-row:hover > td`，读到的 computed 背景便是 #FAFBFC。
+ * 若把这个颜色当成常规背景回显，面板会多出一个色层，却找不到可删除的常规 CSS 声明。
+ * 因此只隐藏这个误读的面板色层；画布上整行悬停时变色的效果仍要保留。
+ * 这里只为背景兜底提供拦截依据，不计算级联赢家，也不改变组件的 CSS / hover 效果。
+ * 返回实际匹配的祖先 hover 分支；存在其他背景来源或无法可靠判断时返回 null，保留旧兜底。
+ */
+function findAncestorHoverBackground(element: HTMLElement): string | null {
+  let matched: string | null = null
+  try {
+    // 例如当前编辑 `.ant-table-cell`，其 finalRules 不一定包含组件库的 `tr:hover > td`，需补查。
+    for (const { rule } of collectZoneStyleRules()) {
+      if (!rule.style.getPropertyValue('background-color') && !rule.style.getPropertyValue('background')) continue
+      // 例如鼠标不在行上时，`.row:hover > .cell` 不匹配，就不能因此隐藏单元格的兜底色。
+      // 不能先去掉 :hover 再匹配：`.row > .cell` 在未悬停时也成立，会误拦截。
+      if (!element.matches(rule.selectorText)) continue
+      // 例如 `[data-kind="a,b"] > td` 的逗号不是选择器分隔符；现有拆分器不支持，保留旧兜底。
+      if (/[\\\[\]'"]/.test(rule.selectorText)) return null
+      const hasOtherBackground = someSelectorPart(rule.selectorText, (part) => {
+        if (!element.matches(part)) return false
+        // 忽略函数内的 token，避免 :not(:hover) / :has(.child:hover) 被当作祖先 hover。
+        let depth = 0
+        let direct = ''
+        for (const char of part) {
+          if (char === '(') depth++
+          else if (char === ')') depth--
+          else if (depth === 0) direct += char
+        }
+        // `tr:hover > td` 取出祖先部分 `tr:hover > `；`td:hover` 是目标自身状态，走已有判断。
+        const ancestor = direct.slice(0, selectorSubjectStart(direct))
+        // 例如 `.row:hover:focus > td` 同时要求 hover 和 focus，不在本次新增拦截范围内。
+        if (
+          !/:hover(?![\w-])/i.test(ancestor) ||
+          /:(focus(?:-within|-visible)?|active|visited|checked|disabled|enabled|indeterminate|target)(?![\w-])/i.test(direct)
+        ) return true
+        matched = part
+        return false
+      })
+      // 例如 `.cell, .row:hover > .cell { background: red }` 中，`.cell` 本身就提供常规红色。
+      // 即使 hover 分支也匹配，仍应保留旧逻辑，不能仅因发现 hover 就清空背景。
+      if (hasOtherBackground) return null
+    }
+  } catch { return null }
+  return matched
+}
 
 /** 穿透 shadowRoot 取真正的 activeElement（画布常在 webview shadow 内） */
 function getDeepActiveElement(): HTMLElement | null {
@@ -346,8 +395,7 @@ export function getEffectedCssPropertyAndOptions (
     //
     // 修复：扫描 document.styleSheets 中所有匹配当前 element 的规则，按 CSS 级联规则
     // （!important 优先，再比特指度，最后按源码顺序）找出真正胜出的值覆盖回显。
-    // element.matches() 天然过滤伪类规则（:hover/:disabled 等非激活态不会匹配），
-    // 因此无需担心点击选中时 hover 状态的干扰。
+    // element.matches() 只排除未激活的伪类规则；选中时已激活的 hover 仍需下方显式防污染。
     // 仅在默认态（primarySelector 无伪类后缀）且有真实 DOM 时执行。
     if (element && !_hasPseudo) {
       // ── 公共级联扫描：找到所有匹配 element 的规则中，按 CSS 级联（!important → 特指度 → 源码顺序）
@@ -376,14 +424,22 @@ export function getEffectedCssPropertyAndOptions (
         element,
         'background-color'
       )
-      // 只有同时满足三个条件才清空背景色：
-      // 1. 常规态自己的规则没有背景色；
-      // 2. 常规态级联计算也没有背景色；
-      // 3. hover 态存在背景色。
+      const hasInlineBackground = !!(
+        element.style.getPropertyValue('background-color') || element.style.getPropertyValue('background')
+      )
+      // 例如已有 `.cell { background: red }`、inline `background: red`，或读到了 `var(--surface)`，
+      // 都不新增拦截；只有这些来源均缺失，且原有 hover 判断未覆盖时，才补查 `tr:hover > td`。
+      const ancestorHoverBackground = !hasDefaultBackgroundDeclaration && !defaultBackgroundWinner &&
+        !hasInlineBackground && !hasCssVarReference(values.backgroundColor) && !hoverBackgroundWinner
+        ? findAncestorHoverBackground(element)
+        : null
+      // 防护 1：表格例子中 getValues 已把 `rgb(250, 251, 252)` 放进 values.backgroundColor，
+      // 此处在“无常规背景来源 + 有 hover 背景来源”时清空它；只禁用后面的兜底并不能移除已读值。
+      // 这只改常规态面板值，不删除 `tr:hover > td` 的 CSS。
       if (
         !hasDefaultBackgroundDeclaration &&
         !defaultBackgroundWinner &&
-        hoverBackgroundWinner
+        (hoverBackgroundWinner || ancestorHoverBackground)
       ) {
         values.backgroundColor = ''
       }
@@ -458,7 +514,10 @@ export function getEffectedCssPropertyAndOptions (
       if (!(values as any)['backgroundColor'] && ((values as any)['backgroundImage'] === 'none' || (values as any)['backgroundImage'] === 'initial')) {
         // 优先用级联扫描（过滤伪类规则），兜底用已中和 :focus 的 computed 快照
         let _bgColorCandidate = _findCascadeWinner('background-color')
-        if ((!_bgColorCandidate || !colorUtil.get(_bgColorCandidate)) && !hoverBackgroundWinner) {
+        // 防护 2：上方虽已把表格背景清空，但 computed 快照里仍是 #FAFBFC（只中和 focus，没去掉 hover）。
+        // 必须复用同一个 hover 判断，否则这里会把 #FAFBFC 填回，那个不可删除的色层又会出现。
+        // 反例：跨域样式表读不到规则、computed 为红色，且没匹配到 hover 背景时，仍按旧逻辑回显红色。
+        if ((!_bgColorCandidate || !colorUtil.get(_bgColorCandidate)) && !hoverBackgroundWinner && !ancestorHoverBackground) {
           const _compBg = computedValues?.getPropertyValue('background-color') ?? ''
           if (_compBg) _bgColorCandidate = _compBg
         }
