@@ -143,7 +143,6 @@ export function ZoneTabBar(props: {
     selectors.length === 1 && !isPseudoSelector(selectors[0])
   // 无 selector 时，只展示"常规样式"，不展示 MoreOutlined 按钮。
   const subjectClassSelectors = targetDom ? collectSubjectClassSelectors(targetDom) : []
-  console.log('@@@@', selectors)
   const isNoSelector = subjectClassSelectors.length === 0
 
   return (
