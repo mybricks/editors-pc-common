@@ -127,6 +127,7 @@ const DEFAULT_CONFIG = {
 export function Margin ({value, onChange: fallbackOnChange, config, showTitle, collapse}: MarginProps) {
   const {
     spacingValue: marginValue, toggle, setToggle, forceRenderKey,
+    previewValues, computedPreviews, unifiedComputedPreview,
     handleChange, handleUnifiedChange, handleSwitchToUnified, refresh,
     canResetSide, unifiedCanClear, canReset,
   } = useBoxSpacingEditor({ property: 'margin', value, onChange: fallbackOnChange })
@@ -216,6 +217,9 @@ export function Margin ({value, onChange: fallbackOnChange, config, showTitle, c
                 inputProps={{
                   style: DEFAULT_STYLE,
                   defaultValue: marginValue.marginTop,
+                  previewValue: marginValue.marginTop == null
+                    ? (previewValues.marginTop ?? unifiedComputedPreview)
+                    : undefined,
                   defaultUnitValue: 'default',
                   unitOptions: unifiedUnitOptions,
                   showIcon: true,
@@ -265,6 +269,9 @@ export function Margin ({value, onChange: fallbackOnChange, config, showTitle, c
                     inputProps={{
                       style: DEFAULT_STYLE,
                       defaultValue: marginValue.marginLeft,
+                      previewValue: marginValue.marginLeft == null
+                        ? (previewValues.marginLeft ?? computedPreviews.marginLeft)
+                        : undefined,
                       defaultUnitValue: 'default',
                       unitOptions: leftUnitOptions,
                       showIcon: true,
@@ -301,6 +308,9 @@ export function Margin ({value, onChange: fallbackOnChange, config, showTitle, c
                     inputProps={{
                       style: DEFAULT_STYLE,
                       defaultValue: marginValue.marginTop,
+                      previewValue: marginValue.marginTop == null
+                        ? (previewValues.marginTop ?? computedPreviews.marginTop)
+                        : undefined,
                       defaultUnitValue: 'default',
                       unitOptions: topUnitOptions,
                       showIcon: true,
@@ -339,6 +349,9 @@ export function Margin ({value, onChange: fallbackOnChange, config, showTitle, c
                     inputProps={{
                       style: DEFAULT_STYLE,
                       defaultValue: marginValue.marginRight,
+                      previewValue: marginValue.marginRight == null
+                        ? (previewValues.marginRight ?? computedPreviews.marginRight)
+                        : undefined,
                       defaultUnitValue: 'default',
                       unitOptions: rightUnitOptions,
                       showIcon: true,
@@ -375,6 +388,9 @@ export function Margin ({value, onChange: fallbackOnChange, config, showTitle, c
                     inputProps={{
                       style: DEFAULT_STYLE,
                       defaultValue: marginValue.marginBottom,
+                      previewValue: marginValue.marginBottom == null
+                        ? (previewValues.marginBottom ?? computedPreviews.marginBottom)
+                        : undefined,
                       defaultUnitValue: 'default',
                       unitOptions: bottomUnitOptions,
                       showIcon: true,

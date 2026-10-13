@@ -52,6 +52,7 @@ function getUnitOptions(clearable: boolean) {
 export function Padding({value, onChange: fallbackOnChange, config, showTitle, collapse}: PaddingProps) {
   const {
     spacingValue: paddingValue, toggle, setToggle, forceRenderKey,
+    previewValues, computedPreviews, unifiedComputedPreview,
     handleChange, handleUnifiedChange, handleSwitchToUnified, refresh,
     canResetSide, unifiedCanClear, canReset,
   } = useBoxSpacingEditor({ property: 'padding', value, onChange: fallbackOnChange })
@@ -140,6 +141,9 @@ export function Padding({value, onChange: fallbackOnChange, config, showTitle, c
                   placeholder: '',
                   style: DEFAULT_STYLE,
                   defaultValue: paddingValue.paddingTop,
+                  previewValue: paddingValue.paddingTop == null
+                    ? (previewValues.paddingTop ?? unifiedComputedPreview)
+                    : undefined,
                   defaultUnitValue: 'default',
                   unitOptions: unifiedUnitOptions,
                   unitDisabledList: UNIT_DISABLED_LIST,
@@ -189,6 +193,9 @@ export function Padding({value, onChange: fallbackOnChange, config, showTitle, c
                       placeholder: '',
                       style: DEFAULT_STYLE,
                       defaultValue: paddingValue.paddingLeft,
+                      previewValue: paddingValue.paddingLeft == null
+                        ? (previewValues.paddingLeft ?? computedPreviews.paddingLeft)
+                        : undefined,
                       defaultUnitValue: 'default',
                       unitOptions: leftUnitOptions,
                       unitDisabledList: UNIT_DISABLED_LIST,
@@ -225,6 +232,9 @@ export function Padding({value, onChange: fallbackOnChange, config, showTitle, c
                       placeholder: '',
                       style: DEFAULT_STYLE,
                       defaultValue: paddingValue.paddingTop,
+                      previewValue: paddingValue.paddingTop == null
+                        ? (previewValues.paddingTop ?? computedPreviews.paddingTop)
+                        : undefined,
                       defaultUnitValue: 'default',
                       unitOptions: topUnitOptions,
                       unitDisabledList: UNIT_DISABLED_LIST,
@@ -263,6 +273,9 @@ export function Padding({value, onChange: fallbackOnChange, config, showTitle, c
                       placeholder: '',
                       style: DEFAULT_STYLE,
                       defaultValue: paddingValue.paddingRight,
+                      previewValue: paddingValue.paddingRight == null
+                        ? (previewValues.paddingRight ?? computedPreviews.paddingRight)
+                        : undefined,
                       defaultUnitValue: 'default',
                       unitOptions: rightUnitOptions,
                       unitDisabledList: UNIT_DISABLED_LIST,
@@ -299,6 +312,9 @@ export function Padding({value, onChange: fallbackOnChange, config, showTitle, c
                       placeholder: '',
                       style: DEFAULT_STYLE,
                       defaultValue: paddingValue.paddingBottom,
+                      previewValue: paddingValue.paddingBottom == null
+                        ? (previewValues.paddingBottom ?? computedPreviews.paddingBottom)
+                        : undefined,
                       defaultUnitValue: 'default',
                       unitOptions: bottomUnitOptions,
                       unitDisabledList: UNIT_DISABLED_LIST,
