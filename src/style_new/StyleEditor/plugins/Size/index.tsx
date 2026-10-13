@@ -66,6 +66,15 @@ function resolveViewportToPx(val: string | undefined, actualSize: number): strin
   return val;
 }
 
+/** svg 等非 HTMLElement 没有 offsetWidth/offsetHeight，用 getBoundingClientRect 计算 */
+function measureElementSize(dom: HTMLElement): { width: number; height: number } {
+  if (dom instanceof SVGElement) {
+    const rect = dom.getBoundingClientRect();
+    return { width: rect.width, height: rect.height };
+  }
+  return { width: dom.offsetWidth, height: dom.offsetHeight };
+}
+
 const BASE_UNIT_OPTIONS = [
   {label: "px", value: "px"},
   {label: "%", value: "%"},
@@ -376,10 +385,9 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
     }
     const measure = () => {
       if (isDraggingWidth.current || isDraggingHeight.current) return;
-      const w = targetDom.offsetWidth;
-      const h = targetDom.offsetHeight;
-      setActualWidth(w);
-      setActualHeight(h);
+      const size = measureElementSize(targetDom);
+      setActualWidth(size.width);
+      setActualHeight(size.height);
       // if (w > 0 || h > 0) {
       //   setShowWidthHeight(true);
       // }
@@ -400,8 +408,9 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
       { key: 'minHeight', value: null },
     ]);
     if (targetDom) {
-      setActualWidth(targetDom.offsetWidth);
-      setActualHeight(targetDom.offsetHeight);
+      const size = measureElementSize(targetDom);
+      setActualWidth(size.width);
+      setActualHeight(size.height);
     }
     // setShowWidthHeight(false);
     setShowMaxWidth(false);
@@ -425,8 +434,9 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
   const syncActualSizeFromDom = useCallback(() => {
     const dom = targetDomRef.current;
     if (!dom) return;
-    setActualWidth(dom.offsetWidth);
-    setActualHeight(dom.offsetHeight);
+    const size = measureElementSize(dom);
+    setActualWidth(size.width);
+    setActualHeight(size.height);
   }, []);
 
   /** undefined=无覆盖；null=乐观清空（勿用 ?? 回退到旧 value，否则清空回车无法立即显示默认态） */
@@ -614,7 +624,7 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
     onDragEnd: (finalValue: number) => {
       isDraggingWidth.current = false;
       const dom = targetDomRef.current;
-      if (dom) { setActualWidth(dom.offsetWidth); setActualHeight(dom.offsetHeight); }
+      if (dom) { const size = measureElementSize(dom); setActualWidth(size.width); setActualHeight(size.height); }
       const newVal = `${finalValue}px`;
       if (lockedRef.current && !heightVarRef && ratioRef.current > 0) {
         const newH = Math.max(1, Math.round(finalValue * ratioRef.current));
@@ -671,7 +681,7 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
     onDragEnd: (finalValue: number) => {
       isDraggingHeight.current = false;
       const dom = targetDomRef.current;
-      if (dom) { setActualWidth(dom.offsetWidth); setActualHeight(dom.offsetHeight); }
+      if (dom) { const size = measureElementSize(dom); setActualWidth(size.width); setActualHeight(size.height); }
       const newVal = `${finalValue}px`;
       if (lockedRef.current && !widthVarRef && ratioRef.current > 0) {
         const newW = Math.max(1, Math.round(finalValue / ratioRef.current));
