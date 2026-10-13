@@ -101,6 +101,7 @@ async function readClipboardText(): Promise<string> {
 }
 
 export default function StyleEditorShell({ editConfig }: EditorProps) {
+  console.log('###', editConfig)
   const [titleContent, setTitleContent] = useState('')
   const [targetStyle, setTargetStyle] = useState<any>(null)
 
@@ -1017,6 +1018,7 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
           deletableSelectors={zoneTabs.filter((tab) => tab.isAdded).map((tab) => tab.selector)}
           onDelete={onDeleteZoneTab}
           moreMenus={title}
+          targetDom={selectedTarget}
         />
         {showEditModeControl && (
           <div
