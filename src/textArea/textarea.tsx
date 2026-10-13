@@ -9,16 +9,21 @@ import {getOptionsFromEditor, isValid} from "../utils";
 import css from "./index.less";
 
 export default function ({editConfig}: EditorProps): JSX.Element {
+  //console.timeLog('dbClick....')
+
   const {
     value, options = {}, locales
   } = editConfig;
 
   //debugger
 
-  const [curText, setCurText] = useState('')
+
   const [useLocale, setUseLocale] = useState(false)
 
   const val = value.get()
+
+  const [curText, setCurText] = useState(val)
+
   const {
     readonly = false,
     style = {
@@ -110,7 +115,6 @@ export default function ({editConfig}: EditorProps): JSX.Element {
         }
       }
     }
-
   }, [
     changedRef.current
   ])
@@ -125,8 +129,12 @@ export default function ({editConfig}: EditorProps): JSX.Element {
   // }, [useLocale])
 
   if (vCenter) {
+    //console.timeLog('dbClick....')
+
     const nowWidth = Math.max(width, 80)
     const nowHeight = Math.max(styles.height, 26)
+
+    //console.log('.....nowWidth', width, styles.height)
 
     return (
         <div className={`${css.textArea} ${css.vCenter}`}
@@ -134,8 +142,8 @@ export default function ({editConfig}: EditorProps): JSX.Element {
                e.stopPropagation()
              }}
              style={{
-               minWidth: nowWidth,
-               minHeight: nowHeight
+               // minWidth: nowWidth,
+               // minHeight: nowHeight
              }}>
         <textarea ref={el => {
           if (el) {
@@ -144,7 +152,7 @@ export default function ({editConfig}: EditorProps): JSX.Element {
             el.scrollTop = el.scrollHeight / 2//滚动
           }
         }}
-                  style={styles}
+                  style={{...styles,width: nowWidth, height: nowHeight}}
                   onDoubleClick={e => {
                     e.stopPropagation()
                   }}
