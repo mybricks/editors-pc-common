@@ -105,12 +105,9 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
   const [targetStyle, setTargetStyle] = useState<any>(null)
 
   useMemo(() => {
-    // 暂时兼容 editConfig.options.selector 值不对的情况
-    if (editConfig && editConfig.options && editConfig.options.targetDom instanceof Element) {
-      if (editConfig.options.targetDom?.dataset.zoneSelector) {
-        const originSelectorString = editConfig.options.targetDom?.dataset.zoneSelector
-        editConfig.options.selector = `[data-zone-selector='${originSelectorString}']`
-      }
+    // 将 selector 写为空，避免后续依赖 selector 的逻辑（如 zone tab 生成、样式写入）拿到错误的值。便于发现问题
+    if (editConfig && editConfig.options) {
+      (editConfig.options as any).selector = ''
     }
   }, [editConfig])
 
@@ -1020,6 +1017,7 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
           deletableSelectors={zoneTabs.filter((tab) => tab.isAdded).map((tab) => tab.selector)}
           onDelete={onDeleteZoneTab}
           moreMenus={title}
+          targetDom={selectedTarget}
         />
         {showEditModeControl && (
           <div

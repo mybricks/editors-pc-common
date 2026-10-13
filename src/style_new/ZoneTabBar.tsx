@@ -2,6 +2,7 @@ import React, { ReactElement, useMemo } from 'react'
 import { Dropdown, Menu } from 'antd'
 import { CloseOutlined } from '@ant-design/icons'
 import { MoreOutlined } from './StyleEditor/components/Icon'
+import { collectSubjectClassSelectors } from './core/build-zone-selectors-from-cssom'
 import lang from './index.i18n'
 
 import css from './index.less'
@@ -88,6 +89,7 @@ export function ZoneTabBar(props: {
   deletableSelectors?: string[]
   onDelete?: (selector: string) => void
   moreMenus: ReactElement
+  targetDom?: HTMLElement | null
 }) {
   const {
     selectors,
@@ -99,6 +101,7 @@ export function ZoneTabBar(props: {
     deletableSelectors = [],
     onDelete,
     moreMenus,
+    targetDom,
   } = props
   const labels = useMemo(
     () => providedLabels ?? getZoneTabLabels(selectors),
@@ -138,8 +141,9 @@ export function ZoneTabBar(props: {
 
   const isSingleNormalTab =
     selectors.length === 1 && !isPseudoSelector(selectors[0])
-  // 无 selector 时，只展示"常规样式"，不展示 MoreOutlined 按钮
-  const isNoSelector = selectors.length === 0
+  // 无 selector 时，只展示"常规样式"，不展示 MoreOutlined 按钮。
+  const subjectClassSelectors = targetDom ? collectSubjectClassSelectors(targetDom) : []
+  const isNoSelector = subjectClassSelectors.length === 0
 
   return (
     <div className={css.zoneTabBar}>

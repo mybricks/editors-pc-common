@@ -6,3 +6,4 @@ export { default } from './StyleEditorShell'
 
 export type { StyleData } from './core/css-code-codec'
 export { toLine, toHump, parseToStyleData } from './core/css-code-codec'
+export { getSimilarZones } from './core/get-similar-zones'
