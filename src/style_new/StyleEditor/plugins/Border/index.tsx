@@ -1,5 +1,6 @@
 import React, { useMemo, useState, useCallback, useRef, useEffect, useLayoutEffect, CSSProperties } from "react";
 import { createPortal } from "react-dom";
+import ColorUtil from "color";
 import {
   useEffectiveStyleValue,
   useStyleChange,
@@ -72,6 +73,15 @@ const normalizeBorderWidthValue = (value: unknown, style: unknown) => {
   const normalizedWidth = String(value ?? '').trim().toLowerCase();
   return BORDER_WIDTH_KEYWORD_VALUES[normalizedWidth] ?? value;
 };
+
+/** 完全透明颜色，不作为边框色预览 */
+function isFullyTransparentColor(value: string) {
+  try {
+    return new ColorUtil(value).alpha() === 0;
+  } catch {
+    return false;
+  }
+}
 
 type BorderPosition = "outside" | "center" | "inside";
 
@@ -762,10 +772,13 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
     ) {
       return undefined;
     }
-    return resolveCssVarColor(
+    const color = resolveCssVarColor(
       borderValue[colorKey] || getPreviewValue(colorKey) || "",
       targetDom
-    ) ?? undefined;
+    );
+    // 透明色不作为预览值 
+    if (!color || isFullyTransparentColor(color)) return undefined;
+    return color;
   };
   const currentBorderStyle = borderValue.borderTopStyle ?? getPreviewValue('borderTopStyle') ?? 'none';
   const borderHasNoVisibleLine = hasNoVisibleBorderLine(
@@ -947,6 +960,8 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
                     key={borderColorEditorKey}
                     style={{ padding: 0, flex: 1, minWidth: 26 }}
                     defaultValue={borderColorValue}
+                    inherited={borderColorIsDefault}
+                    showInheritedColor
                     emptyValueLabel=""
                     resolvedColor={resolveBorderPreviewColor('Top')}
                     variableOptions={canvasColorVariables}
@@ -1145,6 +1160,8 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
                       key={`left-${borderColorEditorKey}`}
                       style={{ padding: 0, marginLeft: 2, flex: 1, minWidth: 26 }}
                       defaultValue={isConfiguredKey('borderLeftColor') ? borderValue.borderLeftColor : ''}
+                      inherited={!isConfiguredKey('borderLeftColor')}
+                      showInheritedColor
                       emptyValueLabel=""
                       resolvedColor={resolveBorderPreviewColor('Left')}
                       variableOptions={canvasColorVariables}
@@ -1225,6 +1242,8 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
                       key={`top-${borderColorEditorKey}`}
                       style={{ padding: 0, marginLeft: 2, flex: 1, minWidth: 26 }}
                       defaultValue={isConfiguredKey('borderTopColor') ? borderValue.borderTopColor : ''}
+                      inherited={!isConfiguredKey('borderTopColor')}
+                      showInheritedColor
                       emptyValueLabel=""
                       resolvedColor={resolveBorderPreviewColor('Top')}
                       variableOptions={canvasColorVariables}
@@ -1306,6 +1325,8 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
                       key={`right-${borderColorEditorKey}`}
                       style={{ padding: 0, marginLeft: 2, flex: 1, minWidth: 26 }}
                       defaultValue={isConfiguredKey('borderRightColor') ? borderValue.borderRightColor : ''}
+                      inherited={!isConfiguredKey('borderRightColor')}
+                      showInheritedColor
                       emptyValueLabel=""
                       resolvedColor={resolveBorderPreviewColor('Right')}
                       variableOptions={canvasColorVariables}
@@ -1387,6 +1408,8 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
                       key={`bottom-${borderColorEditorKey}`}
                       style={{ padding: 0, marginLeft: 2, flex: 1, minWidth: 26 }}
                       defaultValue={isConfiguredKey('borderBottomColor') ? borderValue.borderBottomColor : ''}
+                      inherited={!isConfiguredKey('borderBottomColor')}
+                      showInheritedColor
                       emptyValueLabel=""
                       resolvedColor={resolveBorderPreviewColor('Bottom')}
                       variableOptions={canvasColorVariables}

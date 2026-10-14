@@ -53,6 +53,35 @@ function isPseudoSelector(selector: string): boolean {
   return PSEUDO_TAIL_RE.test(lastPart)
 }
 
+/**
+ * zonetab 提示
+ */
+function getZoneTabTip(selector: string): string {
+  const lastPart = selector.trim().split(/\s+/).pop() || ''
+  const pseudoMatch = lastPart.match(PSEUDO_TAIL_RE)
+  if (!pseudoMatch) {
+    return lang.commonStyleTip
+  }
+  const pseudo = pseudoMatch[1]
+  const tipMap: Record<string, string> = {
+    ':hover': lang.hoverStateTip,
+    ':focus': lang.focusStateTip,
+    ':focus-visible': lang.focusVisibleStateTip,
+    ':focus-within': lang.focusWithinStateTip,
+    ':active': lang.activeStateTip,
+    ':disabled': lang.disabledStateTip,
+    ':checked': lang.checkedStateTip,
+    ':placeholder-shown': lang.placeholderShownStateTip,
+    '::before': lang.beforePseudoTip,
+    '::after': lang.afterPseudoTip,
+    '::placeholder': lang.placeholderPseudoTip,
+  }
+  if (tipMap[pseudo]) return tipMap[pseudo]
+  return pseudo.startsWith('::')
+    ? `${lang.pseudoElementTip} ${pseudo}`
+    : `${lang.pseudoClassTip} ${pseudo}`
+}
+
 function getZoneTabLabels(selectors: string[]): string[] {
   // 多个基础选择器并存时，伪类 tab 必须带所属类名，否则看不出 ::placeholder 属于谁
   const baseCount = selectors.filter((sel) => !isPseudoSelector(sel)).length
@@ -157,8 +186,9 @@ export function ZoneTabBar(props: {
               key={sel}
               className={`${css.zoneTab}${idx === activeIdx ? ` ${css.zoneTabActive}` : ''}`}
               onClick={() => onSelect(idx)}
+              data-mybricks-tip={`{content:'${getZoneTabTip(sel)}',position:'left'}`}
             >
-              <span data-mybricks-tip={sel.includes('::before') ? lang.beforePseudoTip : sel.includes('::after') ? lang.afterPseudoTip : undefined}>{labels[idx]}</span>
+              <span>{labels[idx]}</span>
               {onDelete && deletableSelectors.includes(sel) && (
                 <button
                   className={css.zoneTabDelete}

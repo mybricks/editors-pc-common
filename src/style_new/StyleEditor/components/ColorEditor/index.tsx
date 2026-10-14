@@ -653,13 +653,11 @@ export function ColorEditor({
     }
 
     if (inherited) {
-      const emptyValueType = emptyValueLabel || lang.inheritFallback;
-      const tip = inheritedTipColor
-        ? `${lang.noColorConfigured} (${inheritedTipColor} as ${emptyValueType})`
-        : lang.noColorConfigured;
+      // 有实际生效色时不算“未配置”，不再提示未配置颜色，只保留操作提示。
+      const tip = inheritedTipColor ? '' : lang.noColorConfigured;
       return (
         <input
-          data-mybricks-tip={`${tip}; ${lang.colorInputTip}`}
+          data-mybricks-tip={tip ? `${tip}; ${lang.colorInputTip}` : lang.colorInputTip}
           ref={inputColorRef}
           value={showInheritedColor && !hasInheritedDraft ? inheritedTipColor : userInput}
           placeholder={emptyValueLabel ?? (showInheritedColor ? "" : lang.inheritFallback)}
