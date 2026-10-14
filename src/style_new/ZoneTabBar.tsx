@@ -63,10 +63,24 @@ function getZoneTabTip(selector: string): string {
     return lang.commonStyleTip
   }
   const pseudo = pseudoMatch[1]
-  if (pseudo.startsWith('::')) {
-    return `${lang.pseudoElementTip} ${pseudo}`
+  const tipMap: Record<string, string> = {
+    ':hover': lang.hoverStateTip,
+    ':focus': lang.focusStateTip,
+    ':focus-visible': lang.focusVisibleStateTip,
+    ':focus-within': lang.focusWithinStateTip,
+    ':active': lang.activeStateTip,
+    ':disabled': lang.disabledStateTip,
+    ':checked': lang.checkedStateTip,
+    ':placeholder-shown': lang.placeholderShownStateTip,
+    '::before': lang.beforePseudoTip,
+    '::after': lang.afterPseudoTip,
+    '::placeholder': lang.placeholderPseudoTip,
   }
-  return `${lang.pseudoClassTip} ${pseudo}`
+  if (tipMap[pseudo]) return tipMap[pseudo]
+  // 兜底：未收录的伪类/伪元素按类型拼格式
+  return pseudo.startsWith('::')
+    ? `${lang.pseudoElementTip} ${pseudo}`
+    : `${lang.pseudoClassTip} ${pseudo}`
 }
 
 function getZoneTabLabels(selectors: string[]): string[] {
