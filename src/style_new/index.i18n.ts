@@ -867,8 +867,12 @@ export default {
   disabledState: i18n({ zh: '禁用态', en: 'Disabled' }),
   beforePseudo: i18n({ zh: '前缀元素', en: 'Before' }),
   afterPseudo: i18n({ zh: '后缀元素', en: 'After' }),
-  beforePseudoTip: i18n({ zh: '伪元素 ::before', en: 'Pseudo-element ::before' }),
-  afterPseudoTip: i18n({ zh: '伪元素 ::after', en: 'Pseudo-element ::after' }),
+  pseudoElementTip: i18n({ zh: '伪元素', en: 'Pseudo-element' }),
+  pseudoClassTip: i18n({ zh: '伪类', en: 'Pseudo-class' }),
+  commonStyleTip: i18n({
+    zh: '元素未加任何交互状态时的样式',
+    en: 'Default styles with no interaction state'
+  }),
   focusWithinState: i18n({ zh: '后代聚焦态', en: 'Focus within' }),
   placeholderPseudo: i18n({ zh: '占位符元素', en: 'Placeholder' }),
   addStateTooltip: i18n({ zh: '为该元素添加悬浮、激活、聚焦、禁用状态下的样式', en: 'Add hover, active, focus, or disabled styles for this element' }),

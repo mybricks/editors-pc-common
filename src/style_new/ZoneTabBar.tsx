@@ -53,6 +53,22 @@ function isPseudoSelector(selector: string): boolean {
   return PSEUDO_TAIL_RE.test(lastPart)
 }
 
+/**
+ * zonetab 提示
+ */
+function getZoneTabTip(selector: string): string {
+  const lastPart = selector.trim().split(/\s+/).pop() || ''
+  const pseudoMatch = lastPart.match(PSEUDO_TAIL_RE)
+  if (!pseudoMatch) {
+    return lang.commonStyleTip
+  }
+  const pseudo = pseudoMatch[1]
+  if (pseudo.startsWith('::')) {
+    return `${lang.pseudoElementTip} ${pseudo}`
+  }
+  return `${lang.pseudoClassTip} ${pseudo}`
+}
+
 function getZoneTabLabels(selectors: string[]): string[] {
   // 多个基础选择器并存时，伪类 tab 必须带所属类名，否则看不出 ::placeholder 属于谁
   const baseCount = selectors.filter((sel) => !isPseudoSelector(sel)).length
@@ -158,7 +174,7 @@ export function ZoneTabBar(props: {
               className={`${css.zoneTab}${idx === activeIdx ? ` ${css.zoneTabActive}` : ''}`}
               onClick={() => onSelect(idx)}
             >
-              <span data-mybricks-tip={sel.includes('::before') ? lang.beforePseudoTip : sel.includes('::after') ? lang.afterPseudoTip : undefined}>{labels[idx]}</span>
+              <span data-mybricks-tip={getZoneTabTip(sel)}>{labels[idx]}</span>
               {onDelete && deletableSelectors.includes(sel) && (
                 <button
                   className={css.zoneTabDelete}
