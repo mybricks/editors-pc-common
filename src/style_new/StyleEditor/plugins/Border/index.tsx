@@ -742,6 +742,11 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
 
   const getPreviewValue = (key: string) =>
     context?.getStylePreview?.(key) || previewValues[key] || effectiveStyle?.[key]?.computedValue;
+  // 第三方库的边框宽预览
+  const getBorderWidthPreview = (key: string) => {
+    const preview = getPreviewValue(key);
+    return preview && !isZeroBorderWidth(preview) ? preview : undefined;
+  };
   // 未配置的边框色默认是 currentColor，计算值会跟随字体颜色实时变化。
   // 只有边框本身可见（有宽度且非 none/hidden）时，计算值才代表真实渲染色，
   // 可以拿来做色块预览；否则预览会随无关的 color 修改跳动。
@@ -774,7 +779,7 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
   const isConfiguredKey = (key: string) => {
     const current = borderValue[key];
     if (current == null || current === '') return false;
-    if (effectiveStyle || borderToggleValue === 'all' || !key.endsWith('Color')) return true;
+    if (!key.endsWith('Color')) return true;
     const side = key.slice('border'.length, -'Color'.length);
     return !hasNoVisibleBorderLine(
       borderValue[`border${side}Style`],
@@ -1075,6 +1080,9 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
                         style: { padding: 0, fontSize: 10, marginLeft: shouldShowMiniLayout ? 2 : 4, flex: 1, minWidth: 0 },
                         defaultValue: borderValue.borderTopWidth,
                         value: borderValue.borderTopWidth,
+                        previewValue: borderValue.borderTopWidth == null
+                          ? getBorderWidthPreview('borderTopWidth')
+                          : undefined,
                         placeholder: '',
                         defaultUnitValue: 'px',
                         unitOptions: withDefaultUnitOption(borderWidthUnitOptions, allWidthCanClear),
@@ -1174,6 +1182,9 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
                           style: WIDTH_STYLE_SPLIT,
                           defaultValue: borderValue.borderLeftWidth,
                           value: borderValue.borderLeftWidth,
+                          previewValue: borderValue.borderLeftWidth == null
+                            ? getBorderWidthPreview('borderLeftWidth')
+                            : undefined,
                           placeholder: '',
                           defaultUnitValue: 'px',
                           unitOptions: withDefaultUnitOption(borderWidthUnitOptions, fieldCanClear.borderLeftWidth),
@@ -1251,6 +1262,9 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
                           style: WIDTH_STYLE_SPLIT,
                           defaultValue: borderValue.borderTopWidth,
                           value: borderValue.borderTopWidth,
+                          previewValue: borderValue.borderTopWidth == null
+                            ? getBorderWidthPreview('borderTopWidth')
+                            : undefined,
                           placeholder: '',
                           defaultUnitValue: 'px',
                           unitOptions: withDefaultUnitOption(borderWidthUnitOptions, fieldCanClear.borderTopWidth),
@@ -1329,6 +1343,9 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
                           style: WIDTH_STYLE_SPLIT,
                           defaultValue: borderValue.borderRightWidth,
                           value: borderValue.borderRightWidth,
+                          previewValue: borderValue.borderRightWidth == null
+                            ? getBorderWidthPreview('borderRightWidth')
+                            : undefined,
                           placeholder: '',
                           defaultUnitValue: 'px',
                           unitOptions: withDefaultUnitOption(borderWidthUnitOptions, fieldCanClear.borderRightWidth),
@@ -1407,6 +1424,9 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
                           style: WIDTH_STYLE_SPLIT,
                           defaultValue: borderValue.borderBottomWidth,
                           value: borderValue.borderBottomWidth,
+                          previewValue: borderValue.borderBottomWidth == null
+                            ? getBorderWidthPreview('borderBottomWidth')
+                            : undefined,
                           placeholder: '',
                           defaultUnitValue: 'px',
                           unitOptions: withDefaultUnitOption(borderWidthUnitOptions, fieldCanClear.borderBottomWidth),

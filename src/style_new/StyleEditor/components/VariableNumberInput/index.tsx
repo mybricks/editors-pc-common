@@ -111,7 +111,13 @@ export function VariableNumberInput({
 
   const handleMenuSelect = (value: string) => {
     if (value === 'default') {
-      inputProps.onClear?.()
+      if (inputProps.onClear) {
+        inputProps.onClear()
+      } else {
+        // 绑定态没有 InputNumber 实例代为执行清空；未提供专用清除回调时，
+        // 与 InputNumber 的默认操作保持一致，直接向上提交 null。
+        inputProps.onChange?.(null)
+      }
       return
     }
     onMenuSelect?.(value)

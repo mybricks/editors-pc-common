@@ -15,7 +15,8 @@ import {
 import {
   ShapeType,
   GradientType,
-  defalutGradientStops,
+  resolveGradientStops,
+  sortGradientStops,
   GradientStop,
   ParseGradient,
   GradientEditorProps,
@@ -64,25 +65,19 @@ export function GradientEditor({
         setShapeType(direction as ShapeType);
       }
       if (stops.length > 0) {
-        setStops(stopSort(stops));
+        setStops(stops);
         setCurElementId(stops[0]?.id);
       }
     }
   }, [defaultValue]);
 
   const changeStops = (newStops: GradientStop[]) => {
-    setStops(stopSort(newStops));
+    setStops(sortGradientStops(newStops));
   };
-
-  const stopSort = useCallback(
-    (arr: GradientStop[]) =>
-      arr.sort((a, b) => (a.position || 0) - (b.position || 0)),
-    []
-  );
 
   const addColor = useCallback(() => {
     const { color = "rgba(255,255,255,1)", position = 50 } =
-      stops[stops.length - 1] || {};
+      resolveGradientStops(stops)[stops.length - 1] || {};
     const newStop = {
       color,
       position: position + 10 <= 100 ? position + 10 : 100,
@@ -112,12 +107,11 @@ export function GradientEditor({
     const direction =
       gradientType === "linear-gradient" ? `${deg}deg` : shapeType;
     if (stops.length < 2) return "none";
-    const isAllZero = stops.every((stop) => stop.position === 0);
     return `${gradientType}(${direction}${stops
       .map(
         (stop) =>
           `, ${stop.color}${
-            typeof stop?.position === "number" && !isAllZero
+            typeof stop?.position === "number"
               ? ` ${stop.position}%`
               : ""
           }`
@@ -174,7 +168,7 @@ export function GradientEditor({
         const temp = prevStops.map((stop, i) =>
           stop.id === id ? { ...stop, [property]: value } : stop
         );
-        return isSort ? stopSort(temp) : temp;
+        return isSort ? sortGradientStops(temp) : temp;
       });
     },
     [onChange, finalValue, stops]
@@ -279,18 +273,19 @@ export function GradientEditor({
                 }}
               >
                 <InputNumber
-                  key={position}
                   tip={lang.stopPositionTip}
+                  placeholder=""
                   suffix="%"
+                  showIconOnHover
+                  defaultActionTip={false}
                   style={{ flex: 2 }}
                   type={"number"}
                   defaultUnitValue=""
-                  defaultValue={position}
+                  value={position}
                   activeWhenBlur={false}
                   onChange={(position) => {
-                    let newPosition = Number(position);
-                    newPosition = newPosition > 100 ? 100 : newPosition;
-                    changeProperty("position", newPosition, id, true);
+                    const newPosition = position === null ? null : Math.max(0, Math.min(100, Number(position)));
+                    changeProperty("position", newPosition, id, newPosition !== null);
                     setCurElementId(id);
                   }}
                   onFocus={() => setCurElementId(id)}

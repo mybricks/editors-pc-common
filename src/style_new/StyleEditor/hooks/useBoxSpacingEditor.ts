@@ -38,6 +38,18 @@ export function useBoxSpacingEditor({ property, value, onChange: fallbackOnChang
     key,
     context?.effectiveStyle?.[key]?.computedValue?.trim(),
   ]))
+  // 第三方库样式预览
+  const computedPreviews = Object.fromEntries(keys.map(key => {
+    const item = context?.effectiveStyle?.[key]
+    const preview = item && item.type === 'computed'
+      ? String(item.value ?? '').trim()
+      : undefined
+    return [key, preview && preview !== '0px' && preview !== '0' ? preview : undefined]
+  }))
+  const unifiedComputedPreview = keys.every(key => computedPreviews[key] !== undefined) &&
+    keys.every(key => computedPreviews[key] === computedPreviews[keys[0]])
+    ? computedPreviews[keys[0]]
+    : undefined
   const hasCompleteInheritedValues = keys.every(key => inheritedValues[key] != null && inheritedValues[key] !== '')
   // 伪类没有自己的 margin/padding 声明时，输入仍保持“未配置”；但编辑器形态需要反映
   // 基础态带来的真实四边值，否则不同的计算值会被空对象误判成统一配置。
@@ -152,7 +164,7 @@ export function useBoxSpacingEditor({ property, value, onChange: fallbackOnChang
   }
   const unifiedCanClear = !!groupClear.clear || (!groupClear.disabledReason && keys.some(key => spacingValue[key] != null))
   return {
-    spacingValue, toggle, setToggle, previewValues, forceRenderKey,
+    spacingValue, toggle, setToggle, previewValues, computedPreviews, unifiedComputedPreview, forceRenderKey,
     handleChange, handleUnifiedChange, handleSwitchToUnified, refresh,
     canResetSide, unifiedCanClear, canReset: unifiedCanClear,
   }

@@ -42,13 +42,14 @@ import Tree from "./tree";
 import EditorLine from "./line";
 import MarkdownView from "./markdownView";
 import "./index.less";
-import StyleNew from "./style_new";
+import StyleNew, {getSimilarZones} from "./style_new";
 import Themes from "./themes";
 import CssEditor from "./css-editor";
 import json from "@/json";
 
 export {config} from "./configProvider";
 export {typeCheck} from "./utils";
+export {getSimilarZones};
 
 const PcEditorMap: any = {
   ALIGN: EditorAlign,

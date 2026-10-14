@@ -47,7 +47,7 @@ export interface InputNumberProps extends Omit<InputProps, 'onChange' | 'value'>
   /** 允许负数 */
   allowNegative?: boolean,
   showIcon?: boolean
-  /** hover 时隐藏单位文案、仅显示下拉箭头（需配合 showIcon） */
+  /** hover 时隐藏单位文案或固定后缀、仅显示下拉箭头（单位选择需配合 showIcon） */
   showIconOnHover?: boolean
   prefixTip?: string
   type?: string
@@ -75,6 +75,8 @@ export interface InputNumberProps extends Omit<InputProps, 'onChange' | 'value'>
   onChange?: (value: string | null) => void;
   /** 在下拉菜单中提供“默认”选项 */
   clearable?: boolean;
+  /** 默认操作下拉的 hover 提示；false 表示不展示 */
+  defaultActionTip?: string | false;
   onClear?: () => void;
   activeWhenBlur?: boolean;
 }
@@ -110,6 +112,7 @@ export function InputNumber ({
   hideUnitWhenEmpty = false,
   unitHideLabelList = ['px'],
   clearable = true,
+  defaultActionTip = lang.settingsTip,
   onClear,
   className,
   activeWhenBlur = true,
@@ -118,8 +121,8 @@ export function InputNumber ({
   const externalValue = value !== undefined ? value : defaultValue
   const [unit, setUnit] = useState<string>(getUnit(externalValue, defaultUnitValue, unitOptions))
   const [number, handleNumberChange] = useInputNumber<string | number | undefined>(externalValue)
-  /** 外部清空同步时跳过 [unit,number] 的 onChange，避免回写 'default' 字符串污染上层 */
-  const skipUnitNumberOnChangeRef = useRef(false)
+  /** 仅跳过指定的内部同步值，避免无状态变化的清空误吞下一次用户提交。 */
+  const skipUnitNumberOnChangeRef = useRef<{ unit: string; number: string } | null>(null)
   const isValueSyncInitializedRef = useRef(false)
   const focusValueRef = useRef('')
   const inputChangedSinceFocusRef = useRef(false)
@@ -164,7 +167,7 @@ export function InputNumber ({
       const nextUnit = previewUnit || unit
       if (number !== previewNumber || unit !== nextUnit) {
         // 准备用户草稿时同步数字和单位；这一轮内部同步不是一次编辑。
-        skipUnitNumberOnChangeRef.current = true
+        skipUnitNumberOnChangeRef.current = { unit: nextUnit, number: String(previewNumber) }
         handleNumberChange(String(previewNumber))
         setUnit(nextUnit)
       }
@@ -327,21 +330,23 @@ export function InputNumber ({
     // “默认”选项会主动提交，后续仅用 blur 收起输入态，避免重复提交。
     // 不能把兜底值的提交寄托在 blur 上：输入框未聚焦时调用 blur() 不会触发事件。
     skipClearBlurRef.current = true
-    skipUnitNumberOnChangeRef.current = true
     if (onClear) {
       handleNumberChange('0')
+      skipUnitNumberOnChangeRef.current = { unit, number: '0' }
       onClear()
       return
     }
     if (typeof fallbackValue !== 'undefined') {
       const fallbackStr = String(fallbackValue)
       const fallbackNum = String(parseFloat(fallbackStr))
-      handleNumberChange(fallbackStr)
+      const nextNumber = handleNumberChange(fallbackStr)
+      skipUnitNumberOnChangeRef.current = { unit, number: nextNumber }
       setDisplayValue(fallbackNum)
       onChange?.(fallbackNum + unit)
       return
     }
     handleNumberChange('0')
+    skipUnitNumberOnChangeRef.current = { unit, number: '0' }
     onChange?.(null)
   }, [handleNumberChange, onClear, onChange, fallbackValue, unit])
 
@@ -376,7 +381,7 @@ export function InputNumber ({
     if (!showDefaultAction) return null
     return (
       <Select
-        tip={lang.settingsTip}
+        tip={defaultActionTip || undefined}
         style={{ width: 16, padding: 0, fontSize: 10 }}
         value={unit}
         options={[DEFAULT_ACTION_OPTION]}
@@ -387,10 +392,18 @@ export function InputNumber ({
         disabled={isDisabledUnit()}
       />
     )
-  }, [handleMenuAction, isDisabledUnit, showDefaultAction, unit])
+  }, [defaultActionTip, handleMenuAction, isDisabledUnit, showDefaultAction, unit])
 
   const suffix = useMemo(() => {
     if (customSuffix) {
+      if (showIconOnHover) {
+        return (
+          <span className={`${css.suffixOnHover}${showDefaultAction ? ` ${css.hasSuffixMenu}` : ''}`}>
+            <span className={css.suffixLabel}>{customSuffix}</span>
+            {showDefaultAction && <span className={css.suffixMenu}>{renderDefaultSelect()}</span>}
+          </span>
+        )
+      }
       return <>{renderDefaultSelect()}{customSuffix}</>
     } else if (Array.isArray(unitOptions)) {
       // Hug badge 时直接替代单位选择器，不再显示下拉
@@ -433,7 +446,7 @@ export function InputNumber ({
     }
 
     return renderDefaultSelect()
-  }, [unit, renderedUnit, showPreview, previewIsNumeric, previewNumber, handleNumberChange, isDefaultUnit, badge, renderDefaultSelect, unitOptions, menuOptions, handleMenuAction, hideUnitWhenEmpty, isEmptyValue, unitHideLabelList, showIcon, showIconOnHover, showDefaultAction, unitSelectStyle, unitIconClassName])
+  }, [customSuffix, unit, renderedUnit, showPreview, previewIsNumeric, previewNumber, handleNumberChange, isDefaultUnit, badge, renderDefaultSelect, unitOptions, menuOptions, handleMenuAction, hideUnitWhenEmpty, isEmptyValue, unitHideLabelList, showIcon, showIconOnHover, showDefaultAction, unitSelectStyle, unitIconClassName])
 
   // 新选中组件的值在首帧绘制前同步到内部 state，避免旧值短暂闪现。
   useLayoutEffect(() => {
@@ -447,14 +460,11 @@ export function InputNumber ({
     if (externalValue == null || externalValue === '') {
       setDisplayValue('')
       // 重置内部数字，避免清值后残留旧数字，切单位时拼出 200% 等
-      skipUnitNumberOnChangeRef.current = true
       handleNumberChange('0')
       const hasDefaultUnit = unitOptions?.some((o) => o.value === 'default')
-      if (hasDefaultUnit) {
-        setUnit('default')
-      } else {
-        setUnit(getUnit(undefined, defaultUnitValue, unitOptions))
-      }
+      const nextUnit = hasDefaultUnit ? 'default' : getUnit(undefined, defaultUnitValue, unitOptions)
+      skipUnitNumberOnChangeRef.current = { unit: nextUnit, number: '0' }
+      setUnit(nextUnit)
       return
     }
 
@@ -476,8 +486,9 @@ export function InputNumber ({
   }, [externalValue])
 
   useUpdateEffect(() => {
-    if (skipUnitNumberOnChangeRef.current) {
-      skipUnitNumberOnChangeRef.current = false
+    const skippedChange = skipUnitNumberOnChangeRef.current
+    skipUnitNumberOnChangeRef.current = null
+    if (skippedChange?.unit === unit && skippedChange.number === number) {
       if (unitDisabledList.includes(unit)) {
         setDisplayValue('')
       }

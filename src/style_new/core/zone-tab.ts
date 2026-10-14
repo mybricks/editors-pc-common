@@ -238,7 +238,7 @@ export function buildZoneEffectiveStyle(
     return buildZoneStateStyle(tab, Object.keys(styleValues), target instanceof HTMLElement ? target : null)
   }
   const result: Record<string, EffectiveStyleValue> = {}
-  const computedStyle = target instanceof HTMLElement ? window.getComputedStyle(target) : null
+  const computedStyle = target ? window.getComputedStyle(target) : null
   const cascadeResolver = target instanceof HTMLElement && !tab.pseudo
     ? createCascadeResolver(target)
     : null
@@ -248,7 +248,8 @@ export function buildZoneEffectiveStyle(
     let hasEffectiveValue = true
     const source = findStyleSource(tab, styleKey)
     const cssProperty = toLine(styleKey)
-    const inlineStyle = target instanceof HTMLElement ? target.style : null
+    // SVGElement 与 HTMLElement 都有 style
+    const inlineStyle = target instanceof HTMLElement || target instanceof SVGElement ? target.style : null
     const inlineValue = inlineStyle?.getPropertyValue(cssProperty).trim()
     const stylesheetImportant = !!source && source.rule.style.getPropertyPriority(cssProperty) === 'important'
     const inlineWins = !!inlineValue && !stylesheetImportant

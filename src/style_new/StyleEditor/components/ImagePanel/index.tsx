@@ -107,11 +107,7 @@ export function ImagePanel({
           className={`${css.imageContainer} ${imageSrc !== DEFAULT_IMAGE ? css.hasImage : ""}`}
           onClick={handleImageClick}
         >
-          <img 
-            style={{ opacity: imageSrc === DEFAULT_IMAGE ? 0.5 : 1 }} 
-            src={imageSrc} 
-            alt={lang.imageAltBg}
-          />
+          {imageSrc && <img src={imageSrc} alt={lang.imageAltBg} />}
           <button className={css.uploadButton}>{lang.clickToUpload}</button>
         </div>
         <input
@@ -126,7 +122,7 @@ export function ImagePanel({
         <div className={css.imageLabel}>{lang.imageUrlLabel}</div>
         <div className={css.imageValue}>
           <Input clearable onClear={() => handleUrlInputChange('')}
-            onChange={handleUrlInputChange} 
+            onChange={handleUrlInputChange}
             value={getBackgroundImage(localImageValue.backgroundImage || '', '')}
           />
         </div>

@@ -38,7 +38,7 @@ export const ParseGradient = (
                   .rgb()
                   .string()
               : `rgba(${(colorStop?.value as string[])?.join(",")})`,
-          position: Number(colorStop?.length?.value || 0),
+          position: colorStop?.length ? Number(colorStop.length.value) : null,
           id: uuid(),
         })) || [];
     }

@@ -7,6 +7,7 @@ import React, {
   useState,
 } from "react";
 import ColorUtil from "color";
+import { Popover } from "antd";
 import { useApplyStyleMutations, useEffectiveStyleValue, useStyleClear, useStyleEditorContext } from "../..";
 import { PanelBaseProps, StyleChangeResult, StyleMutation } from "./../../type";
 import { Panel, Colorpicker } from "../../components";
@@ -69,12 +70,18 @@ function toStyleMutations(changes: Array<{ key: string; value: any }>): StyleMut
     : { type: 'set', key, value });
 }
 
-function getSwatchStyle(layer: BgLayer, scopeEl?: Element | null, resolvedColor?: string): CSSProperties {
+function getSwatchStyle(
+  layer: BgLayer,
+  scopeEl?: Element | null,
+  resolvedColor?: string,
+  imageFit: "cover" | "contain" = "cover",
+): CSSProperties {
   if (layer.type === "image") {
     return {
       backgroundImage: layer.value,
-      backgroundSize: "cover",
+      backgroundSize: imageFit,
       backgroundPosition: "center",
+      backgroundRepeat: "no-repeat",
     };
   }
   if (layer.type === "gradient") {
@@ -122,9 +129,8 @@ function getLayerLabel(layer: BgLayer): string {
   const varName = parseCssVar(layer.value)?.varName;
   if (varName) return varName;
   try {
-    const c = new ColorUtil(layer.value);
-    const hex = c.alpha() === 1 ? c.hex() : c.hexa();
-    return hex.toUpperCase();
+    // 不透明度由右侧百分比单独展示，颜色标签始终显示六位 RGB。
+    return new ColorUtil(layer.value).hex().toUpperCase();
   } catch {
     return layer.value || lang.solidLayerLabel;
   }
@@ -284,7 +290,20 @@ function LayerItem({
         disableGradient={disableGradient}
         scopeEl={scopeEl}
       >
-        <div className={css.block} style={getSwatchStyle(layer, scopeEl, resolvedColor)} />
+        {layer.type === "image" && !!layer.value ? (
+          <Popover
+            placement="left"
+            content={
+              <div
+                className={css.previewImage}
+                style={getSwatchStyle(layer, scopeEl, resolvedColor, "contain")}
+              />
+            }
+          >
+            <div className={css.block} style={getSwatchStyle(layer, scopeEl, resolvedColor)} />
+          </Popover>
+        ) : <div className={css.block} style={getSwatchStyle(layer, scopeEl, resolvedColor)} />}
+
         <div className={css.icon}>
           <TransparentColorOutlined />
         </div>

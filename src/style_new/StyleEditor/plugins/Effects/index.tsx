@@ -553,7 +553,7 @@ function EffectSketchBody({
           value={layer.type}
           options={typeOptions}
           onChange={onTypeChange}
-          style={{ width: '60%' }}
+          style={{ width: '60%', padding: '0 8px' }}
         />
         <button className={css.effectHeaderBtn} data-mybricks-tip={lang.closeEffectTip} onClick={onClose}>
           {SketchCloseIcon}
