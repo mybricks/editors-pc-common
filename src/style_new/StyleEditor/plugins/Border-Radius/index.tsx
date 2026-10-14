@@ -83,11 +83,18 @@ export function BorderRadius({ value, onChange: fallbackOnChange, config, collap
   const topRightDisplay = useStyleDisplayValue('borderTopRightRadius', { preview: 'none' })
   const bottomRightDisplay = useStyleDisplayValue('borderBottomRightRadius', { preview: 'none' })
   const bottomLeftDisplay = useStyleDisplayValue('borderBottomLeftRadius', { preview: 'none' })
+  // 第三方库圆角预览
+  const externalRadiusPreview = (key: typeof RADIUS_KEYS[number]) => {
+    const item = context?.effectiveStyle?.[key]
+    if (!item || item.type !== 'computed') return undefined
+    const preview = String(item.value ?? '').trim()
+    return preview && preview !== '0px' && preview !== '0' ? preview : undefined
+  }
   const radiusPreview: Record<typeof RADIUS_KEYS[number], string | undefined> = {
-    borderTopLeftRadius: topLeftDisplay.displaySource === 'normal-computed' ? topLeftDisplay.computedPreview : undefined,
-    borderTopRightRadius: topRightDisplay.displaySource === 'normal-computed' ? topRightDisplay.computedPreview : undefined,
-    borderBottomRightRadius: bottomRightDisplay.displaySource === 'normal-computed' ? bottomRightDisplay.computedPreview : undefined,
-    borderBottomLeftRadius: bottomLeftDisplay.displaySource === 'normal-computed' ? bottomLeftDisplay.computedPreview : undefined,
+    borderTopLeftRadius: (topLeftDisplay.displaySource === 'normal-computed' ? topLeftDisplay.computedPreview : undefined) ?? externalRadiusPreview('borderTopLeftRadius'),
+    borderTopRightRadius: (topRightDisplay.displaySource === 'normal-computed' ? topRightDisplay.computedPreview : undefined) ?? externalRadiusPreview('borderTopRightRadius'),
+    borderBottomRightRadius: (bottomRightDisplay.displaySource === 'normal-computed' ? bottomRightDisplay.computedPreview : undefined) ?? externalRadiusPreview('borderBottomRightRadius'),
+    borderBottomLeftRadius: (bottomLeftDisplay.displaySource === 'normal-computed' ? bottomLeftDisplay.computedPreview : undefined) ?? externalRadiusPreview('borderBottomLeftRadius'),
   }
   const previewCorners = RADIUS_KEYS.map(key => radiusPreview[key])
   const allCornersAvailable = previewCorners.every(item => item !== undefined)
