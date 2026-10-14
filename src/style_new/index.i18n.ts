@@ -870,7 +870,7 @@ export default {
   pseudoElementTip: i18n({ zh: '伪元素', en: 'Pseudo-element' }),
   pseudoClassTip: i18n({ zh: '伪类', en: 'Pseudo-class' }),
   commonStyleTip: i18n({
-    zh: '元素未加任何交互状态时的样式',
+    zh: '常规状态：元素未加任何交互状态时的样式',
     en: 'Default styles with no interaction state'
   }),
   focusWithinState: i18n({ zh: '后代聚焦态', en: 'Focus within' }),
