@@ -77,7 +77,6 @@ function getZoneTabTip(selector: string): string {
     '::placeholder': lang.placeholderPseudoTip,
   }
   if (tipMap[pseudo]) return tipMap[pseudo]
-  // 兜底：未收录的伪类/伪元素按类型拼格式
   return pseudo.startsWith('::')
     ? `${lang.pseudoElementTip} ${pseudo}`
     : `${lang.pseudoClassTip} ${pseudo}`
@@ -187,8 +186,9 @@ export function ZoneTabBar(props: {
               key={sel}
               className={`${css.zoneTab}${idx === activeIdx ? ` ${css.zoneTabActive}` : ''}`}
               onClick={() => onSelect(idx)}
+              data-mybricks-tip={`{content:'${getZoneTabTip(sel)}',position:'left'}`}
             >
-              <span data-mybricks-tip={getZoneTabTip(sel)}>{labels[idx]}</span>
+              <span>{labels[idx]}</span>
               {onDelete && deletableSelectors.includes(sel) && (
                 <button
                   className={css.zoneTabDelete}
