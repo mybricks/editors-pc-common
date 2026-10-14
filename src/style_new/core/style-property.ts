@@ -29,8 +29,6 @@ export type StyleClearPlan = {
   key: string
   winner: StyleSourceCandidate | null
   candidates: StyleSourceCandidate[]
-  /** 仅由同源、同优先级的整组合并计划设置，不用于普通赋值。 */
-  syncClearedShorthand?: true
 } & (
   | { action: 'delete' | 'write-unset'; selector: string; value: null | 'unset' | 'unset !important' }
   | { action: 'noop' | 'unsupported'; reason: string }
@@ -220,7 +218,7 @@ export function createStyleResolution(tab: ZoneTab, target: HTMLElement | null =
       return cache.get(property)!
     },
     /** 连续编辑记录实际目标；authoredProperty 保留由简写提供的长写来源。 */
-    record(key: string, value: any, selector: string, authoredProperty = cssPropertyName(key), syncClearedShorthand = false) {
+    record(key: string, value: any, selector: string, authoredProperty = cssPropertyName(key)) {
       const property = cssPropertyName(key)
       if (property === 'background' || property === 'background-color') recordedBackgroundSources.add(selector)
       const candidates = index.get(property) || []
@@ -248,15 +246,9 @@ export function createStyleResolution(tab: ZoneTab, target: HTMLElement | null =
       const parsedShorthand = value != null && (property === 'flex' || property === 'border-radius')
         ? target?.ownerDocument?.createElement('div').style : undefined
       if (parsedShorthand) parsedShorthand.setProperty(property, String(value).replace(/\s*!important\s*$/i, '').trim())
-      // 整组清空已校验来源/优先级并删除同源长写，才同步简写的 unset 到子属性缓存。
-      // 不能仅凭值是 unset 就展开：普通 font: unset 不应覆盖仍存在的 font-size: 20px !important。
-      const unsetShorthand = syncClearedShorthand && BATCH_CLEAR_SHORTHANDS.includes(property) &&
-        /^unset(?:\s*!important)?$/i.test(String(value).trim())
-      if (value != null && (unsetShorthand || parsedShorthand || property === 'margin' || property === 'padding' || property === 'overflow' || (border && STYLE_SHORTHANDS[property]))) {
+      if (value != null && (parsedShorthand || property === 'margin' || property === 'padding' || property === 'overflow' || (border && STYLE_SHORTHANDS[property]))) {
         let expanded: string[] | null
-        if (unsetShorthand) {
-          expanded = STYLE_SHORTHANDS[property].map(() => String(value))
-        } else if (parsedShorthand) {
+        if (parsedShorthand) {
           expanded = STYLE_SHORTHANDS[property].map(key => parsedShorthand.getPropertyValue(key))
         } else if (border) {
           expanded = STYLE_SHORTHANDS[property].map(key => border[stylePropertyKey(key)])
@@ -308,7 +300,7 @@ export type StyleResolution = ReturnType<typeof createStyleResolution>
 
 /**
  * 整组恢复默认时，无后备来源才删除 winning source 内的整个属性族。
- * 有后备来源时写 unset 阻止低优先级样式重新生效；同源、同优先级的整组清空保留简写。
+ * 有后备来源时保留逐属性 clearPlan，用 unset 阻止低优先级样式重新生效。
  * CSSOM 会合成/拆开简写，不能用 item() 判断源码究竟写了 margin 还是四条长写，
  * 因此同时清理该组所有写法；部分清空仍保留 unset，避免删除未选中的配置。
  */
@@ -323,7 +315,7 @@ export function createBatchStyleClearPlans(
       ? STYLE_SHORTHANDS[property].map(stylePropertyKey)
       : [stylePropertyKey(property)]
   })))
-  const groupedPlans: StyleClearPlan[] = []
+  const deletes: StyleClearPlan[] = []
 
   BATCH_CLEAR_SHORTHANDS.forEach(property => {
     const longhands = STYLE_SHORTHANDS[property].map(stylePropertyKey)
@@ -331,40 +323,7 @@ export function createBatchStyleClearPlans(
 
     const longhandProperties = longhands.map(longhand => resolution.get(longhand))
     const hasFallbackSource = longhandProperties.some(hasFallbackStyleCandidate)
-    if (hasFallbackSource) {
-      // border 会额外重置分组表之外的 border-image，不能把宽度/线型/颜色的清空合成 border: unset。
-      // 保留原有逐项清空，避免未参与本次操作的图片边框被连带重置；无后备来源的删除逻辑不变。
-      if (property === 'border') return
-      const winner = longhandProperties[0]?.winner
-      const family = getShorthandFamily(property)
-      // 例如 A 的 margin: 12px 覆盖 B 的 margin: 8px，清空整组应把 A 改成 margin: unset。
-      // 先清单边后，margin-top: unset 可能让 A 的简写读数变空；因此按各子属性找实际来源。
-      // 仅当整组来自同一条当前状态规则且 !important 一致才合并，内联和跨来源沿用逐项计划。
-      // 已清空的单项允许参与；整组都已是 unset 时保持 noop，不重复写入。
-      if (winner?.currentState && !winner.inline && winner.label &&
-        longhandProperties.some(({ clearPlan }) => clearPlan.action === 'write-unset') &&
-        longhandProperties.every(({ winner: current, clearPlan }) =>
-          (clearPlan.action === 'write-unset' ||
-            (clearPlan.action === 'noop' && clearPlan.reason === 'already-neutralized')) &&
-          current?.currentState && !current.inline && family.includes(current.property) &&
-          current.label === winner.label && current.source === winner.source &&
-          current.important === winner.important
-        )) {
-        plannedKeys = plannedKeys.filter(key => !longhands.includes(key))
-        // 清掉同源长写/子简写，防止 margin-left 等残留覆盖新的 margin: unset。
-        // 删除在前、简写在后，确保缓存最终也保留整组 unset。Margin、Padding 等共用分组表。
-        family.slice(1).forEach(name => groupedPlans.push({
-          key: stylePropertyKey(name), winner, candidates: resolution.get(name).candidates,
-          action: 'delete', selector: winner.label, value: null,
-        }))
-        groupedPlans.push({
-          key: stylePropertyKey(property), winner, candidates: resolution.get(property).candidates,
-          action: 'write-unset', selector: winner.label, value: winner.important ? 'unset !important' : 'unset',
-          syncClearedShorthand: true,
-        })
-      }
-      return
-    }
+    if (hasFallbackSource) return
     if (property === 'margin' || property === 'padding') {
       // 没有后备来源时，间距整组清空仍支持稀疏长写和各方向不同来源。
       const winners = longhandProperties.map(item => item.winner).filter((item): item is StyleSourceCandidate =>
@@ -390,7 +349,7 @@ export function createBatchStyleClearPlans(
       }
       if (groupPlans.length) {
         plannedKeys = plannedKeys.filter(key => !longhands.includes(key))
-        groupedPlans.push(...groupPlans)
+        deletes.push(...groupPlans)
       }
       return
     }
@@ -427,7 +386,7 @@ export function createBatchStyleClearPlans(
     plannedKeys = plannedKeys.filter(key => !longhands.includes(key))
     deleteProperties.forEach(name => {
       const current = resolution.get(name)
-      groupedPlans.push({
+      deletes.push({
         key: stylePropertyKey(name),
         winner,
         candidates: current.candidates,
@@ -440,7 +399,7 @@ export function createBatchStyleClearPlans(
 
   return [
     ...plannedKeys.map(key => resolution.get(key).clearPlan),
-    ...groupedPlans,
+    ...deletes,
   ]
 }
 

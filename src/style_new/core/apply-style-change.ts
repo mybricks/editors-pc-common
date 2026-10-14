@@ -421,9 +421,7 @@ function applyStyleClearPlans(
       getShorthandFamily(cssPropertyName(key)).forEach(property =>
         zoneWriteTargets?.delete(stylePropertyKey(property))
       )
-      const syncClearedShorthand = plans.some(plan => plan.action === 'write-unset' &&
-        plan.selector === selector && plan.key === key && plan.syncClearedShorthand)
-      resolution?.record(key, value, selector, undefined, syncClearedShorthand)
+      resolution?.record(key, value, selector)
       appliedKeys.push(key)
     })
   })
@@ -609,11 +607,6 @@ function applyEffectiveStyleChanges(
     !isInlineSpacing(item) &&
     hasFallbackStyleCandidate(resolution.get(item.key))
   const specializedChanges = changes.filter(item => !shouldUseCascadeClearPlan(item))
-  // 是否单边清空必须按原始操作判断：整组清空时，left 可能因有后备来源被先分流。
-  // 若用剩下三边重新判断，会误拆简写并把已被其他 class 的 unset 遮住的 left 数值写回来。
-  const spacingChanges = specializedChanges.filter(item =>
-    item.value != null || isInlineSpacing(item) || sideClearKeys.has(item.key)
-  )
   // 先预检整个用户动作，避免清空不可执行却先修改了共享图层。
   const plans = createBatchStyleClearPlans(
     changes.filter(item => item.value === null && (shouldUseCascadeClearPlan(item) || (
@@ -653,7 +646,7 @@ function applyEffectiveStyleChanges(
         change => writeTargets.get(change.key)?.selector || null)
   const propertyPlans = [
     ...flexPlans,
-    ...createSpacingWritePlans(spacingChanges, resolution, tab.selector, target,
+    ...createSpacingWritePlans(specializedChanges, resolution, tab.selector, target,
       change => writeTargets.get(change.key)?.selector || null),
     ...createBorderRadiusWritePlans(specializedChanges, resolution, target,
       change => writeTargets.get(change.key)?.selector || null),
@@ -813,9 +806,7 @@ function applyEffectiveStyleChanges(
     Object.entries(patch).forEach(([key, value]) => {
       if (value === null) removeClearedLiveStyleKeys(nextLiveStyle, key)
       else nextLiveStyle[key] = value
-      const syncClearedShorthand = plans.some(plan => plan.action === 'write-unset' &&
-        plan.selector === selector && plan.key === key && plan.syncClearedShorthand)
-      resolution.record(key, value, selector, undefined, syncClearedShorthand)
+      resolution.record(key, value, selector)
     })
     clearApplied = true
   })
