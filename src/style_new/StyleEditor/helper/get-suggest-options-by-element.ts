@@ -79,7 +79,9 @@ export function getSuggestOptionsByElement(selectDom: HTMLElement): { type: stri
         : void 0;
 
     const suggestion = [
-      { type: 'layout', config: { displayOnly: true } },
+      shouldHideEditor
+        ? { type: 'layout', config: { displayOnly: true } }
+        : { type: 'layout' },,
       fontOption,
       marginOption,
       paddingOption,
