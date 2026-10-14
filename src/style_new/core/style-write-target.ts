@@ -158,6 +158,10 @@ export function createStyleWriteTargetResolver(
     const winner = tab.pseudo
       ? resolveEffectiveStyleSource(property.candidates.filter(candidate => candidate.currentState))
       : property.winner
+    // 确保 winner 是不是“页面源码”里的规则，避免第三方组件规则被加入规则清单，然后修改后的样式改到了第三方组件规则上
+    if (winner?.currentState && !winner.inline && winner.source?.isPageStyle === false) {
+      return getDefaultTarget()
+    }
     if (winner?.currentState && winner.label) {
       return {
         selector: winner.label, source: winner.inline ? 'inline' : 'property-winner',
