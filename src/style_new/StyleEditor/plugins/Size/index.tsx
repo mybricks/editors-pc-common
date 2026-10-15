@@ -66,11 +66,11 @@ function resolveViewportToPx(val: string | undefined, actualSize: number): strin
   return val;
 }
 
-/** svg 等非 HTMLElement 没有 offsetWidth/offsetHeight，用 getBoundingClientRect 计算 */
+/** svg 等非 HTMLElement 没有 offsetWidth/offsetHeight，用 getComputedStyle 计算 */
 function measureElementSize(dom: HTMLElement): { width: number; height: number } {
   if (dom instanceof SVGElement) {
-    const rect = dom.getBoundingClientRect();
-    return { width: rect.width, height: rect.height };
+    const computedStyle = window.getComputedStyle(dom);
+    return { width: parseFloat(computedStyle.width), height: parseFloat(computedStyle.height) };
   }
   return { width: dom.offsetWidth, height: dom.offsetHeight };
 }
