@@ -13,7 +13,7 @@ import {
   APPLY_VARIABLE_ACTION,
 } from '../../components'
 import { allEqual } from '../../utils'
-import { useDragNumber, useLengthInputDrag, useLengthVarBinding } from '../../hooks'
+import { useDragNumber, useLengthInputDrag, useLengthVarBinding, isCssVarValue } from '../../hooks'
 import { useStyleDisplayValue } from '../../hooks/useStyleDisplayValue'
 import { expandFourShorthand } from '../../../core/shorthand-normalizer'
 import type { ChangeEvent, PanelBaseProps } from '../../type'
@@ -29,7 +29,7 @@ const UNIT_OPTIONS = [
   { label: 'px', value: 'px' },
   { label: '%', value: '%' },
 ]
-const DEFAULT_UNIT_OPTION = { label: lang.defaultLabel, value: 'default' }
+const DEFAULT_UNIT_OPTION = { get label() { return lang.defaultLabel }, value: 'default' }
 const DEFAULT_UNIT_DIVIDER = { label: '', value: '__borderRadiusDefaultDivider__', type: 'divider' as const }
 const UNIT_DISABLED_LIST = ['default']
 const DEFAULT_STYLE = { padding: 0, fontSize: 10, minWidth: 71, marginLeft: 4 }
@@ -117,9 +117,20 @@ export function BorderRadius({ value, onChange: fallbackOnChange, config, collap
     }
   }
   const editorValue = expandBorderRadiusShorthand(configuredValue)
-  for (const key of RADIUS_KEYS) {
-    // 单角的 unset/未配置优先于简写展开，不能被 borderRadius 再填回旧值。
-    if (context?.getStyleProperty || context?.effectiveStyle?.[key]) editorValue[key] = configuredValue[key]
+  const shorthandWinner = context?.getStyleProperty?.('borderRadius').winner
+  const shorthandCorners = shorthandWinner?.currentState && isCssVarValue(shorthandWinner.value)
+    ? expandFourShorthand(shorthandWinner.value)
+    : null
+  for (const [index, key] of RADIUS_KEYS.entries()) {
+    // 单角的 unset/未配置优先于简写展开；只有 CSSOM 无法展开当前变量简写时才补回单角。
+    if (context?.getStyleProperty || context?.effectiveStyle?.[key]) {
+      const cornerWinner = context?.getStyleProperty?.(key).winner
+      const source = context?.effectiveStyle?.[key]
+      const shorthandCorner = shorthandCorners?.[index]
+      const missingVariableCorner = shorthandCorner && !cornerWinner &&
+        (!source || (source.type === 'computed' && source.value === shorthandCorner))
+      editorValue[key] = missingVariableCorner ? shorthandCorner : configuredValue[key]
+    }
   }
   delete editorValue.borderRadius
   const modeValue = Object.keys(configuredValue).length === 0 && allCornersAvailable
