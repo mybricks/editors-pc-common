@@ -119,10 +119,7 @@ const FONT_WEIGHT_OPTIONS = [
 const WHITE_SPACE_OPTIONS = [
   { label: "normal", value: "normal" },
   { label: "nowrap", value: "nowrap" },
-  { label: "pre", value: "pre" },
   { label: "pre-wrap", value: "pre-wrap" },
-  { label: "pre-line", value: "pre-line" },
-  { label: "break-spaces", value: "break-spaces" },
 ];
 
 const FONT_SIZE_OPTIONS = [
@@ -652,6 +649,10 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
     () => (value as any).textTransform || 'none'
   );
 
+  const [whiteSpaceValue, setWhiteSpaceValue] = useState<string>(
+    () => (value as any).whiteSpace || 'normal'
+  );
+
   useEffect(() => {
     const current = value as Record<string, any>;
     const clamp = current.webkitLineClamp ?? current.WebkitLineClamp;
@@ -672,6 +673,9 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
     setTextTransformValue(current.textTransform && !['unset', 'initial', 'inherit', 'revert'].includes(current.textTransform)
       ? current.textTransform
       : 'none');
+    setWhiteSpaceValue(current.whiteSpace && !['unset', 'initial', 'inherit', 'revert'].includes(current.whiteSpace)
+      ? current.whiteSpace
+      : 'normal');
   }, [
     (value as any).webkitLineClamp,
     (value as any).WebkitLineClamp,
@@ -682,6 +686,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
     (value as any).textDecorationThickness,
     (value as any).fontStyle,
     (value as any).textTransform,
+    (value as any).whiteSpace,
   ]);
 
   const [popoverOpen, setPopoverOpen] = useState(false);
@@ -1001,6 +1006,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
     if (isNaN(lines) || lines < 1) return;
     if (lines <= 1) {
       // 单行：white-space: nowrap + text-overflow: ellipsis 方案
+      setWhiteSpaceValue('nowrap');
       onChange([
         { key: 'textOverflow', value: 'ellipsis' },
         { key: 'overflow', value: 'hidden' },
@@ -1016,7 +1022,8 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
       // 使用 overflow:clip + overflow-clip-margin:content-box，
       // 裁剪边界从 border-box 收窄到 content-box，
       // 无论 padding 多大都不会有多余行"漏"到 padding 区域。
-      onChange([
+      setWhiteSpaceValue('normal');
+            onChange([
         { key: 'overflow', value: 'clip' },
         { key: 'overflowClipMargin', value: 'content-box' },
         { key: 'whiteSpace', value: 'normal' },
@@ -1028,7 +1035,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
         { key: 'maxHeight', value: null },
       ]);
     }
-  }, [onChange]);
+  }, [onChange, setWhiteSpaceValue]);
 
   const refresh = useCallback(() => {
     const items: Array<{ key: string; value: any }> = [
@@ -1643,12 +1650,29 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
               { label: <span style={{ fontWeight: 500, fontSize: 12 }}>Ag</span>, value: 'none', tip: lang.textCaseDefault },
               { label: <span style={{ fontWeight: 700, fontSize: 12 }}>AG</span>, value: 'uppercase', tip: lang.textCaseUpper },
               { label: <span style={{ fontWeight: 500, fontSize: 12 }}>ag</span>, value: 'lowercase', tip: lang.textCaseLower },
-              { label: <span style={{ fontWeight: 500, fontSize: 12, textTransform: 'capitalize' }}>ab</span>, value: 'capitalize', tip: lang.textCaseCapitalize },
+              { label: <span style={{ fontWeight: 500, fontSize: 12, textTransform: 'capitalize' }}>ag</span>, value: 'capitalize', tip: lang.textCaseCapitalize },
             ]}
             onChange={(v) => {
               const next = v as string;
               setTextTransformValue(next);
               onChange({ key: 'textTransform', value: next === 'none' ? null : next });
+            }}
+          />
+        </div>
+        <div className={css.popoverInlineRow}>
+          <div className={css.popoverLabel} style={{ marginBottom: 0 }}>{lang.textWrapLabel}</div>
+          <Toggle
+            key={`whiteSpace-${whiteSpaceValue}`}
+            defaultValue={whiteSpaceValue}
+            options={[
+              { label: <span style={{ fontWeight: 500, fontSize: 13 }}>—</span>, value: 'normal', tip: `{content:'${lang.textWrapNormal}',position:'bottom'}` },
+              { label: <span style={{ fontWeight: 500, fontSize: 11, letterSpacing: -1 }}>→</span>, value: 'nowrap', tip: `{content:'${lang.textWrapNowrap}',position:'bottom'}` },
+              { label: <span style={{ fontWeight: 500, fontSize: 11 }}>¶</span>, value: 'pre-wrap', tip: `{content:'${lang.textWrapPreWrap}',position:'bottom'}` },
+            ]}
+            onChange={(v) => {
+              const next = v as string
+              setWhiteSpaceValue(next)
+              onChange({ key: 'whiteSpace', value: next === 'normal' ? 'normal' : next })
             }}
           />
         </div>
@@ -1672,11 +1696,12 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
                 applyTruncate(truncateLines);
               } else {
                 setIsTruncated(false);
+                setWhiteSpaceValue('normal');
                 onChange([
                   { key: 'textOverflow', value: null },
                   { key: 'overflow', value: null },
                   { key: 'overflowClipMargin', value: null },
-                  { key: 'whiteSpace', value: null },
+                  { key: 'whiteSpace', value: 'normal' },
                   { key: 'WebkitLineClamp', value: null },
                   { key: 'display', value: null },
                   { key: 'WebkitBoxOrient', value: null },
