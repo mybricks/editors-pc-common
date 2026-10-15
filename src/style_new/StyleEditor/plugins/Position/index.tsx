@@ -260,7 +260,7 @@ export function Position({ value: panelValue, onChange: fallbackOnChange, showTi
             {lang.positionDefault}
           </div>
           <div
-            className={`${css.modeOption} ${isFreePosition ? css.modeOptionActive : ''}`}
+            className={`${css.modeOption} ${isFreePosition ? `${css.modeOptionActive} ${css.modeOptionWarningActive}` : ''}`}
             onClick={() => { if (!isFreePosition) handleActivate() }}
           >
             {lang.positionAbsolute}

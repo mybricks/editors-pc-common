@@ -119,10 +119,7 @@ const FONT_WEIGHT_OPTIONS = [
 const WHITE_SPACE_OPTIONS = [
   { label: "normal", value: "normal" },
   { label: "nowrap", value: "nowrap" },
-  { label: "pre", value: "pre" },
   { label: "pre-wrap", value: "pre-wrap" },
-  { label: "pre-line", value: "pre-line" },
-  { label: "break-spaces", value: "break-spaces" },
 ];
 
 const FONT_SIZE_OPTIONS = [
@@ -641,6 +638,10 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
     () => (value as any).textTransform || 'none'
   );
 
+  const [whiteSpaceValue, setWhiteSpaceValue] = useState<string>(
+    () => (value as any).whiteSpace || 'normal'
+  );
+
   useEffect(() => {
     const current = value as Record<string, any>;
     const clamp = current.webkitLineClamp ?? current.WebkitLineClamp;
@@ -661,6 +662,9 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
     setTextTransformValue(current.textTransform && !['unset', 'initial', 'inherit', 'revert'].includes(current.textTransform)
       ? current.textTransform
       : 'none');
+    setWhiteSpaceValue(current.whiteSpace && !['unset', 'initial', 'inherit', 'revert'].includes(current.whiteSpace)
+      ? current.whiteSpace
+      : 'normal');
   }, [
     (value as any).webkitLineClamp,
     (value as any).WebkitLineClamp,
@@ -671,6 +675,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
     (value as any).textDecorationThickness,
     (value as any).fontStyle,
     (value as any).textTransform,
+    (value as any).whiteSpace,
   ]);
 
   const [popoverOpen, setPopoverOpen] = useState(false);
@@ -967,6 +972,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
     if (isNaN(lines) || lines < 1) return;
     if (lines <= 1) {
       // 单行：white-space: nowrap + text-overflow: ellipsis 方案
+      setWhiteSpaceValue('nowrap');
       onChange([
         { key: 'textOverflow', value: 'ellipsis' },
         { key: 'overflow', value: 'hidden' },
@@ -982,7 +988,8 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
       // 使用 overflow:clip + overflow-clip-margin:content-box，
       // 裁剪边界从 border-box 收窄到 content-box，
       // 无论 padding 多大都不会有多余行"漏"到 padding 区域。
-      onChange([
+      setWhiteSpaceValue('normal');
+            onChange([
         { key: 'overflow', value: 'clip' },
         { key: 'overflowClipMargin', value: 'content-box' },
         { key: 'whiteSpace', value: 'normal' },
@@ -994,7 +1001,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
         { key: 'maxHeight', value: null },
       ]);
     }
-  }, [onChange]);
+  }, [onChange, setWhiteSpaceValue]);
 
   const refresh = useCallback(() => {
     const items: Array<{ key: string; value: any }> = [
@@ -1619,6 +1626,23 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
           />
         </div>
         <div className={css.popoverInlineRow}>
+          <div className={css.popoverLabel} style={{ marginBottom: 0 }}>{lang.textWrapLabel}</div>
+          <Toggle
+            key={`whiteSpace-${whiteSpaceValue}`}
+            defaultValue={whiteSpaceValue}
+            options={[
+              { label: <span style={{ fontWeight: 500, fontSize: 13 }}>—</span>, value: 'normal', tip: lang.textWrapNormal },
+              { label: <span style={{ fontWeight: 500, fontSize: 11, letterSpacing: -1 }}>→</span>, value: 'nowrap', tip: lang.textWrapNowrap },
+              { label: <span style={{ fontWeight: 500, fontSize: 11 }}>¶</span>, value: 'pre-wrap', tip: lang.textWrapPreWrap },
+            ]}
+            onChange={(v) => {
+              const next = v as string
+              setWhiteSpaceValue(next)
+              onChange({ key: 'whiteSpace', value: next === 'normal' ? 'normal' : next })
+            }}
+          />
+        </div>
+        <div className={css.popoverInlineRow}>
           <div className={css.popoverLabel} style={{ marginBottom: 0 }}>{lang.textTruncateLabel}</div>
           <Toggle
             key={`truncate-${(value as any).textOverflow || ''}-${(value as any).webkitLineClamp || ''}`}
@@ -1638,11 +1662,12 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
                 applyTruncate(truncateLines);
               } else {
                 setIsTruncated(false);
+                setWhiteSpaceValue('normal');
                 onChange([
                   { key: 'textOverflow', value: null },
                   { key: 'overflow', value: null },
                   { key: 'overflowClipMargin', value: null },
-                  { key: 'whiteSpace', value: null },
+                  { key: 'whiteSpace', value: 'normal' },
                   { key: 'WebkitLineClamp', value: null },
                   { key: 'display', value: null },
                   { key: 'WebkitBoxOrient', value: null },
