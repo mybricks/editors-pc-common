@@ -130,7 +130,6 @@ const FONT_SIZE_DEFAULT_ACTION = 'fontSizeDefault';
 const FONT_SIZE_DISABLED_LIST = ["inherit"];
 
 const LINEHEIGHT_UNIT_OPTIONS = [
-  { label: lang.lineHeightDefault, value: "default" },
   { label: lang.lineHeightMultiple, value: "" },
   { label: "px", value: "px" },
   { label: "%", value: "%" },
@@ -558,22 +557,33 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
   const [lineHeight, setLineHeight] = useState<string | number | null>(() =>
     lineHeightConfigured && isConfiguredCssLength(value.lineHeight) ? (value.lineHeight as string | number) : null
   );
+  const [lineHeightDefaultPreview, setLineHeightDefaultPreview] = useState<string>();
   const lineHeightChangedByInputRef = useRef(false);
   const [letterSpacing, setLetterSpacing] = useState<string | number | null>(() =>
     letterSpacingConfigured && isConfiguredCssLength(value.letterSpacing) ? (value.letterSpacing as string | number) : null
   );
+  const [letterSpacingDefaultPreview, setLetterSpacingDefaultPreview] = useState<string>();
 
   // Tab/元素变化以及外部样式刷新时，按逐属性生效值同步输入框。
   useEffect(() => {
     setFontSizeDefaultPreviewPx(null);
     setFontSizeDraftConfigured(false);
-    lineHeightChangedByInputRef.current = false;
     setFontSize(fontSizeConfigured && isConfiguredCssLength(value.fontSize) ? (value.fontSize as string | number) : null);
-    setLineHeight(lineHeightConfigured && isConfiguredCssLength(value.lineHeight) ? (value.lineHeight as string | number) : null);
+  }, [targetDom, fontSizeConfigured, value.fontSize]);
+
+  useEffect(() => {
+    setLetterSpacingDefaultPreview(undefined);
     setLetterSpacing(
       letterSpacingConfigured && isConfiguredCssLength(value.letterSpacing) ? (value.letterSpacing as string | number) : null
     );
-  }, [targetDom, fontSizeConfigured, lineHeightConfigured, letterSpacingConfigured, value.fontSize, value.lineHeight, value.letterSpacing]);
+  }, [targetDom, letterSpacingConfigured, value.letterSpacing]);
+
+  useEffect(() => {
+    // 行高独立同步，避免字号/字间距刷新时重新采用清除前的行高快照。
+    setLineHeightDefaultPreview(undefined);
+    lineHeightChangedByInputRef.current = false;
+    setLineHeight(lineHeightConfigured && isConfiguredCssLength(value.lineHeight) ? (value.lineHeight as string | number) : null);
+  }, [targetDom, lineHeightConfigured, value.lineHeight]);
 
   const fontSizePreview = getFontPreview('fontSize', fontSizeField.computedPreview);
   const effectiveDefaultFontSizePx = getComputedCssLengthPx(effectiveStyle?.fontSize, undefined, fontSizeField.computedPreview);
@@ -586,8 +596,8 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
     ? `${defaultFontSizePx}px`
     : fontSize;
 
-  const lineHeightPreview = getFontPreview('lineHeight', lineHeightField.computedPreview);
-  const defaultLineHeightPx = getComputedCssLengthPx(effectiveStyle?.lineHeight, undefined, lineHeightField.computedPreview);
+  const lineHeightPreview = lineHeightDefaultPreview ?? getFontPreview('lineHeight', lineHeightField.computedPreview);
+  const defaultLineHeightPx = getComputedCssLengthPx(effectiveStyle?.lineHeight, undefined, lineHeightDefaultPreview ?? lineHeightField.computedPreview);
   const lineHeightUnconfigured = !isConfiguredCssLength(lineHeight);
   const lineHeightPreviewValue = lineHeightPreview ?? (lineHeightUnconfigured && Number.isFinite(defaultLineHeightPx)
     ? `${defaultLineHeightPx}px`
@@ -595,13 +605,14 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
   const lineHeightDisplayValue = lineHeightUnconfigured ? null : lineHeight;
 
   // 常规态和伪类态共用只读预览格式化；px/normal 沿用数值展示，其他单位和变量保留原样。
-  const letterSpacingPreviewSource = getFontPreview('letterSpacing', letterSpacingField.computedPreview)
+  const letterSpacingPreviewSource = letterSpacingDefaultPreview
+    ?? getFontPreview('letterSpacing', letterSpacingField.computedPreview)
     ?? effectiveStyle?.letterSpacing?.computedValue;
   const letterSpacingPreviewPx = getComputedCssLengthPx(undefined, 0, letterSpacingPreviewSource);
   const letterSpacingPreview = Number.isFinite(letterSpacingPreviewPx)
     ? `${letterSpacingPreviewPx}px`
     : letterSpacingPreviewSource;
-  const defaultLetterSpacingPx = getComputedCssLengthPx(effectiveStyle?.letterSpacing, 0, letterSpacingField.computedPreview);
+  const defaultLetterSpacingPx = getComputedCssLengthPx(effectiveStyle?.letterSpacing, 0, letterSpacingDefaultPreview ?? letterSpacingField.computedPreview);
   const letterSpacingUnconfigured = !isConfiguredCssLength(letterSpacing);
 
   const [truncateLines, setTruncateLines] = useState<number>(() => {
@@ -829,10 +840,21 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
         setLineHeight(value);
       }
       if (res.length > 0) {
-        onChange(res);
+        const result = onChange(res);
+        if (value == null) {
+          if (result?.clearUnsupported && !result.clearApplied) {
+            setLineHeight(lineHeight);
+            return;
+          }
+          // 外部 effectiveStyle 可能仍是清除前的快照，默认预览需读取清除后的计算值。
+          const preview = context?.getStylePreview?.('lineHeight', true)?.trim();
+          setLineHeightDefaultPreview(preview || undefined);
+        } else {
+          setLineHeightDefaultPreview(undefined);
+        }
       }
     },
-    [lineHeight, fontSize, fontSizeVar.resolvedNumber, defaultFontSizePx, defaultLineHeightPx, onChange]
+    [lineHeight, fontSize, fontSizeVar.resolvedNumber, defaultFontSizePx, defaultLineHeightPx, onChange, context?.getStylePreview]
   );
 
   const fontSizePresetItems = useMemo(
@@ -874,10 +896,18 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
 
   const onLetterSpacingChange = useCallback(
     (value: string | number | null) => {
+      const result = onChange({ key: "letterSpacing", value });
+      if (value == null) {
+        if (result?.clearUnsupported && !result.clearApplied) return;
+        // 与行高一致，清除后读最新计算值；normal 由预览格式化为 0px。
+        const preview = context?.getStylePreview?.('letterSpacing', true)?.trim();
+        setLetterSpacingDefaultPreview(preview || undefined);
+      } else {
+        setLetterSpacingDefaultPreview(undefined);
+      }
       setLetterSpacing(value);
-      onChange({ key: "letterSpacing", value });
     },
-    [onChange]
+    [onChange, context?.getStylePreview]
   );
 
   // 仅只读预览值需要直接提交；已有配置继续由 InputNumber 的 blur 路径处理。
@@ -913,7 +943,11 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
 
   /** 行高、字间距的单位菜单末尾统一挂「应用变量...」 */
   const lineHeightUnitOptions = useMemo(() => [
-    ...LINEHEIGHT_UNIT_OPTIONS.filter((option) => !lineHeightUnconfigured || option.value !== 'default'),
+    ...(!lineHeightUnconfigured ? [
+      { label: lang.lineHeightDefault, value: 'default' },
+      { label: '', value: '__lineHeightDefaultDivider__', type: 'divider' as const },
+    ] : []),
+    ...LINEHEIGHT_UNIT_OPTIONS,
     { label: '', value: '__variableDivider__', type: 'divider' as const },
     getApplyVariableOption(lineHeightVar.hasVariables),
   ], [lineHeightUnconfigured, lineHeightVar.hasVariables]);
