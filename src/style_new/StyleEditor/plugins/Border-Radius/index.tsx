@@ -13,7 +13,7 @@ import {
   APPLY_VARIABLE_ACTION,
 } from '../../components'
 import { allEqual } from '../../utils'
-import { useDragNumber, useLengthInputDrag, useLengthVarBinding } from '../../hooks'
+import { useDragNumber, useLengthInputDrag, useLengthVarBinding, isCssVarValue } from '../../hooks'
 import { useStyleDisplayValue } from '../../hooks/useStyleDisplayValue'
 import { expandFourShorthand } from '../../../core/shorthand-normalizer'
 import type { ChangeEvent, PanelBaseProps } from '../../type'
@@ -29,7 +29,7 @@ const UNIT_OPTIONS = [
   { label: 'px', value: 'px' },
   { label: '%', value: '%' },
 ]
-const DEFAULT_UNIT_OPTION = { label: lang.defaultLabel, value: 'default' }
+const DEFAULT_UNIT_OPTION = { get label() { return lang.defaultLabel }, value: 'default' }
 const DEFAULT_UNIT_DIVIDER = { label: '', value: '__borderRadiusDefaultDivider__', type: 'divider' as const }
 const UNIT_DISABLED_LIST = ['default']
 const DEFAULT_STYLE = { padding: 0, fontSize: 10, minWidth: 71, marginLeft: 4 }
@@ -105,21 +105,35 @@ export function BorderRadius({ value, onChange: fallbackOnChange, config, collap
   for (const key of ['borderRadius', ...RADIUS_KEYS]) {
     const source = context?.effectiveStyle?.[key]
     const winner = context?.getStyleProperty?.(key).winner
-    const raw = source && source.type !== 'computed'
-      ? source.value
-      : context?.getStyleProperty
-        ? (winner?.currentState ? winner.value : undefined)
-        : context?.effectiveStyle
-        ? (source?.type !== 'computed' ? source?.value : undefined)
-        : context?.authoredStyle ? context.authoredStyle[key] : value?.[key]
+    let raw: unknown
+    if (context?.getStyleProperty) {
+      raw = winner?.currentState ? winner.value : undefined
+    } else if (source && source.type !== 'computed') {
+      raw = source.value
+    } else if (context?.effectiveStyle) {
+      raw = source?.type !== 'computed' ? source?.value : undefined
+    } else {
+      raw = context?.authoredStyle ? context.authoredStyle[key] : value?.[key]
+    }
     if (raw != null && String(raw).trim() !== '' && !/^unset(?:\s*!important)?$/i.test(String(raw).trim())) {
       configuredValue[key] = raw
     }
   }
   const editorValue = expandBorderRadiusShorthand(configuredValue)
-  for (const key of RADIUS_KEYS) {
-    // 单角的 unset/未配置优先于简写展开，不能被 borderRadius 再填回旧值。
-    if (context?.getStyleProperty || context?.effectiveStyle?.[key]) editorValue[key] = configuredValue[key]
+  const shorthandWinner = context?.getStyleProperty?.('borderRadius').winner
+  const shorthandCorners = shorthandWinner?.currentState && isCssVarValue(shorthandWinner.value)
+    ? expandFourShorthand(shorthandWinner.value)
+    : null
+  for (const [index, key] of RADIUS_KEYS.entries()) {
+    // 有单角配置时保留单角值；只有简写变量没有展开出单角时才补回变量。
+    if (context?.getStyleProperty || context?.effectiveStyle?.[key]) {
+      const cornerWinner = context?.getStyleProperty?.(key).winner
+      const source = context?.effectiveStyle?.[key]
+      const shorthandCorner = shorthandCorners?.[index]
+      const missingVariableCorner = shorthandCorner && !cornerWinner &&
+        (!source || (source.type === 'computed' && source.value === shorthandCorner))
+      editorValue[key] = missingVariableCorner ? shorthandCorner : configuredValue[key]
+    }
   }
   delete editorValue.borderRadius
   const modeValue = Object.keys(configuredValue).length === 0 && allCornersAvailable
@@ -128,10 +142,15 @@ export function BorderRadius({ value, onChange: fallbackOnChange, config, collap
   const [{ useImportant, disableBorderRadius }] = useState({ useImportant: false, disableBorderRadius: false, ...config })
   const [{ radiusToggleValue }, setToggleValue] = useState(getToggleDefaultValue(modeValue))
   const [radiusValue, setRadiusValue] = useState(() => expandBorderRadiusShorthand(editorValue))
+  const [emptyAfterClear, setEmptyAfterClear] = useState(false)
   const radiusValueRef = useRef(radiusValue)
   const getConfiguredDragProps = useDragNumber({ continuous: true })
   const allRadiusClear = useStyleClear(RADIUS_KEYS)
-  const canReset = !disableBorderRadius && !!allRadiusClear.clear
+  const shorthandRadiusClear = useStyleClear('borderRadius', { mode: 'remove-declaration', fallbackOnChange })
+  const clearRadius = allRadiusClear.clear ?? (shorthandWinner?.currentState && isCssVarValue(shorthandWinner.value)
+    ? shorthandRadiusClear.clear
+    : undefined)
+  const canReset = !disableBorderRadius && !!clearRadius
   const topLeftClear = useStyleClear('borderTopLeftRadius')
   const topRightClear = useStyleClear('borderTopRightRadius')
   const bottomRightClear = useStyleClear('borderBottomRightRadius')
@@ -144,7 +163,12 @@ export function BorderRadius({ value, onChange: fallbackOnChange, config, collap
   }
 
   useLayoutEffect(() => {
+    setEmptyAfterClear(false)
+  }, [context?.targetDom])
+
+  useLayoutEffect(() => {
     const next = expandBorderRadiusShorthand(editorValue)
+    if (RADIUS_KEYS.some(key => next[key] != null && next[key] !== '')) setEmptyAfterClear(false)
     radiusValueRef.current = next
     setRadiusValue(previous => RADIUS_KEYS.every(key => previous[key] === next[key]) ? previous : next)
     const nextToggle = getToggleDefaultValue(modeValue).radiusToggleValue
@@ -162,15 +186,23 @@ export function BorderRadius({ value, onChange: fallbackOnChange, config, collap
     if (!hasClear && complete) {
       keys = RADIUS_KEYS
     }
-    const result = onChange(keys.map(key => ({
-      key,
-      value: next[key] == null ? null : `${next[key]}${useImportant ? '!important' : ''}`,
-      borderMode,
-    })))
+    const result = onChange(keys.map(key => {
+      let value: string | null
+      if (next[key] != null) {
+        value = `${next[key]}${useImportant ? '!important' : ''}`
+      } else if (borderMode === 'split' && shorthandWinner?.currentState && isCssVarValue(shorthandWinner.value)) {
+        // 删除单角声明会露出变量简写；unset 只屏蔽当前角，保留其他角。
+        value = `unset${shorthandWinner.important ? '!important' : ''}`
+      } else {
+        value = null
+      }
+      return { key, value, borderMode }
+    }))
     if (result?.clearUnsupported || (result && !result.applied)) return
     radiusValueRef.current = next
     setRadiusValue(next)
-  }, [onChange, radiusToggleValue, useImportant])
+    setEmptyAfterClear(hasClear && RADIUS_KEYS.every(key => next[key] == null || next[key] === ''))
+  }, [onChange, radiusToggleValue, useImportant, shorthandWinner])
 
   const commitUnifiedDrag = (next: string) => handleChange(Object.fromEntries(
     RADIUS_KEYS.map(key => [key, next])
@@ -199,12 +231,26 @@ export function BorderRadius({ value, onChange: fallbackOnChange, config, collap
   const unitOptions = useMemo(() => withApplyVariableOption(UNIT_OPTIONS, radiusAllVar.hasVariables), [radiusAllVar.hasVariables])
 
   const handleReset = useCallback(() => {
-    const result = allRadiusClear.clear?.()
+    const result = clearRadius?.()
     if (result && (result.clearUnsupported || !result.applied)) return
     radiusValueRef.current = {}
     setRadiusValue({})
+    setEmptyAfterClear(false)
     setToggleValue({ radiusToggleValue: 'all' })
-  }, [allRadiusClear.clear])
+  }, [clearRadius])
+
+  const handleExpand = useCallback(() => {
+    const winners = RADIUS_KEYS.map(key => context?.getStyleProperty?.(key).winner)
+      .filter(winner => winner?.currentState)
+    const target = winners.length && winners.every(winner => winner!.inline) ? undefined : 'current-rule'
+    const result = onChange({ key: 'borderRadius', value: '0px', target, borderMode: 'all' })
+    if (result?.clearUnsupported || (result && !result.applied)) return
+    const next = Object.fromEntries(RADIUS_KEYS.map(key => [key, '0px']))
+    radiusValueRef.current = next
+    setRadiusValue(next)
+    setEmptyAfterClear(false)
+    setToggleValue({ radiusToggleValue: 'all' })
+  }, [onChange, context?.getStyleProperty])
 
   const handleSwitchToUnified = useCallback(() => {
     let configuredValue = radiusValueRef.current
@@ -259,7 +305,7 @@ export function BorderRadius({ value, onChange: fallbackOnChange, config, collap
           unitOptions: withDefaultUnitOption(unitOptions, !!fieldClear[key].clear),
           unitDisabledList: UNIT_DISABLED_LIST,
           clearable: !!fieldClear[key].clear,
-          onClear: () => fieldClear[key].clear?.(),
+          onClear: () => handleChange({ [key]: null }, 'split'),
           showIcon: true,
           showIconOnHover: true,
           onChange: next => handleChange({ [key]: next === 'default' ? null : next }, 'split'),
@@ -291,11 +337,11 @@ export function BorderRadius({ value, onChange: fallbackOnChange, config, collap
               unitOptions: withDefaultUnitOption(unitOptions, !!allRadiusClear.clear),
               unitDisabledList: UNIT_DISABLED_LIST,
               clearable: !!allRadiusClear.clear,
-              onClear: () => allRadiusClear.clear?.(),
+              onClear: handleReset,
               showIcon: true, showIconOnHover: true,
               onChange: next => {
                 if (next === 'default') {
-                  allRadiusClear.clear?.()
+                  handleReset()
                   return
                 }
                 handleChange({ borderTopLeftRadius: next, borderTopRightRadius: next, borderBottomRightRadius: next, borderBottomLeftRadius: next }, 'all')
@@ -332,8 +378,9 @@ export function BorderRadius({ value, onChange: fallbackOnChange, config, collap
       showTitle={true}
       collapse={collapse}
       showReset={canReset}
-      showDelete={canReset}
+      showDelete={canReset || (!disableBorderRadius && emptyAfterClear)}
       resetFunction={handleReset}
+      onExpand={handleExpand}
     >
       <div className={css.content}>
         <div className={css.values}>{content}</div>

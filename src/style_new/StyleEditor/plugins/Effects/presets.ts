@@ -12,12 +12,14 @@ interface ShadowPreset {
   color: string
 }
 
-export const SHADOW_PRESETS: ShadowPreset[] = [
-  { id: 'subtle', label: lang.shadowPresetSubtle, offsetY: '1px', blurRadius: '2px', color: 'rgba(0, 0, 0, 0.08)' },
-  { id: 'soft', label: lang.shadowPresetSoft, offsetY: '2px', blurRadius: '6px', color: 'rgba(0, 0, 0, 0.12)' },
-  { id: 'floating', label: lang.shadowPresetFloating, offsetY: '4px', blurRadius: '12px', color: 'rgba(0, 0, 0, 0.16)' },
-  { id: 'strong', label: lang.shadowPresetStrong, offsetY: '8px', blurRadius: '24px', color: 'rgba(0, 0, 0, 0.20)' },
-]
+export function getShadowPresets(): ShadowPreset[] {
+  return [
+    { id: 'subtle', label: lang.shadowPresetSubtle, offsetY: '1px', blurRadius: '2px', color: 'rgba(0, 0, 0, 0.08)' },
+    { id: 'soft', label: lang.shadowPresetSoft, offsetY: '2px', blurRadius: '6px', color: 'rgba(0, 0, 0, 0.12)' },
+    { id: 'floating', label: lang.shadowPresetFloating, offsetY: '4px', blurRadius: '12px', color: 'rgba(0, 0, 0, 0.16)' },
+    { id: 'strong', label: lang.shadowPresetStrong, offsetY: '8px', blurRadius: '24px', color: 'rgba(0, 0, 0, 0.20)' },
+  ]
+}
 
 /** 只生成当前层的参数补丁，保留 id、类型和排序。 */
 export function getPresetPatch(preset: ShadowPreset, type: ShadowEffectType) {
@@ -48,7 +50,7 @@ export function findMatchingPreset(layer: EffectLayer): ShadowPreset | undefined
     const color = new ColorUtil(layer.color.trim()).hexa()
     const offsetY = readPixels(layer.offsetY)
     const blurRadius = readPixels(layer.blurRadius)
-    return SHADOW_PRESETS.find((preset) =>
+    return getShadowPresets().find((preset) =>
       offsetY === readPixels(preset.offsetY) &&
       blurRadius === readPixels(preset.blurRadius) &&
       color === new ColorUtil(preset.color).hexa()

@@ -6,6 +6,8 @@ import {
   BOX_SPACING_KEYS, createSpacingWritePlans, getUnifiedSpacingValue, normalizeBoxSpacingChange, readBoxSpacingValue,
 } from '../../core/box-spacing'
 import type { BoxSpacingProperty } from '../../core/box-spacing'
+import { expandFourShorthand } from '../../core/shorthand-normalizer'
+import { isCssVarValue } from './useLengthVarBinding'
 
 type Options = {
   property: BoxSpacingProperty
@@ -22,6 +24,19 @@ export function useBoxSpacingEditor({ property, value, onChange: fallbackOnChang
   const groupClear = useStyleClear(keys)
   const externalValue = context?.effectiveStyle ? effectiveValue : value
   const incoming = readBoxSpacingValue(property, externalValue, context?.effectiveStyle)
+  // 简写里的变量需要补到四边，输入框才能显示变量胶囊。
+  const shorthandWinner = context?.getStyleProperty?.(property).winner
+  const shorthandSides = shorthandWinner?.currentState && isCssVarValue(shorthandWinner.value)
+    ? expandFourShorthand(shorthandWinner.value)
+    : null
+  shorthandSides?.forEach((side, index) => {
+    const key = keys[index]
+    const source = context?.effectiveStyle?.[key]
+    if (incoming[key] == null && !context?.getStyleProperty?.(key).winner &&
+      (!source || (source.type === 'computed' && source.value === side))) {
+      incoming[key] = side
+    }
+  })
   const editorOptions = context?.editConfig.options
   if (editorOptions && 'zoneTab' in editorOptions && editorOptions.zoneTab?.pseudo) {
     // 状态写入的即时回显会保留简写压缩后的 0；输入框以 default 为兜底单位，

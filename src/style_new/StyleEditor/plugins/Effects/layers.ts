@@ -50,12 +50,14 @@ export type ParseEffectsOptions = {
   classifyColorToken?: (token: string) => boolean | undefined
 }
 
-export const EFFECT_TYPE_LABELS: Record<EffectType, string> = {
-  dropShadow: lang.dropShadowLabel,
-  innerShadow: lang.innerShadowLabel,
-  textShadow: lang.textShadowLabel,
-  layerBlur: lang.layerBlurLabel,
-  backgroundBlur: lang.backgroundBlurLabel,
+export function getEffectTypeLabels(): Record<EffectType, string> {
+  return {
+    dropShadow: lang.dropShadowLabel,
+    innerShadow: lang.innerShadowLabel,
+    textShadow: lang.textShadowLabel,
+    layerBlur: lang.layerBlurLabel,
+    backgroundBlur: lang.backgroundBlurLabel,
+  }
 }
 
 const DEFAULT_SHADOW_COLOR = 'rgba(0, 0, 0, 0.25)'

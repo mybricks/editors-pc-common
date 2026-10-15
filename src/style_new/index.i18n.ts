@@ -1,990 +1,990 @@
 import { i18n } from "./core/i18n";
 
-export default {
+export default i18n({
   // ZoneTabBar
-  commonTab: i18n({
+  commonTab: {
     zh: '常规',
     en: 'Regular',
-  }),
+  },
 
   // CssEditor
-  cssEditorTitle: i18n({
+  cssEditorTitle: {
     zh: 'CSS样式编辑',
     en: 'CSS Editor',
-  }),
-  zoomIn: i18n({
+  },
+  zoomIn: {
     zh: '放大',
     en: 'Zoom in',
-  }),
+  },
 
   // ColorEditor
-  inheritFallback: i18n({
+  inheritFallback: {
     zh: '继承',
     en: 'Inherit',
-  }),
-  noColorConfigured: i18n({
+  },
+  noColorConfigured: {
     zh: '未配置颜色',
     en: 'No color set',
-  }),
-  colorInputTip: i18n({
+  },
+  colorInputTip: {
     zh: '支持16进制、RGB、RGBA、HSL、HSLA、var()或颜色名称',
     en: 'Supports hex, RGB, RGBA, HSL, HSLA, var(), or a color name',
-  }),
-  gradientColorText: i18n({
+  },
+  gradientColorText: {
     zh: '渐变色',
     en: 'Gradient',
-  }),
-  backgroundImageText: i18n({
+  },
+  backgroundImageText: {
     zh: '背景图',
     en: 'Image',
-  }),
-  unbind: i18n({
+  },
+  unbind: {
     zh: '解除绑定',
     en: 'Unbind',
-  }),
-  colorVariable: i18n({
+  },
+  colorVariable: {
     zh: '@颜色变量',
     en: '@Color variable',
-  }),
+  },
 
   // Colorpicker
-  close: i18n({
+  close: {
     zh: '关闭',
     en: 'Close',
-  }),
-  fillTab: i18n({
+  },
+  fillTab: {
     zh: '填充',
     en: 'Solid',
-  }),
-  gradientTab: i18n({
+  },
+  gradientTab: {
     zh: '渐变',
     en: 'Gradient',
-  }),
-  imageTab: i18n({
+  },
+  imageTab: {
     zh: '图片',
     en: 'Image',
-  }),
-  variableTab: i18n({
+  },
+  variableTab: {
     zh: '变量',
     en: 'Variable',
-  }),
-  noColorVariables: i18n({
+  },
+  noColorVariables: {
     zh: '当前画布没有可用的颜色变量',
     en: 'No color variables available on this canvas',
-  }),
+  },
 
   // DropDown (font)
-  removeFontTip: i18n({
+  removeFontTip: {
     zh: '移除该字体',
     en: 'Remove font',
-  }),
-  dragReorderTip: i18n({
+  },
+  dragReorderTip: {
     zh: '拖拽调整顺序',
     en: 'Drag to reorder',
-  }),
-  selectedFonts: i18n({
+  },
+  selectedFonts: {
     zh: '已选字体',
     en: 'Selected fonts',
-  }),
-  fontPriorityTip: i18n({
+  },
+  fontPriorityTip: {
     zh: '字体优先级从上到下递减',
     en: 'Font priority decreases from top to bottom',
-  }),
-  moreFonts: i18n({
+  },
+  moreFonts: {
     zh: '更多字体',
     en: 'More fonts',
-  }),
+  },
 
   // GradientEditor
-  linearGradient: i18n({
+  linearGradient: {
     zh: '线性',
     en: 'Linear',
-  }),
-  radialGradient: i18n({
+  },
+  radialGradient: {
     zh: '径向',
     en: 'Radial',
-  }),
-  ellipseShape: i18n({
+  },
+  ellipseShape: {
     zh: '椭圆',
     en: 'Ellipse',
-  }),
-  circleShape: i18n({
+  },
+  circleShape: {
     zh: '圆形',
     en: 'Circle',
-  }),
+  },
 
   // GradientEditor
-  gradientTypeTip: i18n({
+  gradientTypeTip: {
     zh: '渐变类型',
     en: 'Gradient type',
-  }),
-  gradientAngleTip: i18n({
+  },
+  gradientAngleTip: {
     zh: '渐变线方向角度',
     en: 'Gradient angle',
-  }),
-  anglePrefixTip: i18n({
+  },
+  anglePrefixTip: {
     zh: '角度',
     en: 'Angle',
-  }),
-  radialShapeTip: i18n({
+  },
+  radialShapeTip: {
     zh: '辐射形状',
     en: 'Radial shape',
-  }),
-  stopPositionTip: i18n({
+  },
+  stopPositionTip: {
     zh: '停靠位置',
     en: 'Stop position',
-  }),
+  },
 
   // Gradient component
-  gradientColorTip: i18n({
+  gradientColorTip: {
     zh: '渐变颜色',
     en: 'Gradient color',
-  }),
-  resetTip: i18n({
+  },
+  resetTip: {
     zh: '重置',
     en: 'Reset',
-  }),
-  gradientTypeSuffix: i18n({
+  },
+  gradientTypeSuffix: {
     zh: '颜色渐变',
     en: 'gradient',
-  }),
+  },
 
   // ImagePanel
-  imageUrlLabel: i18n({
+  imageUrlLabel: {
     zh: '图片链接',
     en: 'Image url',
-  }),
-  imageSizeLabel: i18n({
+  },
+  imageSizeLabel: {
     zh: '大小',
     en: 'Size',
-  }),
-  imageRepeatLabel: i18n({
+  },
+  imageRepeatLabel: {
     zh: '平铺',
     en: 'Repeat',
-  }),
-  imagePositionLabel: i18n({
+  },
+  imagePositionLabel: {
     zh: '位置',
     en: 'Position',
-  }),
-  imageAlt: i18n({
+  },
+  imageAlt: {
     zh: '图片',
     en: 'Image',
-  }),
-  imageAltBg: i18n({
+  },
+  imageAltBg: {
     zh: '背景图片',
     en: 'Background image',
-  }),
-  clickToUpload: i18n({
+  },
+  clickToUpload: {
     zh: '点击上传',
     en: 'Click to upload',
-  }),
+  },
 
   // Image size options
-  imgSizeCover: i18n({
+  imgSizeCover: {
     zh: '填充（无留白）',
     en: 'Cover (no whitespace)',
-  }),
-  imgSizeContain: i18n({
+  },
+  imgSizeContain: {
     zh: '适应（有留白）',
     en: 'Contain (with whitespace)',
-  }),
-  imgSizeStretch: i18n({
+  },
+  imgSizeStretch: {
     zh: '拉伸',
     en: 'Stretch',
-  }),
-  imgSizeOriginal: i18n({
+  },
+  imgSizeOriginal: {
     zh: '原始大小',
     en: 'Original size',
-  }),
-  imgSizeDefault: i18n({
+  },
+  imgSizeDefault: {
     zh: '默认',
     en: 'Default',
-  }),
-  imgSizeFit: i18n({
+  },
+  imgSizeFit: {
     zh: '适应',
     en: 'Contain',
-  }),
-  imgSizeFill: i18n({
+  },
+  imgSizeFill: {
     zh: '填充',
     en: 'Cover',
-  }),
-  imgSizeTile: i18n({
+  },
+  imgSizeTile: {
     zh: '铺满',
     en: 'Fill',
-  }),
-  imgSizeTileX: i18n({
+  },
+  imgSizeTileX: {
     zh: '铺满x轴',
     en: 'Fill X-axis',
-  }),
-  imgSizeTileY: i18n({
+  },
+  imgSizeTileY: {
     zh: '铺满y轴',
     en: 'Fill Y-axis',
-  }),
+  },
 
   // Image repeat options
-  imgRepeatOn: i18n({
+  imgRepeatOn: {
     zh: '平铺',
     en: 'Repeat',
-  }),
-  imgRepeatOff: i18n({
+  },
+  imgRepeatOff: {
     zh: '不平铺',
     en: 'No repeat',
-  }),
+  },
 
   // Image position options
-  imgPosTop: i18n({
+  imgPosTop: {
     zh: '居上',
     en: 'Top',
-  }),
-  imgPosCenter: i18n({
+  },
+  imgPosCenter: {
     zh: '居中',
     en: 'Center',
-  }),
-  imgPosBottom: i18n({
+  },
+  imgPosBottom: {
     zh: '居下',
     en: 'Bottom',
-  }),
-  imgPosLeft: i18n({
+  },
+  imgPosLeft: {
     zh: '居左',
     en: 'Left',
-  }),
-  imgPosRight: i18n({
+  },
+  imgPosRight: {
     zh: '居右',
     en: 'Right',
-  }),
-  imgPosTopLeft: i18n({
+  },
+  imgPosTopLeft: {
     zh: '左上',
     en: 'Top left',
-  }),
-  imgPosBottomLeft: i18n({
+  },
+  imgPosBottomLeft: {
     zh: '左下',
     en: 'Bottom left',
-  }),
-  imgPosTopRight: i18n({
+  },
+  imgPosTopRight: {
     zh: '右上',
     en: 'Top right',
-  }),
-  imgPosBottomRight: i18n({
+  },
+  imgPosBottomRight: {
     zh: '右下',
     en: 'Bottom right',
-  }),
+  },
 
   // ClearButton
-  clearLabel: i18n({
+  clearLabel: {
     zh: '清空',
     en: 'Clear',
-  }),
+  },
 
   // InputNumber
-  defaultLabel: i18n({
+  defaultLabel: {
     zh: '默认',
     en: 'Default',
-  }),
-  settingsTip: i18n({
+  },
+  settingsTip: {
     zh: '设置',
     en: 'Settings',
-  }),
-  unitTip: i18n({
+  },
+  unitTip: {
     zh: '单位',
     en: 'Unit',
-  }),
+  },
 
   // Popup
-  cancelBtn: i18n({
+  cancelBtn: {
     zh: '取消',
     en: 'Cancel',
-  }),
-  confirmBtn: i18n({
+  },
+  confirmBtn: {
     zh: '确定',
     en: 'OK',
-  }),
+  },
 
   // Slider / VariableNumberInput / VariableChip
-  applyVariableTip: i18n({
+  applyVariableTip: {
     zh: '应用变量...',
     en: 'Apply variable...',
-  }),
-  variablePrefix: i18n({
+  },
+  variablePrefix: {
     zh: '变量：',
     en: 'Variable: ',
-  }),
-  replaceVariable: i18n({
+  },
+  replaceVariable: {
     zh: '替换变量...',
     en: 'Replace variable...',
-  }),
-  fixedValuePrefix: i18n({
+  },
+  fixedValuePrefix: {
     zh: '固定值',
     en: 'Fixed value',
-  }),
+  },
 
   // VariableList
-  searchPlaceholder: i18n({
+  searchPlaceholder: {
     zh: '搜索',
     en: 'Search',
-  }),
-  noVariables: i18n({
+  },
+  noVariables: {
     zh: '当前画布没有可用变量',
     en: 'No variables available on this canvas',
-  }),
-  noSizeVariables: i18n({
+  },
+  noSizeVariables: {
     zh: '当前画布没有可用的尺寸变量',
     en: 'No size variables available on this canvas',
-  }),
-  noOpacityVariables: i18n({
+  },
+  noOpacityVariables: {
     zh: '当前画布没有可用的不透明度变量',
     en: 'No opacity variables available on this canvas',
-  }),
+  },
 
   // Appearance
-  opacityPanelTitle: i18n({
+  opacityPanelTitle: {
     zh: '不透明度',
     en: 'Opacity',
-  }),
-  dragOpacity: i18n({
+  },
+  dragOpacity: {
     zh: '拖拽调整不透明度',
     en: 'Drag to adjust opacity',
-  }),
-  dragOpacityUnbind: i18n({
+  },
+  dragOpacityUnbind: {
     zh: '拖拽调整不透明度（将解除变量绑定）',
     en: 'Drag to adjust opacity (variable will be unbound)',
-  }),
-  fixedValueOpacity: i18n({
+  },
+  fixedValueOpacity: {
     zh: '固定值',
     en: 'Fixed value',
-  }),
+  },
 
   // Background
-  imageLayerLabel: i18n({
+  imageLayerLabel: {
     zh: '图片',
     en: 'Image',
-  }),
-  gradientLayerLabel: i18n({
+  },
+  gradientLayerLabel: {
     zh: '渐变',
     en: 'Gradient',
-  }),
-  solidLayerLabel: i18n({
+  },
+  solidLayerLabel: {
     zh: '纯色',
     en: 'Solid color',
-  }),
-  fillPanelTitle: i18n({
+  },
+  fillPanelTitle: {
     zh: '填充',
     en: 'Fill',
-  }),
-  dragOpacityShort: i18n({
+  },
+  dragOpacityShort: {
     zh: '拖拽调整不透明度',
     en: 'Drag to adjust opacity',
-  }),
+  },
 
   // Border
-  noBorder: i18n({
+  noBorder: {
     zh: '无',
     en: 'None',
-  }),
-  solidLine: i18n({
+  },
+  solidLine: {
     zh: '实线',
     en: 'Solid',
-  }),
-  dashedLine: i18n({
+  },
+  dashedLine: {
     zh: '虚线',
     en: 'Dashed',
-  }),
-  borderOutside: i18n({
+  },
+  borderOutside: {
     zh: '外部',
     en: 'Outside',
-  }),
-  borderCenter: i18n({
+  },
+  borderCenter: {
     zh: '居中',
     en: 'Center',
-  }),
-  borderInside: i18n({
+  },
+  borderInside: {
     zh: '内部',
     en: 'Inside',
-  }),
-  defaultOption: i18n({
+  },
+  defaultOption: {
     zh: '默认',
     en: 'Default',
-  }),
-  lineStyleTip: i18n({
+  },
+  lineStyleTip: {
     zh: '线条样式',
     en: 'Border style',
-  }),
-  borderWidthTip: i18n({
+  },
+  borderWidthTip: {
     zh: '边框宽度',
     en: 'Border width',
-  }),
-  leftBorderWidthTip: i18n({
+  },
+  leftBorderWidthTip: {
     zh: '左边框宽度',
     en: 'Left border width',
-  }),
-  topBorderWidthTip: i18n({
+  },
+  topBorderWidthTip: {
     zh: '上边框宽度',
     en: 'Top border width',
-  }),
-  rightBorderWidthTip: i18n({
+  },
+  rightBorderWidthTip: {
     zh: '右边框宽度',
     en: 'Right border width',
-  }),
-  bottomBorderWidthTip: i18n({
+  },
+  bottomBorderWidthTip: {
     zh: '下边框宽度',
     en: 'Bottom border width',
-  }),
-  dragBorderWidthTip: i18n({
+  },
+  dragBorderWidthTip: {
     zh: '拖拽调整边框宽度',
     en: 'Drag to adjust border width',
-  }),
-  dragLeftBorderWidthTip: i18n({
+  },
+  dragLeftBorderWidthTip: {
     zh: '拖拽调整左边框宽度',
     en: 'Drag to adjust left border width',
-  }),
-  dragTopBorderWidthTip: i18n({
+  },
+  dragTopBorderWidthTip: {
     zh: '拖拽调整上边框宽度',
     en: 'Drag to adjust top border width',
-  }),
-  dragRightBorderWidthTip: i18n({
+  },
+  dragRightBorderWidthTip: {
     zh: '拖拽调整右边框宽度',
     en: 'Drag to adjust right border width',
-  }),
-  dragBottomBorderWidthTip: i18n({
+  },
+  dragBottomBorderWidthTip: {
     zh: '拖拽调整下边框宽度',
     en: 'Drag to adjust bottom border width',
-  }),
-  borderPositionTitle: i18n({
+  },
+  borderPositionTitle: {
     zh: '边框位置',
     en: 'Border position',
-  }),
-  borderPositionLabel: i18n({
+  },
+  borderPositionLabel: {
     zh: '位置',
     en: 'Position',
-  }),
-  borderPositionTip: i18n({
+  },
+  borderPositionTip: {
     zh: '边框位置设置',
     en: 'Border position',
-  }),
-  borderPanelTitle: i18n({
+  },
+  borderPanelTitle: {
     zh: '边框',
     en: 'Border',
-  }),
-  deleteBorderTip: i18n({
+  },
+  deleteBorderTip: {
     zh: '删除边框',
     en: 'Remove border',
-  }),
-  toggleSplitTip: i18n({
+  },
+  toggleSplitTip: {
     zh: '切换为单独配置',
     en: 'Switch to individual sides',
-  }),
-  toggleUnifiedTip: i18n({
+  },
+  toggleUnifiedTip: {
     zh: '切换为统一配置',
     en: 'Switch to unified',
-  }),
-  computedValueTip: i18n({
+  },
+  computedValueTip: {
     zh: '当前未配置，为计算值',
     en: 'Not configured, showing computed value',
-  }),
+  },
 
   // Border-Radius
-  radiusPanelTitle: i18n({
+  radiusPanelTitle: {
     zh: '圆角',
     en: 'Corner Radius',
-  }),
-  radiusTip: i18n({
+  },
+  radiusTip: {
     zh: '圆角半径',
     en: 'Border radius',
-  }),
-  topLeftRadiusTip: i18n({
+  },
+  topLeftRadiusTip: {
     zh: '左上角半径',
     en: 'Top-left radius',
-  }),
-  topRightRadiusTip: i18n({
+  },
+  topRightRadiusTip: {
     zh: '右上角半径',
     en: 'Top-right radius',
-  }),
-  bottomRightRadiusTip: i18n({
+  },
+  bottomRightRadiusTip: {
     zh: '右下角半径',
     en: 'Bottom-right radius',
-  }),
-  bottomLeftRadiusTip: i18n({
+  },
+  bottomLeftRadiusTip: {
     zh: '左下角半径',
     en: 'Bottom-left radius',
-  }),
-  topLeftRadiusLabel: i18n({
+  },
+  topLeftRadiusLabel: {
     zh: '左上圆角',
     en: 'Top-left',
-  }),
-  topRightRadiusLabel: i18n({
+  },
+  topRightRadiusLabel: {
     zh: '右上圆角',
     en: 'Top-right',
-  }),
-  bottomLeftRadiusLabel: i18n({
+  },
+  bottomLeftRadiusLabel: {
     zh: '左下圆角',
     en: 'Bottom-left',
-  }),
-  bottomRightRadiusLabel: i18n({
+  },
+  bottomRightRadiusLabel: {
     zh: '右下圆角',
     en: 'Bottom-right',
-  }),
-  mixedPlaceholder: i18n({
+  },
+  mixedPlaceholder: {
     zh: '混合',
     en: 'Mixed',
-  }),
-  toggleEditModeTip: i18n({
+  },
+  toggleEditModeTip: {
     zh: '切换编辑方式',
     en: 'Toggle edit mode',
-  }),
-  dragRadiusUnbind: i18n({
+  },
+  dragRadiusUnbind: {
     zh: '将解除变量绑定',
     en: 'variable will be unbound',
-  }),
-  dragAdjust: i18n({
+  },
+  dragAdjust: {
     zh: '拖拽调整',
     en: 'Drag to adjust',
-  }),
+  },
 
   // CSSPaste
-  appliedStylesCount: i18n({
+  appliedStylesCount: {
     zh: '条样式',
     en: 'styles applied',
-  }),
-  alreadyApplied: i18n({
+  },
+  alreadyApplied: {
     zh: '已应用',
     en: 'Applied',
-  }),
-  applyStyles: i18n({
+  },
+  applyStyles: {
     zh: '应用样式',
     en: 'Apply styles',
-  }),
+  },
 
   // Cursor
-  cursorHelp: i18n({ zh: '帮助', en: 'Help' }),
-  cursorPointer: i18n({ zh: '手', en: 'Pointer' }),
-  cursorText: i18n({ zh: '文本可选中', en: 'Text' }),
-  cursorNotAllowed: i18n({ zh: '不可点击', en: 'Not allowed' }),
-  cursorDefault: i18n({ zh: '箭头', en: 'Default' }),
-  cursorCustom: i18n({ zh: '自定义', en: 'Custom' }),
-  cursorPanelTitle: i18n({ zh: '光标', en: 'Cursor' }),
+  cursorHelp: { zh: '帮助', en: 'Help' },
+  cursorPointer: { zh: '手', en: 'Pointer' },
+  cursorText: { zh: '文本可选中', en: 'Text' },
+  cursorNotAllowed: { zh: '不可点击', en: 'Not allowed' },
+  cursorDefault: { zh: '箭头', en: 'Default' },
+  cursorCustom: { zh: '自定义', en: 'Custom' },
+  cursorPanelTitle: { zh: '光标', en: 'Cursor' },
 
   // Effects
-  dropShadowLabel: i18n({ zh: '外阴影', en: 'Drop shadow' }),
-  innerShadowLabel: i18n({ zh: '内阴影', en: 'Inner shadow' }),
-  textShadowLabel: i18n({ zh: '文字阴影', en: 'Text shadow' }),
-  layerBlurLabel: i18n({ zh: '图层模糊', en: 'Layer blur' }),
-  backgroundBlurLabel: i18n({ zh: '背景模糊', en: 'Background blur' }),
-  shadowBlurPanelTitle: i18n({ zh: '阴影与模糊', en: 'Shadow & Blur' }),
-  editEffectTip: i18n({ zh: '点击编辑效果', en: 'Click to edit' }),
-  closeEffectTip: i18n({ zh: '关闭', en: 'Close' }),
-  positionLabel: i18n({ zh: '位置', en: 'Offset' }),
-  blurLabel: i18n({ zh: '模糊', en: 'Blur' }),
-  spreadLabel: i18n({ zh: '扩散', en: 'Spread' }),
-  colorLabel: i18n({ zh: '颜色', en: 'Color' }),
-  presetLabel: i18n({ zh: '预设', en: 'Presets' }),
-  shadowPresetAriaLabel: i18n({ zh: '阴影预设', en: 'shadow preset' }),
-  dragBlurTip: i18n({ zh: '拖拽调整模糊半径', en: 'Drag to adjust blur radius' }),
-  dragSpreadTip: i18n({ zh: '拖拽调整扩散半径', en: 'Drag to adjust spread radius' }),
-  dragOffsetXTip: i18n({ zh: '拖拽调整x轴偏移', en: 'Drag to adjust X offset' }),
-  dragOffsetYTip: i18n({ zh: '拖拽调整y轴偏移', en: 'Drag to adjust Y offset' }),
-  shadowPresetSubtle: i18n({ zh: '轻微', en: 'Subtle' }),
-  shadowPresetSoft: i18n({ zh: '适中', en: 'Soft' }),
-  shadowPresetFloating: i18n({ zh: '明显', en: 'Floating' }),
-  shadowPresetStrong: i18n({ zh: '强烈', en: 'Strong' }),
-  dragUnbindSuffix: i18n({ zh: '（将解除变量绑定）', en: ' (variable will be unbound)' }),
+  dropShadowLabel: { zh: '外阴影', en: 'Drop shadow' },
+  innerShadowLabel: { zh: '内阴影', en: 'Inner shadow' },
+  textShadowLabel: { zh: '文字阴影', en: 'Text shadow' },
+  layerBlurLabel: { zh: '图层模糊', en: 'Layer blur' },
+  backgroundBlurLabel: { zh: '背景模糊', en: 'Background blur' },
+  shadowBlurPanelTitle: { zh: '阴影与模糊', en: 'Shadow & Blur' },
+  editEffectTip: { zh: '点击编辑效果', en: 'Click to edit' },
+  closeEffectTip: { zh: '关闭', en: 'Close' },
+  positionLabel: { zh: '位置', en: 'Offset' },
+  blurLabel: { zh: '模糊', en: 'Blur' },
+  spreadLabel: { zh: '扩散', en: 'Spread' },
+  colorLabel: { zh: '颜色', en: 'Color' },
+  presetLabel: { zh: '预设', en: 'Presets' },
+  shadowPresetAriaLabel: { zh: '阴影预设', en: 'shadow preset' },
+  dragBlurTip: { zh: '拖拽调整模糊半径', en: 'Drag to adjust blur radius' },
+  dragSpreadTip: { zh: '拖拽调整扩散半径', en: 'Drag to adjust spread radius' },
+  dragOffsetXTip: { zh: '拖拽调整x轴偏移', en: 'Drag to adjust X offset' },
+  dragOffsetYTip: { zh: '拖拽调整y轴偏移', en: 'Drag to adjust Y offset' },
+  shadowPresetSubtle: { zh: '轻微', en: 'Subtle' },
+  shadowPresetSoft: { zh: '适中', en: 'Soft' },
+  shadowPresetFloating: { zh: '明显', en: 'Floating' },
+  shadowPresetStrong: { zh: '强烈', en: 'Strong' },
+  dragUnbindSuffix: { zh: '（将解除变量绑定）', en: ' (variable will be unbound)' },
 
   // Flex
-  flexPanelTitle: i18n({ zh: '弹性', en: 'Flex' }),
-  flexAutoFill: i18n({ zh: '自动填充父级的剩余空间，多个元素按比例分配', en: 'Auto-fill remaining space in parent element by setting the ratio to 1 ' }),
-  flexRatioLabel: i18n({ zh: '比例', en: 'Ratio' }),
-  flexRatioTip: i18n({ zh: '父级为横向/纵向排列时，决定本元素占多少剩余空间。填 1 表示参与均分；多个子项分别填 1 和 2 时按 1:2 分配。清空则不弹性拉伸。', en: 'When parent is row/column, determines how much remaining space this element takes. 1 = equal share; 1 and 2 → 1:2 ratio. Leave empty to disable flex stretch.' }),
-  flexSplitTip: i18n({ zh: '切换为单独配置（增长 / 收缩 / 基础长度）', en: 'Switch to individual (grow / shrink / basis)' }),
-  flexUnifiedTip: i18n({ zh: '切换为统一配置（比例）', en: 'Switch to unified (ratio)' }),
-  flexGrowLabel: i18n({ zh: '增长系数', en: 'Grow' }),
-  flexGrowTip: i18n({ zh: '空间有多余时，按该数值比例放大。常用 1；填 0 表示不放大。', en: 'When there is extra space, scale up by this factor. Use 1 for equal grow; 0 to disable.' }),
-  flexShrinkLabel: i18n({ zh: '收缩系数', en: 'Shrink' }),
-  flexShrinkTip: i18n({ zh: '空间不够时，按该数值比例缩小。常用 1；填 0 表示不缩小。', en: 'When space is insufficient, shrink by this factor. Use 1 for equal shrink; 0 to disable.' }),
-  flexBasisLabel: i18n({ zh: '基础长度', en: 'Basis' }),
-  flexBasisTip: i18n({ zh: '分配剩余空间前的初始尺寸。填 0 表示尺寸完全由比例决定；也可填具体长度，如 100px、50%。留空时按元素自身尺寸或内容计算。', en: 'Initial size before distributing remaining space. 0 means size is entirely ratio-driven; or specify a length like 100px / 50%. Leave empty to use natural size.' }),
-  flexDefaultPlaceholder: i18n({ zh: '默认', en: 'Default' }),
-  styleSourceNotReady: i18n({ zh: '样式来源尚未就绪，暂不能删除', en: 'Style source not ready, cannot delete yet' }),
+  flexPanelTitle: { zh: '弹性', en: 'Flex' },
+  flexAutoFill: { zh: '自动填充父级的剩余空间，多个元素按比例分配', en: 'Auto-fill remaining space in parent element by setting the ratio to 1 ' },
+  flexRatioLabel: { zh: '比例', en: 'Ratio' },
+  flexRatioTip: { zh: '父级为横向/纵向排列时，决定本元素占多少剩余空间。填 1 表示参与均分；多个子项分别填 1 和 2 时按 1:2 分配。清空则不弹性拉伸。', en: 'When parent is row/column, determines how much remaining space this element takes. 1 = equal share; 1 and 2 → 1:2 ratio. Leave empty to disable flex stretch.' },
+  flexSplitTip: { zh: '切换为单独配置（增长 / 收缩 / 基础长度）', en: 'Switch to individual (grow / shrink / basis)' },
+  flexUnifiedTip: { zh: '切换为统一配置（比例）', en: 'Switch to unified (ratio)' },
+  flexGrowLabel: { zh: '增长系数', en: 'Grow' },
+  flexGrowTip: { zh: '空间有多余时，按该数值比例放大。常用 1；填 0 表示不放大。', en: 'When there is extra space, scale up by this factor. Use 1 for equal grow; 0 to disable.' },
+  flexShrinkLabel: { zh: '收缩系数', en: 'Shrink' },
+  flexShrinkTip: { zh: '空间不够时，按该数值比例缩小。常用 1；填 0 表示不缩小。', en: 'When space is insufficient, shrink by this factor. Use 1 for equal shrink; 0 to disable.' },
+  flexBasisLabel: { zh: '基础长度', en: 'Basis' },
+  flexBasisTip: { zh: '分配剩余空间前的初始尺寸。填 0 表示尺寸完全由比例决定；也可填具体长度，如 100px、50%。留空时按元素自身尺寸或内容计算。', en: 'Initial size before distributing remaining space. 0 means size is entirely ratio-driven; or specify a length like 100px / 50%. Leave empty to use natural size.' },
+  flexDefaultPlaceholder: { zh: '默认', en: 'Default' },
+  styleSourceNotReady: { zh: '样式来源尚未就绪，暂不能删除', en: 'Style source not ready, cannot delete yet' },
 
   // Font
-  fontPanelTitle: i18n({ zh: '字体', en: 'Typography' }),
-  fontFamilyTip: i18n({ zh: '字体', en: 'Font Family' }),
-  fontWeight100: i18n({ zh: '极细', en: 'Thin' }),
-  fontWeight200: i18n({ zh: '特细', en: 'Extra Light' }),
-  fontWeight300: i18n({ zh: '细体', en: 'Light' }),
-  fontWeight400: i18n({ zh: '标准', en: 'Regular' }),
-  fontWeight500: i18n({ zh: '中等', en: 'Medium' }),
-  fontWeight600: i18n({ zh: '中黑', en: 'Semi Bold' }),
-  fontWeight700: i18n({ zh: '粗体', en: 'Bold' }),
-  fontWeight800: i18n({ zh: '特粗', en: 'Extra Bold' }),
-  fontWeight900: i18n({ zh: '极粗', en: 'Black' }),
-  fontWeightThin: i18n({ zh: '极细', en: 'Thin' }),
-  fontWeightExtraLight: i18n({ zh: '特细', en: 'Extra Light' }),
-  fontWeightLight: i18n({ zh: '细体', en: 'Light' }),
-  fontWeightRegular: i18n({ zh: '标准', en: 'Regular' }),
-  fontWeightMedium: i18n({ zh: '中等', en: 'Medium' }),
-  fontWeightSemiBold: i18n({ zh: '中黑', en: 'Semi Bold' }),
-  fontWeightBold: i18n({ zh: '粗体', en: 'Bold' }),
-  fontWeightExtraBold: i18n({ zh: '特粗', en: 'Extra Bold' }),
-  fontWeightBlack: i18n({ zh: '极粗', en: 'Black' }),
-  lineHeightDefault: i18n({ zh: '默认', en: 'Default' }),
-  lineHeightMultiple: i18n({ zh: '倍数', en: 'Multiple' }),
-  textDecorationSolid: i18n({ zh: '实线', en: 'Solid' }),
-  textDecorationDotted: i18n({ zh: '点状', en: 'Dotted' }),
-  textDecorationDashed: i18n({ zh: '虚线', en: 'Dashed' }),
-  textDecorationDouble: i18n({ zh: '双线', en: 'Double' }),
-  textDecorationWavy: i18n({ zh: '波浪', en: 'Wavy' }),
-  decorationSolid: i18n({ zh: '实线', en: 'Solid' }),
-  decorationDotted: i18n({ zh: '点状', en: 'Dotted' }),
-  decorationDashed: i18n({ zh: '虚线', en: 'Dashed' }),
-  decorationDouble: i18n({ zh: '双线', en: 'Double' }),
-  decorationWavy: i18n({ zh: '波浪', en: 'Wavy' }),
-  fontFamilyPlaceholderInherit: i18n({ zh: '继承', en: 'Inherit' }),
-  fontFamilyPlaceholderNotSet: i18n({ zh: '未配置字体', en: 'No font set' }),
-  fontFamilyInherited: i18n({ zh: '继承', en: 'Inherit' }),
-  fontFamilyNotConfigured: i18n({ zh: '未配置字体', en: 'No font set' }),
-  alignLeft: i18n({ zh: '居左对齐', en: 'Align left' }),
-  alignCenter: i18n({ zh: '居中对齐', en: 'Align center' }),
-  alignRight: i18n({ zh: '居右对齐', en: 'Align right' }),
-  fontSizePlaceholder: i18n({ zh: '默认', en: 'Default' }),
-  lineHeightPlaceholder: i18n({ zh: '默认', en: 'Default' }),
-  letterSpacingPlaceholder: i18n({ zh: '默认', en: 'Default' }),
-  fontSizeTip: i18n({ zh: '字号', en: 'Font size' }),
-  lineHeightTip: i18n({ zh: '行高', en: 'Line height' }),
-  letterSpacingTip: i18n({ zh: '字间距', en: 'Letter spacing' }),
-  fontSizeGradeTip: i18n({ zh: '字号档位', en: 'Font size preset' }),
-  boldTip: i18n({ zh: '粗体', en: 'Bold' }),
-  whiteSpaceTip: i18n({ zh: '空白字符合并、换行', en: 'White space & line wrap' }),
-  textWrapTip: i18n({ zh: '空白字符合并、换行', en: 'White space & line wrap' }),
-  fontSettingsTip: i18n({ zh: '更多', en: 'More' }),
-  singleFont: i18n({ zh: '单字体', en: 'Single' }),
-  multiFont: i18n({ zh: '多字体', en: 'Multiple' }),
-  fontSingle: i18n({ zh: '单字体', en: 'Single' }),
-  fontMultiple: i18n({ zh: '多字体', en: 'Multiple' }),
-  fontLabel: i18n({ zh: '字体', en: 'Font' }),
-  fontVariableAt: i18n({ zh: '@字体变量', en: '@Font variable' }),
-  colorVariableAt: i18n({ zh: '@颜色变量', en: '@Color variable' }),
-  decorationLabel: i18n({ zh: '装饰', en: 'Decoration' }),
-  decorationNone: i18n({ zh: '无装饰', en: 'None' }),
-  decorationUnderline: i18n({ zh: '下划线', en: 'Underline' }),
-  decorationStrikethrough: i18n({ zh: '删除线', en: 'Strikethrough' }),
-  decorationStyleLabel: i18n({ zh: '样式', en: 'Style' }),
-  decorationStyleTip: i18n({ zh: '装饰线样式', en: 'Decoration style' }),
-  decorationOffsetLabel: i18n({ zh: '偏移', en: 'Offset' }),
-  decorationOffsetTip: i18n({ zh: '下划线偏移', en: 'Underline offset' }),
-  underlineOffsetTip: i18n({ zh: '下划线偏移', en: 'Underline offset' }),
-  decorationThicknessLabel: i18n({ zh: '粗细', en: 'Thickness' }),
-  decorationThicknessTip: i18n({ zh: '装饰线粗细', en: 'Decoration thickness' }),
-  decorationWeightLabel: i18n({ zh: '粗细', en: 'Thickness' }),
-  decorationWeightTip: i18n({ zh: '装饰线粗细', en: 'Decoration thickness' }),
-  italicLabel: i18n({ zh: '斜体', en: 'Italic' }),
-  italicNone: i18n({ zh: '无斜体', en: 'None' }),
-  italicOn: i18n({ zh: '斜体', en: 'Italic' }),
-  textCaseLabel: i18n({ zh: '大小写', en: 'Case' }),
-  textCaseNone: i18n({ zh: '默认', en: 'None' }),
-  textCaseDefault: i18n({ zh: '默认', en: 'Default' }),
-  textCaseUpper: i18n({ zh: '全大写', en: 'Uppercase' }),
-  textCaseLower: i18n({ zh: '全小写', en: 'Lowercase' }),
-  textCaseCapitalize: i18n({ zh: '首字母大写', en: 'Capitalize' }),
-  textTruncateLabel: i18n({ zh: '截断', en: 'Truncation' }),
-  textTruncateNone: i18n({ zh: '不截断', en: 'None' }),
-  textTruncateEllipsis: i18n({ zh: '省略号截断', en: 'Ellipsis' }),
-  maxLinesLabel: i18n({ zh: '最大行数', en: 'Max lines' }),
-  maxLinesTip: i18n({ zh: '最大行数', en: 'Max lines' }),
-  textWrapLabel: i18n({ zh: '换行', en: 'Wrap' }),
-  textWrapNormal: i18n({ zh: '自动换行', en: 'Auto wrap' }),
-  textWrapNowrap: i18n({ zh: '不换行', en: 'No wrap' }),
-  textWrapPreWrap: i18n({ zh: '保留文本中间或开头的空格，并进行自动换行', en: 'Keeps spaces at the start or within text, and wraps automatically' }),
-  dragFontSize: i18n({ zh: '拖拽调整字号', en: 'Drag to adjust font size' }),
-  dragFontSizeUnbind: i18n({ zh: '拖拽调整字号（将解除变量绑定）', en: 'Drag to adjust font size (variable will be unbound)' }),
-  dragLineHeight: i18n({ zh: '拖拽调整行高', en: 'Drag to adjust line height' }),
-  dragLineHeightUnbind: i18n({ zh: '拖拽调整行高（将解除变量绑定）', en: 'Drag to adjust line height (variable will be unbound)' }),
-  dragLetterSpacing: i18n({ zh: '拖拽调整字间距', en: 'Drag to adjust letter spacing' }),
-  dragLetterSpacingUnbind: i18n({ zh: '拖拽调整字间距（将解除变量绑定）', en: 'Drag to adjust letter spacing (variable will be unbound)' }),
-  applyVariableShort: i18n({ zh: '应用变量...', en: 'Apply variable...' }),
-  emptyValueDefault: i18n({ zh: '默认', en: 'Default' }),
+  fontPanelTitle: { zh: '字体', en: 'Typography' },
+  fontFamilyTip: { zh: '字体', en: 'Font Family' },
+  fontWeight100: { zh: '极细', en: 'Thin' },
+  fontWeight200: { zh: '特细', en: 'Extra Light' },
+  fontWeight300: { zh: '细体', en: 'Light' },
+  fontWeight400: { zh: '标准', en: 'Regular' },
+  fontWeight500: { zh: '中等', en: 'Medium' },
+  fontWeight600: { zh: '中黑', en: 'Semi Bold' },
+  fontWeight700: { zh: '粗体', en: 'Bold' },
+  fontWeight800: { zh: '特粗', en: 'Extra Bold' },
+  fontWeight900: { zh: '极粗', en: 'Black' },
+  fontWeightThin: { zh: '极细', en: 'Thin' },
+  fontWeightExtraLight: { zh: '特细', en: 'Extra Light' },
+  fontWeightLight: { zh: '细体', en: 'Light' },
+  fontWeightRegular: { zh: '标准', en: 'Regular' },
+  fontWeightMedium: { zh: '中等', en: 'Medium' },
+  fontWeightSemiBold: { zh: '中黑', en: 'Semi Bold' },
+  fontWeightBold: { zh: '粗体', en: 'Bold' },
+  fontWeightExtraBold: { zh: '特粗', en: 'Extra Bold' },
+  fontWeightBlack: { zh: '极粗', en: 'Black' },
+  lineHeightDefault: { zh: '默认', en: 'Default' },
+  lineHeightMultiple: { zh: '倍数', en: 'Multiple' },
+  textDecorationSolid: { zh: '实线', en: 'Solid' },
+  textDecorationDotted: { zh: '点状', en: 'Dotted' },
+  textDecorationDashed: { zh: '虚线', en: 'Dashed' },
+  textDecorationDouble: { zh: '双线', en: 'Double' },
+  textDecorationWavy: { zh: '波浪', en: 'Wavy' },
+  decorationSolid: { zh: '实线', en: 'Solid' },
+  decorationDotted: { zh: '点状', en: 'Dotted' },
+  decorationDashed: { zh: '虚线', en: 'Dashed' },
+  decorationDouble: { zh: '双线', en: 'Double' },
+  decorationWavy: { zh: '波浪', en: 'Wavy' },
+  fontFamilyPlaceholderInherit: { zh: '继承', en: 'Inherit' },
+  fontFamilyPlaceholderNotSet: { zh: '未配置字体', en: 'No font set' },
+  fontFamilyInherited: { zh: '继承', en: 'Inherit' },
+  fontFamilyNotConfigured: { zh: '未配置字体', en: 'No font set' },
+  alignLeft: { zh: '居左对齐', en: 'Align left' },
+  alignCenter: { zh: '居中对齐', en: 'Align center' },
+  alignRight: { zh: '居右对齐', en: 'Align right' },
+  fontSizePlaceholder: { zh: '默认', en: 'Default' },
+  lineHeightPlaceholder: { zh: '默认', en: 'Default' },
+  letterSpacingPlaceholder: { zh: '默认', en: 'Default' },
+  fontSizeTip: { zh: '字号', en: 'Font size' },
+  lineHeightTip: { zh: '行高', en: 'Line height' },
+  letterSpacingTip: { zh: '字间距', en: 'Letter spacing' },
+  fontSizeGradeTip: { zh: '字号档位', en: 'Font size preset' },
+  boldTip: { zh: '粗体', en: 'Bold' },
+  whiteSpaceTip: { zh: '空白字符合并、换行', en: 'White space & line wrap' },
+  textWrapTip: { zh: '空白字符合并、换行', en: 'White space & line wrap' },
+  fontSettingsTip: { zh: '更多', en: 'More' },
+  singleFont: { zh: '单字体', en: 'Single' },
+  multiFont: { zh: '多字体', en: 'Multiple' },
+  fontSingle: { zh: '单字体', en: 'Single' },
+  fontMultiple: { zh: '多字体', en: 'Multiple' },
+  fontLabel: { zh: '字体', en: 'Font' },
+  fontVariableAt: { zh: '@字体变量', en: '@Font variable' },
+  colorVariableAt: { zh: '@颜色变量', en: '@Color variable' },
+  decorationLabel: { zh: '装饰', en: 'Decoration' },
+  decorationNone: { zh: '无装饰', en: 'None' },
+  decorationUnderline: { zh: '下划线', en: 'Underline' },
+  decorationStrikethrough: { zh: '删除线', en: 'Strikethrough' },
+  decorationStyleLabel: { zh: '样式', en: 'Style' },
+  decorationStyleTip: { zh: '装饰线样式', en: 'Decoration style' },
+  decorationOffsetLabel: { zh: '偏移', en: 'Offset' },
+  decorationOffsetTip: { zh: '下划线偏移', en: 'Underline offset' },
+  underlineOffsetTip: { zh: '下划线偏移', en: 'Underline offset' },
+  decorationThicknessLabel: { zh: '粗细', en: 'Thickness' },
+  decorationThicknessTip: { zh: '装饰线粗细', en: 'Decoration thickness' },
+  decorationWeightLabel: { zh: '粗细', en: 'Thickness' },
+  decorationWeightTip: { zh: '装饰线粗细', en: 'Decoration thickness' },
+  italicLabel: { zh: '斜体', en: 'Italic' },
+  italicNone: { zh: '无斜体', en: 'None' },
+  italicOn: { zh: '斜体', en: 'Italic' },
+  textCaseLabel: { zh: '大小写', en: 'Case' },
+  textCaseNone: { zh: '默认', en: 'None' },
+  textCaseDefault: { zh: '默认', en: 'Default' },
+  textCaseUpper: { zh: '全大写', en: 'Uppercase' },
+  textCaseLower: { zh: '全小写', en: 'Lowercase' },
+  textCaseCapitalize: { zh: '首字母大写', en: 'Capitalize' },
+  textTruncateLabel: { zh: '截断', en: 'Truncation' },
+  textTruncateNone: { zh: '不截断', en: 'None' },
+  textTruncateEllipsis: { zh: '省略号截断', en: 'Ellipsis' },
+  maxLinesLabel: { zh: '最大行数', en: 'Max lines' },
+  maxLinesTip: { zh: '最大行数', en: 'Max lines' },
+  textWrapLabel: { zh: '换行', en: 'Wrap' },
+  textWrapNormal: { zh: '自动换行', en: 'Auto wrap' },
+  textWrapNowrap: { zh: '不换行', en: 'No wrap' },
+  textWrapPreWrap: { zh: '保留文本中间或开头的空格，并进行自动换行', en: 'Keeps spaces at the start or within text, and wraps automatically' },
+  dragFontSize: { zh: '拖拽调整字号', en: 'Drag to adjust font size' },
+  dragFontSizeUnbind: { zh: '拖拽调整字号（将解除变量绑定）', en: 'Drag to adjust font size (variable will be unbound)' },
+  dragLineHeight: { zh: '拖拽调整行高', en: 'Drag to adjust line height' },
+  dragLineHeightUnbind: { zh: '拖拽调整行高（将解除变量绑定）', en: 'Drag to adjust line height (variable will be unbound)' },
+  dragLetterSpacing: { zh: '拖拽调整字间距', en: 'Drag to adjust letter spacing' },
+  dragLetterSpacingUnbind: { zh: '拖拽调整字间距（将解除变量绑定）', en: 'Drag to adjust letter spacing (variable will be unbound)' },
+  applyVariableShort: { zh: '应用变量...', en: 'Apply variable...' },
+  emptyValueDefault: { zh: '默认', en: 'Default' },
 
   // Layout
-  layoutPanelTitle: i18n({ zh: '布局', en: 'Layout' }),
-  overflowHiddenLabel: i18n({ zh: '超出容器不显示', en: 'Clip content' }),
-  overflowHiddenTip: i18n({ zh: '开启后超出容器大小的内容将会被隐藏', en: 'Hide content outside the element' }),
-  inlineLabel: i18n({ zh: '内联显示', en: 'Display inline' }),
-  inlineTip: i18n({ zh: '与相邻内容同行显示', en: 'Display inline with adjacent content' }),
+  layoutPanelTitle: { zh: '布局', en: 'Layout' },
+  overflowHiddenLabel: { zh: '超出容器不显示', en: 'Clip content' },
+  overflowHiddenTip: { zh: '开启后超出容器大小的内容将会被隐藏', en: 'Hide content outside the element' },
+  inlineLabel: { zh: '内联显示', en: 'Display inline' },
+  inlineTip: { zh: '与相邻内容同行显示', en: 'Display inline with adjacent content' },
 
   // Layout/Direction
-  directionNone: i18n({ zh: '默认', en: 'Default' }),
-  directionInline: i18n({ zh: '内联', en: 'Inline' }),
-  directionColumn: i18n({ zh: '纵向排版', en: 'Vertical' }),
-  directionRow: i18n({ zh: '横向排版', en: 'Horizontal' }),
+  directionNone: { zh: '默认', en: 'Default' },
+  directionInline: { zh: '内联', en: 'Inline' },
+  directionColumn: { zh: '纵向排版', en: 'Vertical' },
+  directionRow: { zh: '横向排版', en: 'Horizontal' },
 
   // Layout/JustifyContent
-  justifyEven: i18n({ zh: '均匀', en: 'Space evenly' }),
-  justifyBetween: i18n({ zh: '两端', en: 'Space between' }),
-  wrapLabel: i18n({ zh: '换行', en: 'Wrap' }),
+  justifyEven: { zh: '均匀', en: 'Space evenly' },
+  justifyBetween: { zh: '两端', en: 'Space between' },
+  wrapLabel: { zh: '换行', en: 'Wrap' },
 
   // Layout/Gap
-  columnGapLabel: i18n({ zh: '列间距', en: 'Column gap' }),
-  rowGapLabel: i18n({ zh: '行间距', en: 'Row gap' }),
-  dragGap: i18n({ zh: '拖拽调整', en: 'Drag to adjust' }),
+  columnGapLabel: { zh: '列间距', en: 'Column gap' },
+  rowGapLabel: { zh: '行间距', en: 'Row gap' },
+  dragGap: { zh: '拖拽调整', en: 'Drag to adjust' },
 
   // Layout/Padding
-  paddingTop: i18n({ zh: '上边距', en: 'Top' }),
-  paddingRight: i18n({ zh: '右边距', en: 'Right' }),
-  paddingBottom: i18n({ zh: '下边距', en: 'Bottom' }),
-  paddingLeft: i18n({ zh: '左边距', en: 'Left' }),
-  independentPaddingToggle: i18n({ zh: '非独立边距', en: 'Unified padding' }),
-  independentPaddingToggleOff: i18n({ zh: '独立边距', en: 'Individual padding' }),
+  paddingTop: { zh: '上边距', en: 'Top' },
+  paddingRight: { zh: '右边距', en: 'Right' },
+  paddingBottom: { zh: '下边距', en: 'Bottom' },
+  paddingLeft: { zh: '左边距', en: 'Left' },
+  independentPaddingToggle: { zh: '非独立边距', en: 'Unified padding' },
+  independentPaddingToggleOff: { zh: '独立边距', en: 'Individual padding' },
 
   // Margin
-  marginPanelTitle: i18n({ zh: '外边距', en: 'Margin' }),
-  marginUnifiedLabel: i18n({ zh: '外边距', en: 'Margin' }),
-  marginUnifiedTip: i18n({ zh: '外边距', en: 'Margin' }),
-  marginLeftLabel: i18n({ zh: '左外边距', en: 'Left margin' }),
-  marginTopLabel: i18n({ zh: '上外边距', en: 'Top margin' }),
-  marginRightLabel: i18n({ zh: '右外边距', en: 'Right margin' }),
-  marginBottomLabel: i18n({ zh: '下外边距', en: 'Bottom margin' }),
-  marginAutoPlaceholder: i18n({ zh: '自动', en: 'Auto' }),
-  dragMarginUnified: i18n({ zh: '拖拽调整外边距', en: 'Drag to adjust margin' }),
-  dragMarginUnifiedUnbind: i18n({ zh: '拖拽调整外边距（将解除变量绑定）', en: 'Drag to adjust margin (variable will be unbound)' }),
-  dragMarginLeft: i18n({ zh: '拖拽调整左外边距', en: 'Drag to adjust left margin' }),
-  dragMarginLeftUnbind: i18n({ zh: '拖拽调整左外边距（将解除变量绑定）', en: 'Drag to adjust left margin (variable will be unbound)' }),
-  dragMarginTop: i18n({ zh: '拖拽调整上外边距', en: 'Drag to adjust top margin' }),
-  dragMarginTopUnbind: i18n({ zh: '拖拽调整上外边距（将解除变量绑定）', en: 'Drag to adjust top margin (variable will be unbound)' }),
-  dragMarginRight: i18n({ zh: '拖拽调整右外边距', en: 'Drag to adjust right margin' }),
-  dragMarginRightUnbind: i18n({ zh: '拖拽调整右外边距（将解除变量绑定）', en: 'Drag to adjust right margin (variable will be unbound)' }),
-  dragMarginBottom: i18n({ zh: '拖拽调整下外边距', en: 'Drag to adjust bottom margin' }),
-  dragMarginBottomUnbind: i18n({ zh: '拖拽调整下外边距（将解除变量绑定）', en: 'Drag to adjust bottom margin (variable will be unbound)' }),
+  marginPanelTitle: { zh: '外边距', en: 'Margin' },
+  marginUnifiedLabel: { zh: '外边距', en: 'Margin' },
+  marginUnifiedTip: { zh: '外边距', en: 'Margin' },
+  marginLeftLabel: { zh: '左外边距', en: 'Left margin' },
+  marginTopLabel: { zh: '上外边距', en: 'Top margin' },
+  marginRightLabel: { zh: '右外边距', en: 'Right margin' },
+  marginBottomLabel: { zh: '下外边距', en: 'Bottom margin' },
+  marginAutoPlaceholder: { zh: '自动', en: 'Auto' },
+  dragMarginUnified: { zh: '拖拽调整外边距', en: 'Drag to adjust margin' },
+  dragMarginUnifiedUnbind: { zh: '拖拽调整外边距（将解除变量绑定）', en: 'Drag to adjust margin (variable will be unbound)' },
+  dragMarginLeft: { zh: '拖拽调整左外边距', en: 'Drag to adjust left margin' },
+  dragMarginLeftUnbind: { zh: '拖拽调整左外边距（将解除变量绑定）', en: 'Drag to adjust left margin (variable will be unbound)' },
+  dragMarginTop: { zh: '拖拽调整上外边距', en: 'Drag to adjust top margin' },
+  dragMarginTopUnbind: { zh: '拖拽调整上外边距（将解除变量绑定）', en: 'Drag to adjust top margin (variable will be unbound)' },
+  dragMarginRight: { zh: '拖拽调整右外边距', en: 'Drag to adjust right margin' },
+  dragMarginRightUnbind: { zh: '拖拽调整右外边距（将解除变量绑定）', en: 'Drag to adjust right margin (variable will be unbound)' },
+  dragMarginBottom: { zh: '拖拽调整下外边距', en: 'Drag to adjust bottom margin' },
+  dragMarginBottomUnbind: { zh: '拖拽调整下外边距（将解除变量绑定）', en: 'Drag to adjust bottom margin (variable will be unbound)' },
 
   // Padding
-  paddingPanelTitle: i18n({ zh: '内边距', en: 'Padding' }),
-  paddingUnifiedLabel: i18n({ zh: '内边距', en: 'Padding' }),
-  paddingUnifiedTip: i18n({ zh: '内边距', en: 'Padding' }),
-  paddingLeftLabel: i18n({ zh: '左内边距', en: 'Left padding' }),
-  paddingTopLabel: i18n({ zh: '上内边距', en: 'Top padding' }),
-  paddingRightLabel: i18n({ zh: '右内边距', en: 'Right padding' }),
-  paddingBottomLabel: i18n({ zh: '下内边距', en: 'Bottom padding' }),
-  dragPaddingUnified: i18n({ zh: '拖拽调整内边距', en: 'Drag to adjust padding' }),
-  dragPaddingUnifiedUnbind: i18n({ zh: '拖拽调整内边距（将解除变量绑定）', en: 'Drag to adjust padding (variable will be unbound)' }),
-  dragPaddingLeft: i18n({ zh: '拖拽调整左内边距', en: 'Drag to adjust left padding' }),
-  dragPaddingLeftUnbind: i18n({ zh: '拖拽调整左内边距（将解除变量绑定）', en: 'Drag to adjust left padding (variable will be unbound)' }),
-  dragPaddingTop: i18n({ zh: '拖拽调整上内边距', en: 'Drag to adjust top padding' }),
-  dragPaddingTopUnbind: i18n({ zh: '拖拽调整上内边距（将解除变量绑定）', en: 'Drag to adjust top padding (variable will be unbound)' }),
-  dragPaddingRight: i18n({ zh: '拖拽调整右内边距', en: 'Drag to adjust right padding' }),
-  dragPaddingRightUnbind: i18n({ zh: '拖拽调整右内边距（将解除变量绑定）', en: 'Drag to adjust right padding (variable will be unbound)' }),
-  dragPaddingBottom: i18n({ zh: '拖拽调整下内边距', en: 'Drag to adjust bottom padding' }),
-  dragPaddingBottomUnbind: i18n({ zh: '拖拽调整下内边距（将解除变量绑定）', en: 'Drag to adjust bottom padding (variable will be unbound)' }),
+  paddingPanelTitle: { zh: '内边距', en: 'Padding' },
+  paddingUnifiedLabel: { zh: '内边距', en: 'Padding' },
+  paddingUnifiedTip: { zh: '内边距', en: 'Padding' },
+  paddingLeftLabel: { zh: '左内边距', en: 'Left padding' },
+  paddingTopLabel: { zh: '上内边距', en: 'Top padding' },
+  paddingRightLabel: { zh: '右内边距', en: 'Right padding' },
+  paddingBottomLabel: { zh: '下内边距', en: 'Bottom padding' },
+  dragPaddingUnified: { zh: '拖拽调整内边距', en: 'Drag to adjust padding' },
+  dragPaddingUnifiedUnbind: { zh: '拖拽调整内边距（将解除变量绑定）', en: 'Drag to adjust padding (variable will be unbound)' },
+  dragPaddingLeft: { zh: '拖拽调整左内边距', en: 'Drag to adjust left padding' },
+  dragPaddingLeftUnbind: { zh: '拖拽调整左内边距（将解除变量绑定）', en: 'Drag to adjust left padding (variable will be unbound)' },
+  dragPaddingTop: { zh: '拖拽调整上内边距', en: 'Drag to adjust top padding' },
+  dragPaddingTopUnbind: { zh: '拖拽调整上内边距（将解除变量绑定）', en: 'Drag to adjust top padding (variable will be unbound)' },
+  dragPaddingRight: { zh: '拖拽调整右内边距', en: 'Drag to adjust right padding' },
+  dragPaddingRightUnbind: { zh: '拖拽调整右内边距（将解除变量绑定）', en: 'Drag to adjust right padding (variable will be unbound)' },
+  dragPaddingBottom: { zh: '拖拽调整下内边距', en: 'Drag to adjust bottom padding' },
+  dragPaddingBottomUnbind: { zh: '拖拽调整下内边距（将解除变量绑定）', en: 'Drag to adjust bottom padding (variable will be unbound)' },
 
   // OverFlow
-  overflowAuto: i18n({ zh: '自动', en: 'Auto' }),
-  overflowScroll: i18n({ zh: '显示滚动条', en: 'Scroll' }),
-  overflowHidden: i18n({ zh: '隐藏', en: 'Hidden' }),
-  overflowVisible: i18n({ zh: '显示', en: 'Visible' }),
-  overflowClip: i18n({ zh: '裁剪', en: 'Clip' }),
-  horizontal: i18n({ zh: '水平', en: 'Horizontal' }),
-  vertical: i18n({ zh: '垂直', en: 'Vertical' }),
-  overflowCurrentIs: i18n({ zh: '当前为', en: 'Current:' }),
-  overflowSetTo: i18n({ zh: '设置为', en: 'Set to:' }),
-  overflowPanelTitle: i18n({ zh: '内容溢出', en: 'Overflow' }),
+  overflowAuto: { zh: '自动', en: 'Auto' },
+  overflowScroll: { zh: '显示滚动条', en: 'Scroll' },
+  overflowHidden: { zh: '隐藏', en: 'Hidden' },
+  overflowVisible: { zh: '显示', en: 'Visible' },
+  overflowClip: { zh: '裁剪', en: 'Clip' },
+  horizontal: { zh: '水平', en: 'Horizontal' },
+  vertical: { zh: '垂直', en: 'Vertical' },
+  overflowCurrentIs: { zh: '当前为', en: 'Current:' },
+  overflowSetTo: { zh: '设置为', en: 'Set to:' },
+  overflowPanelTitle: { zh: '内容溢出', en: 'Overflow' },
 
   // Position
-  positionPanelTitle: i18n({ zh: '位置', en: 'Position' }),
-  positionDefault: i18n({ zh: '默认', en: 'Default' }),
-  positionAbsolute: i18n({ zh: '自由定位', en: 'Absolute' }),
-  positionTopLabel: i18n({ zh: '上', en: 'Top' }),
-  positionRightLabel: i18n({ zh: '右', en: 'Right' }),
-  positionBottomLabel: i18n({ zh: '下', en: 'Bottom' }),
-  positionLeftLabel: i18n({ zh: '左', en: 'Left' }),
-  positionDefaultPlaceholder: i18n({ zh: '默认', en: 'Default' }),
-  positionTopTip: i18n({ zh: '相对顶部定位', en: 'Position relative to top' }),
-  positionRightTip: i18n({ zh: '相对右侧定位', en: 'Position relative to right' }),
-  positionBottomTip: i18n({ zh: '相对底部定位', en: 'Position relative to bottom' }),
-  positionLeftTip: i18n({ zh: '相对左侧定位', en: 'Position relative to left' }),
-  dragPosition: i18n({ zh: '拖拽调整', en: 'Drag to adjust' }),
+  positionPanelTitle: { zh: '位置', en: 'Position' },
+  positionDefault: { zh: '默认', en: 'Default' },
+  positionAbsolute: { zh: '自由定位', en: 'Absolute' },
+  positionTopLabel: { zh: '上', en: 'Top' },
+  positionRightLabel: { zh: '右', en: 'Right' },
+  positionBottomLabel: { zh: '下', en: 'Bottom' },
+  positionLeftLabel: { zh: '左', en: 'Left' },
+  positionDefaultPlaceholder: { zh: '默认', en: 'Default' },
+  positionTopTip: { zh: '相对顶部定位', en: 'Position relative to top' },
+  positionRightTip: { zh: '相对右侧定位', en: 'Position relative to right' },
+  positionBottomTip: { zh: '相对底部定位', en: 'Position relative to bottom' },
+  positionLeftTip: { zh: '相对左侧定位', en: 'Position relative to left' },
+  dragPosition: { zh: '拖拽调整', en: 'Drag to adjust' },
 
   // Rotation
-  rotationPanelTitle: i18n({ zh: '旋转', en: 'Rotation' }),
-  rotationAngleTip: i18n({ zh: '旋转角度', en: 'Rotation angle' }),
-  dragRotation: i18n({ zh: '拖拽调整旋转角度', en: 'Drag to adjust rotation' }),
-  rotateCW90Tip: i18n({ zh: '顺时针旋转90°', en: 'Rotate 90° clockwise' }),
-  flipHorizontalTip: i18n({ zh: '水平翻转', en: 'Flip horizontal' }),
-  flipVerticalTip: i18n({ zh: '垂直翻转', en: 'Flip vertical' }),
+  rotationPanelTitle: { zh: '旋转', en: 'Rotation' },
+  rotationAngleTip: { zh: '旋转角度', en: 'Rotation angle' },
+  dragRotation: { zh: '拖拽调整旋转角度', en: 'Drag to adjust rotation' },
+  rotateCW90Tip: { zh: '顺时针旋转90°', en: 'Rotate 90° clockwise' },
+  flipHorizontalTip: { zh: '水平翻转', en: 'Flip horizontal' },
+  flipVerticalTip: { zh: '垂直翻转', en: 'Flip vertical' },
 
   // Size
-  sizePanelTitle: i18n({ zh: '尺寸', en: 'Dimensions' }),
-  sizeDisabledTip: i18n({ zh: '由布局自动控制，修改后将改为固定值', en: 'Controlled by layout; editing will switch to a fixed value' }),
-  removeMinWidth: i18n({ zh: '移除最小宽', en: 'Remove min width' }),
-  removeMaxWidth: i18n({ zh: '移除最大宽', en: 'Remove max width' }),
-  removeMinHeight: i18n({ zh: '移除最小高', en: 'Remove min height' }),
-  removeMaxHeight: i18n({ zh: '移除最大高', en: 'Remove max height' }),
-  sizeHugContent: i18n({ zh: '适应内容', en: 'Hug contents' }),
-  sizeFillParent: i18n({ zh: '填满父容器', en: 'Fill container' }),
-  sizeAdaptive: i18n({ zh: '适应', en: 'Hug' }),
-  sizeFillBadge: i18n({ zh: '填满', en: 'Fill' }),
-  widthLabel: i18n({ zh: '宽', en: 'W' }),
-  heightLabel: i18n({ zh: '高', en: 'H' }),
-  minLabel: i18n({ zh: '最小', en: 'Min' }),
-  maxLabel: i18n({ zh: '最大', en: 'Max' }),
-  minWidthTip: i18n({ zh: '最小宽度', en: 'Min width' }),
-  maxWidthTip: i18n({ zh: '最大宽度', en: 'Max width' }),
-  minHeightTip: i18n({ zh: '最小高度', en: 'Min height' }),
-  maxHeightTip: i18n({ zh: '最大高度', en: 'Max height' }),
-  widthTip: i18n({ zh: '宽', en: 'Width' }),
-  heightTip: i18n({ zh: '高', en: 'Height' }),
-  notConfiguredPlaceholder: i18n({ zh: '未配置', en: 'Not set' }),
-  fillPlaceholder: i18n({ zh: '填满', en: 'Fill' }),
-  hugPlaceholder: i18n({ zh: '适应', en: 'Hug' }),
-  defaultPlaceholder: i18n({ zh: '默认', en: 'Default' }),
-  fixedWidth: i18n({ zh: '固定宽', en: 'Fixed W' }),
-  fixedHeight: i18n({ zh: '固定高', en: 'Fixed H' }),
-  addMinLabel: i18n({ zh: '添加最小', en: 'Add min' }),
-  addMaxLabel: i18n({ zh: '添加最大', en: 'Add max' }),
-  addMinWidthLabel: i18n({ zh: '添加最小宽...', en: 'Add min width...' }),
-  addMaxWidthLabel: i18n({ zh: '添加最大宽...', en: 'Add max width...' }),
-  addMinHeightLabel: i18n({ zh: '添加最小高...', en: 'Add min height...' }),
-  addMaxHeightLabel: i18n({ zh: '添加最大高...', en: 'Add max height...' }),
-  normalSizeLabel: i18n({ zh: '普通宽/高', en: 'Width/Height' }),
-  minSizeLabel: i18n({ zh: '最小宽/高', en: 'Min W/H' }),
-  maxSizeLabel: i18n({ zh: '最大宽/高', en: 'Max W/H' }),
-  lockAspectRatio: i18n({ zh: '锁定宽高比', en: 'Lock aspect ratio' }),
-  unlockAspectRatio: i18n({ zh: '解锁宽高比', en: 'Unlock aspect ratio' }),
-  dragWidth: i18n({ zh: '拖拽调整宽', en: 'Drag to adjust width' }),
-  dragWidthUnbind: i18n({ zh: '拖拽调整宽（将解除变量绑定）', en: 'Drag to adjust width (variable will be unbound)' }),
-  dragHeight: i18n({ zh: '拖拽调整高', en: 'Drag to adjust height' }),
-  dragHeightUnbind: i18n({ zh: '拖拽调整高（将解除变量绑定）', en: 'Drag to adjust height (variable will be unbound)' }),
-  dragMinWidth: i18n({ zh: '拖拽调整最小宽', en: 'Drag to adjust min width' }),
-  dragMinWidthUnbind: i18n({ zh: '拖拽调整最小宽（将解除变量绑定）', en: 'Drag to adjust min width (variable will be unbound)' }),
-  dragMaxWidth: i18n({ zh: '拖拽调整最大宽', en: 'Drag to adjust max width' }),
-  dragMaxWidthUnbind: i18n({ zh: '拖拽调整最大宽（将解除变量绑定）', en: 'Drag to adjust max width (variable will be unbound)' }),
-  dragMinHeight: i18n({ zh: '拖拽调整最小高', en: 'Drag to adjust min height' }),
-  dragMinHeightUnbind: i18n({ zh: '拖拽调整最小高（将解除变量绑定）', en: 'Drag to adjust min height (variable will be unbound)' }),
-  dragMaxHeight: i18n({ zh: '拖拽调整最大高', en: 'Drag to adjust max height' }),
-  dragMaxHeightUnbind: i18n({ zh: '拖拽调整最大高（将解除变量绑定）', en: 'Drag to adjust max height (variable will be unbound)' }),
-  unitLabel: i18n({ zh: '单位', en: 'Unit' }),
+  sizePanelTitle: { zh: '尺寸', en: 'Dimensions' },
+  sizeDisabledTip: { zh: '由布局自动控制，修改后将改为固定值', en: 'Controlled by layout; editing will switch to a fixed value' },
+  removeMinWidth: { zh: '移除最小宽', en: 'Remove min width' },
+  removeMaxWidth: { zh: '移除最大宽', en: 'Remove max width' },
+  removeMinHeight: { zh: '移除最小高', en: 'Remove min height' },
+  removeMaxHeight: { zh: '移除最大高', en: 'Remove max height' },
+  sizeHugContent: { zh: '适应内容', en: 'Hug contents' },
+  sizeFillParent: { zh: '填满父容器', en: 'Fill container' },
+  sizeAdaptive: { zh: '适应', en: 'Hug' },
+  sizeFillBadge: { zh: '填满', en: 'Fill' },
+  widthLabel: { zh: '宽', en: 'W' },
+  heightLabel: { zh: '高', en: 'H' },
+  minLabel: { zh: '最小', en: 'Min' },
+  maxLabel: { zh: '最大', en: 'Max' },
+  minWidthTip: { zh: '最小宽度', en: 'Min width' },
+  maxWidthTip: { zh: '最大宽度', en: 'Max width' },
+  minHeightTip: { zh: '最小高度', en: 'Min height' },
+  maxHeightTip: { zh: '最大高度', en: 'Max height' },
+  widthTip: { zh: '宽', en: 'Width' },
+  heightTip: { zh: '高', en: 'Height' },
+  notConfiguredPlaceholder: { zh: '未配置', en: 'Not set' },
+  fillPlaceholder: { zh: '填满', en: 'Fill' },
+  hugPlaceholder: { zh: '适应', en: 'Hug' },
+  defaultPlaceholder: { zh: '默认', en: 'Default' },
+  fixedWidth: { zh: '固定宽', en: 'Fixed W' },
+  fixedHeight: { zh: '固定高', en: 'Fixed H' },
+  addMinLabel: { zh: '添加最小', en: 'Add min' },
+  addMaxLabel: { zh: '添加最大', en: 'Add max' },
+  addMinWidthLabel: { zh: '添加最小宽...', en: 'Add min width...' },
+  addMaxWidthLabel: { zh: '添加最大宽...', en: 'Add max width...' },
+  addMinHeightLabel: { zh: '添加最小高...', en: 'Add min height...' },
+  addMaxHeightLabel: { zh: '添加最大高...', en: 'Add max height...' },
+  normalSizeLabel: { zh: '普通宽/高', en: 'Width/Height' },
+  minSizeLabel: { zh: '最小宽/高', en: 'Min W/H' },
+  maxSizeLabel: { zh: '最大宽/高', en: 'Max W/H' },
+  lockAspectRatio: { zh: '锁定宽高比', en: 'Lock aspect ratio' },
+  unlockAspectRatio: { zh: '解锁宽高比', en: 'Unlock aspect ratio' },
+  dragWidth: { zh: '拖拽调整宽', en: 'Drag to adjust width' },
+  dragWidthUnbind: { zh: '拖拽调整宽（将解除变量绑定）', en: 'Drag to adjust width (variable will be unbound)' },
+  dragHeight: { zh: '拖拽调整高', en: 'Drag to adjust height' },
+  dragHeightUnbind: { zh: '拖拽调整高（将解除变量绑定）', en: 'Drag to adjust height (variable will be unbound)' },
+  dragMinWidth: { zh: '拖拽调整最小宽', en: 'Drag to adjust min width' },
+  dragMinWidthUnbind: { zh: '拖拽调整最小宽（将解除变量绑定）', en: 'Drag to adjust min width (variable will be unbound)' },
+  dragMaxWidth: { zh: '拖拽调整最大宽', en: 'Drag to adjust max width' },
+  dragMaxWidthUnbind: { zh: '拖拽调整最大宽（将解除变量绑定）', en: 'Drag to adjust max width (variable will be unbound)' },
+  dragMinHeight: { zh: '拖拽调整最小高', en: 'Drag to adjust min height' },
+  dragMinHeightUnbind: { zh: '拖拽调整最小高（将解除变量绑定）', en: 'Drag to adjust min height (variable will be unbound)' },
+  dragMaxHeight: { zh: '拖拽调整最大高', en: 'Drag to adjust max height' },
+  dragMaxHeightUnbind: { zh: '拖拽调整最大高（将解除变量绑定）', en: 'Drag to adjust max height (variable will be unbound)' },
+  unitLabel: { zh: '单位', en: 'Unit' },
 
   // ZIndex
-  toTopLabel: i18n({ zh: '置顶', en: 'Front' }),
-  toBottomLabel: i18n({ zh: '置底', en: 'Back' }),
-  zIndexPanelTitle: i18n({ zh: '层级', en: 'Layer' }),
+  toTopLabel: { zh: '置顶', en: 'Front' },
+  toBottomLabel: { zh: '置底', en: 'Back' },
+  zIndexPanelTitle: { zh: '层级', en: 'Layer' },
 
   // ZoneTabBar
-  hoverState: i18n({ zh: '悬浮态', en: 'Hover' }),
-  focusState: i18n({ zh: '聚焦态', en: 'Focus' }),
-  focusVisibleState: i18n({ zh: '键盘聚焦态', en: 'Focus visible' }),
-  activeState: i18n({ zh: '激活态', en: 'Active' }),
-  disabledState: i18n({ zh: '禁用态', en: 'Disabled' }),
-  beforePseudo: i18n({ zh: '前缀元素', en: 'Before' }),
-  afterPseudo: i18n({ zh: '后缀元素', en: 'After' }),
-  commonStyleTip: i18n({ zh: '元素常规状态下的样式', en: 'Styles for the element in its default state' }),
-  hoverStateTip: i18n({ zh: '元素鼠标悬浮状态下的样式', en: 'Styles applied when the mouse hovers over the element' }),
-  focusStateTip: i18n({ zh: '元素获得焦点时的样式', en: 'Styles applied when the element is focused' }),
-  focusVisibleStateTip: i18n({ zh: '元素键盘导航聚焦时的样式', en: 'Styles applied when the element is focused via keyboard navigation' }),
-  focusWithinStateTip: i18n({ zh: '元素后代获得焦点时的样式', en: 'Styles applied when a descendant element is focused' }),
-  activeStateTip: i18n({ zh: '元素被点击激活时的样式', en: 'Styles applied while the element is being clicked' }),
-  disabledStateTip: i18n({ zh: '元素禁用状态下的样式', en: 'Styles applied when the element is disabled' }),
-  checkedStateTip: i18n({ zh: '元素被选中时的样式', en: 'Styles applied when the element is checked' }),
-  placeholderShownStateTip: i18n({ zh: '元素显示占位符文字时的样式', en: 'Styles applied when placeholder text is visible' }),
-  beforePseudoTip: i18n({ zh: '元素前方插入的装饰内容的样式', en: 'Styles for the decorative content inserted before the element' }),
-  afterPseudoTip: i18n({ zh: '元素后方插入的装饰内容的样式', en: 'Styles for the decorative content inserted after the element' }),
-  placeholderPseudoTip: i18n({ zh: '元素输入框占位符文字的样式', en: 'Styles for the placeholder text inside the input' }),
-  pseudoElementTip: i18n({ zh: '伪元素', en: 'Pseudo-element' }),
-  pseudoClassTip: i18n({ zh: '伪类', en: 'Pseudo-class' }),
-  focusWithinState: i18n({ zh: '后代聚焦态', en: 'Focus within' }),
-  placeholderPseudo: i18n({ zh: '占位符元素', en: 'Placeholder' }),
-  addStateTooltip: i18n({ zh: '为该元素添加悬浮、激活、聚焦、禁用状态下的样式', en: 'Add hover, active, focus, or disabled styles for this element' }),
-  addStateLabel: i18n({ zh: '添加状态', en: 'Add state' }),
-  commonStyleLabel: i18n({ zh: '常规样式', en: 'Regular style' }),
-  deleteLabel: i18n({ zh: '删除', en: 'Delete' }),
-  moreActionsLabel: i18n({ zh: '更多操作', en: 'More actions' }),
+  hoverState: { zh: '悬浮态', en: 'Hover' },
+  focusState: { zh: '聚焦态', en: 'Focus' },
+  focusVisibleState: { zh: '键盘聚焦态', en: 'Focus visible' },
+  activeState: { zh: '激活态', en: 'Active' },
+  disabledState: { zh: '禁用态', en: 'Disabled' },
+  beforePseudo: { zh: '前缀元素', en: 'Before' },
+  afterPseudo: { zh: '后缀元素', en: 'After' },
+  commonStyleTip: { zh: '元素常规状态下的样式', en: 'Styles for the element in its default state' },
+  hoverStateTip: { zh: '元素鼠标悬浮状态下的样式', en: 'Styles applied when the mouse hovers over the element' },
+  focusStateTip: { zh: '元素获得焦点时的样式', en: 'Styles applied when the element is focused' },
+  focusVisibleStateTip: { zh: '元素键盘导航聚焦时的样式', en: 'Styles applied when the element is focused via keyboard navigation' },
+  focusWithinStateTip: { zh: '元素后代获得焦点时的样式', en: 'Styles applied when a descendant element is focused' },
+  activeStateTip: { zh: '元素被点击激活时的样式', en: 'Styles applied while the element is being clicked' },
+  disabledStateTip: { zh: '元素禁用状态下的样式', en: 'Styles applied when the element is disabled' },
+  checkedStateTip: { zh: '元素被选中时的样式', en: 'Styles applied when the element is checked' },
+  placeholderShownStateTip: { zh: '元素显示占位符文字时的样式', en: 'Styles applied when placeholder text is visible' },
+  beforePseudoTip: { zh: '元素前方插入的装饰内容的样式', en: 'Styles for the decorative content inserted before the element' },
+  afterPseudoTip: { zh: '元素后方插入的装饰内容的样式', en: 'Styles for the decorative content inserted after the element' },
+  placeholderPseudoTip: { zh: '元素输入框占位符文字的样式', en: 'Styles for the placeholder text inside the input' },
+  pseudoElementTip: { zh: '伪元素', en: 'Pseudo-element' },
+  pseudoClassTip: { zh: '伪类', en: 'Pseudo-class' },
+  focusWithinState: { zh: '后代聚焦态', en: 'Focus within' },
+  placeholderPseudo: { zh: '占位符元素', en: 'Placeholder' },
+  addStateTooltip: { zh: '为该元素添加悬浮、激活、聚焦、禁用状态下的样式', en: 'Add hover, active, focus, or disabled styles for this element' },
+  addStateLabel: { zh: '添加状态', en: 'Add state' },
+  commonStyleLabel: { zh: '常规样式', en: 'Regular style' },
+  deleteLabel: { zh: '删除', en: 'Delete' },
+  moreActionsLabel: { zh: '更多操作', en: 'More actions' },
 
   // StyleEditorShell
-  copyStyleTip: i18n({ zh: '复制样式', en: 'Copy styles' }),
-  pasteStyleTip: i18n({ zh: '粘贴样式', en: 'Paste styles' }),
-  cssEditorTip: i18n({ zh: 'CSS编辑', en: 'CSS editor' }),
-  collapsePanel: i18n({ zh: '收起', en: 'Collapse' }),
-  expandPanel: i18n({ zh: '展开', en: 'Expand' }),
-  backToVisual: i18n({ zh: '返回可视化编辑', en: 'Back to visual editor' }),
-  copySuccessMsg: i18n({ zh: '复制成功', en: 'Copied' }),
-  stylesCopiedMsg: i18n({ zh: '样式已复制', en: 'Styles copied' }),
-  emptyStylesCopiedMsg: i18n({ zh: '已复制（当前无样式）', en: 'Copied (no styles)' }),
-  copyFailedMsg: i18n({ zh: '复制失败', en: 'Copy failed' }),
-  clipboardPermissionMsg: i18n({ zh: '无法读取剪切板，请检查浏览器权限', en: 'Cannot read clipboard — check browser permissions' }),
-  noStyleToPasteMsg: i18n({ zh: '剪切板中没有可粘贴的样式', en: 'No styles to paste from clipboard' }),
-  styleParseFailMsg: i18n({ zh: '剪切板样式无法解析', en: 'Clipboard styles could not be parsed' }),
-  stylesPastedMsg: i18n({ zh: '样式已粘贴', en: 'Styles pasted' }),
-  noStyleAppliedMsg: i18n({ zh: '没有可应用的样式', en: 'No styles to apply' }),
-  styleUnchangedMsg: i18n({ zh: '样式未发生变化', en: 'No changes to styles' }),
-  discardAllTip: i18n({ zh: '全部丢弃', en: 'Discard all' }),
-  discardAllAriaLabel: i18n({ zh: '清空暂存', en: 'Clear staged changes' }),
-  aiApplyTip: i18n({ zh: '交给AI应用', en: 'Apply with AI' }),
-  aiApplyAriaLabel: i18n({ zh: '提交给AI修改', en: 'Submit to AI' }),
-  changesCount: i18n({ zh: '处变更', en: 'change(s)' }),
-  onlyCurrentZone: i18n({ zh: '只修改当前区域', en: 'Edit current zone only' }),
-  syncAllZones: i18n({ zh: '同步修改使用同一套样式的全部区域', en: 'Sync all zones that share the same styles' }),
-  applyToAll: i18n({ zh: '应用至全部', en: 'Apply to all' }),
-  editCurrentZoneOnly: i18n({ zh: '仅编辑选中区域', en: 'Edit selected zone only' }),
-  affectedZones: i18n({ zh: '个区域', en: 'zone(s)' }),
-  affectedLabel: i18n({ zh: '影响', en: 'Affects' }),
-  markedLabel: i18n({ zh: '(已标记)', en: '(marked)' }),
-  nonDomNode: i18n({ zh: '(非dom节点)', en: '(non-DOM node)' }),
-  currentDomZone: i18n({ zh: '当前dom区域', en: 'Current DOM zone' }),
+  copyStyleTip: { zh: '复制样式', en: 'Copy styles' },
+  pasteStyleTip: { zh: '粘贴样式', en: 'Paste styles' },
+  cssEditorTip: { zh: 'CSS编辑', en: 'CSS editor' },
+  collapsePanel: { zh: '收起', en: 'Collapse' },
+  expandPanel: { zh: '展开', en: 'Expand' },
+  backToVisual: { zh: '返回可视化编辑', en: 'Back to visual editor' },
+  copySuccessMsg: { zh: '复制成功', en: 'Copied' },
+  stylesCopiedMsg: { zh: '样式已复制', en: 'Styles copied' },
+  emptyStylesCopiedMsg: { zh: '已复制（当前无样式）', en: 'Copied (no styles)' },
+  copyFailedMsg: { zh: '复制失败', en: 'Copy failed' },
+  clipboardPermissionMsg: { zh: '无法读取剪切板，请检查浏览器权限', en: 'Cannot read clipboard — check browser permissions' },
+  noStyleToPasteMsg: { zh: '剪切板中没有可粘贴的样式', en: 'No styles to paste from clipboard' },
+  styleParseFailMsg: { zh: '剪切板样式无法解析', en: 'Clipboard styles could not be parsed' },
+  stylesPastedMsg: { zh: '样式已粘贴', en: 'Styles pasted' },
+  noStyleAppliedMsg: { zh: '没有可应用的样式', en: 'No styles to apply' },
+  styleUnchangedMsg: { zh: '样式未发生变化', en: 'No changes to styles' },
+  discardAllTip: { zh: '全部丢弃', en: 'Discard all' },
+  discardAllAriaLabel: { zh: '清空暂存', en: 'Clear staged changes' },
+  aiApplyTip: { zh: '交给AI应用', en: 'Apply with AI' },
+  aiApplyAriaLabel: { zh: '提交给AI修改', en: 'Submit to AI' },
+  changesCount: { zh: '处变更', en: 'change(s)' },
+  onlyCurrentZone: { zh: '只修改当前区域', en: 'Edit current zone only' },
+  syncAllZones: { zh: '同步修改使用同一套样式的全部区域', en: 'Sync all zones that share the same styles' },
+  applyToAll: { zh: '应用至全部', en: 'Apply to all' },
+  editCurrentZoneOnly: { zh: '仅编辑选中区域', en: 'Edit selected zone only' },
+  affectedZones: { zh: '个区域', en: 'zone(s)' },
+  affectedLabel: { zh: '影响', en: 'Affects' },
+  markedLabel: { zh: '(已标记)', en: '(marked)' },
+  nonDomNode: { zh: '(非dom节点)', en: '(non-DOM node)' },
+  currentDomZone: { zh: '当前dom区域', en: 'Current DOM zone' },
 
   // CSS syntax error messages
-  cssMissingColon: i18n({ zh: 'CSS 声明缺少冒号', en: 'CSS declaration is missing a colon' }),
-  cssInvalidPropertyName: i18n({ zh: '无效的 CSS 属性名', en: 'Invalid CSS property name' }),
-  cssEmptyPlaceholder: i18n({ zh: '(空)', en: '(empty)' }),
-  cssMissingValue: i18n({ zh: '缺少属性值', en: 'is missing a value' }),
-  cssMissingSemicolon: i18n({ zh: 'CSS 声明之间可能缺少分号', en: 'A semicolon may be missing between CSS declarations' }),
-  cssUnclosedString: i18n({ zh: 'CSS 字符串未闭合', en: 'Unclosed CSS string' }),
-  cssUnclosedComment: i18n({ zh: 'CSS 注释未闭合', en: 'Unclosed CSS comment' }),
-  cssUnclosedParen: i18n({ zh: 'CSS 函数括号未闭合', en: 'Unclosed CSS function parenthesis' }),
-  cssUnclosedBracket: i18n({ zh: 'CSS 方括号未闭合', en: 'Unclosed CSS bracket' }),
-  cssExtraCloseParen: i18n({ zh: '存在多余的右括号', en: 'Extra closing parenthesis' }),
-  cssExtraCloseBracket: i18n({ zh: '存在多余的右方括号', en: 'Extra closing bracket' }),
-  cssNoNestedRules: i18n({ zh: '样式规则内不支持嵌套规则', en: 'Nested rules are not supported inside a style rule' }),
-  cssOnlySingleRule: i18n({ zh: '仅支持编辑单条 CSS 规则', en: 'Only a single CSS rule can be edited' }),
-  cssExtraCloseBrace: i18n({ zh: '存在多余的右花括号', en: 'Extra closing brace' }),
-  cssMissingOpenBrace: i18n({ zh: 'CSS 规则缺少左花括号', en: 'CSS rule is missing an opening brace' }),
-  cssMissingCloseBrace: i18n({ zh: 'CSS 规则缺少右花括号', en: 'CSS rule is missing a closing brace' }),
-  cssMissingSelector: i18n({ zh: 'CSS 规则缺少选择器', en: 'CSS rule is missing a selector' }),
-  cssExtraContentAfterBrace: i18n({ zh: '右花括号后存在多余内容', en: 'Unexpected content after closing brace' }),
+  cssMissingColon: { zh: 'CSS 声明缺少冒号', en: 'CSS declaration is missing a colon' },
+  cssInvalidPropertyName: { zh: '无效的 CSS 属性名', en: 'Invalid CSS property name' },
+  cssEmptyPlaceholder: { zh: '(空)', en: '(empty)' },
+  cssMissingValue: { zh: '缺少属性值', en: 'is missing a value' },
+  cssMissingSemicolon: { zh: 'CSS 声明之间可能缺少分号', en: 'A semicolon may be missing between CSS declarations' },
+  cssUnclosedString: { zh: 'CSS 字符串未闭合', en: 'Unclosed CSS string' },
+  cssUnclosedComment: { zh: 'CSS 注释未闭合', en: 'Unclosed CSS comment' },
+  cssUnclosedParen: { zh: 'CSS 函数括号未闭合', en: 'Unclosed CSS function parenthesis' },
+  cssUnclosedBracket: { zh: 'CSS 方括号未闭合', en: 'Unclosed CSS bracket' },
+  cssExtraCloseParen: { zh: '存在多余的右括号', en: 'Extra closing parenthesis' },
+  cssExtraCloseBracket: { zh: '存在多余的右方括号', en: 'Extra closing bracket' },
+  cssNoNestedRules: { zh: '样式规则内不支持嵌套规则', en: 'Nested rules are not supported inside a style rule' },
+  cssOnlySingleRule: { zh: '仅支持编辑单条 CSS 规则', en: 'Only a single CSS rule can be edited' },
+  cssExtraCloseBrace: { zh: '存在多余的右花括号', en: 'Extra closing brace' },
+  cssMissingOpenBrace: { zh: 'CSS 规则缺少左花括号', en: 'CSS rule is missing an opening brace' },
+  cssMissingCloseBrace: { zh: 'CSS 规则缺少右花括号', en: 'CSS rule is missing a closing brace' },
+  cssMissingSelector: { zh: 'CSS 规则缺少选择器', en: 'CSS rule is missing a selector' },
+  cssExtraContentAfterBrace: { zh: '右花括号后存在多余内容', en: 'Unexpected content after closing brace' },
 
   // figma export
-  copyToFigma: i18n({ zh: '复制到 Figma', en: 'Copy to Figma' }),
-  selectPageFirst: i18n({ zh: '请先选择页面', en: 'Select a page first' }),
-  copyNPagesToFigma: i18n({ zh: '复制 {n} 个页面到 Figma', en: 'Copy {n} page(s) to Figma' }),
-  copyAllPagesToFigma: i18n({ zh: '复制全部页面到 Figma', en: 'Copy all pages to Figma' }),
-  enableVariantMapping: i18n({ zh: '开启变体库映射', en: 'Enable variant mapping' }),
-  disableVariantMapping: i18n({ zh: '关闭变体库映射', en: 'Disable variant mapping' }),
-  figmaReading: i18n({ zh: '读取中…', en: 'Reading…' }),
-  syncStyleFromFigma: i18n({ zh: '从 Figma 同步样式', en: 'Sync styles from Figma' }),
-  figmaSyncSuccess: i18n({ zh: '成功从Figma同步{n}条样式改动', en: 'Synced {n} style change(s) from Figma' }),
-  figmaParsedCandidates: i18n({ zh: '已解析{n}条候选样式，{m}条组件变体', en: 'Parsed {n} candidate style(s), {m} component variant(s)' }),
-  figmaNoNodeParsed: i18n({ zh: '未解析到可同步节点（图层名需为单个 class，如 myCard）', en: 'No syncable node found (layer name must be a single class, e.g. myCard)' }),
-  figmaDecodeDone: i18n({ zh: '已解码完成', en: 'Decoded' }),
-  selectAllLabel: i18n({ zh: '全选', en: 'Select all' }),
-  selectPageToExportTip: i18n({ zh: '选择要导出的页面', en: 'Select pages to export' }),
-  unnamedPage: i18n({ zh: '未命名页面', en: 'Unnamed page' }),
-  copyGeneratedFigmaData: i18n({ zh: '复制已生成的 Figma 数据', en: 'Copy generated Figma data' }),
+  copyToFigma: { zh: '复制到 Figma', en: 'Copy to Figma' },
+  selectPageFirst: { zh: '请先选择页面', en: 'Select a page first' },
+  copyNPagesToFigma: { zh: '复制 {n} 个页面到 Figma', en: 'Copy {n} page(s) to Figma' },
+  copyAllPagesToFigma: { zh: '复制全部页面到 Figma', en: 'Copy all pages to Figma' },
+  enableVariantMapping: { zh: '开启变体库映射', en: 'Enable variant mapping' },
+  disableVariantMapping: { zh: '关闭变体库映射', en: 'Disable variant mapping' },
+  figmaReading: { zh: '读取中…', en: 'Reading…' },
+  syncStyleFromFigma: { zh: '从 Figma 同步样式', en: 'Sync styles from Figma' },
+  figmaSyncSuccess: { zh: '成功从Figma同步{n}条样式改动', en: 'Synced {n} style change(s) from Figma' },
+  figmaParsedCandidates: { zh: '已解析{n}条候选样式，{m}条组件变体', en: 'Parsed {n} candidate style(s), {m} component variant(s)' },
+  figmaNoNodeParsed: { zh: '未解析到可同步节点（图层名需为单个 class，如 myCard）', en: 'No syncable node found (layer name must be a single class, e.g. myCard)' },
+  figmaDecodeDone: { zh: '已解码完成', en: 'Decoded' },
+  selectAllLabel: { zh: '全选', en: 'Select all' },
+  selectPageToExportTip: { zh: '选择要导出的页面', en: 'Select pages to export' },
+  unnamedPage: { zh: '未命名页面', en: 'Unnamed page' },
+  copyGeneratedFigmaData: { zh: '复制已生成的 Figma 数据', en: 'Copy generated Figma data' },
 
   // useExportToFigma
-  figmaPreparing: i18n({ zh: '准备中...', en: 'Preparing...' }),
-  figmaNoPageFound: i18n({ zh: '未找到可复制的页面，请聚焦到一个页面后重试', en: 'No exportable page found, please focus on a page and try again' }),
-  figmaParsingPageStructure: i18n({ zh: '解析页面结构...', en: 'Parsing page structure...' }),
-  figmaBuildingDomModel: i18n({ zh: '构建 DOM 模型...', en: 'Building DOM model...' }),
-  figmaNoValidFrameInCanvasList: i18n({ zh: 'canvasList 中未找到任何有效帧', en: 'No valid frame found in canvasList' }),
-  figmaCopiedPagesName: i18n({ zh: '复制的 {n} 个页面', en: 'Copied {n} page(s)' }),
-  figmaFetchingImageResources: i18n({ zh: '拉取图片资源 ({done}/{total})...', en: 'Fetching image resources ({done}/{total})...' }),
-  figmaFetchImageResourcesDone: i18n({ zh: '拉取图片资源完成', en: 'Image resources fetched' }),
-  figmaLoadingFonts: i18n({ zh: '加载字体（{fonts}）...', en: 'Loading fonts ({fonts})...' }),
-  figmaGeneratingData: i18n({ zh: '生成 Figma 数据...', en: 'Generating Figma data...' }),
-  figmaWritingClipboard: i18n({ zh: '写入剪贴板...', en: 'Writing to clipboard...' }),
-  figmaDone: i18n({ zh: '完成', en: 'Done' }),
-  figmaCopiedPastePrompt: i18n({ zh: '已复制，请前往 Figma 直接 Cmd+V / Ctrl+V 粘贴', en: 'Copied, please go to Figma and paste with Cmd+V / Ctrl+V' }),
-  figmaDataReadyClickToCopy: i18n({ zh: '数据已就绪，点击按钮复制', en: 'Data is ready, click the button to copy' }),
-  figmaClickToCopyManuallyTip: i18n({ zh: '请点击「复制已生成的 Figma 数据」按钮，在 Figma 中 Ctrl+V 进行粘贴', en: 'Please click the "Copy generated Figma data" button, then paste in Figma with Ctrl+V' }),
-  figmaExportFailed: i18n({ zh: '导出失败: {error}', en: 'Export failed: {error}' }),
-  figmaUnknownError: i18n({ zh: '未知错误', en: 'Unknown error' }),
-  figmaCopyFailedNotFocused: i18n({ zh: '复制失败：请先点击页面聚焦后再重试', en: 'Copy failed: please click the page to focus and try again' }),
-  figmaCopyFailed: i18n({ zh: '复制失败: {error}', en: 'Copy failed: {error}' }),
+  figmaPreparing: { zh: '准备中...', en: 'Preparing...' },
+  figmaNoPageFound: { zh: '未找到可复制的页面，请聚焦到一个页面后重试', en: 'No exportable page found, please focus on a page and try again' },
+  figmaParsingPageStructure: { zh: '解析页面结构...', en: 'Parsing page structure...' },
+  figmaBuildingDomModel: { zh: '构建 DOM 模型...', en: 'Building DOM model...' },
+  figmaNoValidFrameInCanvasList: { zh: 'canvasList 中未找到任何有效帧', en: 'No valid frame found in canvasList' },
+  figmaCopiedPagesName: { zh: '复制的 {n} 个页面', en: 'Copied {n} page(s)' },
+  figmaFetchingImageResources: { zh: '拉取图片资源 ({done}/{total})...', en: 'Fetching image resources ({done}/{total})...' },
+  figmaFetchImageResourcesDone: { zh: '拉取图片资源完成', en: 'Image resources fetched' },
+  figmaLoadingFonts: { zh: '加载字体（{fonts}）...', en: 'Loading fonts ({fonts})...' },
+  figmaGeneratingData: { zh: '生成 Figma 数据...', en: 'Generating Figma data...' },
+  figmaWritingClipboard: { zh: '写入剪贴板...', en: 'Writing to clipboard...' },
+  figmaDone: { zh: '完成', en: 'Done' },
+  figmaCopiedPastePrompt: { zh: '已复制，请前往 Figma 直接 Cmd+V / Ctrl+V 粘贴', en: 'Copied, please go to Figma and paste with Cmd+V / Ctrl+V' },
+  figmaDataReadyClickToCopy: { zh: '数据已就绪，点击按钮复制', en: 'Data is ready, click the button to copy' },
+  figmaClickToCopyManuallyTip: { zh: '请点击「复制已生成的 Figma 数据」按钮，在 Figma 中 Ctrl+V 进行粘贴', en: 'Please click the "Copy generated Figma data" button, then paste in Figma with Ctrl+V' },
+  figmaExportFailed: { zh: '导出失败: {error}', en: 'Export failed: {error}' },
+  figmaUnknownError: { zh: '未知错误', en: 'Unknown error' },
+  figmaCopyFailedNotFocused: { zh: '复制失败：请先点击页面聚焦后再重试', en: 'Copy failed: please click the page to focus and try again' },
+  figmaCopyFailed: { zh: '复制失败: {error}', en: 'Copy failed: {error}' },
 
   // read-clipboard
-  figmaClipboardReadUnsupported: i18n({ zh: '当前环境不支持读取剪贴板', en: 'Reading clipboard is not supported in this environment' }),
-  figmaClipboardNoDataDetected: i18n({ zh: '剪贴板中未检测到 Figma 数据，请在 Figma 内选中节点后使用 Ctrl/Cmd+C 复制', en: 'No Figma data detected in clipboard. Please select a node in Figma and copy it with Ctrl/Cmd+C' }),
-}
+  figmaClipboardReadUnsupported: { zh: '当前环境不支持读取剪贴板', en: 'Reading clipboard is not supported in this environment' },
+  figmaClipboardNoDataDetected: { zh: '剪贴板中未检测到 Figma 数据，请在 Figma 内选中节点后使用 Ctrl/Cmd+C 复制', en: 'No Figma data detected in clipboard. Please select a node in Figma and copy it with Ctrl/Cmd+C' },
+})

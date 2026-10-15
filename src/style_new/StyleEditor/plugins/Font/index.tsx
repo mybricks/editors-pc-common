@@ -104,18 +104,6 @@ const FONT_FAMILY_OPTIONS = [
   { label: "Noto Color Emoji", value: "Noto Color Emoji" },
 ];
 
-const FONT_WEIGHT_OPTIONS = [
-  { label: lang.fontWeight100,  value: "100", suffix: "100" },
-  { label: lang.fontWeight200,  value: "200", suffix: "200" },
-  { label: lang.fontWeight300,  value: "300", suffix: "300" },
-  { label: lang.fontWeight400,  value: "400", suffix: "400" },
-  { label: lang.fontWeight500,  value: "500", suffix: "500" },
-  { label: lang.fontWeight600,  value: "600", suffix: "600" },
-  { label: lang.fontWeight700,  value: "700", suffix: "700" },
-  { label: lang.fontWeight800,  value: "800", suffix: "800" },
-  { label: lang.fontWeight900,  value: "900", suffix: "900" },
-];
-
 const WHITE_SPACE_OPTIONS = [
   { label: "normal", value: "normal" },
   { label: "nowrap", value: "nowrap" },
@@ -129,11 +117,6 @@ const FONT_SIZE_OPTIONS = [
 const FONT_SIZE_DEFAULT_ACTION = 'fontSizeDefault';
 const FONT_SIZE_DISABLED_LIST = ["inherit"];
 
-const LINEHEIGHT_UNIT_OPTIONS = [
-  { label: lang.lineHeightMultiple, value: "" },
-  { label: "px", value: "px" },
-  { label: "%", value: "%" },
-];
 const LINEHEIGHT_UNIT_DISABLED_LIST = ["default"];
 const LETTERSPACING_UNIT_OPTIONS = [
   { label: "px", value: "px" },
@@ -141,14 +124,6 @@ const LETTERSPACING_UNIT_OPTIONS = [
   // { label: "默认", value: "normal" },
 ];
 const LETTERSPACING_UNIT_DISABLED_LIST = ["normal", "inherit"];
-
-const TEXT_DECORATION_STYLE_OPTIONS = [
-  { label: lang.decorationSolid, value: "solid" },
-  { label: lang.decorationDotted, value: "dotted" },
-  { label: lang.decorationDashed, value: "dashed" },
-  { label: lang.decorationDouble, value: "double" },
-  { label: lang.decorationWavy, value: "wavy" },
-];
 
 const TEXT_DECORATION_LENGTH_UNITS = [
   { label: "px", value: "px" },
@@ -318,6 +293,29 @@ function parseDecorationLength(value: string | undefined): string | null {
 }
 
 export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProps) {
+  const FONT_WEIGHT_OPTIONS = useMemo(() => [
+    { label: lang.fontWeight100, value: "100", suffix: "100" },
+    { label: lang.fontWeight200, value: "200", suffix: "200" },
+    { label: lang.fontWeight300, value: "300", suffix: "300" },
+    { label: lang.fontWeight400, value: "400", suffix: "400" },
+    { label: lang.fontWeight500, value: "500", suffix: "500" },
+    { label: lang.fontWeight600, value: "600", suffix: "600" },
+    { label: lang.fontWeight700, value: "700", suffix: "700" },
+    { label: lang.fontWeight800, value: "800", suffix: "800" },
+    { label: lang.fontWeight900, value: "900", suffix: "900" },
+  ], []);
+  const LINEHEIGHT_UNIT_OPTIONS = useMemo(() => [
+    { label: lang.lineHeightMultiple, value: "" },
+    { label: "px", value: "px" },
+    { label: "%", value: "%" },
+  ], []);
+  const TEXT_DECORATION_STYLE_OPTIONS = useMemo(() => [
+    { label: lang.decorationSolid, value: "solid" },
+    { label: lang.decorationDotted, value: "dotted" },
+    { label: lang.decorationDashed, value: "dashed" },
+    { label: lang.decorationDouble, value: "double" },
+    { label: lang.decorationWavy, value: "wavy" },
+  ], []);
   const context = useStyleEditorContext();
   const effectiveStyle = context?.effectiveStyle;
   const value = useEffectiveStyleValue();

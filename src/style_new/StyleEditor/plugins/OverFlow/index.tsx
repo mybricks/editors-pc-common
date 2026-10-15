@@ -1,4 +1,4 @@
-import React, { CSSProperties, useCallback, useLayoutEffect, useState } from 'react';
+import React, { CSSProperties, useCallback, useLayoutEffect, useMemo, useState } from 'react';
 
 import {Panel, Select} from '../../components';
 import { QuestionCircleOutlined } from '../../components/Icon/QuestionCircleOutlined';
@@ -21,17 +21,16 @@ export interface OverFlowProps extends PanelBaseProps {
   onChange: ChangeEvent;
 }
 
-const VALUE_OPTIONS = [
-  // {label: '默认', value: 'unset'},
-  { label: lang.overflowAuto, value: 'auto' },
-  { label: lang.overflowScroll, value: 'scroll' },
-  { label: lang.overflowHidden, value: 'hidden' },
-  { label: lang.overflowVisible, value: 'visible' }
-];
-
 const OVERFLOW_KEYS = ['overflow', 'overflowX', 'overflowY'] as const
 
 export const OverFlow = ({ value: fallbackValue, onChange: fallbackOnChange, showTitle, collapse }: OverFlowProps) => {
+  const VALUE_OPTIONS = useMemo(() => [
+    // {label: '默认', value: 'unset'},
+    { label: lang.overflowAuto, value: 'auto' },
+    { label: lang.overflowScroll, value: 'scroll' },
+    { label: lang.overflowHidden, value: 'hidden' },
+    { label: lang.overflowVisible, value: 'visible' }
+  ], []);
   const editorContext = useStyleEditorContext()
   const effectiveValue = useEffectiveStyleValue() as OverFlowValueType
   const readValue = (key: keyof OverFlowValueType) => {

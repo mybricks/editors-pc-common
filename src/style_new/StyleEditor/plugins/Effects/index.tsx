@@ -39,7 +39,7 @@ import lang from '../../../index.i18n'
 import {
   EffectLayer,
   EffectType,
-  EFFECT_TYPE_LABELS,
+  getEffectTypeLabels,
   createDefaultLayer,
   parseEffects,
   serializeEffects,
@@ -53,7 +53,7 @@ import {
   isTextShadowLayer,
 } from './layers'
 import type { CssEffectsBundle } from './layers'
-import { SHADOW_PRESETS, getPresetPatch, findMatchingPreset } from './presets'
+import { getShadowPresets, getPresetPatch, findMatchingPreset } from './presets'
 
 interface EffectsProps extends PanelBaseProps {
   value: CSSProperties
@@ -92,6 +92,8 @@ function readCssBundle(value: CSSProperties): CssEffectsBundle {
 }
 
 export function Effects({ value: _value, onChange: fallbackOnChange, showTitle, collapse }: EffectsProps) {
+  const EFFECT_TYPE_LABELS = useMemo(() => getEffectTypeLabels(), [])
+  const SHADOW_PRESETS = useMemo(() => getShadowPresets(), [])
   const { targetDom, variableOptions } = useCanvasColorVariables()
   const value = useEffectiveStyleValue() as CSSProperties
   const onChange = useStyleChange(fallbackOnChange)
@@ -496,6 +498,7 @@ function EffectSketchBody({
   onChange,
   onClose,
 }: EffectSketchBodyProps) {
+  const SHADOW_PRESETS = useMemo(() => getShadowPresets(), [])
   const getDragProps = useDragNumber({ continuous: true })
   const getDragPropsNegative = useDragNumber({ continuous: true, min: -Infinity })
   // 切层/切类型时重挂非受控子组件。不要把颜色值并进来：ColorEditor 的取色浮层
