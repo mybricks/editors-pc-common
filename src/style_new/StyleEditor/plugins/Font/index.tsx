@@ -1616,7 +1616,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
               { label: <span style={{ fontWeight: 500, fontSize: 12 }}>Ag</span>, value: 'none', tip: lang.textCaseDefault },
               { label: <span style={{ fontWeight: 700, fontSize: 12 }}>AG</span>, value: 'uppercase', tip: lang.textCaseUpper },
               { label: <span style={{ fontWeight: 500, fontSize: 12 }}>ag</span>, value: 'lowercase', tip: lang.textCaseLower },
-              { label: <span style={{ fontWeight: 500, fontSize: 12, textTransform: 'capitalize' }}>ab</span>, value: 'capitalize', tip: lang.textCaseCapitalize },
+              { label: <span style={{ fontWeight: 500, fontSize: 12, textTransform: 'capitalize' }}>ag</span>, value: 'capitalize', tip: lang.textCaseCapitalize },
             ]}
             onChange={(v) => {
               const next = v as string;
