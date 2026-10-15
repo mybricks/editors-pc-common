@@ -1631,9 +1631,9 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
             key={`whiteSpace-${whiteSpaceValue}`}
             defaultValue={whiteSpaceValue}
             options={[
-              { label: <span style={{ fontWeight: 500, fontSize: 13 }}>—</span>, value: 'normal', tip: lang.textWrapNormal },
-              { label: <span style={{ fontWeight: 500, fontSize: 11, letterSpacing: -1 }}>→</span>, value: 'nowrap', tip: lang.textWrapNowrap },
-              { label: <span style={{ fontWeight: 500, fontSize: 11 }}>¶</span>, value: 'pre-wrap', tip: lang.textWrapPreWrap },
+              { label: <span style={{ fontWeight: 500, fontSize: 13 }}>—</span>, value: 'normal', tip: `{content:'${lang.textWrapNormal}',position:'bottom'}` },
+              { label: <span style={{ fontWeight: 500, fontSize: 11, letterSpacing: -1 }}>→</span>, value: 'nowrap', tip: `{content:'${lang.textWrapNowrap}',position:'bottom'}` },
+              { label: <span style={{ fontWeight: 500, fontSize: 11 }}>¶</span>, value: 'pre-wrap', tip: `{content:'${lang.textWrapPreWrap}',position:'bottom'}` },
             ]}
             onChange={(v) => {
               const next = v as string
