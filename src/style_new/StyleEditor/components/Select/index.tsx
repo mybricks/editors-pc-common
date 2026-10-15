@@ -186,6 +186,7 @@ export function Select({
               : (
                 <span
                   className={`${css.icon}${iconClassName ? ` ${iconClassName}` : ''}`}
+                  data-select-icon={1}
                   {...(showIconOnHover && hideLabel ? { 'data-unit-arrow': '' } : {})}
                 >
                   <DownOutlined />

@@ -20,9 +20,8 @@ export function getSuggestOptionsByElement(selectDom: HTMLElement): { type: stri
     const hasIconChild = !!selectDom.querySelector('svg, .anticon, [role="img"]');
     const isImgElement = ['IMG', 'IMAGE'].includes(selectDom.tagName.toUpperCase());
     const isIconElement = selectDom.matches('svg, .anticon, [role="img"]');
-    const isIconOnlyElement = !hasText && hasIconChild;
-    const shouldHideFont = isImgElement || isIconElement || isIconOnlyElement;
-    const fontOption = shouldHideFont ? void 0 : {
+    const shouldHideEditor = isImgElement || isIconElement;
+    const fontOption = shouldHideEditor ? void 0 : {
       type: 'font',
       config: {
         ...(isFlexLike ? { textAlignMode: 'flex' } : {}),
@@ -80,8 +79,7 @@ export function getSuggestOptionsByElement(selectDom: HTMLElement): { type: stri
         : void 0;
 
     const suggestion = [
-      // 替换元素没有子节点可排，布局面板降级为 display 切换（默认 / 内联）
-      isImgElement
+      shouldHideEditor
         ? { type: 'layout', config: { displayOnly: true } }
         : { type: 'layout' },
       fontOption,

@@ -1,7 +1,9 @@
-import React, { useMemo } from 'react'
+import React, { ReactElement, useMemo } from 'react'
 import { Dropdown, Menu } from 'antd'
 import { CloseOutlined } from '@ant-design/icons'
-import { PlusOutlined } from './StyleEditor/components/Icon'
+import { MoreOutlined } from './StyleEditor/components/Icon'
+import { collectSubjectClassSelectors } from './core/build-zone-selectors-from-cssom'
+import lang from './index.i18n'
 
 import css from './index.less'
 
@@ -14,18 +16,18 @@ function getZoneTabLabel(selector: string): string {
   const pseudoMatch = lastPart.match(PSEUDO_TAIL_RE)
   if (pseudoMatch) {
     const pseudoLabels: Record<string, string> = {
-      ':hover': '悬浮态',
-      ':focus': '聚焦态',
-      ':focus-visible': '键盘聚焦态',
-      ':active': '激活态',
-      ':disabled': '禁用态',
-      '::before': '前缀元素',
-      '::after': '后缀元素',
+      ':hover': lang.hoverState,
+      ':focus': lang.focusState,
+      ':focus-visible': lang.focusVisibleState,
+      ':active': lang.activeState,
+      ':disabled': lang.disabledState,
+      '::before': lang.beforePseudo,
+      '::after': lang.afterPseudo,
     }
     return pseudoLabels[pseudoMatch[1]] || pseudoMatch[1]
   }
 
-  return '常规'
+  return lang.commonTab
 }
 
 /** 伪类标签带上基础类名，如 aiChat-inputArea::placeholder */
@@ -49,6 +51,35 @@ function getDisambiguatedBaseLabel(selector: string): string {
 function isPseudoSelector(selector: string): boolean {
   const lastPart = selector.trim().split(/\s+/).pop() || ''
   return PSEUDO_TAIL_RE.test(lastPart)
+}
+
+/**
+ * zonetab 提示
+ */
+function getZoneTabTip(selector: string): string {
+  const lastPart = selector.trim().split(/\s+/).pop() || ''
+  const pseudoMatch = lastPart.match(PSEUDO_TAIL_RE)
+  if (!pseudoMatch) {
+    return lang.commonStyleTip
+  }
+  const pseudo = pseudoMatch[1]
+  const tipMap: Record<string, string> = {
+    ':hover': lang.hoverStateTip,
+    ':focus': lang.focusStateTip,
+    ':focus-visible': lang.focusVisibleStateTip,
+    ':focus-within': lang.focusWithinStateTip,
+    ':active': lang.activeStateTip,
+    ':disabled': lang.disabledStateTip,
+    ':checked': lang.checkedStateTip,
+    ':placeholder-shown': lang.placeholderShownStateTip,
+    '::before': lang.beforePseudoTip,
+    '::after': lang.afterPseudoTip,
+    '::placeholder': lang.placeholderPseudoTip,
+  }
+  if (tipMap[pseudo]) return tipMap[pseudo]
+  return pseudo.startsWith('::')
+    ? `${lang.pseudoElementTip} ${pseudo}`
+    : `${lang.pseudoClassTip} ${pseudo}`
 }
 
 function getZoneTabLabels(selectors: string[]): string[] {
@@ -86,6 +117,8 @@ export function ZoneTabBar(props: {
   addOptions?: Array<{ key: string; label: string }>
   deletableSelectors?: string[]
   onDelete?: (selector: string) => void
+  moreMenus: ReactElement
+  targetDom?: HTMLElement | null
 }) {
   const {
     selectors,
@@ -96,57 +129,95 @@ export function ZoneTabBar(props: {
     addOptions = [],
     deletableSelectors = [],
     onDelete,
+    moreMenus,
+    targetDom,
   } = props
   const labels = useMemo(
     () => providedLabels ?? getZoneTabLabels(selectors),
     [providedLabels, selectors]
   )
 
+  const moreOverlay = useMemo(() => {
+    if (!onAdd || addOptions.length === 0) {
+      return moreMenus
+    }
+    const addStateSubMenu = (
+      <Menu.SubMenu
+        key="__addState"
+        popupClassName={css.zoneTabDropdown}
+        popupOffset={[-0.5, 0]}
+        title={
+          <span style={{ fontWeight: 'normal', display: 'inline-flex', alignItems: 'center' }}>
+            {lang.addStateLabel}
+          </span>
+        }
+      >
+        {addOptions.map((option) => (
+          <Menu.Item key={option.key} onClick={() => onAdd(String(option.key))}>
+            {option.label}
+          </Menu.Item>
+        ))}
+      </Menu.SubMenu>
+    )
+    const existingChildren = moreMenus.props.children
+    const childrenArray = Array.isArray(existingChildren)
+      ? existingChildren
+      : existingChildren != null
+      ? [existingChildren]
+      : []
+    return React.cloneElement(moreMenus, {}, addStateSubMenu, ...childrenArray)
+  }, [onAdd, addOptions, moreMenus])
+
+  const isSingleNormalTab =
+    selectors.length === 1 && !isPseudoSelector(selectors[0])
+  const isNoSelector = selectors.length === 0
+  const subjectClassSelectors = targetDom ? collectSubjectClassSelectors(targetDom) : []
+  // 元素自身没有可编辑 class 时，不展示 MoreOutlined 按钮
+  const hasNoClass = subjectClassSelectors.length === 0
+
   return (
     <div className={css.zoneTabBar}>
-      <div className={css.zoneTabList}>
-        {selectors.map((sel, idx) => (
-          <div
-            key={sel}
-            className={`${css.zoneTab}${idx === activeIdx ? ` ${css.zoneTabActive}` : ''}`}
-            onClick={() => onSelect(idx)}
-          >
-            <span>{labels[idx]}</span>
-            {onDelete && deletableSelectors.includes(sel) && (
-              <button
-                className={css.zoneTabDelete}
-                type="button"
-                aria-label={`删除${labels[idx]}`}
-                onClick={(event) => {
-                  event.stopPropagation()
-                  onDelete(sel)
-                }}
-              >
-                <CloseOutlined />
-              </button>
-            )}
-          </div>
-        ))}
-      </div>
-      {onAdd && addOptions.length > 0 && (
+      {(isSingleNormalTab || isNoSelector) ? (
+        <span className={css.zoneTabSingleTitle}>{lang.commonStyleLabel}</span>
+      ) : (
+        <div className={css.zoneTabList}>
+          {selectors.map((sel, idx) => (
+            <div
+              key={sel}
+              className={`${css.zoneTab}${idx === activeIdx ? ` ${css.zoneTabActive}` : ''}`}
+              onClick={() => onSelect(idx)}
+              data-mybricks-tip={`{content:'${getZoneTabTip(sel)}',position:'left'}`}
+            >
+              <span>{labels[idx]}</span>
+              {onDelete && deletableSelectors.includes(sel) && (
+                <button
+                  className={css.zoneTabDelete}
+                  type="button"
+                  aria-label={`${lang.deleteLabel}${labels[idx]}`}
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    onDelete(sel)
+                  }}
+                >
+                  <CloseOutlined />
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+      {!hasNoClass && (
         <Dropdown
-          trigger={['click']}
           overlayClassName={css.zoneTabDropdown}
-          overlay={
-            <Menu onClick={({ key }) => onAdd(String(key))}>
-              {addOptions.map((option) => (
-                <Menu.Item key={option.key}>{option.label}</Menu.Item>
-              ))}
-            </Menu>
-          }
+          overlay={moreOverlay}
         >
           <button
-            className={css.zoneTabAdd}
+            className={css.moreBtn}
             type="button"
-            aria-label="新增状态"
-            data-mybricks-tip={JSON.stringify({ content: '<span style="display:block;text-align:center">为该元素添加悬浮、激活、聚焦、禁用状态下的样式</span>', position: 'left' })}
+            aria-label={lang.moreActionsLabel}
+            style={{ transform: 'rotate(90deg)' }}
           >
-            <PlusOutlined />
+            <MoreOutlined />
           </button>
         </Dropdown>
       )}

@@ -7,12 +7,14 @@ import React, {
   useState,
 } from "react";
 import ColorUtil from "color";
+import { Popover } from "antd";
 import { useApplyStyleMutations, useEffectiveStyleValue, useStyleEditorContext } from "../..";
 import { PanelBaseProps, StyleChangeResult, StyleMutation } from "./../../type";
 import { Panel, Colorpicker } from "../../components";
 import { MinusOutlined, TransparentColorOutlined } from "../../components/Icon";
 import { useDragNumber, useCanvasColorVariables } from "../../hooks";
 import css from "./index.less";
+import lang from "../../../index.i18n";
 import {
   BgLayer,
   generateLayerId,
@@ -111,12 +113,18 @@ function toStyleMutations(changes: Array<{ key: string; value: any }>): StyleMut
     : { type: 'set', key, value });
 }
 
-function getSwatchStyle(layer: BgLayer, scopeEl?: Element | null, resolvedColor?: string): CSSProperties {
+function getSwatchStyle(
+  layer: BgLayer,
+  scopeEl?: Element | null,
+  resolvedColor?: string,
+  imageFit: "cover" | "contain" = "cover",
+): CSSProperties {
   if (layer.type === "image") {
     return {
       backgroundImage: layer.value,
-      backgroundSize: "cover",
+      backgroundSize: imageFit,
       backgroundPosition: "center",
+      backgroundRepeat: "no-repeat",
     };
   }
   if (layer.type === "gradient") {
@@ -158,17 +166,16 @@ function getSwatchStyle(layer: BgLayer, scopeEl?: Element | null, resolvedColor?
 }
 
 function getLayerLabel(layer: BgLayer): string {
-  if (layer.type === "image") return "图片";
-  if (layer.type === "gradient") return "渐变";
+  if (layer.type === "image") return lang.imageLayerLabel;
+  if (layer.type === "gradient") return lang.gradientLayerLabel;
   // 变量引用只显示变量名，var() 包裹在窄面板里都是噪音
   const varName = parseCssVar(layer.value)?.varName;
   if (varName) return varName;
   try {
-    const c = new ColorUtil(layer.value);
-    const hex = c.alpha() === 1 ? c.hex() : c.hexa();
-    return hex.toUpperCase();
+    // 不透明度由右侧百分比单独展示，颜色标签始终显示六位 RGB。
+    return new ColorUtil(layer.value).hex().toUpperCase();
   } catch {
-    return layer.value || "纯色";
+    return layer.value || lang.solidLayerLabel;
   }
 }
 
@@ -326,7 +333,20 @@ function LayerItem({
         disableGradient={disableGradient}
         scopeEl={scopeEl}
       >
-        <div className={css.block} style={getSwatchStyle(layer, scopeEl, resolvedColor)} />
+        {layer.type === "image" && !!layer.value ? (
+          <Popover
+            placement="left"
+            content={
+              <div
+                className={css.previewImage}
+                style={getSwatchStyle(layer, scopeEl, resolvedColor, "contain")}
+              />
+            }
+          >
+            <div className={css.block} style={getSwatchStyle(layer, scopeEl, resolvedColor)} />
+          </Popover>
+        ) : <div className={css.block} style={getSwatchStyle(layer, scopeEl, resolvedColor)} />}
+
         <div className={css.icon}>
           <TransparentColorOutlined />
         </div>
@@ -346,11 +366,11 @@ function LayerItem({
       ) : (
         <div
           className={css.layerLabel}
-          data-mybricks-tip={isVariableReference ? `变量：${getLayerLabel(layer)}` : undefined}
+          data-mybricks-tip={isVariableReference ? `${lang.variablePrefix}${getLayerLabel(layer)}` : undefined}
           onClick={startEditing}
         >
           {/* 暂时去掉具体变量名的展示，直接展示文案 {getLayerLabel(layer)} */}
-          {isVariableReference ? '@颜色变量' : getLayerLabel(layer)}
+          {isVariableReference ? lang.colorVariableAt : getLayerLabel(layer)}
         </div>
       )}
 
@@ -371,7 +391,7 @@ function LayerItem({
           )}
           {layer.type === "solid" ? (
             <div
-              {...getDragProps(Math.round(opacity), "{content:'拖拽调整不透明度',position:'left'}")}
+                           {...getDragProps(Math.round(opacity), `{content:'${lang.dragOpacityShort}',position:'left'}`)}
               className={css.opacityUnit}
             >
               %
@@ -726,7 +746,7 @@ export function Background({
 
   return (
     <Panel
-      title="填充"
+      title={lang.fillPanelTitle}
       showTitle={showTitle}
       collapse={effectiveCollapse}
       onAdd={handleAddLayer}

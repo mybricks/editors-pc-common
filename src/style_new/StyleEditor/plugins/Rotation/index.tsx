@@ -11,6 +11,7 @@ import { readRotation, readFlips, setRotation, toggleFlip, clearRotationAndFlips
 
 import type { ChangeEvent, PanelBaseProps } from '../../type'
 import css from './index.less'
+import lang from '../../../index.i18n'
 
 interface RotationProps extends PanelBaseProps {
   value: CSSProperties
@@ -33,6 +34,8 @@ export function Rotation({ value, onChange: fallbackOnChange, showTitle, collaps
   const zoneSelector = (context?.editConfig.options as { zoneTab?: { selector: string } })?.zoneTab?.selector
   const { angle: parsedAngle, hasRotation } = readRotation(transformStr)
   const { flipX, flipY } = readFlips(transformStr)
+  // 位移、正向缩放等 transform 不属于旋转面板的配置。
+  const effectiveCollapse = hasRotation || flipX || flipY ? collapse : true
   const angleDisplay = parsedAngle == null ? '' : String(parsedAngle)
   const [angleDraft, setAngleDraft] = useState<string | null>(null)
   const localAngle = angleDraft ?? angleDisplay
@@ -177,12 +180,12 @@ export function Rotation({ value, onChange: fallbackOnChange, showTitle, collaps
 
   return (
     <Panel
-      title="旋转"
+      title={lang.rotationPanelTitle}
       showTitle={showTitle}
       showReset={true}
       resetFunction={handleReset}
       onExpand={handleExpand}
-      collapse={collapse}
+      collapse={effectiveCollapse}
     >
       <Panel.Content className={css.rotationPanelContent}>
         {/* Angle input with drag-on-icon */}
@@ -196,7 +199,7 @@ export function Rotation({ value, onChange: fallbackOnChange, showTitle, collaps
           }}
         >
           <div
-            {...getDragAngle(localAngle, '拖拽调整旋转角度')}
+            {...getDragAngle(localAngle, lang.dragRotation)}
             className={css.angleIconWrap}
           >
             <Ratation />
@@ -204,7 +207,7 @@ export function Rotation({ value, onChange: fallbackOnChange, showTitle, collaps
           <input
             type="number"
             value={localAngle}
-            data-mybricks-tip="旋转角度"
+            data-mybricks-tip={lang.rotationAngleTip}
             onChange={handleChange}
             onFocus={handleFocus}
             onBlur={handleBlur}
@@ -231,21 +234,21 @@ export function Rotation({ value, onChange: fallbackOnChange, showTitle, collaps
           <div
             className={css.actionBtn}
             onClick={handleRotate90R}
-            data-mybricks-tip="顺时针旋转90°"
+            data-mybricks-tip={lang.rotateCW90Tip}
           >
             <Rotation90R />
           </div>
           <div
             className={`${css.actionBtn} ${flipX ? css.actionBtnActive : ''}`}
             onClick={handleFlipH}
-            data-mybricks-tip="水平翻转"
+            data-mybricks-tip={lang.flipHorizontalTip}
           >
             <RotationFlipHorizontal />
           </div>
           <div
             className={`${css.actionBtn} ${flipY ? css.actionBtnActive : ''}`}
             onClick={handleFlipV}
-            data-mybricks-tip="垂直翻转"
+            data-mybricks-tip={lang.flipVerticalTip}
           >
             <RotationFlipVertical />
           </div>

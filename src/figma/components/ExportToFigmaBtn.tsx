@@ -3,6 +3,7 @@ import { useExportToFigma, FontfaceConfig } from '../hooks/useExportToFigma';
 import { CheckIcon } from './CheckIcon';
 import { SpinIcon } from './SpinIcon';
 import { figmaButtonStyle } from './styles';
+import lang from '../../style_new/index.i18n';
 
 /** 变体库映射状态图标（上下左右 4 菱形十字布局，Figma component set 风格） */
 function VariantIcon({ active }: { active: boolean }) {
@@ -129,7 +130,7 @@ export function ExportToFigmaBtn({ comEle, comId, fontfaces, getCanvasList }: Ex
     const list = getCanvasList?.() ?? [];
     const infos: PageInfo[] = Array.from(list).map(el => ({
       element: el,
-      title: el.getAttribute('data-zone-title') || '未命名页面',
+      title: el.getAttribute('data-zone-title') || lang.unnamedPage,
       kind: el.getAttribute('data-zone-kind') || 'page',
     }));
     setPageInfos(infos);
@@ -165,12 +166,12 @@ export function ExportToFigmaBtn({ comEle, comId, fontfaces, getCanvasList }: Ex
   const noneSelected = selectedIndices !== null && selectedIndices.size === 0;
 
   const mainBtnLabel = React.useMemo(() => {
-    if (!isMultiCanvas) return '复制到 Figma';
-    if (noneSelected) return '请先选择页面';
+    if (!isMultiCanvas) return lang.copyToFigma;
+    if (noneSelected) return lang.selectPageFirst;
     if (selectedIndices !== null && pageInfos.length > 0 && selectedCount < pageInfos.length) {
-      return `复制 ${selectedCount} 个页面到 Figma`;
+      return lang.copyNPagesToFigma.replace('{n}', String(selectedCount));
     }
-    return '复制全部页面到 Figma';
+    return lang.copyAllPagesToFigma;
   }, [isMultiCanvas, selectedIndices, selectedCount, pageInfos.length, noneSelected]);
 
   function renderPageDropdown() {
@@ -208,7 +209,7 @@ export function ExportToFigmaBtn({ comEle, comId, fontfaces, getCanvasList }: Ex
             indeterminate={!isAllSelected && selectedCount > 0}
             onChange={handleToggleAll}
           />
-          <span>全选</span>
+          <span>{lang.selectAllLabel}</span>
           <span style={{ marginLeft: 'auto', color: 'var(--mybricks-text-color-secondary, #999)', fontSize: 11 }}>
             {selectedCount} / {pageInfos.length}
           </span>
@@ -317,7 +318,7 @@ export function ExportToFigmaBtn({ comEle, comId, fontfaces, getCanvasList }: Ex
               <button
                 type="button"
                 onClick={handleOpenDropdown}
-                data-mybricks-tip={`{"content":"选择要导出的页面","position":"left"}`}
+                data-mybricks-tip={`{"content":"${lang.selectPageToExportTip}","position":"left"}`}
                 style={{
                   ...figmaButtonStyle,
                   width: 24,
@@ -339,7 +340,7 @@ export function ExportToFigmaBtn({ comEle, comId, fontfaces, getCanvasList }: Ex
         <button
           type="button"
           onClick={() => setComponentLibraryEnabled(prev => !prev)}
-          data-mybricks-tip={`{"content":"${componentLibraryEnabled ? '点击关闭变体库映射' : '点击开启变体库映射'}","position":"left"}`}
+          data-mybricks-tip={`{"content":"${componentLibraryEnabled ? lang.disableVariantMapping : lang.enableVariantMapping}","position":"left"}`}
           style={{
             ...figmaButtonStyle,
             width: 28,
@@ -365,7 +366,7 @@ export function ExportToFigmaBtn({ comEle, comId, fontfaces, getCanvasList }: Ex
       <>
         <CheckIcon />
         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          复制已生成的 Figma 数据
+          {lang.copyGeneratedFigmaData}
         </span>
       </>
     );

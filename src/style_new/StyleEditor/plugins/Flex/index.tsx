@@ -8,6 +8,7 @@ import { useEffectiveStyleValue, useStyleChange, useStyleClear, useStyleEditorCo
 import type { ChangeEvent, PanelBaseProps } from '../../type'
 
 import css from './index.less'
+import lang from '../../../index.i18n'
 
 interface FlexProps extends PanelBaseProps {
   value: CSSProperties & Record<string, any>
@@ -20,39 +21,39 @@ type FlexMode = 'ratio' | 'advanced'
 
 /** 面板与字段文案（面向设计） */
 const COPY = {
-  panelTitle: '弹性',
+  panelTitle: lang.flexPanelTitle,
   panelTip: JSON.stringify({
-    content: '自动填充父级的剩余空间，多个元素按比例分配',
+    content: lang.flexAutoFill,
     position: 'left',
   }),
-  fieldLabel: '比例',
+  fieldLabel: lang.flexRatioLabel,
   fieldTip: JSON.stringify({
     content:
-      '父级为横向/纵向排列时，决定本元素占多少剩余空间。填 1 表示参与均分；多个子项分别填 1 和 2 时按 1:2 分配。清空则不弹性拉伸。',
+      lang.flexRatioTip,
     position: 'left',
   }),
   toAdvancedTip: JSON.stringify({
-    content: '切换为单独配置（增长 / 收缩 / 基础长度）',
+    content: lang.flexSplitTip,
     position: 'left',
   }),
   toRatioTip: JSON.stringify({
-    content: '切换为统一配置（比例）',
+    content: lang.flexUnifiedTip,
     position: 'left',
   }),
-  growLabel: '增长系数',
+  growLabel: lang.flexGrowLabel,
   growTip: JSON.stringify({
-    content: '空间有多余时，按该数值比例放大。常用 1；填 0 表示不放大。',
+    content: lang.flexGrowTip,
     position: 'left',
   }),
-  shrinkLabel: '收缩系数',
+  shrinkLabel: lang.flexShrinkLabel,
   shrinkTip: JSON.stringify({
-    content: '空间不够时，按该数值比例缩小。常用 1；填 0 表示不缩小。',
+    content: lang.flexShrinkTip,
     position: 'left',
   }),
-  basisLabel: '基础长度',
+  basisLabel: lang.flexBasisLabel,
   basisTip: JSON.stringify({
     content:
-      '分配剩余空间前的初始尺寸。填 0 表示尺寸完全由比例决定；也可填具体长度，如 100px、50%。留空时按元素自身尺寸或内容计算。',
+      lang.flexBasisTip,
     position: 'left',
   }),
 }
@@ -61,8 +62,6 @@ const BASIS_UNIT_OPTIONS = [
   { label: 'px', value: 'px' },
   { label: '%', value: '%' },
 ]
-
-const DEFAULT_PLACEHOLDER = '默认'
 
 function isFlexChildVisible(targetDom: HTMLElement | null | undefined): boolean {
   if (!targetDom) return false
@@ -200,6 +199,8 @@ export function Flex({ value: fallbackValue, onChange: fallbackOnChange, showTit
   const [localShrink, setLocalShrink] = useState(parts.shrink)
   const [localBasis, setLocalBasis] = useState(parts.basis)
   const [mode, setMode] = useState<FlexMode>(() => resolveFlexMode(value))
+  // 展开后保持面板打开，避免单独编辑写入时样式快照短暂为空导致自动收起。
+  const [expandedByUser, setExpandedByUser] = useState(collapse !== true)
   const isEditingRef = useRef(false)
   const isEditingGrowRef = useRef(false)
   const isEditingShrinkRef = useRef(false)
@@ -208,6 +209,9 @@ export function Flex({ value: fallbackValue, onChange: fallbackOnChange, showTit
   const focusShrinkValueRef = useRef('')
   // 切回比例时 advanced 输入会卸载并触发 blur；抑制这次 blur 落盘，避免盖掉简写写入
   const suppressLonghandBlurRef = useRef(false)
+  // CSSOM 可能把长写重新序列化成 `flex: 1 1 0%`；用户已进入单独配置后，
+  // 不能因此把编辑器模式误切回比例配置。
+  const modeOverrideRef = useRef<FlexMode | null>(null)
 
   useEffect(() => {
     if (!isEditingRef.current) setLocalValue(echo)
@@ -228,7 +232,9 @@ export function Flex({ value: fallbackValue, onChange: fallbackOnChange, showTit
   // 按长写或非常规多段 flex 同步模式，重新聚焦后保持单独配置按钮选中
   useEffect(() => {
     if (suppressLonghandBlurRef.current) return
-    setMode(resolveFlexMode(value))
+    const modeOverride = modeOverrideRef.current
+    modeOverrideRef.current = null
+    setMode(modeOverride || resolveFlexMode(value))
   }, [targetDom, value?.flexGrow, value?.flexShrink, value?.flexBasis, value?.flex])
 
   const hasFlexValue =
@@ -260,6 +266,8 @@ export function Flex({ value: fallbackValue, onChange: fallbackOnChange, showTit
 
   const refresh = useCallback(() => {
     if (!clear) return
+    modeOverrideRef.current = null
+    setExpandedByUser(false)
     const result = clear()
     if (result?.clearUnsupported || (result && !result.applied)) return
     const remaining = Object.fromEntries(FLEX_KEYS.map(key => [key, editorContext?.getStyleProperty?.(key).winner?.value]))
@@ -271,6 +279,10 @@ export function Flex({ value: fallbackValue, onChange: fallbackOnChange, showTit
     setLocalBasis(nextParts.basis)
     setMode(resolveFlexMode(remaining))
   }, [clear, editorContext?.getStyleProperty])
+
+  const handleExpand = useCallback(() => {
+    setExpandedByUser(true)
+  }, [])
 
   const commitShorthand = useCallback(
     (raw: string) => {
@@ -299,6 +311,7 @@ export function Flex({ value: fallbackValue, onChange: fallbackOnChange, showTit
         { key: 'flexBasis', value: null },
       ])
       if (result?.clearUnsupported || (result && !result.applied)) return
+      modeOverrideRef.current = 'ratio'
       setLocalValue(normalized)
       setLocalGrow('')
       setLocalShrink('')
@@ -358,6 +371,7 @@ export function Flex({ value: fallbackValue, onChange: fallbackOnChange, showTit
       const result = onChange(changes)
       if (result?.clearUnsupported || (result && !result.applied)) return
       setLocalBasis(basis)
+      modeOverrideRef.current = 'advanced'
       // 走长写后比例清空，并保持单独配置模式
       setLocalValue('')
       setMode('advanced')
@@ -424,7 +438,7 @@ export function Flex({ value: fallbackValue, onChange: fallbackOnChange, showTit
 
   if (!visible) return null
 
-  const effectiveCollapse = hasVisibleFlexValue ? false : collapse
+  const effectiveCollapse = hasVisibleFlexValue || expandedByUser ? false : collapse
   const isAdvanced = mode === 'advanced'
 
   return (
@@ -435,12 +449,13 @@ export function Flex({ value: fallbackValue, onChange: fallbackOnChange, showTit
       showReset={true}
       showDelete={!!clear}
       deleteNode={hasVisibleFlexValue || clear ? (
-        <span aria-disabled={!clear} title={!clear ? disabledReason || '样式来源尚未就绪，暂不能删除' : undefined}
+        <span aria-disabled={!clear} title={!clear ? disabledReason || lang.styleSourceNotReady : undefined}
           style={{ opacity: clear ? 1 : 0.4 }}><MinusOutlined /></span>
       ) : undefined}
       onDelete={clear ? refresh : undefined}
       resetFunction={refresh}
       collapse={effectiveCollapse}
+      onExpand={handleExpand}
       onAdd={!hasVisibleFlexValue ? handleAdd : undefined}
       hideTopBorder
     >
@@ -456,7 +471,6 @@ export function Flex({ value: fallbackValue, onChange: fallbackOnChange, showTit
                 <input
                   type="text"
                   value={localValue}
-                  placeholder={DEFAULT_PLACEHOLDER}
                   onChange={handleChange}
                   onFocus={handleFocus}
                   onBlur={handleBlur}
@@ -476,7 +490,6 @@ export function Flex({ value: fallbackValue, onChange: fallbackOnChange, showTit
                   <input
                     type="text"
                     value={localGrow}
-                    placeholder={DEFAULT_PLACEHOLDER}
                     onChange={(e) => setLocalGrow(e.target.value)}
                     onFocus={() => {
                       isEditingGrowRef.current = true
@@ -497,7 +510,6 @@ export function Flex({ value: fallbackValue, onChange: fallbackOnChange, showTit
                   <input
                     type="text"
                     value={localShrink}
-                    placeholder={DEFAULT_PLACEHOLDER}
                     onChange={(e) => setLocalShrink(e.target.value)}
                     onFocus={() => {
                       isEditingShrinkRef.current = true
@@ -516,12 +528,12 @@ export function Flex({ value: fallbackValue, onChange: fallbackOnChange, showTit
                     {COPY.basisLabel}
                   </span>
                   <InputNumber
-                    style={{ flex: 1, minWidth: 0, marginLeft: 0, padding: 0 }}
+                    style={{ flex: 1, minWidth: 0, marginLeft: 0, padding: '0 6px 0 0' }}
                     defaultValue={localBasis === 'auto' ? undefined : localBasis || undefined}
                     defaultUnitValue="%"
                     unitOptions={BASIS_UNIT_OPTIONS}
                     unitHideLabelList={[]}
-                    placeholder={DEFAULT_PLACEHOLDER}
+                    placeholder=""
                     onFocus={() => {
                       isEditingBasisRef.current = true
                     }}

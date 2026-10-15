@@ -10,6 +10,7 @@ import { expandPasteConflictClears } from '../../../core/paste-style-merge'
 import { resolvePasteCssVarValue } from '../../../core/resolve-paste-css-vars'
 import type { ChangeEvent, PanelBaseProps } from '../../type'
 import css from './index.less'
+import lang from '../../../index.i18n'
 
 interface CSSPasteProps extends PanelBaseProps {
   value: CSSProperties
@@ -295,7 +296,7 @@ export function CSSPaste({ onChange, showTitle, collapse }: CSSPasteProps) {
           className={`${css.applyBtn}${lastCount > 0 ? ` ${css.applyBtnSuccess}` : ''}`}
           onClick={handleApply}
         >
-          {lastCount > 0 ? `已应用 ${lastCount} 条样式` : '应用样式'}
+          {lastCount > 0 ? `${lang.alreadyApplied} ${lastCount} ${lang.appliedStylesCount}` : lang.applyStyles}
         </button>
       </Panel.Content>
     </Panel>

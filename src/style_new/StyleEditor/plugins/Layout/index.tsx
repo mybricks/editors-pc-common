@@ -1,4 +1,4 @@
-import React, { CSSProperties, useCallback, useEffect, useState } from "react";
+import React, { CSSProperties, useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import Direction from "./Direction";
 import AlignItems from "./AlignItems";
 import JustifyContent from "./JustifyContent";
@@ -8,7 +8,12 @@ import type { Layout } from "./types";
 import { Panel } from "../../components";
 import type { ChangeEvent, PanelBaseProps } from "../../type";
 import { useEffectiveStyleValue, useStyleChange, useStyleEditorContext } from "../../context";
+import { useStyleDisplayValue } from "../../hooks/useStyleDisplayValue";
+import { toElementArray } from "../../../core/dom";
+import { createStyleResolution } from "../../../core/style-property";
+import { collectZoneTabs, excludeSoloSources, mergeZoneTabsByState } from "../../../core/zone-tab";
 import styles from "./index.less";
+import lang from '../../../index.i18n'
 
 interface LayoutEditorProps extends PanelBaseProps {
   value: Record<string, any>;
@@ -106,9 +111,50 @@ const defaultValue: LayoutModel = {
   columnGap: 0,
 };
 
-export function Layout({ onChange: fallbackOnChange, showTitle, collapse, config }: LayoutEditorProps) {
+export function Layout({ value: panelValue, onChange: fallbackOnChange, showTitle, config }: LayoutEditorProps) {
   const context = useStyleEditorContext();
-  const value = useEffectiveStyleValue();
+  const effectiveValue = useEffectiveStyleValue();
+  const options = context?.editConfig.options;
+  const zoneTab = options && !Array.isArray(options) && "zoneTab" in options ? options.zoneTab : null;
+  const hasZoneTab = !!zoneTab;
+  // 非 Zone 模式（如单独编辑）的回显值来自 props，effectiveStyle 在此模式下为空。
+  const value = hasZoneTab ? effectiveValue : panelValue;
+  const displayField = useStyleDisplayValue('display');
+  const positionField = useStyleDisplayValue('position');
+  const directionField = useStyleDisplayValue('flexDirection');
+  const alignField = useStyleDisplayValue('alignItems');
+  const justifyField = useStyleDisplayValue('justifyContent');
+  const wrapField = useStyleDisplayValue('flexWrap');
+  const overflowField = useStyleDisplayValue('overflow');
+  const inlineDisplayPreview = useMemo(() => {
+    const target = context?.targetDom;
+    if (!zoneTab?.pseudo || zoneTab.pseudo.startsWith('::') || displayField.hasDeclaration ||
+      !target?.isConnected || !options || Array.isArray(options)) return undefined;
+    // computed 会将 flex/grid 子项的 inline-flex 等块化；只为 Layout 读取最新声明，不改动共享 Tab。
+    const targets = 'targetDom' in options ? toElementArray(options.targetDom) : [target];
+    const selectors = Array.from(new Set([
+      zoneTab.baseSelector,
+      ...targets.flatMap(element => Array.from(element.classList, name => '.' + name)),
+    ]));
+    const baseTab = mergeZoneTabsByState(collectZoneTabs(targets, selectors, options.comId)).find(tab => !tab.pseudo);
+    if (!baseTab) return undefined;
+    const value = createStyleResolution(
+      excludeSoloSources(baseTab, zoneTab.excludedSourceSelectors ?? []), target
+    ).get('display').winner?.value;
+    return /^inline(?:-|$)/.test(value || '') ? value : undefined;
+  }, [context, zoneTab, options, displayField.hasDeclaration]);
+  // 预览仅用于展示模型，不进入 editValue、重置属性列表或样式写入。
+  const previewValue = zoneTab?.pseudo && !zoneTab.pseudo.startsWith('::')
+    ? Object.fromEntries(Object.entries({
+        display: inlineDisplayPreview ?? displayField.computedPreview,
+        position: positionField.computedPreview,
+        flexDirection: directionField.computedPreview,
+        alignItems: alignField.computedPreview,
+        justifyContent: justifyField.computedPreview,
+        flexWrap: wrapField.computedPreview,
+        overflow: overflowField.computedPreview,
+      }).filter(([, value]) => value != null))
+    : undefined;
   const onChange = useStyleChange(fallbackOnChange);
   /** 替换元素（如 img）：面板只提供 display 切换，不提供 flex 容器能力 */
   const displayOnly = !!config?.displayOnly;
@@ -142,10 +188,11 @@ export function Layout({ onChange: fallbackOnChange, showTitle, collapse, config
   }, [value, isReset]);
 
   return (
-    <Panel title="布局" showTitle={showTitle} showReset={true} showDelete={false} resetFunction={refresh} collapse={collapse} keepTopBorder>
+    <Panel title={lang.layoutPanelTitle} showTitle={showTitle} showReset={true} showDelete={false} resetFunction={refresh} collapse={false} keepTopBorder>
       <React.Fragment key={forceRenderKey}>
         <LayoutEditor
           editValue={editValue}
+          previewValue={previewValue}
           clearedGapKeys={clearedGapKeys}
           displayOnly={displayOnly}
           onChangeValue={(newVal) => {
@@ -176,13 +223,14 @@ export function Layout({ onChange: fallbackOnChange, showTitle, collapse, config
 
 interface LayoutEditorInternalProps {
   editValue: Record<string, any>;
+  previewValue?: Record<string, any>;
   clearedGapKeys: Record<GapKey, boolean>;
   onChangeValue: (val: Record<string, any>) => void;
   displayOnly?: boolean;
 }
 
-function LayoutEditor({ editValue, clearedGapKeys, onChangeValue, displayOnly }: LayoutEditorInternalProps): JSX.Element {
-  const _value = parsePxValues(editValue || {});
+function LayoutEditor({ editValue, previewValue, clearedGapKeys, onChangeValue, displayOnly }: LayoutEditorInternalProps): JSX.Element {
+  const _value = parsePxValues({ ...previewValue, ...editValue });
 
   if ((_value as any).alignItems === "normal") (_value as any).alignItems = "flex-start";
   if ((_value as any).justifyContent === "normal") (_value as any).justifyContent = "flex-start";
@@ -211,6 +259,15 @@ function LayoutEditor({ editValue, clearedGapKeys, onChangeValue, displayOnly }:
   const [columnFlexWrap, setColumnFlexWrap] = useState<CSSProperties["flexWrap"]>(
     initialFlexDirection === "column" ? ((_value as any).flexWrap || defaultValue.flexWrap) as CSSProperties["flexWrap"] : "nowrap"
   );
+
+  const syncDisplay = !!previewValue;
+  const { display, position, flexDirection, alignItems, justifyContent, flexWrap, overflow } = initialModel;
+  useLayoutEffect(() => {
+    if (!syncDisplay) return;
+    setModel(previous => ({ ...previous, display, position, flexDirection, alignItems, justifyContent, flexWrap, overflow }));
+    if (flexDirection === 'row') setRowFlexWrap(flexWrap);
+    if (flexDirection === 'column') setColumnFlexWrap(flexWrap);
+  }, [syncDisplay, display, position, flexDirection, alignItems, justifyContent, flexWrap, overflow]);
 
   const emitValue = useCallback(
     (style: Partial<LayoutModel>) => {
@@ -426,9 +483,9 @@ function LayoutEditor({ editValue, clearedGapKeys, onChangeValue, displayOnly }:
           className={styles.overflowLabel}
           onClick={toggle}
           style={{ marginRight: 12 }}
-          data-mybricks-tip="开启后超出容器大小的内容将会被隐藏"
+          data-mybricks-tip={lang.overflowHiddenTip}
         >
-          超出容器不显示
+          {lang.overflowHiddenLabel}
         </span>
         {renderInlineBlock()}
       </div>
@@ -475,9 +532,9 @@ function LayoutEditor({ editValue, clearedGapKeys, onChangeValue, displayOnly }:
         <span
           className={styles.overflowLabel}
           onClick={toggle}
-          data-mybricks-tip="与相邻内容同行显示"
+          data-mybricks-tip={lang.inlineTip}
         >
-          内联显示
+          {lang.inlineLabel}
         </span>
       </>
     );

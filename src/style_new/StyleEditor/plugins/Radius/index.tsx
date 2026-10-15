@@ -20,6 +20,7 @@ import { allEqual } from "../../utils";
 import { useUpdateEffect } from "../../hooks";
 
 import type { ChangeEvent, PanelBaseProps } from "../../type";
+import lang from "../../../index.i18n";
 
 import css from "./index.less";
 
@@ -132,11 +133,11 @@ export function Radius({ value, onChange, config, showTitle, collapse }: BorderP
         <div className={css.row}>
           <Panel.Content style={{ padding: 3 }}>
             <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
-              <div className={css.icon} data-mybricks-tip={"圆角半径"}>
+              <div className={css.icon} data-mybricks-tip={lang.radiusTip}>
                 <BorderRadiusSplitOutlined />
               </div>
               <InputNumber
-                tip="圆角半径"
+                tip={lang.radiusTip}
                 style={DEFAULT_STYLE}
                 defaultValue={borderValue.borderTopLeftRadius}
                 unitOptions={UNIT_OPTIONS}
@@ -153,7 +154,7 @@ export function Radius({ value, onChange, config, showTitle, collapse }: BorderP
             </Panel.Item>
           </Panel.Content>
           <div
-            data-mybricks-tip={`{content:'切换编辑方式',position:'left'}`}
+            data-mybricks-tip={`{content:'${lang.toggleSplitTip}',position:'left'}`}
             className={css.actionIcon}
             onClick={() =>
               handleToggleChange({ key: "radiusToggleValue", value: "split" })
@@ -168,11 +169,11 @@ export function Radius({ value, onChange, config, showTitle, collapse }: BorderP
         <div className={css.row}>
           <Panel.Content style={{ padding: 3 }}>
             <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
-              <div className={css.icon} data-mybricks-tip={"左上角半径"}>
+              <div className={css.icon} data-mybricks-tip={lang.topLeftRadiusTip}>
                 <BorderTopLeftRadiusOutlined />
               </div>
               <InputNumber
-                tip="左上角半径"
+                tip={lang.topLeftRadiusTip}
                 style={DEFAULT_STYLE__NEW}
                 defaultValue={borderValue.borderTopLeftRadius}
                 unitOptions={UNIT_OPTIONS}
@@ -181,11 +182,11 @@ export function Radius({ value, onChange, config, showTitle, collapse }: BorderP
                   handleChange({ borderTopLeftRadius: value })
                 }
               />
-              <div className={css.icon} data-mybricks-tip={"右上角半径"}>
+              <div className={css.icon} data-mybricks-tip={lang.topRightRadiusTip}>
                 <BorderTopRightRadiusOutlined />
               </div>
               <InputNumber
-                tip="右上角半径"
+                tip={lang.topRightRadiusTip}
                 style={DEFAULT_STYLE__NEW}
                 defaultValue={borderValue.borderTopRightRadius}
                 unitOptions={UNIT_OPTIONS}
@@ -194,11 +195,11 @@ export function Radius({ value, onChange, config, showTitle, collapse }: BorderP
                   handleChange({ borderTopRightRadius: value })
                 }
               />
-              <div className={css.icon} data-mybricks-tip={"右下角半径"}>
+              <div className={css.icon} data-mybricks-tip={lang.bottomRightRadiusTip}>
                 <BorderBottomRightRadiusOutlined />
               </div>
               <InputNumber
-                tip="右下角半径"
+                tip={lang.bottomRightRadiusTip}
                 style={DEFAULT_STYLE__NEW}
                 defaultValue={borderValue.borderBottomRightRadius}
                 unitOptions={UNIT_OPTIONS}
@@ -207,11 +208,11 @@ export function Radius({ value, onChange, config, showTitle, collapse }: BorderP
                   handleChange({ borderBottomRightRadius: value })
                 }
               />
-              <div className={css.icon} data-mybricks-tip={"左下角半径"}>
+              <div className={css.icon} data-mybricks-tip={lang.bottomLeftRadiusTip}>
                 <BorderBottomLeftRadiusOutlined />
               </div>
               <InputNumber
-                tip="左下角半径"
+                tip={lang.bottomLeftRadiusTip}
                 style={DEFAULT_STYLE__NEW}
                 defaultValue={borderValue.borderBottomLeftRadius}
                 unitOptions={UNIT_OPTIONS}
@@ -223,7 +224,7 @@ export function Radius({ value, onChange, config, showTitle, collapse }: BorderP
             </Panel.Item>
           </Panel.Content>
           <div
-            data-mybricks-tip={`{content:'切换编辑方式',position:'left'}`}
+            data-mybricks-tip={`{content:'${lang.toggleUnifiedTip}',position:'left'}`}
             className={css.actionIcon}
             onClick={() =>
               handleToggleChange({ key: "radiusToggleValue", value: "all" })
@@ -261,7 +262,7 @@ export function Radius({ value, onChange, config, showTitle, collapse }: BorderP
     });
   }, [radiusToggleValue]);
 
-  return <Panel title="圆角" showTitle={showTitle} collapse={collapse}>{radiusConfig}</Panel>;
+  return <Panel title={lang.radiusPanelTitle} showTitle={showTitle} collapse={collapse}>{radiusConfig}</Panel>;
 }
 
 function getToggleDefaultValue(value: CSSProperties) {

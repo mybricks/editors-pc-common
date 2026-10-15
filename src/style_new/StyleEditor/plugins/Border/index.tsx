@@ -1,5 +1,6 @@
 import React, { useMemo, useState, useCallback, useRef, useEffect, useLayoutEffect, CSSProperties } from "react";
 import { createPortal } from "react-dom";
+import ColorUtil from "color";
 import {
   useEffectiveStyleValue,
   useStyleChange,
@@ -42,6 +43,7 @@ import type { ChangeEvent, PanelBaseProps, StyleChangeItem, StyleChangeResult } 
 import type { EffectiveStyleValue } from "../../../core/zone-tab";
 
 import css from "./index.less";
+import lang from "../../../index.i18n";
 
 interface BorderProps extends PanelBaseProps {
   value: CSSProperties;
@@ -49,9 +51,9 @@ interface BorderProps extends PanelBaseProps {
 }
 
 const STROKE_STYLE_POPUP_OPTIONS = [
-  { value: 'none', label: '无' },
-  { value: 'solid', label: '实线' },
-  { value: 'dashed', label: '虚线' },
+  { value: 'none', label: lang.noBorder },
+  { value: 'solid', label: lang.solidLine },
+  { value: 'dashed', label: lang.dashedLine },
 ];
 
 const BORDER_WIDTH_KEYWORD_VALUES: Record<string, string> = {
@@ -72,14 +74,23 @@ const normalizeBorderWidthValue = (value: unknown, style: unknown) => {
   return BORDER_WIDTH_KEYWORD_VALUES[normalizedWidth] ?? value;
 };
 
+/** 完全透明颜色，不作为边框色预览 */
+function isFullyTransparentColor(value: string) {
+  try {
+    return new ColorUtil(value).alpha() === 0;
+  } catch {
+    return false;
+  }
+}
+
 type BorderPosition = "outside" | "center" | "inside";
 
 const BORDER_POSITION_OPTIONS = [
-  { label: "外部", value: "outside" },
-  { label: "居中", value: "center" },
-  { label: "内部", value: "inside" },
+  { label: lang.borderOutside, value: "outside" },
+  { label: lang.borderCenter, value: "center" },
+  { label: lang.borderInside, value: "inside" },
 ];
-const DEFAULT_UNIT_OPTION = { label: '默认', value: 'default' };
+const DEFAULT_UNIT_OPTION = { label: lang.defaultOption, value: 'default' };
 const DEFAULT_UNIT_DIVIDER = { label: '', value: '__borderDefaultDivider__', type: 'divider' as const };
 
 function withDefaultUnitOption<T extends { label: string; value: string }>(
@@ -227,7 +238,7 @@ function buildComputedTip(
 ): string {
   const computedValue = previewValue ?? item?.computedValue;
   return computedValue
-    ? `当前未配置${label}，${computedValue}为计算值`
+    ? `${label} — ${computedValue} (computed)`
     : label;
 }
 
@@ -372,6 +383,11 @@ const buildClearGradientBorderValue = (
 export function Border({ value, onChange: fallbackOnChange, config, showTitle, collapse }: BorderProps) {
   const context = useStyleEditorContext();
   const effectiveStyle = context?.effectiveStyle;
+  const editOptions = context?.editConfig?.options;
+  const isSoloEdit = !!(
+    editOptions && !Array.isArray(editOptions) &&
+    'soloEdit' in editOptions && editOptions.soloEdit
+  );
   const effectiveValue = useEffectiveStyleValue();
   const onChange = useStyleChange(fallbackOnChange);
   const targetDom = context?.targetDom ?? null;
@@ -401,6 +417,7 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
   const [previewValues, setPreviewValues] = useState<Record<string, string | undefined>>({});
   const [forceRenderKey, setForceRenderKey] = useState<number>(Math.random());
   const [borderColorEditorKey, setBorderColorEditorKey] = useState(0);
+  const colorEditorTargetRef = useRef(targetDom);
   const getDragPropsBorder = useDragNumber({ continuous: true });
 
   // ── 边框宽度 CSS 变量绑定 ────────────────────────────────────────────────────
@@ -556,9 +573,13 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
     setBorderValue(next);
     setPreviewValues({});
     setBorderPosition(nextPosition);
-    setBorderToggleValue(getBorderToggleDefaultValue(next));
-    setBorderColorEditorKey((key) => key + 1);
-  }, [targetDom, defaultBorderValue]);
+    const targetChanged = colorEditorTargetRef.current !== targetDom;
+    colorEditorTargetRef.current = targetDom;
+    if (!isSoloEdit || targetChanged) {
+      setBorderToggleValue(getBorderToggleDefaultValue(next));
+      setBorderColorEditorKey((key) => key + 1);
+    }
+  }, [targetDom, defaultBorderValue, isSoloEdit]);
 
   const refresh = useCallback(() => {
     const current = borderValueRef.current;
@@ -731,6 +752,34 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
 
   const getPreviewValue = (key: string) =>
     context?.getStylePreview?.(key) || previewValues[key] || effectiveStyle?.[key]?.computedValue;
+  // 第三方库的边框宽预览
+  const getBorderWidthPreview = (key: string) => {
+    const preview = getPreviewValue(key);
+    return preview && !isZeroBorderWidth(preview) ? preview : undefined;
+  };
+  // 未配置的边框色默认是 currentColor，计算值会跟随字体颜色实时变化。
+  // 只有边框本身可见（有宽度且非 none/hidden）时，计算值才代表真实渲染色，
+  // 可以拿来做色块预览；否则预览会随无关的 color 修改跳动。
+  const resolveBorderPreviewColor = (side: string) => {
+    const styleKey = `border${side}Style`;
+    const widthKey = `border${side}Width`;
+    const colorKey = `border${side}Color`;
+    if (
+      hasNoVisibleBorderLine(
+        borderValue[styleKey] ?? getPreviewValue(styleKey),
+        borderValue[widthKey] ?? getPreviewValue(widthKey)
+      )
+    ) {
+      return undefined;
+    }
+    const color = resolveCssVarColor(
+      borderValue[colorKey] || getPreviewValue(colorKey) || "",
+      targetDom
+    );
+    // 透明色不作为预览值 
+    if (!color || isFullyTransparentColor(color)) return undefined;
+    return color;
+  };
   const currentBorderStyle = borderValue.borderTopStyle ?? getPreviewValue('borderTopStyle') ?? 'none';
   const borderHasNoVisibleLine = hasNoVisibleBorderLine(
     currentBorderStyle, borderValue.borderTopWidth ?? getPreviewValue('borderTopWidth')
@@ -743,7 +792,7 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
   const isConfiguredKey = (key: string) => {
     const current = borderValue[key];
     if (current == null || current === '') return false;
-    if (effectiveStyle || borderToggleValue === 'all' || !key.endsWith('Color')) return true;
+    if (!key.endsWith('Color')) return true;
     const side = key.slice('border'.length, -'Color'.length);
     return !hasNoVisibleBorderLine(
       borderValue[`border${side}Style`],
@@ -911,11 +960,10 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
                     key={borderColorEditorKey}
                     style={{ padding: 0, flex: 1, minWidth: 26 }}
                     defaultValue={borderColorValue}
-                    emptyValueLabel="默认"
-                    resolvedColor={resolveCssVarColor(
-                      borderValue.borderTopColor || getPreviewValue('borderTopColor') || "",
-                      targetDom
-                    ) ?? undefined}
+                    inherited={borderColorIsDefault}
+                    showInheritedColor
+                    emptyValueLabel=""
+                    resolvedColor={resolveBorderPreviewColor('Top')}
                     variableOptions={canvasColorVariables}
                     scopeEl={targetDom}
                     showSubTabs={borderPosition === 'center'}
@@ -996,7 +1044,7 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
             <Panel.Content style={{ padding: 3, flex: 1, minWidth: 0 }}>
               <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
                 <Select
-                  tip="线条样式"
+                  tip={lang.lineStyleTip}
                   style={{ padding: 0, flex: 1 }}
                   value={popupStyleValue}
                   options={STROKE_STYLE_POPUP_OPTIONS}
@@ -1031,8 +1079,8 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
                     className={css.icon}
                     ref={widthAllVar.anchorRef}
                     {...(widthAllVar.varRef
-                      ? widthAllVar.dragProps('拖拽调整边框宽度（将解除变量绑定）')
-                      : getDragPropsBorder(borderValue.borderTopWidth, '拖拽调整边框宽度'))}
+                      ? widthAllVar.dragProps(lang.dragBorderWidthTip + lang.dragUnbindSuffix)
+                      : getDragPropsBorder(borderValue.borderTopWidth, lang.dragBorderWidthTip))}
                   >
                     <BorderWeightOutlined />
                   </div>
@@ -1042,11 +1090,15 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
                       chipStyle={CHIP_STYLE}
                       inputProps={{
                         tip: borderValue.borderTopWidth == null
-                          ? buildComputedTip('边框宽度', effectiveStyle?.borderTopWidth, getPreviewValue('borderTopWidth'))
-                          : '边框宽度',
+                          ? buildComputedTip(lang.borderWidthTip, effectiveStyle?.borderTopWidth, getPreviewValue('borderTopWidth'))
+                          : lang.borderWidthTip,
                         style: { padding: 0, fontSize: 10, marginLeft: shouldShowMiniLayout ? 2 : 4, flex: 1, minWidth: 0 },
                         defaultValue: borderValue.borderTopWidth,
                         value: borderValue.borderTopWidth,
+                        previewValue: borderValue.borderTopWidth == null
+                          ? getBorderWidthPreview('borderTopWidth')
+                          : undefined,
+                        placeholder: '',
                         defaultUnitValue: 'px',
                         unitOptions: withDefaultUnitOption(borderWidthUnitOptions, allWidthCanClear),
                         unitDisabledList: ['default'],
@@ -1076,7 +1128,7 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
               <div
                 ref={styleSettingsBtnRef}
                 className={css.styleSettingsBtn}
-                data-mybricks-tip="边框位置设置"
+                data-mybricks-tip={`{content:'${lang.borderPositionTip}',position:'left'}`}
                     onClick={() => setShowStyleSettings(v => !v)}
               >
                     <SettingIcon size={22} />
@@ -1108,8 +1160,10 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
                       key={`left-${borderColorEditorKey}`}
                       style={{ padding: 0, marginLeft: 2, flex: 1, minWidth: 26 }}
                       defaultValue={isConfiguredKey('borderLeftColor') ? borderValue.borderLeftColor : ''}
-                      emptyValueLabel="默认"
-                      resolvedColor={resolveCssVarColor(borderValue.borderLeftColor || getPreviewValue('borderLeftColor') || "", targetDom) ?? undefined}
+                      inherited={!isConfiguredKey('borderLeftColor')}
+                      showInheritedColor
+                      emptyValueLabel=""
+                      resolvedColor={resolveBorderPreviewColor('Left')}
                       variableOptions={canvasColorVariables}
                       scopeEl={targetDom}
                       showSubTabs={false}
@@ -1140,11 +1194,15 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
                         compact
                         inputProps={{
                           tip: borderValue.borderLeftWidth == null
-                            ? buildComputedTip('左边框宽度', effectiveStyle?.borderLeftWidth, getPreviewValue('borderLeftWidth'))
-                            : '左边框宽度',
+                            ? buildComputedTip(lang.leftBorderWidthTip, effectiveStyle?.borderLeftWidth, getPreviewValue('borderLeftWidth'))
+                            : lang.leftBorderWidthTip,
                           style: WIDTH_STYLE_SPLIT,
                           defaultValue: borderValue.borderLeftWidth,
                           value: borderValue.borderLeftWidth,
+                          previewValue: borderValue.borderLeftWidth == null
+                            ? getBorderWidthPreview('borderLeftWidth')
+                            : undefined,
+                          placeholder: '',
                           defaultUnitValue: 'px',
                           unitOptions: withDefaultUnitOption(borderWidthUnitOptions, fieldCanClear.borderLeftWidth),
                           unitDisabledList: ['default'],
@@ -1184,8 +1242,10 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
                       key={`top-${borderColorEditorKey}`}
                       style={{ padding: 0, marginLeft: 2, flex: 1, minWidth: 26 }}
                       defaultValue={isConfiguredKey('borderTopColor') ? borderValue.borderTopColor : ''}
-                      emptyValueLabel="默认"
-                      resolvedColor={resolveCssVarColor(borderValue.borderTopColor || getPreviewValue('borderTopColor') || "", targetDom) ?? undefined}
+                      inherited={!isConfiguredKey('borderTopColor')}
+                      showInheritedColor
+                      emptyValueLabel=""
+                      resolvedColor={resolveBorderPreviewColor('Top')}
                       variableOptions={canvasColorVariables}
                       scopeEl={targetDom}
                       showSubTabs={false}
@@ -1216,11 +1276,15 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
                         compact
                         inputProps={{
                           tip: borderValue.borderTopWidth == null
-                            ? buildComputedTip('上边框宽度', effectiveStyle?.borderTopWidth, getPreviewValue('borderTopWidth'))
-                            : '上边框宽度',
+                            ? buildComputedTip(lang.topBorderWidthTip, effectiveStyle?.borderTopWidth, getPreviewValue('borderTopWidth'))
+                            : lang.topBorderWidthTip,
                           style: WIDTH_STYLE_SPLIT,
                           defaultValue: borderValue.borderTopWidth,
                           value: borderValue.borderTopWidth,
+                          previewValue: borderValue.borderTopWidth == null
+                            ? getBorderWidthPreview('borderTopWidth')
+                            : undefined,
+                          placeholder: '',
                           defaultUnitValue: 'px',
                           unitOptions: withDefaultUnitOption(borderWidthUnitOptions, fieldCanClear.borderTopWidth),
                           unitDisabledList: ['default'],
@@ -1261,8 +1325,10 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
                       key={`right-${borderColorEditorKey}`}
                       style={{ padding: 0, marginLeft: 2, flex: 1, minWidth: 26 }}
                       defaultValue={isConfiguredKey('borderRightColor') ? borderValue.borderRightColor : ''}
-                      emptyValueLabel="默认"
-                      resolvedColor={resolveCssVarColor(borderValue.borderRightColor || getPreviewValue('borderRightColor') || "", targetDom) ?? undefined}
+                      inherited={!isConfiguredKey('borderRightColor')}
+                      showInheritedColor
+                      emptyValueLabel=""
+                      resolvedColor={resolveBorderPreviewColor('Right')}
                       variableOptions={canvasColorVariables}
                       scopeEl={targetDom}
                       showSubTabs={false}
@@ -1293,11 +1359,15 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
                         compact
                         inputProps={{
                           tip: borderValue.borderRightWidth == null
-                            ? buildComputedTip('右边框宽度', effectiveStyle?.borderRightWidth, getPreviewValue('borderRightWidth'))
-                            : '右边框宽度',
+                            ? buildComputedTip(lang.rightBorderWidthTip, effectiveStyle?.borderRightWidth, getPreviewValue('borderRightWidth'))
+                            : lang.rightBorderWidthTip,
                           style: WIDTH_STYLE_SPLIT,
                           defaultValue: borderValue.borderRightWidth,
                           value: borderValue.borderRightWidth,
+                          previewValue: borderValue.borderRightWidth == null
+                            ? getBorderWidthPreview('borderRightWidth')
+                            : undefined,
+                          placeholder: '',
                           defaultUnitValue: 'px',
                           unitOptions: withDefaultUnitOption(borderWidthUnitOptions, fieldCanClear.borderRightWidth),
                           unitDisabledList: ['default'],
@@ -1338,8 +1408,10 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
                       key={`bottom-${borderColorEditorKey}`}
                       style={{ padding: 0, marginLeft: 2, flex: 1, minWidth: 26 }}
                       defaultValue={isConfiguredKey('borderBottomColor') ? borderValue.borderBottomColor : ''}
-                      emptyValueLabel="默认"
-                      resolvedColor={resolveCssVarColor(borderValue.borderBottomColor || getPreviewValue('borderBottomColor') || "", targetDom) ?? undefined}
+                      inherited={!isConfiguredKey('borderBottomColor')}
+                      showInheritedColor
+                      emptyValueLabel=""
+                      resolvedColor={resolveBorderPreviewColor('Bottom')}
                       variableOptions={canvasColorVariables}
                       scopeEl={targetDom}
                       showSubTabs={false}
@@ -1370,11 +1442,15 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
                         compact
                         inputProps={{
                           tip: borderValue.borderBottomWidth == null
-                            ? buildComputedTip('下边框宽度', effectiveStyle?.borderBottomWidth, getPreviewValue('borderBottomWidth'))
-                            : '下边框宽度',
+                            ? buildComputedTip(lang.bottomBorderWidthTip, effectiveStyle?.borderBottomWidth, getPreviewValue('borderBottomWidth'))
+                            : lang.bottomBorderWidthTip,
                           style: WIDTH_STYLE_SPLIT,
                           defaultValue: borderValue.borderBottomWidth,
                           value: borderValue.borderBottomWidth,
+                          previewValue: borderValue.borderBottomWidth == null
+                            ? getBorderWidthPreview('borderBottomWidth')
+                            : undefined,
+                          placeholder: '',
                           defaultUnitValue: 'px',
                           unitOptions: withDefaultUnitOption(borderWidthUnitOptions, fieldCanClear.borderBottomWidth),
                           unitDisabledList: ['default'],
@@ -1449,9 +1525,9 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
           ref={styleSettingsPopoverRef}
           className={css.styleSettingsPopover}
         >
-          <div className={css.strokePopoverTitle}>边框位置</div>
+          <div className={css.strokePopoverTitle}>{lang.borderPositionTitle}</div>
           <div className={css.strokePopoverRow}>
-            <span className={css.strokePopoverLabel}>位置</span>
+            <span className={css.strokePopoverLabel}>{lang.borderPositionLabel}</span>
             <Select
               style={{ flex: 1, padding: '0 8px' }}
               value={borderPosition}
@@ -1468,7 +1544,7 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
     <>
     {styleSettingsPortal as React.ReactNode}
     <Panel
-      title="边框"
+      title={lang.borderPanelTitle}
       showTitle={showTitle}
       collapse={collapse}
       onExpand={handleExpand}
@@ -1478,7 +1554,7 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
         <div className={css.rightColumn}>
           {showDelete && (
             <div
-              data-mybricks-tip={`{content:'删除边框',position:'left'}`}
+              data-mybricks-tip={`{content:'${lang.deleteBorderTip}',position:'left'}`}
               className={css.rightColumnBtn}
               onClick={onDelete}
             >
@@ -1491,8 +1567,8 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
           {hasBorderSection && (
             <div
               data-mybricks-tip={borderToggleValue === 'all'
-                ? `{content:'切换为单独配置',position:'left'}`
-                : `{content:'切换为统一配置',position:'left'}`}
+                ? `{content:'${lang.toggleSplitTip}',position:'left'}`
+                : `{content:'${lang.toggleUnifiedTip}',position:'left'}`}
               className={`${css.rightColumnBtn} ${css.rightColumnBtnSmall}`}
               onClick={() => {
                 setShowStyleSettings(false);

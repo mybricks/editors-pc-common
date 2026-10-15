@@ -35,6 +35,7 @@ import { BackgroundBlur as BackgroundBlurIcon } from '../../icons/BackgroundBlur
 
 import type { ChangeEvent, PanelBaseProps } from '../../type'
 import css from './index.less'
+import lang from '../../../index.i18n'
 import {
   EffectLayer,
   EffectType,
@@ -52,6 +53,7 @@ import {
   isTextShadowLayer,
 } from './layers'
 import type { CssEffectsBundle } from './layers'
+import { SHADOW_PRESETS, getPresetPatch, findMatchingPreset } from './presets'
 
 interface EffectsProps extends PanelBaseProps {
   value: CSSProperties
@@ -142,7 +144,11 @@ export function Effects({ value: _value, onChange: fallbackOnChange, showTitle, 
     const effectType = type as EffectType
     if (!EFFECT_TYPE_LABELS[effectType]) return
     if (isBlurType(effectType) && hasEffectType(layersRef.current, effectType)) return
-    emitLayers([createDefaultLayer(effectType), ...layersRef.current])
+    const layer = createDefaultLayer(effectType)
+    if (isShadowLayer(layer)) {
+      Object.assign(layer, getPresetPatch(SHADOW_PRESETS[0], layer.type))
+    }
+    emitLayers([layer, ...layersRef.current])
   }, [emitLayers])
 
   const handleLayerRemove = useCallback((index: number) => {
@@ -208,11 +214,11 @@ export function Effects({ value: _value, onChange: fallbackOnChange, showTitle, 
     const hasLayer = hasEffectType(layers, 'layerBlur')
     const hasBg = hasEffectType(layers, 'backgroundBlur')
     return [
-      { label: '外阴影', value: 'dropShadow', icon: <BoxShadowOuterOutlined /> },
-      { label: '内阴影', value: 'innerShadow', icon: <BoxShadowInnerOutlined /> },
-      { label: '文字阴影', value: 'textShadow', icon: <TextShadowOutlined /> },
-      { label: '图层模糊', value: 'layerBlur', icon: <BlurIcon />, disabled: hasLayer },
-      { label: '背景模糊', value: 'backgroundBlur', icon: <BackgroundBlurIcon />, disabled: hasBg },
+      { label: lang.dropShadowLabel, value: 'dropShadow', icon: <BoxShadowOuterOutlined /> },
+      { label: lang.innerShadowLabel, value: 'innerShadow', icon: <BoxShadowInnerOutlined /> },
+      { label: lang.textShadowLabel, value: 'textShadow', icon: <TextShadowOutlined /> },
+      { label: lang.layerBlurLabel, value: 'layerBlur', icon: <BlurIcon />, disabled: hasLayer },
+      { label: lang.backgroundBlurLabel, value: 'backgroundBlur', icon: <BackgroundBlurIcon />, disabled: hasBg },
     ]
   }, [layers])
 
@@ -297,7 +303,7 @@ export function Effects({ value: _value, onChange: fallbackOnChange, showTitle, 
 
   return (
     <Panel
-      title='阴影与模糊'
+      title={lang.shadowBlurPanelTitle}
       showTitle={showTitle}
       collapse={effectiveCollapse}
       showDelete={false}
@@ -352,7 +358,7 @@ export function Effects({ value: _value, onChange: fallbackOnChange, showTitle, 
                   ref={(el) => { triggerRefs.current[index] = el }}
                   className={css.layerRowInner}
                   onClick={() => togglePopup(index)}
-                  data-mybricks-tip='点击编辑效果'
+                  data-mybricks-tip={lang.editEffectTip}
                 >
                   <span className={css.dragHandle} data-drag-handle onClick={(e) => e.stopPropagation()}>
                     <GripIcon />
@@ -435,7 +441,7 @@ function EffectNumberField({
     <div
       ref={binding.anchorRef}
       {...(binding.varRef
-        ? binding.dragProps(`${tip}（将解除变量绑定）`)
+        ? binding.dragProps(`${tip}${lang.dragUnbindSuffix}`)
         : getDragProps(value, tip))}
     >
       <div className={css.effectLabelIcon}>{icon}</div>
@@ -455,6 +461,7 @@ function EffectNumberField({
           allowNegative,
           prefix: handle,
           defaultValue: value,
+          placeholder: '',
           defaultUnitValue: 'px',
           unitOptions,
           showIcon: true,
@@ -494,8 +501,9 @@ function EffectSketchBody({
   // 切层/切类型时重挂非受控子组件。不要把颜色值并进来：ColorEditor 的取色浮层
   // 是它自己的 portal，颜色一变就重挂会让拖色盘时弹层被反复关掉。
   const forceKey = `${layer.id}-${layer.type}`
-  const shadow = isShadowLayer(layer)
   const textShadow = isTextShadowLayer(layer)
+  const selectedPresetId = findMatchingPreset(layer)?.id
+  const [colorEditorVersion, setColorEditorVersion] = useState(0)
 
   // ── 长度字段的 CSS 变量绑定 ─────────────────────────────────────────────
   // 模糊层没有偏移与扩散，这里仍无条件建 binding（hooks 顺序），取值给 0px 占位
@@ -545,20 +553,58 @@ function EffectSketchBody({
           value={layer.type}
           options={typeOptions}
           onChange={onTypeChange}
-          style={{ width: '60%' }}
+          style={{ width: '60%', padding: '0 8px' }}
         />
-        <button className={css.effectHeaderBtn} data-mybricks-tip='关闭' onClick={onClose}>
+        <button className={css.effectHeaderBtn} data-mybricks-tip={lang.closeEffectTip} onClick={onClose}>
           {SketchCloseIcon}
         </button>
       </div>
 
       <React.Fragment key={forceKey}>
-        {shadow ? (
+        {isShadowLayer(layer) ? (
           <>
+            <div className={css.effectRow}>
+              <span className={css.effectLabel}>{lang.presetLabel}</span>
+              <div className={css.effectPresets}>
+                {SHADOW_PRESETS.map((preset) => {
+                  const patch = getPresetPatch(preset, layer.type)
+                  const shadowValue = [patch.offsetX, patch.offsetY, patch.blurRadius, patch.spreadRadius, patch.color].filter(Boolean).join(' ')
+                  return (
+                    <button
+                      key={preset.id}
+                      type='button'
+                      className={css.effectPreset}
+                      aria-label={`${preset.label} ${lang.shadowPresetAriaLabel}`}
+                      aria-pressed={selectedPresetId === preset.id}
+                      data-mybricks-tip={preset.label}
+                      onClick={() => {
+                        offsetXVar.closePicker()
+                        offsetYVar.closePicker()
+                        blurRadiusVar.closePicker()
+                        spreadRadiusVar.closePicker()
+                        onChange(patch)
+                        // ColorEditor 仅用 defaultValue 初始化；只在套用预设时重挂，避免打断取色拖拽。
+                        setColorEditorVersion((version) => version + 1)
+                      }}
+                    >
+                      <span
+                        aria-hidden='true'
+                        className={textShadow ? css.effectPresetText : css.effectPresetPreview}
+                        style={textShadow
+                          ? { textShadow: shadowValue }
+                          : { boxShadow: `${layer.type === 'innerShadow' ? 'inset ' : ''}${shadowValue}` }}
+                      >
+                        {textShadow ? 'A' : null}
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
             <EffectNumberField
-              label='位置'
+              label={lang.positionLabel}
               icon='X'
-              tip='拖拽调整x轴偏移'
+              tip={lang.dragOffsetXTip}
               value={layer.offsetX}
               binding={offsetXVar}
               unitOptions={unitOptions}
@@ -569,7 +615,7 @@ function EffectSketchBody({
             <EffectNumberField
               label=''
               icon='Y'
-              tip='拖拽调整y轴偏移'
+              tip={lang.dragOffsetYTip}
               value={layer.offsetY}
               binding={offsetYVar}
               unitOptions={unitOptions}
@@ -578,9 +624,9 @@ function EffectSketchBody({
               onChange={(next) => onChange({ offsetY: next })}
             />
             <EffectNumberField
-              label='模糊'
+              label={lang.blurLabel}
               icon={<BoxShadowBlurRadiusOutlined />}
-              tip='拖拽调整模糊半径'
+              tip={lang.dragBlurTip}
               value={layer.blurRadius}
               binding={blurRadiusVar}
               unitOptions={unitOptions}
@@ -589,9 +635,9 @@ function EffectSketchBody({
             />
             {!textShadow && (
               <EffectNumberField
-                label='扩散'
+                label={lang.spreadLabel}
                 icon={<BoxShadowSpreadRadiusOutlined />}
-                tip='拖拽调整扩散半径'
+                tip={lang.dragSpreadTip}
                 value={layer.spreadRadius}
                 binding={spreadRadiusVar}
                 unitOptions={unitOptions}
@@ -600,9 +646,10 @@ function EffectSketchBody({
               />
             )}
             <div className={css.effectRow}>
-              <span className={css.effectLabel}>颜色</span>
+              <span className={css.effectLabel}>{lang.colorLabel}</span>
               {/* showSubTabs=false 只关渐变/图片，变量 tab 由 variableOptions 是否为空决定 */}
               <ColorEditor
+                key={colorEditorVersion}
                 style={{ flex: 1 }}
                 defaultValue={layer.color}
                 resolvedColor={resolvedColor}
@@ -615,9 +662,9 @@ function EffectSketchBody({
           </>
         ) : (
           <EffectNumberField
-            label='模糊'
+            label={lang.blurLabel}
             icon={layer.type === 'backgroundBlur' ? <BackgroundBlurIcon /> : <BlurIcon />}
-            tip='拖拽调整模糊半径'
+            tip={lang.dragBlurTip}
             value={layer.blurRadius}
             binding={blurRadiusVar}
             unitOptions={unitOptions}

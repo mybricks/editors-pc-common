@@ -21,6 +21,7 @@ import {
   Dropdown,
   DownOutlined,
   VariableNumberInput,
+  buildDetachMenuOptions,
   getApplyVariableOption,
   APPLY_VARIABLE_ACTION,
 } from "../../components";
@@ -41,8 +42,11 @@ import {
   parseTextFillDisplayValue,
 } from "../../helper/text-fill";
 import { getColorEditorValue } from "../../helper/get-color-editor-value";
+import { collectZoneTabs, mergeZoneTabsByState } from "../../../core/zone-tab";
+import { createStyleResolution } from "../../../core/style-property";
 import type { EffectiveStyleValue } from "../../../core/zone-tab";
 import css from "./index.less";
+import lang from '../../../index.i18n'
 
 /** 字号预置档位（对齐 Figma 的字号下拉） */
 const FONT_SIZE_PRESETS = [10, 11, 12, 13, 14, 15, 16, 20, 24, 32, 36, 40, 48, 64, 96, 128];
@@ -101,24 +105,21 @@ const FONT_FAMILY_OPTIONS = [
 ];
 
 const FONT_WEIGHT_OPTIONS = [
-  { label: "极细",  value: "100", suffix: "100" },
-  { label: "特细",  value: "200", suffix: "200" },
-  { label: "细体",  value: "300", suffix: "300" },
-  { label: "标准",  value: "400", suffix: "400" },
-  { label: "中等",  value: "500", suffix: "500" },
-  { label: "中黑",  value: "600", suffix: "600" },
-  { label: "粗体",  value: "700", suffix: "700" },
-  { label: "特粗",  value: "800", suffix: "800" },
-  { label: "极粗",  value: "900", suffix: "900" },
+  { label: lang.fontWeight100,  value: "100", suffix: "100" },
+  { label: lang.fontWeight200,  value: "200", suffix: "200" },
+  { label: lang.fontWeight300,  value: "300", suffix: "300" },
+  { label: lang.fontWeight400,  value: "400", suffix: "400" },
+  { label: lang.fontWeight500,  value: "500", suffix: "500" },
+  { label: lang.fontWeight600,  value: "600", suffix: "600" },
+  { label: lang.fontWeight700,  value: "700", suffix: "700" },
+  { label: lang.fontWeight800,  value: "800", suffix: "800" },
+  { label: lang.fontWeight900,  value: "900", suffix: "900" },
 ];
 
 const WHITE_SPACE_OPTIONS = [
   { label: "normal", value: "normal" },
   { label: "nowrap", value: "nowrap" },
-  { label: "pre", value: "pre" },
   { label: "pre-wrap", value: "pre-wrap" },
-  { label: "pre-line", value: "pre-line" },
-  { label: "break-spaces", value: "break-spaces" },
 ];
 
 const FONT_SIZE_OPTIONS = [
@@ -129,8 +130,7 @@ const FONT_SIZE_DEFAULT_ACTION = 'fontSizeDefault';
 const FONT_SIZE_DISABLED_LIST = ["inherit"];
 
 const LINEHEIGHT_UNIT_OPTIONS = [
-  { label: "默认", value: "default" },
-  { label: "倍数", value: "" },
+  { label: lang.lineHeightMultiple, value: "" },
   { label: "px", value: "px" },
   { label: "%", value: "%" },
 ];
@@ -143,11 +143,11 @@ const LETTERSPACING_UNIT_OPTIONS = [
 const LETTERSPACING_UNIT_DISABLED_LIST = ["normal", "inherit"];
 
 const TEXT_DECORATION_STYLE_OPTIONS = [
-  { label: "实线", value: "solid" },
-  { label: "点状", value: "dotted" },
-  { label: "虚线", value: "dashed" },
-  { label: "双线", value: "double" },
-  { label: "波浪", value: "wavy" },
+  { label: lang.decorationSolid, value: "solid" },
+  { label: lang.decorationDotted, value: "dotted" },
+  { label: lang.decorationDashed, value: "dashed" },
+  { label: lang.decorationDouble, value: "double" },
+  { label: lang.decorationWavy, value: "wavy" },
 ];
 
 const TEXT_DECORATION_LENGTH_UNITS = [
@@ -347,7 +347,26 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
   ].some((item) => typeof item?.value === 'string' && /^unset$/i.test(item.value.trim()));
   const familyConfigured = isEffectiveStyleConfigured(effectiveStyle?.fontFamily);
   const editConfig = context?.editConfig;
+  const isSoloEdit = !!(
+    editConfig?.options && !Array.isArray(editConfig.options) &&
+    'soloEdit' in editConfig.options && editConfig.options.soloEdit
+  );
   const { targetDom, variableOptions: canvasColorVariables } = useCanvasColorVariables();
+  const options = editConfig?.options;
+  const zoneTab = options && !Array.isArray(options) && 'zoneTab' in options ? options.zoneTab : null;
+  const normalFontResolution = useMemo(() => {
+    if (!zoneTab?.pseudo || ![':hover', ':focus', ':active', ':disabled'].includes(zoneTab.pseudo) || !targetDom?.isConnected) return null;
+    // 新增伪类的基础规则可能尚未刷新；只在字体内读取最新常规声明，保留变量和单位。
+    const selectors = [zoneTab.baseSelector, ...Array.from(targetDom.classList, name => '.' + name)];
+    const normalTab = mergeZoneTabsByState(collectZoneTabs([targetDom], selectors, (options as any)?.comId))
+      .find(tab => !tab.pseudo);
+    return normalTab ? createStyleResolution(normalTab, targetDom) : null;
+  }, [zoneTab, targetDom, options, effectiveStyle]);
+  const getFontPreview = (key: string, computed?: string) => {
+    if (effectiveStyle?.[key] && effectiveStyle[key].type !== 'computed') return undefined;
+    const declared = normalFontResolution?.get(key).winner?.value;
+    return declared && !/^(inherit|initial|unset|revert|revert-layer)$/i.test(declared.trim()) ? declared : computed;
+  };
   const outterFontFamilyOptions = normalizeFontfaceOptions(editConfig?.fontfaces || []);
   const textFillStyleRef = useRef<Record<string, any>>(value as Record<string, any>);
   const [textFillAuthored, setTextFillAuthored] = useState(() =>
@@ -409,7 +428,13 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
   }, [onChange, context?.getStyleProperty, context?.getStyleClearPlans, context?.getStylePreview]);
 
   const effectiveTextFillValue = parseTextFillDisplayValue(value as Record<string, any>);
-  const textFillValue = textFillPreviewColor ?? effectiveTextFillValue;
+  const normalTextFillPreview = !colorConfigured && !colorResetToDefault && !pendingTextFillDefault
+    ? parseTextFillDisplayValue(Object.fromEntries(
+        ['color', 'backgroundColor', 'backgroundImage', 'backgroundClip', 'WebkitBackgroundClip'].map(key =>
+          [key, getFontPreview(key, key === 'color' ? colorDisplayField.computedPreview : undefined)])
+      ))
+    : undefined;
+  const textFillValue = textFillPreviewColor ?? (textFillAuthored ? effectiveTextFillValue : normalTextFillPreview || effectiveTextFillValue);
   const textFillComputedColor = textFillPreviewColor ?? (
     solidTextFillColor ? effectiveStyle?.backgroundColor?.computedValue :
     effectiveStyle?.WebkitTextFillColor?.computedValue ??
@@ -417,9 +442,11 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
     effectiveStyle?.color?.computedValue ??
     (colorDisplayField.displaySource === 'normal-computed' ? colorDisplayField.computedPreview : undefined)
   ) as string | undefined;
-  const textFillEditorKey = `${isTextFillActive(value as Record<string, any>)
+  const textFillMode = isTextFillActive(value as Record<string, any>)
     ? "text-fill-gradient"
-    : "text-fill-solid"}-${textFillValue}-${textFillComputedColor ?? ""}-${textFillEditorRevision}`;
+    : "text-fill-solid";
+  let textFillEditorKey = `${textFillMode}-${textFillValue}-${textFillComputedColor ?? ""}-${textFillEditorRevision}`;
+  if (isSoloEdit) textFillEditorKey = `text-fill-solo-${textFillEditorRevision}`;
 
   useEffect(() => {
     textFillStyleRef.current = value as Record<string, any>;
@@ -428,8 +455,8 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
     );
     setPendingTextFillDefault(false);
     setTextFillPreviewColor(undefined);
-    setTextFillEditorRevision((revision) => revision + 1);
-  }, [targetDom, effectiveStyle, colorConfigured, value.color, value.backgroundImage, value.backgroundColor]);
+    if (!isSoloEdit) setTextFillEditorRevision((revision) => revision + 1);
+  }, [targetDom, effectiveStyle, colorConfigured, value.color, value.backgroundImage, value.backgroundColor, isSoloEdit]);
 
   const [fontFamilyAuthored, setFontFamilyAuthored] = useState(() =>
     familyConfigured
@@ -461,13 +488,11 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
     (fontFamilyField.displaySource === 'normal-computed'
       ? fontFamilyField.computedPreview
       : effectiveStyle?.fontFamily?.computedValue);
+  const normalFontFamily = fontFamilyDefaultPreview ? undefined : getFontPreview('fontFamily', fontFamilyField.computedPreview);
   const inheritedFontFamily = parseFontFamily(computedFontFamily)[0];
   const fontFamilyPreview = fontFamilyAuthored
     ? innerFontFamily?.[0] ? quoteIfNeeded(innerFontFamily[0]) : ''
-    : computedFontFamily;
-  const fontFamilyDisplayValue = fontFamilyAuthored ? undefined
-    : fontFamilyField.displaySource === 'normal-computed' ? computedFontFamily : inheritedFontFamily;
-  const fontFamilyPlaceholder = fontFamilyAuthored ? '未配置字体' : '继承';
+    : normalFontFamily || computedFontFamily;
 
   const [isMultiMode, setIsMultiMode] = useState(false);
 
@@ -488,30 +513,37 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
       : baseOptions;
   }, [cfg.fontfaces, innerFontFamily, outterFontFamilyOptions]);
 
+  const previewFamily = parseFontFamily(normalFontFamily)[0] || inheritedFontFamily;
+  const fontFamilyDisplayValue = fontFamilyAuthored ? undefined
+    : isCssVarValue(previewFamily) ? lang.fontVariableAt
+      : fontFamilyOptions().find(option => option.value === previewFamily)?.label ?? previewFamily;
+  const textAlignValue = value.textAlign ?? getFontPreview('textAlign', context?.getStyleDisplayPreview?.('textAlign'));
+  const justifyContentValue = value.justifyContent ?? getFontPreview('justifyContent', context?.getStyleDisplayPreview?.('justifyContent'));
+
   const getTextAlignOptions = useCallback(() => {
     // flex 模式下固定用 left/right，与 justifyContentToAlign 的返回值保持一致
     if (cfg.textAlignMode === 'flex') {
       return [
-        { label: <TextAlignLeftOutlined />, value: "left", tip: "居左对齐" },
-        { label: <TextAlignCenterOutlined />, value: "center", tip: "居中对齐" },
-        { label: <TextAlignRightOutlined />, value: "right", tip: "居右对齐" },
+        { label: <TextAlignLeftOutlined />, value: "left", tip: lang.alignLeft },
+        { label: <TextAlignCenterOutlined />, value: "center", tip: lang.alignCenter },
+        { label: <TextAlignRightOutlined />, value: "right", tip: lang.alignRight },
       ];
     }
-    const useStart = ["start", "end"].includes(value.textAlign as any);
+    const useStart = ["start", "end"].includes(textAlignValue as any);
     return [
       {
         label: <TextAlignLeftOutlined />,
         value: useStart ? "start" : "left",
-        tip: "居左对齐",
+        tip: lang.alignLeft,
       },
-      { label: <TextAlignCenterOutlined />, value: "center", tip: "居中对齐" },
+      { label: <TextAlignCenterOutlined />, value: "center", tip: lang.alignCenter },
       {
         label: <TextAlignRightOutlined />,
         value: useStart ? "end" : "right",
-        tip: "居右对齐",
+        tip: lang.alignRight,
       },
     ];
-  }, [cfg.textAlignMode, value.textAlign]);
+  }, [cfg.textAlignMode, textAlignValue]);
 
   const fontSizeConfigured = isEffectiveStyleConfigured(effectiveStyle?.fontSize);
   const lineHeightConfigured = isEffectiveStyleConfigured(effectiveStyle?.lineHeight);
@@ -525,50 +557,63 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
   const [lineHeight, setLineHeight] = useState<string | number | null>(() =>
     lineHeightConfigured && isConfiguredCssLength(value.lineHeight) ? (value.lineHeight as string | number) : null
   );
+  const [lineHeightDefaultPreview, setLineHeightDefaultPreview] = useState<string>();
   const lineHeightChangedByInputRef = useRef(false);
   const [letterSpacing, setLetterSpacing] = useState<string | number | null>(() =>
     letterSpacingConfigured && isConfiguredCssLength(value.letterSpacing) ? (value.letterSpacing as string | number) : null
   );
+  const [letterSpacingDefaultPreview, setLetterSpacingDefaultPreview] = useState<string>();
 
   // Tab/元素变化以及外部样式刷新时，按逐属性生效值同步输入框。
   useEffect(() => {
     setFontSizeDefaultPreviewPx(null);
     setFontSizeDraftConfigured(false);
-    lineHeightChangedByInputRef.current = false;
     setFontSize(fontSizeConfigured && isConfiguredCssLength(value.fontSize) ? (value.fontSize as string | number) : null);
-    setLineHeight(lineHeightConfigured && isConfiguredCssLength(value.lineHeight) ? (value.lineHeight as string | number) : null);
+  }, [targetDom, fontSizeConfigured, value.fontSize]);
+
+  useEffect(() => {
+    setLetterSpacingDefaultPreview(undefined);
     setLetterSpacing(
       letterSpacingConfigured && isConfiguredCssLength(value.letterSpacing) ? (value.letterSpacing as string | number) : null
     );
-  }, [targetDom, fontSizeConfigured, lineHeightConfigured, letterSpacingConfigured, value.fontSize, value.lineHeight, value.letterSpacing]);
+  }, [targetDom, letterSpacingConfigured, value.letterSpacing]);
 
-  const fontSizePreview = fontSizeField.displaySource === 'normal-computed' ? fontSizeField.computedPreview : undefined;
-  const effectiveDefaultFontSizePx = getComputedCssLengthPx(effectiveStyle?.fontSize, undefined, fontSizePreview);
+  useEffect(() => {
+    // 行高独立同步，避免字号/字间距刷新时重新采用清除前的行高快照。
+    setLineHeightDefaultPreview(undefined);
+    lineHeightChangedByInputRef.current = false;
+    setLineHeight(lineHeightConfigured && isConfiguredCssLength(value.lineHeight) ? (value.lineHeight as string | number) : null);
+  }, [targetDom, lineHeightConfigured, value.lineHeight]);
+
+  const fontSizePreview = getFontPreview('fontSize', fontSizeField.computedPreview);
+  const effectiveDefaultFontSizePx = getComputedCssLengthPx(effectiveStyle?.fontSize, undefined, fontSizeField.computedPreview);
   const defaultFontSizePx = fontSizeDefaultPreviewPx ?? effectiveDefaultFontSizePx;
   const fontSizeUnconfigured = !isConfiguredCssLength(fontSize);
   const showFontSizeDefaultAction = !!sizeField.clear || fontSizeDraftConfigured;
-  const fontSizePlaceholder = '默认';
   // 未配置字号时直接回显最终计算值，但仍保持 fontSize 为 null。
   // 这样仅展示默认值不会把它误写成用户显式配置的 font-size。
   const fontSizeDisplayValue = fontSizePreview ? fontSize : fontSizeUnconfigured && Number.isFinite(defaultFontSizePx)
     ? `${defaultFontSizePx}px`
     : fontSize;
 
-  const lineHeightPreview = lineHeightField.displaySource === 'normal-computed' ? lineHeightField.computedPreview : undefined;
-  const defaultLineHeightPx = getComputedCssLengthPx(effectiveStyle?.lineHeight, undefined, lineHeightPreview);
+  const lineHeightPreview = lineHeightDefaultPreview ?? getFontPreview('lineHeight', lineHeightField.computedPreview);
+  const defaultLineHeightPx = getComputedCssLengthPx(effectiveStyle?.lineHeight, undefined, lineHeightDefaultPreview ?? lineHeightField.computedPreview);
   const lineHeightUnconfigured = !isConfiguredCssLength(lineHeight);
-  const lineHeightPlaceholder = '默认';
-  const lineHeightDisplayValue = lineHeightPreview ? lineHeight : lineHeightUnconfigured && Number.isFinite(defaultLineHeightPx)
+  const lineHeightPreviewValue = lineHeightPreview ?? (lineHeightUnconfigured && Number.isFinite(defaultLineHeightPx)
     ? `${defaultLineHeightPx}px`
-    : lineHeight;
+    : undefined);
+  const lineHeightDisplayValue = lineHeightUnconfigured ? null : lineHeight;
 
-  const letterSpacingPreview = letterSpacingField.displaySource === 'normal-computed' ? letterSpacingField.computedPreview : undefined;
-  const defaultLetterSpacingPx = getComputedCssLengthPx(effectiveStyle?.letterSpacing, 0, letterSpacingPreview);
+  // 常规态和伪类态共用只读预览格式化；px/normal 沿用数值展示，其他单位和变量保留原样。
+  const letterSpacingPreviewSource = letterSpacingDefaultPreview
+    ?? getFontPreview('letterSpacing', letterSpacingField.computedPreview)
+    ?? effectiveStyle?.letterSpacing?.computedValue;
+  const letterSpacingPreviewPx = getComputedCssLengthPx(undefined, 0, letterSpacingPreviewSource);
+  const letterSpacingPreview = Number.isFinite(letterSpacingPreviewPx)
+    ? `${letterSpacingPreviewPx}px`
+    : letterSpacingPreviewSource;
+  const defaultLetterSpacingPx = getComputedCssLengthPx(effectiveStyle?.letterSpacing, 0, letterSpacingDefaultPreview ?? letterSpacingField.computedPreview);
   const letterSpacingUnconfigured = !isConfiguredCssLength(letterSpacing);
-  const letterSpacingPlaceholder = '默认';
-  const letterSpacingDisplayValue = letterSpacingPreview ? letterSpacing : letterSpacingUnconfigured && Number.isFinite(defaultLetterSpacingPx)
-    ? `${defaultLetterSpacingPx}px`
-    : letterSpacing;
 
   const [truncateLines, setTruncateLines] = useState<number>(() => {
     const clamp = (value as any).webkitLineClamp;
@@ -604,6 +649,10 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
     () => (value as any).textTransform || 'none'
   );
 
+  const [whiteSpaceValue, setWhiteSpaceValue] = useState<string>(
+    () => (value as any).whiteSpace || 'normal'
+  );
+
   useEffect(() => {
     const current = value as Record<string, any>;
     const clamp = current.webkitLineClamp ?? current.WebkitLineClamp;
@@ -624,6 +673,9 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
     setTextTransformValue(current.textTransform && !['unset', 'initial', 'inherit', 'revert'].includes(current.textTransform)
       ? current.textTransform
       : 'none');
+    setWhiteSpaceValue(current.whiteSpace && !['unset', 'initial', 'inherit', 'revert'].includes(current.whiteSpace)
+      ? current.whiteSpace
+      : 'normal');
   }, [
     (value as any).webkitLineClamp,
     (value as any).WebkitLineClamp,
@@ -634,6 +686,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
     (value as any).textDecorationThickness,
     (value as any).fontStyle,
     (value as any).textTransform,
+    (value as any).whiteSpace,
   ]);
 
   const [popoverOpen, setPopoverOpen] = useState(false);
@@ -737,7 +790,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
   );
 
   const fontSizeVar = useLengthVarBinding({
-    value: fontSize,
+    value: fontSize ?? fontSizePreview,
     onChange: onFontSizeChange,
     fallback: Number.isFinite(defaultFontSizePx) ? `${defaultFontSizePx}px` : undefined,
   });
@@ -787,21 +840,37 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
         setLineHeight(value);
       }
       if (res.length > 0) {
-        onChange(res);
+        const result = onChange(res);
+        if (value == null) {
+          if (result?.clearUnsupported && !result.clearApplied) {
+            setLineHeight(lineHeight);
+            return;
+          }
+          // 外部 effectiveStyle 可能仍是清除前的快照，默认预览需读取清除后的计算值。
+          const preview = context?.getStylePreview?.('lineHeight', true)?.trim();
+          setLineHeightDefaultPreview(preview || undefined);
+        } else {
+          setLineHeightDefaultPreview(undefined);
+        }
       }
     },
-    [lineHeight, fontSize, fontSizeVar.resolvedNumber, defaultFontSizePx, defaultLineHeightPx, onChange]
+    [lineHeight, fontSize, fontSizeVar.resolvedNumber, defaultFontSizePx, defaultLineHeightPx, onChange, context?.getStylePreview]
   );
 
   const fontSizePresetItems = useMemo(
     () => FONT_SIZE_PRESETS.map((size) => ({ label: String(size), value: String(size) })),
     []
   );
+  const fontSizeVariableMenuOptions = useMemo(() => [
+    { label: '默认', value: 'default' },
+    { label: '', value: '__fontSizeVariableDefaultDivider__', type: 'divider' as const },
+    ...fontSizePresetItems,
+  ], [fontSizePresetItems]);
 
   /** 字号预置列表 + 底部变量入口（图标居中、无文案，对齐 Figma） */
   const fontSizePresetOptions = useMemo(() => ([
     ...(showFontSizeDefaultAction ? [
-      { label: '默认', value: FONT_SIZE_DEFAULT_ACTION, type: 'action' as const },
+      { label: lang.defaultLabel, value: FONT_SIZE_DEFAULT_ACTION, type: 'action' as const },
       { label: '', value: '__fontSizeDefaultDivider__', type: 'divider' as const },
     ] : []),
     ...fontSizePresetItems,
@@ -812,7 +881,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
       type: 'action' as const,
       icon: <Variable />,
       disabled: !fontSizeVar.hasVariables,
-      tip: fontSizeVar.hasVariables ? '应用变量...' : '当前画布没有可用的尺寸变量',
+      tip: fontSizeVar.hasVariables ? lang.applyVariableShort : lang.noSizeVariables,
     },
   ]), [fontSizePresetItems, showFontSizeDefaultAction, fontSizeVar.hasVariables]);
 
@@ -827,10 +896,18 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
 
   const onLetterSpacingChange = useCallback(
     (value: string | number | null) => {
+      const result = onChange({ key: "letterSpacing", value });
+      if (value == null) {
+        if (result?.clearUnsupported && !result.clearApplied) return;
+        // 与行高一致，清除后读最新计算值；normal 由预览格式化为 0px。
+        const preview = context?.getStylePreview?.('letterSpacing', true)?.trim();
+        setLetterSpacingDefaultPreview(preview || undefined);
+      } else {
+        setLetterSpacingDefaultPreview(undefined);
+      }
       setLetterSpacing(value);
-      onChange({ key: "letterSpacing", value });
     },
-    [onChange]
+    [onChange, context?.getStylePreview]
   );
 
   // 仅只读预览值需要直接提交；已有配置继续由 InputNumber 的 blur 路径处理。
@@ -842,27 +919,35 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
   const getConfiguredLineHeightDragProps = useDragNumber({ continuous: true });
   const getConfiguredLetterSpacingDragProps = useDragNumber({ continuous: true });
   const getPreviewFontSizeDragProps = useLengthInputDrag(fontSizePreview, onFontSizeChange);
-  const getPreviewLineHeightDragProps = useLengthInputDrag(lineHeightPreview, onLineHeightDragChange);
+  const getPreviewLineHeightDragProps = useLengthInputDrag(lineHeightPreviewValue, onLineHeightDragChange);
   const getPreviewLetterSpacingDragProps = useLengthInputDrag(letterSpacingPreview, onLetterSpacingChange);
   const getDragPropsFontSize = fontSizeUnconfigured && !!fontSizePreview ? getPreviewFontSizeDragProps : getConfiguredFontSizeDragProps;
-  const getDragPropsLineHeight = lineHeightUnconfigured && !!lineHeightPreview ? getPreviewLineHeightDragProps : getConfiguredLineHeightDragProps;
+  const getDragPropsLineHeight = lineHeightUnconfigured && !!lineHeightPreviewValue ? getPreviewLineHeightDragProps : getConfiguredLineHeightDragProps;
   const getDragPropsLetterSpacing = letterSpacingUnconfigured && !!letterSpacingPreview ? getPreviewLetterSpacingDragProps : getConfiguredLetterSpacingDragProps;
 
   const lineHeightVar = useLengthVarBinding({
-    value: lineHeight,
+    value: lineHeight ?? lineHeightPreview,
     onChange: onLineHeightChange,
     fallback: Number.isFinite(defaultLineHeightPx) ? `${defaultLineHeightPx}px` : undefined,
   });
 
   const letterSpacingVar = useLengthVarBinding({
-    value: letterSpacing,
+    value: letterSpacing ?? letterSpacingPreview,
     onChange: onLetterSpacingChange,
     fallback: Number.isFinite(defaultLetterSpacingPx) ? `${defaultLetterSpacingPx}px` : undefined,
   });
+  const letterSpacingVariableMenuOptions = useMemo(() => [
+    { label: '默认', value: 'default' },
+    ...buildDetachMenuOptions(letterSpacingVar.fallbackValue),
+  ], [letterSpacingVar.fallbackValue]);
 
   /** 行高、字间距的单位菜单末尾统一挂「应用变量...」 */
   const lineHeightUnitOptions = useMemo(() => [
-    ...LINEHEIGHT_UNIT_OPTIONS.filter((option) => !lineHeightUnconfigured || option.value !== 'default'),
+    ...(!lineHeightUnconfigured ? [
+      { label: lang.lineHeightDefault, value: 'default' },
+      { label: '', value: '__lineHeightDefaultDivider__', type: 'divider' as const },
+    ] : []),
+    ...LINEHEIGHT_UNIT_OPTIONS,
     { label: '', value: '__variableDivider__', type: 'divider' as const },
     getApplyVariableOption(lineHeightVar.hasVariables),
   ], [lineHeightUnconfigured, lineHeightVar.hasVariables]);
@@ -921,6 +1006,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
     if (isNaN(lines) || lines < 1) return;
     if (lines <= 1) {
       // 单行：white-space: nowrap + text-overflow: ellipsis 方案
+      setWhiteSpaceValue('nowrap');
       onChange([
         { key: 'textOverflow', value: 'ellipsis' },
         { key: 'overflow', value: 'hidden' },
@@ -936,7 +1022,8 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
       // 使用 overflow:clip + overflow-clip-margin:content-box，
       // 裁剪边界从 border-box 收窄到 content-box，
       // 无论 padding 多大都不会有多余行"漏"到 padding 区域。
-      onChange([
+      setWhiteSpaceValue('normal');
+            onChange([
         { key: 'overflow', value: 'clip' },
         { key: 'overflowClipMargin', value: 'content-box' },
         { key: 'whiteSpace', value: 'normal' },
@@ -948,7 +1035,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
         { key: 'maxHeight', value: null },
       ]);
     }
-  }, [onChange]);
+  }, [onChange, setWhiteSpaceValue]);
 
   const refresh = useCallback(() => {
     const items: Array<{ key: string; value: any }> = [
@@ -1006,14 +1093,14 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
       className={`${css.truncateBtn}${popoverOpen ? ` ${css.active}` : ''}`}
       style={{ position: 'absolute', right: -22, top: '50%', transform: 'translateY(-50%)' }}
       onClick={() => setPopoverOpen(v => !v)}
-      data-mybricks-tip={`{content:'文字设置',position:'left'}`}
+      data-mybricks-tip={`{content:'${lang.fontSettingsTip}',position:'left'}`}
     >
       <FontSetting />
     </div>
   );
 
   return (
-    <Panel title="字体" showTitle={showTitle} showReset={true} showDelete={false} resetFunction={refresh} collapse={false} keepTopBorder>
+    <Panel title={lang.fontPanelTitle} showTitle={showTitle} showReset={true} showDelete={false} resetFunction={refresh} collapse={false} keepTopBorder>
 
       {cfg.disableFontFamily ? null : (
         <Panel.Content style={truncateBtnInFamilyRow ? { position: 'relative' } : undefined}>
@@ -1035,7 +1122,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
                     setIsMultiMode(false);
                   }}
                 >
-                  单字体
+                  {lang.fontSingle}
                 </span>
                 <span
                   className={`${css.modeTab} ${isMultiMode ? css.modeTabActive : ''}`}
@@ -1045,7 +1132,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
                     setIsMultiMode(true);
                   }}
                 >
-                  多字体
+                  {lang.fontMultiple}
                 </span>
               </div>
             );
@@ -1054,7 +1141,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
               // 多字体模式：多选 + 拖拽排序 + 序号徽标
               <Select
                 tip={
-                  "字体" +
+                  lang.fontFamilyTip +
                   (innerFontFamily?.length && innerFontFamily[0] !== "inherit"
                     ? "：" +
                     innerFontFamily
@@ -1110,13 +1197,13 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
                 }}
                 footer={modeFooter}
                 displayValue={fontFamilyDisplayValue}
-                placeholder={fontFamilyPlaceholder}
+                placeholder=""
               />
             ) : (
               // 单字体模式：简洁单选
               <Select
                 tip={
-                  "字体" +
+                  lang.fontFamilyTip +
                   (innerFontFamily?.[0] && innerFontFamily[0] !== "inherit"
                     ? "：" + (fontFamilyOptions().find(o => o.value === innerFontFamily[0])?.label ?? innerFontFamily[0])
                     : "")
@@ -1128,7 +1215,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
                   ...(fontFamilyPreview ? { fontFamily: fontFamilyPreview } : {}),
                 }}
                 options={fontFamilyOptions()}
-                value={innerFontFamily?.[0] && innerFontFamily[0] !== 'inherit' ? (innerFontFamily[0]?.startsWith('var') ? '@字体变量' : innerFontFamily[0]) : undefined}
+                value={innerFontFamily?.[0] && innerFontFamily[0] !== 'inherit' ? (innerFontFamily[0]?.startsWith('var') ? lang.colorVariableAt : innerFontFamily[0]) : undefined}
                 clearable={!!familyField.clear}
                 onClear={handleFontFamilyClear}
                 onChange={(newValue: string) => {
@@ -1138,7 +1225,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
                 }}
                 footer={modeFooter}
                 displayValue={fontFamilyDisplayValue}
-                placeholder={fontFamilyPlaceholder}
+                placeholder=""
               />
             );
           })()}
@@ -1163,9 +1250,8 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
             clearable={!!colorField.clear || (isTextFillActive(value as Record<string, any>) &&
               !!(solidTextFillColor ? backgroundColorField.clear : imageField.clear))}
             onClear={handleTextFillClear}
-            inherited={!textFillAuthored}
+            inherited={!textFillAuthored && !normalTextFillPreview}
             showInheritedColor
-            emptyValueLabel={colorResetToDefault || pendingTextFillDefault ? '默认' : undefined}
             onChange={handleTextFillChange}
           />
         </Panel.Content>
@@ -1176,7 +1262,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
 
           {cfg.disableFontWeight ? null : (
             <Select
-              tip="粗体"
+              tip={lang.fontWeight700}
               prefix={<FontWeightOutlined />}
               style={{
                 flex: 1,
@@ -1204,12 +1290,12 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
               <div
                 ref={fontSizeVar.anchorRef}
                 {...(fontSizeVar.varRef
-                  ? fontSizeVar.dragProps('拖拽调整字号（将解除变量绑定）')
+                  ? fontSizeVar.dragProps(lang.dragFontSizeUnbind)
                   : getDragPropsFontSize(
                       fontSizeUnconfigured
                         ? `${defaultFontSizePx}px`
                         : fontSize,
-                      '拖拽调整字号'
+                      lang.dragFontSize
                     ))}
                 style={{
                   height: "100%",
@@ -1227,16 +1313,16 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
                 inputKey={`font-size-${fontSizeInputKey}`}
                 // 绑定态也给出完整档位列表：顶部单列当前变量，点档位即解绑成固定值
                 menuLayout="presetList"
-                menuOptions={fontSizePresetItems}
+                menuOptions={fontSizeVariableMenuOptions}
                 menuStyle={FONT_SIZE_MENU_STYLE}
                 onMenuSelect={(size) => onFontSizeChange(`${size}px`)}
                 inputProps={{
-                  tip: '字号',
+                  tip: lang.fontSizeTip,
                   type: "number",
                   style: { flex: 1, minWidth: 0, marginLeft: 4 },
                   value: fontSizeDisplayValue,
                   previewValue: fontSizeUnconfigured ? fontSizePreview : undefined,
-                  placeholder: fontSizePlaceholder,
+                  placeholder: '',
                   unitOptions: FONT_SIZE_OPTIONS,
                   onInputValueChange: (nextValue) => {
                     const parsed = parseFloat(nextValue);
@@ -1258,7 +1344,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
                         else if (action === APPLY_VARIABLE_ACTION) fontSizeVar.openPicker();
                       }}
                     >
-                      <span className={css.fontSizeArrow} data-mybricks-tip="字号档位">
+                      <span className={css.fontSizeArrow} data-mybricks-tip={lang.fontSizeGradeTip}>
                         <DownOutlined />
                       </span>
                     </Dropdown>
@@ -1277,12 +1363,12 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
               <div 
                 ref={lineHeightVar.anchorRef}
                 {...(lineHeightVar.varRef
-                  ? lineHeightVar.dragProps('拖拽调整行高（将解除变量绑定）')
+                  ? lineHeightVar.dragProps(lang.dragLineHeightUnbind)
                   : getDragPropsLineHeight(
                       lineHeight == null || lineHeight === '' || ['unset', 'normal', 'inherit'].includes(lineHeight as string)
                         ? '1'
                         : lineHeight,
-                      '拖拽调整行高'
+                      lang.dragLineHeight
                     ))}
                 style={{ 
                   height: "100%", 
@@ -1297,15 +1383,15 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
               </div>
               <VariableNumberInput
                 binding={lineHeightVar}
-                inputKey={`lineHeight-${getLineHeightUnitKey(lineHeight)}`}
+                inputKey={`lineHeight-${getLineHeightUnitKey(lineHeight ?? lineHeightPreview)}`}
                 inputProps={{
-                  tip: '行高',
+                  tip: lang.lineHeightTip,
                   type: "number",
                   style: { flex: 1, minWidth: 0, marginLeft: 4 },
                   value: lineHeightDisplayValue,
-                  previewValue: lineHeightUnconfigured ? lineHeightPreview : undefined,
-                  placeholder: lineHeightPlaceholder,
-                  defaultUnitValue: "default",
+                  previewValue: lineHeightUnconfigured ? lineHeightPreviewValue : undefined,
+                  placeholder: '',
+                  defaultUnitValue: lineHeightPreviewValue ? splitValueAndUnit(lineHeightPreviewValue)[1] ?? 'default' : 'default',
                   unitOptions: lineHeightUnitOptions,
                   unitDisabledList: LINEHEIGHT_UNIT_DISABLED_LIST,
                   hideUnitWhenEmpty: true,
@@ -1328,12 +1414,12 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
               <div 
                 ref={letterSpacingVar.anchorRef}
                 {...(letterSpacingVar.varRef
-                  ? letterSpacingVar.dragProps('拖拽调整字间距（将解除变量绑定）')
+                  ? letterSpacingVar.dragProps(lang.dragLetterSpacingUnbind)
                   : getDragPropsLetterSpacing(
                       letterSpacingUnconfigured
-                        ? `${defaultLetterSpacingPx}px`
+                        ? letterSpacingPreview
                         : letterSpacing,
-                      '拖拽调整字间距'
+                      lang.dragLetterSpacing
                     ))}
                 style={{ 
                   height: "100%", 
@@ -1348,13 +1434,14 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
               </div>
               <VariableNumberInput
                 binding={letterSpacingVar}
+                menuOptions={letterSpacingVariableMenuOptions}
                 inputProps={{
-                  tip: '字间距',
+                  tip: lang.letterSpacingTip,
                   type: "number",
                   style: { flex: 1, minWidth: 0, marginLeft: 4 },
-                  value: letterSpacingDisplayValue,
+                  value: letterSpacing,
                   previewValue: letterSpacingUnconfigured ? letterSpacingPreview : undefined,
-                  placeholder: letterSpacingPlaceholder,
+                  placeholder: '',
                   defaultUnitValue: "px",
                   unitOptions: letterSpacingUnitOptions,
                   showIcon: true,
@@ -1374,7 +1461,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
               className={`${css.truncateBtn}${popoverOpen ? ` ${css.active}` : ''}`}
               style={{ position: 'absolute', right: -22, top: '50%', transform: 'translateY(-50%)' }}
               onClick={() => setPopoverOpen(v => !v)}
-              data-mybricks-tip={`{content:'文字设置',position:'left'}`}
+              data-mybricks-tip={`{content:'${lang.fontSettingsTip}',position:'left'}`}
             >
               <FontSetting />
             </div>
@@ -1384,7 +1471,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
       {/* {cfg.disableWhiteSpace ? null : (
         <Panel.Content>
           <Select
-            tip="空白字符合并、换行"
+            tip={lang.textWrapTip}
             prefix={<WhiteSpaceOutlined />}
             style={{ padding: 0, overflow: "hidden" }}
             defaultValue={value.whiteSpace}
@@ -1400,12 +1487,12 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
         <Panel.Content style={{ position: 'relative' }}>
           <Toggle
             key={cfg.textAlignMode === 'flex'
-              ? `flex-${value.justifyContent || ''}`
-              : `text-${value.textAlign || ''}`}
+              ? `flex-${justifyContentValue || ''}`
+              : `text-${textAlignValue || ''}`}
             defaultValue={
               cfg.textAlignMode === 'flex'
-                ? justifyContentToAlign(value.justifyContent as string)
-                : value.textAlign
+                ? justifyContentToAlign(justifyContentValue as string)
+                : textAlignValue
             }
             options={getTextAlignOptions()}
             onChange={(v) => {
@@ -1425,7 +1512,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
               className={`${css.truncateBtn}${popoverOpen ? ` ${css.active}` : ''}`}
               style={{ position: 'absolute', right: -22, top: '50%', transform: 'translateY(-50%)' }}
               onClick={() => setPopoverOpen(v => !v)}
-              data-mybricks-tip={`{content:'文字设置',position:'left'}`}
+              data-mybricks-tip={`{content:'${lang.fontSettingsTip}',position:'left'}`}
             >
               <FontSetting />
             </div>
@@ -1439,13 +1526,13 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
         onClick={e => e.stopPropagation()}
       >
         <div className={css.popoverInlineRow}>
-          <div className={css.popoverLabel} style={{ marginBottom: 0 }}>装饰</div>
+          <div className={css.popoverLabel} style={{ marginBottom: 0 }}>{lang.decorationLabel}</div>
           <Panel.Item style={{ padding: 2 }}>
             <div className={css.decoGroup}>
               {([
-                { label: <span style={{ fontWeight: 500, fontSize: 13 }}>—</span>, value: 'none', tip: '无装饰' },
-                { label: <span style={{ textDecoration: 'underline', fontWeight: 500, fontSize: 13 }}>U</span>, value: 'underline', tip: '下划线' },
-                { label: <span style={{ textDecoration: 'line-through', fontWeight: 500, fontSize: 13 }}>S</span>, value: 'line-through', tip: '删除线' },
+                { label: <span style={{ fontWeight: 500, fontSize: 13 }}>—</span>, value: 'none', tip: lang.decorationNone },
+                { label: <span style={{ textDecoration: 'underline', fontWeight: 500, fontSize: 13 }}>U</span>, value: 'underline', tip: lang.decorationUnderline },
+                { label: <span style={{ textDecoration: 'line-through', fontWeight: 500, fontSize: 13 }}>S</span>, value: 'line-through', tip: lang.decorationStrikethrough },
               ] as const).map(({ label, value: v, tip }) => (
                 <div
                   key={v}
@@ -1477,10 +1564,10 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
         {textDecorationValue !== 'none' && (
           <>
             <div className={css.popoverInlineRow}>
-              <div className={css.popoverLabel} style={{ marginBottom: 0 }}>样式</div>
+              <div className={css.popoverLabel} style={{ marginBottom: 0 }}>{lang.decorationStyleLabel}</div>
               <Select
                 key={`deco-style-${textDecorationStyleValue}`}
-                tip="装饰线样式"
+                tip={lang.decorationStyleTip}
                 style={{ flex: 1, maxWidth: 120, padding: '0 8px' }}
                 value={textDecorationStyleValue}
                 options={TEXT_DECORATION_STYLE_OPTIONS}
@@ -1492,9 +1579,9 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
             </div>
             {textDecorationValue === 'underline' && (
               <div className={css.popoverInlineRow}>
-                <div className={css.popoverLabel} style={{ marginBottom: 0 }}>偏移</div>
+                <div className={css.popoverLabel} style={{ marginBottom: 0 }}>{lang.decorationOffsetLabel}</div>
                 <InputNumber
-                  tip="下划线偏移"
+                  tip={lang.underlineOffsetTip}
                   type="number"
                   style={{ flex: 1, maxWidth: 120, padding: '0 8px' }}
                   defaultUnitValue="px"
@@ -1512,9 +1599,9 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
               </div>
             )}
             <div className={css.popoverInlineRow}>
-              <div className={css.popoverLabel} style={{ marginBottom: 0 }}>粗细</div>
+              <div className={css.popoverLabel} style={{ marginBottom: 0 }}>{lang.decorationWeightLabel}</div>
               <InputNumber
-                tip="装饰线粗细"
+                tip={lang.decorationWeightTip}
                 type="number"
                 style={{ flex: 1, maxWidth: 120, padding: '0 8px' }}
                 defaultUnitValue="px"
@@ -1532,12 +1619,12 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
           </>
         )}
         <div className={css.popoverInlineRow}>
-          <div className={css.popoverLabel} style={{ marginBottom: 0 }}>斜体</div>
+          <div className={css.popoverLabel} style={{ marginBottom: 0 }}>{lang.italicLabel}</div>
           <Panel.Item style={{ padding: 2 }}>
             <div className={css.decoGroup}>
               {([
-                { label: <span style={{ fontWeight: 500, fontSize: 13 }}>—</span>, value: false, tip: '无斜体' },
-                { label: <span style={{ fontStyle: 'italic', fontWeight: 500, fontSize: 13 }}>I</span>, value: true, tip: '斜体' },
+                { label: <span style={{ fontWeight: 500, fontSize: 13 }}>—</span>, value: false, tip: lang.italicNone },
+                { label: <span style={{ fontStyle: 'italic', fontWeight: 500, fontSize: 13 }}>I</span>, value: true, tip: lang.italicLabel },
               ] as const).map(({ label, value: v, tip }) => (
                 <div
                   key={String(v)}
@@ -1555,15 +1642,15 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
           </Panel.Item>
         </div>
         <div className={css.popoverInlineRow}>
-          <div className={css.popoverLabel} style={{ marginBottom: 0 }}>大小写</div>
+          <div className={css.popoverLabel} style={{ marginBottom: 0 }}>{lang.textCaseLabel}</div>
           <Toggle
             key={`textTransform-${textTransformValue}`}
             defaultValue={textTransformValue}
             options={[
-              { label: <span style={{ fontWeight: 500, fontSize: 12 }}>Ag</span>, value: 'none', tip: '默认' },
-              { label: <span style={{ fontWeight: 700, fontSize: 12 }}>AG</span>, value: 'uppercase', tip: '全大写' },
-              { label: <span style={{ fontWeight: 500, fontSize: 12 }}>ag</span>, value: 'lowercase', tip: '全小写' },
-              { label: <span style={{ fontWeight: 500, fontSize: 12, textTransform: 'capitalize' }}>ab</span>, value: 'capitalize', tip: '首字母大写' },
+              { label: <span style={{ fontWeight: 500, fontSize: 12 }}>Ag</span>, value: 'none', tip: lang.textCaseDefault },
+              { label: <span style={{ fontWeight: 700, fontSize: 12 }}>AG</span>, value: 'uppercase', tip: lang.textCaseUpper },
+              { label: <span style={{ fontWeight: 500, fontSize: 12 }}>ag</span>, value: 'lowercase', tip: lang.textCaseLower },
+              { label: <span style={{ fontWeight: 500, fontSize: 12, textTransform: 'capitalize' }}>ag</span>, value: 'capitalize', tip: lang.textCaseCapitalize },
             ]}
             onChange={(v) => {
               const next = v as string;
@@ -1573,7 +1660,24 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
           />
         </div>
         <div className={css.popoverInlineRow}>
-          <div className={css.popoverLabel} style={{ marginBottom: 0 }}>截断文字</div>
+          <div className={css.popoverLabel} style={{ marginBottom: 0 }}>{lang.textWrapLabel}</div>
+          <Toggle
+            key={`whiteSpace-${whiteSpaceValue}`}
+            defaultValue={whiteSpaceValue}
+            options={[
+              { label: <span style={{ fontWeight: 500, fontSize: 13 }}>—</span>, value: 'normal', tip: `{content:'${lang.textWrapNormal}',position:'bottom'}` },
+              { label: <span style={{ fontWeight: 500, fontSize: 11, letterSpacing: -1 }}>→</span>, value: 'nowrap', tip: `{content:'${lang.textWrapNowrap}',position:'bottom'}` },
+              { label: <span style={{ fontWeight: 500, fontSize: 11 }}>¶</span>, value: 'pre-wrap', tip: `{content:'${lang.textWrapPreWrap}',position:'bottom'}` },
+            ]}
+            onChange={(v) => {
+              const next = v as string
+              setWhiteSpaceValue(next)
+              onChange({ key: 'whiteSpace', value: next === 'normal' ? 'normal' : next })
+            }}
+          />
+        </div>
+        <div className={css.popoverInlineRow}>
+          <div className={css.popoverLabel} style={{ marginBottom: 0 }}>{lang.textTruncateLabel}</div>
           <Toggle
             key={`truncate-${(value as any).textOverflow || ''}-${(value as any).webkitLineClamp || ''}`}
             defaultValue={
@@ -1583,8 +1687,8 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
                 : 'clip'
             }
             options={[
-              { label: <span style={{ fontWeight: 500, fontSize: 13 }}>—</span>, value: 'clip', tip: '不截断' },
-              { label: <FontSettingTruncation />, value: 'ellipsis', tip: '省略号截断' },
+              { label: <span style={{ fontWeight: 500, fontSize: 13 }}>—</span>, value: 'clip', tip: lang.textTruncateNone },
+              { label: <FontSettingTruncation />, value: 'ellipsis', tip: lang.textTruncateEllipsis },
             ]}
             onChange={(v) => {
               if (v === 'ellipsis') {
@@ -1592,11 +1696,12 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
                 applyTruncate(truncateLines);
               } else {
                 setIsTruncated(false);
+                setWhiteSpaceValue('normal');
                 onChange([
                   { key: 'textOverflow', value: null },
                   { key: 'overflow', value: null },
                   { key: 'overflowClipMargin', value: null },
-                  { key: 'whiteSpace', value: null },
+                  { key: 'whiteSpace', value: 'normal' },
                   { key: 'WebkitLineClamp', value: null },
                   { key: 'display', value: null },
                   { key: 'WebkitBoxOrient', value: null },
@@ -1609,13 +1714,14 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
         </div>
         {isTruncated && (
           <div className={css.popoverInlineRow}>
-            <div className={css.popoverLabel} style={{ marginBottom: 0 }}>最大行数</div>
+            <div className={css.popoverLabel} style={{ marginBottom: 0 }}>{lang.maxLinesLabel}</div>
             <InputNumber
-              tip="最大行数"
+              tip={lang.maxLinesLabel}
               type="number"
               style={{ flex: 1, maxWidth: 120, padding: '0 8px' }}
               defaultUnitValue=""
               value={String(truncateLines)}
+              placeholder=""
               fallbackValue={1}
               onChange={(lines) => {
                 const parsed = parseInt(String(lines), 10);

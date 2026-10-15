@@ -26,6 +26,7 @@ import type { LengthVarBinding } from '../../hooks/useLengthVarBinding'
 import type { InputNumberProps } from '../../components/InputNumber'
 
 import css from './index.less'
+import lang from '../../../index.i18n'
 
 interface MarginProps extends PanelBaseProps {
   value: CSSProperties
@@ -42,7 +43,7 @@ const DEFAULT_STYLE = {
 /** 绑定态胶囊与输入框同宽，且不把相邻字段挤出面板 */
 const CHIP_STYLE = {flex: '1 1 0', minWidth: 0, width: 0, marginLeft: 4}
 const UNIT_OPTIONS = [
-  { label: '默认', value: 'default' },
+  { label: lang.defaultLabel, value: 'default' },
   {label: '', value: '—divider_', type: 'divider'},
   { label: 'px', value: 'px' },
   { label: 'auto', value: 'auto' },
@@ -78,7 +79,7 @@ function AutoMarginBadge({inputProps}: {inputProps: InputNumberProps}) {
     >
       <>
         {inputProps.clearable ? <ClearButton onClick={() => inputProps.onClear?.()} /> : null}
-        <span className={css.autoBadgeArrow} data-mybricks-tip="单位">
+        <span className={css.autoBadgeArrow} data-mybricks-tip={lang.unitTip}>
           <DownOutlined />
         </span>
       </>
@@ -104,7 +105,7 @@ function MarginValueInput({binding, value, label, inputProps}: MarginValueInputP
           ...normalizedInputProps,
           value: null,
           defaultValue: undefined,
-          placeholder: '自动',
+          placeholder: lang.marginAutoPlaceholder,
           clearable: normalizedInputProps.clearable,
           tip: label,
           badge: <AutoMarginBadge inputProps={normalizedInputProps} />
@@ -126,6 +127,7 @@ const DEFAULT_CONFIG = {
 export function Margin ({value, onChange: fallbackOnChange, config, showTitle, collapse}: MarginProps) {
   const {
     spacingValue: marginValue, toggle, setToggle, forceRenderKey,
+    previewValues, computedPreviews, unifiedComputedPreview,
     handleChange, handleUnifiedChange, handleSwitchToUnified, refresh,
     canResetSide, unifiedCanClear, canReset,
   } = useBoxSpacingEditor({ property: 'margin', value, onChange: fallbackOnChange })
@@ -198,23 +200,26 @@ export function Margin ({value, onChange: fallbackOnChange, config, showTitle, c
         <div className={css.row}
         >
           <Panel.Content style={{padding: 2}}>
-            <Panel.Item className={css.editArea} style={{padding: '0px 8px'}}>
+            <Panel.Item className={css.editArea} style={{padding: '0px 6px 0 8px'}}>
               <div 
                 className={css.icon}
                 ref={unifiedVar.anchorRef}
                 {...(unifiedVar.varRef
-                  ? unifiedVar.dragProps(`{content:'拖拽调整外边距（将解除变量绑定）',position:'top'}`)
-                  : getDragProps(marginValue.marginTop, `{content:'拖拽调整外边距',position:'top'}`))}
+                  ? unifiedVar.dragProps(lang.dragMarginUnifiedUnbind)
+                  : getDragProps(marginValue.marginTop, lang.dragMarginUnified))}
               >
                 <PaddingAllOutlined />
               </div>
               <MarginValueInput
                 binding={unifiedVar}
                 value={marginValue.marginTop}
-                label="外边距"
+                label={lang.marginUnifiedLabel}
                 inputProps={{
                   style: DEFAULT_STYLE,
                   defaultValue: marginValue.marginTop,
+                  previewValue: marginValue.marginTop == null
+                    ? (previewValues.marginTop ?? unifiedComputedPreview)
+                    : undefined,
                   defaultUnitValue: 'default',
                   unitOptions: unifiedUnitOptions,
                   showIcon: true,
@@ -227,13 +232,13 @@ export function Margin ({value, onChange: fallbackOnChange, config, showTitle, c
                   onAction: (action) => {
                     if (action === APPLY_VARIABLE_ACTION) unifiedVar.openPicker()
                   },
-                  tip: '外边距'
+                  tip: ''
                 }}
               />
             </Panel.Item>
           </Panel.Content>
           <div
-            data-mybricks-tip={`{content:'切换为单独配置',position:'left'}`}
+            data-mybricks-tip={`{content:'${lang.toggleSplitTip}',position:'left'}`}
             className={css.actionIcon}
             onClick={() => setToggle(false)}
           >
@@ -247,23 +252,26 @@ export function Margin ({value, onChange: fallbackOnChange, config, showTitle, c
           <div style={{ minWidth: "120px", flex: 1 }}>
             <div className={css.row} style={{ paddingRight: 0 }}>
               <Panel.Content style={{ padding: 2 }}>
-                <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
+                <Panel.Item className={css.editArea} style={{ padding: "0px 6px 0 8px" }}>
                   <div 
                     className={`${css.icon} ${css.leftMarginIcon}`} 
                     ref={leftVar.anchorRef}
                     {...(leftVar.varRef
-                      ? leftVar.dragProps('拖拽调整左外边距（将解除变量绑定）')
-                      : getDragProps(marginValue.marginLeft, '拖拽调整左外边距'))}
+                      ? leftVar.dragProps(lang.dragMarginLeftUnbind)
+                      : getDragProps(marginValue.marginLeft, lang.dragMarginLeft))}
                   >
                     <MarginLeftOutlined/>
                   </div>
                   <MarginValueInput
                     binding={leftVar}
                     value={marginValue.marginLeft}
-                    label="左外边距"
+                    label={lang.marginLeftLabel}
                     inputProps={{
                       style: DEFAULT_STYLE,
                       defaultValue: marginValue.marginLeft,
+                      previewValue: marginValue.marginLeft == null
+                        ? (previewValues.marginLeft ?? computedPreviews.marginLeft)
+                        : undefined,
                       defaultUnitValue: 'default',
                       unitOptions: leftUnitOptions,
                       showIcon: true,
@@ -277,29 +285,32 @@ export function Margin ({value, onChange: fallbackOnChange, config, showTitle, c
                         if (action === APPLY_VARIABLE_ACTION) leftVar.openPicker()
                       },
                       onFocus: () => setSplitMarginIcon(<MarginLeftOutlined/>),
-                      tip: '左外边距'
+                      tip: lang.marginLeftLabel
                     }}
                   />
                 </Panel.Item>
               </Panel.Content>
               <Panel.Content style={{ padding: 2 }}>
-                <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
+                <Panel.Item className={css.editArea} style={{ padding: "0px 6px 0 8px" }}>
                   <div 
                     className={css.icon} 
                     ref={topVar.anchorRef}
                     {...(topVar.varRef
-                      ? topVar.dragProps('拖拽调整上外边距（将解除变量绑定）')
-                      : getDragProps(marginValue.marginTop, '拖拽调整上外边距'))}
+                      ? topVar.dragProps(lang.dragMarginTopUnbind)
+                      : getDragProps(marginValue.marginTop, lang.dragMarginTop))}
                   >
                     <MarginTopOutlined/>
                   </div>
                   <MarginValueInput
                     binding={topVar}
                     value={marginValue.marginTop}
-                    label="上外边距"
+                    label={lang.marginTopLabel}
                     inputProps={{
                       style: DEFAULT_STYLE,
                       defaultValue: marginValue.marginTop,
+                      previewValue: marginValue.marginTop == null
+                        ? (previewValues.marginTop ?? computedPreviews.marginTop)
+                        : undefined,
                       defaultUnitValue: 'default',
                       unitOptions: topUnitOptions,
                       showIcon: true,
@@ -313,7 +324,7 @@ export function Margin ({value, onChange: fallbackOnChange, config, showTitle, c
                         if (action === APPLY_VARIABLE_ACTION) topVar.openPicker()
                       },
                       onFocus: () => setSplitMarginIcon(<MarginTopOutlined/>),
-                      tip: '上外边距'
+                      tip: lang.marginTopLabel
                     }}
                   />
                 </Panel.Item>
@@ -321,23 +332,26 @@ export function Margin ({value, onChange: fallbackOnChange, config, showTitle, c
             </div>
             <div className={css.row} style={{ paddingRight: 0 }}>
               <Panel.Content style={{ padding: 2 }}>
-                <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
+                <Panel.Item className={css.editArea} style={{ padding: "0px 6px 0 8px" }}>
                   <div 
                     className={css.icon}
                     ref={rightVar.anchorRef}
                     {...(rightVar.varRef
-                      ? rightVar.dragProps('拖拽调整右外边距（将解除变量绑定）')
-                      : getDragProps(marginValue.marginRight, '拖拽调整右外边距'))}
+                      ? rightVar.dragProps(lang.dragMarginRightUnbind)
+                      : getDragProps(marginValue.marginRight, lang.dragMarginRight))}
                   >
                     <MarginRightOutlined/>
                   </div>
                   <MarginValueInput
                     binding={rightVar}
                     value={marginValue.marginRight}
-                    label="右外边距"
+                    label={lang.marginRightLabel}
                     inputProps={{
                       style: DEFAULT_STYLE,
                       defaultValue: marginValue.marginRight,
+                      previewValue: marginValue.marginRight == null
+                        ? (previewValues.marginRight ?? computedPreviews.marginRight)
+                        : undefined,
                       defaultUnitValue: 'default',
                       unitOptions: rightUnitOptions,
                       showIcon: true,
@@ -351,29 +365,32 @@ export function Margin ({value, onChange: fallbackOnChange, config, showTitle, c
                         if (action === APPLY_VARIABLE_ACTION) rightVar.openPicker()
                       },
                       onFocus: () => setSplitMarginIcon(<MarginRightOutlined/>),
-                      tip: '右外边距'
+                      tip: lang.marginRightLabel
                     }}
                   />
                 </Panel.Item>
               </Panel.Content>
               <Panel.Content style={{ padding: 2 }}>
-                <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
+                <Panel.Item className={css.editArea} style={{ padding: "0px 6px 0 8px" }}>
                   <div 
                     className={css.icon} 
                     ref={bottomVar.anchorRef}
                     {...(bottomVar.varRef
-                      ? bottomVar.dragProps('拖拽调整下外边距（将解除变量绑定）')
-                      : getDragProps(marginValue.marginBottom, '拖拽调整下外边距'))}
+                      ? bottomVar.dragProps(lang.dragMarginBottomUnbind)
+                      : getDragProps(marginValue.marginBottom, lang.dragMarginBottom))}
                   >
                     <MarginBottomOutlined/>
                   </div>
                   <MarginValueInput
                     binding={bottomVar}
                     value={marginValue.marginBottom}
-                    label="下外边距"
+                    label={lang.marginBottomLabel}
                     inputProps={{
                       style: DEFAULT_STYLE,
                       defaultValue: marginValue.marginBottom,
+                      previewValue: marginValue.marginBottom == null
+                        ? (previewValues.marginBottom ?? computedPreviews.marginBottom)
+                        : undefined,
                       defaultUnitValue: 'default',
                       unitOptions: bottomUnitOptions,
                       showIcon: true,
@@ -387,7 +404,7 @@ export function Margin ({value, onChange: fallbackOnChange, config, showTitle, c
                         if (action === APPLY_VARIABLE_ACTION) bottomVar.openPicker()
                       },
                       onFocus: () => setSplitMarginIcon(<MarginBottomOutlined/>),
-                      tip: '下外边距'
+                      tip: lang.marginBottomLabel
                     }}
                   />
                 </Panel.Item>
@@ -396,7 +413,7 @@ export function Margin ({value, onChange: fallbackOnChange, config, showTitle, c
           </div>
 
           <div
-            data-mybricks-tip={`{content:'切换为统一配置',position:'left'}`}
+            data-mybricks-tip={`{content:'${lang.toggleUnifiedTip}',position:'left'}`}
             className={css.independentActionIcon}
             onClick={handleSwitchToUnified}
           >
@@ -409,7 +426,7 @@ export function Margin ({value, onChange: fallbackOnChange, config, showTitle, c
 
   return (
     <Panel
-      title='外边距'
+      title={lang.marginPanelTitle}
       showTitle={showTitle}
       showReset={canReset}
       showDelete={canReset}

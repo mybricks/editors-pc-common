@@ -1,4 +1,4 @@
-import React, {useMemo, useCallback, useEffect, useRef, useState} from "react";
+import React, {useMemo, useCallback, useEffect, useLayoutEffect, useRef, useState} from "react";
 import {world} from './icons'
 import {Input} from "antd";
 import {debounce} from "../util/lodash";
@@ -9,21 +9,16 @@ import {getOptionsFromEditor, isValid} from "../utils";
 import css from "./index.less";
 
 export default function ({editConfig}: EditorProps): JSX.Element {
-  const {
-    value, options = {}, locales
-  } = editConfig;
-
-  //debugger
-
-  const [curText, setCurText] = useState('')
-  const [useLocale, setUseLocale] = useState(false)
-
+  const { value, options = {}, locales } = editConfig
   const val = value.get()
+
+  const [useLocale, setUseLocale] = useState(false)
+  const [curText, setCurText] = useState(val)
+  const changedRef = useRef<HTMLTextAreaElement>()
+
   const {
     readonly = false,
-    style = {
-      height: 100,
-    },
+    style = { height: 100 },
     onEnterSet,
     hCenter,
     vCenter,
@@ -32,7 +27,6 @@ export default function ({editConfig}: EditorProps): JSX.Element {
     focusNow,
     selectContent,
     locale = false,
-    ...res
   } = getOptionsFromEditor(options)
 
   const localeEnable = !!locales && !!locale
@@ -43,16 +37,12 @@ export default function ({editConfig}: EditorProps): JSX.Element {
     })
   }, [])
 
-  //console.log('.....styles',styles)
-
-  const changedRef = useRef<HTMLInputElement>()
-
-  const updateVal = useCallback((evt) => {
+  const updateVal = useCallback((evt: React.ChangeEvent<HTMLTextAreaElement>) => {
     value.set(evt.target.value)
     changedRef.current = void 0
   }, [])
 
-  const openLocale = useCallback(e => {
+  const openLocale = useCallback(() => {
     if (!locales?.edit) {
       console.error(`未找到 locales.edit`)
       return
@@ -95,132 +85,115 @@ export default function ({editConfig}: EditorProps): JSX.Element {
       } else {
         setCurText(`<未找到文案>`)
       }
-    } else {
-      setCurText(val)
     }
   }, [])
 
+  const handleTextareaRef = useCallback((el: HTMLTextAreaElement | null) => {
+    if (el) {
+      changedRef.current = el;
 
-  useEffect(() => {
-    if (changedRef.current) {
+      if (vCenter) {
+        el.scrollTop = el.scrollHeight / 2; //滚动
+      }
+
       if (focusNow) {
-        changedRef.current.focus()
+        el.focus();
+
         if (selectContent) {
-          changedRef.current.select()
+          el.select();
+        } else {
+          const cursorPosition = el.value.length;
+          el.setSelectionRange(cursorPosition, cursorPosition);
         }
       }
     }
+  }, [])
 
-  }, [
-    changedRef.current
-  ])
+  const stopPropagation = useCallback((e: React.MouseEvent<HTMLElement>) => {
+    e.stopPropagation();
+  }, [])
 
-  // useEffect(() => {
-  //   return () => {
-  //     if (useLocale && changedRef.current) {
-  //       value.set(changedRef.current.value)
-  //       changedRef.current = void 0
-  //     }
-  //   }
-  // }, [useLocale])
-
+  // 引擎双击编辑文案链路
   if (vCenter) {
     const nowWidth = Math.max(width, 80)
     const nowHeight = Math.max(styles.height, 26)
 
     return (
-        <div className={`${css.textArea} ${css.vCenter}`}
-             onMouseDown={e => {
-               e.stopPropagation()
-             }}
-             style={{
-               minWidth: nowWidth,
-               minHeight: nowHeight
-             }}>
-        <textarea ref={el => {
-          if (el) {
-            changedRef.current = el
-
-            el.scrollTop = el.scrollHeight / 2//滚动
-          }
-        }}
-                  style={styles}
-                  onDoubleClick={e => {
-                    e.stopPropagation()
-                  }}
-                  onChange={evt => {
-                    setCurText(evt.target.value)
-                  }}
-                  onKeyPress={evt => {
-                    if (onEnterSet) {
-                      if (evt.shiftKey || evt.key !== 'Enter') {
-                        return
-                      }
-                      updateVal(evt)
-                    }
-                  }}
-                  onBlur={(evt) => {
-                    updateVal(evt)
-                  }}
-                  disabled={readonly || useLocale}
-                  defaultValue={val}
-                  {...res}
-                  value={curText}
-        />
-          {
-            localeEnable ? (
-                <span className={`${useLocale ? css.useLocale : ''} ${css.icon}`}
-                      onClick={openLocale}
-                      data-mybricks-tip={`多语言`}>
-            {world}
-          </span>
-            ) : null
-          }
-        </div>
-    )
-  } else {
-    return (
-        <div className={`${css.textArea}`}
-             style={{
-               width,
-               height
-             }}>
-          <Input.TextArea ref={el => {
-            if (el) {
-              changedRef.current = el
+      <div
+        className={`${css.textArea} ${css.vCenter}`}
+        onMouseDown={stopPropagation}
+      >
+        <textarea
+          ref={handleTextareaRef}
+          style={{ ...styles, width: nowWidth, height: nowHeight }}
+          onDoubleClick={stopPropagation}
+          onChange={(evt) => {
+            setCurText(evt.target.value);
+          }}
+          onKeyPress={(evt) => {
+            if (onEnterSet) {
+              if (evt.shiftKey || evt.key !== "Enter") {
+                return;
+              }
+              updateVal(evt as unknown as React.ChangeEvent<HTMLTextAreaElement>);
             }
           }}
-                          style={styles}
-                          onDoubleClick={e => {
-                            e.stopPropagation()
-                          }}
-                          onChange={evt => {
-                            setCurText(evt.target.value)
-                          }}
-                          onKeyPress={evt => {
-                            if (onEnterSet) {
-                              if (evt.shiftKey || evt.key !== 'Enter') return
-                              updateVal(evt)
-                            }
-                          }}
-                          onBlur={(evt) => {
-                            updateVal(evt)
-                          }}
-                          disabled={readonly || useLocale}
-                          defaultValue={val}
-                          {...res}
-                          value={curText}
-          />
-          {
-            localeEnable ? (
-                <span className={`${useLocale ? css.useLocale : ''} ${css.icon}`}
-                      onClick={openLocale}
-                      data-mybricks-tip={`多语言`}>
+          onBlur={(evt) => {
+            updateVal(evt);
+          }}
+          disabled={readonly || useLocale}
+          value={curText}
+        />
+        {localeEnable ? (
+          <span
+            className={`${useLocale ? css.useLocale : ""} ${css.icon}`}
+            onClick={openLocale}
+            data-mybricks-tip={`多语言`}
+          >
             {world}
           </span>
-            ) : null
-          }
-        </div>
-    )
+        ) : null}
+      </div>
+    );
+  } else {
+    return (
+      <div
+        className={`${css.textArea}`}
+        style={{
+          width,
+          height,
+        }}
+      >
+        <Input.TextArea
+          ref={handleTextareaRef}
+          style={styles}
+          onDoubleClick={stopPropagation}
+          onChange={(evt) => {
+            setCurText(evt.target.value);
+          }}
+          onKeyPress={(evt) => {
+            if (onEnterSet) {
+              if (evt.shiftKey || evt.key !== "Enter") return;
+              updateVal(evt as unknown as React.ChangeEvent<HTMLTextAreaElement>);
+            }
+          }}
+          onBlur={(evt) => {
+            updateVal(evt as unknown as React.ChangeEvent<HTMLTextAreaElement>);
+          }}
+          disabled={readonly || useLocale}
+          defaultValue={val}
+          value={curText}
+        />
+        {localeEnable ? (
+          <span
+            className={`${useLocale ? css.useLocale : ""} ${css.icon}`}
+            onClick={openLocale}
+            data-mybricks-tip={`多语言`}
+          >
+            {world}
+          </span>
+        ) : null}
+      </div>
+    );
   }
 }

@@ -16,8 +16,10 @@ import {
   mergeZoneTabsByState,
 } from '../core/zone-tab'
 import type { ZoneTab } from '../core/zone-tab'
+import { collectSourceAntClassNames } from '../core/style-write-target'
 import { uniqBy } from 'lodash'
 
+const INIT_TABS: ZoneTab[] = [];
 export function useZoneSelectors(editConfig: any, targetDom: any, _open: boolean) {
   const [activeZoneIdx, setActiveZoneIdx] = useState(0)
   const [customZoneTabs, setCustomZoneTabs] = useState<ZoneTab[]>([])
@@ -32,7 +34,7 @@ export function useZoneSelectors(editConfig: any, targetDom: any, _open: boolean
   // 换选中元素时，恢复自动对齐
   useEffect(() => {
     userSelectedRef.current = false
-    setCustomZoneTabs([])
+    setCustomZoneTabs(INIT_TABS)
   }, [targetDom])
 
   const zoneTabs = useMemo<ZoneTab[]>(() => {
@@ -48,6 +50,9 @@ export function useZoneSelectors(editConfig: any, targetDom: any, _open: boolean
       let bases = comId
         ? buildZoneSelectorsFromCssom(dom, comId)
         : collectSubjectClassSelectors(dom)
+      if (!bases.length && dom.classList.length && dom.getAttribute('data-zone-selector') && !dom.hasAttribute('data-drag-insert')) {
+        bases = collectSourceAntClassNames(dom).map(name => `.${name}`)
+      }
       if (!bases.length) {
         bases = fallbackZoneSelectorsFromClassnames(dom)
       }
@@ -80,7 +85,18 @@ export function useZoneSelectors(editConfig: any, targetDom: any, _open: boolean
     tabs.filter((tab) => !result.includes(tab.selector)).forEach((tab) => ordered.push(tab))
     const merged = mergeZoneTabsByState(ordered)
     const labels = getZoneTabLabels(merged.map((tab) => tab.selector))
-    const generatedTabs = merged.map((tab, index) => {
+    // 未配置中文名的伪类保留 CSSOM 顺序，但整体排在已命名状态之后。
+    const displayTabs = merged
+      .map((tab, index) => ({ tab, label: labels[index], index }))
+      .sort((a, b) => {
+        const getRank = (item: { tab: ZoneTab; label: string }) => {
+          if (!item.tab.pseudo) return 0
+          return item.label === item.tab.pseudo ? 2 : 1
+        }
+        const byRank = getRank(a) - getRank(b)
+        return byRank || a.index - b.index
+      })
+    const generatedTabs = displayTabs.map(({ tab, label }) => {
       const target = domList[0] as HTMLElement | undefined
       let effectiveStyle = tab.effectiveStyle ?? {}
       if (target) {
@@ -94,11 +110,16 @@ export function useZoneSelectors(editConfig: any, targetDom: any, _open: boolean
       }
       return {
         ...tab,
-        label: labels[index],
+        label,
         effectiveStyle,
       }
     })
     const customTabs = customZoneTabs.map((tab) => {
+      // 手动新增的 Tab 合入最新扫描规则，保留新增标记。
+      const generated = generatedTabs.find((item) => item.selector === tab.selector)
+      if (generated) {
+        return { ...tab, ...generated, isAdded: tab.isAdded }
+      }
       const target = domList[0] as HTMLElement | undefined
       if (!target) return tab
       const [styleValues] = getEffectedCssPropertyAndOptions(target, tab.selector, comId, tab)

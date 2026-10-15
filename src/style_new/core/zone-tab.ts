@@ -4,9 +4,11 @@ import { compare } from 'specificity'
 import { isPageScopedSelector, resolveCssomSourceSelector } from './build-zone-selectors-from-cssom'
 import { toLine } from './css-code-codec'
 import { getStyleResolution, resolveEffectiveStyleSource } from './style-property'
+import { getShorthandFamily, stylePropertyKey } from './style-shorthand-groups'
 import { createCascadeResolver } from './cascade-winner'
 import { getDocument } from './dom'
 import { calculateSafeSpecificity, splitTopLevelSelectors } from './selector-utils'
+import lang from '../index.i18n'
 
 export type ZoneSourceRule = {
   rule: CSSStyleRule
@@ -43,6 +45,41 @@ export type ZoneTab = {
   effectiveStyle?: Record<string, EffectiveStyleValue>
   /** 是否由右侧新增状态按钮临时添加。 */
   isAdded?: boolean
+  /** 批量回显忽略当前元素的单独规则，供 CSSOM 重编译后继续过滤。 */
+  excludedSourceSelectors?: readonly string[]
+  excludedRules?: readonly CSSStyleRule[]
+  excludedStyleKeys?: readonly string[]
+}
+
+/** 批量面板只读取公共规则；单独规则依然留在 CSSOM 中作用于当前节点。 */
+export function excludeSoloSources(tab: ZoneTab, soloSelectors: readonly string[]): ZoneTab {
+  if (!soloSelectors.length) return tab
+  const excluded = new Set(soloSelectors)
+  const sourceRules = tab.sourceRules.filter(source => !excluded.has(source.sourceSelector))
+  const baseRules = tab.baseRules.filter(source => !excluded.has(source.sourceSelector))
+  if (sourceRules.length === tab.sourceRules.length && baseRules.length === tab.baseRules.length) return tab
+  const removed = [...tab.sourceRules, ...tab.baseRules].filter(source => excluded.has(source.sourceSelector))
+  const excludedRules = Array.from(new Set(removed.map(source => source.rule)))
+  const excludedStyleKeys = Array.from(new Set(removed.flatMap(source =>
+    Array.from({ length: source.rule.style.length }, (_, index) =>
+      getShorthandFamily(source.rule.style.item(index)).map(stylePropertyKey)
+    ).flat()
+  )))
+  return { ...tab, sourceRules, baseRules, effectiveStyle: {},
+    excludedSourceSelectors: soloSelectors, excludedRules, excludedStyleKeys }
+}
+
+/** CSSOM 更新后，同步批量视图的规则与排除元数据，避免保留旧 CSSRule 引用。 */
+export function refreshZoneTabSources(tab: ZoneTab, current: ZoneTab): void {
+  const refreshed = tab.excludedSourceSelectors
+    ? excludeSoloSources(current, tab.excludedSourceSelectors)
+    : current
+  tab.sourceRules = refreshed.sourceRules
+  tab.baseRules = refreshed.baseRules
+  if (tab.excludedSourceSelectors) {
+    tab.excludedRules = refreshed.excludedRules ?? []
+    tab.excludedStyleKeys = refreshed.excludedStyleKeys ?? []
+  }
 }
 
 export type ZoneDeletionTarget = {
@@ -201,7 +238,7 @@ export function buildZoneEffectiveStyle(
     return buildZoneStateStyle(tab, Object.keys(styleValues), target instanceof HTMLElement ? target : null)
   }
   const result: Record<string, EffectiveStyleValue> = {}
-  const computedStyle = target instanceof HTMLElement ? window.getComputedStyle(target) : null
+  const computedStyle = target ? window.getComputedStyle(target) : null
   const cascadeResolver = target instanceof HTMLElement && !tab.pseudo
     ? createCascadeResolver(target)
     : null
@@ -211,7 +248,8 @@ export function buildZoneEffectiveStyle(
     let hasEffectiveValue = true
     const source = findStyleSource(tab, styleKey)
     const cssProperty = toLine(styleKey)
-    const inlineStyle = target instanceof HTMLElement ? target.style : null
+    // SVGElement 与 HTMLElement 都有 style
+    const inlineStyle = target instanceof HTMLElement || target instanceof SVGElement ? target.style : null
     const inlineValue = inlineStyle?.getPropertyValue(cssProperty).trim()
     const stylesheetImportant = !!source && source.rule.style.getPropertyPriority(cssProperty) === 'important'
     const inlineWins = !!inlineValue && !stylesheetImportant
@@ -266,15 +304,15 @@ function shortenClassLabel(rawLabel: string): string {
 
 function getPseudoLabel(pseudo: string): string {
   const pseudoLabels: Record<string, string> = {
-    ':hover': '悬浮态',
-    ':active': '激活态',
-    ':focus': '聚焦态',
-    ':focus-visible': '键盘聚焦态',
-    ':focus-within': '后代聚焦态',
-    ':disabled': '禁用态',
-    '::before': '前缀元素',
-    '::after': '后缀元素',
-    '::placeholder': '占位符元素',
+    ':hover': lang.hoverState,
+    ':active': lang.activeState,
+    ':focus': lang.focusState,
+    ':focus-visible': lang.focusVisibleState,
+    ':focus-within': lang.focusWithinState,
+    ':disabled': lang.disabledState,
+    '::before': lang.beforePseudo,
+    '::after': lang.afterPseudo,
+    '::placeholder': lang.placeholderPseudo,
   }
   const pseudoLabel = pseudoLabels[pseudo] || pseudo
   return pseudoLabel
@@ -285,7 +323,7 @@ function getZoneTabLabel(selector: string): string {
   const lastPart = parts[parts.length - 1] || ''
   const pseudoMatch = lastPart.match(PSEUDO_TAIL_RE)
   if (pseudoMatch) return getPseudoLabel(pseudoMatch[1])
-  return '常规'
+  return lang.commonTab
 }
 
 function getDisambiguatedBaseLabel(selector: string): string {
@@ -396,6 +434,9 @@ export function resolveZoneFallbackSelector(tab: ZoneTab): string {
 const MATCH_ONLY_PSEUDO_CLASSES = new Set([
   'not', 'is', 'where',
   'host', 'host-context', 'slotted', 'scope',
+  'nth-child', 'nth-last-child', 'nth-of-type', 'nth-last-of-type',
+  'first-child', 'last-child', 'only-child',
+  'first-of-type', 'last-of-type', 'only-of-type', 'empty',
 ])
 
 /**

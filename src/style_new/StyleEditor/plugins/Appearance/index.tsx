@@ -21,6 +21,7 @@ import type { VariableChipMenuOption } from '../../components/VariableChip'
 import type { ChangeEvent, PanelBaseProps } from '../../type'
 
 import css from './index.less'
+import lang from '../../../index.i18n'
 
 interface AppearanceProps extends PanelBaseProps {
   value: CSSProperties
@@ -44,7 +45,7 @@ const OPACITY_UNIT_OPTIONS = [{ label: '%', value: '%' }]
 const CHIP_STYLE = { flex: '1 1 0', minWidth: 0, width: 0, marginLeft: 4 }
 const INPUT_STYLE = { flex: '1 1 0', minWidth: 0, width: 0, marginLeft: 4, padding: 0 }
 
-export function Appearance({ value, onChange: fallbackOnChange, showTitle, collapse }: AppearanceProps) {
+export function Appearance({ value, onChange: fallbackOnChange, showTitle }: AppearanceProps) {
   const context = useStyleEditorContext()
   const targetDom = context?.targetDom ?? null
   const onChange = useStyleChange(fallbackOnChange)
@@ -57,15 +58,12 @@ export function Appearance({ value, onChange: fallbackOnChange, showTitle, colla
   const anchorRef = useRef<HTMLSpanElement>(null)
 
   const opacitySource = context?.effectiveStyle?.opacity
-  const opacityProperty = context?.getStyleProperty?.('opacity')
   // 数值 1 既可能来自声明，也可能只是默认/计算值，必须按来源区分。
-  const declaredOpacity = context?.getStyleProperty
-    ? (opacityProperty?.winner?.currentState ? opacityProperty.winner.value : undefined)
-    : context?.effectiveStyle
-      ? (opacitySource?.type !== 'computed' ? opacitySource?.value : undefined)
-      : context?.authoredStyle
-        ? context.authoredStyle.opacity
-        : value?.opacity
+  const declaredOpacity = context?.effectiveStyle
+    ? (opacitySource?.type !== 'computed' ? opacitySource?.value : undefined)
+    : context?.authoredStyle
+      ? context.authoredStyle.opacity
+      : value?.opacity
   const hasConfiguredOpacity = declaredOpacity != null && String(declaredOpacity).trim() !== '' &&
     !/^unset$/i.test(String(declaredOpacity).trim())
   const opacityRawValue = hasConfiguredOpacity ? declaredOpacity : undefined
@@ -167,7 +165,7 @@ export function Appearance({ value, onChange: fallbackOnChange, showTitle, colla
 
   const chipMenuOptions = useMemo<VariableChipMenuOption[]>(() => [
     {
-      label: `固定值 (${fallbackPercent}%)`,
+      label: `${lang.fixedValuePrefix} (${fallbackPercent}%)`,
       value: DETACH_VARIABLE_ACTION,
       type: 'action',
       icon: <FixedWidth />,
@@ -179,11 +177,11 @@ export function Appearance({ value, onChange: fallbackOnChange, showTitle, colla
   }, [detach])
 
   // 显式 100% 也是有效配置，不能把它当成未配置自动折叠。
-  const effectiveCollapse = hasConfiguredOpacity ? collapse : true
+  const effectiveCollapse = !hasConfiguredOpacity
 
   return (
     <Panel
-      title='不透明度'
+      title={lang.opacityPanelTitle}
       showTitle={showTitle}
       showReset={true}
       showDelete={true}
@@ -192,13 +190,13 @@ export function Appearance({ value, onChange: fallbackOnChange, showTitle, colla
       collapse={effectiveCollapse}
     >
       <Panel.Content>
-        <Panel.Item className={css.inputItem}>
+        <Panel.Item className={css.inputItem} style={{paddingRight: '7px'}}>
           <span
             className={`${css.inputIcon} ${css.opacityIcon}`}
             ref={anchorRef}
             {...(varRef
-              ? getDragPropsOpacity(fallbackPercent, "{content:'拖拽调整不透明度（将解除变量绑定）',position:'left'}")
-              : getDragPropsOpacity(opacityPercent, "{content:'拖拽调整不透明度',position:'left'}")
+              ? getDragPropsOpacity(fallbackPercent, `{content:'${lang.dragOpacityUnbind}',position:'left'}`)
+              : getDragPropsOpacity(opacityPercent, `{content:'${lang.dragOpacity}',position:'left'}`)
             )}
           >
             <OpacityIcon />
@@ -256,7 +254,7 @@ export function Appearance({ value, onChange: fallbackOnChange, showTitle, colla
                 onClose={closePicker}
                 onSelect={(item) => selectVariable(item.name)}
                 renderValue={(item) => `${Math.round(parseFloat(item.value) * 100)}%`}
-                emptyText='当前画布没有可用的不透明度变量'
+                emptyText={lang.noOpacityVariables}
               />
             </SketchPopup>
           )}

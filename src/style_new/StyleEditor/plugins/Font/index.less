@@ -40,10 +40,6 @@
     color: @font-color-content;
     cursor: pointer;
     user-select: none;
-    opacity: 0;
-  }
-
-  &:hover .fontSizeArrow {
     opacity: 0.55;
   }
 
@@ -114,13 +110,14 @@
   user-select: none;
   white-space: nowrap;
   flex-shrink: 0;
+  min-width: 58px;
 }
 
 .popoverInlineRow {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 4px;
 
   & + & {
     margin-top: 8px;

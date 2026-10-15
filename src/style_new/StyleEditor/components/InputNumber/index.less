@@ -5,4 +5,41 @@
     color: #333333;
     opacity: 1;
   }
+
+  .suffixOnHover {
+    display: grid;
+    width: 18px;
+    height: 26px;
+
+    .suffixLabel,
+    .suffixMenu {
+      grid-area: 1 / 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .suffixMenu {
+      opacity: 0;
+      pointer-events: none;
+
+      [data-select-icon] {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0;
+      }
+    }
+  }
+
+  &:hover .suffixOnHover.hasSuffixMenu {
+    .suffixLabel {
+      opacity: 0;
+    }
+
+    .suffixMenu {
+      opacity: 1;
+      pointer-events: auto;
+    }
+  }
 }

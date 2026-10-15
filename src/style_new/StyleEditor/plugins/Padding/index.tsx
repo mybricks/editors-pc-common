@@ -21,6 +21,7 @@ import {useDragNumber, useLengthVarBinding, useBoxSpacingEditor} from '../../hoo
 import type {ChangeEvent, PanelBaseProps} from '../../type'
 
 import css from './index.less'
+import lang from '../../../index.i18n'
 
 interface PaddingProps extends PanelBaseProps {
   value: CSSProperties
@@ -37,7 +38,7 @@ const DEFAULT_STYLE = {
 /** 绑定态胶囊与输入框同宽，且不把相邻字段挤出面板 */
 const CHIP_STYLE = {flex: '1 1 0', minWidth: 0, width: 0, marginLeft: 4}
 const UNIT_OPTIONS = [
-  {label: '默认', value: 'default'},
+  {label: lang.defaultLabel, value: 'default'},
   {label: '', value: '—divider_', type: 'divider'},
   {label: 'px', value: 'px'},
   {label: '%', value: '%'}
@@ -51,6 +52,7 @@ function getUnitOptions(clearable: boolean) {
 export function Padding({value, onChange: fallbackOnChange, config, showTitle, collapse}: PaddingProps) {
   const {
     spacingValue: paddingValue, toggle, setToggle, forceRenderKey,
+    previewValues, computedPreviews, unifiedComputedPreview,
     handleChange, handleUnifiedChange, handleSwitchToUnified, refresh,
     canResetSide, unifiedCanClear, canReset,
   } = useBoxSpacingEditor({ property: 'padding', value, onChange: fallbackOnChange })
@@ -122,13 +124,13 @@ export function Padding({value, onChange: fallbackOnChange, config, showTitle, c
         <div className={css.row}
         >
           <Panel.Content style={{padding: 3}}>
-            <Panel.Item className={css.editArea} style={{padding: '0px 8px'}}>
+            <Panel.Item className={css.editArea} style={{padding: '0px 6px 0 8px'}}>
               <div 
                 className={css.icon}
                 ref={unifiedVar.anchorRef}
                 {...(unifiedVar.varRef
-                  ? unifiedVar.dragProps(`{content:'拖拽调整内边距（将解除变量绑定）',position:'top'}`)
-                  : getDragProps(paddingValue.paddingTop, `{content:'拖拽调整内边距',position:'top'}`))}
+                  ? unifiedVar.dragProps(lang.dragPaddingUnifiedUnbind)
+                  : getDragProps(paddingValue.paddingTop, lang.dragPaddingUnified))}
               >
                 <PaddingAllOutlined/>
               </div>
@@ -139,6 +141,9 @@ export function Padding({value, onChange: fallbackOnChange, config, showTitle, c
                   placeholder: '',
                   style: DEFAULT_STYLE,
                   defaultValue: paddingValue.paddingTop,
+                  previewValue: paddingValue.paddingTop == null
+                    ? (previewValues.paddingTop ?? unifiedComputedPreview)
+                    : undefined,
                   defaultUnitValue: 'default',
                   unitOptions: unifiedUnitOptions,
                   unitDisabledList: UNIT_DISABLED_LIST,
@@ -151,13 +156,13 @@ export function Padding({value, onChange: fallbackOnChange, config, showTitle, c
                   onAction: (action) => {
                     if (action === APPLY_VARIABLE_ACTION) unifiedVar.openPicker()
                   },
-                  tip: '内边距'
+                  tip: ''
                 }}
               />
             </Panel.Item>
           </Panel.Content>
           <div
-            data-mybricks-tip={`{content:'切换为单独配置',position:'left'}`}
+            data-mybricks-tip={`{content:'${lang.toggleSplitTip}',position:'left'}`}
             className={css.actionIcon}
             onClick={() => setToggle(false)}
           >
@@ -171,13 +176,13 @@ export function Padding({value, onChange: fallbackOnChange, config, showTitle, c
           <div style={{ minWidth: "120px", flex: 1 }}>
             <div className={css.row} style={{ paddingRight: 0 }}>
               <Panel.Content style={{ padding: 3 }}>
-                <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
+                <Panel.Item className={css.editArea} style={{padding: '0px 6px 0 8px'}}>
                   <div 
                     className={css.icon} 
                     ref={leftVar.anchorRef}
                     {...(leftVar.varRef
-                      ? leftVar.dragProps('拖拽调整左内边距（将解除变量绑定）')
-                      : getDragProps(paddingValue.paddingLeft, '拖拽调整左内边距'))}
+                      ? leftVar.dragProps(lang.dragPaddingLeftUnbind)
+                      : getDragProps(paddingValue.paddingLeft, lang.dragPaddingLeft))}
                   >
                     <PaddingLeftOutlined/>
                   </div>
@@ -188,6 +193,9 @@ export function Padding({value, onChange: fallbackOnChange, config, showTitle, c
                       placeholder: '',
                       style: DEFAULT_STYLE,
                       defaultValue: paddingValue.paddingLeft,
+                      previewValue: paddingValue.paddingLeft == null
+                        ? (previewValues.paddingLeft ?? computedPreviews.paddingLeft)
+                        : undefined,
                       defaultUnitValue: 'default',
                       unitOptions: leftUnitOptions,
                       unitDisabledList: UNIT_DISABLED_LIST,
@@ -201,19 +209,19 @@ export function Padding({value, onChange: fallbackOnChange, config, showTitle, c
                         if (action === APPLY_VARIABLE_ACTION) leftVar.openPicker()
                       },
                       onFocus: () => setSplitPaddingIcon(<PaddingLeftOutlined/>),
-                      tip: '左内边距'
+                      tip: lang.paddingLeftLabel
                     }}
                   />
                 </Panel.Item>
               </Panel.Content>
               <Panel.Content style={{ padding: 3 }}>
-                <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
+                <Panel.Item className={css.editArea} style={{padding: '0px 6px 0 8px'}}>
                   <div 
                     className={css.icon} 
                     ref={topVar.anchorRef}
                     {...(topVar.varRef
-                      ? topVar.dragProps('拖拽调整上内边距（将解除变量绑定）')
-                      : getDragProps(paddingValue.paddingTop, '拖拽调整上内边距'))}
+                      ? topVar.dragProps(lang.dragPaddingTopUnbind)
+                      : getDragProps(paddingValue.paddingTop, lang.dragPaddingTop))}
                   >
                     <PaddingTopOutlined/>
                   </div>
@@ -224,6 +232,9 @@ export function Padding({value, onChange: fallbackOnChange, config, showTitle, c
                       placeholder: '',
                       style: DEFAULT_STYLE,
                       defaultValue: paddingValue.paddingTop,
+                      previewValue: paddingValue.paddingTop == null
+                        ? (previewValues.paddingTop ?? computedPreviews.paddingTop)
+                        : undefined,
                       defaultUnitValue: 'default',
                       unitOptions: topUnitOptions,
                       unitDisabledList: UNIT_DISABLED_LIST,
@@ -237,7 +248,7 @@ export function Padding({value, onChange: fallbackOnChange, config, showTitle, c
                         if (action === APPLY_VARIABLE_ACTION) topVar.openPicker()
                       },
                       onFocus: () => setSplitPaddingIcon(<PaddingTopOutlined/>),
-                      tip: '上内边距'
+                      tip: lang.paddingTopLabel
                     }}
                   />
                 </Panel.Item>
@@ -245,13 +256,13 @@ export function Padding({value, onChange: fallbackOnChange, config, showTitle, c
             </div>
             <div className={css.row} style={{ paddingRight: 0 }}>
               <Panel.Content style={{ padding: 3 }}>
-                <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
+                <Panel.Item className={css.editArea} style={{padding: '0px 6px 0 8px'}}>
                   <div 
                     className={`${css.icon}`}
                     ref={rightVar.anchorRef}
                     {...(rightVar.varRef
-                      ? rightVar.dragProps('拖拽调整右内边距（将解除变量绑定）')
-                      : getDragProps(paddingValue.paddingRight, '拖拽调整右内边距'))}
+                      ? rightVar.dragProps(lang.dragPaddingRightUnbind)
+                      : getDragProps(paddingValue.paddingRight, lang.dragPaddingRight))}
                   >
                     <PaddingRightOutlined/>
                   </div>
@@ -262,6 +273,9 @@ export function Padding({value, onChange: fallbackOnChange, config, showTitle, c
                       placeholder: '',
                       style: DEFAULT_STYLE,
                       defaultValue: paddingValue.paddingRight,
+                      previewValue: paddingValue.paddingRight == null
+                        ? (previewValues.paddingRight ?? computedPreviews.paddingRight)
+                        : undefined,
                       defaultUnitValue: 'default',
                       unitOptions: rightUnitOptions,
                       unitDisabledList: UNIT_DISABLED_LIST,
@@ -275,19 +289,19 @@ export function Padding({value, onChange: fallbackOnChange, config, showTitle, c
                         if (action === APPLY_VARIABLE_ACTION) rightVar.openPicker()
                       },
                       onFocus: () => setSplitPaddingIcon(<PaddingRightOutlined/>),
-                      tip: '右内边距'
+                      tip: lang.paddingRightLabel
                     }}
                   />
                 </Panel.Item>
               </Panel.Content>
               <Panel.Content style={{ padding: 3 }}>
-                <Panel.Item className={css.editArea} style={{ padding: "0px 8px" }}>
+                <Panel.Item className={css.editArea} style={{padding: '0px 6px 0 8px'}}>
                   <div 
                     className={css.icon} 
                     ref={bottomVar.anchorRef}
                     {...(bottomVar.varRef
-                      ? bottomVar.dragProps('拖拽调整下内边距（将解除变量绑定）')
-                      : getDragProps(paddingValue.paddingBottom, '拖拽调整下内边距'))}
+                      ? bottomVar.dragProps(lang.dragPaddingBottomUnbind)
+                      : getDragProps(paddingValue.paddingBottom, lang.dragPaddingBottom))}
                   >
                     <PaddingBottomOutlined/>
                   </div>
@@ -298,6 +312,9 @@ export function Padding({value, onChange: fallbackOnChange, config, showTitle, c
                       placeholder: '',
                       style: DEFAULT_STYLE,
                       defaultValue: paddingValue.paddingBottom,
+                      previewValue: paddingValue.paddingBottom == null
+                        ? (previewValues.paddingBottom ?? computedPreviews.paddingBottom)
+                        : undefined,
                       defaultUnitValue: 'default',
                       unitOptions: bottomUnitOptions,
                       unitDisabledList: UNIT_DISABLED_LIST,
@@ -311,7 +328,7 @@ export function Padding({value, onChange: fallbackOnChange, config, showTitle, c
                         if (action === APPLY_VARIABLE_ACTION) bottomVar.openPicker()
                       },
                       onFocus: () => setSplitPaddingIcon(<PaddingBottomOutlined/>),
-                      tip: '下内边距'
+                      tip: lang.paddingBottomLabel
                     }}
                   />
                 </Panel.Item>
@@ -320,7 +337,7 @@ export function Padding({value, onChange: fallbackOnChange, config, showTitle, c
           </div>
 
           <div
-            data-mybricks-tip={`{content:'切换为统一配置',position:'left'}`}
+            data-mybricks-tip={`{content:'${lang.toggleUnifiedTip}',position:'left'}`}
             className={css.independentActionIcon}
             onClick={handleSwitchToUnified}
           >
@@ -333,7 +350,7 @@ export function Padding({value, onChange: fallbackOnChange, config, showTitle, c
 
   return (
     <Panel
-      title='内边距'
+      title={lang.paddingPanelTitle}
       showTitle={showTitle}
       showReset={canReset}
       showDelete={canReset}

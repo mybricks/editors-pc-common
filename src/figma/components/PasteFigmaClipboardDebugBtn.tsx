@@ -8,6 +8,7 @@ import { readFigmaClipboardHtml } from '../import/read-clipboard';
 import { nodeChangesToSimpleFigmaImportItems } from '../import/to-import-items';
 import { extractComponentPatchesFromNodeChanges } from '../import/to-component-items';
 import type { FigmaComponentPatch, FigmaImportItem } from '../types';
+import lang from '../../style_new/index.i18n';
 
 export interface PasteFigmaClipboardDebugBtnProps {
   /** 与「从 Figma 同步样式」相同：写入组件 Less（由组件库 value.get 提供） */
@@ -40,18 +41,20 @@ export function PasteFigmaClipboardDebugBtn({ onSyncFromFigma }: PasteFigmaClipb
               ? syncResult.actualChangedCount
               : null;
         if (actualChangedCount != null) {
-          if (antdMsg) antdMsg.success(`成功从Figma同步${actualChangedCount}条样式改动`);
-          else alert(`成功从Figma同步${actualChangedCount}条样式改动`);
+          const msg = lang.figmaSyncSuccess.replace('{n}', String(actualChangedCount));
+          if (antdMsg) antdMsg.success(msg);
+          else alert(msg);
         } else {
-          if (antdMsg) antdMsg.success(`已解析${items.length}条候选样式，${componentPatches.length}条组件变体`);
-          else alert(`已解析${items.length}条候选样式，${componentPatches.length}条组件变体`);
+          const msg = lang.figmaParsedCandidates.replace('{n}', String(items.length)).replace('{m}', String(componentPatches.length));
+          if (antdMsg) antdMsg.success(msg);
+          else alert(msg);
         }
       } else if (onSyncFromFigma && !items.length && !componentPatches.length) {
-        if (antdMsg) antdMsg.warning('未解析到可同步节点（图层名需为单个 class，如 myCard）');
-        else alert('未解析到可同步节点');
+        if (antdMsg) antdMsg.warning(lang.figmaNoNodeParsed);
+        else alert(lang.figmaNoNodeParsed);
       } else {
-        if (antdMsg) antdMsg.success('已解码完成');
-        else alert('已解码完成');
+        if (antdMsg) antdMsg.success(lang.figmaDecodeDone);
+        else alert(lang.figmaDecodeDone);
       }
     } catch (e) {
       const err = e instanceof Error ? e.message : String(e);
@@ -76,7 +79,7 @@ export function PasteFigmaClipboardDebugBtn({ onSyncFromFigma }: PasteFigmaClipb
           width: '100%',
         }}
       >
-        {busy ? '读取中…' : '从 Figma 同步样式'}
+        {busy ? lang.figmaReading : lang.syncStyleFromFigma}
       </button>
     </div>
   );

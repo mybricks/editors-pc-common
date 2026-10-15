@@ -1,6 +1,6 @@
 import { uuid } from "../../../../utils";
 import { useState, useCallback, useRef, useMemo } from "react";
-import { computePercentage, GradientStop, interpolateColor } from "./constants";
+import { computePercentage, GradientStop, interpolateColor, resolveGradientStops } from "./constants";
 import React from "react";
 import { resolveCssVarsInCssValue } from "../../../core/resolve-css-var-color";
 import css from "./index.less";
@@ -29,6 +29,7 @@ const PanelRender = ({
   const [moveMarkerEndTime, setMoveMarkerEndTime] = useState(-1);
 
   const previewRef = useRef<HTMLDivElement>(null);
+  const resolvedStops = useMemo(() => resolveGradientStops(stops), [stops]);
   // 编辑器面板不在画布作用域，预览时需把 var() 解析成具体色
   const resolvedGradientColor = useMemo(
     () => resolveCssVarsInCssValue(gradientColor, scopeEl),
@@ -42,12 +43,9 @@ const PanelRender = ({
   // 设置渐变停止点位置
   const setGradientStopPosition = (position: number) => {
     // 更新渐变停止点的位置，并确保位置是有效的百分比
-    const temp = stops;
-    const index = temp.findIndex((stop) => stop.id === curElementId);
-    temp[index].position = computePercentage(position);
-    // 更新渐变停止点的位置，并确保位置是有效的百分比
-    temp.sort((stopA, stopB) => stopA.position - stopB.position);
-    setStops([...temp]);
+    setStops(stops.map((stop) => stop.id === curElementId
+      ? { ...stop, position: computePercentage(position) }
+      : stop));
   };
 
   // 添加渐变停止点
@@ -58,7 +56,7 @@ const PanelRender = ({
       const temp = [...stops];
 
       // 找到新停止点应该插入的位置
-      const index = temp.findIndex((stop) => stop.position > position);
+      const index = resolvedStops.findIndex((stop) => stop.position > position);
       // 创建新的停止点对象
       const newStop = {
         id: uuid(),
@@ -70,8 +68,8 @@ const PanelRender = ({
         newStop.color = "rgba(255,255,255,1)";
       } else {
         // 获取新停止点两边的停止点颜色
-        const leftStop = index > 0 ? temp[index - 1] : temp[0];
-        const rightStop = index !== -1 ? temp[index] : temp[temp.length - 1];
+        const leftStop = index > 0 ? resolvedStops[index - 1] : resolvedStops[0];
+        const rightStop = index !== -1 ? resolvedStops[index] : resolvedStops[resolvedStops.length - 1];
         newStop.color =
           position <= leftStop.position
             ? leftStop.color
@@ -84,7 +82,7 @@ const PanelRender = ({
       temp.splice(index === -1 ? temp.length : index, 0, newStop);
       setStops(temp);
     },
-    [stops]
+    [stops, resolvedStops]
   );
 
   const handlePreviewClick = (event: React.MouseEvent<HTMLDivElement>) => {
@@ -107,13 +105,12 @@ const PanelRender = ({
         setDragStartFlag(true);
         setDragStartPosition(position);
         // 存储元素的初始位置
-        const temp = [...stops];
         setElementStartPosition(
-          temp.find((stop) => stop.id === id)?.position || 0
+          resolvedStops.find((stop) => stop.id === id)?.position ?? 0
         );
       }
     },
-    [stops, previewRef.current]
+    [resolvedStops, previewRef.current]
   );
 
   const onMouseMove = useCallback(
@@ -144,7 +141,7 @@ const PanelRender = ({
   };
 
   return (
-    <div style={{ position: "relative", left: "-12px" }}>
+    <div style={{ position: "relative", left: "-12px", display: "flow-root" }}>
       {dragStartFlag && (
         <div
           className={css["overlay-when-drag"]}
@@ -155,7 +152,7 @@ const PanelRender = ({
       )}
       {stops?.length > 0 && (
         <div className={css.previewTopBox}>
-          {stops?.map((stop, index) => {
+          {resolvedStops.map((stop, index) => {
             const { position, color, id } = stop;
             return (
               <div

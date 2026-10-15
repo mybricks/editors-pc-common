@@ -1,5 +1,6 @@
 import { classMatchesShortName } from './css-modules-match'
 import { splitTopLevelSelectors } from './selector-utils'
+import { stylePropertyKey } from './style-shorthand-groups'
 
 function getChildIndex(element: Element): number {
   const parent = element.parentElement
@@ -38,7 +39,7 @@ function getSourceZoneClassName(element: Element): string | null {
  */
 function getZoneClassSelector(element: Element): string | null {
   const className = getSourceZoneClassName(element)
-  return className ? `.${className}` : null
+  return className && getRuntimeZoneClassSelector(element) ? `.${className}` : null
 }
 
 /** 将源码类名映射到当前 DOM 上经过 CSS Modules 编译的运行时类名。 */
@@ -104,6 +105,7 @@ type MatchedSoloRule = {
 export type SavedSoloRule = {
   body: string
   selector: string
+  declarationKeys: string[]
 }
 
 export type SavedSoloStyle = SavedSoloRule & {
@@ -290,7 +292,10 @@ export const getSavedSoloStyle = (
 ): SavedSoloStyle | null => {
   const sourceSelector = buildSoloSelector(targetDom, baseSelector, componentRoot)
   const runtimeSelector = getRuntimeSoloSelector(targetDom, baseSelector, componentRoot)
-  const matchedRules = runtimeSelector ? findMatchingSoloRules(root, runtimeSelector) : []
+  const baseTail = baseSelector.trim().split(/\s+/).pop() || baseSelector
+  // 唯一子节点等场景可能只生成基础类名；普通类规则不能被认作已保存的单独规则。
+  const hasSoloScope = sourceSelector !== baseSelector && sourceSelector !== baseTail
+  const matchedRules = runtimeSelector && hasSoloScope ? findMatchingSoloRules(root, runtimeSelector) : []
   const targetTailRules = matchedRules.length
     ? []
     : findTargetTailNthRules(root, targetDom, baseSelector)
@@ -298,6 +303,10 @@ export const getSavedSoloStyle = (
     .filter(({ rule }) => rule.style.length > 0)
     .map(({ rule, selector }): SavedSoloRule => ({
       body: rule.style.cssText,
+      // cssText 会合并 flex/flex-flow 等简写，删除时仍需保留实际枚举的长写字段。
+      declarationKeys: Array.from({ length: rule.style.length }, (_, index) =>
+        stylePropertyKey(rule.style.item(index))
+      ),
       selector: matchedRules.length
         ? resolveSourceSelector(sourceSelector, runtimeSelector!, selector)
         : selector,
@@ -307,6 +316,7 @@ export const getSavedSoloStyle = (
     const existingRule = savedRulesBySelector.get(savedRule.selector)
     if (existingRule) {
       existingRule.body = `${existingRule.body};${savedRule.body}`
+      existingRule.declarationKeys = Array.from(new Set([...existingRule.declarationKeys, ...savedRule.declarationKeys]))
     } else {
       savedRulesBySelector.set(savedRule.selector, { ...savedRule })
     }

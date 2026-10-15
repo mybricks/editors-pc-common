@@ -1,5 +1,6 @@
 import ColorUtil from 'color'
 import { parseCssVar } from '../../../core/css-var'
+import lang from '../../../index.i18n'
 
 export type EffectType = 'dropShadow' | 'innerShadow' | 'textShadow' | 'layerBlur' | 'backgroundBlur'
 
@@ -50,11 +51,11 @@ export type ParseEffectsOptions = {
 }
 
 export const EFFECT_TYPE_LABELS: Record<EffectType, string> = {
-  dropShadow: '外阴影',
-  innerShadow: '内阴影',
-  textShadow: '文字阴影',
-  layerBlur: '图层模糊',
-  backgroundBlur: '背景模糊',
+  dropShadow: lang.dropShadowLabel,
+  innerShadow: lang.innerShadowLabel,
+  textShadow: lang.textShadowLabel,
+  layerBlur: lang.layerBlurLabel,
+  backgroundBlur: lang.backgroundBlurLabel,
 }
 
 const DEFAULT_SHADOW_COLOR = 'rgba(0, 0, 0, 0.25)'
