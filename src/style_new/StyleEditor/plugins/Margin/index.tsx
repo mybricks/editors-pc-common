@@ -42,14 +42,14 @@ const DEFAULT_STYLE = {
 }
 /** 绑定态胶囊与输入框同宽，且不把相邻字段挤出面板 */
 const CHIP_STYLE = {flex: '1 1 0', minWidth: 0, width: 0, marginLeft: 4}
-const UNIT_OPTIONS = [
-  { label: lang.defaultLabel, value: 'default' },
-  {label: '', value: '—divider_', type: 'divider'},
-  { label: 'px', value: 'px' },
-  { label: 'auto', value: 'auto' },
-  { label: '%', value: '%' }
-]
 function getUnitOptions(clearable: boolean) {
+  const UNIT_OPTIONS = [
+    { label: lang.defaultLabel, value: 'default' },
+    {label: '', value: '—divider_', type: 'divider'},
+    { label: 'px', value: 'px' },
+    { label: 'auto', value: 'auto' },
+    { label: '%', value: '%' }
+  ]
   return clearable ? UNIT_OPTIONS : UNIT_OPTIONS.slice(2)
 }
 
@@ -61,7 +61,7 @@ interface MarginValueInputProps {
 }
 
 function AutoMarginBadge({inputProps}: {inputProps: InputNumberProps}) {
-  const options = inputProps.unitOptions ?? UNIT_OPTIONS
+  const options = inputProps.unitOptions ?? getUnitOptions(true)
   return (
     <Dropdown
       value="auto"

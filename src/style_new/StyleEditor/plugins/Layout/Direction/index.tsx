@@ -13,29 +13,6 @@ export interface AlignItemsProps {
   onSelect: (layout: Layout) => void;
 }
 
-const defaultFlexFlow = [
-  {
-    title: lang.directionNone,
-    value: "default",
-    render: () => <Icon name="smart" />,
-  },
-  {
-    title: lang.directionInline,
-    value: "inline",
-    render: () => <Icon className={styles.inlineIcon} name="inline" />,
-  },
-  {
-    title: lang.directionColumn,
-    value: "column",
-    render: () => <Icon name="column-direction" />,
-  },
-  {
-    title: lang.directionRow,
-    value: "row",
-    render: () => <Icon name="row-direction" />,
-  },
-];
-
 export default ({
   defaultDirection = [],
   position,
@@ -43,6 +20,28 @@ export default ({
   display,
   onSelect,
 }: AlignItemsProps) => {
+  const defaultFlexFlow = [
+    {
+      title: lang.directionNone,
+      value: "default",
+      render: () => <Icon name="smart" />,
+    },
+    {
+      title: lang.directionInline,
+      value: "inline",
+      render: () => <Icon className={styles.inlineIcon} name="inline" />,
+    },
+    {
+      title: lang.directionColumn,
+      value: "column",
+      render: () => <Icon name="column-direction" />,
+    },
+    {
+      title: lang.directionRow,
+      value: "row",
+      render: () => <Icon name="row-direction" />,
+    },
+  ];
   const isAbsolute = position === "absolute";
   const isRow = flexDirection === "row";
   const isColumn = flexDirection === "column";

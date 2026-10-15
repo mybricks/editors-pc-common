@@ -11,14 +11,6 @@ interface CursorProps extends PanelBaseProps {
   onChange: ChangeEvent
 }
 
-const CURSOR_OPTIONS = [
-  {label: lang.cursorHelp, value: 'help'},
-  {label: lang.cursorPointer, value: 'pointer'},
-  {label: lang.cursorText, value: 'text'},
-  {label: lang.cursorNotAllowed, value: 'not-allowed'},
-  {label: lang.cursorDefault, value: 'default'},
-]
-
 // tooltip 内容过长时做截断，避免超长 dataURI 把浮层撑爆
 const MAX_TIP_LENGTH = 300
 
@@ -28,6 +20,13 @@ export function Cursor ({onChange: fallbackOnChange, config, showTitle, collapse
   const context = useStyleEditorContext()
   const value = useEffectiveStyleValue() as CSSProperties
   const onChange = useStyleChange(fallbackOnChange)
+  const CURSOR_OPTIONS = [
+    {label: lang.cursorHelp, value: 'help'},
+    {label: lang.cursorPointer, value: 'pointer'},
+    {label: lang.cursorText, value: 'text'},
+    {label: lang.cursorNotAllowed, value: 'not-allowed'},
+    {label: lang.cursorDefault, value: 'default'},
+  ]
 
   const cursorSource = context?.effectiveStyle?.cursor
   // 未配置时的 inherit 兜底和 unset 后的计算值不作为已选光标回显。

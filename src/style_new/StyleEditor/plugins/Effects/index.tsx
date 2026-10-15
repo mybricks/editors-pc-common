@@ -39,7 +39,7 @@ import lang from '../../../index.i18n'
 import {
   EffectLayer,
   EffectType,
-  EFFECT_TYPE_LABELS,
+  getEffectTypeLabels,
   createDefaultLayer,
   parseEffects,
   serializeEffects,
@@ -53,7 +53,7 @@ import {
   isTextShadowLayer,
 } from './layers'
 import type { CssEffectsBundle } from './layers'
-import { SHADOW_PRESETS, getPresetPatch, findMatchingPreset } from './presets'
+import { getShadowPresets, getPresetPatch, findMatchingPreset } from './presets'
 
 interface EffectsProps extends PanelBaseProps {
   value: CSSProperties
@@ -92,6 +92,8 @@ function readCssBundle(value: CSSProperties): CssEffectsBundle {
 }
 
 export function Effects({ value: _value, onChange: fallbackOnChange, showTitle, collapse }: EffectsProps) {
+  const EFFECT_TYPE_LABELS = getEffectTypeLabels()
+  const SHADOW_PRESETS = getShadowPresets()
   const { targetDom, variableOptions } = useCanvasColorVariables()
   const value = useEffectiveStyleValue() as CSSProperties
   const onChange = useStyleChange(fallbackOnChange)

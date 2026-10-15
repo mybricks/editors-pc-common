@@ -11,29 +11,6 @@ export interface JustifyContentProps {
   onWrapToggle: (wrap: CSSProperties["flexWrap"]) => void;
 }
 
-const defaultJustifyContent = [
-  {
-    title: lang.justifyEven,
-    value: "space-around",
-    render: (direction: CSSProperties["flexDirection"]) =>
-      direction === "row" ? (
-        <Icon name="space-around-row" />
-      ) : (
-        <Icon name="space-around-column" />
-      ),
-  },
-  {
-    title: lang.justifyBetween,
-    value: "space-between",
-    render: (direction: CSSProperties["flexDirection"]) =>
-      direction === "row" ? (
-        <Icon name="space-between-row" />
-      ) : (
-        <Icon name="space-between-column" />
-      ),
-  },
-];
-
 export default ({
   flexDirection,
   justifyContent,
@@ -41,6 +18,28 @@ export default ({
   onSelect,
   onWrapToggle,
 }: JustifyContentProps) => {
+  const defaultJustifyContent = [
+    {
+      title: lang.justifyEven,
+      value: "space-around",
+      render: (direction: CSSProperties["flexDirection"]) =>
+        direction === "row" ? (
+          <Icon name="space-around-row" />
+        ) : (
+          <Icon name="space-around-column" />
+        ),
+    },
+    {
+      title: lang.justifyBetween,
+      value: "space-between",
+      render: (direction: CSSProperties["flexDirection"]) =>
+        direction === "row" ? (
+          <Icon name="space-between-row" />
+        ) : (
+          <Icon name="space-between-column" />
+        ),
+    },
+  ];
   const renderWrap = () => {
     // const title = flexWrap === "wrap" ? "换行" : "不换行";
     const title = lang.wrapLabel; // 这里提示词不应该变

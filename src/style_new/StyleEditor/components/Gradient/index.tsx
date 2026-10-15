@@ -12,7 +12,7 @@ import {Panel, GradientEditor, TransparentColorOutlined} from "../";
 import {DeleteOutlined, ReloadOutlined} from "@ant-design/icons";
 
 import css from "./index.less";
-import {gradientOptions, shapeOptions} from "../GradientEditor/constants";
+import {getGradientOptions} from "../GradientEditor/constants";
 import lang from "../../../index.i18n";
 
 // import { Angle, Circle, Ellipse, Linear, Radial } from "../GradientEditor/Icon";
@@ -71,7 +71,7 @@ export function Gradient({
 
   const [gradientType, setGradientType] = useState<string>(lang.linearGradient);
   const onTypeChange = (type: string) => {
-    return setGradientType(mapGradientOptions(type, gradientOptions) || lang.linearGradient);
+    return setGradientType(mapGradientOptions(type, getGradientOptions()) || lang.linearGradient);
   };
   useEffect(() => {
     if (/radial-gradient\(/.test(defaultValue)) {

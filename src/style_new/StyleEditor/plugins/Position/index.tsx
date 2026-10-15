@@ -22,12 +22,6 @@ interface PositionProps extends PanelBaseProps {
 const EDITABLE_POSITIONS = new Set(['absolute', 'fixed', 'relative', 'sticky'])
 /** 自由定位：按钮高亮，可一键取消 */
 const FREE_POSITIONS = new Set(['absolute', 'fixed'])
-const POSITION_UNIT_OPTIONS = [
-  { label: lang.defaultLabel, value: 'default' },
-  {label: '', value: '—divider_', type: 'divider'},
-  { label: 'px', value: 'px' },
-  { label: '%', value: '%' },
-]
 const POSITION_UNIT_SELECT_STYLE: CSSProperties = {
   background: 'transparent',
 }
@@ -89,6 +83,12 @@ function PositionInput({
   /** 开启自由定位：一次性提交 position:absolute + 当前偏移 */
   onActivate: () => void
 }) {
+  const POSITION_UNIT_OPTIONS = [
+    { label: lang.defaultLabel, value: 'default' },
+    {label: '', value: '—divider_', type: 'divider'},
+    { label: 'px', value: 'px' },
+    { label: '%', value: '%' },
+  ]
   const isLocked = needsActivation
   const dragValue = toInputValue(rawValue) ?? toInputValue(previewValue)
 

@@ -27,17 +27,6 @@ export interface UnitOption {
 }
 
 const DEFAULT_ACTION_VALUE = '__input_number_default__'
-const DEFAULT_ACTION_OPTION: UnitOption = {
-  label: lang.defaultLabel,
-  value: DEFAULT_ACTION_VALUE,
-  type: 'action',
-}
-const DEFAULT_ACTION_DIVIDER: UnitOption = {
-  label: '',
-  value: '__input_number_default_divider__',
-  type: 'divider',
-}
-
 export interface InputNumberProps extends Omit<InputProps, 'onChange' | 'value'> {
   defaultUnitValue?: string
   unitDisabledList?: Array<string>
@@ -117,6 +106,16 @@ export function InputNumber ({
   className,
   activeWhenBlur = true,
 }: InputNumberProps) {
+  const DEFAULT_ACTION_OPTION: UnitOption = {
+    label: lang.defaultLabel,
+    value: DEFAULT_ACTION_VALUE,
+    type: 'action',
+  }
+  const DEFAULT_ACTION_DIVIDER: UnitOption = {
+    label: '',
+    value: '__input_number_default_divider__',
+    type: 'divider',
+  }
   // `defaultValue` 是各样式面板的外部回显值；未传受控 value 时也要随选中目标同步。
   const externalValue = value !== undefined ? value : defaultValue
   const [unit, setUnit] = useState<string>(getUnit(externalValue, defaultUnitValue, unitOptions))

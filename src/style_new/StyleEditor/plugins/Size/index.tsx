@@ -75,21 +75,11 @@ function measureElementSize(dom: HTMLElement): { width: number; height: number }
   return { width: dom.offsetWidth, height: dom.offsetHeight };
 }
 
-const BASE_UNIT_OPTIONS = [
-  {label: "px", value: "px"},
-  {label: "%", value: "%"},
-  {label: lang.sizeAdaptive, value: "max-content"},
-];
 const MAX_MIN_UNIT_OPTIONS = [
   { label: 'px', value: 'px' },
   { label: '%', value: '%' },
 ];
 const UNIT_DISABLED_LIST = ["max-content", "fit-content"];
-const UNIT_DISPLAY_LABEL_MAP: Record<string, string> = {
-  "max-content": lang.sizeAdaptive,
-  "fit-content": "Hug",
-};
-const SIZE_DISABLED_TIP = lang.sizeDisabledTip;
 const SIZE_UNIT_SELECT_STYLE: React.CSSProperties = {
   background: "transparent",
 };
@@ -108,13 +98,6 @@ type SizeFieldKey = 'width' | 'height' | 'minWidth' | 'maxWidth' | 'minHeight' |
 
 const DETACH_VARIABLE_ACTION = 'detachVariable';
 const SIZE_DEFAULT_ACTION = 'sizeDefault';
-
-const CONSTRAINT_REMOVE_LABEL: Record<'minWidth' | 'maxWidth' | 'minHeight' | 'maxHeight', string> = {
-  minWidth: lang.removeMinWidth,
-  maxWidth: lang.removeMaxWidth,
-  minHeight: lang.removeMinHeight,
-  maxHeight: lang.removeMaxHeight,
-};
 
 /** 宽向字段取实测宽度兜底，高向字段取实测高度 */
 function isWidthField(field: SizeFieldKey): boolean {
@@ -290,6 +273,22 @@ const DEFAULT_CONFIG = {
 };
 
 export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: SizeProps) {
+  const BASE_UNIT_OPTIONS = [
+    {label: "px", value: "px"},
+    {label: "%", value: "%"},
+    {label: lang.sizeAdaptive, value: "max-content"},
+  ];
+  const UNIT_DISPLAY_LABEL_MAP: Record<string, string> = {
+    "max-content": lang.sizeAdaptive,
+    "fit-content": "Hug",
+  };
+  const SIZE_DISABLED_TIP = lang.sizeDisabledTip;
+  const CONSTRAINT_REMOVE_LABEL: Record<'minWidth' | 'maxWidth' | 'minHeight' | 'maxHeight', string> = {
+    minWidth: lang.removeMinWidth,
+    maxWidth: lang.removeMaxWidth,
+    minHeight: lang.removeMinHeight,
+    maxHeight: lang.removeMaxHeight,
+  };
   const editorContext = useStyleEditorContext();
   const value = useEffectiveStyleValue();
   const rawOnChange = useStyleChange(fallbackOnChange);

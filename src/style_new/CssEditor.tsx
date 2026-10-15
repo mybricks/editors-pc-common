@@ -24,7 +24,6 @@ import { backToVisualIcon, fullScreenIcon } from './icon'
 import lang from './index.i18n'
 import css from './index.less'
 
-const CSS_EDITOR_TITLE = lang.cssEditorTitle
 
 export type CssEditorHandle = {
   getCssBody: () => string
@@ -42,6 +41,7 @@ export function CssEditor({
   editorHandleRef,
   onBackEditor,
 }: any) {
+  const CSS_EDITOR_TITLE = lang.cssEditorTitle
   const displaySelector = resolveDisplaySelector(selector)
   // baseline：编辑器回显快照，用于 blur 时 diff（含 CSSOM 回显值）
   // liveStyle：与可视化一致，只累积真正写入过的属性，避免把计算样式整包写进 less

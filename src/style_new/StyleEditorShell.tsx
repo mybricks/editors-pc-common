@@ -64,15 +64,6 @@ type CachedStyleEditor = {
   stale: boolean
 }
 
-const ZONE_TAB_ADD_OPTIONS = [
-  { key: 'hover', suffix: ':hover', label: lang.hoverState },
-  { key: 'focus', suffix: ':focus', label: lang.focusState },
-  { key: 'active', suffix: ':active', label: lang.activeState },
-  { key: 'disabled', suffix: ':disabled', label: lang.disabledState },
-  // { key: 'before', suffix: '::before', label: '前缀元素' },
-  // { key: 'after', suffix: '::after', label: '后缀元素' },
-] as const
-
 async function writeClipboardText(text: string): Promise<boolean> {
   try {
     if (navigator.clipboard?.writeText) {
@@ -235,6 +226,14 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
   const activeZoneTab = zoneTabs[activeZoneIdx] ?? null
 
   const zoneTabAddOptions = useMemo(() => {
+    const ZONE_TAB_ADD_OPTIONS = [
+      { key: 'hover', suffix: ':hover', label: lang.hoverState },
+      { key: 'focus', suffix: ':focus', label: lang.focusState },
+      { key: 'active', suffix: ':active', label: lang.activeState },
+      { key: 'disabled', suffix: ':disabled', label: lang.disabledState },
+      // { key: 'before', suffix: '::before', label: '前缀元素' },
+      // { key: 'after', suffix: '::after', label: '后缀元素' },
+    ] as const
     const currentBaseSelector = activeZoneTab?.baseSelector || baseSelector
     if (!currentBaseSelector) return []
 

@@ -8,30 +8,6 @@ import css from "./index.less";
 // 图片选择器相关常量
 const DEFAULT_IMAGE = '';
 
-const BACKGROUND_SIZE_OPTIONS = [
-  { label: lang.imgSizeCover, value: "cover" },
-  { label: lang.imgSizeContain, value: "contain" },
-  { label: lang.imgSizeStretch, value: "100% 100%" },
-  { label: lang.imgSizeOriginal, value: "auto" },
-];
-
-const BACKGROUND_REPEAT_OPTIONS = [
-  { label: lang.imgRepeatOn, value: 'repeat' },
-  { label: lang.imgRepeatOff, value: 'no-repeat' }
-];
-
-const BACKGROUND_POSITION_OPTIONS = [
-  { label: lang.imgPosTop, value: 'center top' },
-  { label: lang.imgPosCenter, value: 'center center' },
-  { label: lang.imgPosBottom, value: 'center bottom' },
-  { label: lang.imgPosLeft, value: 'left center' },
-  { label: lang.imgPosRight, value: 'right center' },
-  { label: lang.imgPosTopLeft, value: 'left top' },
-  { label: lang.imgPosBottomLeft, value: 'left bottom' },
-  { label: lang.imgPosTopRight, value: 'right top' },
-  { label: lang.imgPosBottomRight, value: 'right bottom' }
-];
-
 function getBackgroundImage(image: string = '', defaultValue = '') {
   return /url\s*\(\s*["']?([^"'\r\n\)\(]+)["']?\s*\)/gi.exec(ExtractBackground(image, 'image')?.[0] || '')?.[1] || defaultValue;
 }
@@ -69,6 +45,27 @@ export function ImagePanel({
   onChange,
   upload,
 }: ImagePanelProps) {
+  const BACKGROUND_SIZE_OPTIONS = [
+    { label: lang.imgSizeCover, value: "cover" },
+    { label: lang.imgSizeContain, value: "contain" },
+    { label: lang.imgSizeStretch, value: "100% 100%" },
+    { label: lang.imgSizeOriginal, value: "auto" },
+  ];
+  const BACKGROUND_REPEAT_OPTIONS = [
+    { label: lang.imgRepeatOn, value: 'repeat' },
+    { label: lang.imgRepeatOff, value: 'no-repeat' }
+  ];
+  const BACKGROUND_POSITION_OPTIONS = [
+    { label: lang.imgPosTop, value: 'center top' },
+    { label: lang.imgPosCenter, value: 'center center' },
+    { label: lang.imgPosBottom, value: 'center bottom' },
+    { label: lang.imgPosLeft, value: 'left center' },
+    { label: lang.imgPosRight, value: 'right center' },
+    { label: lang.imgPosTopLeft, value: 'left top' },
+    { label: lang.imgPosBottomLeft, value: 'left bottom' },
+    { label: lang.imgPosTopRight, value: 'right top' },
+    { label: lang.imgPosBottomRight, value: 'right bottom' }
+  ];
   const imageInputRef = useRef<HTMLInputElement>(null);
   const [localImageValue, setLocalImageValue] = useState<ImageValue>(value);
 

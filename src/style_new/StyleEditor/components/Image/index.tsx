@@ -148,39 +148,6 @@ interface PopupProps {
   upload?: (files: Array<File>, args: any) => Array<string>
 }
 
-const BACKGROUND_REPEAT_OPTIONS = [
-  {label: lang.imgRepeatOn, value: 'repeat'},
-  {label: lang.imgRepeatOff, value: 'no-repeat'}
-]
-
-const BACKGROUND_POSITION_OPTIONS = [
-  {label: lang.imgPosTop, value: 'center top'},
-  {label: lang.imgPosCenter, value: 'center center'},
-  {label: lang.imgPosBottom, value: 'center bottom'},
-  {label: lang.imgPosLeft, value: 'left center'},
-  {label: lang.imgPosRight, value: 'right center'},
-  {label: lang.imgPosTopLeft, value: 'left top'},
-  {label: lang.imgPosBottomLeft, value: 'left bottom'},
-  {label: lang.imgPosTopRight, value: 'right top'},
-  {label: lang.imgPosBottomRight, value: 'right bottom'}
-]
-
-const BACKGROUND_SIZE_OPTIONS = [
-  {label: lang.imgSizeDefault, value: 'auto'},
-  {label: lang.imgSizeFit, value: 'contain'},
-  {label: lang.imgSizeFill, value: 'cover'},
-  {label: lang.imgSizeTile, value: '100% 100%'},
-  {label: lang.imgSizeTileX, value: '100% auto'},
-  {label: lang.imgSizeTileY, value: 'auto 100%'}
-]
-
-const BACKGROUND_SIZE_OPTIONS_NEW = [
-  {label: lang.imgSizeCover, value: "cover"},
-  {label: lang.imgSizeContain, value: "contain"},
-  {label: lang.imgSizeStretch, value: "100% 100%"},
-  {label: lang.imgSizeOriginal, value: "auto"},
-]
-
 function Popup({
                  value,
                  onChange,
@@ -191,6 +158,35 @@ function Popup({
                }: PopupProps) {
   const ref = childRef
   const inputRef = useRef<HTMLInputElement>(null)
+  const BACKGROUND_REPEAT_OPTIONS = [
+    {label: lang.imgRepeatOn, value: 'repeat'},
+    {label: lang.imgRepeatOff, value: 'no-repeat'}
+  ]
+  const BACKGROUND_POSITION_OPTIONS = [
+    {label: lang.imgPosTop, value: 'center top'},
+    {label: lang.imgPosCenter, value: 'center center'},
+    {label: lang.imgPosBottom, value: 'center bottom'},
+    {label: lang.imgPosLeft, value: 'left center'},
+    {label: lang.imgPosRight, value: 'right center'},
+    {label: lang.imgPosTopLeft, value: 'left top'},
+    {label: lang.imgPosBottomLeft, value: 'left bottom'},
+    {label: lang.imgPosTopRight, value: 'right top'},
+    {label: lang.imgPosBottomRight, value: 'right bottom'}
+  ]
+  const BACKGROUND_SIZE_OPTIONS = [
+    {label: lang.imgSizeDefault, value: 'auto'},
+    {label: lang.imgSizeFit, value: 'contain'},
+    {label: lang.imgSizeFill, value: 'cover'},
+    {label: lang.imgSizeTile, value: '100% 100%'},
+    {label: lang.imgSizeTileX, value: '100% auto'},
+    {label: lang.imgSizeTileY, value: 'auto 100%'}
+  ]
+  const BACKGROUND_SIZE_OPTIONS_NEW = [
+    {label: lang.imgSizeCover, value: "cover"},
+    {label: lang.imgSizeContain, value: "contain"},
+    {label: lang.imgSizeStretch, value: "100% 100%"},
+    {label: lang.imgSizeOriginal, value: "auto"},
+  ]
 
   useEffect(() => {
     const menusContainer = ref.current!

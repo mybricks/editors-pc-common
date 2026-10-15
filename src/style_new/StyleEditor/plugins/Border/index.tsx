@@ -50,12 +50,6 @@ interface BorderProps extends PanelBaseProps {
   onChange: ChangeEvent;
 }
 
-const STROKE_STYLE_POPUP_OPTIONS = [
-  { value: 'none', label: lang.noBorder },
-  { value: 'solid', label: lang.solidLine },
-  { value: 'dashed', label: lang.dashedLine },
-];
-
 const BORDER_WIDTH_KEYWORD_VALUES: Record<string, string> = {
   thin: '1px',
   medium: '3px',
@@ -85,12 +79,6 @@ function isFullyTransparentColor(value: string) {
 
 type BorderPosition = "outside" | "center" | "inside";
 
-const BORDER_POSITION_OPTIONS = [
-  { label: lang.borderOutside, value: "outside" },
-  { label: lang.borderCenter, value: "center" },
-  { label: lang.borderInside, value: "inside" },
-];
-const DEFAULT_UNIT_OPTION = { label: lang.defaultOption, value: 'default' };
 const DEFAULT_UNIT_DIVIDER = { label: '', value: '__borderDefaultDivider__', type: 'divider' as const };
 
 function withDefaultUnitOption<T extends { label: string; value: string }>(
@@ -98,7 +86,7 @@ function withDefaultUnitOption<T extends { label: string; value: string }>(
   clearable: boolean
 ) {
   return clearable
-    ? [DEFAULT_UNIT_OPTION, DEFAULT_UNIT_DIVIDER, ...options]
+    ? [{ label: lang.defaultOption, value: 'default' }, DEFAULT_UNIT_DIVIDER, ...options]
     : options;
 }
 const BORDER_WIDTH_UNIT_OPTIONS = [{ label: 'px', value: 'px' }];
@@ -381,6 +369,16 @@ const buildClearGradientBorderValue = (
 };
 
 export function Border({ value, onChange: fallbackOnChange, config, showTitle, collapse }: BorderProps) {
+  const STROKE_STYLE_POPUP_OPTIONS = [
+    { value: 'none', label: lang.noBorder },
+    { value: 'solid', label: lang.solidLine },
+    { value: 'dashed', label: lang.dashedLine },
+  ];
+  const BORDER_POSITION_OPTIONS = [
+    { label: lang.borderOutside, value: "outside" },
+    { label: lang.borderCenter, value: "center" },
+    { label: lang.borderInside, value: "inside" },
+  ];
   const context = useStyleEditorContext();
   const effectiveStyle = context?.effectiveStyle;
   const editOptions = context?.editConfig?.options;

@@ -19,45 +19,6 @@ const FLEX_KEYS = ['flex', 'flexGrow', 'flexShrink', 'flexBasis'] as const
 
 type FlexMode = 'ratio' | 'advanced'
 
-/** 面板与字段文案（面向设计） */
-const COPY = {
-  panelTitle: lang.flexPanelTitle,
-  panelTip: JSON.stringify({
-    content: lang.flexAutoFill,
-    position: 'left',
-  }),
-  fieldLabel: lang.flexRatioLabel,
-  fieldTip: JSON.stringify({
-    content:
-      lang.flexRatioTip,
-    position: 'left',
-  }),
-  toAdvancedTip: JSON.stringify({
-    content: lang.flexSplitTip,
-    position: 'left',
-  }),
-  toRatioTip: JSON.stringify({
-    content: lang.flexUnifiedTip,
-    position: 'left',
-  }),
-  growLabel: lang.flexGrowLabel,
-  growTip: JSON.stringify({
-    content: lang.flexGrowTip,
-    position: 'left',
-  }),
-  shrinkLabel: lang.flexShrinkLabel,
-  shrinkTip: JSON.stringify({
-    content: lang.flexShrinkTip,
-    position: 'left',
-  }),
-  basisLabel: lang.flexBasisLabel,
-  basisTip: JSON.stringify({
-    content:
-      lang.flexBasisTip,
-    position: 'left',
-  }),
-}
-
 const BASIS_UNIT_OPTIONS = [
   { label: 'px', value: 'px' },
   { label: '%', value: '%' },
@@ -176,6 +137,21 @@ function resolveFlexMode(value: CSSProperties & Record<string, any> | undefined)
 }
 
 export function Flex({ value: fallbackValue, onChange: fallbackOnChange, showTitle, collapse }: FlexProps) {
+  /** 面板与字段文案（面向设计） */
+  const COPY = {
+    panelTitle: lang.flexPanelTitle,
+    panelTip: JSON.stringify({ content: lang.flexAutoFill, position: 'left' }),
+    fieldLabel: lang.flexRatioLabel,
+    fieldTip: JSON.stringify({ content: lang.flexRatioTip, position: 'left' }),
+    toAdvancedTip: JSON.stringify({ content: lang.flexSplitTip, position: 'left' }),
+    toRatioTip: JSON.stringify({ content: lang.flexUnifiedTip, position: 'left' }),
+    growLabel: lang.flexGrowLabel,
+    growTip: JSON.stringify({ content: lang.flexGrowTip, position: 'left' }),
+    shrinkLabel: lang.flexShrinkLabel,
+    shrinkTip: JSON.stringify({ content: lang.flexShrinkTip, position: 'left' }),
+    basisLabel: lang.flexBasisLabel,
+    basisTip: JSON.stringify({ content: lang.flexBasisTip, position: 'left' }),
+  }
   const editorContext = useStyleEditorContext();
   const effectiveValue = useEffectiveStyleValue();
   const hasFallbackFlexValue = FLEX_KEYS.some(key => isNonEmpty(fallbackValue?.[key]));

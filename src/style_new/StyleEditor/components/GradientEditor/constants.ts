@@ -68,15 +68,19 @@ const defalutGradientStops: GradientStop[] = [
 type GradientType = "linear-gradient" | "radial-gradient";
 type ShapeType = "ellipse" | "radial";
 
-const gradientOptions = [
-  { value: "linear-gradient", label: lang.linearGradient },
-  { value: "radial-gradient", label: lang.radialGradient },
-];
+function getGradientOptions() {
+  return [
+    { value: "linear-gradient", label: lang.linearGradient },
+    { value: "radial-gradient", label: lang.radialGradient },
+  ];
+}
 
-const shapeOptions = [
-  { value: "ellipse", label: lang.ellipseShape },
-  { value: "circle", label: lang.circleShape },
-];
+function getShapeOptions() {
+  return [
+    { value: "ellipse", label: lang.ellipseShape },
+    { value: "circle", label: lang.circleShape },
+  ];
+}
 
 function interpolateColor(
   stop1: ResolvedGradientStop,
@@ -145,8 +149,8 @@ export type { GradientEditorProps, GradientStop, GradientType, ShapeType };
 export {
   defalutGradientStops,
   findColorByPosition,
-  shapeOptions,
-  gradientOptions,
+  getShapeOptions,
+  getGradientOptions,
   interpolateColor,
   computePercentage,
   resolveGradientStops,

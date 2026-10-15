@@ -122,7 +122,7 @@ export function BorderRadius({ value, onChange: fallbackOnChange, config, collap
     ? expandFourShorthand(shorthandWinner.value)
     : null
   for (const [index, key] of RADIUS_KEYS.entries()) {
-    // 单角的 unset/未配置优先于简写展开；只有 CSSOM 无法展开当前变量简写时才补回单角。
+    // 有单角配置时保留单角值；只有简写变量没有展开出单角时才补回变量。
     if (context?.getStyleProperty || context?.effectiveStyle?.[key]) {
       const cornerWinner = context?.getStyleProperty?.(key).winner
       const source = context?.effectiveStyle?.[key]
