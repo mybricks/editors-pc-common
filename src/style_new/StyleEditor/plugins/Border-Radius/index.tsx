@@ -142,7 +142,11 @@ export function BorderRadius({ value, onChange: fallbackOnChange, config, collap
   const radiusValueRef = useRef(radiusValue)
   const getConfiguredDragProps = useDragNumber({ continuous: true })
   const allRadiusClear = useStyleClear(RADIUS_KEYS)
-  const canReset = !disableBorderRadius && !!allRadiusClear.clear
+  const shorthandRadiusClear = useStyleClear('borderRadius', { mode: 'remove-declaration', fallbackOnChange })
+  const clearRadius = allRadiusClear.clear ?? (shorthandWinner?.currentState && isCssVarValue(shorthandWinner.value)
+    ? shorthandRadiusClear.clear
+    : undefined)
+  const canReset = !disableBorderRadius && !!clearRadius
   const topLeftClear = useStyleClear('borderTopLeftRadius')
   const topRightClear = useStyleClear('borderTopRightRadius')
   const bottomRightClear = useStyleClear('borderBottomRightRadius')
@@ -210,12 +214,12 @@ export function BorderRadius({ value, onChange: fallbackOnChange, config, collap
   const unitOptions = useMemo(() => withApplyVariableOption(UNIT_OPTIONS, radiusAllVar.hasVariables), [radiusAllVar.hasVariables])
 
   const handleReset = useCallback(() => {
-    const result = allRadiusClear.clear?.()
+    const result = clearRadius?.()
     if (result && (result.clearUnsupported || !result.applied)) return
     radiusValueRef.current = {}
     setRadiusValue({})
     setToggleValue({ radiusToggleValue: 'all' })
-  }, [allRadiusClear.clear])
+  }, [clearRadius])
 
   const handleSwitchToUnified = useCallback(() => {
     let configuredValue = radiusValueRef.current
