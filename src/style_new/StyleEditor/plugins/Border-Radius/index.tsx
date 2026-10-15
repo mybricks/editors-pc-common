@@ -186,16 +186,23 @@ export function BorderRadius({ value, onChange: fallbackOnChange, config, collap
     if (!hasClear && complete) {
       keys = RADIUS_KEYS
     }
-    const result = onChange(keys.map(key => ({
-      key,
-      value: next[key] == null ? null : `${next[key]}${useImportant ? '!important' : ''}`,
-      borderMode,
-    })))
+    const result = onChange(keys.map(key => {
+      let value: string | null
+      if (next[key] != null) {
+        value = `${next[key]}${useImportant ? '!important' : ''}`
+      } else if (borderMode === 'split' && shorthandWinner?.currentState && isCssVarValue(shorthandWinner.value)) {
+        // 删除单角声明会露出变量简写；unset 只屏蔽当前角，保留其他角。
+        value = `unset${shorthandWinner.important ? '!important' : ''}`
+      } else {
+        value = null
+      }
+      return { key, value, borderMode }
+    }))
     if (result?.clearUnsupported || (result && !result.applied)) return
     radiusValueRef.current = next
     setRadiusValue(next)
     setEmptyAfterClear(hasClear && RADIUS_KEYS.every(key => next[key] == null || next[key] === ''))
-  }, [onChange, radiusToggleValue, useImportant])
+  }, [onChange, radiusToggleValue, useImportant, shorthandWinner])
 
   const commitUnifiedDrag = (next: string) => handleChange(Object.fromEntries(
     RADIUS_KEYS.map(key => [key, next])

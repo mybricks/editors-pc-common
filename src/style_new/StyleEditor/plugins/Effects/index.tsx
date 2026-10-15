@@ -498,6 +498,7 @@ function EffectSketchBody({
   onChange,
   onClose,
 }: EffectSketchBodyProps) {
+  const SHADOW_PRESETS = useMemo(() => getShadowPresets(), [])
   const getDragProps = useDragNumber({ continuous: true })
   const getDragPropsNegative = useDragNumber({ continuous: true, min: -Infinity })
   // 切层/切类型时重挂非受控子组件。不要把颜色值并进来：ColorEditor 的取色浮层
