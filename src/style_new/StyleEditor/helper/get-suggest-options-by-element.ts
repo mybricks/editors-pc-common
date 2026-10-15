@@ -79,8 +79,7 @@ export function getSuggestOptionsByElement(selectDom: HTMLElement): { type: stri
         : void 0;
 
     const suggestion = [
-      // 替换元素没有子节点可排，布局面板降级为 display 切换（默认 / 内联）
-      isImgElement
+      shouldHideEditor
         ? { type: 'layout', config: { displayOnly: true } }
         : { type: 'layout' },
       fontOption,
