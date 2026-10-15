@@ -7,7 +7,7 @@ import React, {
   useState,
 } from "react";
 import ColorUtil from "color";
-import { useApplyStyleMutations, useEffectiveStyleValue, useStyleClear, useStyleEditorContext } from "../..";
+import { useApplyStyleMutations, useEffectiveStyleValue, useStyleEditorContext } from "../..";
 import { PanelBaseProps, StyleChangeResult, StyleMutation } from "./../../type";
 import { Panel, Colorpicker } from "../../components";
 import { MinusOutlined, TransparentColorOutlined } from "../../components/Icon";
@@ -31,6 +31,11 @@ import {
   resolveCssVarsInCssValue,
 } from "../../../core/resolve-css-var-color";
 import type { CssVarColorOption } from "../../../core/resolve-css-var-color";
+import { useStyleRemoval } from '../../hooks/useStyleRemoval';
+import type { StyleRemovalRequest } from '../../hooks/useStyleRemoval';
+import { readAuthoredBackgroundDeclarations } from '../../../core/get-values-background';
+import { cssPropertyName, readInlineStyleProperties } from '../../../core/style-property';
+import { getShorthandFamily, stylePropertyKey } from '../../../core/style-shorthand-groups';
 
 function GripIcon() {
   return (
@@ -61,6 +66,48 @@ const DEFAULT_CONFIG = {
 
 const IMAGE_CLEAR_KEYS = ['backgroundImage', 'backgroundSize', 'backgroundRepeat', 'backgroundPosition'] as const;
 const BACKGROUND_CLEAR_KEYS = ['backgroundColor', ...IMAGE_CLEAR_KEYS] as const;
+const OTHER_BACKGROUND_KEYS = [
+  ...getShorthandFamily('background').map(stylePropertyKey)
+    .filter(key => key !== 'background' && key !== 'backgroundColor'),
+  'backgroundPositionX', 'backgroundPositionY', 'WebkitBackgroundClip',
+];
+
+// 回显时确认简写只承载当前颜色，才能将颜色减号对应到整条 background 声明。
+const colorShorthand: NonNullable<StyleRemovalRequest['shorthand']> = {
+  key: 'background',
+  sourceKey: 'backgroundColor',
+  canRemove({ context, target, source }) {
+    if ((context.editConfig.options as any)?.zoneTab?.pseudo || !source.source) return false;
+    if (OTHER_BACKGROUND_KEYS.some(key => context.getStyleProperty!(key).candidates.length > 0)) return false;
+    const inlineKeys = readInlineStyleProperties(target);
+    if (OTHER_BACKGROUND_KEYS.some(key => inlineKeys.has(cssPropertyName(key)))) return false;
+
+    const declarations = readAuthoredBackgroundDeclarations(source.source.rule);
+    if (declarations.length !== 1) return false;
+    const declaration = declarations[0];
+    if (Object.keys(declaration).some(key => key !== 'background')) return false;
+    const authored = declaration.background;
+    if (!authored || authored !== source.value.replace(/\s*!important\s*$/i, '').trim()) return false;
+    const variable = parseCssVar(authored);
+    if (!variable) return false;
+
+    try {
+      const view = target.ownerDocument.defaultView;
+      // 删除依据是当前作用域的真实值，不能使用可能采用 fallback 的颜色预览值。
+      const resolved = view?.getComputedStyle(target).getPropertyValue(variable.varName).trim();
+      return !!resolved && !/^(inherit|initial|unset|revert|revert-layer)$/i.test(resolved) &&
+        !/\b(?:var|env|attr)\s*\(/i.test(resolved) && !!view?.CSS?.supports('color', resolved);
+    } catch {
+      return false;
+    }
+  },
+};
+
+export const BACKGROUND_CLEAR_REQUESTS: Record<'color' | 'images' | 'all', StyleRemovalRequest> = {
+  color: { keys: ['backgroundColor'], shorthand: colorShorthand },
+  images: { keys: IMAGE_CLEAR_KEYS },
+  all: { keys: BACKGROUND_CLEAR_KEYS, shorthand: colorShorthand },
+};
 
 function toStyleMutations(changes: Array<{ key: string; value: any }>): StyleMutation[] {
   return changes.map(({ key, value }) => value == null
@@ -353,9 +400,9 @@ export function Background({
   const context = useStyleEditorContext();
   const value = useEffectiveStyleValue() as CSSProperties & Record<string, any>;
   const applyStyleMutations = useApplyStyleMutations(fallbackOnChange);
-  const clearColor = useStyleClear('backgroundColor', { mode: 'remove-declaration', fallbackOnChange });
-  const clearImages = useStyleClear(IMAGE_CLEAR_KEYS, { mode: 'remove-declaration', fallbackOnChange });
-  const clearBackground = useStyleClear(BACKGROUND_CLEAR_KEYS, { mode: 'remove-declaration', fallbackOnChange });
+  const clearColor = useStyleRemoval(BACKGROUND_CLEAR_REQUESTS.color, fallbackOnChange);
+  const clearImages = useStyleRemoval(BACKGROUND_CLEAR_REQUESTS.images, fallbackOnChange);
+  const clearBackground = useStyleRemoval(BACKGROUND_CLEAR_REQUESTS.all, fallbackOnChange);
   const { targetDom, variableOptions: canvasVariableOptions } = useCanvasColorVariables();
   const [{ disableBackgroundColor, disableBackgroundImage, disableGradient }] =
     useState({ ...DEFAULT_CONFIG, ...config });
@@ -370,8 +417,8 @@ export function Background({
     getBackgroundClip(value)
   );
   const ownership = {
-    backgroundImage: (!!clearImages.clear || sharesTextBackground) && (!context?.getStyleProperty || !!context.getStyleProperty('backgroundImage').winner?.currentState),
-    backgroundColor: !!clearColor.clear,
+    backgroundImage: (clearImages.canClear || sharesTextBackground) && (!context?.getStyleProperty || !!context.getStyleProperty('backgroundImage').winner?.currentState),
+    backgroundColor: clearColor.canClear,
   };
   const ownershipFingerprint = `${ownership.backgroundImage}:${ownership.backgroundColor}`;
   const lastOwnershipRef = useRef(ownershipFingerprint);
@@ -458,8 +505,8 @@ export function Background({
         const remaining = Object.fromEntries(BACKGROUND_CLEAR_KEYS.map(key => [key, context.getStyleProperty!(key).winner?.value ?? '']));
         const resolvedLayers = parseLayers(remaining.backgroundImage, remaining.backgroundColor,
           remaining.backgroundSize, remaining.backgroundRepeat, remaining.backgroundPosition, {
-            backgroundImage: !!context.getStyleProperty('backgroundImage').winner?.currentState && !!context.getStyleRemovalState?.(IMAGE_CLEAR_KEYS).canClear,
-            backgroundColor: !!context.getStyleRemovalState?.(['backgroundColor']).canClear,
+            backgroundImage: !!context.getStyleProperty('backgroundImage').winner?.currentState && clearImages.getState().canClear,
+            backgroundColor: clearColor.getState().canClear,
           });
         // computed / 外部回显层没有 StyleProperty winner，不能因删除当前状态的新层而丢失。
         const nextLayers = mergeResolvedLayersWithReadonly(resolvedLayers, newLayers);
@@ -495,7 +542,7 @@ export function Background({
       layersRef.current = nextLayers;
       setLayers(nextLayers);
     },
-    [applyStyleMutations, context?.getStyleProperty, context?.getStyleRemovalState, value]
+    [applyStyleMutations, context, clearColor.getState, clearImages.getState, value]
   );
 
   // ── Layer handlers ───────────────────────────────────────────────────────
