@@ -273,22 +273,22 @@ const DEFAULT_CONFIG = {
 };
 
 export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: SizeProps) {
-  const BASE_UNIT_OPTIONS = [
+  const BASE_UNIT_OPTIONS = useMemo(() => [
     {label: "px", value: "px"},
     {label: "%", value: "%"},
     {label: lang.sizeAdaptive, value: "max-content"},
-  ];
-  const UNIT_DISPLAY_LABEL_MAP: Record<string, string> = {
+  ], []);
+  const UNIT_DISPLAY_LABEL_MAP = useMemo<Record<string, string>>(() => ({
     "max-content": lang.sizeAdaptive,
     "fit-content": "Hug",
-  };
+  }), []);
   const SIZE_DISABLED_TIP = lang.sizeDisabledTip;
-  const CONSTRAINT_REMOVE_LABEL: Record<'minWidth' | 'maxWidth' | 'minHeight' | 'maxHeight', string> = {
+  const CONSTRAINT_REMOVE_LABEL = useMemo<Record<'minWidth' | 'maxWidth' | 'minHeight' | 'maxHeight', string>>(() => ({
     minWidth: lang.removeMinWidth,
     maxWidth: lang.removeMaxWidth,
     minHeight: lang.removeMinHeight,
     maxHeight: lang.removeMaxHeight,
-  };
+  }), []);
   const editorContext = useStyleEditorContext();
   const value = useEffectiveStyleValue();
   const rawOnChange = useStyleChange(fallbackOnChange);

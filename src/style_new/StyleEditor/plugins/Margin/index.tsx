@@ -61,7 +61,7 @@ interface MarginValueInputProps {
 }
 
 function AutoMarginBadge({inputProps}: {inputProps: InputNumberProps}) {
-  const options = inputProps.unitOptions ?? getUnitOptions(true)
+  const options = useMemo(() => inputProps.unitOptions ?? getUnitOptions(true), [inputProps.unitOptions])
   return (
     <Dropdown
       value="auto"

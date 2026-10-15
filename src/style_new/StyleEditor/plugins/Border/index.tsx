@@ -369,16 +369,16 @@ const buildClearGradientBorderValue = (
 };
 
 export function Border({ value, onChange: fallbackOnChange, config, showTitle, collapse }: BorderProps) {
-  const STROKE_STYLE_POPUP_OPTIONS = [
+  const STROKE_STYLE_POPUP_OPTIONS = useMemo(() => [
     { value: 'none', label: lang.noBorder },
     { value: 'solid', label: lang.solidLine },
     { value: 'dashed', label: lang.dashedLine },
-  ];
-  const BORDER_POSITION_OPTIONS = [
+  ], []);
+  const BORDER_POSITION_OPTIONS = useMemo(() => [
     { label: lang.borderOutside, value: "outside" },
     { label: lang.borderCenter, value: "center" },
     { label: lang.borderInside, value: "inside" },
-  ];
+  ], []);
   const context = useStyleEditorContext();
   const effectiveStyle = context?.effectiveStyle;
   const editOptions = context?.editConfig?.options;

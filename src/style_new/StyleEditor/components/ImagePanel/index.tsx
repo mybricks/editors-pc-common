@@ -1,4 +1,4 @@
-import React, { useRef, useState, useCallback } from "react";
+import React, { useMemo, useRef, useState, useCallback } from "react";
 import { Input, Select } from "../";
 import { ExtractBackground } from "../Image/ExtractBackground";
 import lang from "../../../index.i18n";
@@ -45,17 +45,17 @@ export function ImagePanel({
   onChange,
   upload,
 }: ImagePanelProps) {
-  const BACKGROUND_SIZE_OPTIONS = [
+  const BACKGROUND_SIZE_OPTIONS = useMemo(() => [
     { label: lang.imgSizeCover, value: "cover" },
     { label: lang.imgSizeContain, value: "contain" },
     { label: lang.imgSizeStretch, value: "100% 100%" },
     { label: lang.imgSizeOriginal, value: "auto" },
-  ];
-  const BACKGROUND_REPEAT_OPTIONS = [
+  ], []);
+  const BACKGROUND_REPEAT_OPTIONS = useMemo(() => [
     { label: lang.imgRepeatOn, value: 'repeat' },
     { label: lang.imgRepeatOff, value: 'no-repeat' }
-  ];
-  const BACKGROUND_POSITION_OPTIONS = [
+  ], []);
+  const BACKGROUND_POSITION_OPTIONS = useMemo(() => [
     { label: lang.imgPosTop, value: 'center top' },
     { label: lang.imgPosCenter, value: 'center center' },
     { label: lang.imgPosBottom, value: 'center bottom' },
@@ -65,7 +65,7 @@ export function ImagePanel({
     { label: lang.imgPosBottomLeft, value: 'left bottom' },
     { label: lang.imgPosTopRight, value: 'right top' },
     { label: lang.imgPosBottomRight, value: 'right bottom' }
-  ];
+  ], []);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const [localImageValue, setLocalImageValue] = useState<ImageValue>(value);
 

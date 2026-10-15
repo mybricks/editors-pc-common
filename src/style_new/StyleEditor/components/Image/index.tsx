@@ -158,11 +158,11 @@ function Popup({
                }: PopupProps) {
   const ref = childRef
   const inputRef = useRef<HTMLInputElement>(null)
-  const BACKGROUND_REPEAT_OPTIONS = [
+  const BACKGROUND_REPEAT_OPTIONS = useMemo(() => [
     {label: lang.imgRepeatOn, value: 'repeat'},
     {label: lang.imgRepeatOff, value: 'no-repeat'}
-  ]
-  const BACKGROUND_POSITION_OPTIONS = [
+  ], [])
+  const BACKGROUND_POSITION_OPTIONS = useMemo(() => [
     {label: lang.imgPosTop, value: 'center top'},
     {label: lang.imgPosCenter, value: 'center center'},
     {label: lang.imgPosBottom, value: 'center bottom'},
@@ -172,21 +172,21 @@ function Popup({
     {label: lang.imgPosBottomLeft, value: 'left bottom'},
     {label: lang.imgPosTopRight, value: 'right top'},
     {label: lang.imgPosBottomRight, value: 'right bottom'}
-  ]
-  const BACKGROUND_SIZE_OPTIONS = [
+  ], [])
+  const BACKGROUND_SIZE_OPTIONS = useMemo(() => [
     {label: lang.imgSizeDefault, value: 'auto'},
     {label: lang.imgSizeFit, value: 'contain'},
     {label: lang.imgSizeFill, value: 'cover'},
     {label: lang.imgSizeTile, value: '100% 100%'},
     {label: lang.imgSizeTileX, value: '100% auto'},
     {label: lang.imgSizeTileY, value: 'auto 100%'}
-  ]
-  const BACKGROUND_SIZE_OPTIONS_NEW = [
+  ], [])
+  const BACKGROUND_SIZE_OPTIONS_NEW = useMemo(() => [
     {label: lang.imgSizeCover, value: "cover"},
     {label: lang.imgSizeContain, value: "contain"},
     {label: lang.imgSizeStretch, value: "100% 100%"},
     {label: lang.imgSizeOriginal, value: "auto"},
-  ]
+  ], [])
 
   useEffect(() => {
     const menusContainer = ref.current!

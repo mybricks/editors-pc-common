@@ -83,12 +83,12 @@ function PositionInput({
   /** 开启自由定位：一次性提交 position:absolute + 当前偏移 */
   onActivate: () => void
 }) {
-  const POSITION_UNIT_OPTIONS = [
+  const POSITION_UNIT_OPTIONS = useMemo(() => [
     { label: lang.defaultLabel, value: 'default' },
     {label: '', value: '—divider_', type: 'divider'},
     { label: 'px', value: 'px' },
     { label: '%', value: '%' },
-  ]
+  ], [])
   const isLocked = needsActivation
   const dragValue = toInputValue(rawValue) ?? toInputValue(previewValue)
 

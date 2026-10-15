@@ -92,8 +92,8 @@ function readCssBundle(value: CSSProperties): CssEffectsBundle {
 }
 
 export function Effects({ value: _value, onChange: fallbackOnChange, showTitle, collapse }: EffectsProps) {
-  const EFFECT_TYPE_LABELS = getEffectTypeLabels()
-  const SHADOW_PRESETS = getShadowPresets()
+  const EFFECT_TYPE_LABELS = useMemo(() => getEffectTypeLabels(), [])
+  const SHADOW_PRESETS = useMemo(() => getShadowPresets(), [])
   const { targetDom, variableOptions } = useCanvasColorVariables()
   const value = useEffectiveStyleValue() as CSSProperties
   const onChange = useStyleChange(fallbackOnChange)

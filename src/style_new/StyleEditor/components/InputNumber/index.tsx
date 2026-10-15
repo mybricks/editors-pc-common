@@ -106,17 +106,18 @@ export function InputNumber ({
   className,
   activeWhenBlur = true,
 }: InputNumberProps) {
-  const DEFAULT_ACTION_OPTION: UnitOption = {
+  const DEFAULT_ACTION_OPTION = useMemo<UnitOption>(() => ({
     label: lang.defaultLabel,
     value: DEFAULT_ACTION_VALUE,
     type: 'action',
-  }
-  const DEFAULT_ACTION_DIVIDER: UnitOption = {
+  }), [])
+  const DEFAULT_ACTION_DIVIDER = useMemo<UnitOption>(() => ({
     label: '',
     value: '__input_number_default_divider__',
     type: 'divider',
-  }
+  }), [])
   // `defaultValue` 是各样式面板的外部回显值；未传受控 value 时也要随选中目标同步。
+  const DEFAULT_ACTION_OPTIONS = useMemo(() => [DEFAULT_ACTION_OPTION], [DEFAULT_ACTION_OPTION])
   const externalValue = value !== undefined ? value : defaultValue
   const [unit, setUnit] = useState<string>(getUnit(externalValue, defaultUnitValue, unitOptions))
   const [number, handleNumberChange] = useInputNumber<string | number | undefined>(externalValue)
@@ -383,7 +384,7 @@ export function InputNumber ({
         tip={defaultActionTip || undefined}
         style={{ width: 16, padding: 0, fontSize: 10 }}
         value={unit}
-        options={[DEFAULT_ACTION_OPTION]}
+        options={DEFAULT_ACTION_OPTIONS}
         showIcon
         hideLabel
         onChange={() => {}}

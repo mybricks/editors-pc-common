@@ -1,4 +1,4 @@
-import React, { CSSProperties, useCallback, useEffect, useState } from 'react'
+import React, { CSSProperties, useCallback, useEffect, useMemo, useState } from 'react'
 
 import { Panel, Select } from '../../components'
 import { useEffectiveStyleValue, useStyleChange, useStyleEditorContext } from '../../context'
@@ -20,13 +20,13 @@ export function Cursor ({onChange: fallbackOnChange, config, showTitle, collapse
   const context = useStyleEditorContext()
   const value = useEffectiveStyleValue() as CSSProperties
   const onChange = useStyleChange(fallbackOnChange)
-  const CURSOR_OPTIONS = [
+  const CURSOR_OPTIONS = useMemo(() => [
     {label: lang.cursorHelp, value: 'help'},
     {label: lang.cursorPointer, value: 'pointer'},
     {label: lang.cursorText, value: 'text'},
     {label: lang.cursorNotAllowed, value: 'not-allowed'},
     {label: lang.cursorDefault, value: 'default'},
-  ]
+  ], [])
 
   const cursorSource = context?.effectiveStyle?.cursor
   // 未配置时的 inherit 兜底和 unset 后的计算值不作为已选光标回显。

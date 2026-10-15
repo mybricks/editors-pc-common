@@ -138,7 +138,7 @@ function resolveFlexMode(value: CSSProperties & Record<string, any> | undefined)
 
 export function Flex({ value: fallbackValue, onChange: fallbackOnChange, showTitle, collapse }: FlexProps) {
   /** 面板与字段文案（面向设计） */
-  const COPY = {
+  const COPY = useMemo(() => ({
     panelTitle: lang.flexPanelTitle,
     panelTip: JSON.stringify({ content: lang.flexAutoFill, position: 'left' }),
     fieldLabel: lang.flexRatioLabel,
@@ -151,7 +151,7 @@ export function Flex({ value: fallbackValue, onChange: fallbackOnChange, showTit
     shrinkTip: JSON.stringify({ content: lang.flexShrinkTip, position: 'left' }),
     basisLabel: lang.flexBasisLabel,
     basisTip: JSON.stringify({ content: lang.flexBasisTip, position: 'left' }),
-  }
+  }), [])
   const editorContext = useStyleEditorContext();
   const effectiveValue = useEffectiveStyleValue();
   const hasFallbackFlexValue = FLEX_KEYS.some(key => isNonEmpty(fallbackValue?.[key]));

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useMemo, useState, useEffect, useCallback, useRef } from "react";
 
 import { ColorEditor, InputNumber, Panel, Select } from "../index";
 
@@ -38,8 +38,8 @@ export function GradientEditor({
   variableOptions = [],
   scopeEl = null,
 }: GradientEditorProps) {
-  const shapeOptions = getShapeOptions();
-  const gradientOptions = getGradientOptions();
+  const shapeOptions = useMemo(() => getShapeOptions(), []);
+  const gradientOptions = useMemo(() => getGradientOptions(), []);
   const [gradientType, setGradientType] =
     useState<GradientType>("linear-gradient");
   const [shapeType, setShapeType] = useState<ShapeType>("ellipse");

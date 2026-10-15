@@ -20,7 +20,7 @@ export default ({
   display,
   onSelect,
 }: AlignItemsProps) => {
-  const defaultFlexFlow = [
+  const defaultFlexFlow = useMemo(() => [
     {
       title: lang.directionNone,
       value: "default",
@@ -41,7 +41,7 @@ export default ({
       value: "row",
       render: () => <Icon name="row-direction" />,
     },
-  ];
+  ], []);
   const isAbsolute = position === "absolute";
   const isRow = flexDirection === "row";
   const isColumn = flexDirection === "column";

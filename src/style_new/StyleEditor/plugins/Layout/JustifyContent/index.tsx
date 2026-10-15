@@ -1,4 +1,4 @@
-import React, { CSSProperties } from "react";
+import React, { CSSProperties, useMemo } from "react";
 import Icon from "../Icon";
 import styles from "./index.less";
 import lang from '../../../../index.i18n'
@@ -18,7 +18,7 @@ export default ({
   onSelect,
   onWrapToggle,
 }: JustifyContentProps) => {
-  const defaultJustifyContent = [
+  const defaultJustifyContent = useMemo(() => [
     {
       title: lang.justifyEven,
       value: "space-around",
@@ -39,7 +39,7 @@ export default ({
           <Icon name="space-between-column" />
         ),
     },
-  ];
+  ], []);
   const renderWrap = () => {
     // const title = flexWrap === "wrap" ? "换行" : "不换行";
     const title = lang.wrapLabel; // 这里提示词不应该变

@@ -293,7 +293,7 @@ function parseDecorationLength(value: string | undefined): string | null {
 }
 
 export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProps) {
-  const FONT_WEIGHT_OPTIONS = [
+  const FONT_WEIGHT_OPTIONS = useMemo(() => [
     { label: lang.fontWeight100, value: "100", suffix: "100" },
     { label: lang.fontWeight200, value: "200", suffix: "200" },
     { label: lang.fontWeight300, value: "300", suffix: "300" },
@@ -303,19 +303,19 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
     { label: lang.fontWeight700, value: "700", suffix: "700" },
     { label: lang.fontWeight800, value: "800", suffix: "800" },
     { label: lang.fontWeight900, value: "900", suffix: "900" },
-  ];
-  const LINEHEIGHT_UNIT_OPTIONS = [
+  ], []);
+  const LINEHEIGHT_UNIT_OPTIONS = useMemo(() => [
     { label: lang.lineHeightMultiple, value: "" },
     { label: "px", value: "px" },
     { label: "%", value: "%" },
-  ];
-  const TEXT_DECORATION_STYLE_OPTIONS = [
+  ], []);
+  const TEXT_DECORATION_STYLE_OPTIONS = useMemo(() => [
     { label: lang.decorationSolid, value: "solid" },
     { label: lang.decorationDotted, value: "dotted" },
     { label: lang.decorationDashed, value: "dashed" },
     { label: lang.decorationDouble, value: "double" },
     { label: lang.decorationWavy, value: "wavy" },
-  ];
+  ], []);
   const context = useStyleEditorContext();
   const effectiveStyle = context?.effectiveStyle;
   const value = useEffectiveStyleValue();
