@@ -31,11 +31,12 @@ import {
   resolveCssVarsInCssValue,
 } from "../../../core/resolve-css-var-color";
 import type { CssVarColorOption } from "../../../core/resolve-css-var-color";
-import { useStyleRemoval } from '../../hooks/useStyleRemoval';
-import type { StyleRemovalRequest } from '../../hooks/useStyleRemoval';
+import { useBackgroundRemoval } from '../../hooks/useBackgroundRemoval';
+import type { BackgroundRemovalRequest } from '../../hooks/useBackgroundRemoval';
 import { readAuthoredBackgroundDeclarations } from '../../../core/get-values-background';
 import { cssPropertyName, readInlineStyleProperties } from '../../../core/style-property';
-import { getShorthandFamily, stylePropertyKey } from '../../../core/style-shorthand-groups';
+import { createStyleWriteTargetResolver } from '../../../core/style-write-target';
+import { stylePropertyKey } from '../../../core/style-shorthand-groups';
 
 function GripIcon() {
   return (
@@ -66,26 +67,21 @@ const DEFAULT_CONFIG = {
 
 const IMAGE_CLEAR_KEYS = ['backgroundImage', 'backgroundSize', 'backgroundRepeat', 'backgroundPosition'] as const;
 const BACKGROUND_CLEAR_KEYS = ['backgroundColor', ...IMAGE_CLEAR_KEYS] as const;
-const OTHER_BACKGROUND_KEYS = [
-  ...getShorthandFamily('background').map(stylePropertyKey)
-    .filter(key => key !== 'background' && key !== 'backgroundColor'),
-  'backgroundPositionX', 'backgroundPositionY', 'WebkitBackgroundClip',
-];
+const OTHER_BACKGROUND_CONTENT_KEYS = ['backgroundImage', 'backgroundClip', 'WebkitBackgroundClip'];
 
-// 回显时确认简写只承载当前颜色，才能将颜色减号对应到整条 background 声明。
-const colorShorthand: NonNullable<StyleRemovalRequest['shorthand']> = {
+// 简写只承载当前颜色时允许整组清空，同来源的 size / position 等配套属性一并删除。
+const colorShorthand: NonNullable<BackgroundRemovalRequest['shorthand']> = {
   key: 'background',
   sourceKey: 'backgroundColor',
   canRemove({ context, target, source }) {
     if ((context.editConfig.options as any)?.zoneTab?.pseudo || !source.source) return false;
-    if (OTHER_BACKGROUND_KEYS.some(key => context.getStyleProperty!(key).candidates.length > 0)) return false;
+    if (OTHER_BACKGROUND_CONTENT_KEYS.some(key => context.getStyleProperty!(key).candidates.length > 0)) return false;
     const inlineKeys = readInlineStyleProperties(target);
-    if (OTHER_BACKGROUND_KEYS.some(key => inlineKeys.has(cssPropertyName(key)))) return false;
+    if (OTHER_BACKGROUND_CONTENT_KEYS.some(key => inlineKeys.has(cssPropertyName(key)))) return false;
 
     const declarations = readAuthoredBackgroundDeclarations(source.source.rule);
     if (declarations.length !== 1) return false;
     const declaration = declarations[0];
-    if (Object.keys(declaration).some(key => key !== 'background')) return false;
     const authored = declaration.background;
     if (!authored || authored !== source.value.replace(/\s*!important\s*$/i, '').trim()) return false;
     const variable = parseCssVar(authored);
@@ -103,7 +99,7 @@ const colorShorthand: NonNullable<StyleRemovalRequest['shorthand']> = {
   },
 };
 
-export const BACKGROUND_CLEAR_REQUESTS: Record<'color' | 'images' | 'all', StyleRemovalRequest> = {
+export const BACKGROUND_CLEAR_REQUESTS: Record<'color' | 'images' | 'all', BackgroundRemovalRequest> = {
   color: { keys: ['backgroundColor'], shorthand: colorShorthand },
   images: { keys: IMAGE_CLEAR_KEYS },
   all: { keys: BACKGROUND_CLEAR_KEYS, shorthand: colorShorthand },
@@ -400,9 +396,9 @@ export function Background({
   const context = useStyleEditorContext();
   const value = useEffectiveStyleValue() as CSSProperties & Record<string, any>;
   const applyStyleMutations = useApplyStyleMutations(fallbackOnChange);
-  const clearColor = useStyleRemoval(BACKGROUND_CLEAR_REQUESTS.color, fallbackOnChange);
-  const clearImages = useStyleRemoval(BACKGROUND_CLEAR_REQUESTS.images, fallbackOnChange);
-  const clearBackground = useStyleRemoval(BACKGROUND_CLEAR_REQUESTS.all, fallbackOnChange);
+  const clearColor = useBackgroundRemoval(BACKGROUND_CLEAR_REQUESTS.color, fallbackOnChange);
+  const clearImages = useBackgroundRemoval(BACKGROUND_CLEAR_REQUESTS.images, fallbackOnChange);
+  const clearBackground = useBackgroundRemoval(BACKGROUND_CLEAR_REQUESTS.all, fallbackOnChange);
   const { targetDom, variableOptions: canvasVariableOptions } = useCanvasColorVariables();
   const [{ disableBackgroundColor, disableBackgroundImage, disableGradient }] =
     useState({ ...DEFAULT_CONFIG, ...config });
@@ -498,7 +494,7 @@ export function Background({
   const emitLayers = useCallback(
     (newLayers: BgLayer[], changes = serializeLayers(newLayers), remove?: () => StyleChangeResult | void) => {
       const result = remove ? remove() : applyStyleMutations(toStyleMutations(changes));
-      if (result?.clearUnsupported || (remove && result && !result.applied)) return;
+      if (result?.clearUnsupported || (result && !result.applied)) return result;
       localEmitPendingRef.current = buildContentFingerprint(value as Record<string, any>);
       if (remove && context?.getStyleProperty) {
         // 执行器已同步来源索引，立即展示剩余来源，避免先清空 UI 再吞掉级联回显。
@@ -520,7 +516,7 @@ export function Background({
         lastEmittedRef.current = buildContentFingerprint(nextSnapshot);
         layersRef.current = nextLayers;
         setLayers(nextLayers);
-        return;
+        return result;
       }
       const get = (key: string) =>
         changes.some((c) => c.key === key)
@@ -541,6 +537,7 @@ export function Background({
         : newLayers;
       layersRef.current = nextLayers;
       setLayers(nextLayers);
+      return result;
     },
     [applyStyleMutations, context, clearColor.getState, clearImages.getState, value]
   );
@@ -613,8 +610,52 @@ export function Background({
       sourceProperty: 'backgroundImage',
       canRemove: true,
     };
-    emitLayers([newLayer, ...layersRef.current]);
-  }, [emitLayers]);
+    const source = context?.getStyleProperty?.('backgroundColor').winner;
+    const target = context?.targetDom;
+    const mergeVariableColor = !!(clearColor.canClear && context && target &&
+      source?.currentState && !source.inline && !source.important && source.property === 'background' &&
+      colorShorthand.canRemove({ context, target, source }));
+    // 仅迁移已确认的普通纯色变量简写；important / 其他来源保留原写法及优先级。
+    const previousLayers = mergeVariableColor
+      ? layersRef.current.map(layer => layer.sourceProperty === 'backgroundColor' && layer.canRemove !== false
+        ? { ...layer, sourceProperty: 'backgroundImage' as const }
+        : layer)
+      : layersRef.current;
+    const nextLayers = [newLayer, ...previousLayers];
+    const tab = (context?.editConfig.options as any)?.zoneTab;
+    const declarations = mergeVariableColor && source?.source
+      ? readAuthoredBackgroundDeclarations(source.source.rule) : [];
+    // 整组清空后，长写会重新选择默认来源；只有仍落到原规则时才删除简写。
+    // 本次只重建 image / size / repeat / position，不能顺带删除其他独立背景配置。
+    const replaceShorthand = !!(mergeVariableColor && clearColor.mode === 'shorthand' &&
+      clearColor.clear && tab && source?.source &&
+      createStyleWriteTargetResolver(tab, target)('backgroundImage', 'current-rule').selector === source.label &&
+      declarations.length === 1 && declarations.every(declaration =>
+        Object.keys(declaration).every(key => key === 'background' ||
+          IMAGE_CLEAR_KEYS.some(name => cssPropertyName(name) === key))));
+    const originalBackground: StyleMutation[] = replaceShorthand
+      ? Object.entries(declarations[0]).map(([key, value]) => ({
+        type: 'set', key: stylePropertyKey(key),
+        value: source?.source?.rule.style.getPropertyPriority(key) === 'important' ? `${value} !important` : value,
+      })) : [];
+    const restoreBackground = () => {
+      // 第二步未写入时恢复原声明，避免新增失败却丢掉已有背景。
+      applyStyleMutations(originalBackground);
+    };
+    if (replaceShorthand) {
+      // 不能与新图层同批 clear：公共执行器先 set 后 clear，会把新 image 一并清掉。
+      const result = clearColor.clear!();
+      if (!result?.applied || result.clearUnsupported) return;
+    }
+    let result: StyleChangeResult | void;
+    try {
+      result = emitLayers(nextLayers);
+    } catch (error) {
+      if (replaceShorthand) restoreBackground();
+      throw error;
+    }
+    if (replaceShorthand && result && !result.applied) restoreBackground();
+  }, [emitLayers, applyStyleMutations, context, clearColor.canClear, clearColor.mode, clearColor.clear]);
 
   const handleReset = useCallback(() => {
     if (clearBackground.clear) emitLayers([], serializeLayers([]), clearBackground.clear);
