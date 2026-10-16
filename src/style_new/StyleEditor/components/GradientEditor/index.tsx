@@ -43,7 +43,7 @@ export function GradientEditor({
   const [gradientType, setGradientType] =
     useState<GradientType>("linear-gradient");
   const [shapeType, setShapeType] = useState<ShapeType>("ellipse");
-  const [deg, setDeg] = useState(90);
+  const [deg, setDeg] = useState<number | null>(90);
   const [stops, setStops] = useState<GradientStop[]>([]);
   const [curElementId, setCurElementId] = useState<string | null>(null);
   const [openPickerStopId, setOpenPickerStopId] = useState<string | null>(null);
@@ -61,8 +61,9 @@ export function GradientEditor({
       }
       const { type, direction, stops } = ParseGradient(gradientValue);
       setGradientType(type);
-      if (type === "linear-gradient" && direction) {
-        setDeg(parseInt(direction));
+      if (type === "linear-gradient") {
+        const angle = parseFloat(direction);
+        setDeg(Number.isFinite(angle) ? angle : null);
       } else if (direction) {
         setShapeType(direction as ShapeType);
       }
@@ -101,24 +102,24 @@ export function GradientEditor({
   const isInitialMount = useRef(true);
 
   const generateGradientValue = (
-    deg: number,
+    deg: number | null,
     gradientType: GradientType,
     shapeType: ShapeType,
     stops: GradientStop[]
   ) => {
     const direction =
-      gradientType === "linear-gradient" ? `${deg}deg` : shapeType;
+      gradientType === "linear-gradient" ? (deg === null ? "" : `${deg}deg`) : shapeType;
     if (stops.length < 2) return "none";
-    return `${gradientType}(${direction}${stops
+    return `${gradientType}(${direction ? `${direction}, ` : ""}${stops
       .map(
         (stop) =>
-          `, ${stop.color}${
+          `${stop.color}${
             typeof stop?.position === "number"
               ? ` ${stop.position}%`
               : ""
           }`
       )
-      .join("")})`;
+      .join(", ")})`;
   };
 
   const finalValue = generateGradientValue(deg, gradientType, shapeType, stops);
@@ -179,9 +180,10 @@ export function GradientEditor({
   const onClickAngle = useCallback(() => {
     // 定义四个角度
     const angles = [0, 90, 180, 270];
+    const currentDeg = deg ?? 180;
 
     // 如果 deg 是 angles 中的一个，直接选择下一个角度
-    const index = angles.findIndex((angle) => angle === deg);
+    const index = angles.findIndex((angle) => angle === currentDeg);
     if (index !== -1) {
       setDeg(angles[(index + 1) % angles.length]);
       return;
@@ -190,7 +192,7 @@ export function GradientEditor({
     // 如果 deg 不在 angles 中，找到最接近的角度
     let closestDeg = angles[0]; // 默认最接近的角度为数组中的第一个
     angles.forEach((angle) => {
-      if (Math.abs(deg - angle) < Math.abs(deg - closestDeg)) {
+      if (Math.abs(currentDeg - angle) < Math.abs(currentDeg - closestDeg)) {
         closestDeg = angle;
       }
     });
@@ -217,7 +219,7 @@ export function GradientEditor({
         <Select
           tip={lang.gradientTypeTip}
           key={gradientType}
-          style={{ flex: 1 }}
+          style={{ flex: 1, padding: "0 8px" }}
           value={gradientType}
           options={gradientOptions}
           prefix={gradientType === "radial-gradient" ? <Radial /> : <Linear />}
@@ -229,25 +231,29 @@ export function GradientEditor({
         {gradientType === "linear-gradient" ? (
           <InputNumber
             tip={lang.gradientAngleTip}
+            placeholder=""
             prefix={
               <div onClick={onClickAngle}>
                 <Angle />
               </div>
             }
-            key={deg}
             suffix="°"
+            showIconOnHover
             prefixTip={lang.anglePrefixTip}
             style={{ flex: 1 }}
             type={"number"}
             defaultUnitValue=""
-            defaultValue={deg}
-            onChange={(value) => setDeg(parseInt(value))}
+            value={deg}
+            onChange={(value) => {
+              const angle = value === null ? NaN : parseFloat(value);
+              setDeg(Number.isFinite(angle) ? angle : null);
+            }}
           />
         ) : (
           <Select
             key={shapeType}
             tip={lang.radialShapeTip}
-            style={{ flex: 1 }}
+            style={{ flex: 1, padding: "0 8px" }}
             value={shapeType}
             options={shapeOptions}
             prefix={shapeType === "ellipse" ? <Ellipse /> : <Circle />}
