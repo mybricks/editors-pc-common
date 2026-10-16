@@ -16,50 +16,50 @@
   flex-shrink: 0;
 }
 
-.modeSwitch {
+.modeCheckbox {
   display: flex;
   align-items: center;
-  position: relative;
-  width: auto;
-  flex-shrink: 0;
+  gap: 4px;
   margin-left: auto;
-  background-color: @bg-color-main-secondary;
-  border-radius: 4px;
-  padding: 1px;
-  box-sizing: border-box;
-  gap: 1px;
+  padding: 0 2px;
+  color: @font-color-content;
+  font-size: 11px;
+  line-height: 20px;
+  font-weight: 400;
+  flex-shrink: 0;
+  white-space: nowrap;
+  user-select: none;
+  cursor: pointer;
 }
 
-.modeOption {
-  flex: 0 0 auto;
-  height: 18px;
+.checkbox {
+  width: 14px;
+  height: 14px;
+  border-radius: 2px;
+  border: 1px solid @border-color-main;
+  background-color: @bg-color-main-secondary;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0 10px;
-  box-sizing: border-box;
-  white-space: nowrap;
-  cursor: pointer;
-  border-radius: 3px;
-  position: relative;
-  z-index: 1;
-  font-size: 11px;
-  line-height: 1;
+  flex-shrink: 0;
+  transition: border-color 0.15s, background-color 0.15s;
   color: @font-color-content;
-  user-select: none;
-  border: 1px solid transparent;
 }
 
-.modeOptionActive {
-  font-weight: 500;
-  background-color: @bg-color-main;
-  border-color: @border-color-main;
+.modeCheckboxLabel {
+  line-height: 20px;
 }
 
-.modeOptionWarningActive {
-  color: @color-warning;
-  background-color: #fffbe6;
-  border-color: #ffe58f;
+.modeCheckboxWarning {
+  .checkbox {
+    color: #fff;
+    background-color: @color-warning;
+    border-color: @color-warning;
+  }
+
+  .modeCheckboxLabel {
+    color: @color-warning;
+  }
 }
 
 .dragLabel {
