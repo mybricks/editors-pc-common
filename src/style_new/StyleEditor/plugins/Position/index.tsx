@@ -112,7 +112,7 @@ function PositionInput({
 
   return (
     <InputNumber
-      style={{ flex: 1, minWidth: 0, paddingRight: '6px' }}
+      style={{ flex: 1, minWidth: 0, paddingRight: '6px', paddingLeft: '6px' }}
       prefix={(
         <span
           {...(!isLocked ? dragProps(dragValue, `${lang.dragPosition} ${label}`) : {})}
@@ -252,19 +252,18 @@ export function Position({ value: panelValue, onChange: fallbackOnChange, showTi
     >
       <div className={css.headerRow}>
         {showTitle !== false && <div className={css.title}>{lang.positionPanelTitle}</div>}
-        <div className={css.modeSwitch}>
-          <div
-            className={`${css.modeOption} ${!isFreePosition ? css.modeOptionActive : ''}`}
-            onClick={() => { if (isFreePosition) handleDeactivate() }}
-          >
-            {lang.positionDefault}
+        <div
+          className={`${css.modeCheckbox} ${isFreePosition ? css.modeCheckboxWarning : ''}`}
+          onClick={() => { if (isFreePosition) handleDeactivate(); else handleActivate() }}
+        >
+          <div className={css.checkbox}>
+            {isFreePosition && (
+              <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+                <path d="M1 3.5L3.8 6.5L9 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            )}
           </div>
-          <div
-            className={`${css.modeOption} ${isFreePosition ? `${css.modeOptionActive} ${css.modeOptionWarningActive}` : ''}`}
-            onClick={() => { if (!isFreePosition) handleActivate() }}
-          >
-            {lang.positionAbsolute}
-          </div>
+          <span className={css.modeCheckboxLabel}>{lang.positionAbsolute}</span>
         </div>
       </div>
       {isFreePosition && (
