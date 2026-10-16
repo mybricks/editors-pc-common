@@ -33,6 +33,7 @@ import {
   resolveCssVarsInCssValue,
 } from "../../../core/resolve-css-var-color";
 import type { CssVarColorOption } from "../../../core/resolve-css-var-color";
+import { stylePropertyKey } from "../../../core/style-shorthand-groups";
 
 function GripIcon() {
   return (
@@ -373,7 +374,21 @@ export function Background({
   const context = useStyleEditorContext();
   const value = useEffectiveStyleValue() as CSSProperties & Record<string, any>;
   const applyStyleMutations = useApplyStyleMutations(fallbackOnChange);
-  const clearColor = useStyleClear('backgroundColor', { mode: 'remove-declaration', fallbackOnChange });
+  // 背景色可能由长写或简写提供（background、background-color），取当前背景色的生效来源
+  const backgroundColorSource = context?.getStyleProperty?.('backgroundColor').winner;
+  const colorSourceProperty = backgroundColorSource?.property ?? 'backgroundColor';
+  // 转换为统一的驼峰命名：background-color → backgroundColor；background 保持不变。
+  const colorClearKey = stylePropertyKey(colorSourceProperty);
+  const isColorLonghand = colorClearKey === 'backgroundColor';
+
+  // 例：background-color: var(--xx) → 沿用原有的声明删除流程。
+  // 例：background: var(--xx) 或 background: red → 清空来源简写，使用默认流程。
+  // undefined 表示默认模式；这样变量简写无需先拆出 background-color 就能清空。
+  const colorClearMode = isColorLonghand ? 'remove-declaration' : undefined;
+  const clearColor = useStyleClear(colorClearKey, {
+    mode: colorClearMode,
+    fallbackOnChange,
+  });
   const clearImages = useStyleClear(IMAGE_CLEAR_KEYS, { mode: 'remove-declaration', fallbackOnChange });
   const clearBackground = useStyleClear(BACKGROUND_CLEAR_KEYS, { mode: 'remove-declaration', fallbackOnChange });
   const { targetDom, variableOptions: canvasVariableOptions } = useCanvasColorVariables();
