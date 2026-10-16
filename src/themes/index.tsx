@@ -3,6 +3,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 // import { Colorpicker } from "../style_new/StyleEditor/components/Colorpicker";
 // import { PlusOutlined, MinusOutlined, ReloadOutlined } from "../style_new/StyleEditor/components/Icon";
 import { InputNumber } from "./InputNumber";
+import { setSceneThemeVars } from "../style_new/core/css-var";
 import css from "./index.less";
 
 interface ThemeVar {
@@ -119,9 +120,9 @@ const DEFAULT_TITLES: Record<ThemeVar["type"], string> = {
   spacing: "新间距",
 };
 
-function syncThemeVarsToWindow(themeData: ThemeData) {
+function syncThemeVarsToStore(themeData: ThemeData) {
   const activeTheme = themeData.themes.find((t) => t.id === themeData.activeThemeId) || themeData.themes[0];
-  (window as any).MYBRICKS_AICOM_THEME_VARIABLES = activeTheme?.vars || [];
+  setSceneThemeVars(activeTheme?.vars || []);
 }
 
 //随机id生成器
@@ -178,7 +179,7 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
   const themeVars = activeTheme?.vars || [];
 
   useEffect(() => {
-    syncThemeVarsToWindow(initialData);
+    syncThemeVarsToStore(initialData);
   }, []);
 
   useEffect(() => {
@@ -233,7 +234,7 @@ export default function ({ editConfig }: EditorProps): JSX.Element {
       setCollapsedGroups(new Set(GROUPS.map((g) => g.type).filter((t) => !expandedTypes.has(t))));
       setEditingKey(null);
       const next = { ...prev, activeThemeId: id };
-      syncThemeVarsToWindow(next);
+      syncThemeVarsToStore(next);
       return next;
     });
     requestAnimationFrame(() => {

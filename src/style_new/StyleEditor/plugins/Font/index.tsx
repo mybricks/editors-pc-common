@@ -44,6 +44,7 @@ import {
 import { getColorEditorValue } from "../../helper/get-color-editor-value";
 import { collectZoneTabs, mergeZoneTabsByState } from "../../../core/zone-tab";
 import { createStyleResolution } from "../../../core/style-property";
+import { formatCssVarTitle, parseCssVar } from "../../../core/css-var";
 import type { EffectiveStyleValue } from "../../../core/zone-tab";
 import css from "./index.less";
 import lang from '../../../index.i18n'
@@ -512,8 +513,9 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
   }, [cfg.fontfaces, innerFontFamily, outterFontFamilyOptions]);
 
   const previewFamily = parseFontFamily(normalFontFamily)[0] || inheritedFontFamily;
+  // 字体绑定的变量按 title / xxx-xx 风格展示
   const fontFamilyDisplayValue = fontFamilyAuthored ? undefined
-    : isCssVarValue(previewFamily) ? lang.fontVariableAt
+    : isCssVarValue(previewFamily) ? formatCssVarTitle(parseCssVar(String(previewFamily))?.varName ?? '')
       : fontFamilyOptions().find(option => option.value === previewFamily)?.label ?? previewFamily;
   const textAlignValue = value.textAlign ?? getFontPreview('textAlign', context?.getStyleDisplayPreview?.('textAlign'));
   const justifyContentValue = value.justifyContent ?? getFontPreview('justifyContent', context?.getStyleDisplayPreview?.('justifyContent'));
@@ -1213,7 +1215,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
                   ...(fontFamilyPreview ? { fontFamily: fontFamilyPreview } : {}),
                 }}
                 options={fontFamilyOptions()}
-                value={innerFontFamily?.[0] && innerFontFamily[0] !== 'inherit' ? (innerFontFamily[0]?.startsWith('var') ? lang.colorVariableAt : innerFontFamily[0]) : undefined}
+                value={innerFontFamily?.[0] && innerFontFamily[0] !== 'inherit' ? (innerFontFamily[0]?.startsWith('var') ? formatCssVarTitle(parseCssVar(innerFontFamily[0])?.varName ?? '') : innerFontFamily[0]) : undefined}
                 clearable={!!familyField.clear}
                 onClear={handleFontFamilyClear}
                 onChange={(newValue: string) => {

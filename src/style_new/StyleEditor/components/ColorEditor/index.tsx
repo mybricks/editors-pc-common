@@ -13,7 +13,7 @@ import {
   QuestionCircleOutlined,
   TransparentColorOutlined,
 } from "../../components";
-import { Panel, Colorpicker, UnbindingOutlined, BindingOutlined } from "../";
+import { Panel, Colorpicker, UnbindingOutlined, BindingOutlined, UnBindLinkIcon } from "../";
 import { ClearButton } from "../ClearButton";
 import { color2rgba, getRealKey } from "../../utils";
 import {
@@ -22,6 +22,7 @@ import {
   resolveCssPaintPreview,
   resolveCssVarColor,
 } from "../../../core/resolve-css-var-color";
+import { formatCssVarTitle, getSceneThemeVars } from "../../../core/css-var";
 import { isGradientValue } from "../../helper/gradient-border";
 import lang from "../../../index.i18n";
 
@@ -63,8 +64,6 @@ const getHex = (str: string) => {
   return finalValue;
 };
 
-
-const UnBindingIcon = <svg width="24" height="20" fill="currentColor" viewBox="0 0 24 24"><path fill="var(--color-icon)" d="M8.111 11.648a.5.5 0 0 1 .708.707l-1.232 1.232a2 2 0 0 0 2.828 2.828l1.232-1.232a.5.5 0 0 1 .707.707l-1.232 1.232A3 3 0 0 1 6.88 12.88zM6.147 6.147a.5.5 0 0 1 .629-.065l.078.065 11 11 .064.078a.5.5 0 0 1-.693.693l-.078-.064-11-11-.065-.078a.5.5 0 0 1 .065-.63m6.844.627a3 3 0 0 1 4.238 4.237l-.107.111-1.232 1.233a.5.5 0 0 1-.707-.707l1.232-1.233.138-.151a2.002 2.002 0 0 0-2.815-2.815l-.15.138-1.233 1.232a.5.5 0 0 1-.707-.707L12.88 6.88z"></path></svg>
 
 type ColorOption = {
   label: string;
@@ -187,7 +186,7 @@ function getInitialState({
       const parsed = parseCssVar(finalValue.trim());
       const propName = parsed?.varName;
       const aicomVar = propName
-        ? (window as any).MYBRICKS_AICOM_THEME_VARIABLES?.find(
+        ? getSceneThemeVars()?.find(
             (item: any) => item.propertyName === propName
           )
         : null;
@@ -232,8 +231,9 @@ const getOptionsValueToAllMap = () => {
     })
   }
 
-  if (window.MYBRICKS_AICOM_THEME_VARIABLES?.length) {
-    window.MYBRICKS_AICOM_THEME_VARIABLES.forEach((item: any) => {
+  const sceneThemeVars = getSceneThemeVars()
+  if (sceneThemeVars?.length) {
+    sceneThemeVars.forEach((item: any) => {
       optionsValueToAllMap[`var(${item.propertyName})`] = {
         key: item.propertyName,
         name: item.title,
@@ -296,7 +296,7 @@ export function ColorEditor({
     const parsed = parseCssVar(varRef.trim());
     if (!parsed) return;
 
-    const aicomVar = (window as any).MYBRICKS_AICOM_THEME_VARIABLES?.find(
+    const aicomVar = getSceneThemeVars()?.find(
       (item: any) => item.propertyName === parsed.varName
     );
     if (aicomVar) {
@@ -450,8 +450,10 @@ export function ColorEditor({
     [state.finalValue, state.value, scopeEl]
   );
 
-  /** 框内展示变量名：色值已由左侧色块表达，不必重复 */
-  const variableDisplayText = varName || varRef;
+  /** 框内展示变量名：设计变量显示 title，普通变量转成 xxx/xx 风格；色值已由左侧色块表达 */
+  const variableDisplayText = varName
+    ? formatCssVarTitle(varName)
+    : varRef;
   const inheritedTipColor = useMemo(() => {
     const candidate = resolvedVarColor || resolvedColor || state.finalValue || state.value;
     if (!candidate) return '';
@@ -702,7 +704,7 @@ export function ColorEditor({
             className={css.unbind}
             data-mybricks-tip={lang.unbind}
             onClick={handleUnbind}
-          >{UnBindingIcon}</div>}
+          ><UnBindLinkIcon /></div>}
         </>
       );
     }
@@ -713,8 +715,7 @@ export function ColorEditor({
           {/* 开始输入后隐藏胶囊，避免「旧变量值 + 新输入」同时出现 */}
           {!varDraft && (
             <span className={css.variableValue} onClick={onPresetClick}>
-              {/* 暂时去掉具体变量名的展示，直接展示文案 {variableDisplayText} */}
-              {lang.colorVariable}
+              {variableDisplayText}
             </span>
           )}
           <input
@@ -816,9 +817,17 @@ export function ColorEditor({
     const { name, value, resetValue } = params;
     emitChange('backgroundColor', value);
 
+    // 设计变量选中后立即展示 title，和重新挂载后的回显保持一致
+    const parsed = parseCssVar(value.trim());
+    const aicomVar = parsed
+      ? getSceneThemeVars()?.find(
+          (item: any) => item.propertyName === parsed.varName
+        )
+      : null;
+
     dispatch({
       nonColorValue: true,
-      value,
+      value: aicomVar ? aicomVar.title : value,
       finalValue: value
     });
 
@@ -882,7 +891,7 @@ export function ColorEditor({
         // disabled={nonColorValue}
         className={css.colorPickerContainer}
         showSubTabs={showSubTabs}
-        defaultTab={state.nonColorValue && isCssVarRef(state.value) && !isGradient && !isImage ? "variable" : "custom"}
+        defaultTab={state.nonColorValue && (isCssVarRef(state.finalValue) || isCssVarRef(state.value)) && !isGradient && !isImage ? "variable" : "custom"}
         canvasVariableOptions={variableOptions}
         scopeEl={scopeEl}
         selectedVariableName={state.finalValue || (isCssVarRef(state.value) ? state.value : undefined)}

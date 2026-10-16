@@ -28,6 +28,7 @@ import { getDefaultConfiguration, getDefaultConfiguration2 } from './core/get-de
 import type { SuggestOptionsCache } from './core/get-default-configuration'
 import { mergeStylesWithPasteConflicts } from './core/paste-style-merge'
 import { normalizePastedStyleVars } from './core/resolve-paste-css-vars'
+import { setSceneThemeVars } from './core/css-var'
 import { CssEditor } from './CssEditor'
 import type { CssEditorHandle } from './CssEditor'
 import { useUpdateEffect } from './StyleEditor/hooks'
@@ -99,6 +100,10 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
     // 将 selector 写为空，避免后续依赖 selector 的逻辑（如 zone tab 生成、样式写入）拿到错误的值。便于发现问题
     if (editConfig && editConfig.options) {
       (editConfig.options as any).selector = ''
+    }
+    // 场景设计变量经 editConfig 注入
+    if ((editConfig as any).sceneThemeVars !== undefined) {
+      setSceneThemeVars((editConfig as any).sceneThemeVars)
     }
   }, [editConfig])
 

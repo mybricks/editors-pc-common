@@ -142,6 +142,13 @@
 
 // ── Label (mirrors .input / .text) ───────────────────────────────────────────
 
+.layerLabelArea {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}
+
 .layerLabel {
   flex: 1;
   min-width: 0;
@@ -150,9 +157,19 @@
   white-space: nowrap;
   font-size: 11px;
   font-weight: 500;
+  line-height: 1.4;
   color: @font-color-content;
   cursor: text;
   user-select: none;
+}
+
+// 变量层的解绑按钮：点击后退化为变量解析出的固定色值（样式对齐 ColorEditor 的 .unbind）
+.layerUnbind {
+  flex-shrink: 0;
+  margin-left: 2px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
 }
 
 .layerLabelInput {
@@ -163,6 +180,7 @@
   background: transparent;
   font-size: 11px;
   font-weight: 500;
+  line-height: 1.4;
   color: @font-color-content;
   padding: 0;
   height: 100%;

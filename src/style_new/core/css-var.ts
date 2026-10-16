@@ -2,7 +2,7 @@
  * CSS 变量的通用解析层。
  *
  * 颜色、长度等各类变量的差异只有「什么样的值算合法」，因此查找顺序
- * （AICOM 主题变量 → 主题包 → DOM computed）、作用域向上遍历、var() 递归降级
+ * （场景设计变量 → 主题包 → DOM computed）、作用域向上遍历、var() 递归降级
  * 这些逻辑统一放在这里，由调用方传入 isValid 谓词。
  */
 
@@ -16,6 +16,35 @@ export interface ParsedCssVar {
 export interface CssVarOption {
   name: string
   value: string
+}
+
+/** 场景设计变量：editConfig.sceneThemeVars 注入 */
+export interface SceneThemeVar {
+  propertyName: string
+  title: string
+  value: string
+  type?: string
+}
+
+let sceneThemeVars: SceneThemeVar[] | undefined
+
+/** 写入场景设计变量；空数组视为清空 */
+export function setSceneThemeVars(vars?: SceneThemeVar[]) {
+  sceneThemeVars = Array.isArray(vars) && vars.length > 0 ? vars : undefined
+}
+
+/** 读取场景设计变量*/
+export function getSceneThemeVars(): SceneThemeVar[] | undefined {
+  return sceneThemeVars
+}
+
+/**
+ * 组件库、页面样式等变量名转换，把 --xxx-xx 转成 xxx/xx 风格
+ */
+export function formatCssVarTitle(varName: string): string {
+  const stored = getSceneThemeVars()?.find((v) => v?.propertyName === varName)
+  if (stored?.title) return stored.title
+  return varName.replace(/^--/, '').replace(/-/g, '/')
 }
 
 export interface CssVarReference extends ParsedCssVar {
@@ -81,9 +110,8 @@ export function hasCssVarReference(value: unknown): value is string {
 }
 
 function lookupAicomVar(varName: string, isValid: CssVarValueValidator): string | null {
-  const list = (typeof window !== 'undefined' &&
-    (window as any).MYBRICKS_AICOM_THEME_VARIABLES) as any[] | undefined
-  if (!Array.isArray(list)) return null
+  const list = getSceneThemeVars()
+  if (!list) return null
   const item = list.find((v) => v?.propertyName === varName)
   const value = typeof item?.value === 'string' ? item.value.trim() : ''
   return value && isValid(value) ? value : null
