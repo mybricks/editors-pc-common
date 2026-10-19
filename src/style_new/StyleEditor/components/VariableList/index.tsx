@@ -2,6 +2,7 @@ import React, { ReactNode, useEffect, useMemo, useRef, useState } from "react";
 
 import { parseCssVar, formatCssVarTitle } from "../../../core/css-var";
 import type { CssVarOption } from "../../../core/css-var";
+import { useThemeVars } from "../../hooks/useThemeVars";
 import { formatLengthDisplay } from "../../utils";
 import { Search } from "../../icons/Search";
 import { VariableNumber } from "../../icons/VariableNumber";
@@ -54,12 +55,13 @@ export function VariableList<T extends CssVarOption>({
   const [keyword, setKeyword] = useState('');
   const listRef = useRef<HTMLDivElement>(null);
   const normalizedSelectedName = getCssVarName(selectedName);
+  const themeVars = useThemeVars();
   // 展示名一次算好存进 Map
   const displayTitleMap = useMemo(() => {
     const map = new Map<string, string>();
-    list.forEach((item) => map.set(item.name, formatCssVarTitle(item.name)));
+    list.forEach((item) => map.set(item.name, formatCssVarTitle(item.name, themeVars)));
     return map;
-  }, [list]);
+  }, [list, themeVars]);
   const filteredList = useMemo(() => {
     // 搜索同时匹配原始变量名（--xxx-xx）和展示名（xxx/xx）
     const trimmed = keyword.trim().toLowerCase()

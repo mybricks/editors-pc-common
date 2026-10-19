@@ -12,7 +12,7 @@ import { useApplyStyleMutations, useEffectiveStyleValue, useStyleClear, useStyle
 import { PanelBaseProps, StyleChangeResult, StyleMutation } from "./../../type";
 import { Panel, Colorpicker, UnBindLinkIcon } from "../../components";
 import { MinusOutlined, TransparentColorOutlined } from "../../components/Icon";
-import { useDragNumber, useCanvasColorVariables } from "../../hooks";
+import { useDragNumber, useCanvasColorVariables, useThemeVars } from "../../hooks";
 import css from "./index.less";
 import lang from "../../../index.i18n";
 import {
@@ -184,6 +184,7 @@ function LayerItem({
     [layer.value, onLayerChange]
   );
 
+  const themeVars = useThemeVars();
   const isVariableReference = !!parseCssVar(layer.value);
   const pickerValue = isVariableReference ? resolvedColor || layer.value : layer.value;
   const opacity = layer.type === "solid" && !isVariableReference
@@ -343,7 +344,7 @@ function LayerItem({
             onClick={startEditing}
           >
             {/* 变量层显示 title / xxx-xx 风格名，原始变量名收在 hover 提示里 */}
-            {isVariableReference ? formatCssVarTitle(getLayerLabel(layer)) : getLayerLabel(layer)}
+            {isVariableReference ? formatCssVarTitle(getLayerLabel(layer), themeVars) : getLayerLabel(layer)}
           </div>
           {isVariableReference && (
             <div

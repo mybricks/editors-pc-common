@@ -27,7 +27,7 @@ import {
 } from "../../components";
 import { splitValueAndUnit } from "../../utils";
 import { PanelBaseProps, StyleChangeItem, StyleChangeResult } from "../../type";
-import { useDragNumber, useLengthInputDrag, useCanvasColorVariables, useLengthVarBinding, useStyleDisplayValue, isCssVarValue } from "../../hooks";
+import { useDragNumber, useLengthInputDrag, useCanvasColorVariables, useLengthVarBinding, useStyleDisplayValue, isCssVarValue, useThemeVars } from "../../hooks";
 import { Variable } from "../../icons/Variable";
 import { FontSetting } from "../../icons/FontSetting";
 import { FontSettingTruncation } from "../../icons/FontSettingTruncation";
@@ -294,6 +294,7 @@ function parseDecorationLength(value: string | undefined): string | null {
 }
 
 export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProps) {
+  const themeVars = useThemeVars();
   const FONT_WEIGHT_OPTIONS = useMemo(() => [
     { label: lang.fontWeight100, value: "100", suffix: "100" },
     { label: lang.fontWeight200, value: "200", suffix: "200" },
@@ -515,7 +516,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
   const previewFamily = parseFontFamily(normalFontFamily)[0] || inheritedFontFamily;
   // 字体绑定的变量按 title / xxx-xx 风格展示
   const fontFamilyDisplayValue = fontFamilyAuthored ? undefined
-    : isCssVarValue(previewFamily) ? formatCssVarTitle(parseCssVar(String(previewFamily))?.varName ?? '')
+    : isCssVarValue(previewFamily) ? formatCssVarTitle(parseCssVar(String(previewFamily))?.varName ?? '', themeVars)
       : fontFamilyOptions().find(option => option.value === previewFamily)?.label ?? previewFamily;
   const textAlignValue = value.textAlign ?? getFontPreview('textAlign', context?.getStyleDisplayPreview?.('textAlign'));
   const justifyContentValue = value.justifyContent ?? getFontPreview('justifyContent', context?.getStyleDisplayPreview?.('justifyContent'));
@@ -1215,7 +1216,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
                   ...(fontFamilyPreview ? { fontFamily: fontFamilyPreview } : {}),
                 }}
                 options={fontFamilyOptions()}
-                value={innerFontFamily?.[0] && innerFontFamily[0] !== 'inherit' ? (innerFontFamily[0]?.startsWith('var') ? formatCssVarTitle(parseCssVar(innerFontFamily[0])?.varName ?? '') : innerFontFamily[0]) : undefined}
+                value={innerFontFamily?.[0] && innerFontFamily[0] !== 'inherit' ? (innerFontFamily[0]?.startsWith('var') ? formatCssVarTitle(parseCssVar(innerFontFamily[0])?.varName ?? '', themeVars) : innerFontFamily[0]) : undefined}
                 clearable={!!familyField.clear}
                 onClear={handleFontFamilyClear}
                 onChange={(newValue: string) => {

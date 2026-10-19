@@ -15,8 +15,8 @@ interface StyleEditorContextValue {
       label?: string;
       value?: string;
     }>
-    /** 场景设计变量：变量 title 展示与解析优先级的来源 */
-    sceneThemeVars?: Array<{
+    /** 主题变量：变量 title 展示与解析优先级的来源 */
+    themeVars?: Array<{
       propertyName: string;
       title: string;
       value: string;

@@ -22,7 +22,8 @@ import {
   resolveCssPaintPreview,
   resolveCssVarColor,
 } from "../../../core/resolve-css-var-color";
-import { formatCssVarTitle, getSceneThemeVars } from "../../../core/css-var";
+import { formatCssVarTitle, type ThemeVar } from "../../../core/css-var";
+import { useThemeVars } from "../../hooks/useThemeVars";
 import { isGradientValue } from "../../helper/gradient-border";
 import lang from "../../../index.i18n";
 
@@ -142,11 +143,13 @@ interface State {
 function getInitialState({
   value,
   options,
-  optionsValueToAllMap
+  optionsValueToAllMap,
+  themeVars
 }: {
   value: string;
   options: ColorOptions;
   optionsValueToAllMap: any
+  themeVars: ThemeVar[]
 }): State {
   let finalValue = value;
   let nonColorValue = false;
@@ -186,7 +189,7 @@ function getInitialState({
       const parsed = parseCssVar(finalValue.trim());
       const propName = parsed?.varName;
       const aicomVar = propName
-        ? getSceneThemeVars()?.find(
+        ? themeVars.find(
             (item: any) => item.propertyName === propName
           )
         : null;
@@ -220,7 +223,7 @@ function reducer(state: State, action: Partial<State>): State {
   return { ...state, ...action };
 }
 
-const getOptionsValueToAllMap = () => {
+const getOptionsValueToAllMap = (themeVars: ThemeVar[]) => {
   const optionsValueToAllMap: any = {}
 
   if (window.MYBRICKS_THEME_PACKAGE_VARIABLES) {
@@ -231,9 +234,9 @@ const getOptionsValueToAllMap = () => {
     })
   }
 
-  const sceneThemeVars = getSceneThemeVars()
-  if (sceneThemeVars?.length) {
-    sceneThemeVars.forEach((item: any) => {
+  // 老宿主写 window 全局、新宿主走 editConfig.themeVars，这里收到的已是两者合并后的列表
+  if (themeVars?.length) {
+    themeVars.forEach((item: any) => {
       optionsValueToAllMap[`var(${item.propertyName})`] = {
         key: item.propertyName,
         name: item.title,
@@ -276,11 +279,13 @@ export function ColorEditor({
   const scopeElRef = useRef(scopeEl);
   scopeElRef.current = scopeEl;
 
-  const [optionsValueToAllMap] = useState(() => getOptionsValueToAllMap())
+  const themeVars = useThemeVars();
+
+  const [optionsValueToAllMap] = useState(() => getOptionsValueToAllMap(themeVars))
 
   const [state, dispatch] = useReducer(
     reducer,
-    getInitialState({ value: defaultValue, options, optionsValueToAllMap })
+    getInitialState({ value: defaultValue, options, optionsValueToAllMap, themeVars })
   );
 
   // 补齐 var() 预览色：AICOM / 画布变量列表 / scopeEl 计算样式
@@ -296,7 +301,7 @@ export function ColorEditor({
     const parsed = parseCssVar(varRef.trim());
     if (!parsed) return;
 
-    const aicomVar = getSceneThemeVars()?.find(
+    const aicomVar = themeVars.find(
       (item: any) => item.propertyName === parsed.varName
     );
     if (aicomVar) {
@@ -337,7 +342,7 @@ export function ColorEditor({
         },
       },
     });
-  }, [variableOptions, resolvedColor, scopeEl, state.nonColorValue, state.finalValue, state.value]);
+  }, [variableOptions, resolvedColor, scopeEl, state.nonColorValue, state.finalValue, state.value, themeVars]);
   const [colorPickerContext] = useState<{ open?: () => void }>({});
 
   const onPresetClick = useCallback(() => {
@@ -450,9 +455,9 @@ export function ColorEditor({
     [state.finalValue, state.value, scopeEl]
   );
 
-  /** 框内展示变量名：设计变量显示 title，普通变量转成 xxx/xx 风格；色值已由左侧色块表达 */
+  /** 框内展示变量名：主题变量显示 title，普通变量转成 xxx/xx 风格；色值已由左侧色块表达 */
   const variableDisplayText = varName
-    ? formatCssVarTitle(varName)
+    ? formatCssVarTitle(varName, themeVars)
     : varRef;
   const inheritedTipColor = useMemo(() => {
     const candidate = resolvedVarColor || resolvedColor || state.finalValue || state.value;
@@ -817,10 +822,10 @@ export function ColorEditor({
     const { name, value, resetValue } = params;
     emitChange('backgroundColor', value);
 
-    // 设计变量选中后立即展示 title，和重新挂载后的回显保持一致
+    // 主题变量选中后立即展示 title，和重新挂载后的回显保持一致
     const parsed = parseCssVar(value.trim());
     const aicomVar = parsed
-      ? getSceneThemeVars()?.find(
+      ? themeVars.find(
           (item: any) => item.propertyName === parsed.varName
         )
       : null;
@@ -832,7 +837,7 @@ export function ColorEditor({
     });
 
     setCheckColor(value + name + resetValue);
-  }, [emitChange])
+  }, [emitChange, themeVars])
 
   const block = useMemo(() => {
     const { finalValue, nonColorValue, value } = state;
