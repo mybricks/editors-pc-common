@@ -57,9 +57,7 @@ function getVariableLibrary(name: string, themeVars: ThemeVar[]): VariableLibrar
 
 function getVariableParts(title: string): { category: string; itemName: string } {
   const parts = title.split('/').filter(Boolean);
-  const hasNamespace = parts[0] === 'mybricks' || parts[0] === 'antd';
   let targetCategoryPartCount = 2;
-  if (hasNamespace) targetCategoryPartCount = 3;
 
   const categoryPartCount = Math.min(targetCategoryPartCount, Math.max(parts.length - 1, 0));
   return {
@@ -129,17 +127,6 @@ export function VariableList<T extends CssVarOption>({
     () => displayItems.find(({ item }) => getCssVarName(item.name) === normalizedSelectedName),
     [displayItems, normalizedSelectedName]
   );
-
-  useEffect(() => {
-    console.log('[VariableList] variables', displayItems.map(({ item, title, category, itemName, library }) => ({
-      name: item.name,
-      value: item.value,
-      title,
-      library,
-      category,
-      itemName,
-    })));
-  }, [displayItems]);
 
   useEffect(() => {
     if (!hasThemeVars) {
