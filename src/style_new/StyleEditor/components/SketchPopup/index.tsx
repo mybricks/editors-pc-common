@@ -39,7 +39,7 @@ export function SketchPopup({
   useEffect(() => {
     if (!open) return
     const handleClickOutside = (event: MouseEvent) => {
-      // 点击的元素可能被这次点击立刻删掉，如解绑按钮），删掉后 contains/closest 就查不到了；
+      // 点击的元素可能被这次点击立刻删掉，比如解绑按钮，删掉后 contains/closest 就查不到了；
       // composedPath 是点击那一刻的路径快照，不受影响，统一用它判断
       const path = event.composedPath()
       const clickedInsidePopup = containerRef.current ? path.includes(containerRef.current) : false
