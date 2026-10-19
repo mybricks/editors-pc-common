@@ -532,8 +532,8 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
   const isHeightFill = !!(heightEffective?.includes('%') && parseFloat(heightEffective) === 100 && actualHeight > 0 && !heightPreferPercent);
   const isWidthHug = widthEffective === 'fit-content';
   const isHeightHug = heightEffective === 'fit-content';
-  const isWidthDefault = !isWidthFill && !isWidthHug && !widthEffective;
-  const isHeightDefault = !isHeightFill && !isHeightHug && !heightEffective;
+  const isWidthDefault = (!isWidthFill && !isWidthHug && !widthEffective) || (typeof value.width === 'string' ? value.width.startsWith('calc(') : false);
+  const isHeightDefault = (!isHeightFill && !isHeightHug && !heightEffective) || (typeof value.height === 'string' ? value.height.startsWith('calc(') : false);
   const widthActualPx = targetDom ? Math.max(0, Math.round(actualWidth)) : null;
   const heightActualPx = targetDom ? Math.max(0, Math.round(actualHeight)) : null;
 
