@@ -18,6 +18,27 @@ export interface CssVarOption {
   value: string
 }
 
+/** 主题变量：editConfig.themeVars 注入 */
+export interface ThemeVar {
+  propertyName: string
+  title: string
+  value: string
+  type?: string
+}
+
+/**
+ * 变量展示名：主题变量直接取 title
+ * 组件库、页面样式等变量没有 title，把 --xxx-xx 转成 xxx/xx 风格
+ */
+export function formatCssVarTitle(varName: string, themeVars?: ThemeVar[]): string {
+  const list = themeVars ?? (typeof window !== 'undefined'
+    ? ((window as any).MYBRICKS_AICOM_THEME_VARIABLES as ThemeVar[] | undefined)
+    : undefined)
+  const stored = list?.find((v) => v?.propertyName === varName)
+  if (stored?.title) return stored.title
+  return varName.replace(/^--/, '').replace(/-/g, '/')
+}
+
 export interface CssVarReference extends ParsedCssVar {
   expression: string
   start: number

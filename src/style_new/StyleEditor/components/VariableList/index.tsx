@@ -1,7 +1,8 @@
 import React, { ReactNode, useEffect, useMemo, useRef, useState } from "react";
 
-import { parseCssVar } from "../../../core/css-var";
+import { parseCssVar, formatCssVarTitle } from "../../../core/css-var";
 import type { CssVarOption } from "../../../core/css-var";
+import { useThemeVars } from "../../hooks/useThemeVars";
 import { formatLengthDisplay } from "../../utils";
 import { Search } from "../../icons/Search";
 import { VariableNumber } from "../../icons/VariableNumber";
@@ -54,10 +55,23 @@ export function VariableList<T extends CssVarOption>({
   const [keyword, setKeyword] = useState('');
   const listRef = useRef<HTMLDivElement>(null);
   const normalizedSelectedName = getCssVarName(selectedName);
-  const filteredList = useMemo(
-    () => list.filter((item) => item.name.toLowerCase().includes(keyword.trim().toLowerCase())),
-    [keyword, list]
-  );
+  const themeVars = useThemeVars();
+  // 展示名一次算好存进 Map
+  const displayTitleMap = useMemo(() => {
+    const map = new Map<string, string>();
+    list.forEach((item) => map.set(item.name, formatCssVarTitle(item.name, themeVars)));
+    return map;
+  }, [list, themeVars]);
+  const filteredList = useMemo(() => {
+    // 搜索同时匹配原始变量名（--xxx-xx）和展示名（xxx/xx）
+    const trimmed = keyword.trim().toLowerCase()
+    if (!trimmed) return list
+    return list.filter(
+      (item) =>
+        item.name.toLowerCase().includes(trimmed) ||
+        (displayTitleMap.get(item.name) ?? item.name).toLowerCase().includes(trimmed)
+    )
+  }, [keyword, list, displayTitleMap])
 
   useEffect(() => {
     if (!open || !selectedName) return;
@@ -110,7 +124,7 @@ export function VariableList<T extends CssVarOption>({
             <span className={css.itemIcon}>
               {renderIcon ? renderIcon(item) : <VariableNumber />}
             </span>
-            <span className={css.itemName}>{item.name}</span>
+            <span className={css.itemName}>{displayTitleMap.get(item.name) ?? item.name}</span>
             <span className={css.itemValue}>
               {renderValue ? renderValue(item) : formatLengthDisplay(item.value)}
             </span>
