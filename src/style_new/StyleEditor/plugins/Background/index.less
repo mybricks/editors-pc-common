@@ -170,6 +170,13 @@
   cursor: pointer;
   display: flex;
   align-items: center;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.layerRow:hover .layerUnbind {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .layerLabelInput {
