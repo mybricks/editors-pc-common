@@ -1,4 +1,4 @@
-import React, { CSSProperties, useEffect, useMemo } from "react";
+import React, { CSSProperties, useMemo } from "react";
 import Icon from "../Icon";
 import { Layout } from "../types";
 import styles from "./index.less";
@@ -10,6 +10,7 @@ export interface AlignItemsProps {
   flexDirection: CSSProperties["flexDirection"];
   /** 用于区分「真实 CSS 定位 + display:block」与 flex 布局，避免误高亮横/纵向 */
   display?: CSSProperties["display"];
+  freedom?: boolean;
   onSelect: (layout: Layout) => void;
 }
 
@@ -18,6 +19,7 @@ export default ({
   position,
   flexDirection,
   display,
+  freedom,
   onSelect,
 }: AlignItemsProps) => {
   const defaultFlexFlow = useMemo(() => [
@@ -25,6 +27,11 @@ export default ({
       title: lang.directionNone,
       value: "default",
       render: () => <Icon name="smart" />,
+    },
+    {
+      title: lang.directionFreedom,
+      value: "freedom",
+      render: () => <Icon name="absolute" />,
     },
     {
       title: lang.directionInline,
@@ -50,6 +57,8 @@ export default ({
 
   // 高亮逻辑只看 display + flexDirection，与容器自身的 position 无关
   const isActive = (value: Layout) => {
+    if (value === 'freedom') return !!freedom;
+    if (freedom) return false;
     if (value === "absolute") return isAbsolute;
     if (value === "inline") return isInline;
     if (value === "default") return !isFlexLike && !isInline;

@@ -16,6 +16,8 @@ import { expandFourShorthand } from './core/shorthand-normalizer'
 import { readNormalComputedStyle, readNormalStyleSignature } from './core/normal-style-preview'
 import { recordPendingSoloValues, reconcilePendingSoloValues } from './core/solo-pending-style'
 import type { PendingSoloValue } from './core/solo-pending-style'
+import { submitFreedomLayout, readFreedomLayout } from './core/freedom-layout'
+import type { FreedomLayoutMode } from './core/freedom-layout'
 
 const BOX_MODEL_KEYS = {
   margin: ['marginTop', 'marginRight', 'marginBottom', 'marginLeft'],
@@ -220,6 +222,12 @@ export function StyleMount({
     [handleChange]
   )
 
+  const changeLayout = useCallback((mode: FreedomLayoutMode) => {
+    // 只提交转换请求；Layout 与普通布局按钮一样更新本地回显，不在这里改写完整样式快照。
+    if (zoneTab?.pseudo || isSoloEdit) return { submitted: false, reason: '自由布局仅支持常规态且非单独编辑模式' }
+    return submitFreedomLayout(editConfig.value, target, zoneOptions?.comId, mode)
+  }, [editConfig.value, target, zoneTab, isSoloEdit, zoneOptions?.comId])
+
   const panelEffectiveStyle = useMemo(() => {
     if (zoneTab?.pseudo) {
       return buildZoneStateStyle(
@@ -354,6 +362,8 @@ export function StyleMount({
       langType: (window as any).__lang_type__,
       effectiveStyle: panelEffectiveStyle,
       applyStyleMutations,
+      isFreedomLayout: readFreedomLayout(realDom, zoneOptions?.comId),
+      changeLayout,
       getStyleProperty: zoneTab && !isSoloEdit ? (key: string) => getStyleResolution(zoneTab, realDom).get(key) : undefined,
       getStyleClearPlans: zoneTab && !isSoloEdit ? (keys: readonly string[]) =>
         createBatchStyleClearPlans(keys, getStyleResolution(zoneTab, realDom), realDom) : undefined,
@@ -372,6 +382,7 @@ export function StyleMount({
     setValue,
     panelEffectiveStyle,
     applyStyleMutations,
+    changeLayout,
     removeStyleProperties,
     zoneTab,
     isSoloEdit,

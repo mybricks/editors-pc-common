@@ -12,6 +12,8 @@ import { useStyleDisplayValue } from "../../hooks/useStyleDisplayValue";
 import { toElementArray } from "../../../core/dom";
 import { createStyleResolution } from "../../../core/style-property";
 import { collectZoneTabs, excludeSoloSources, mergeZoneTabsByState } from "../../../core/zone-tab";
+import { createLayoutStylePatch } from '../../../core/freedom-layout';
+import type { FreedomLayoutMode, LayoutChangeResult } from '../../../core/freedom-layout';
 import styles from "./index.less";
 import lang from '../../../index.i18n'
 
@@ -165,27 +167,46 @@ export function Layout({ value: panelValue, onChange: fallbackOnChange, showTitl
     columnGap: canInspectAuthoredGap && !hasAuthoredGap(authoredStyle, 'columnGap'),
   }));
   const [forceRenderKey, setForceRenderKey] = useState<number>(Math.random());
-  const [isReset, setIsReset] = useState(false);
+  const [resetStyle, setResetStyle] = useState<Record<string, unknown> | null>(null);
+  const sourceFreedom = !!context?.isFreedomLayout;
+  const [freedom, setFreedom] = useState(sourceFreedom);
+  // 点击时先更新本地回显；实际标记变化时，只对齐是否为 freedom。
+  // 其余布局字段沿用原来的本地 model，普通重渲染不会用旧快照覆盖点击结果。
+  useEffect(() => setFreedom(sourceFreedom), [sourceFreedom]);
+  const changeLayout = useCallback((mode: FreedomLayoutMode): LayoutChangeResult => {
+    const result = context?.changeLayout?.(mode) ?? { submitted: false, reason: '自由布局操作不可用：缺少 changeLayout 处理函数' };
+    if (result.submitted) {
+      setFreedom(mode === 'freedom');
+    } else {
+      console.warn('[freedom-layout]', result.reason || '自由布局请求提交失败');
+    }
+    return result;
+  }, [context?.changeLayout]);
 
-  const currentValue = isReset ? {} : (value ?? {});
+  const currentValue = resetStyle ?? value ?? {};
 
   const editValue = Object.fromEntries(
     Object.entries(currentValue).filter(([key, v]) => v != null && LAYOUT_KEYS.has(key))
   );
 
   const refresh = useCallback(() => {
-    const keys = Object.keys(value ?? {}).filter(key => LAYOUT_KEYS.has(key));
-    onChange(keys.map(key => ({ key, value: null })));
+    if (freedom) {
+      if (!changeLayout('reset').submitted) return;
+    } else {
+      const keys = Object.keys(value ?? {}).filter(key => LAYOUT_KEYS.has(key));
+      onChange(keys.map(key => ({ key, value: null })));
+    }
     setClearedGapKeys({rowGap: true, columnGap: true});
-    setIsReset(true);
+    // 自由布局重置会明确写入 block；普通重置仍使用原来的空配置。
+    setResetStyle(freedom ? { display: 'block' } : {});
     setForceRenderKey(prev => prev + 1);
-  }, [value, onChange]);
+  }, [value, onChange, freedom, changeLayout]);
 
   useEffect(() => {
-    if (isReset && value && Object.keys(value).some(k => value[k] != null)) {
-      setIsReset(false);
+    if (resetStyle && value && Object.keys(value).some(k => value[k] != null)) {
+      setResetStyle(null);
     }
-  }, [value, isReset]);
+  }, [value, resetStyle]);
 
   return (
     <Panel title={lang.layoutPanelTitle} showTitle={showTitle} showReset={true} showDelete={false} resetFunction={refresh} collapse={false} keepTopBorder>
@@ -195,6 +216,8 @@ export function Layout({ value: panelValue, onChange: fallbackOnChange, showTitl
           previewValue={previewValue}
           clearedGapKeys={clearedGapKeys}
           displayOnly={displayOnly}
+          freedom={freedom}
+          changeLayout={changeLayout}
           onChangeValue={(newVal) => {
             setClearedGapKeys((previous) => {
               const next = {...previous};
@@ -227,9 +250,11 @@ interface LayoutEditorInternalProps {
   clearedGapKeys: Record<GapKey, boolean>;
   onChangeValue: (val: Record<string, any>) => void;
   displayOnly?: boolean;
+  freedom?: boolean;
+  changeLayout?: (mode: FreedomLayoutMode) => LayoutChangeResult;
 }
 
-function LayoutEditor({ editValue, previewValue, clearedGapKeys, onChangeValue, displayOnly }: LayoutEditorInternalProps): JSX.Element {
+function LayoutEditor({ editValue, previewValue, clearedGapKeys, onChangeValue, displayOnly, freedom, changeLayout }: LayoutEditorInternalProps): JSX.Element {
   const _value = parsePxValues({ ...previewValue, ...editValue });
 
   if ((_value as any).alignItems === "normal") (_value as any).alignItems = "flex-start";
@@ -306,11 +331,29 @@ function LayoutEditor({ editValue, previewValue, clearedGapKeys, onChangeValue, 
 
   // isFlexActive：当前是否处于 flex/inline-flex 横/纵布局（与容器 position 无关）
   const isFlexActive =
+    !freedom &&
     isFlexLikeDisplay(model.display) &&
     (model.flexDirection === "row" || model.flexDirection === "column");
 
   const renderFlexDirection = () => {
     const onSelect = (layout: Layout) => {
+      if (layout === 'freedom' || freedom) {
+        if (layout === 'freedom' && freedom) return;
+        if (layout === 'absolute') return;
+        if (!changeLayout?.(layout).submitted) return;
+        // 和原有 Flex 切换一样，提交后立即更新本地 model，不等待 Shell 重读配置。
+        // 退出时复用写入请求的 display 规则，间距、对齐和换行保留在 model 中。
+        const nextDisplay = layout === 'freedom'
+          ? (['inline', 'inline-flex', 'inline-block'].includes(model.display || '') ? 'inline-block' : 'block')
+          : createLayoutStylePatch(layout, model.display || 'block').display;
+        setModel(previous => ({
+          ...previous,
+          display: nextDisplay,
+          position: isFlexLikeDisplay(nextDisplay) ? 'inherit' : 'default',
+          flexDirection: layout === 'row' || layout === 'column' ? layout : previous.flexDirection,
+        }));
+        return;
+      }
       const isAbsolute = layout === "absolute";
       const isDefault = layout === "default";
       const isInline = layout === "inline";
@@ -390,6 +433,7 @@ function LayoutEditor({ editValue, previewValue, clearedGapKeys, onChangeValue, 
         position={model.position}
         flexDirection={model.flexDirection}
         display={model.display}
+        freedom={freedom}
         onSelect={onSelect}
       />
     );
