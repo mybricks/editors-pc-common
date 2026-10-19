@@ -702,9 +702,12 @@ export function ColorEditor({
 
     // 主题色标题等仍走绑定展示；var() 回显走下方输入框
     if (nonColorValue && !isCssVarRef(value) && (finalValue || emptyValueLabel == null)) {
+      const varTip = isCssVarRef(finalValue)
+        ? `${lang.variablePrefix}${varName || finalValue}`
+        : undefined;
       return (
         <>
-          <div className={css.text} onClick={onPresetClick}>
+          <div className={css.text} data-mybricks-tip={varTip} onClick={onPresetClick}>
             {value}
           </div>
           {finalValue && <div
