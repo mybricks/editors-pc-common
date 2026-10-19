@@ -1268,7 +1268,7 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
       <div className={css.sizeRows} ref={sizeRowsRef}>
           {showWidthHeight && (
             <Panel.Content style={{ position: 'relative' }}>
-              <Panel.Item className={isWidthFill || isWidthHug ? css.sizingModeField : undefined} style={{ display: "flex", alignItems: "center", paddingLeft: 4, minWidth: 0 }}>
+              <Panel.Item className={isWidthFill || isWidthHug ? css.sizingModeField : undefined} style={{ display: "flex", alignItems: "center", paddingLeft: 8, minWidth: 0 }}>
                 <div
                   ref={setFieldAnchor('width')}
                   {...(widthVarRef
@@ -1371,7 +1371,7 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
                   )}
                 </div>
               </Panel.Item>
-              <Panel.Item className={isHeightFill || isHeightHug ? css.sizingModeField : undefined} style={{ display: "flex", alignItems: "center", paddingLeft: 4, minWidth: 0 }}>
+              <Panel.Item className={isHeightFill || isHeightHug ? css.sizingModeField : undefined} style={{ display: "flex", alignItems: "center", paddingLeft: 8, minWidth: 0 }}>
                 <div
                   ref={setFieldAnchor('height')}
                   {...(heightVarRef
@@ -1483,7 +1483,7 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
             return (
               <Panel.Content key={`cr-${i}`}>
                 {leftKey === 'minWidth' ? (
-                  <Panel.Item style={{ display: "flex", alignItems: "center", paddingLeft: 4, minWidth: 0 }}>
+                  <Panel.Item style={{ display: "flex", alignItems: "center", paddingLeft: 8, minWidth: 0 }}>
                     <div
                       ref={setFieldAnchor('minWidth')}
                       {...(minWidthVarRef
@@ -1519,7 +1519,7 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
                     )}
                   </Panel.Item>
                 ) : leftKey === 'maxWidth' ? (
-                  <Panel.Item style={{ display: "flex", alignItems: "center", paddingLeft: 4, minWidth: 0 }}>
+                  <Panel.Item style={{ display: "flex", alignItems: "center", paddingLeft: 8, minWidth: 0 }}>
                     <div
                       ref={setFieldAnchor('maxWidth')}
                       {...(maxWidthVarRef
@@ -1559,7 +1559,7 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
                   <Panel.Item className={css.constraintSpacer} />
                 )}
                 {rightKey === 'minHeight' ? (
-                  <Panel.Item style={{ display: "flex", alignItems: "center", paddingLeft: 4, minWidth: 0 }}>
+                  <Panel.Item style={{ display: "flex", alignItems: "center", paddingLeft: 8, minWidth: 0 }}>
                     <div
                       ref={setFieldAnchor('minHeight')}
                       {...(minHeightVarRef
@@ -1595,7 +1595,7 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
                     )}
                   </Panel.Item>
                 ) : rightKey === 'maxHeight' ? (
-                  <Panel.Item style={{ display: "flex", alignItems: "center", paddingLeft: 4, minWidth: 0 }}>
+                  <Panel.Item style={{ display: "flex", alignItems: "center", paddingLeft: 8, minWidth: 0 }}>
                     <div
                       ref={setFieldAnchor('maxHeight')}
                       {...(maxHeightVarRef
