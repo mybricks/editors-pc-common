@@ -4,6 +4,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  min-width: 0;
+  max-width: 100%;
 
   .color {
     width: 100%;
@@ -12,6 +14,7 @@
     align-items: center;
     justify-content: space-between;
     padding: 0px 6px 0 8px;
+    min-width: 0;
 
     &:hover [data-input-clear],
     &:focus-within [data-input-clear] {
@@ -51,6 +54,7 @@
       cursor: pointer;
       display: flex;
       align-items: center;
+      flex-shrink: 0;
     }
 
     .block {

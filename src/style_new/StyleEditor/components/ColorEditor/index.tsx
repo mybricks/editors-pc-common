@@ -731,6 +731,14 @@ export function ColorEditor({
             onKeyDown={handleVarKeyDown}
             onBlur={commitVarDraft}
           />
+          {/* 画布变量等没有 title 的绑定同样需要解绑 */}
+          {!varDraft && (
+            <div
+              className={css.unbind}
+              data-mybricks-tip={lang.unbind}
+              onClick={handleUnbind}
+            ><UnBindLinkIcon /></div>
+          )}
         </div>
       );
     }

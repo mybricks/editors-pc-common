@@ -389,7 +389,8 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
       const next = getColorEditorValue(input);
       if (!next) return;
       setPendingTextFillDefault(false);
-      setTextFillPreviewColor(undefined);
+      // 清除后首次设置样式时，用新值做过渡回显防止面板闪空
+      if (!textFillAuthored) setTextFillPreviewColor(next);
       setTextFillAuthored(true);
       const current = textFillStyleRef.current;
       const nextStyle = isGradientValue(next)
@@ -398,7 +399,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
       textFillStyleRef.current = { ...current, ...nextStyle };
       onChange(toStyleChangeItems(nextStyle, 'text'));
     },
-    [onChange]
+    [onChange, textFillAuthored]
   );
 
   const handleTextFillClear = useCallback(() => {
