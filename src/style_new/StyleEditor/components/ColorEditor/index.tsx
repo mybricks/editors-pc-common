@@ -619,6 +619,8 @@ export function ColorEditor({
       value: hex,
       finalValue: hex,
     });
+    // 解绑时同步更新userInput，避免回显残留的var()值
+    setUserInput(hex);
     emitChange('backgroundColor', rgbaValue);
   }, [state.finalValue, state.optionsValueToAllMap, resolvedVarColor, emitChange]);
 
