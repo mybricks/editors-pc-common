@@ -16,7 +16,7 @@ import { expandFourShorthand } from './core/shorthand-normalizer'
 import { readNormalComputedStyle, readNormalStyleSignature } from './core/normal-style-preview'
 import { recordPendingSoloValues, reconcilePendingSoloValues } from './core/solo-pending-style'
 import type { PendingSoloValue } from './core/solo-pending-style'
-import { notifyVariationsChange, seedVariationsBaseline } from './core/variations'
+import { getVariations, notifyVariationsChange } from './core/variations'
 
 const BOX_MODEL_KEYS = {
   margin: ['marginTop', 'marginRight', 'marginBottom', 'marginLeft'],
@@ -24,6 +24,11 @@ const BOX_MODEL_KEYS = {
 }
 
 const PREVIEW_PSEUDO_STATES = new Set([':hover', ':focus', ':active', ':disabled'])
+
+/** 变体列表指纹：只用 selector 生成；title 会随语言变，不能算进去。 */
+function variationsFingerprint(target: HTMLElement, comId: string): string {
+  return getVariations(target, comId).map(item => item.selector).join('\u0001')
+}
 
 function mergeAuthoredBoxModelValues(
   setValue: Record<string, any>,
@@ -78,6 +83,7 @@ export function StyleMount({
     normalStyleSignature?: string
     values: Map<string, string | undefined>
   } | null>(null)
+  const variationsBaselineRef = useRef<string | null>(null)
   const zoneOptions = !Array.isArray(editConfig.options) ? editConfig.options as any : null
   const zoneTab: ZoneTab | undefined = zoneOptions?.zoneTab
   const isSoloEdit = !!zoneOptions?.soloEdit
@@ -87,8 +93,10 @@ export function StyleMount({
     if (!zoneTab || !target) return
     let frame = 0
     let sourceChangePending = false
-    // 建立 onVariationsChange 的比对基准：以面板打开时的变体列表为「变更前」状态。
-    seedVariationsBaseline(target, zoneOptions?.comId)
+    // 记录初始变体指纹，作为之后“有没有变化”的比对起点（每个实例只记一次）。
+    if (variationsBaselineRef.current == null) {
+      variationsBaselineRef.current = variationsFingerprint(target, zoneOptions?.comId)
+    }
     const refresh = (sourceChanged: boolean) => {
       sourceChangePending = sourceChangePending || sourceChanged
       cancelAnimationFrame(frame)
@@ -116,8 +124,12 @@ export function StyleMount({
         setStyleRevision(revision => revision + 1)
         if (sourceChangePending) {
           onStyleSourceChange?.()
-          // 通知引擎新增变体
-          notifyVariationsChange(target, zoneOptions?.comId)
+          // 对比指纹并通知引擎新增变体
+          const signature = variationsFingerprint(target, zoneOptions?.comId)
+          if (signature !== variationsBaselineRef.current) {
+            variationsBaselineRef.current = signature
+            notifyVariationsChange()
+          }
         }
         sourceChangePending = false
       })

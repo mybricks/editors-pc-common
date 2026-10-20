@@ -27,15 +27,8 @@ export function getVariations(dom: HTMLElement, comId: string): StyleVariation[]
 
 type VariationsListener = () => void
 
-/** 每个元素上一次的变体列表指纹，用来判断变体这次有没有真的变化。 */
-const lastSignatures = new WeakMap<HTMLElement, string>()
 const listeners = new Set<VariationsListener>()
 let notifyTimer: ReturnType<typeof setTimeout> | undefined
-
-function variationsSignature(variations: StyleVariation[]): string {
-  // 只用 selector 生成指纹；title 会随语言变，不能算进去。
-  return variations.map((item) => item.selector).join('\u0001')
-}
 
 /**
  * 订阅变体变化：变体列表真的变了才触发（不携带数据，收到后自己调 getVariations 重拉）。
@@ -48,23 +41,11 @@ export function onVariationsChange(listener: () => void): () => void {
   }
 }
 
-/** 记录变体列表的初始快照，作为之后“有没有变化”的比对起点。 */
-export function seedVariationsBaseline(dom: HTMLElement, comId: string): void {
-  if (lastSignatures.has(dom)) return
-  lastSignatures.set(dom, variationsSignature(getVariations(dom, comId)))
-}
-
-/**
- * 样式真正写入页面后调用：重算变体、和上次比对，变了才通知。
- * 150ms 防抖，连续多次写入只通知最后一次。
- */
-export function notifyVariationsChange(target: HTMLElement, comId: string): void {
+/** 变体列表确认变化后面板调用：150ms 内多次调用合并为一次通知。 */
+export function notifyVariationsChange(): void {
   if (notifyTimer) clearTimeout(notifyTimer)
   notifyTimer = setTimeout(() => {
     notifyTimer = undefined
-    const signature = variationsSignature(getVariations(target, comId))
-    if (lastSignatures.get(target) === signature) return
-    lastSignatures.set(target, signature)
     listeners.forEach((listener) => listener())
   }, 150)
 }
