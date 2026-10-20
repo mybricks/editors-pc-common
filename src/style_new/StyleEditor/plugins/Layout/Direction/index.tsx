@@ -29,14 +29,14 @@ export default ({
       render: () => <Icon name="smart" />,
     },
     {
-      title: lang.directionFreedom,
-      value: "freedom",
-      render: () => <Icon name="absolute" />,
-    },
-    {
       title: lang.directionInline,
       value: "inline",
       render: () => <Icon className={styles.inlineIcon} name="inline" />,
+    },
+    {
+      title: lang.directionFreedom,
+      value: "freedom",
+      render: () => <Icon name="absolute" />,
     },
     {
       title: lang.directionColumn,
