@@ -4,11 +4,11 @@ import type { EffectiveStyleValue, ZoneTab } from '../core/zone-tab'
 import type { StyleClearPlan, StyleProperty } from '../core/style-property'
 import { buildStyleMutationChange } from './helper/style-mutations'
 import type { ApplyStyleMutations, ChangeEvent, StyleChangeResult, StyleMutation } from './type'
-import type { FreedomLayoutMode, LayoutChangeResult } from '../core/freedom-layout'
 
 interface StyleEditorContextValue {
   editConfig: {
-    options?: EditorProps['editConfig']['options'] | { comId?: string; zoneTab?: ZoneTab }
+    options?: EditorProps['editConfig']['options'] | { comId?: string; zoneTab?: ZoneTab; soloEdit?: boolean; selector?: string }
+    value?: EditorProps['editConfig']['value']
     /** 文件上传 */
     upload?: (files: Array<File>) => Array<string>
     /** 外部字体列表（仅支持 label/value） */
@@ -45,8 +45,6 @@ interface StyleEditorContextValue {
   effectiveStyle?: Record<string, EffectiveStyleValue>
   /** 批量执行 set/clear；写入 selector 与 clear 的 null/unset 由公共层解析 */
   applyStyleMutations?: ApplyStyleMutations
-  isFreedomLayout?: boolean
-  changeLayout?: (mode: FreedomLayoutMode) => LayoutChangeResult
   getStyleProperty?: (key: string) => StyleProperty
   getStyleClearPlans?: (keys: readonly string[]) => StyleClearPlan[]
   /** 取消当前配置；公共层根据是否存在后备来源决定删除声明或写 unset。 */

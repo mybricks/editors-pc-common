@@ -14,6 +14,7 @@ import { createStyleResolution } from "../../../core/style-property";
 import { collectZoneTabs, excludeSoloSources, mergeZoneTabsByState } from "../../../core/zone-tab";
 import { createLayoutStylePatch } from '../../../core/freedom-layout';
 import type { FreedomLayoutMode, LayoutChangeResult } from '../../../core/freedom-layout';
+import { useFreedomLayout } from './useFreedomLayout';
 import styles from "./index.less";
 import lang from '../../../index.i18n'
 
@@ -168,20 +169,7 @@ export function Layout({ value: panelValue, onChange: fallbackOnChange, showTitl
   }));
   const [forceRenderKey, setForceRenderKey] = useState<number>(Math.random());
   const [resetStyle, setResetStyle] = useState<Record<string, unknown> | null>(null);
-  const sourceFreedom = !!context?.isFreedomLayout;
-  const [freedom, setFreedom] = useState(sourceFreedom);
-  // 点击时先更新本地回显；实际标记变化时，只对齐是否为 freedom。
-  // 其余布局字段沿用原来的本地 model，普通重渲染不会用旧快照覆盖点击结果。
-  useEffect(() => setFreedom(sourceFreedom), [sourceFreedom]);
-  const changeLayout = useCallback((mode: FreedomLayoutMode): LayoutChangeResult => {
-    const result = context?.changeLayout?.(mode) ?? { submitted: false, reason: '自由布局操作不可用：缺少 changeLayout 处理函数' };
-    if (result.submitted) {
-      setFreedom(mode === 'freedom');
-    } else {
-      console.warn('[freedom-layout]', result.reason || '自由布局请求提交失败');
-    }
-    return result;
-  }, [context?.changeLayout]);
+  const { freedom, changeLayout } = useFreedomLayout();
 
   const currentValue = resetStyle ?? value ?? {};
 
