@@ -244,7 +244,7 @@ function DefaultModeBadge({
 
 /** 归一化尺寸值：auto / inherit / default / 未配置 → undefined。fit-content 保留原值，用于区分"显式 Hug"与"未配置" */
 function normalizeSizeValue(val: any): string | undefined {
-  if (val == null || val === '' || val === 'auto' || val === 'inherit' || val === 'default') return undefined;
+  if (val == null || val === '' || val === 'auto' || val === 'inherit' || val === 'default' || val === 'none') return undefined;
   return typeof val === 'number' ? `${val}px` : String(val);
 }
 
