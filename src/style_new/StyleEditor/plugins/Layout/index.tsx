@@ -341,11 +341,11 @@ function LayoutEditor({ editValue, previewValue, clearedGapKeys, onChangeValue, 
         if (layout === 'freedom' && freedom) return;
         if (layout === 'absolute') return;
         if (!changeLayout?.(layout).submitted) return;
+        // 进入时只更新 freedom 状态，保留父容器原来的 display 和本地布局配置。
+        if (layout === 'freedom') return;
         // 和原有 Flex 切换一样，提交后立即更新本地 model，不等待 Shell 重读配置。
         // 退出时复用写入请求的 display 规则，间距、对齐和换行保留在 model 中。
-        const nextDisplay = layout === 'freedom'
-          ? (['inline', 'inline-flex', 'inline-block'].includes(model.display || '') ? 'inline-block' : 'block')
-          : createLayoutStylePatch(layout, model.display || 'block').display;
+        const nextDisplay = createLayoutStylePatch(layout, model.display || 'block').display;
         setModel(previous => ({
           ...previous,
           display: nextDisplay,
