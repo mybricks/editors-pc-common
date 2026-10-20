@@ -16,7 +16,7 @@ import { expandFourShorthand } from './core/shorthand-normalizer'
 import { readNormalComputedStyle, readNormalStyleSignature } from './core/normal-style-preview'
 import { recordPendingSoloValues, reconcilePendingSoloValues } from './core/solo-pending-style'
 import type { PendingSoloValue } from './core/solo-pending-style'
-import { getVariations, notifyVariationsChange } from './core/variations'
+import { notifyVariationsChange } from './core/variations'
 
 const BOX_MODEL_KEYS = {
   margin: ['marginTop', 'marginRight', 'marginBottom', 'marginLeft'],
@@ -24,11 +24,6 @@ const BOX_MODEL_KEYS = {
 }
 
 const PREVIEW_PSEUDO_STATES = new Set([':hover', ':focus', ':active', ':disabled'])
-
-/** 变体列表指纹：只用 selector 生成；title 会随语言变，不能算进去。 */
-function variationsFingerprint(target: HTMLElement, comId: string): string {
-  return getVariations(target, comId).map(item => item.selector).join('\u0001')
-}
 
 function mergeAuthoredBoxModelValues(
   setValue: Record<string, any>,
@@ -93,10 +88,6 @@ export function StyleMount({
     if (!zoneTab || !target) return
     let frame = 0
     let sourceChangePending = false
-    // 记录初始变体指纹，作为之后“有没有变化”的比对起点（每个实例只记一次）。
-    if (variationsBaselineRef.current == null) {
-      variationsBaselineRef.current = variationsFingerprint(target, zoneOptions?.comId)
-    }
     const refresh = (sourceChanged: boolean) => {
       sourceChangePending = sourceChangePending || sourceChanged
       cancelAnimationFrame(frame)
@@ -119,17 +110,20 @@ export function StyleMount({
             }
             refreshZoneTabSources(zoneTab, current)
           }
+          // 第一次记录初始变体数组
+          // 后续对比signature，如果数组变了且变化来自 CSS 写入，通知变体onChange
+          const signature = tabs.map(tab => tab.selector).join('\u0001')
+          if (variationsBaselineRef.current == null) {
+            variationsBaselineRef.current = signature
+          } else if (signature !== variationsBaselineRef.current) {
+            variationsBaselineRef.current = signature
+            if (sourceChangePending) notifyVariationsChange()
+          }
         }
         invalidateStyleResolution(zoneTab)
         setStyleRevision(revision => revision + 1)
         if (sourceChangePending) {
           onStyleSourceChange?.()
-          // 对比指纹并通知引擎新增变体
-          const signature = variationsFingerprint(target, zoneOptions?.comId)
-          if (signature !== variationsBaselineRef.current) {
-            variationsBaselineRef.current = signature
-            notifyVariationsChange()
-          }
         }
         sourceChangePending = false
       })
@@ -152,6 +146,8 @@ export function StyleMount({
       subtree: true, childList: true, characterData: true,
       attributes: true, attributeFilter: ['style', 'class', 'data-style-info'],
     })
+    // 挂载后强制跑一帧用于记录初始变体数组
+    refresh(false)
     return () => { observer.disconnect(); cancelAnimationFrame(frame) }
   }, [zoneTab, target, onStyleSourceChange])
 
