@@ -1031,7 +1031,7 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
               checked={!isSoloEdit}
               onChange={(event) => (event.target.checked ? onExitSoloEdit() : onEnterSoloEdit())}
             >
-              {lang.applyToAll}
+              {isSoloEdit ? lang.applyToSolo : lang.applyToAll}
             </Checkbox>
             <div
               key={isSoloEdit ? 'solo' : 'batch'}
