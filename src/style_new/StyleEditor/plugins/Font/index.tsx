@@ -27,7 +27,7 @@ import {
 } from "../../components";
 import { splitValueAndUnit } from "../../utils";
 import { PanelBaseProps, StyleChangeItem, StyleChangeResult } from "../../type";
-import { useDragNumber, useLengthInputDrag, useCanvasColorVariables, useLengthVarBinding, useStyleDisplayValue, isCssVarValue } from "../../hooks";
+import { useDragNumber, useLengthInputDrag, useCanvasColorVariables, useLengthVarBinding, useStyleDisplayValue, isCssVarValue, useThemeVars } from "../../hooks";
 import { Variable } from "../../icons/Variable";
 import { FontSetting } from "../../icons/FontSetting";
 import { FontSettingTruncation } from "../../icons/FontSettingTruncation";
@@ -44,6 +44,7 @@ import {
 import { getColorEditorValue } from "../../helper/get-color-editor-value";
 import { collectZoneTabs, mergeZoneTabsByState } from "../../../core/zone-tab";
 import { createStyleResolution } from "../../../core/style-property";
+import { formatCssVarTitle, parseCssVar } from "../../../core/css-var";
 import type { EffectiveStyleValue } from "../../../core/zone-tab";
 import css from "./index.less";
 import lang from '../../../index.i18n'
@@ -293,6 +294,7 @@ function parseDecorationLength(value: string | undefined): string | null {
 }
 
 export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProps) {
+  const themeVars = useThemeVars();
   const FONT_WEIGHT_OPTIONS = useMemo(() => [
     { label: lang.fontWeight100, value: "100", suffix: "100" },
     { label: lang.fontWeight200, value: "200", suffix: "200" },
@@ -387,7 +389,8 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
       const next = getColorEditorValue(input);
       if (!next) return;
       setPendingTextFillDefault(false);
-      setTextFillPreviewColor(undefined);
+      // 清除后首次设置样式时，用新值做过渡回显防止面板闪空
+      if (!textFillAuthored) setTextFillPreviewColor(next);
       setTextFillAuthored(true);
       const current = textFillStyleRef.current;
       const nextStyle = isGradientValue(next)
@@ -396,7 +399,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
       textFillStyleRef.current = { ...current, ...nextStyle };
       onChange(toStyleChangeItems(nextStyle, 'text'));
     },
-    [onChange]
+    [onChange, textFillAuthored]
   );
 
   const handleTextFillClear = useCallback(() => {
@@ -512,8 +515,9 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
   }, [cfg.fontfaces, innerFontFamily, outterFontFamilyOptions]);
 
   const previewFamily = parseFontFamily(normalFontFamily)[0] || inheritedFontFamily;
+  // 字体绑定的变量按 title / xxx-xx 风格展示
   const fontFamilyDisplayValue = fontFamilyAuthored ? undefined
-    : isCssVarValue(previewFamily) ? lang.fontVariableAt
+    : isCssVarValue(previewFamily) ? formatCssVarTitle(parseCssVar(String(previewFamily))?.varName ?? '', themeVars)
       : fontFamilyOptions().find(option => option.value === previewFamily)?.label ?? previewFamily;
   const textAlignValue = value.textAlign ?? getFontPreview('textAlign', context?.getStyleDisplayPreview?.('textAlign'));
   const justifyContentValue = value.justifyContent ?? getFontPreview('justifyContent', context?.getStyleDisplayPreview?.('justifyContent'));
@@ -1213,7 +1217,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
                   ...(fontFamilyPreview ? { fontFamily: fontFamilyPreview } : {}),
                 }}
                 options={fontFamilyOptions()}
-                value={innerFontFamily?.[0] && innerFontFamily[0] !== 'inherit' ? (innerFontFamily[0]?.startsWith('var') ? lang.colorVariableAt : innerFontFamily[0]) : undefined}
+                value={innerFontFamily?.[0] && innerFontFamily[0] !== 'inherit' ? (innerFontFamily[0]?.startsWith('var') ? formatCssVarTitle(parseCssVar(innerFontFamily[0])?.varName ?? '', themeVars) : innerFontFamily[0]) : undefined}
                 clearable={!!familyField.clear}
                 onClear={handleFontFamilyClear}
                 onChange={(newValue: string) => {

@@ -384,8 +384,20 @@ function LayoutEditor({ editValue, previewValue, clearedGapKeys, onChangeValue, 
       }
 
       if (isDefault) {
-        // 切换到默认：清空 flex 相关样式，不动容器 position
-        setModel(prev => ({ ...prev, flexDirection, display: undefined, position: "default", flexWrap }));
+        // 切换到默认：清空 flex 相关样式，并同步重置面板内的对齐状态 align-items和justify-content
+        setModel(prev => ({
+          ...prev,
+          flexDirection,
+          display: undefined,
+          position: "default",
+          flexWrap: defaultValue.flexWrap,
+          alignItems: defaultValue.alignItems,
+          justifyContent: defaultValue.justifyContent,
+          rowGap: null,
+          columnGap: null,
+        }));
+        setRowFlexWrap(defaultValue.flexWrap);
+        setColumnFlexWrap(defaultValue.flexWrap);
         emitValue({ position: "default" });
         return;
       }
@@ -410,22 +422,11 @@ function LayoutEditor({ editValue, previewValue, clearedGapKeys, onChangeValue, 
         return;
       }
 
-      // 横/纵切换：只改 display + flex 字段，容器自身的 position 完全不动
-      // model.position 设为 "inherit" 仅用于退出 "default" 内部状态，不会写出
-      // 从默认切换到 flex 时，alignItems / justifyContent 初始化为 center
-      const comingFromDefault = model.position === "default";
-      const alignItems = comingFromDefault ? "center" : model.alignItems;
-      const justifyContent = comingFromDefault ? "center" : model.justifyContent;
-      // 优先使用外部样式源的回显值决定 display（如 inline-block -> inline-flex），
-      // 避免纯本地状态在切换序列中丢失语义。
+      // 横/纵切换时写入 display 和 flex 方向，不自动修改对齐方式。
       const sourceDisplay = (editValue.display as CSSProperties["display"] | undefined) ?? model.display;
       const nextDisplay = getDisplayWhenEnableFlex(sourceDisplay);
-      setModel(prev => ({ ...prev, flexDirection, display: nextDisplay, position: "inherit", flexWrap, alignItems, justifyContent }));
-      if (comingFromDefault) {
-        emitValue({ display: nextDisplay, flexDirection, flexWrap, alignItems, justifyContent });
-      } else {
-        emitValue({ display: nextDisplay, flexDirection, flexWrap });
-      }
+      setModel(prev => ({ ...prev, flexDirection, display: nextDisplay, position: "inherit", flexWrap }));
+      emitValue({ display: nextDisplay, flexDirection, flexWrap });
     };
     return (
       <Direction

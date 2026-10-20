@@ -10,7 +10,7 @@ export function i18n<T extends Record<string, Record<string, string>>>(langs: T)
   }) as unknown as { [K in keyof T]: string }
 }
 
-/** 当前语言是否为中文，供需要按语言分支处理样式/布局的场景复用 */
+/** 当前语言是否为中文，未配置语言时默认使用中文。 */
 export function isZh(): boolean {
-  return (window as any).__lang_type__ === 'zh'
+  return ((window as any).__lang_type__ || 'zh') === 'zh'
 }

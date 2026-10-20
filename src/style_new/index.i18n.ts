@@ -326,6 +326,22 @@ export default i18n({
     zh: '当前画布没有可用变量',
     en: 'No variables available on this canvas',
   },
+  allLibraries: {
+    zh: '全部库',
+    en: 'All libraries',
+  },
+  designVariables: {
+    zh: '自定义库',
+    en: 'Custom library',
+  },
+  designVariablesTip: {
+    zh: '通过业务空间配置的自定义设计变量',
+    en: 'Custom design variables configured through the business space',
+  },
+  otherVariables: {
+    zh: '其它库',
+    en: 'Other libraries',
+  },
   noSizeVariables: {
     zh: '当前画布没有可用的尺寸变量',
     en: 'No size variables available on this canvas',

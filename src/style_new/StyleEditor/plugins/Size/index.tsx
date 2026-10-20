@@ -244,7 +244,7 @@ function DefaultModeBadge({
 
 /** 归一化尺寸值：auto / inherit / default / 未配置 → undefined。fit-content 保留原值，用于区分"显式 Hug"与"未配置" */
 function normalizeSizeValue(val: any): string | undefined {
-  if (val == null || val === '' || val === 'auto' || val === 'inherit' || val === 'default') return undefined;
+  if (val == null || val === '' || val === 'auto' || val === 'inherit' || val === 'default' || val === 'none') return undefined;
   return typeof val === 'number' ? `${val}px` : String(val);
 }
 
@@ -532,8 +532,8 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
   const isHeightFill = !!(heightEffective?.includes('%') && parseFloat(heightEffective) === 100 && actualHeight > 0 && !heightPreferPercent);
   const isWidthHug = widthEffective === 'fit-content';
   const isHeightHug = heightEffective === 'fit-content';
-  const isWidthDefault = !isWidthFill && !isWidthHug && !widthEffective;
-  const isHeightDefault = !isHeightFill && !isHeightHug && !heightEffective;
+  const isWidthDefault = (!isWidthFill && !isWidthHug && !widthEffective) || (typeof value.width === 'string' ? value.width.startsWith('calc(') : false);
+  const isHeightDefault = (!isHeightFill && !isHeightHug && !heightEffective) || (typeof value.height === 'string' ? value.height.startsWith('calc(') : false);
   const widthActualPx = targetDom ? Math.max(0, Math.round(actualWidth)) : null;
   const heightActualPx = targetDom ? Math.max(0, Math.round(actualHeight)) : null;
 
@@ -1268,7 +1268,7 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
       <div className={css.sizeRows} ref={sizeRowsRef}>
           {showWidthHeight && (
             <Panel.Content style={{ position: 'relative' }}>
-              <Panel.Item className={isWidthFill || isWidthHug ? css.sizingModeField : undefined} style={{ display: "flex", alignItems: "center", paddingLeft: 4, minWidth: 0 }}>
+              <Panel.Item className={isWidthFill || isWidthHug ? css.sizingModeField : undefined} style={{ display: "flex", alignItems: "center", paddingLeft: 8, minWidth: 0 }}>
                 <div
                   ref={setFieldAnchor('width')}
                   {...(widthVarRef
@@ -1371,7 +1371,7 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
                   )}
                 </div>
               </Panel.Item>
-              <Panel.Item className={isHeightFill || isHeightHug ? css.sizingModeField : undefined} style={{ display: "flex", alignItems: "center", paddingLeft: 4, minWidth: 0 }}>
+              <Panel.Item className={isHeightFill || isHeightHug ? css.sizingModeField : undefined} style={{ display: "flex", alignItems: "center", paddingLeft: 8, minWidth: 0 }}>
                 <div
                   ref={setFieldAnchor('height')}
                   {...(heightVarRef
@@ -1483,7 +1483,7 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
             return (
               <Panel.Content key={`cr-${i}`}>
                 {leftKey === 'minWidth' ? (
-                  <Panel.Item style={{ display: "flex", alignItems: "center", paddingLeft: 4, minWidth: 0 }}>
+                  <Panel.Item style={{ display: "flex", alignItems: "center", paddingLeft: 8, minWidth: 0 }}>
                     <div
                       ref={setFieldAnchor('minWidth')}
                       {...(minWidthVarRef
@@ -1519,7 +1519,7 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
                     )}
                   </Panel.Item>
                 ) : leftKey === 'maxWidth' ? (
-                  <Panel.Item style={{ display: "flex", alignItems: "center", paddingLeft: 4, minWidth: 0 }}>
+                  <Panel.Item style={{ display: "flex", alignItems: "center", paddingLeft: 8, minWidth: 0 }}>
                     <div
                       ref={setFieldAnchor('maxWidth')}
                       {...(maxWidthVarRef
@@ -1559,7 +1559,7 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
                   <Panel.Item className={css.constraintSpacer} />
                 )}
                 {rightKey === 'minHeight' ? (
-                  <Panel.Item style={{ display: "flex", alignItems: "center", paddingLeft: 4, minWidth: 0 }}>
+                  <Panel.Item style={{ display: "flex", alignItems: "center", paddingLeft: 8, minWidth: 0 }}>
                     <div
                       ref={setFieldAnchor('minHeight')}
                       {...(minHeightVarRef
@@ -1595,7 +1595,7 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
                     )}
                   </Panel.Item>
                 ) : rightKey === 'maxHeight' ? (
-                  <Panel.Item style={{ display: "flex", alignItems: "center", paddingLeft: 4, minWidth: 0 }}>
+                  <Panel.Item style={{ display: "flex", alignItems: "center", paddingLeft: 8, minWidth: 0 }}>
                     <div
                       ref={setFieldAnchor('maxHeight')}
                       {...(maxHeightVarRef
