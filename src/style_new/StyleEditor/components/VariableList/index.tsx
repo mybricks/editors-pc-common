@@ -181,7 +181,11 @@ export function VariableList<T extends CssVarOption>({
 
   const libraryOptions = [
     { label: libraryLabels.all, value: 'all' },
-    ...libraryOrder.map((library) => ({ label: libraryLabels[library], value: library })),
+    ...libraryOrder.map((library) => ({
+      label: libraryLabels[library],
+      value: library,
+      ...(library === 'design' ? { tip: lang.designVariablesTip } : {}),
+    })),
   ];
   return (
     <div className={css.variableListContainer}>

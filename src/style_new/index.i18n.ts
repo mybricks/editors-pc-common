@@ -334,6 +334,10 @@ export default i18n({
     zh: '自定义库',
     en: 'Custom library',
   },
+  designVariablesTip: {
+    zh: '通过业务空间配置的自定义设计变量',
+    en: 'Custom design variables configured through the business space',
+  },
   otherVariables: {
     zh: '其它库',
     en: 'Other libraries',
