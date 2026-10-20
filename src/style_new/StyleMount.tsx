@@ -16,6 +16,7 @@ import { expandFourShorthand } from './core/shorthand-normalizer'
 import { readNormalComputedStyle, readNormalStyleSignature } from './core/normal-style-preview'
 import { recordPendingSoloValues, reconcilePendingSoloValues } from './core/solo-pending-style'
 import type { PendingSoloValue } from './core/solo-pending-style'
+import { notifyVariationsChange, seedVariationsBaseline } from './core/variations'
 
 const BOX_MODEL_KEYS = {
   margin: ['marginTop', 'marginRight', 'marginBottom', 'marginLeft'],
@@ -86,6 +87,8 @@ export function StyleMount({
     if (!zoneTab || !target) return
     let frame = 0
     let sourceChangePending = false
+    // 建立 onVariationsChange 的比对基准：以面板打开时的变体列表为「变更前」状态。
+    seedVariationsBaseline(target, zoneOptions?.comId)
     const refresh = (sourceChanged: boolean) => {
       sourceChangePending = sourceChangePending || sourceChanged
       cancelAnimationFrame(frame)
@@ -111,7 +114,11 @@ export function StyleMount({
         }
         invalidateStyleResolution(zoneTab)
         setStyleRevision(revision => revision + 1)
-        if (sourceChangePending) onStyleSourceChange?.()
+        if (sourceChangePending) {
+          onStyleSourceChange?.()
+          // 通知引擎新增变体
+          notifyVariationsChange(target, zoneOptions?.comId)
+        }
         sourceChangePending = false
       })
     }
