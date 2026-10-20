@@ -16,7 +16,10 @@ function inspectTarget(target: HTMLElement, componentId?: string) {
 
 /** 只读目标自身的声明；CSS 自定义属性的继承值不能代表子容器模式。 */
 export function readFreedomLayout(target: HTMLElement | null, componentId?: string): boolean {
-  return !!target && inspectTarget(target, componentId)?.resolution.get(LAYOUT_MODE_KEY).winner?.value.trim() === 'freedom'
+  if (!target) return false
+  const value = inspectTarget(target, componentId)?.resolution.get(LAYOUT_MODE_KEY).winner?.value
+    ?? target.style.getPropertyValue(LAYOUT_MODE_KEY)
+  return value.trim() === 'freedom'
 }
 
 /** 进入时只提交标记，父 display/position 由宿主完成全部子节点测量后再写入。 */
@@ -46,10 +49,16 @@ export function submitFreedomLayout(
   if (!container?.isConnected || !componentId) return { submitted: false, reason: '无法定位元素的样式源码，请重新选择容器' }
   try {
     const inspected = inspectTarget(container, componentId)
-    if (!inspected) return { submitted: false, reason: '无法定位元素的样式源码，请重新选择容器' }
-    const { tab, resolution } = inspected
-    const selector = createStyleWriteTargetResolver(tab, container, resolution)(LAYOUT_MODE_KEY).selector
-    if (!selector || selector === 'inline') return { submitted: false, reason: '自由布局暂不支持内联样式或缺少 selector 的目标' }
+    let selector = inspected
+      ? createStyleWriteTargetResolver(inspected.tab, container, inspected.resolution)(LAYOUT_MODE_KEY).selector
+      : null
+    if (!selector || selector === 'inline') {
+      const loc = JSON.parse(container.dataset.loc || '{}')
+      if (!loc.files?.jsx || !Number.isInteger(loc.jsx?.start) || !Number.isInteger(loc.tag?.end)) {
+        return { submitted: false, reason: '无法定位元素的 JSX 源码，请重新选择容器' }
+      }
+      selector = 'inline'
+    }
     const display = container.ownerDocument.defaultView!.getComputedStyle(container).display
     // 不传 DOM、批量计划或文件路径；宿主通过既有 focusArea 和 data-loc 解析。
     value.set(createLayoutStylePatch(mode, display), { selector })
