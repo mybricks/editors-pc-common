@@ -1,6 +1,7 @@
 import type { CSSProperties } from 'react'
 import { buildSoloSelector } from './build-solo-selector'
 import { buildZoneSelectorsFromCssom } from './build-zone-selectors-from-cssom'
+import { detectContainerCollapse } from './detect-container-collapse'
 import { getDocument } from './dom'
 import { getEffectedCssPropertyAndOptions } from './get-effected-css'
 import { createAbsolutePatch } from './position'
@@ -39,6 +40,13 @@ export function buildFreedomPlan(parent: HTMLElement, parentStyle: CSSProperties
         ? createAbsolutePatch(child, currentStyle as CSSProperties, parent)
         : { position: null, left: null, top: null },
     })
+  }
+
+  if (mode === 'freedom') {
+    const parentPatch = changes[0].style
+    const result = detectContainerCollapse(parent, parentPatch.position!)
+    if (result.collapseWidth) parentPatch.minWidth = result.before.width
+    if (result.collapseHeight) parentPatch.minHeight = result.before.height
   }
 
   return { scope: soloEdit ? 'single' : 'all', changes }
