@@ -251,6 +251,8 @@ function LayoutEditor({ editValue, previewValue, clearedGapKeys, onChangeValue, 
   if (clearedGapKeys.columnGap) initialModel.columnGap = null;
 
   const [model, setModel] = useState<LayoutModel>(initialModel);
+  // 暂时只保留开关交互，自由布局的数据读写和转换逻辑后续实现。
+  const [freedom, setFreedom] = useState(false);
 
   const initialFlexDirection = ((_value as any).flexDirection ?? defaultValue.flexDirection) as string;
   const [rowFlexWrap, setRowFlexWrap] = useState<CSSProperties["flexWrap"]>(
@@ -306,11 +308,17 @@ function LayoutEditor({ editValue, previewValue, clearedGapKeys, onChangeValue, 
 
   // isFlexActive：当前是否处于 flex/inline-flex 横/纵布局（与容器 position 无关）
   const isFlexActive =
+    !freedom &&
     isFlexLikeDisplay(model.display) &&
     (model.flexDirection === "row" || model.flexDirection === "column");
 
   const renderFlexDirection = () => {
     const onSelect = (layout: Layout) => {
+      if (layout === 'freedom') {
+        setFreedom(true);
+        return;
+      }
+      setFreedom(false);
       const isAbsolute = layout === "absolute";
       const isDefault = layout === "default";
       const isInline = layout === "inline";
@@ -391,6 +399,7 @@ function LayoutEditor({ editValue, previewValue, clearedGapKeys, onChangeValue, 
         position={model.position}
         flexDirection={model.flexDirection}
         display={model.display}
+        freedom={freedom}
         onSelect={onSelect}
       />
     );
