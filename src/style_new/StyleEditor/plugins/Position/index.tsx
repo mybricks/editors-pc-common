@@ -6,6 +6,7 @@ import { useDragNumber } from '../../hooks'
 import { useStyleDisplayValue } from '../../hooks/useStyleDisplayValue'
 import { collectZoneTabs, mergeZoneTabsByState } from '../../../core/zone-tab'
 import { createStyleResolution } from '../../../core/style-property'
+import { createAbsolutePatch } from '../../../core/position'
 import { isZh } from '../../../core/i18n'
 
 import type { ChangeEvent, PanelBaseProps } from '../../type'
@@ -32,29 +33,6 @@ function toInputValue(value: unknown): string | undefined {
     return undefined
   }
   return typeof value === 'number' ? `${value}px` : String(value)
-}
-
-/**
- * 计算元素相对 offsetParent（即 absolute 定位上下文）的偏移。
- * 使用 offsetLeft/offsetTop（布局 CSS 像素），避免画布 transform:scale 下
- * getBoundingClientRect 屏幕像素与写入 less 的 CSS 偏移值不一致。
- */
-function computeDomOffset(dom: HTMLElement): { top: number; left: number } {
-  return {
-    top: Math.round(dom.offsetTop),
-    left: Math.round(dom.offsetLeft),
-  }
-}
-
-function computeDomSize(dom: HTMLElement): { width: number; height: number } {
-  return {
-    width: Math.round(dom.offsetWidth),
-    height: Math.round(dom.offsetHeight),
-  }
-}
-
-function isUnconfiguredSize(value: unknown): boolean {
-  return value == null || value === '' || value === 'auto' || value === 'inherit'
 }
 
 type PositionDirection = 'top' | 'right' | 'bottom' | 'left'
@@ -208,25 +186,11 @@ export function Position({ value: panelValue, onChange: fallbackOnChange, showTi
 
   /** 开启自由定位：锁定当前 DOM 位置（点击瞬间重新计算，避免闭包旧值） */
   const handleActivate = useCallback(() => {
-    const offset = targetDom
-      ? computeDomOffset(targetDom)
-      : { top: 0, left: 0 }
-    const size = targetDom ? computeDomSize(targetDom) : null
-    const changes = [
-      { key: 'position', value: 'absolute' },
-      { key: 'left', value: `${offset.left}px` },
-      { key: 'top', value: `${offset.top}px` },
-    ]
-    if (size && isUnconfiguredSize(value.width)) {
-      changes.push({ key: 'width', value: `${size.width}px` })
-    }
-    if (size && isUnconfiguredSize(value.height)) {
-      changes.push({ key: 'height', value: `${size.height}px` })
-    }
+    const style = createAbsolutePatch(targetDom, value)
     setOptimisticFree(true)
-    onChange(changes)
-    setLeftVal(`${offset.left}px`)
-    setTopVal(`${offset.top}px`)
+    onChange(Object.entries(style).map(([key, value]) => ({ key, value })))
+    setLeftVal(style.left)
+    setTopVal(style.top)
   }, [onChange, targetDom, value.height, value.width])
 
   /** 取消自由定位：伪类显式覆盖基础态定位，并清理四个偏移属性 / zIndex。 */

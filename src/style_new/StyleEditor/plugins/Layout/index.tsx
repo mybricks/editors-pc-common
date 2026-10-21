@@ -12,6 +12,8 @@ import { useStyleDisplayValue } from "../../hooks/useStyleDisplayValue";
 import { toElementArray } from "../../../core/dom";
 import { createStyleResolution } from "../../../core/style-property";
 import { collectZoneTabs, excludeSoloSources, mergeZoneTabsByState } from "../../../core/zone-tab";
+import { buildFreedomPlan } from '../../../core/freedom-plan';
+import type { FreedomPlanOptions } from '../../../core/freedom-plan';
 import styles from "./index.less";
 import lang from '../../../index.i18n'
 
@@ -187,6 +189,13 @@ export function Layout({ value: panelValue, onChange: fallbackOnChange, showTitl
     }
   }, [value, isReset]);
 
+  const handleFreedomSelect = () => {
+    const plan = buildFreedomPlan(context!.targetDom!, value, options as FreedomPlanOptions);
+    // 组件库批量写入的接入位置，第一期只打印计划。
+    console.log('[freedom-plan]', plan);
+    console.table(plan.changes.map(({ selector, style }) => ({ selector, style: JSON.stringify(style) })));
+  };
+
   return (
     <Panel title={lang.layoutPanelTitle} showTitle={showTitle} showReset={true} showDelete={false} resetFunction={refresh} collapse={false} keepTopBorder>
       <React.Fragment key={forceRenderKey}>
@@ -195,6 +204,7 @@ export function Layout({ value: panelValue, onChange: fallbackOnChange, showTitl
           previewValue={previewValue}
           clearedGapKeys={clearedGapKeys}
           displayOnly={displayOnly}
+          onFreedomSelect={handleFreedomSelect}
           onChangeValue={(newVal) => {
             setClearedGapKeys((previous) => {
               const next = {...previous};
@@ -227,9 +237,10 @@ interface LayoutEditorInternalProps {
   clearedGapKeys: Record<GapKey, boolean>;
   onChangeValue: (val: Record<string, any>) => void;
   displayOnly?: boolean;
+  onFreedomSelect: () => void;
 }
 
-function LayoutEditor({ editValue, previewValue, clearedGapKeys, onChangeValue, displayOnly }: LayoutEditorInternalProps): JSX.Element {
+function LayoutEditor({ editValue, previewValue, clearedGapKeys, onChangeValue, displayOnly, onFreedomSelect }: LayoutEditorInternalProps): JSX.Element {
   const _value = parsePxValues({ ...previewValue, ...editValue });
 
   if ((_value as any).alignItems === "normal") (_value as any).alignItems = "flex-start";
@@ -251,7 +262,7 @@ function LayoutEditor({ editValue, previewValue, clearedGapKeys, onChangeValue, 
   if (clearedGapKeys.columnGap) initialModel.columnGap = null;
 
   const [model, setModel] = useState<LayoutModel>(initialModel);
-  // 暂时只保留开关交互，自由布局的数据读写和转换逻辑后续实现。
+  // 第一期开关只生成计划并回显本地状态。
   const [freedom, setFreedom] = useState(false);
 
   const initialFlexDirection = ((_value as any).flexDirection ?? defaultValue.flexDirection) as string;
@@ -315,6 +326,7 @@ function LayoutEditor({ editValue, previewValue, clearedGapKeys, onChangeValue, 
   const renderFlexDirection = () => {
     const onSelect = (layout: Layout) => {
       if (layout === 'freedom') {
+        onFreedomSelect();
         setFreedom(true);
         return;
       }
