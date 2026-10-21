@@ -191,9 +191,9 @@ export function Layout({ value: panelValue, onChange: fallbackOnChange, showTitl
 
   const handleFreedomSelect = () => {
     const plan = buildFreedomPlan(context!.targetDom!, value, options as FreedomPlanOptions);
-    // 组件库批量写入的接入位置，第一期只打印计划。
     console.log('[freedom-plan]', plan);
     console.table(plan.changes.map(({ selector, style }) => ({ selector, style: JSON.stringify(style) })));
+    (window as any).__mybricks_applyStylePlan(plan);
   };
 
   return (
@@ -262,7 +262,7 @@ function LayoutEditor({ editValue, previewValue, clearedGapKeys, onChangeValue, 
   if (clearedGapKeys.columnGap) initialModel.columnGap = null;
 
   const [model, setModel] = useState<LayoutModel>(initialModel);
-  // 第一期开关只生成计划并回显本地状态。
+  // 切换后立即回显本地开关状态。
   const [freedom, setFreedom] = useState(false);
 
   const initialFlexDirection = ((_value as any).flexDirection ?? defaultValue.flexDirection) as string;
