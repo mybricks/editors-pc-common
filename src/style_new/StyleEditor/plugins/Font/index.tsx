@@ -293,6 +293,13 @@ function parseDecorationLength(value: string | undefined): string | null {
   return value;
 }
 
+// CSSOM 回读可能把 rgba(..., 1) 改成 rgb(...)；按浏览器序列化后的值比较。
+function normalizeTextFillValue(value: string): string {
+  const style = document.createElement('span').style;
+  style.background = value;
+  return style.background || value;
+}
+
 export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProps) {
   const themeVars = useThemeVars();
   const FONT_WEIGHT_OPTIONS = useMemo(() => [
@@ -443,21 +450,27 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
     effectiveStyle?.color?.computedValue ??
     (colorDisplayField.displaySource === 'normal-computed' ? colorDisplayField.computedPreview : undefined)
   ) as string | undefined;
-  const textFillMode = isTextFillActive(value as Record<string, any>)
-    ? "text-fill-gradient"
-    : "text-fill-solid";
-  let textFillEditorKey = `${textFillMode}-${textFillValue}-${textFillComputedColor ?? ""}-${textFillEditorRevision}`;
+  // 选色由 ColorEditor 内部同步；key 只随清空或外部数据刷新变化，避免首次选色重挂并关闭弹层。
+  let textFillEditorKey = `text-fill-${textFillEditorRevision}`;
   if (isSoloEdit) textFillEditorKey = `text-fill-solo-${textFillEditorRevision}`;
 
+  const textFillSourceRef = useRef({ targetDom, normalTextFillPreview });
   useEffect(() => {
+    const previousSource = textFillSourceRef.current;
+    const currentFill = parseTextFillDisplayValue(textFillStyleRef.current) || previousSource.normalTextFillPreview || '';
+    const incomingFill = effectiveTextFillValue || normalTextFillPreview || '';
+    // 状态样式会在本地写入后重建 effectiveStyle；与已提交值一致时保留取色器实例。
+    const isStateWriteback = !!zoneTab?.pseudo && previousSource.targetDom === targetDom &&
+      normalizeTextFillValue(currentFill) === normalizeTextFillValue(incomingFill);
+    textFillSourceRef.current = { targetDom, normalTextFillPreview };
     textFillStyleRef.current = value as Record<string, any>;
     setTextFillAuthored(
       colorConfigured
     );
     setPendingTextFillDefault(false);
     setTextFillPreviewColor(undefined);
-    if (!isSoloEdit) setTextFillEditorRevision((revision) => revision + 1);
-  }, [targetDom, effectiveStyle, colorConfigured, value.color, value.backgroundImage, value.backgroundColor, isSoloEdit]);
+    if (!isSoloEdit && !isStateWriteback) setTextFillEditorRevision((revision) => revision + 1);
+  }, [targetDom, effectiveStyle, colorConfigured, value.color, value.backgroundImage, value.backgroundColor, isSoloEdit, zoneTab?.pseudo, effectiveTextFillValue, normalTextFillPreview]);
 
   const [fontFamilyAuthored, setFontFamilyAuthored] = useState(() =>
     familyConfigured
