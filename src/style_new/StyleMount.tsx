@@ -18,6 +18,7 @@ import { recordPendingSoloValues, reconcilePendingSoloValues } from './core/solo
 import type { PendingSoloValue } from './core/solo-pending-style'
 import { notifyVariationsChange } from './core/variations'
 import { INTERACTIVE_PSEUDO_STATES, refreshStatePreview } from './core/state-preview'
+import { STATE_PREVIEW_ATTR } from './core/state-preview-tag'
 
 const BOX_MODEL_KEYS = {
   margin: ['marginTop', 'marginRight', 'marginBottom', 'marginLeft'],
@@ -335,7 +336,12 @@ export function StyleMount({
       : undefined
     const displayPreviewCache = normalComputed
       ? new Map<string, string | undefined>()
-      : reusablePreview
+      : reusablePreview ?? new Map<string, string | undefined>()
+    // 状态预览期间 normalComputed 不可信，快照也可能因编辑（宿主更新元素属性等）失效。
+    // 兜底读当前计算值：状态没声明的属性不受预览影响，值依然正确，回显不会变空。
+    const fallbackComputed = !normalComputed && realDom?.hasAttribute(STATE_PREVIEW_ATTR)
+      ? (realDom.ownerDocument.defaultView || window).getComputedStyle(realDom)
+      : undefined
     if (normalComputed && realDom && zoneTab) {
       normalPreviewRef.current = {
         target: realDom,
@@ -357,8 +363,9 @@ export function StyleMount({
         )?.value
       }
       if (!displayPreviewCache) return undefined
-      if (normalComputed && !displayPreviewCache.has(property)) {
-        displayPreviewCache.set(property, normalComputed.getPropertyValue(property).trim() || undefined)
+      const fillFrom = normalComputed || fallbackComputed
+      if (fillFrom && !displayPreviewCache.has(property)) {
+        displayPreviewCache.set(property, fillFrom.getPropertyValue(property).trim() || undefined)
       }
       return displayPreviewCache.get(property)
     }
