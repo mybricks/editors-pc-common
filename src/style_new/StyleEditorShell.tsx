@@ -43,6 +43,7 @@ import {
 import type { SavedSoloStyle } from './core/build-solo-selector'
 import { excludeSoloSources } from './core/zone-tab'
 import type { ZoneTab } from './core/zone-tab'
+import { applyStatePreview, clearStatePreview, isPreviewablePseudo } from './core/state-preview'
 import { getDocument, toElementArray } from './core/dom'
 import { backToVisualIcon } from './icon'
 import { ZoneTabBar } from './ZoneTabBar'
@@ -224,6 +225,20 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
   }, [zoneSelectorList, activeZoneIdx, finalSelector])
 
   const activeZoneTab = zoneTabs[activeZoneIdx] ?? null
+
+  // 伪类 tab 激活时，把该状态的样式直接套到选中元素上预览；
+  // 切回常规 tab 或换元素时自动清除
+  useEffect(() => {
+    const pseudo = activeZoneTab?.pseudo
+    if (!editMode || !pseudo || !isPreviewablePseudo(pseudo) || !selectedTarget) {
+      clearStatePreview()
+      return
+    }
+    applyStatePreview(selectedTarget, activeZoneTab)
+  }, [editMode, selectedTarget, activeZoneTab])
+
+  // 面板卸载时清掉预览，别把标记残留在画布上
+  useEffect(() => () => clearStatePreview(), [])
 
   const zoneTabAddOptions = useMemo(() => {
     const ZONE_TAB_ADD_OPTIONS = [
