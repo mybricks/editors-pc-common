@@ -12,7 +12,7 @@ function isOnlyChild(element: Element): boolean {
   return element.parentElement?.children.length === 1
 }
 
-function appendNthChild(selector: string, index: number): string {
+export function appendNthChild(selector: string, index: number): string {
   const pseudoMatch = selector.match(/(:{1,2}[a-zA-Z\-]+(?:\([^)]*\))?\s*)$/)
   if (pseudoMatch) {
     const insertAt = selector.lastIndexOf(pseudoMatch[1])
