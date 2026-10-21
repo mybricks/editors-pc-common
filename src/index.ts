@@ -42,7 +42,7 @@ import Tree from "./tree";
 import EditorLine from "./line";
 import MarkdownView from "./markdownView";
 import "./index.less";
-import StyleNew, {getSimilarZones} from "./style_new";
+import StyleNew, {getSimilarZones, getVariations, onVariationsChange} from "./style_new";
 import Themes from "./themes";
 import CssEditor from "./css-editor";
 import json from "@/json";
@@ -50,6 +50,8 @@ import json from "@/json";
 export {config} from "./configProvider";
 export {typeCheck} from "./utils";
 export {getSimilarZones};
+export {getVariations, onVariationsChange};
+export type {StyleVariation} from "./style_new";
 
 const PcEditorMap: any = {
   ALIGN: EditorAlign,

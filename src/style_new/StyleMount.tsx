@@ -16,6 +16,7 @@ import { expandFourShorthand } from './core/shorthand-normalizer'
 import { readNormalComputedStyle, readNormalStyleSignature } from './core/normal-style-preview'
 import { recordPendingSoloValues, reconcilePendingSoloValues } from './core/solo-pending-style'
 import type { PendingSoloValue } from './core/solo-pending-style'
+import { notifyVariationsChange } from './core/variations'
 
 const BOX_MODEL_KEYS = {
   margin: ['marginTop', 'marginRight', 'marginBottom', 'marginLeft'],
@@ -77,6 +78,7 @@ export function StyleMount({
     normalStyleSignature?: string
     values: Map<string, string | undefined>
   } | null>(null)
+  const variationsBaselineRef = useRef<string | null>(null)
   const zoneOptions = !Array.isArray(editConfig.options) ? editConfig.options as any : null
   const zoneTab: ZoneTab | undefined = zoneOptions?.zoneTab
   const isSoloEdit = !!zoneOptions?.soloEdit
@@ -108,10 +110,21 @@ export function StyleMount({
             }
             refreshZoneTabSources(zoneTab, current)
           }
+          // 第一次记录初始变体数组
+          // 后续对比signature，如果数组变了且变化来自 CSS 写入，通知变体onChange
+          const signature = tabs.map(tab => tab.selector).join('\u0001')
+          if (variationsBaselineRef.current == null) {
+            variationsBaselineRef.current = signature
+          } else if (signature !== variationsBaselineRef.current) {
+            variationsBaselineRef.current = signature
+            if (sourceChangePending) notifyVariationsChange()
+          }
         }
         invalidateStyleResolution(zoneTab)
         setStyleRevision(revision => revision + 1)
-        if (sourceChangePending) onStyleSourceChange?.()
+        if (sourceChangePending) {
+          onStyleSourceChange?.()
+        }
         sourceChangePending = false
       })
     }
@@ -133,6 +146,8 @@ export function StyleMount({
       subtree: true, childList: true, characterData: true,
       attributes: true, attributeFilter: ['style', 'class', 'data-style-info'],
     })
+    // 挂载后强制跑一帧用于记录初始变体数组
+    refresh(false)
     return () => { observer.disconnect(); cancelAnimationFrame(frame) }
   }, [zoneTab, target, onStyleSourceChange])
 
