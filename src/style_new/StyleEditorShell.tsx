@@ -43,7 +43,7 @@ import {
 import type { SavedSoloStyle } from './core/build-solo-selector'
 import { excludeSoloSources } from './core/zone-tab'
 import type { ZoneTab } from './core/zone-tab'
-import { applyStatePreview, clearStatePreview, isPreviewablePseudo } from './core/state-preview'
+import { applyStatePreview, clearStatePreview, getStatePreviewContext, isPreviewablePseudo, isStatePreviewRelated } from './core/state-preview'
 import { getDocument, toElementArray } from './core/dom'
 import { backToVisualIcon } from './icon'
 import { ZoneTabBar } from './ZoneTabBar'
@@ -151,6 +151,7 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
     setActiveZoneIdx,
     addZoneTab,
     deleteZoneTab,
+    userSelectedRef,
   } = useZoneSelectors(
     editConfig,
     targetDom,
@@ -226,19 +227,34 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
 
   const activeZoneTab = zoneTabs[activeZoneIdx] ?? null
 
-  // 伪类 tab 激活时，把该状态的样式直接套到选中元素上预览；
-  // 切回常规 tab 或换元素时自动清除
+  // 伪类 tab 激活时，把该状态的样式套到选中元素上预览。
+  // 批量（非单独编辑）：同类元素一起预览；单独编辑：只预览选中的。
+  // 换选相关元素（祖先/子孙/同类）时预览保留，手动点回基础态才清除。
+  // 面板卸载不清除：宿主画布交互会反复卸载/重挂面板，清了预览会跟丢；
+  // 清理由本 effect 的判定和 refreshStatePreview 的断连自愈兜底。
   useEffect(() => {
     const pseudo = activeZoneTab?.pseudo
-    if (!editMode || !pseudo || !isPreviewablePseudo(pseudo) || !selectedTarget) {
-      clearStatePreview()
+    const preview = getStatePreviewContext()
+    const batch = !isSoloEdit
+    if (editMode && pseudo && isPreviewablePseudo(pseudo) && selectedTarget) {
+      // 同一状态、同模式已在预览且点的是相关元素：效果不变，跳过
+      if (preview?.pseudo === pseudo && preview.batch === batch && isStatePreviewRelated(selectedTarget)) {
+        return
+      }
+      applyStatePreview(
+        selectedTarget,
+        activeZoneTab,
+        batch ? { comId: shellComId } : undefined
+      )
       return
     }
-    applyStatePreview(selectedTarget, activeZoneTab)
-  }, [editMode, selectedTarget, activeZoneTab])
-
-  // 面板卸载时清掉预览，别把标记残留在画布上
-  useEffect(() => () => clearStatePreview(), [])
+    // 手动点基础态：点在预览根元素上才算退出；在子元素等关联元素上点只是切换编辑对象
+    const manualExit = !!preview && userSelectedRef.current && preview.roots.includes(selectedTarget)
+    if (editMode && selectedTarget && !manualExit && isStatePreviewRelated(selectedTarget)) {
+      return
+    }
+    clearStatePreview()
+  }, [editMode, selectedTarget, activeZoneTab, isSoloEdit, shellComId])
 
   const zoneTabAddOptions = useMemo(() => {
     const ZONE_TAB_ADD_OPTIONS = [

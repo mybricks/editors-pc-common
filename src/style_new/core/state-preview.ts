@@ -20,6 +20,8 @@
  */
 import { collectZoneStyleRules } from './zone-tab'
 import type { ZoneTab } from './zone-tab'
+import { elMatchesSelectorTail } from './css-modules-match'
+import { getDocument } from './dom'
 import { STATE_PREVIEW_ATTR, clearStatePreviewSizes, setStatePreviewSheet, setStatePreviewSize } from './state-preview-tag'
 
 /** 真实交互态：鼠标真悬停、真聚焦等场景下，计算样式会被干扰，StyleMount 用它做保护。 */
@@ -36,8 +38,15 @@ export function isPreviewablePseudo(pseudo: string): boolean {
 const CHAIN_STATES: ReadonlySet<string> = new Set([':hover', ':active', ':focus-within'])
 
 type ActivePreview = {
+  /** 发起预览的元素（用户点 tab 时选中的那个） */
   target: Element
+  /** 预览根元素：批量模式是所有同类元素，单独编辑只有选中元素 */
+  roots: Element[]
+  /** 是否批量预览（对应面板的“应用至全部”） */
+  batch: boolean
   pseudo: string
+  /** 预览对应 tab 的完整选择器，用于同类元素判断 */
+  tabSelector: string
   sheet: CSSStyleSheet
   /** 打了预览标记的元素，清除时用 */
   marked: Element[]
@@ -206,29 +215,64 @@ function freezeSignatureChainSizes(target: Element): void {
 }
 
 /**
+ * 在页面（或组件根）范围内找出与 tab 选择器匹配的所有元素，
+ * 和面板“影响 N 个区域”的统计口径一致；找不到时退回选中元素自己。
+ */
+function findSimilarElements(anchor: Element, tabSelector: string, comId: string): Element[] {
+  const base = tabSelector.replace(/:{1,2}[a-zA-Z-]+(\([^)]*\))?/g, '').trim()
+  if (!base) return [anchor]
+  const doc = getDocument()
+  const pageRoot = anchor.closest('[data-desn-page]')
+  const scope = pageRoot || (comId ? doc.getElementById(comId) : null) || doc
+  try {
+    const nodes = Array.from(scope.querySelectorAll(base))
+    if (nodes.length > 0) return nodes
+  } catch { /* 哈希短名或非法选择器，走兜底 */ }
+  // 兜底：CSS Modules 短名在运行时查不到，按末段类名匹配找
+  const rootEl = scope instanceof Element ? scope : null
+  const descendants = Array.from(scope.querySelectorAll('*'))
+  const candidates = rootEl ? [rootEl, ...descendants] : descendants
+  const matched = candidates.filter((el) => elMatchesSelectorTail(el, base))
+  return matched.length > 0 ? matched : [anchor]
+}
+
+/**
  * 开始预览：给元素（需要时连同祖先链）打上标记，挂上预览样式表。
+ * 传 batchOptions 时为批量模式：同类元素一起标记，对应“应用至全部”的写入语义。
  * 样式源变化后的内容刷新由 refreshStatePreview 负责。
  */
-export function applyStatePreview(target: Element, tab: ZoneTab): void {
+export function applyStatePreview(
+  target: Element,
+  tab: ZoneTab,
+  batchOptions?: { comId: string }
+): void {
   clearStatePreview()
   const pseudo = tab.pseudo
   if (!pseudo) return
 
-  const marked: Element[] = [target]
-  if (CHAIN_STATES.has(pseudo)) {
-    // 沿祖先链向上标记，到根节点为止
-    for (let el = target.parentElement; el; el = el.parentElement) {
-      marked.push(el)
+  const roots = batchOptions
+    ? findSimilarElements(target, tab.selector, batchOptions.comId)
+    : [target]
+
+  const marked: Element[] = []
+  const chain = CHAIN_STATES.has(pseudo)
+  for (const root of roots) {
+    marked.push(root)
+    if (chain) {
+      // 沿祖先链向上标记，到根节点为止
+      for (let el = root.parentElement; el; el = el.parentElement) {
+        marked.push(el)
+      }
     }
   }
 
   const sheet = adoptPreviewSheet(target)
-  active = { target, pseudo, sheet, marked }
+  active = { target, roots, batch: !!batchOptions, pseudo, tabSelector: tab.selector, sheet, marked }
   setStatePreviewSheet(sheet)
   marked.forEach((el) => el.setAttribute(STATE_PREVIEW_ATTR, pseudo))
-  // 预览样式马上要应用、布局可能变化；先把整条链的尺寸冻结下来，
+  // 预览样式马上要应用、布局可能变化；先把各条链的尺寸冻结下来，
   // 签名比较用它，避免“预览改了布局”被误判成“常规态变了”
-  freezeSignatureChainSizes(target)
+  roots.forEach(freezeSignatureChainSizes)
   renderPreviewSheet(pseudo)
 }
 
@@ -246,5 +290,49 @@ export function clearStatePreview(): void {
 /** 样式源变化后重算预览内容；没在预览时啥也不做。 */
 export function refreshStatePreview(): void {
   if (!active) return
+  // 预览根元素全被宿主删掉/替换时自愈，避免标记残留在画布上
+  if (active.roots.every((root) => !root.isConnected)) {
+    clearStatePreview()
+    return
+  }
   renderPreviewSheet(active.pseudo)
+}
+
+/** 元素是否为当前预览的同类元素（如另一个 .payItem）。 */
+function isSimilarToPreview(el: Element): boolean {
+  if (!active) return false
+  const base = active.tabSelector.replace(/:{1,2}[a-zA-Z-]+(\([^)]*\))?/g, '').trim()
+  if (!base) return false
+  try {
+    return elMatchesSelectorTail(el, base)
+  } catch {
+    return false
+  }
+}
+
+/**
+ * 元素是否为预览根元素或同类元素。换选中时据此恢复状态 tab；
+ * 子孙不算——子孙应落回基础态编辑。
+ */
+export function isStatePreviewSurface(el: Element): boolean {
+  if (!active) return false
+  return active.roots.includes(el) || isSimilarToPreview(el)
+}
+
+/** 元素是否在预览范围内：预览根、同类元素，或它们的祖先/子孙。 */
+export function isStatePreviewRelated(el: Element): boolean {
+  if (!active) return false
+  if (isStatePreviewSurface(el)) return true
+  return active.roots.some((root) => root.contains(el) || el.contains(root))
+}
+
+/** 当前预览的信息（状态、发起元素、预览根、是否批量）；没预览时返回 null。 */
+export function getStatePreviewContext(): {
+  target: Element
+  roots: Element[]
+  batch: boolean
+  pseudo: string
+} | null {
+  if (!active) return null
+  return { target: active.target, roots: [...active.roots], batch: active.batch, pseudo: active.pseudo }
 }

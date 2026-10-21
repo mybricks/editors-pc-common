@@ -185,6 +185,38 @@ export function scanPseudoSelectors(
           })
           if (valid) pseudoMap.get(sel)!.add(pseudo)
         })
+
+        // 4：伪类挂在自己段上、后面还有后代段
+        // 例：.discountRow:hover .discountLabel { display: block }
+        // 伪类不在末尾，case 1和2 扫不到；case 3 只给后代生成 tab。
+        // 不给自己生成的话，这个状态预览（hover 才显形的子元素会选不到）。
+        // 伪类必须紧跟自身段（中间只允许 :not()），防止误配到别的祖先段。
+        const selfMidPseudoRegex = new RegExp(
+          escapeRegExp(comId) + '.*' +
+          '(' + segmentPattern + ')' +
+          '(?::not\\([^)]*\\))*' +
+          '(:{1,2}(?!not\\()[a-zA-Z\\-]+(?:\\([^)]*\\))?)' +
+          '\\s'
+        )
+        forEachSelectorPart(selectorText, (part) => {
+          const selfMatch = part.match(selfMidPseudoRegex)
+          if (!selfMatch) return
+          const pseudo = selfMatch[2]
+          if (!PSEUDO_ORDER.includes(pseudo)) return
+
+          if (!targetElements.length) {
+            pseudoMap.get(sel)!.add(pseudo)
+            return
+          }
+          const valid = targetElements.some((el) => {
+            try {
+              return el.matches(selfMatch[1])
+            } catch {
+              return false
+            }
+          })
+          if (valid) pseudoMap.get(sel)!.add(pseudo)
+        })
       }
     }
   }

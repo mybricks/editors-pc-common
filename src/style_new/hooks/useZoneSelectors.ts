@@ -4,6 +4,7 @@ import { elMatchesSelectorTail } from '../core/css-modules-match'
 import { toElementArray } from '../core/dom'
 import { getEffectedCssPropertyAndOptions } from '../core/get-effected-css'
 import { collectDisplayZoneTabs } from '../core/zone-display-tabs'
+import { getStatePreviewContext, isStatePreviewSurface } from '../core/state-preview'
 import {
   buildZoneEffectiveStyle,
   collectZoneTabs,
@@ -83,6 +84,15 @@ export function useZoneSelectors(editConfig: any, targetDom: any, _open: boolean
     }
 
     function syncActiveIdx() {
+      // 预览还跟着这个元素（或其同类元素）时，对齐回那个状态 tab；用户手动点基础态才退出
+      const preview = getStatePreviewContext()
+      if (preview && isStatePreviewSurface(el)) {
+        const previewIdx = zoneSelectorList.findIndex((sel) => sel.endsWith(preview.pseudo))
+        if (previewIdx >= 0) {
+          setActiveZoneIdx(previewIdx)
+          return
+        }
+      }
       const idx = zoneSelectorList.findIndex((sel) => {
         const lastPart = sel.trim().split(/\s+/).pop() || ''
         if (/:{1,2}[a-zA-Z\-]+(?:\([^)]*\))?$/.test(lastPart)) return false
@@ -180,5 +190,7 @@ export function useZoneSelectors(editConfig: any, targetDom: any, _open: boolean
     setActiveZoneIdx: setActiveZoneIdxByUser,
     addZoneTab,
     deleteZoneTab,
+    // 供外部区分「用户手动点了 tab」和「换元素后自动对齐」两种情况
+    userSelectedRef,
   }
 }
