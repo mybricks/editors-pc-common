@@ -11,19 +11,19 @@ export type FreedomPlanOptions = { selector: string; soloEdit?: boolean; comId: 
 type StylePlanItem = {
   target: HTMLElement
   selector: string
-  style: CSSProperties & { '--layout-mode'?: string }
+  style: { [K in keyof CSSProperties]?: CSSProperties[K] | null } & { '--layout-mode'?: string | null }
 }
 
-export function buildFreedomPlan(parent: HTMLElement, parentStyle: CSSProperties, options: FreedomPlanOptions) {
+export function buildFreedomPlan(parent: HTMLElement, parentStyle: CSSProperties, options: FreedomPlanOptions, mode: 'freedom' | 'flex' = 'freedom') {
   const { selector, soloEdit, comId } = options
   const componentRoot = getDocument().getElementById(comId)
   const changes: StylePlanItem[] = [{
     target: parent,
     selector,
-    style: {
+    style: mode === 'freedom' ? {
       '--layout-mode': 'freedom',
       position: !parentStyle.position || parentStyle.position === 'static' ? 'relative' : parentStyle.position,
-    },
+    } : { ...parentStyle, '--layout-mode': null },
   }]
 
   for (const child of Array.from(parent.children) as HTMLElement[]) {
@@ -35,7 +35,9 @@ export function buildFreedomPlan(parent: HTMLElement, parentStyle: CSSProperties
     changes.push({
       target: child,
       selector: soloEdit ? buildSoloSelector(child, sharedSelector, componentRoot) : sharedSelector,
-      style: createAbsolutePatch(child, currentStyle as CSSProperties, parent),
+      style: mode === 'freedom'
+        ? createAbsolutePatch(child, currentStyle as CSSProperties, parent)
+        : { position: null, left: null, top: null },
     })
   }
 

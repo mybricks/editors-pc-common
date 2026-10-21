@@ -10,7 +10,7 @@ import type { ChangeEvent, PanelBaseProps } from "../../type";
 import { useEffectiveStyleValue, useStyleChange, useStyleEditorContext } from "../../context";
 import { useStyleDisplayValue } from "../../hooks/useStyleDisplayValue";
 import { toElementArray } from "../../../core/dom";
-import { createStyleResolution } from "../../../core/style-property";
+import { createStyleResolution, getStyleResolution } from "../../../core/style-property";
 import { collectZoneTabs, excludeSoloSources, mergeZoneTabsByState } from "../../../core/zone-tab";
 import { buildFreedomPlan } from '../../../core/freedom-plan';
 import type { FreedomPlanOptions } from '../../../core/freedom-plan';
@@ -121,6 +121,9 @@ export function Layout({ value: panelValue, onChange: fallbackOnChange, showTitl
   const hasZoneTab = !!zoneTab;
   // 非 Zone 模式（如单独编辑）的回显值来自 props，effectiveStyle 在此模式下为空。
   const value = hasZoneTab ? effectiveValue : panelValue;
+  const layoutMode = zoneTab &&
+    getStyleResolution(zoneTab, context?.targetDom ?? null).get('--layout-mode').winner?.value;
+
   const displayField = useStyleDisplayValue('display');
   const positionField = useStyleDisplayValue('position');
   const directionField = useStyleDisplayValue('flexDirection');
@@ -177,7 +180,7 @@ export function Layout({ value: panelValue, onChange: fallbackOnChange, showTitl
 
   const refresh = useCallback(() => {
     const keys = Object.keys(value ?? {}).filter(key => LAYOUT_KEYS.has(key));
-    onChange(keys.map(key => ({ key, value: null })));
+    onChange([...keys, '--layout-mode'].map(key => ({ key, value: null })));
     setClearedGapKeys({rowGap: true, columnGap: true});
     setIsReset(true);
     setForceRenderKey(prev => prev + 1);
@@ -191,8 +194,6 @@ export function Layout({ value: panelValue, onChange: fallbackOnChange, showTitl
 
   const handleFreedomSelect = () => {
     const plan = buildFreedomPlan(context!.targetDom!, value, options as FreedomPlanOptions);
-    console.log('[freedom-plan]', plan);
-    console.table(plan.changes.map(({ selector, style }) => ({ selector, style: JSON.stringify(style) })));
     (window as any).__mybricks_applyStylePlan(plan);
   };
 
@@ -204,6 +205,7 @@ export function Layout({ value: panelValue, onChange: fallbackOnChange, showTitl
           previewValue={previewValue}
           clearedGapKeys={clearedGapKeys}
           displayOnly={displayOnly}
+          freedomValue={!isReset && layoutMode === 'freedom'}
           onFreedomSelect={handleFreedomSelect}
           onChangeValue={(newVal) => {
             setClearedGapKeys((previous) => {
@@ -219,8 +221,17 @@ export function Layout({ value: panelValue, onChange: fallbackOnChange, showTitl
               });
               return changed ? next : previous;
             });
+            // 布局切换的补丁都带 flexDirection，统一清除 freeform 标记。
+            const nextValue = 'flexDirection' in newVal
+              ? { ...newVal, '--layout-mode': null }
+              : newVal;
+            if (layoutMode === 'freedom' && 'flexDirection' in newVal && isFlexLikeDisplay(newVal.display)) {
+              const plan = buildFreedomPlan(context!.targetDom!, newVal, options as FreedomPlanOptions, 'flex');
+              (window as any).__mybricks_applyStylePlan(plan);
+              return;
+            }
             onChange(
-              Object.entries(newVal)
+              Object.entries(nextValue)
                 .filter(([key]) => !NON_CSS_KEYS.has(key))
                 .map(([key, val]) => ({ key, value: val }))
             );
@@ -237,10 +248,12 @@ interface LayoutEditorInternalProps {
   clearedGapKeys: Record<GapKey, boolean>;
   onChangeValue: (val: Record<string, any>) => void;
   displayOnly?: boolean;
+  freedomValue: boolean;
   onFreedomSelect: () => void;
 }
 
-function LayoutEditor({ editValue, previewValue, clearedGapKeys, onChangeValue, displayOnly, onFreedomSelect }: LayoutEditorInternalProps): JSX.Element {
+function LayoutEditor({ editValue, previewValue, clearedGapKeys, onChangeValue, displayOnly, freedomValue, onFreedomSelect }: LayoutEditorInternalProps): JSX.Element {
+  const targetDom = useStyleEditorContext()?.targetDom;
   const _value = parsePxValues({ ...previewValue, ...editValue });
 
   if ((_value as any).alignItems === "normal") (_value as any).alignItems = "flex-start";
@@ -262,8 +275,10 @@ function LayoutEditor({ editValue, previewValue, clearedGapKeys, onChangeValue, 
   if (clearedGapKeys.columnGap) initialModel.columnGap = null;
 
   const [model, setModel] = useState<LayoutModel>(initialModel);
-  // 切换后立即回显本地开关状态。
-  const [freedom, setFreedom] = useState(false);
+  const [freedom, setFreedom] = useState(freedomValue);
+  useLayoutEffect(() => {
+    setFreedom(freedomValue);
+  }, [freedomValue, targetDom]);
 
   const initialFlexDirection = ((_value as any).flexDirection ?? defaultValue.flexDirection) as string;
   const [rowFlexWrap, setRowFlexWrap] = useState<CSSProperties["flexWrap"]>(
@@ -314,7 +329,7 @@ function LayoutEditor({ editValue, previewValue, clearedGapKeys, onChangeValue, 
       // 仅按 patch 写出，不合并 model
       onChangeValue(normalizePx(style as Record<string, unknown>));
     },
-    [model]
+    [model, onChangeValue]
   );
 
   // isFlexActive：当前是否处于 flex/inline-flex 横/纵布局（与容器 position 无关）
