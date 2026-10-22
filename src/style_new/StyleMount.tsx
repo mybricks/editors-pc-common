@@ -150,8 +150,6 @@ export function StyleMount({
     })
     // 挂载后强制跑一帧用于记录初始变体数组
     refresh(false)
-    // 撤销/重做等外部刷新会让面板整体重挂来恢复回显；这里变体的预览样式也需要同步
-    refreshStatePreview()
     return () => { observer.disconnect(); cancelAnimationFrame(frame) }
   }, [zoneTab, target, onStyleSourceChange])
 

@@ -43,7 +43,7 @@ import {
 import type { SavedSoloStyle } from './core/build-solo-selector'
 import { excludeSoloSources } from './core/zone-tab'
 import type { ZoneTab } from './core/zone-tab'
-import { applyStatePreview, clearStatePreview, getStatePreviewContext, isPreviewablePseudo, isStatePreviewRelated, isStatePreviewSurface, retreatStatePreview } from './core/state-preview'
+import { applyStatePreview, clearStatePreview, getStatePreviewContext, isPreviewablePseudo, isStatePreviewRelated, isStatePreviewSurface, refreshStatePreview, retreatStatePreview } from './core/state-preview'
 import { registerVariationFocusHandler, setFocusedVariation } from './core/variations'
 import { getDocument, toElementArray } from './core/dom'
 import { backToVisualIcon } from './icon'
@@ -268,6 +268,11 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
     }
     clearStatePreview()
   }, [editMode, selectedTarget, activeZoneTab, isSoloEdit, shellComId])
+
+  //
+  //  useEffect(() => () => {
+    refreshStatePreview()
+  }, [])
 
   // 把当前选中的变体同步给引擎
   // 宿主会反复卸载/重挂面板，重挂后 tab 对齐回默认，这里会重新同步。
