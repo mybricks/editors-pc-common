@@ -14,9 +14,14 @@ export type FreedomPlanOptions = { selector: string; soloEdit?: boolean; comId: 
 type StylePlanItem = {
   target: HTMLElement
   selector: string
+  lessFile: string
   style: { [K in keyof CSSProperties]?: CSSProperties[K] | null } & {
     '--layout-mode'?: string | null
     '--freeform-width'?: string | null
+    '--freeform-original-min-width'?: string | null
+    '--freeform-original-min-height'?: string | null
+    '--freeform-original-width'?: string | null
+    '--freeform-original-height'?: string | null
     '--freeform-position'?: string | null
   }
 }
@@ -64,7 +69,7 @@ function freedomSpecificity(selector: string): number {
 }
 
 /** 复用整批来源生成最终声明；组件库收到后直接写入，不再推导优先级。 */
-function resolveFreedomDeclarations(changes: StylePlanItem[], tabs: ZoneTab[], comId: string) {
+function resolveFreedomDeclarations(changes: StylePlanItem[], tabs: ZoneTab[]) {
   const properties = Array.from(new Set(changes.flatMap(({ style }) =>
     Object.entries(style).filter(([key, value]) => value !== null && !key.startsWith('--')).map(([key]) => key)
   )))
@@ -94,12 +99,10 @@ function resolveFreedomDeclarations(changes: StylePlanItem[], tabs: ZoneTab[], c
     const entries = Object.entries(style).filter(([key, value]) => value !== null && !key.startsWith('--'))
     if (!entries.length) return { ...change, style }
     const specificity = freedomSpecificity(change.selector)
-    const selector = resolveCssomSourceSelector(change.selector, change.target, comId).replace(/\s+/g, ' ').trim()
     const matches = rules.filter(({ source }) => change.target.matches(source.selectorPart))
     for (const [key, value] of entries) {
       const important = matches.some(rule => key in rule.properties && (
-        rule.specificity > specificity ||
-        (rule.source.sourceSelector.replace(/\s+/g, ' ').trim() === selector && rule.properties[key])
+        rule.properties[key] || rule.specificity > specificity
       ))
       if (important && !String(value).includes('!important')) style[key] = `${value} !important`
     }
@@ -109,108 +112,151 @@ function resolveFreedomDeclarations(changes: StylePlanItem[], tabs: ZoneTab[], c
 
 export function buildFreedomPlan(parent: HTMLElement, parentStyle: CSSProperties, options: FreedomPlanOptions, mode: 'freedom' | 'flex' = 'freedom') {
   const { selector, soloEdit, comId } = options
-  const changes: StylePlanItem[] = [{
-    target: parent,
-    selector,
-    style: mode === 'freedom' ? {
-      '--layout-mode': 'freedom',
-      position: !parentStyle.position || parentStyle.position === 'static' ? 'relative' : parentStyle.position,
-    } : { ...parentStyle, '--layout-mode': null },
-  }]
-
-  const children = Array.from(parent.children) as HTMLElement[]
   const root = parent.getRootNode() as Document | ShadowRoot
-  const scope = parent.closest('[data-desn-page]') || root.getElementById(comId)!
-  const parentLess = JSON.parse(parent.dataset.loc!).files.less
+  const componentRoot = root.getElementById(comId)!
+  const scope = parent.closest('[data-desn-page]') || componentRoot
   const runtimeClasses = new Map<string, string>()
   for (let element: Element | null = parent; element; element = element.parentElement) {
     for (const name of Array.from(element.classList)) {
       runtimeClasses.set(resolveCssomSourceSelector(`.${name}`, element, comId), `.${CSS.escape(name)}`)
     }
   }
-  const widthAncestors: HTMLElement[] = []
+  // 1. 勾选只决定处理哪些实例；所有位置和尺寸均从各实例自身读取。
+  const runtimeSelector = selector.replace(/\.[a-zA-Z_][a-zA-Z0-9_-]*/g, name => runtimeClasses.get(name) || name)
+  const parents = soloEdit ? [parent] : Array.from(new Set([
+    parent, ...Array.from(scope.querySelectorAll<HTMLElement>(runtimeSelector)),
+  ]))
+  const children = parents.flatMap(element => Array.from(element.children) as HTMLElement[])
+  const widthAncestors = new Set<HTMLElement>()
   if (mode === 'freedom') {
-    for (let element = parent.parentElement; element && element !== scope; element = element.parentElement) {
-      if (element.hasAttribute('data-loc')) widthAncestors.push(element)
+    for (const currentParent of parents) {
+      for (let element = currentParent.parentElement; element && element !== scope; element = element.parentElement) {
+        if (element.hasAttribute('data-loc')) widthAncestors.add(element)
+      }
     }
   }
-  // 尺寸读取使用常规态；最终声明复用整批父子元素的全部来源。
-  const tabs = collectZoneTabs([parent, ...children, ...widthAncestors], ['*'], comId)
+  const tabs = collectZoneTabs([...parents, ...children, ...Array.from(widthAncestors)], ['*'], comId)
   const sources = mode === 'freedom'
     ? tabs[0].sourceRules.map(source => ({ source,
       classes: selectorClasses(source.selectorPart.slice(selectorSubjectStart(source.selectorPart))) }))
     : []
-  const generatedWidths = new Set((mode === 'flex' ? tabs[0].sourceRules : [])
-    .filter(source => source.rule.style.getPropertyValue('--freeform-width'))
-    .map(source => source.sourceSelector))
-  const generatedPositions = new Set((mode === 'flex' ? tabs[0].sourceRules : [])
-    .filter(source => source.rule.style.getPropertyValue('--freeform-position'))
-    .map(source => source.target))
-  for (let index = 0; index < children.length; index++) {
-    const child = children[index]
-    const childSelector = collectSubjectClassSelectors(child)[0] ?? ''
-    const childNthSelector = appendNthChild(childSelector, index + 1)
-    // 跨文件只写子组件自身的 nth-child 规则，复用已有拖动写回链路。
-    const targetSelector = JSON.parse(child.dataset.loc!).files.less === parentLess
-      ? `${selector} > ${childNthSelector}`
-      : childNthSelector
-    let style: StylePlanItem['style']
-    if (mode === 'freedom') {
-      // 原本就是绝对定位的子元素不参与转换，保留其位置和尺寸。
-      if (window.getComputedStyle(child).position === 'absolute') continue
-      const selectors = buildZoneSelectorsFromCssom(child, comId)
-      const bases = selectors.map(selectorClasses)
-      const sourceRules = sources.filter(({ source, classes }) =>
-        bases.some(base => !base.length || base.some(name => classes.some(runtime =>
-          runtime === name || runtime.endsWith(`-${name}`) || runtime.endsWith(`_${name}`)
-        ))) && child.matches(source.selectorPart)
-      ).map(({ source }) => ({ ...source, target: child,
-        sourceSelector: resolveCssomSourceSelector(source.selectorPart, child, comId) }))
-      const tab: ZoneTab = { selector: selectors[0], baseSelector: selectors[0], pseudo: null,
-        affectedSelectors: selectors, sourceRules, baseRules: sourceRules, target: child }
-      const currentStyle = readFreedomSize(child, selectors, tab, comId)
-      style = createAbsolutePatch(child, currentStyle as CSSProperties, parent)
-      style['--freeform-position'] = 'absolute'
-      if ('width' in style) style['--freeform-width'] = String(style.width)
-    } else {
-      style = generatedPositions.has(child)
-        ? { position: null, left: null, top: null, '--freeform-position': null }
-        : {}
-      if (generatedWidths.has(targetSelector)) {
-        style.width = null
-        style['--freeform-width'] = null
+  const positionSources = tabs[0].sourceRules.filter(source => source.rule.style.getPropertyValue('--freeform-position'))
+  const changes: StylePlanItem[] = mode === 'freedom' ? [] : [{
+    target: parent, selector, lessFile: JSON.parse(parent.dataset.loc!).files.less,
+    style: { ...parentStyle, '--layout-mode': null },
+  }]
+  const parentPlans: StylePlanItem[] = []
+  const childPlans: StylePlanItem[] = []
+  // 2. 外层遍历父实例，内层遍历它的直接子元素；不把某一行的测量值写入公共规则。
+  for (const currentParent of parents) {
+    // freeform 每个实例都要精确定位，第一行也保留 nth-child(1)，不能退成公共规则。
+    const parentSelector = buildSoloSelector(currentParent, selector.replace(/:nth-child\(\d+\)/g, ''), componentRoot,
+      { keepTopLevelFirstChild: true })
+    const lessFile = JSON.parse(currentParent.dataset.loc!).files.less
+    const position = window.getComputedStyle(currentParent).position as CSSProperties['position']
+    // 标记也跟随实例，支持全部切入后只退出其中一行。
+    parentPlans.push({ target: currentParent, selector: parentSelector, lessFile,
+      style: mode === 'freedom'
+        ? { '--layout-mode': 'freedom', position: position === 'static' ? 'relative' : position }
+        : { '--layout-mode': null } })
+    const currentChildren = Array.from(currentParent.children) as HTMLElement[]
+    for (let index = 0; index < currentChildren.length; index++) {
+      const child = currentChildren[index]
+      // 布局规则归父容器文件所有；跨文件子组件用直接子节点序号，避免丢失父实例作用域。
+      const childSelector = JSON.parse(child.dataset.loc!).files.less === lessFile
+        ? collectSubjectClassSelectors(child)[0] ?? '' : ''
+      let targetSelector = `${parentSelector} > ${appendNthChild(childSelector, index + 1)}`
+      let style: StylePlanItem['style']
+      if (mode === 'freedom') {
+        if (window.getComputedStyle(child).position === 'absolute') continue
+        const selectors = buildZoneSelectorsFromCssom(child, comId)
+        const bases = selectors.map(selectorClasses)
+        const sourceRules = sources.filter(({ source, classes }) =>
+          bases.some(base => !base.length || base.some(name => classes.some(runtime =>
+            runtime === name || runtime.endsWith(`-${name}`) || runtime.endsWith(`_${name}`)
+          ))) && child.matches(source.selectorPart)
+        ).map(({ source }) => ({ ...source, target: child,
+          sourceSelector: resolveCssomSourceSelector(source.selectorPart, child, comId) }))
+        const tab: ZoneTab = { selector: selectors[0], baseSelector: selectors[0], pseudo: null,
+          affectedSelectors: selectors, sourceRules, baseRules: sourceRules, target: child }
+        const currentStyle = readFreedomSize(child, selectors, tab, comId)
+        style = createAbsolutePatch(child, currentStyle, currentParent)
+        style['--freeform-position'] = 'absolute'
+      } else {
+        const source = positionSources.find(source => source.sourceSelector === targetSelector)
+          || positionSources.find(source => child.matches(source.selectorPart))
+        if (!source) continue
+        targetSelector = source.sourceSelector
+        style = { position: null, left: null, top: null, '--freeform-position': null }
+        if (source.rule.style.getPropertyValue('--freeform-width')) {
+          style.width = null
+          style['--freeform-width'] = null
+        }
       }
-      if (!Object.keys(style).length) continue
+      childPlans.push({ target: child, selector: targetSelector, lessFile, style })
     }
-
-    changes.push({
-      target: child,
-      selector: targetSelector,
-      style,
-    })
   }
+  changes.push(...parentPlans, ...childPlans)
 
+  const sizeFields = [
+    { styleKey: 'minWidth', originalMarker: '--freeform-original-min-width' },
+    { styleKey: 'minHeight', originalMarker: '--freeform-original-min-height' },
+    { styleKey: 'width', originalMarker: '--freeform-original-width' },
+    { styleKey: 'height', originalMarker: '--freeform-original-height' },
+  ] as const
   if (mode === 'freedom') {
-    const parentPatch = changes[0].style
-    const runtimeSelector = selector.replace(/\.[a-zA-Z_][a-zA-Z0-9_-]*/g, name => runtimeClasses.get(name) || name)
-    const parents = soloEdit ? [parent] : Array.from(new Set([
-      parent, ...Array.from(scope.querySelectorAll<HTMLElement>(runtimeSelector)),
-    ]))
-    const result = detectContainerCollapse(parent, parentPatch.position!, parents, widthAncestors)
-    if (result.collapseWidth) {
-      if (result.widthTarget === parent) parentPatch.minWidth = result.minWidth
+    // 3. 一次模拟整批脱流；父容器、共享祖先和子元素的补值均按 DOM 实例返回。
+    const result = detectContainerCollapse(parentPlans, Array.from(widthAncestors), childPlans)
+    // 宿主按 ES5 转译，Map 使用 forEach，避免 for...of 被转换成数组下标循环后跳过。
+    result.parentPatches.forEach((style, target) => {
+      const parentPlan = parentPlans.find(change => change.target === target)
+      if (parentPlan) Object.assign(parentPlan.style, style)
       else {
-        const widthSelector = collectFreedomClassSelectors(result.widthTarget)[0]
-        changes.push({
-          target: result.widthTarget,
-          selector: soloEdit ? buildSoloSelector(result.widthTarget, widthSelector, root.getElementById(comId)) : widthSelector,
-          style: { minWidth: result.minWidth },
-        })
+        const baseSelector = collectFreedomClassSelectors(target)[0]
+        changes.push({ target, selector: buildSoloSelector(target, baseSelector, componentRoot, { keepTopLevelFirstChild: true }),
+          lessFile: JSON.parse(target.dataset.loc!).files.less, style })
+      }
+    })
+
+    // 4. 子元素使用自己的实测补值，并保存当前精确规则的原值；退出复用同一条规则恢复。
+    const stylesBySelector = new Map(tabs[0].sourceRules.map(source => [source.sourceSelector, source.rule.style]))
+    for (const change of childPlans) {
+      delete change.style.width
+      delete change.style.height
+      const sizePatch = result.childSizePatches.get(change.target)
+      if (!sizePatch) continue
+      const original = stylesBySelector.get(change.selector)
+      for (const { styleKey, originalMarker } of sizeFields) {
+        if (!sizePatch[styleKey]) continue
+        const property = styleKey.replace(/[A-Z]/g, char => `-${char.toLowerCase()}`)
+        const previous = original?.getPropertyValue(property)
+          ? original.getPropertyValue(property) + (original.getPropertyPriority(property) ? ' !important' : '') : null
+        change.style[styleKey] = sizePatch[styleKey]
+        change.style[originalMarker] = JSON.stringify(previous)
       }
     }
-    if (result.collapseHeight) parentPatch.minHeight = result.before.height
+
+    // 5. 父子元素的新增尺寸约束统一向上保留一位小数，原值标记不取整。
+    for (const { style } of changes) {
+      for (const { styleKey } of sizeFields) {
+        if (style[styleKey] !== undefined) style[styleKey] = `${Math.ceil(parseFloat(String(style[styleKey])) * 10) / 10}px`
+      }
+    }
   }
 
-  const resolvedChanges = resolveFreedomDeclarations(changes, tabs, comId)
+  const resolvedChanges = resolveFreedomDeclarations(changes, tabs)
+  if (mode === 'flex') {
+    // 退出恢复：只处理有原值标记的尺寸约束；保留原优先级，原来没有声明则通过 null 删除。
+    for (const { styleKey, originalMarker } of sizeFields) {
+      const originalValues = new Map(tabs[0].sourceRules
+        .filter(source => source.rule.style.getPropertyValue(originalMarker))
+        .map(source => [source.sourceSelector, source.rule.style.getPropertyValue(originalMarker)]))
+      for (const change of resolvedChanges) {
+        if (!originalValues.has(change.selector)) continue
+        change.style[styleKey] = JSON.parse(originalValues.get(change.selector)!)
+        change.style[originalMarker] = null
+      }
+    }
+  }
   return { scope: soloEdit ? 'single' : 'all', changes: resolvedChanges }
 }

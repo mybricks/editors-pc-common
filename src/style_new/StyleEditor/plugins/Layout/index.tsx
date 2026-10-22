@@ -10,7 +10,7 @@ import type { ChangeEvent, PanelBaseProps } from "../../type";
 import { useEffectiveStyleValue, useStyleChange, useStyleEditorContext } from "../../context";
 import { useStyleDisplayValue } from "../../hooks/useStyleDisplayValue";
 import { toElementArray } from "../../../core/dom";
-import { createStyleResolution, getStyleResolution } from "../../../core/style-property";
+import { createStyleResolution } from "../../../core/style-property";
 import { collectZoneTabs, excludeSoloSources, mergeZoneTabsByState } from "../../../core/zone-tab";
 import { buildFreedomPlan } from '../../../core/freedom-plan';
 import type { FreedomPlanOptions } from '../../../core/freedom-plan';
@@ -121,8 +121,11 @@ export function Layout({ value: panelValue, onChange: fallbackOnChange, showTitl
   const hasZoneTab = !!zoneTab;
   // 非 Zone 模式（如单独编辑）的回显值来自 props，effectiveStyle 在此模式下为空。
   const value = hasZoneTab ? effectiveValue : panelValue;
-  const layoutMode = zoneTab &&
-    getStyleResolution(zoneTab, context?.targetDom ?? null).get('--layout-mode').winner?.value;
+  // freeform 标记属于当前实例；即使批量面板排除了单独规则，也要读取它的真实布局状态。
+  const layoutMode = zoneTab && [
+    ...zoneTab.sourceRules.map(source => source.rule), ...(zoneTab.excludedRules ?? []),
+  ].find(rule => rule.style.getPropertyValue('--layout-mode') && context?.targetDom?.matches(rule.selectorText))
+    ?.style.getPropertyValue('--layout-mode').trim();
 
   const displayField = useStyleDisplayValue('display');
   const positionField = useStyleDisplayValue('position');
