@@ -6,7 +6,7 @@ import { detectContainerCollapse } from './detect-container-collapse'
 import { getEffectedCssPropertyAndOptions } from './get-effected-css'
 import { getValues } from './get-values'
 import { createAbsolutePatch } from './position'
-import { shareFreedomRules, splitFreedomRulesForExit } from './share-freedom-rules'
+import { getSharedFreedomSelector, shareFreedomRules, splitFreedomRulesForExit } from './share-freedom-rules'
 import { collectSourceAntClassNames } from './style-write-target'
 import { collectZoneTabs, getOrderedZoneSourceRules, selectorSubjectStart } from './zone-tab'
 import type { ZoneSourceRule, ZoneTab } from './zone-tab'
@@ -23,6 +23,7 @@ export type StylePlanItem = {
     '--freeform-original-min-height'?: string | null
     '--freeform-original-width'?: string | null
     '--freeform-original-height'?: string | null
+    '--freeform-original-position'?: string | null
     '--freeform-position'?: string | null
   }
 }
@@ -112,10 +113,19 @@ function resolveFreedomDeclarations(changes: StylePlanItem[], tabs: ZoneTab[]) {
 }
 
 export function buildFreedomPlan(parent: HTMLElement, parentStyle: CSSProperties, options: FreedomPlanOptions, mode: 'freedom' | 'flex' = 'freedom') {
-  const { selector, soloEdit, comId } = options
+  let { selector, soloEdit } = options
+  const { comId } = options
   const root = parent.getRootNode() as Document | ShadowRoot
   const componentRoot = root.getElementById(comId)!
   const scope = parent.closest('[data-desn-page]') || componentRoot
+  if (mode === 'flex') {
+    const sharedSelector = getSharedFreedomSelector(parent, scope, comId)
+    if (sharedSelector) {
+      // 共用父容器规则就一起退出，下面按共享范围清理所有子项的定位。
+      selector = sharedSelector
+      soloEdit = false
+    }
+  }
   const runtimeClasses = new Map<string, string>()
   for (let element: Element | null = parent; element; element = element.parentElement) {
     for (const name of Array.from(element.classList)) {
@@ -148,9 +158,9 @@ export function buildFreedomPlan(parent: HTMLElement, parentStyle: CSSProperties
   }]
   const parentPlans: StylePlanItem[] = []
   const childPlans: StylePlanItem[] = []
-  // 2. 每个实例独立测量；等位置、尺寸和优先级都确定后，再合并相同的子元素规则。
+  // 2. 每个实例独立测量；等位置、尺寸和优先级都确定后，再合并相同的父子元素规则。
   for (const currentParent of parents) {
-    // freeform 每个实例都要精确定位，第一行也保留 nth-child(1)，不能退成公共规则。
+    // 先精确定位每个实例（包括第一行），后面再根据最终声明决定是否共享。
     const parentSelector = buildSoloSelector(currentParent, selector.replace(/:nth-child\(\d+\)/g, ''), componentRoot,
       { keepTopLevelFirstChild: true })
     const lessFile = JSON.parse(currentParent.dataset.loc!).files.less
@@ -165,7 +175,7 @@ export function buildFreedomPlan(parent: HTMLElement, parentStyle: CSSProperties
       ? parseFloat(parentComputed.paddingTop) + parseFloat(parentComputed.paddingBottom) + parseFloat(parentComputed.borderTopWidth) + parseFloat(parentComputed.borderBottomWidth) : 0)
     const scaleX = parentRect.width / parentWidth
     const scaleY = parentRect.height / parentHeight
-    // 标记也跟随实例，支持全部切入后只退出其中一行。
+    // 标记与容器样式一起参与合并，退出时按它实际落在的规则确定范围。
     parentPlans.push({ target: currentParent, selector: parentSelector, lessFile,
       style: mode === 'freedom'
         ? { '--layout-mode': 'freedom', position: position === 'static' ? 'relative' : position }
@@ -223,6 +233,9 @@ export function buildFreedomPlan(parent: HTMLElement, parentStyle: CSSProperties
     { styleKey: 'width', originalMarker: '--freeform-original-width' },
     { styleKey: 'height', originalMarker: '--freeform-original-height' },
   ] as const
+  const restoreFields = [...sizeFields,
+    { styleKey: 'position', originalMarker: '--freeform-original-position' },
+  ] as const
   if (mode === 'freedom') {
     // 3. 一次模拟整批脱流；父容器、共享祖先和子元素的补值均按 DOM 实例返回。
     const result = detectContainerCollapse(parentPlans, Array.from(widthAncestors), childPlans)
@@ -237,8 +250,19 @@ export function buildFreedomPlan(parent: HTMLElement, parentStyle: CSSProperties
       }
     })
 
-    // 4. 子元素使用自己的实测补值，并保存当前精确规则的原值；退出复用同一条规则恢复。
+    // 4. 父容器先记录本次写入属性的原声明；没有原声明记为 null，退出时删除补值。
     const stylesBySelector = new Map(tabs[0].sourceRules.map(source => [source.sourceSelector, source.rule.style]))
+    for (const change of parentPlans) {
+      const original = stylesBySelector.get(change.selector)
+      for (const { styleKey, originalMarker } of restoreFields) {
+        if (change.style[styleKey] === undefined) continue
+        const property = styleKey.replace(/[A-Z]/g, char => `-${char.toLowerCase()}`)
+        const previous = original?.getPropertyValue(property)
+          ? original.getPropertyValue(property) + (original.getPropertyPriority(property) ? ' !important' : '') : null
+        change.style[originalMarker] = JSON.stringify(previous)
+      }
+    }
+    // 子元素沿用自己的实测补值和原值记录；父子退出时共用下面的恢复循环。
     for (const change of childPlans) {
       // 即使子元素无需补尺寸，margin 也可能变化；先合并位置修正，再处理下面可能提前跳过的尺寸补偿。
       Object.assign(change.style, result.childPositionPatches.get(change.target))
@@ -267,8 +291,8 @@ export function buildFreedomPlan(parent: HTMLElement, parentStyle: CSSProperties
 
   let resolvedChanges = resolveFreedomDeclarations(changes, tabs)
   if (mode === 'flex') {
-    // 退出恢复：只处理有原值标记的尺寸约束；保留原优先级，原来没有声明则通过 null 删除。
-    for (const { styleKey, originalMarker } of sizeFields) {
+    // 退出恢复：父容器定位和父子尺寸共用原值标记；原来没有声明则通过 null 删除。
+    for (const { styleKey, originalMarker } of restoreFields) {
       const originalValues = new Map(tabs[0].sourceRules
         .filter(source => source.rule.style.getPropertyValue(originalMarker))
         .map(source => [source.sourceSelector, source.rule.style.getPropertyValue(originalMarker)]))

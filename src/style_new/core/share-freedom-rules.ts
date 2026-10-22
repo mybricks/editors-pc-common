@@ -4,6 +4,7 @@ import { resolveCssomSourceSelector } from './build-zone-selectors-from-cssom'
 import { classMatchesShortName } from './css-modules-match'
 import { calculateSafeSpecificity } from './selector-utils'
 import type { StylePlanItem } from './freedom-plan'
+import { collectZoneTabs } from './zone-tab'
 import type { ZoneSourceRule } from './zone-tab'
 
 const cssProperty = (key: string) => key.replace(/[A-Z]/g, char => `-${char.toLowerCase()}`)
@@ -13,12 +14,22 @@ const readDeclaration = (style: CSSStyleDeclaration, key: string) => {
   return value ? value + (style.getPropertyPriority(property) ? ' !important' : '') : null
 }
 
-/** 测量仍按实例进行；这里只合并同一作用域、同序号且最终声明相同的子元素。 */
+/** 共享容器切回 flex 时，沿用它实际命中的共享规则，让同组容器一起退出。 */
+export function getSharedFreedomSelector(parent: HTMLElement, scope: Element, comId: string) {
+  return collectZoneTabs([parent], ['*'], comId)[0].sourceRules.find(source =>
+    source.rule.style.getPropertyValue('--layout-mode').trim() === 'freedom'
+    && scope.querySelectorAll(source.selectorPart).length > 1
+  )?.sourceSelector
+}
+
+/** 测量仍按实例进行；同组父容器和同序号子元素，都在最终声明一致时合并。 */
 export function shareFreedomRules(changes: StylePlanItem[], sources: ZoneSourceRule[], scope: Element, runtimeClasses: Map<string, string>) {
   const groups = new Map<string, StylePlanItem[]>()
   for (const change of changes) {
-    if (change.style['--freeform-position'] !== 'absolute') continue
-    const match = change.selector.match(/^(.*):nth-child\(\d+\)( > .+)$/)
+    if (change.style['--layout-mode'] !== 'freedom' && change.style['--freeform-position'] !== 'absolute') continue
+    // 父容器去掉自身末尾 nth；子元素只去掉行号，保留子项序号。
+    const match = change.selector.match(change.style['--layout-mode'] === 'freedom'
+      ? /^(.*):nth-child\(\d+\)$/ : /^(.*):nth-child\(\d+\)( > .+)$/)
     if (!match) continue
     const key = JSON.stringify([change.lessFile, match[1], match[2]])
     if (!groups.has(key)) groups.set(key, [])
@@ -39,12 +50,13 @@ export function shareFreedomRules(changes: StylePlanItem[], sources: ZoneSourceR
     const shared = Array.from(byStyle.values()).sort((a, b) => b.length - a.length)[0]
     if (!shared || shared.length < 2) return
     const first = shared[0]
-    const [, parentSelector, childSelector] = first.selector.match(/^(.*):nth-child\(\d+\)( > .+)$/)!
+    const [, parentSelector, childSelector = ''] = first.selector.match(first.style['--layout-mode'] === 'freedom'
+      ? /^(.*):nth-child\(\d+\)$/ : /^(.*):nth-child\(\d+\)( > .+)$/)!
     const runtimeParent = parentSelector.replace(/\.[a-zA-Z_][a-zA-Z0-9_-]*/g, name => runtimeClasses.get(name) || name)
     const runtimeChild = childSelector.replace(/\.([a-zA-Z_][a-zA-Z0-9_-]*)/g, (_, name) =>
       `.${CSS.escape(Array.from(first.target.classList).find(runtime => classMatchesShortName(runtime, name))!)}`)
     const targets = new Set(group.map(change => change.target))
-    // 公共规则必须只命中本次转换的子项；原本 absolute 或未参与切换的项仍保留原路径。
+    // 公共规则只能命中本次转换的目标；未参与切换的容器、原本 absolute 的子项不受影响。
     if (Array.from(scope.querySelectorAll(runtimeParent + runtimeChild)).some(target => !targets.has(target as HTMLElement))) return
     const selector = parentSelector + childSelector
     const style: Record<string, any> = { ...first.style }
@@ -58,9 +70,13 @@ export function shareFreedomRules(changes: StylePlanItem[], sources: ZoneSourceR
     const specificity = calculateSafeSpecificity(selector)!
     const stronger = sources.filter(source => compare(calculateSafeSpecificity(source.selectorPart)!, specificity) > 0
       && shared.some(change => change.target.matches(source.selectorPart)))
-    // 去掉父级 nth 会降低优先级；存在竞争声明时继续用原精确规则。
+    // 去掉 nth 会降低优先级；父容器旧规则若只是同值声明，不阻止再次共享。
+    // 子元素仍沿用原来的竞争判断，不改变定位规则的合并条件。
     const properties = Object.keys(style).filter(key => !key.startsWith('--'))
-    if (stronger.some(source => properties.some(key => source.rule.style.getPropertyValue(cssProperty(key))))) return
+    if (stronger.some(source => properties.some(key => {
+      const value = readDeclaration(source.rule.style, key)
+      return value && (first.style['--layout-mode'] !== 'freedom' || value !== String(style[key]))
+    }))) return
     // 若共享 selector 原来已有尺寸声明，备份它；退出时仍在这个 selector 上恢复。
     const original = sources.find(source => source.sourceSelector === selector)?.rule.style
     if (original) {
