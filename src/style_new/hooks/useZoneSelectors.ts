@@ -73,6 +73,19 @@ export function useZoneSelectors(editConfig: any, targetDom: any, _open: boolean
 
   const zoneSelectorList = useMemo(() => zoneTabs.map((tab) => tab.selector), [zoneTabs])
 
+  // 切回一个还开着变体预览的元素时，直接把 tab 选中到那个状态（比如 :hover）。
+  // 原来会先选中常规，闪一下才切到 hover
+  const prevTargetDomRef = useRef<unknown>(null)
+  if (prevTargetDomRef.current !== targetDom) {
+    prevTargetDomRef.current = targetDom
+    const el = toElementArray(targetDom)[0] ?? null
+    const preview = getStatePreviewContext()
+    if (el && preview && isStatePreviewSurface(el)) {
+      const idx = zoneSelectorList.findIndex((sel) => sel.endsWith(preview.pseudo))
+      if (idx >= 0) setActiveZoneIdx(idx)
+    }
+  }
+
   // 按 DOM class 对齐 activeZoneIdx：
   // - 仅在「未手动选 tab」时做初始/列表变化对齐
   // - class 真实变化时（MutationObserver）始终对齐，并清除手动选择标记
