@@ -6,12 +6,13 @@ import { detectContainerCollapse } from './detect-container-collapse'
 import { getEffectedCssPropertyAndOptions } from './get-effected-css'
 import { getValues } from './get-values'
 import { createAbsolutePatch } from './position'
+import { shareFreedomRules, splitFreedomRulesForExit } from './share-freedom-rules'
 import { collectSourceAntClassNames } from './style-write-target'
 import { collectZoneTabs, getOrderedZoneSourceRules, selectorSubjectStart } from './zone-tab'
 import type { ZoneSourceRule, ZoneTab } from './zone-tab'
 
 export type FreedomPlanOptions = { selector: string; soloEdit?: boolean; comId: string }
-type StylePlanItem = {
+export type StylePlanItem = {
   target: HTMLElement
   selector: string
   lessFile: string
@@ -147,7 +148,7 @@ export function buildFreedomPlan(parent: HTMLElement, parentStyle: CSSProperties
   }]
   const parentPlans: StylePlanItem[] = []
   const childPlans: StylePlanItem[] = []
-  // 2. 外层遍历父实例，内层遍历它的直接子元素；不把某一行的测量值写入公共规则。
+  // 2. 每个实例独立测量；等位置、尺寸和优先级都确定后，再合并相同的子元素规则。
   for (const currentParent of parents) {
     // freeform 每个实例都要精确定位，第一行也保留 nth-child(1)，不能退成公共规则。
     const parentSelector = buildSoloSelector(currentParent, selector.replace(/:nth-child\(\d+\)/g, ''), componentRoot,
@@ -200,15 +201,16 @@ export function buildFreedomPlan(parent: HTMLElement, parentStyle: CSSProperties
         style.top = `${top.toFixed(2)}px`
         style['--freeform-position'] = 'absolute'
       } else {
-        const source = positionSources.find(source => source.sourceSelector === targetSelector)
-          || positionSources.find(source => child.matches(source.selectorPart))
-        if (!source) continue
-        targetSelector = source.sourceSelector
-        style = { position: null, left: null, top: null, '--freeform-position': null }
-        if (source.rule.style.getPropertyValue('--freeform-width')) {
-          style.width = null
-          style['--freeform-width'] = null
+        // 子项可能同时命中公共定位和精确差异；退出时两者都要清理。
+        for (const source of positionSources.filter(source => child.matches(source.selectorPart))) {
+          style = { position: null, left: null, top: null, '--freeform-position': null }
+          if (source.rule.style.getPropertyValue('--freeform-width')) {
+            style.width = null
+            style['--freeform-width'] = null
+          }
+          childPlans.push({ target: child, selector: source.sourceSelector, lessFile, style })
         }
+        continue
       }
       childPlans.push({ target: child, selector: targetSelector, lessFile, style })
     }
@@ -263,7 +265,7 @@ export function buildFreedomPlan(parent: HTMLElement, parentStyle: CSSProperties
     }
   }
 
-  const resolvedChanges = resolveFreedomDeclarations(changes, tabs)
+  let resolvedChanges = resolveFreedomDeclarations(changes, tabs)
   if (mode === 'flex') {
     // 退出恢复：只处理有原值标记的尺寸约束；保留原优先级，原来没有声明则通过 null 删除。
     for (const { styleKey, originalMarker } of sizeFields) {
@@ -276,6 +278,11 @@ export function buildFreedomPlan(parent: HTMLElement, parentStyle: CSSProperties
         change.style[originalMarker] = null
       }
     }
+  }
+  if (mode === 'freedom' && !soloEdit) {
+    resolvedChanges = shareFreedomRules(resolvedChanges, tabs[0].sourceRules, scope, runtimeClasses)
+  } else if (mode === 'flex') {
+    resolvedChanges = splitFreedomRulesForExit(resolvedChanges, tabs[0].sourceRules, parentPlans, componentRoot)
   }
   return { scope: soloEdit ? 'single' : 'all', changes: resolvedChanges }
 }
