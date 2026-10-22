@@ -289,11 +289,25 @@ export function clearStatePreview(): void {
   lastCssText = ''
 }
 
+/**
+ * 预览记录是否还真实生效。
+ * 引擎切换至运行时，需要记录预览样式失效
+ */
+function isPreviewAlive(): boolean {
+  if (!active) return false
+  if (active.roots.every((root) => !root.isConnected)) return false
+  if (active.target.isConnected) {
+    const root = active.target.getRootNode() as Document | ShadowRoot
+    if (!Array.from(root.adoptedStyleSheets || []).includes(active.sheet)) return false
+  }
+  return true
+}
+
 /** 样式源变化后重算预览内容；没在预览时啥也不做。 */
 export function refreshStatePreview(): void {
   if (!active) return
-  // 预览根元素全被宿主删掉/替换时自愈，避免标记残留在画布上
-  if (active.roots.every((root) => !root.isConnected)) {
+  // 预览根元素被宿主删掉/替换、或样式表被摘掉时自愈，避免残留过期记录
+  if (!isPreviewAlive()) {
     clearStatePreview()
     return
   }
@@ -336,5 +350,10 @@ export function getStatePreviewContext(): {
   pseudo: string
 } | null {
   if (!active) return null
+  // 读到过期数据清除
+  if (!isPreviewAlive()) {
+    clearStatePreview()
+    return null
+  }
   return { target: active.target, roots: [...active.roots], batch: active.batch, pseudo: active.pseudo }
 }
