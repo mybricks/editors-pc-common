@@ -42,6 +42,7 @@ import {
   parseTextFillDisplayValue,
 } from "../../helper/text-fill";
 import { getColorEditorValue } from "../../helper/get-color-editor-value";
+import { normalizeCssValue } from "../../helper/normalize-css-value";
 import { collectZoneTabs, mergeZoneTabsByState } from "../../../core/zone-tab";
 import { createStyleResolution } from "../../../core/style-property";
 import { formatCssVarTitle, parseCssVar } from "../../../core/css-var";
@@ -293,13 +294,6 @@ function parseDecorationLength(value: string | undefined): string | null {
   return value;
 }
 
-// CSSOM 回读可能把 rgba(..., 1) 改成 rgb(...)；按浏览器序列化后的值比较。
-function normalizeTextFillValue(value: string): string {
-  const style = document.createElement('span').style;
-  style.background = value;
-  return style.background || value;
-}
-
 export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProps) {
   const themeVars = useThemeVars();
   const FONT_WEIGHT_OPTIONS = useMemo(() => [
@@ -461,7 +455,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
     const incomingFill = effectiveTextFillValue || normalTextFillPreview || '';
     // 状态样式会在本地写入后重建 effectiveStyle；与已提交值一致时保留取色器实例。
     const isStateWriteback = !!zoneTab?.pseudo && previousSource.targetDom === targetDom &&
-      normalizeTextFillValue(currentFill) === normalizeTextFillValue(incomingFill);
+      normalizeCssValue('background', currentFill) === normalizeCssValue('background', incomingFill);
     textFillSourceRef.current = { targetDom, normalTextFillPreview };
     textFillStyleRef.current = value as Record<string, any>;
     setTextFillAuthored(
