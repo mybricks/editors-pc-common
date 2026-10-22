@@ -153,7 +153,17 @@ export function buildFreedomPlan(parent: HTMLElement, parentStyle: CSSProperties
     const parentSelector = buildSoloSelector(currentParent, selector.replace(/:nth-child\(\d+\)/g, ''), componentRoot,
       { keepTopLevelFirstChild: true })
     const lessFile = JSON.parse(currentParent.dataset.loc!).files.less
-    const position = window.getComputedStyle(currentParent).position as CSSProperties['position']
+    const parentComputed = window.getComputedStyle(currentParent)
+    const position = parentComputed.position as CSSProperties['position']
+    // 父容器只测量一次；用未取整的 CSS 边框盒尺寸还原画布缩放，供所有子元素定位复用。
+    const parentRect = currentParent.getBoundingClientRect()
+    const contentBox = parentComputed.boxSizing === 'content-box'
+    const parentWidth = parseFloat(parentComputed.width) + (contentBox
+      ? parseFloat(parentComputed.paddingLeft) + parseFloat(parentComputed.paddingRight) + parseFloat(parentComputed.borderLeftWidth) + parseFloat(parentComputed.borderRightWidth) : 0)
+    const parentHeight = parseFloat(parentComputed.height) + (contentBox
+      ? parseFloat(parentComputed.paddingTop) + parseFloat(parentComputed.paddingBottom) + parseFloat(parentComputed.borderTopWidth) + parseFloat(parentComputed.borderBottomWidth) : 0)
+    const scaleX = parentRect.width / parentWidth
+    const scaleY = parentRect.height / parentHeight
     // 标记也跟随实例，支持全部切入后只退出其中一行。
     parentPlans.push({ target: currentParent, selector: parentSelector, lessFile,
       style: mode === 'freedom'
@@ -168,7 +178,8 @@ export function buildFreedomPlan(parent: HTMLElement, parentStyle: CSSProperties
       let targetSelector = `${parentSelector} > ${appendNthChild(childSelector, index + 1)}`
       let style: StylePlanItem['style']
       if (mode === 'freedom') {
-        if (window.getComputedStyle(child).position === 'absolute') continue
+        const computed = window.getComputedStyle(child)
+        if (computed.position === 'absolute') continue
         const selectors = buildZoneSelectorsFromCssom(child, comId)
         const bases = selectors.map(selectorClasses)
         const sourceRules = sources.filter(({ source, classes }) =>
@@ -181,6 +192,12 @@ export function buildFreedomPlan(parent: HTMLElement, parentStyle: CSSProperties
           affectedSelectors: selectors, sourceRules, baseRules: sourceRules, target: child }
         const currentStyle = readFreedomSize(child, selectors, tab, comId)
         style = createAbsolutePatch(child, currentStyle, currentParent)
+        // 位置用小数矩形换算，扣除父边框和保留的 margin；最后统一取两位，避免 offsetTop/Left 丢失精度。
+        const childRect = child.getBoundingClientRect()
+        const left = (childRect.left - parentRect.left) / scaleX + currentParent.scrollLeft - parseFloat(parentComputed.borderLeftWidth) - parseFloat(computed.marginLeft)
+        const top = (childRect.top - parentRect.top) / scaleY + currentParent.scrollTop - parseFloat(parentComputed.borderTopWidth) - parseFloat(computed.marginTop)
+        style.left = `${left.toFixed(2)}px`
+        style.top = `${top.toFixed(2)}px`
         style['--freeform-position'] = 'absolute'
       } else {
         const source = positionSources.find(source => source.sourceSelector === targetSelector)
