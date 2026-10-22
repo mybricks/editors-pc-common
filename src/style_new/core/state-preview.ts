@@ -468,12 +468,14 @@ export function isStatePreviewRelated(el: Element): boolean {
   return active.roots.some((root) => root.contains(el))
 }
 
-/** 当前预览的信息（状态、发起元素、预览根、是否批量）；没预览时返回 null。 */
+/** 当前预览的信息（状态、发起元素、预览根、是否批量、下钻父级）；没预览时返回 null。 */
 export function getStatePreviewContext(): {
   target: Element
   roots: Element[]
   batch: boolean
   pseudo: string
+  /** 下钻前预览的那个父级元素；在它上面点常规 tab，整个预览退出，包括子元素的预览 */
+  parentTarget: Element | null
 } | null {
   if (!active) return null
   // 读到过期数据清除
@@ -481,5 +483,11 @@ export function getStatePreviewContext(): {
     clearStatePreview()
     return null
   }
-  return { target: active.target, roots: [...active.roots], batch: active.batch, pseudo: active.pseudo }
+  return {
+    target: active.target,
+    roots: [...active.roots],
+    batch: active.batch,
+    pseudo: active.pseudo,
+    parentTarget: active.parent?.target ?? null,
+  }
 }

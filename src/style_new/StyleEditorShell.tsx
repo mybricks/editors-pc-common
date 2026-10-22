@@ -251,14 +251,19 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
       )
       return
     }
-    // 手动点基础态：点在预览根元素上才算退出；在子元素等关联元素上点只是切换编辑对象
-    const manualExit = !!preview && userSelectedRef.current && preview.roots.includes(selectedTarget)
+    // 手动点常规 tab 退出预览，分三种情况：
+    // - 点在预览根上（发起预览的那个元素）：退一层，回到父级的预览
+    // - 点在父级上（下钻前预览过的那个）：整个预览退出
+    // - 点在子孙等其他相关元素上：不算退出，只是切过去编辑
+    const manualExitAtRoot = !!preview && userSelectedRef.current && preview.roots.includes(selectedTarget)
+    const manualExit = manualExitAtRoot
+      || (!!preview && userSelectedRef.current && preview.parentTarget === selectedTarget)
     if (editMode && selectedTarget && !manualExit && isStatePreviewRelated(selectedTarget)) {
       return
     }
-
-    // 回退到父级预览（如子 hover 退出后，父 hover 的效果保留）
-    if (manualExit && retreatStatePreview()) {
+    // 只有预览根上的退出才退一层；父级上退出直接全清——
+    // 父子同时 hover 是一体的，没法只退父、留着子
+    if (manualExitAtRoot && retreatStatePreview()) {
       return
     }
     clearStatePreview()
