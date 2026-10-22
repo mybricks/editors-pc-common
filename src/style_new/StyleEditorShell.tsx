@@ -44,6 +44,7 @@ import type { SavedSoloStyle } from './core/build-solo-selector'
 import { excludeSoloSources } from './core/zone-tab'
 import type { ZoneTab } from './core/zone-tab'
 import { applyStatePreview, clearStatePreview, getStatePreviewContext, isPreviewablePseudo, isStatePreviewRelated } from './core/state-preview'
+import { registerVariationFocusHandler, setFocusedVariation } from './core/variations'
 import { getDocument, toElementArray } from './core/dom'
 import { backToVisualIcon } from './icon'
 import { ZoneTabBar } from './ZoneTabBar'
@@ -255,6 +256,23 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
     }
     clearStatePreview()
   }, [editMode, selectedTarget, activeZoneTab, isSoloEdit, shellComId])
+
+  // 把当前选中的变体同步给引擎（getVariations 的 focused 字段按此算）。
+  // 宿主会反复卸载/重挂面板，重挂后 tab 对齐回默认，这里会重新同步。
+  useEffect(() => {
+    setFocusedVariation(activeZoneTab?.selector ?? null)
+  }, [activeZoneTab])
+  useEffect(() => () => setFocusedVariation(null), [])
+
+  // 引擎通过 useVariation(selector) 让面板聚焦某个变体，效果等同用户手动点 tab
+  useEffect(() => {
+    return registerVariationFocusHandler((selector) => {
+      const idx = zoneTabs.findIndex((tab) => tab.selector === selector)
+      if (idx < 0) return false
+      setActiveZoneIdx(idx)
+      return true
+    })
+  }, [zoneTabs, setActiveZoneIdx])
 
   const zoneTabAddOptions = useMemo(() => {
     const ZONE_TAB_ADD_OPTIONS = [
