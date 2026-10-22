@@ -451,13 +451,14 @@ function isSimilarToPreview(el: Element): boolean {
 }
 
 /**
- * 元素是否为预览根元素、同类元素，或预览标记链上的祖先。
- * 换选中时据此恢复状态 tab——切回祖先（如预览子元素时切回它的父元素）
- * 也能保持 hover tab 选中、预览不丢；子孙不算——子孙应落回基础态编辑。
+ * 元素是否为预览根元素、同类元素，或下钻来源的父级会话元素。
+ * 换选中时据此恢复状态 tab——下钻到子元素后切回它的父级（如 discountValue
+ * 切回 discountRow），父级的状态 tab 恢复选中、预览不丢。
+ * 其余祖先不算：点链外的祖先应退出预览；子孙也不算——子孙落回基础态编辑。
  */
 export function isStatePreviewSurface(el: Element): boolean {
   if (!active) return false
-  return active.marked.includes(el) || isSimilarToPreview(el)
+  return active.roots.includes(el) || active.parent?.target === el || isSimilarToPreview(el)
 }
 
 /** 元素是否在预览范围内：预览根、同类元素，或它们的子孙。 */
