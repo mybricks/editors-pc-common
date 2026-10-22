@@ -343,7 +343,7 @@ export function applyStatePreview(
   batchOptions?: { comId: string }
 ): void {
   // 下钻从父级会话切到它子孙的状态 tab 时，记下父级会话。
-  // 子元素之退出状态（点回常规 tab）时回退到父级，只影响自己这层
+  // 子元素如果退出变体（点回常规 tab），回退到父级状态
   const parent = active && active.roots.some((root) => root !== target && root.contains(target))
     ? { target: active.target, tab: active.tab, batch: active.batch, comId: active.comId }
     : null
