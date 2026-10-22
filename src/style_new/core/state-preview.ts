@@ -22,6 +22,7 @@ import { collectZoneStyleRules } from './zone-tab'
 import type { ZoneTab } from './zone-tab'
 import { elMatchesSelectorTail } from './css-modules-match'
 import { getDocument } from './dom'
+import { splitTopLevelSelectors } from './selector-utils'
 import { STATE_PREVIEW_ATTR, clearStatePreviewSizes, setStatePreviewSheet, setStatePreviewSize } from './state-preview-tag'
 
 /** 真实交互态：鼠标真悬停、真聚焦等场景下，计算样式会被干扰，StyleMount 用它做保护。 */
@@ -160,20 +161,101 @@ function buildPreviewRuleBody(positive: boolean, rule: CSSStyleRule): string {
 }
 
 /**
- * 扫描全部样式规则，把含该伪类的选择器改写后拼成预览样式表内容。
- * 用全量扫描是因为像 `.topTipBar:hover` 这种写在祖先上的规则
- * 不在当前 tab 里，但预览时也要生效。
+ * 把伪元素尾巴去掉，返回能去 DOM 里查的主体。
+ * 比如 `.a:hover::after` 改写后是 `.a[data-…]::after`，但 ::after 不是
+ * 真实元素、querySelector 查不了它，所以要截成 `.a[data-…]` 来查它挂在哪个元素上。
+ */
+function previewSubjectSelector(selector: string): string {
+  let quote = ''
+  let depth = 0
+  for (let index = 0; index < selector.length; index++) {
+    const ch = selector[index]
+    if (ch === '\\') {
+      index++
+      continue
+    }
+    if (quote) {
+      if (ch === quote) quote = ''
+      continue
+    }
+    if (ch === '"' || ch === "'") {
+      quote = ch
+      continue
+    }
+    if (ch === '(' || ch === '[') depth++
+    if (ch === ')' || ch === ']') depth--
+    if (depth === 0 && ch === ':' && (
+      selector[index + 1] === ':' || /^:(before|after|first-line|first-letter)(?![\w-])/.test(selector.slice(index))
+    )) {
+      const subject = selector.slice(0, index)
+      if (!subject || /[\s>+~]$/.test(subject)) return subject + '*'
+      return subject
+    }
+  }
+  return selector
+}
+
+/**
+ * 判断一条改写后的规则，预览是不是真用得到。
+ * 用法很简单：预览时只有预览元素和它的祖先挂着标记，所以
+ * - 普通规则：能查到带标记的元素 → 用得到；查不到 → 是陪跑的，丢掉
+ * - :not(:hover) 这种否定规则：查“挂标记”和“不挂标记”两种情况各自命中
+ *   哪些元素，命中面没变化就说明和预览无关，丢掉
+ */
+function ruleUsesPreviewState(
+  root: Document | ShadowRoot,
+  activeSelector: string,
+  inactiveSelector: string,
+  positive: boolean,
+): boolean {
+  try {
+    // 普通规则（处于 hover 就生效的）：查得到带标记的元素就收，查不到就丢
+    if (positive) {
+      const subject = previewSubjectSelector(activeSelector)
+      // 标记截没了，说明它挂在伪元素上（如 ::-webkit-scrollbar-thumb:hover），
+      // 伪元素带不了属性、永远命中不了，直接丢
+      if (!subject.includes(STATE_PREVIEW_ATTR)) return false
+      return !!root.querySelector(subject)
+    }
+    // :not(:hover) 这种否定规则：比对挂/不挂标记各命中哪些元素，
+    // 命中的元素没变化就说明这条规则跟预览无关，丢掉
+    const activeMatches = Array.from(root.querySelectorAll(previewSubjectSelector(activeSelector)))
+    const inactiveMatches = new Set(root.querySelectorAll(previewSubjectSelector(inactiveSelector)))
+    return activeMatches.length !== inactiveMatches.size
+      || activeMatches.some((element) => !inactiveMatches.has(element))
+  } catch {
+    // 遇到 DOM 查询不认识的选择器，验证不了就不收
+    return false
+  }
+}
+
+/**
+ * 扫出预览样式表的全部内容。
+ * 全量扫是因为像 `.topTipBar:hover` 这种写在祖先上的规则不在当前 tab 里，
+ * 但预览时也要生效；扫到后每条都用 ruleUsesPreviewState 验一遍，
+ * 用不到的不写进去。
  */
 function buildPreviewCssText(pseudo: string): string {
+  if (!active) return ''
+  const root = active.target.getRootNode() as Document | ShadowRoot
   const attrSelector = `[${STATE_PREVIEW_ATTR}="${escapeAttrValue(pseudo)}"]`
   const lines: string[] = []
+  const seen = new Set<string>()
   collectZoneStyleRules().forEach(({ rule }) => {
-    const selectorText = rule.selectorText
-    if (!selectorText) return
-    if (!rule.style?.length) return
-    const rewritten = replaceStatePseudo(selectorText, pseudo, attrSelector)
-    if (!rewritten) return
-    lines.push(`${rewritten.text}{${buildPreviewRuleBody(rewritten.positive, rule)}}`)
+    if (!rule.selectorText || !rule.style?.length) return
+    // 一条规则可能写了好几个选择器（逗号隔开的），拆开逐个处理
+    for (const selector of splitTopLevelSelectors(rule.selectorText)) {
+      const rewritten = replaceStatePseudo(selector, pseudo, attrSelector)
+      if (!rewritten) continue
+      // “没处于该状态”的版本，只在上面否定规则比对时用
+      const inactive = replaceStatePseudo(selector, pseudo, ':not(*)')!
+      if (!ruleUsesPreviewState(root, rewritten.text, inactive.text, rewritten.positive)) continue
+      const line = `${rewritten.text}{${buildPreviewRuleBody(rewritten.positive, rule)}}`
+      // 宿主有时会把同一份样式注入两遍，重复的只留一份
+      if (seen.has(line)) continue
+      seen.add(line)
+      lines.push(line)
+    }
   })
   return lines.join('\n')
 }
