@@ -260,6 +260,8 @@ export function applyStatePreview(
     marked.push(root)
     if (chain) {
       // 沿祖先链向上标记，到根节点为止
+      // 为什么祖先也要标：鼠标压在 payItem 上时，父元素 paymentSection 同时也处于 hover 态，
+      // .paymentSection:hover 这类规则预览时也要生效，所以祖先得一起挂。
       for (let el = root.parentElement; el; el = el.parentElement) {
         marked.push(el)
       }
