@@ -43,7 +43,7 @@ import {
 import type { SavedSoloStyle } from './core/build-solo-selector'
 import { excludeSoloSources } from './core/zone-tab'
 import type { ZoneTab } from './core/zone-tab'
-import { applyStatePreview, clearStatePreview, getStatePreviewContext, isPreviewablePseudo, isStatePreviewRelated } from './core/state-preview'
+import { applyStatePreview, clearStatePreview, getStatePreviewContext, isPreviewablePseudo, isStatePreviewRelated, isStatePreviewSurface, retreatStatePreview } from './core/state-preview'
 import { registerVariationFocusHandler, setFocusedVariation } from './core/variations'
 import { getDocument, toElementArray } from './core/dom'
 import { backToVisualIcon } from './icon'
@@ -238,8 +238,10 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
     const preview = getStatePreviewContext()
     const batch = !isSoloEdit
     if (editMode && pseudo && isPreviewablePseudo(pseudo) && selectedTarget) {
-      // 同一状态、同模式已在预览且点的是相关元素：效果不变，跳过
-      if (preview?.pseudo === pseudo && preview.batch === batch && isStatePreviewRelated(selectedTarget)) {
+      // 同一状态、同模式已在预览且点的是预览对象本身（或同类元素）：效果不变，跳过。
+      // 子孙不能算：子孙的伪类 tab 只可能是手动点的（自动对齐会落回常规 tab），
+
+      if (preview?.pseudo === pseudo && preview.batch === batch && isStatePreviewSurface(selectedTarget)) {
         return
       }
       applyStatePreview(
@@ -252,6 +254,11 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
     // 手动点基础态：点在预览根元素上才算退出；在子元素等关联元素上点只是切换编辑对象
     const manualExit = !!preview && userSelectedRef.current && preview.roots.includes(selectedTarget)
     if (editMode && selectedTarget && !manualExit && isStatePreviewRelated(selectedTarget)) {
+      return
+    }
+
+    // 回退到父级预览（如子 hover 退出后，父 hover 的效果保留）
+    if (manualExit && retreatStatePreview()) {
       return
     }
     clearStatePreview()

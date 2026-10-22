@@ -38,6 +38,14 @@ export function isPreviewablePseudo(pseudo: string): boolean {
 /** 这些状态会同时作用于祖先（压住子元素时，父元素也处于 hover 等），预览要连祖先一起标记。 */
 const CHAIN_STATES: ReadonlySet<string> = new Set([':hover', ':active', ':focus-within'])
 
+/** 回退用的父级会话快照：重新应用一次父级预览所需的全部信息 */
+type PreviewSession = {
+  target: Element
+  tab: ZoneTab
+  batch: boolean
+  comId?: string
+}
+
 type ActivePreview = {
   /** 发起预览的元素（用户点 tab 时选中的那个） */
   target: Element
@@ -45,12 +53,18 @@ type ActivePreview = {
   roots: Element[]
   /** 是否批量预览（对应面板的“应用至全部”） */
   batch: boolean
+  /** 批量预览的组件根 id，回退重建时用 */
+  comId?: string
   pseudo: string
   /** 预览对应 tab 的完整选择器，用于同类元素判断 */
   tabSelector: string
+  /** 发起预览的 tab，回退到本会话时重新应用用 */
+  tab: ZoneTab
   sheet: CSSStyleSheet
   /** 打了预览标记的元素，清除时用 */
   marked: Element[]
+  /** 下钻前的父级会话：在本元素上退出状态时回退到它，只退自己这层 */
+  parent: PreviewSession | null
 }
 
 /** 当前正在预览的内容；同一时刻只有一个元素 + 一个状态 */
@@ -328,6 +342,11 @@ export function applyStatePreview(
   tab: ZoneTab,
   batchOptions?: { comId: string }
 ): void {
+  // 下钻从父级会话切到它子孙的状态 tab 时，记下父级会话。
+  // 子元素之退出状态（点回常规 tab）时回退到父级，只影响自己这层
+  const parent = active && active.roots.some((root) => root !== target && root.contains(target))
+    ? { target: active.target, tab: active.tab, batch: active.batch, comId: active.comId }
+    : null
   clearStatePreview()
   const pseudo = tab.pseudo
   if (!pseudo) return
@@ -351,7 +370,18 @@ export function applyStatePreview(
   }
 
   const sheet = adoptPreviewSheet(target)
-  active = { target, roots, batch: !!batchOptions, pseudo, tabSelector: tab.selector, sheet, marked }
+  active = {
+    target,
+    roots,
+    batch: !!batchOptions,
+    comId: batchOptions?.comId,
+    pseudo,
+    tabSelector: tab.selector,
+    tab,
+    sheet,
+    marked,
+    parent,
+  }
   setStatePreviewSheet(sheet)
   marked.forEach((el) => el.setAttribute(STATE_PREVIEW_ATTR, pseudo))
   // 预览样式马上要应用、布局可能变化；先把各条链的尺寸冻结下来，
@@ -369,6 +399,18 @@ export function clearStatePreview(): void {
   clearStatePreviewSizes()
   active = null
   lastCssText = ''
+}
+
+/**
+ * 在预览根元素上退出状态时优先用它：若本预览是从祖先的状态 tab 下钻来的，
+ * 只退自己这层——重新应用父级会话（如子元素 hover 退出后，父元素的 hover
+ * 效果保留）
+ */
+export function retreatStatePreview(): boolean {
+  if (!active?.parent) return false
+  const { target, tab, batch, comId } = active.parent
+  applyStatePreview(target, tab, batch && comId ? { comId } : undefined)
+  return true
 }
 
 /**
@@ -409,12 +451,13 @@ function isSimilarToPreview(el: Element): boolean {
 }
 
 /**
- * 元素是否为预览根元素或同类元素。换选中时据此恢复状态 tab；
- * 子孙不算——子孙应落回基础态编辑。
+ * 元素是否为预览根元素、同类元素，或预览标记链上的祖先。
+ * 换选中时据此恢复状态 tab——切回祖先（如预览子元素时切回它的父元素）
+ * 也能保持 hover tab 选中、预览不丢；子孙不算——子孙应落回基础态编辑。
  */
 export function isStatePreviewSurface(el: Element): boolean {
   if (!active) return false
-  return active.roots.includes(el) || isSimilarToPreview(el)
+  return active.marked.includes(el) || isSimilarToPreview(el)
 }
 
 /** 元素是否在预览范围内：预览根、同类元素，或它们的子孙。 */
