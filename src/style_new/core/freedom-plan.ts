@@ -238,6 +238,8 @@ export function buildFreedomPlan(parent: HTMLElement, parentStyle: CSSProperties
     // 4. 子元素使用自己的实测补值，并保存当前精确规则的原值；退出复用同一条规则恢复。
     const stylesBySelector = new Map(tabs[0].sourceRules.map(source => [source.sourceSelector, source.rule.style]))
     for (const change of childPlans) {
+      // 即使子元素无需补尺寸，margin 也可能变化；先合并位置修正，再处理下面可能提前跳过的尺寸补偿。
+      Object.assign(change.style, result.childPositionPatches.get(change.target))
       delete change.style.width
       delete change.style.height
       const sizePatch = result.childSizePatches.get(change.target)

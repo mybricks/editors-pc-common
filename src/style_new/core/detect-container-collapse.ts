@@ -1,4 +1,7 @@
-/** 整批模拟子元素脱流，测量当前容器和宽度依赖的源码祖先，返回前恢复临时样式。 */
+/**
+ * freeform 切换前的一次试排版：临时把子元素改成 absolute，先保护父容器，再补偿子元素尺寸，最后修正 margin 带来的偏移。
+ * 这里仅返回需要写入的样式补丁；临时改过的 DOM 在 finally 中恢复，由调用方统一写入最终计划。
+ */
 export function detectContainerCollapse(
   parentPlans: { target: HTMLElement; style: Record<string, unknown> }[], widthAncestors: HTMLElement[],
   childPlans: { target: HTMLElement; style: Record<string, unknown> }[],
@@ -14,6 +17,12 @@ export function detectContainerCollapse(
   const ancestorWidths = widthAncestors.map(element => ({ element, width: readSize(element).width }))
   const childSizes = childPlans.filter(({ style }) => 'width' in style || 'height' in style)
     .map(({ target, style }) => ({ element: target, style, before: readSize(target) }))
+  // 保存切换前实际占用的 margin（例如 auto 此时分配到了 30px），用于和脱流后比较。
+  // 必须保存具体值；getComputedStyle 返回的对象会随着下面的临时布局变化。
+  const childMargins = childPlans.map(({ target, style }) => {
+    const css = target.ownerDocument.defaultView!.getComputedStyle(target)
+    return { target, style, marginLeft: css.marginLeft, marginTop: css.marginTop }
+  })
   const saved = Array.from(new Set([...parents, ...children, ...widthAncestors])).map(element => ({
     element,
     style: element.getAttribute('style'),
@@ -82,12 +91,28 @@ export function detectContainerCollapse(
         }
       })
     }
+    // 阶段五：父子尺寸补偿完成后再读 margin，避免拿到中间布局下的值。
+    // 初始 top/left 已按“元素原位置 - 原 margin”计算，但 auto、百分比等 margin 在脱流后可能改变。
+    // 新坐标 = 初始坐标 + 原 margin - 脱流后的 margin，横纵两轴使用同一公式。
+    // 例如原位置为 30px，auto margin 原为 30px，初始 left 为 0；脱流后 margin 变为 0，就要把 left 补回 30px。
+    // 只修正位置，保留原 margin 声明；切回 flex 时仍由原有逻辑删除 top/left，恢复 margin 的布局作用。
+    const childPositionPatches = new Map<HTMLElement, { left?: string; top?: string }>()
+    for (const before of childMargins) {
+      const after = before.target.ownerDocument.defaultView!.getComputedStyle(before.target)
+      const patch: { left?: string; top?: string } = {}
+      for (const [position, margin] of [['left', 'marginLeft'], ['top', 'marginTop']] as const) {
+        const delta = parseFloat(before[margin]) - parseFloat(after[margin])
+        if (delta !== 0) patch[position] = `${(parseFloat(String(before.style[position])) + delta).toFixed(2)}px`
+      }
+      childPositionPatches.set(before.target, patch)
+    }
     return {
       parentPatches,
       childSizePatches,
+      childPositionPatches,
     }
   } finally {
-    // 阶段五：测量结束即恢复 DOM；实际样式仍统一由外部计划写入。
+    // 阶段六：测量结束即恢复 DOM；实际样式仍统一由外部计划写入。
     for (const { element, style } of saved) {
       element.setAttribute('style', style ?? '')
       if (style === null) element.removeAttribute('style')
