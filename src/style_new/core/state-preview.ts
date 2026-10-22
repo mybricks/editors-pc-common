@@ -321,11 +321,11 @@ export function isStatePreviewSurface(el: Element): boolean {
   return active.roots.includes(el) || isSimilarToPreview(el)
 }
 
-/** 元素是否在预览范围内：预览根、同类元素，或它们的祖先/子孙。 */
+/** 元素是否在预览范围内：预览根、同类元素，或它们的子孙。 */
 export function isStatePreviewRelated(el: Element): boolean {
   if (!active) return false
   if (isStatePreviewSurface(el)) return true
-  return active.roots.some((root) => root.contains(el) || el.contains(root))
+  return active.roots.some((root) => root.contains(el))
 }
 
 /** 当前预览的信息（状态、发起元素、预览根、是否批量）；没预览时返回 null。 */
