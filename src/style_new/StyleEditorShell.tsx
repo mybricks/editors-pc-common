@@ -257,7 +257,7 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
     clearStatePreview()
   }, [editMode, selectedTarget, activeZoneTab, isSoloEdit, shellComId])
 
-  // 把当前选中的变体同步给引擎（getVariations 的 focused 字段按此算）。
+  // 把当前选中的变体同步给引擎
   // 宿主会反复卸载/重挂面板，重挂后 tab 对齐回默认，这里会重新同步。
   useEffect(() => {
     setFocusedVariation(activeZoneTab?.selector ?? null)
