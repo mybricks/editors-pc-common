@@ -163,10 +163,23 @@ export function buildFreedomPlan(parent: HTMLElement, parentStyle: CSSProperties
   const childPlans: StylePlanItem[] = []
   // 2. 每个实例独立测量；等位置、尺寸和优先级都确定后，再合并相同的父子元素规则。
   for (const currentParent of parents) {
-    // 唯一父容器直接用基础 selector
-    // 重复父容器继续交给 buildSoloSelector
-    const parentSelector = uniqueParent ? parentBaseSelector
-      : buildSoloSelector(currentParent, parentBaseSelector, componentRoot, { keepTopLevelFirstChild: true })
+    // 唯一父容器直接用基础 selector；重复父容器先判断能否使用短路径。
+    let parentSelector = parentBaseSelector
+    let needsSoloSelector = !uniqueParent
+    if (mode === 'freedom' && !soloEdit && !uniqueParent) {
+      // 从当前编辑范围加行号，后续合并同值规则时即可回到原 selector，不额外绑定祖先位置。
+      const rowIndex = Array.from(currentParent.parentElement!.children).indexOf(currentParent) + 1
+      const shortSelector = appendNthChild(selector, rowIndex)
+      const shortRuntimeSelector = appendNthChild(runtimeSelector, rowIndex)
+      // 不同区块若有同序号行，仍需原路径区分，避免位置和尺寸互相覆盖。
+      if (scope.querySelectorAll(shortRuntimeSelector).length === 1) {
+        parentSelector = shortSelector
+        needsSoloSelector = false
+      }
+    }
+    if (needsSoloSelector) {
+      parentSelector = buildSoloSelector(currentParent, parentBaseSelector, componentRoot, { keepTopLevelFirstChild: true })
+    }
     const lessFile = JSON.parse(currentParent.dataset.loc!).files.less
     const parentComputed = window.getComputedStyle(currentParent)
     const position = parentComputed.position as CSSProperties['position']
