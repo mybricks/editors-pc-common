@@ -269,8 +269,8 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
     clearStatePreview()
   }, [editMode, selectedTarget, activeZoneTab, isSoloEdit, shellComId])
 
-  // 卸载时刷新变体预览样式
-  useEffect(() => () => {
+    // 初始化时刷新变体预览样式
+  useEffect(() => {
     refreshStatePreview()
   }, [])
 
