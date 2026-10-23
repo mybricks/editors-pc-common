@@ -109,21 +109,21 @@ export function emitUndoAll(): void {
 }
 
 /**
- * bu
-y * 返回 false 表示该元素没有这个变体
+ * 在样式面板没有渲染的场景下，支持应用变体预览样式
+ * 返回 false 表示该元素没有这个变体
  */
 export function selectVariation(dom: HTMLElement, comId: string, selector: string): boolean {
   if (!dom) return false
   const found = collectDisplayZoneTabs([dom], comId).find(({ tab }) => tab.selector === selector)
   if (!found) return false
-  // 面板在场先借它切：面板的 tab 会跟过去，预览和 focused 由面板自己的 effect 更新
+  // 面板存在时，直接就用面板的变体预览
   if (useVariation(selector)) return true
   const { tab } = found
   if (tab.pseudo) {
-    // 预览范围和面板默认一致：同类元素一起（需要 comId）
+    // 应用预览样式
     applyStatePreview(dom, tab, comId ? { comId } : undefined)
   } else {
-    // 切回常规 = 收回预览
+    // 清除预览
     clearStatePreview()
   }
   setFocusedVariation(selector)
