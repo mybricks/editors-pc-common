@@ -192,11 +192,16 @@ export function buildFreedomPlan(parent: HTMLElement, parentStyle: CSSProperties
       ? parseFloat(parentComputed.paddingTop) + parseFloat(parentComputed.paddingBottom) + parseFloat(parentComputed.borderTopWidth) + parseFloat(parentComputed.borderBottomWidth) : 0)
     const scaleX = parentRect.width / parentWidth
     const scaleY = parentRect.height / parentHeight
-    // 标记与容器样式一起参与合并，退出时按它实际落在的规则确定范围。
-    parentPlans.push({ target: currentParent, selector: parentSelector, lessFile,
-      style: mode === 'freedom'
-        ? { '--layout-mode': 'freedom', position: position === 'static' ? 'relative' : position }
-        : { '--layout-mode': null } })
+    if (mode === 'freedom') {
+      parentPlans.push({ target: currentParent, selector: parentSelector, lessFile,
+        style: { '--layout-mode': 'freedom', position: position === 'static' ? 'relative' : position } })
+    } else {
+      // 退出沿用实际标记规则；共享规则和 nth 差异都要恢复，不能重新拼路径删除。
+      for (const source of tabs[0].sourceRules.filter(source =>
+        source.rule.style.getPropertyValue('--layout-mode').trim() === 'freedom' && currentParent.matches(source.selectorPart))) {
+        parentPlans.push({ target: currentParent, selector: source.sourceSelector, lessFile, style: { '--layout-mode': null } })
+      }
+    }
     const currentChildren = Array.from(currentParent.children) as HTMLElement[]
     // 一次统计直接子元素的所有 class；同一 class 在兄弟节点中重复时才需要序号。
     const childClassSelectors = currentChildren.map(child => collectSubjectClassSelectors(child))
@@ -206,8 +211,10 @@ export function buildFreedomPlan(parent: HTMLElement, parentStyle: CSSProperties
     }
     for (let index = 0; index < currentChildren.length; index++) {
       const child = currentChildren[index]
-      // 布局规则归父容器文件所有；跨文件子组件用直接子节点序号，避免丢失父实例作用域。
-      const childSelector = JSON.parse(child.dataset.loc!).files.less === lessFile
+      // 布局规则统一写入父容器文件；仅确认同文件时使用子元素的源码 class。
+      // 跨文件或没有 data-loc 时，沿用直接子节点 nth 定位，子元素仍参与布局转换。
+      const childLoc = child.dataset.loc
+      const childSelector = childLoc && JSON.parse(childLoc).files.less === lessFile
         ? childClassSelectors[index][0] ?? '' : ''
       let targetSelector = `${parentSelector} > ${childClassCounts.get(childSelector) === 1
         ? childSelector : appendNthChild(childSelector, index + 1)}`
@@ -330,7 +337,7 @@ export function buildFreedomPlan(parent: HTMLElement, parentStyle: CSSProperties
   if (mode === 'freedom' && !soloEdit) {
     resolvedChanges = shareFreedomRules(resolvedChanges, tabs[0].sourceRules, scope, runtimeClasses)
   } else if (mode === 'flex') {
-    resolvedChanges = splitFreedomRulesForExit(resolvedChanges, tabs[0].sourceRules, parentPlans, componentRoot)
+    resolvedChanges = splitFreedomRulesForExit(resolvedChanges, tabs[0].sourceRules, parentPlans, componentRoot, scope)
   }
   return { scope: soloEdit ? 'single' : 'all', changes: resolvedChanges }
 }

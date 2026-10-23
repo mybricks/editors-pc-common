@@ -346,6 +346,8 @@ function LayoutEditor({ editValue, previewValue, clearedGapKeys, onChangeValue, 
   const renderFlexDirection = () => {
     const onSelect = (layout: Layout) => {
       if (layout === 'freedom') {
+        // 已选中时不重复转换，避免覆盖首次进入时记录的原始样式。
+        if (freedom) return;
         onFreedomSelect();
         setFreedom(true);
         return;

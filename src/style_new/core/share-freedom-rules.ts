@@ -91,7 +91,7 @@ export function shareFreedomRules(changes: StylePlanItem[], sources: ZoneSourceR
 }
 
 /** 退出一行前先拆开它命中的共享规则，其余行保留原布局，再复用现有 null 删除和原值恢复。 */
-export function splitFreedomRulesForExit(changes: StylePlanItem[], sources: ZoneSourceRule[], parentPlans: StylePlanItem[], componentRoot: Element) {
+export function splitFreedomRulesForExit(changes: StylePlanItem[], sources: ZoneSourceRule[], parentPlans: StylePlanItem[], componentRoot: Element, scope: Element) {
   const exiting = new Set(changes.filter(change => change.style['--freeform-position'] === null).map(change => change.target))
   const handled = new Set<string>()
   const result: StylePlanItem[] = []
@@ -106,7 +106,8 @@ export function splitFreedomRulesForExit(changes: StylePlanItem[], sources: Zone
     const key = JSON.stringify([change.lessFile, change.selector])
     if (handled.has(key)) continue
     handled.add(key)
-    const peers = Array.from(componentRoot.querySelectorAll<HTMLElement>(source.selectorPart)).filter(target => !exiting.has(target))
+    // 与退出目标使用同一作用范围，避免把其他页面实例补写成新的定位规则。
+    const peers = Array.from(scope.querySelectorAll<HTMLElement>(source.selectorPart)).filter(target => !exiting.has(target))
     if (peers.length) {
       // 这里只读同文件规则，保留其它行已有的精确差异。
       const styles = new Map(Array.from(source.rule.parentStyleSheet!.cssRules)
