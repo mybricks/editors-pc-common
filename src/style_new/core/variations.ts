@@ -1,4 +1,5 @@
 import { collectDisplayZoneTabs } from './zone-display-tabs'
+import { clearStatePreview, refreshStatePreview } from './state-preview'
 
 export type StyleVariation = {
   /** 展示名，如“常规”“悬浮态”“Hover”，跟随画布语言。 */
@@ -83,4 +84,26 @@ export function registerVariationFocusHandler(handler: VariationFocusHandler): (
  */
 export function useVariation(selector: string): boolean {
   return focusHandler ? focusHandler(selector) : false
+}
+
+/**
+ * 提供给引擎在 undo 后调用触发变体预览样式刷新
+ */
+export function emitUndo(): void {
+  refreshStatePreview()
+}
+
+/**
+ * 提供给引擎在 redo 后调用触发变体预览样式刷新
+ */
+export function emitRedo(): void {
+  refreshStatePreview()
+}
+
+
+/**
+ * 提供给引擎在 undo all 后调用触发变体预览样式刷新
+ */
+export function emitUndoAll(): void {
+  clearStatePreview()
 }
