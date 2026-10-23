@@ -228,7 +228,9 @@ export function Layout({ value: panelValue, onChange: fallbackOnChange, showTitl
             const nextValue = 'flexDirection' in newVal
               ? { ...newVal, '--layout-mode': null }
               : newVal;
-            if (layoutMode === 'freedom' && 'flexDirection' in newVal && isFlexLikeDisplay(newVal.display)) {
+            // 默认布局会清空 flexDirection，也要先恢复父子样式，不能只移除布局标记。
+            if (layoutMode === 'freedom' && 'flexDirection' in newVal
+              && (isFlexLikeDisplay(newVal.display) || newVal.flexDirection === null)) {
               const plan = buildFreedomPlan(context!.targetDom!, newVal, options as FreedomPlanOptions, 'flex');
               (window as any).__mybricks_applyStylePlan(plan);
               return;
