@@ -34,6 +34,7 @@ import {
   composeBackgroundStack,
   decomposeBackgroundStack,
 } from "../../helper/paint-stack";
+import { normalizeCssValue } from "../../helper/normalize-css-value";
 import { getColorEditorValue } from "../../helper/get-color-editor-value";
 import { getCssVarColorOptions, resolveCssVarColor } from "../../../core/resolve-css-var-color";
 import { buildBorderWidthChange, getBorderSideKeys, hasNoVisibleBorderLine } from "../../helper/border-value";
@@ -149,6 +150,15 @@ const BORDER_PAINT_KEYS = [
 ];
 
 type BorderValue = CSSProperties & Record<string, any>;
+
+function getBorderEditorFingerprint(value: BorderValue, position: BorderPosition): string {
+  const fields = BORDER_LOGICAL_KEYS.map(key => {
+    const property = key.replace(/[A-Z]/g, letter => `-${letter.toLowerCase()}`);
+    return normalizeCssValue(property, String(value[key] ?? ''));
+  });
+  const gradient = decomposeBackgroundStack(value).borderLayer || '';
+  return [position, ...fields, normalizeCssValue('background-image', gradient)].join('|');
+}
 
 function isEffectiveStyleConfigured(item?: EffectiveStyleValue): boolean {
   if (!item || item.type === 'computed') return false;
@@ -561,10 +571,12 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
   borderValueRef.current = borderValue;
 
   // 选中元素、Zone Tab 或 EffectiveStyleValue 更新时，按逐属性来源同步编辑态。
-  // 本地写入只触发 styleRevision，不会改变 effectiveStyle 对象，因此不会被旧数据回滚。
+  // 状态样式本地写入也会重建 effectiveStyle；内容相同的回写保留取色器和分边模式。
   useLayoutEffect(() => {
     const next = defaultBorderValue;
     const nextPosition = detectPositionFromCSS(next);
+    const sameBorder = getBorderEditorFingerprint(borderValueRef.current, borderPositionRef.current) ===
+      getBorderEditorFingerprint(next, nextPosition);
     borderValueRef.current = next;
     borderPositionRef.current = nextPosition;
     contentBackgroundLayersRef.current = getContentBackgroundLayers(next);
@@ -573,7 +585,7 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
     setBorderPosition(nextPosition);
     const targetChanged = colorEditorTargetRef.current !== targetDom;
     colorEditorTargetRef.current = targetDom;
-    if (!isSoloEdit || targetChanged) {
+    if (targetChanged || (!isSoloEdit && !sameBorder)) {
       setBorderToggleValue(getBorderToggleDefaultValue(next));
       setBorderColorEditorKey((key) => key + 1);
     }
