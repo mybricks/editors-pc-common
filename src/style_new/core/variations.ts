@@ -1,5 +1,5 @@
 import { collectDisplayZoneTabs } from './zone-display-tabs'
-import { clearStatePreview, refreshStatePreview } from './state-preview'
+import { applyStatePreview, clearStatePreview, refreshStatePreview } from './state-preview'
 
 export type StyleVariation = {
   /** 展示名，如“常规”“悬浮态”“Hover”，跟随画布语言。 */
@@ -106,4 +106,26 @@ export function emitRedo(): void {
  */
 export function emitUndoAll(): void {
   clearStatePreview()
+}
+
+/**
+ * bu
+y * 返回 false 表示该元素没有这个变体
+ */
+export function selectVariation(dom: HTMLElement, comId: string, selector: string): boolean {
+  if (!dom) return false
+  const found = collectDisplayZoneTabs([dom], comId).find(({ tab }) => tab.selector === selector)
+  if (!found) return false
+  // 面板在场先借它切：面板的 tab 会跟过去，预览和 focused 由面板自己的 effect 更新
+  if (useVariation(selector)) return true
+  const { tab } = found
+  if (tab.pseudo) {
+    // 预览范围和面板默认一致：同类元素一起（需要 comId）
+    applyStatePreview(dom, tab, comId ? { comId } : undefined)
+  } else {
+    // 切回常规 = 收回预览
+    clearStatePreview()
+  }
+  setFocusedVariation(selector)
+  return true
 }
