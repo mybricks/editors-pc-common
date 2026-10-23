@@ -5,6 +5,7 @@ import {debounce} from "../util/lodash";
 import {EditorProps} from "../interface";
 import {useObservable} from "@mybricks/rxui";
 import {getOptionsFromEditor, isValid} from "../utils";
+import {restoreInlineLineBreaks} from "./restoreInlineLineBreaks";
 
 import css from "./index.less";
 
@@ -12,22 +13,29 @@ export default function ({editConfig}: EditorProps): JSX.Element {
   const { value, options = {}, locales } = editConfig
   const val = value.get()
 
-  const [useLocale, setUseLocale] = useState(false)
-  const [curText, setCurText] = useState(val)
-  const changedRef = useRef<HTMLTextAreaElement>()
-
   const {
     readonly = false,
     style = { height: 100 },
     onEnterSet,
     hCenter,
     vCenter,
+    dom,
     width,
     height,
     focusNow,
     selectContent,
     locale = false,
   } = getOptionsFromEditor(options)
+
+  const [useLocale, setUseLocale] = useState(false)
+  const [curText, setCurText] = useState(() => {
+    // 仅在双击编辑初始化时恢复换行，避免重渲染时用画布旧值覆盖正在输入的内容。
+    if (vCenter && typeof val === 'string') {
+      return restoreInlineLineBreaks(val, dom)
+    }
+    return val
+  })
+  const changedRef = useRef<HTMLTextAreaElement>()
 
   const localeEnable = !!locales && !!locale
 
@@ -113,10 +121,16 @@ export default function ({editConfig}: EditorProps): JSX.Element {
     e.stopPropagation();
   }, [])
 
-  // 引擎双击编辑文案链路
+  // 引擎双击编辑文案链路：Enter 使用原生换行，失焦时保存。
   if (vCenter) {
     const nowWidth = Math.max(width, 80)
     const nowHeight = Math.max(styles.height, 26)
+    const editorStyle = { ...styles, width: nowWidth, height: nowHeight }
+
+    // 双击编辑框背景跟随主题，避免传入的白底覆盖暗色背景。
+    delete editorStyle.background
+    delete editorStyle.backgroundColor
+    editorStyle.background = 'var(--mybricks-bg-color-main, #FFF)'
 
     return (
       <div
@@ -125,18 +139,10 @@ export default function ({editConfig}: EditorProps): JSX.Element {
       >
         <textarea
           ref={handleTextareaRef}
-          style={{ ...styles, width: nowWidth, height: nowHeight }}
+          style={editorStyle}
           onDoubleClick={stopPropagation}
           onChange={(evt) => {
             setCurText(evt.target.value);
-          }}
-          onKeyPress={(evt) => {
-            if (onEnterSet) {
-              if (evt.shiftKey || evt.key !== "Enter") {
-                return;
-              }
-              updateVal(evt as unknown as React.ChangeEvent<HTMLTextAreaElement>);
-            }
           }}
           onBlur={(evt) => {
             updateVal(evt);
