@@ -729,6 +729,7 @@ export default i18n({
   directionInline: { zh: '内联', en: 'Inline' },
   directionColumn: { zh: '纵向排版', en: 'Vertical' },
   directionRow: { zh: '横向排版', en: 'Horizontal' },
+  directionFreedom: { zh: '自由布局', en: 'Free layout' },
 
   // Layout/JustifyContent
   justifyEven: { zh: '均匀', en: 'Space evenly' },

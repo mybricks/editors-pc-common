@@ -12,7 +12,7 @@ function isOnlyChild(element: Element): boolean {
   return element.parentElement?.children.length === 1
 }
 
-function appendNthChild(selector: string, index: number): string {
+export function appendNthChild(selector: string, index: number): string {
   const pseudoMatch = selector.match(/(:{1,2}[a-zA-Z\-]+(?:\([^)]*\))?\s*)$/)
   if (pseudoMatch) {
     const insertAt = selector.lastIndexOf(pseudoMatch[1])
@@ -224,6 +224,7 @@ export const buildSoloSelector = (
   targetDom: Element,
   baseSelector: string,
   componentRoot?: Element | null,
+  options?: { keepTopLevelFirstChild?: boolean },
 ): string => {
   const baseTail = baseSelector.trim().split(/\s+/).pop() || baseSelector
   const segments: string[] = []
@@ -245,7 +246,7 @@ export const buildSoloSelector = (
   }
 
   // 未标记区域沿用原 selector，保证第三方元素等既有场景不退化。
-  const filteredSegments = omitTopLevelFirstChild(segments)
+  const filteredSegments = options?.keepTopLevelFirstChild ? segments : omitTopLevelFirstChild(segments)
   return filteredSegments.length ? filteredSegments.join(' ') : baseTail
 }
 
