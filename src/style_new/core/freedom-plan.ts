@@ -137,6 +137,9 @@ export function buildFreedomPlan(parent: HTMLElement, parentStyle: CSSProperties
   const parents = soloEdit ? [parent] : Array.from(new Set([
     parent, ...Array.from(scope.querySelectorAll<HTMLElement>(runtimeSelector)),
   ]))
+  //判断去掉nth后，父容器是否还能被唯一定位
+  const parentBaseSelector = selector.replace(/:nth-child\(\d+\)/g, '')
+  const uniqueParent = scope.querySelectorAll(runtimeSelector.replace(/:nth-child\(\d+\)/g, '')).length === 1
   const children = parents.flatMap(element => Array.from(element.children) as HTMLElement[])
   const widthAncestors = new Set<HTMLElement>()
   if (mode === 'freedom') {
@@ -160,9 +163,10 @@ export function buildFreedomPlan(parent: HTMLElement, parentStyle: CSSProperties
   const childPlans: StylePlanItem[] = []
   // 2. 每个实例独立测量；等位置、尺寸和优先级都确定后，再合并相同的父子元素规则。
   for (const currentParent of parents) {
-    // 先精确定位每个实例（包括第一行），后面再根据最终声明决定是否共享。
-    const parentSelector = buildSoloSelector(currentParent, selector.replace(/:nth-child\(\d+\)/g, ''), componentRoot,
-      { keepTopLevelFirstChild: true })
+    // 唯一父容器直接用基础 selector
+    // 重复父容器继续交给 buildSoloSelector
+    const parentSelector = uniqueParent ? parentBaseSelector
+      : buildSoloSelector(currentParent, parentBaseSelector, componentRoot, { keepTopLevelFirstChild: true })
     const lessFile = JSON.parse(currentParent.dataset.loc!).files.less
     const parentComputed = window.getComputedStyle(currentParent)
     const position = parentComputed.position as CSSProperties['position']
@@ -181,12 +185,19 @@ export function buildFreedomPlan(parent: HTMLElement, parentStyle: CSSProperties
         ? { '--layout-mode': 'freedom', position: position === 'static' ? 'relative' : position }
         : { '--layout-mode': null } })
     const currentChildren = Array.from(currentParent.children) as HTMLElement[]
+    // 一次统计直接子元素的所有 class；同一 class 在兄弟节点中重复时才需要序号。
+    const childClassSelectors = currentChildren.map(child => collectSubjectClassSelectors(child))
+    const childClassCounts = new Map<string, number>()
+    for (const selectors of childClassSelectors) {
+      for (const selector of selectors) childClassCounts.set(selector, (childClassCounts.get(selector) || 0) + 1)
+    }
     for (let index = 0; index < currentChildren.length; index++) {
       const child = currentChildren[index]
       // 布局规则归父容器文件所有；跨文件子组件用直接子节点序号，避免丢失父实例作用域。
       const childSelector = JSON.parse(child.dataset.loc!).files.less === lessFile
-        ? collectSubjectClassSelectors(child)[0] ?? '' : ''
-      let targetSelector = `${parentSelector} > ${appendNthChild(childSelector, index + 1)}`
+        ? childClassSelectors[index][0] ?? '' : ''
+      let targetSelector = `${parentSelector} > ${childClassCounts.get(childSelector) === 1
+        ? childSelector : appendNthChild(childSelector, index + 1)}`
       let style: StylePlanItem['style']
       if (mode === 'freedom') {
         const computed = window.getComputedStyle(child)
