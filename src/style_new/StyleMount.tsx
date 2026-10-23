@@ -185,7 +185,8 @@ export function StyleMount({
   const liveStyleRef = useRef<Record<string, any>>(
     initLiveStyle(
       mergeAuthoredBoxModelValues(setValue || {}, isSoloEdit ? undefined : authoredStyle),
-      (defaultValue as any) || {}
+      // isSoloEdit的意义：单独编辑模式下，没有更改的属性，不用默认值覆盖，之前是没有修改的地方，统一会用defaultvalue进去修改
+      isSoloEdit ? {} : ((defaultValue as any) || {})
     )
   )
 
@@ -193,7 +194,7 @@ export function StyleMount({
   useEffect(() => {
     liveStyleRef.current = initLiveStyle(
       mergeAuthoredBoxModelValues(setValue || {}, isSoloEdit ? undefined : authoredStyle),
-      (defaultValue as any) || {}
+      isSoloEdit ? {} : ((defaultValue as any) || {})
     )
     if (isSoloEdit) {
       reconcilePendingSoloValues(pendingSoloValuesRef.current, setValue, liveStyleRef.current)
