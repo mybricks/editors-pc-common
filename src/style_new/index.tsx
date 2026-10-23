@@ -7,7 +7,7 @@ export { default } from './StyleEditorShell'
 export type { StyleData } from './core/css-code-codec'
 export { toLine, toHump, parseToStyleData } from './core/css-code-codec'
 export { getSimilarZones } from './core/get-similar-zones'
-export { emitUndo, emitRedo, emitUndoAll, getVariations, onVariationsChange, selectVariation, useVariation } from './core/variations'
+export { emitUndo, emitRedo, emitUndoAll, getVariations, onVariationsChange, useVariation } from './core/variations'
 export type { StyleVariation } from './core/variations'
 import pkg from '../../package.json'
 console.log(`%c ${pkg.name} %c@${pkg.version}`, "color:#FFF;background:#fa6400", "", "")
