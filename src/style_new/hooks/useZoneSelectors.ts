@@ -4,6 +4,7 @@ import { elMatchesSelectorTail } from '../core/css-modules-match'
 import { toElementArray } from '../core/dom'
 import { getEffectedCssPropertyAndOptions } from '../core/get-effected-css'
 import { collectDisplayZoneTabs } from '../core/zone-display-tabs'
+import { getStatePreviewContext, isStatePreviewSurface } from '../core/state-preview'
 import {
   buildZoneEffectiveStyle,
   collectZoneTabs,
@@ -72,6 +73,19 @@ export function useZoneSelectors(editConfig: any, targetDom: any, _open: boolean
 
   const zoneSelectorList = useMemo(() => zoneTabs.map((tab) => tab.selector), [zoneTabs])
 
+  // 切回一个还开着变体预览的元素时，直接把 tab 选中到那个状态（比如 :hover）。
+  // 原来会先选中常规，闪一下才切到 hover
+  const prevTargetDomRef = useRef<unknown>(null)
+  if (prevTargetDomRef.current !== targetDom) {
+    prevTargetDomRef.current = targetDom
+    const el = toElementArray(targetDom)[0] ?? null
+    const preview = getStatePreviewContext()
+    if (el && preview && isStatePreviewSurface(el)) {
+      const idx = zoneSelectorList.findIndex((sel) => sel.endsWith(preview.pseudo))
+      if (idx >= 0) setActiveZoneIdx(idx)
+    }
+  }
+
   // 按 DOM class 对齐 activeZoneIdx：
   // - 仅在「未手动选 tab」时做初始/列表变化对齐
   // - class 真实变化时（MutationObserver）始终对齐，并清除手动选择标记
@@ -83,6 +97,15 @@ export function useZoneSelectors(editConfig: any, targetDom: any, _open: boolean
     }
 
     function syncActiveIdx() {
+      // 预览还跟着这个元素（或其同类元素）时，对齐回那个状态 tab；用户手动点基础态才退出
+      const preview = getStatePreviewContext()
+      if (preview && isStatePreviewSurface(el)) {
+        const previewIdx = zoneSelectorList.findIndex((sel) => sel.endsWith(preview.pseudo))
+        if (previewIdx >= 0) {
+          setActiveZoneIdx(previewIdx)
+          return
+        }
+      }
       const idx = zoneSelectorList.findIndex((sel) => {
         const lastPart = sel.trim().split(/\s+/).pop() || ''
         if (/:{1,2}[a-zA-Z\-]+(?:\([^)]*\))?$/.test(lastPart)) return false
@@ -180,5 +203,7 @@ export function useZoneSelectors(editConfig: any, targetDom: any, _open: boolean
     setActiveZoneIdx: setActiveZoneIdxByUser,
     addZoneTab,
     deleteZoneTab,
+    // 供外部区分「用户手动点了 tab」和「换元素后自动对齐」两种情况
+    userSelectedRef,
   }
 }

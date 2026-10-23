@@ -8,6 +8,7 @@ import { getShorthandFamily, stylePropertyKey } from './style-shorthand-groups'
 import { createCascadeResolver } from './cascade-winner'
 import { getDocument } from './dom'
 import { calculateSafeSpecificity, splitTopLevelSelectors } from './selector-utils'
+import { isStatePreviewStyleSheet } from './state-preview-tag'
 import lang from '../index.i18n'
 
 export type ZoneSourceRule = {
@@ -561,7 +562,10 @@ export function collectZoneStyleRules(): Array<{ rule: CSSStyleRule; sourceOrder
     if (sheet) sheets.add(sheet as CSSStyleSheet)
   })
   const adoptedStyleSheets = Array.from((root as any).adoptedStyleSheets || []) as CSSStyleSheet[]
-  adoptedStyleSheets.forEach(sheet => sheets.add(sheet))
+  adoptedStyleSheets.forEach(sheet => {
+    // 预览样式表不是真实样式，跳过
+    if (!isStatePreviewStyleSheet(sheet)) sheets.add(sheet)
+  })
   const sheetsToScan = Array.from(sheets)
   const visit = (rules: CSSRuleList) => {
     for (const rule of Array.from(rules)) {

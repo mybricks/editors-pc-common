@@ -7,6 +7,8 @@ export type StyleVariation = {
   selector: string
   /** 伪类/伪元素本身，如 ":active"、"::before"；常规态为 null。 */
   pseudo: string | null
+  /** 是否为面板当前选中的变体。 */
+  focused: boolean
 }
 
 /**
@@ -20,6 +22,7 @@ export function getVariations(dom: HTMLElement, comId: string): StyleVariation[]
     title: label,
     selector: tab.selector,
     pseudo: tab.pseudo,
+    focused: tab.selector === focusedSelector,
   }))
 }
 
@@ -31,7 +34,7 @@ const listeners = new Set<VariationsListener>()
 let notifyTimer: ReturnType<typeof setTimeout> | undefined
 
 /**
- * 订阅变体变化：变体列表真的变了才触发（不携带数据，收到后自己调 getVariations 重拉）。
+ * 订阅变体变化：变体列表或选中状态真的变了才触发（不携带数据，收到后自己调 getVariations 重拉）。
  * 返回退订函数。
  */
 export function onVariationsChange(listener: () => void): () => void {
@@ -48,4 +51,36 @@ export function notifyVariationsChange(): void {
     notifyTimer = undefined
     listeners.forEach((listener) => listener())
   }, 150)
+}
+
+// 面板当前选中的变体（如 '.payItem:hover'）；面板没挂载时为 null。
+// getVariations 靠它给 focused 字段赋值。
+let focusedSelector: string | null = null
+
+// 面板选中变体时调用；只有真变了才通知引擎重拉（引擎拉 getVariations 就能看到最新选中）
+export function setFocusedVariation(selector: string | null): void {
+  if (focusedSelector === selector) return
+  focusedSelector = selector
+  notifyVariationsChange()
+}
+
+type VariationFocusHandler = (selector: string) => boolean
+
+let focusHandler: VariationFocusHandler | null = null
+
+// 面板挂载时把「切变体 tab」的能力注册进来，卸载时退掉；useVariation 就是转调它
+export function registerVariationFocusHandler(handler: VariationFocusHandler): () => void {
+  focusHandler = handler
+  return () => {
+    if (focusHandler === handler) focusHandler = null
+  }
+}
+
+/**
+ * 选中某个变体：面板切到该变体的 tab，效果等同用户手动点 tab
+ * 选中伪类变体（如 :hover）时，画布上的样式预览会跟着生效。
+ * 面板没挂载、或当前元素的变体列表里没有这个 selector 时返回 false。
+ */
+export function useVariation(selector: string): boolean {
+  return focusHandler ? focusHandler(selector) : false
 }
