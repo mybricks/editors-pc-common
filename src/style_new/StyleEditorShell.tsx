@@ -274,7 +274,10 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
   useEffect(() => {
     setFocusedVariation(activeZoneTab?.selector ?? null)
   }, [activeZoneTab])
-  useEffect(() => () => setFocusedVariation(null), [])
+  // 面板卸载：画布上的状态预览还活着时（关面板不清预览），选中状态也保留，
+  useEffect(() => () => {
+    if (!getStatePreviewContext()) setFocusedVariation(null)
+  }, [])
 
   // 引擎通过 useVariation让面板聚焦某个变体，效果等同用户手动点 tab
   useEffect(() => {
