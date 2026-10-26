@@ -15,7 +15,7 @@ import { uniqBy } from 'lodash'
 const INIT_TABS: ZoneTab[] = [];
 export function useZoneSelectors(editConfig: any, targetDom: any, _open: boolean) {
   const [activeZoneIdx, setActiveZoneIdx] = useState(0)
-  const [customZoneTabs, setCustomZoneTabs] = useState<ZoneTab[]>([])
+  const [customZoneTabs, setCustomZoneTabs] = useState<ZoneTab[]>(INIT_TABS)
   // 用户手动点 tab 后，禁止被「按 DOM class 对齐」立刻打回基础态（:hover / 状态类等）
   const userSelectedRef = useRef(false)
 
