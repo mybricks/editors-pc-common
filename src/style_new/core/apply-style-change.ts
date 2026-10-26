@@ -929,8 +929,7 @@ function applyStyleChangeInternal({
       const plan = clearPlans[i]
       if (plan.action === 'noop' || plan.action === 'unsupported') continue
       if (authoredFamily.has(cssPropertyName(plan.key))) continue
-      // 反过来也保护：之前写 borderTop 会连带清空整个 border，把刚写的长写又抹掉，
-      // 现在本批写的是长写时，就不再清整个简写
+      // 反过来也一样：写的是长写（如 borderTop）时，不清整个简写（border）
       if (getShorthandFamily(cssPropertyName(plan.key)).some(name => authoredFamily.has(name))) continue
       clearPlans[i] = {
         ...plan,
@@ -1329,10 +1328,9 @@ function applyStyleChangeInternal({
   )
   if (editOptions && 'soloEdit' in editOptions && editOptions.soloEdit && typeof selector === 'string') {
     // 单独编辑在源码重编译后可能仍持有旧 DOM；宿主回退 selector 时也要锁定 nth-child 规则。
-    // 之前删除信号是"从目标规则里删声明"，对新建的 solo 规则删了个空，基础类的值纹丝不动，
-    // 现在转成 unset 写进 solo 规则里压过基础类（如基础类 flex:1 会让 width 失效，需要 flex: unset）。
+    // solo 规则是新建的，里面没有旧属性可删，所以把删除改成写 unset 来压过基础类（如基础类 flex:1 会压住 width）
     const isRealAuthoredValue = (val: unknown) => val != null && String(val).trim() !== ''
-    // 和上面清空的保护同理：之前删除转的 unset 会把同批刚写入的简写抹掉
+    // 之前删除转的 unset 会把同批刚写入的简写抹掉
     //（border: 5px solid 后跟 border-top: unset），现在同族的删除不再转 unset。
     const authoredFamily = new Set<string>()
     Object.entries(finalCssProperties).forEach(([key, value]) => {
