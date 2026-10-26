@@ -12,6 +12,7 @@ import { useStyleDisplayValue } from "../../hooks/useStyleDisplayValue";
 import { toElementArray } from "../../../core/dom";
 import { createStyleResolution } from "../../../core/style-property";
 import { collectZoneTabs, excludeSoloSources, mergeZoneTabsByState } from "../../../core/zone-tab";
+import type { ZoneTab } from "../../../core/zone-tab";
 import { buildFreedomPlan } from '../../../core/freedom-plan';
 import type { FreedomPlanOptions } from '../../../core/freedom-plan';
 import styles from "./index.less";
@@ -113,6 +114,16 @@ const defaultValue: LayoutModel = {
   columnGap: 0,
 };
 
+// freeform 标记属于当前实例；即使批量面板排除了单独规则，也要读取它的真实布局状态。
+function readFreeformMode(zoneTab: ZoneTab | null | undefined, targetDom: Element | null | undefined) {
+  const freeformMode = zoneTab && [
+    ...zoneTab.sourceRules.map(source => source.rule), ...(zoneTab.excludedRules ?? []),
+  ].find(rule => rule.style.getPropertyValue('--layout-mode') && targetDom?.matches(rule.selectorText))
+    ?.style.getPropertyValue('--layout-mode').trim();
+
+  return freeformMode;
+}
+
 export function Layout({ value: panelValue, onChange: fallbackOnChange, showTitle, config }: LayoutEditorProps) {
   const context = useStyleEditorContext();
   const effectiveValue = useEffectiveStyleValue();
@@ -121,11 +132,8 @@ export function Layout({ value: panelValue, onChange: fallbackOnChange, showTitl
   const hasZoneTab = !!zoneTab;
   // 非 Zone 模式（如单独编辑）的回显值来自 props，effectiveStyle 在此模式下为空。
   const value = hasZoneTab ? effectiveValue : panelValue;
-  // freeform 标记属于当前实例；即使批量面板排除了单独规则，也要读取它的真实布局状态。
-  const layoutMode = zoneTab && [
-    ...zoneTab.sourceRules.map(source => source.rule), ...(zoneTab.excludedRules ?? []),
-  ].find(rule => rule.style.getPropertyValue('--layout-mode') && context?.targetDom?.matches(rule.selectorText))
-    ?.style.getPropertyValue('--layout-mode').trim();
+  // 仅挂载时读取；后续由布局操作更新，普通属性引发的 CSS 重编译不重新扫描。
+  const [freeformMode, setFreeformMode] = useState(() => readFreeformMode(zoneTab, context?.targetDom));
 
   const displayField = useStyleDisplayValue('display');
   const positionField = useStyleDisplayValue('position');
@@ -183,7 +191,8 @@ export function Layout({ value: panelValue, onChange: fallbackOnChange, showTitl
 
   const refresh = useCallback(() => {
     const keys = Object.keys(value ?? {}).filter(key => LAYOUT_KEYS.has(key));
-    onChange([...keys, '--layout-mode'].map(key => ({ key, value: null })));
+    const result = onChange([...keys, '--layout-mode'].map(key => ({ key, value: null })));
+    if (!result || result.applied) setFreeformMode(undefined);
     setClearedGapKeys({rowGap: true, columnGap: true});
     setIsReset(true);
     setForceRenderKey(prev => prev + 1);
@@ -198,6 +207,7 @@ export function Layout({ value: panelValue, onChange: fallbackOnChange, showTitl
   const handleFreedomSelect = () => {
     const plan = buildFreedomPlan(context!.targetDom!, value, options as FreedomPlanOptions);
     (window as any).__mybricks_applyStylePlan(plan);
+    setFreeformMode('freedom');
   };
 
   return (
@@ -208,7 +218,7 @@ export function Layout({ value: panelValue, onChange: fallbackOnChange, showTitl
           previewValue={previewValue}
           clearedGapKeys={clearedGapKeys}
           displayOnly={displayOnly}
-          freedomValue={!isReset && layoutMode === 'freedom'}
+          freedomValue={!isReset && freeformMode === 'freedom'}
           onFreedomSelect={handleFreedomSelect}
           onChangeValue={(newVal) => {
             setClearedGapKeys((previous) => {
@@ -229,17 +239,21 @@ export function Layout({ value: panelValue, onChange: fallbackOnChange, showTitl
               ? { ...newVal, '--layout-mode': null }
               : newVal;
             // 默认布局会清空 flexDirection，也要先恢复父子样式，不能只移除布局标记。
-            if (layoutMode === 'freedom' && 'flexDirection' in newVal
+            if (freeformMode === 'freedom' && 'flexDirection' in newVal
               && (isFlexLikeDisplay(newVal.display) || newVal.flexDirection === null)) {
               const plan = buildFreedomPlan(context!.targetDom!, newVal, options as FreedomPlanOptions, 'flex');
               (window as any).__mybricks_applyStylePlan(plan);
+              setFreeformMode(undefined);
               return;
             }
-            onChange(
+            const result = onChange(
               Object.entries(nextValue)
                 .filter(([key]) => !NON_CSS_KEYS.has(key))
                 .map(([key, val]) => ({ key, value: val }))
             );
+            if ('flexDirection' in newVal && (!result || result.applied)) {
+              setFreeformMode(undefined);
+            }
           }}
         />
       </React.Fragment>
