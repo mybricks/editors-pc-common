@@ -1,5 +1,5 @@
 import { collectDisplayZoneTabs } from './zone-display-tabs'
-import { clearStatePreview, refreshStatePreview } from './state-preview'
+import { applyStatePreview, clearStatePreview, isPreviewablePseudo, refreshStatePreview } from './state-preview'
 
 export type StyleVariation = {
   /** 展示名，如“常规”“悬浮态”“Hover”，跟随画布语言。 */
@@ -78,12 +78,28 @@ export function registerVariationFocusHandler(handler: VariationFocusHandler): (
 }
 
 /**
- * 选中某个变体：面板切到该变体的 tab，效果等同用户手动点 tab
- * 选中伪类变体（如 :hover）时，画布上的样式预览会跟着生效。
- * 面板没挂载、或当前元素的变体列表里没有这个 selector 时返回 false。
+ * 选中某个变体，效果等同用户手动点 tab：
+ * - 面板挂载时：根据引擎方选择的来回显变体至样式面板
+ * - 面板没挂载时：直接应用变体预览样式
+ * 变体不存在时返回 false
  */
-export function useVariation(selector: string): boolean {
-  return focusHandler ? focusHandler(selector) : false
+export function useVariation(dom: HTMLElement, comId: string, pseudo: string | null): boolean {
+  if (!dom) return false
+  const found = collectDisplayZoneTabs([dom], comId).find(({ tab }) => tab.pseudo === pseudo)
+  if (!found) return false
+  const { tab } = found
+  if (focusHandler) {
+    if (focusHandler(tab.selector)) return true
+    // 面板在但没接住（比如面板正在编辑别的元素），下面自己应用
+  }
+  // 伪元素（如 ::before）不预览，只切状态
+  if (tab.pseudo && isPreviewablePseudo(tab.pseudo)) {
+    applyStatePreview(dom, tab, comId ? { comId } : undefined)
+  } else {
+    clearStatePreview()
+  }
+  setFocusedVariation(tab.selector)
+  return true
 }
 
 /**

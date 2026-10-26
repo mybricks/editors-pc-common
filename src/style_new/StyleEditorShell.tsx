@@ -276,7 +276,7 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
   }, [activeZoneTab])
   useEffect(() => () => setFocusedVariation(null), [])
 
-  // 引擎通过 useVariation(selector) 让面板聚焦某个变体，效果等同用户手动点 tab
+  // 引擎通过 useVariation让面板聚焦某个变体，效果等同用户手动点 tab
   useEffect(() => {
     return registerVariationFocusHandler((selector) => {
       const idx = zoneTabs.findIndex((tab) => tab.selector === selector)

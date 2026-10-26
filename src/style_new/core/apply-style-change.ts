@@ -872,6 +872,7 @@ function applyStyleChangeInternal({
       : null
   const realTargetDom = (toElementArray(targetDom)[0] ?? null) as HTMLElement | null
   const editOptions = !Array.isArray(editConfig.options) ? editConfig.options : null
+  const isSoloEditWrite = !!editOptions && 'soloEdit' in editOptions && !!editOptions.soloEdit
   const activeZoneTab: ZoneTab | null = editOptions && !(editOptions as any).soloEdit
     ? (editOptions as any).zoneTab ?? null
     : null
@@ -915,6 +916,29 @@ function applyStyleChangeInternal({
   const clearUnsupported = clearPlans.some(
     (plan) => plan.action === 'unsupported'
   )
+  // 单独编辑模式下，清空必须拿 solo-selector而不是baseSelector
+  // 之前在单独编辑模式下也会拿 baseSelector，所以永远修改的都是 baseSelector的样式
+  if (isSoloEditWrite && typeof selector === 'string') {
+    // 之前写 border 会"刚写进去就被自己带的清空抹掉"（border: 5px solid 后面跟着 border-top: unset 等），
+    // 现在本批刚写入过值的属性（含同简写族的成员）不再参与清空，因为这些 unset 只会抵消刚写入的值
+    const authoredFamily = new Set<string>()
+    rawItems.filter(item => item.value != null).forEach(item => {
+      getShorthandFamily(cssPropertyName(item.key)).forEach(name => authoredFamily.add(name))
+    })
+    for (let i = 0; i < clearPlans.length; i += 1) {
+      const plan = clearPlans[i]
+      if (plan.action === 'noop' || plan.action === 'unsupported') continue
+      if (authoredFamily.has(cssPropertyName(plan.key))) continue
+      // 反过来也一样：写的是长写（如 borderTop）时，不清整个简写（border）
+      if (getShorthandFamily(cssPropertyName(plan.key)).some(name => authoredFamily.has(name))) continue
+      clearPlans[i] = {
+        ...plan,
+        selector,
+        action: 'write-unset' as const,
+        value: plan.winner?.important ? 'unset !important' : 'unset',
+      }
+    }
+  }
 
   // 显式清空是一个用户动作；目标不可写时不能只执行同批的
   // paint-stack 清理，否则会留下“颜色未清、其他属性已删”的半完成状态。
@@ -1163,8 +1187,11 @@ function applyStyleChangeInternal({
   }
 
   // 多目标文字渐变清理会暂时改写删除侧通道；主写入前恢复本次常规删除集合。
+  // 单独编辑不走 previewBatch
   const usePreviewBatch =
-    (batchMeta?.enabled || isThirdPartyFocus) && !!editConfig.value.previewBatch
+    !isSoloEditWrite &&
+    (batchMeta?.enabled || isThirdPartyFocus) &&
+    !!editConfig.value.previewBatch
   const write = usePreviewBatch
     ? (style: Record<string, any>, options?: { selector?: string }) =>
       editConfig.value.previewBatch!(style, options)
@@ -1301,7 +1328,30 @@ function applyStyleChangeInternal({
   )
   if (editOptions && 'soloEdit' in editOptions && editOptions.soloEdit && typeof selector === 'string') {
     // 单独编辑在源码重编译后可能仍持有旧 DOM；宿主回退 selector 时也要锁定 nth-child 规则。
-    withExplicitStyleSelector(selector, () => write(finalCssProperties, setOptions))
+    // solo 规则是新建的，里面没有旧属性可删，所以把删除改成写 unset 来压过基础类（如基础类 flex:1 会压住 width）
+    const isRealAuthoredValue = (val: unknown) => val != null && String(val).trim() !== ''
+    // 之前删除转的 unset 会把同批刚写入的简写抹掉
+    //（border: 5px solid 后跟 border-top: unset），现在同族的删除不再转 unset。
+    const authoredFamily = new Set<string>()
+    Object.entries(finalCssProperties).forEach(([key, value]) => {
+      if (isRealAuthoredValue(value)) {
+        getShorthandFamily(cssPropertyName(key)).forEach(name => authoredFamily.add(name))
+      }
+    })
+    const soloDeletions = effectiveDeletions.filter((key) => {
+      const property = cssPropertyName(key)
+      if (authoredFamily.has(property)) return false
+      return !getShorthandFamily(property).some(name => authoredFamily.has(name))
+    })
+    const soloWriteValue = soloDeletions.length
+      ? {
+          ...finalCssProperties,
+          ...Object.fromEntries(soloDeletions.map((key) => [key, 'unset'])),
+        }
+      : finalCssProperties
+    // 删除已转成 unset 写入，所以清掉删除信号，否则宿主会把刚写的 unset 又当删除处理掉。
+    ;(window as any).__mybricks_style_deletions = null
+    withExplicitStyleSelector(selector, () => write(soloWriteValue, setOptions))
   } else {
     write(finalCssProperties, setOptions)
   }
