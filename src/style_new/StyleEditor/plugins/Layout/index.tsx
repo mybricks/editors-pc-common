@@ -116,12 +116,16 @@ const defaultValue: LayoutModel = {
 
 // freeform 标记属于当前实例；即使批量面板排除了单独规则，也要读取它的真实布局状态。
 function readFreeformMode(zoneTab: ZoneTab | null | undefined, targetDom: Element | null | undefined) {
-  const freeformMode = zoneTab && [
-    ...zoneTab.sourceRules.map(source => source.rule), ...(zoneTab.excludedRules ?? []),
-  ].find(rule => rule.style.getPropertyValue('--layout-mode') && targetDom?.matches(rule.selectorText))
-    ?.style.getPropertyValue('--layout-mode').trim();
+  try {
+    const freeformMode = zoneTab && [
+      ...zoneTab.sourceRules.map(source => source.rule), ...(zoneTab.excludedRules ?? []),
+    ].find(rule => rule.style.getPropertyValue('--layout-mode') && targetDom?.matches(rule.selectorText))
+      ?.style.getPropertyValue('--layout-mode').trim();
 
-  return freeformMode;
+    return freeformMode;
+  } catch {
+    return undefined;
+  }
 }
 
 export function Layout({ value: panelValue, onChange: fallbackOnChange, showTitle, config }: LayoutEditorProps) {
