@@ -10,6 +10,8 @@ export type StyleVariation = {
   pseudo: string | null
   /** 是否为面板当前选中的变体。 */
   focused: boolean
+  /** 切换到该变体：toolbar 点击时直接调，不用再传 dom/comId/伪类 */
+  select: () => boolean
 }
 
 /**
@@ -29,6 +31,7 @@ export function getVariations(dom: HTMLElement, comId: string): StyleVariation[]
     selector: tab.selector,
     pseudo: tab.pseudo,
     focused: tab.selector === focusSelector,
+    select: () => useVariation(dom, comId, tab.pseudo),
   }))
 }
 
