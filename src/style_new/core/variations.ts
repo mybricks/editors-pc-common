@@ -1,5 +1,5 @@
 import { collectDisplayZoneTabs } from './zone-display-tabs'
-import { applyStatePreview, clearStatePreview, refreshStatePreview } from './state-preview'
+import { applyStatePreview, clearStatePreview, isPreviewablePseudo, refreshStatePreview } from './state-preview'
 
 export type StyleVariation = {
   /** 展示名，如“常规”“悬浮态”“Hover”，跟随画布语言。 */
@@ -18,8 +18,6 @@ export type StyleVariation = {
  */
 export function getVariations(dom: HTMLElement, comId: string): StyleVariation[] {
   if (!dom) return []
-  // 记下最近一次查询的元素：useVariation 
-  lastVariationTarget = { dom, comId }
 
   return collectDisplayZoneTabs([dom], comId).map(({ tab, label }) => ({
     title: label,
@@ -28,9 +26,6 @@ export function getVariations(dom: HTMLElement, comId: string): StyleVariation[]
     focused: tab.selector === focusedSelector,
   }))
 }
-
-/** 最近一次 getVariations 查询的元素和 comId；面板没挂载时 useVariation 用它 */
-let lastVariationTarget: { dom: HTMLElement; comId: string } | null = null
 
 // ========== 变体变化订阅 ==========
 
@@ -88,23 +83,22 @@ export function registerVariationFocusHandler(handler: VariationFocusHandler): (
  * - 面板没挂载时：直接应用变体预览样式
  * 变体不存在时返回 false
  */
-export function useVariation(selector: string): boolean {
-  if (focusHandler) {
-    if (focusHandler(selector)) return true
-    // 面板在但没接住（比如面板正在编辑别的元素），下面自己应用
-  }
-  const target = lastVariationTarget
-  if (!target) return false
-  const found = collectDisplayZoneTabs([target.dom], target.comId)
-    .find(({ tab }) => tab.selector === selector)
+export function useVariation(dom: HTMLElement, comId: string, pseudo: string | null): boolean {
+  if (!dom) return false
+  const found = collectDisplayZoneTabs([dom], comId).find(({ tab }) => tab.pseudo === pseudo)
   if (!found) return false
   const { tab } = found
-  if (tab.pseudo) {
-    applyStatePreview(target.dom, tab, target.comId ? { comId: target.comId } : undefined)
+  if (focusHandler) {
+    if (focusHandler(tab.selector)) return true
+    // 面板在但没接住（比如面板正在编辑别的元素），下面自己应用
+  }
+  // 伪元素（如 ::before）不预览，只切状态
+  if (tab.pseudo && isPreviewablePseudo(tab.pseudo)) {
+    applyStatePreview(dom, tab, comId ? { comId } : undefined)
   } else {
     clearStatePreview()
   }
-  setFocusedVariation(selector)
+  setFocusedVariation(tab.selector)
   return true
 }
 
