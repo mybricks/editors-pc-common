@@ -290,28 +290,50 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
     maxHeight: lang.removeMaxHeight,
   }), []);
   const editorContext = useStyleEditorContext();
-  // 例如 minHeight: '100vh' 在面板副本中换成 '900px'；不调用 onChange，原配置仍保留 '100vh'。
-  const value: CSSProperties & Record<string, any> = {...useEffectiveStyleValue()};
-  const resolveSizeDisplayValue = (field: string, sourceValue: any) => {
+  // rawValue 保留源码里的 100vh、calc(...) 或 var(...)；value 只作为面板显示副本，避免把 900px 回写成源码。
+  const rawValue = useEffectiveStyleValue() as CSSProperties & Record<string, any>;
+  // 每个字段同时记住源码值和初始回显值：例如 minHeight 从 100vh 回显为 900px 后，用户改成 600px 时应立即显示 600px。
+  const [initialSizeValues, setInitialSizeValues] = useState<Record<string, { source: any; display: any }>>({});
+
+  // 初始样式由 StyleMount 同步传入；首次挂载或切换元素时统一初始化六个字段。
+  // 例如 minHeight: '100vh' 在 900px 视口初始显示 900px；后续修改 width 不会重新读取 min-height。
+  useLayoutEffect(() => {
     const dom = editorContext?.targetDom;
-    if (!dom || typeof sourceValue !== 'string') return sourceValue;
+    const initialValues: typeof initialSizeValues = {};
+    const computedStyle = dom ? window.getComputedStyle(dom) : undefined;
 
-    // 只处理 100vh、calc(100vh - 24px) 等；24px、50%、fit-content、var(--size) 先原样保留。
-    // 保留 100% 才能继续识别「填满」，保留 var(--size) 才能继续显示变量胶囊。
-    const needsCalculation = isViewportSize(sourceValue) || /^calc\(/i.test(sourceValue.trim());
-    if (!needsCalculation) return sourceValue;
+    SIZE_PROPERTY_KEYS.forEach(field => {
+      const source = rawValue[field];
+      // var(--page-height) 先查出 100vh 或 calc(...)；source 保留变量引用，继续显示胶囊。
+      let display = isCssVarValue(source) ? resolveCssVarLength(source, dom) : source;
+      const needsCalculation = typeof display === 'string'
+        && (isViewportSize(display) || /^calc\(/i.test(display.trim()));
 
-    // minHeight → min-height：视口高 900px 时，min-height: 100vh 的计算值是 900px。
-    // 即使内容把元素撑到 1200px，也要显示约束值 900px，不能拿 offsetHeight 的 1200px 代替。
-    const cssProperty = field.replace(/[A-Z]/g, letter => `-${letter.toLowerCase()}`);
-    const computedValue = window.getComputedStyle(dom).getPropertyValue(cssProperty).trim();
-    // 例如 min-height: calc(100vh - 24px)，视口高 900px 时由浏览器返回 876px，这里不自己算公式。
-    // 接受 876px、876.5px、0 等数字结果；若仍是 calc(...) 或空串，则保留原值，沿用后续原有展示逻辑。
-    const isNumericLength = /^-?(?:\d+\.?\d*|\.\d+)(?:px)?$/i.test(computedValue);
-    return isNumericLength ? `${parseFloat(computedValue)}px` : sourceValue;
-  };
+      // 24px、50%、fit-content 等直接保留；需要计算的字段从上面共用的 computedStyle 中取值。
+      if (computedStyle && needsCalculation) {
+        const cssProperty = field.replace(/[A-Z]/g, letter => `-${letter.toLowerCase()}`);
+        const computedValue = computedStyle.getPropertyValue(cssProperty).trim();
+        // min-height: 100vh 在 900px 视口中读到 900px，即使内容把元素撑到 1200px，也不取 offsetHeight。
+        // calc(100vh - 24px) 则读到 876px；若仍返回公式或空串，保留原值，沿用原有展示逻辑。
+        if (/^-?(?:\d+\.?\d*|\.\d+)(?:px)?$/i.test(computedValue)) {
+          display = `${parseFloat(computedValue)}px`;
+        }
+      }
+      // 后续只在 rawValue[field] 仍等于 source 时使用 display；值变成 600px 后就使用用户的新值。
+      initialValues[field] = { source, display };
+    });
+    setInitialSizeValues(initialValues);
+  }, [editorContext?.targetDom]);
+
+  // 只替换回显副本，不调用 onChange；保存的 CSS 仍是原始 100vh / calc(...)。
+  const value = {...rawValue};
   SIZE_PROPERTY_KEYS.forEach(field => {
-    value[field] = resolveSizeDisplayValue(field, value[field]);
+    const initial = initialSizeValues[field];
+    // 原配置仍为 100vh 时用初始的 900px；用户改为 600px 后直接显示新值，不再取 DOM 计算值。
+    // 变量仍传递原始 var(...)，其初始计算结果用于下面的胶囊回显。
+    if (initial && initial.source === rawValue[field] && !isCssVarValue(initial.source)) {
+      value[field] = initial.display;
+    }
   });
   const rawOnChange = useStyleChange(fallbackOnChange);
   const [cfg] = useState({...DEFAULT_CONFIG, ...config});
@@ -351,7 +373,7 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
     return !(display === 'flex' || display === 'inline-flex');
   }, [targetDom]);
 
-  // 切换选中元素时，按实际配置重置显示（避免上一元素的空「未配置」残留）
+  // 切换元素时，按实际配置重置显示（避免上一目标的空「未配置」残留）
   useEffect(() => {
     setShowMaxWidth(!!normalizeSizeValue(value.maxWidth));
     setShowMinWidth(!!normalizeSizeValue(value.minWidth));
@@ -621,12 +643,16 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
     const resolved: Partial<Record<SizeFieldKey, string | null>> = {};
     (Object.keys(boundVarRefs) as SizeFieldKey[]).forEach((field) => {
       const varRef = boundVarRefs[field];
-      // 例如 minHeight 绑定 var(--page-height)：先查出 100vh，再读取 min-height 的 900px 用于胶囊回显。
-      // 若变量内容是 calc(100vh - 24px)，同样继续交给浏览器取值；绑定本身仍保留 var(--page-height)。
-      if (varRef) resolved[field] = resolveSizeDisplayValue(field, resolveCssVarLength(varRef, targetDom));
+      const initial = initialSizeValues[field];
+      if (varRef && initial) {
+        // 初始绑定复用已算好的 900px；换绑其他变量只查变量内容，不重新计算尺寸。
+        resolved[field] = initial.source === varRef
+          ? initial.display
+          : resolveCssVarLength(varRef, targetDom);
+      }
     });
     return resolved;
-  }, [boundVarRefs, targetDom, actualWidth, actualHeight]);
+  }, [boundVarRefs, targetDom, initialSizeValues]);
 
   const getDragPropsWidth = useDragNumber({
     onDragStart: (currentValue, inputEl) => {
