@@ -18,12 +18,17 @@ export type StyleVariation = {
  */
 export function getVariations(dom: HTMLElement, comId: string): StyleVariation[] {
   if (!dom) return []
-
-  return collectDisplayZoneTabs([dom], comId).map(({ tab, label }) => ({
+  const tabs = collectDisplayZoneTabs([dom], comId)
+  // 默认常规
+  const focusSelector =
+    tabs.find(({ tab }) => tab.selector === focusedSelector)?.tab.selector
+    ?? tabs.find(({ tab }) => !tab.pseudo)?.tab.selector
+    ?? null
+  return tabs.map(({ tab, label }) => ({
     title: label,
     selector: tab.selector,
     pseudo: tab.pseudo,
-    focused: tab.selector === focusedSelector,
+    focused: tab.selector === focusSelector,
   }))
 }
 
