@@ -290,7 +290,29 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
     maxHeight: lang.removeMaxHeight,
   }), []);
   const editorContext = useStyleEditorContext();
-  const value = useEffectiveStyleValue();
+  // 例如 minHeight: '100vh' 在面板副本中换成 '900px'；不调用 onChange，原配置仍保留 '100vh'。
+  const value: CSSProperties & Record<string, any> = {...useEffectiveStyleValue()};
+  const resolveSizeDisplayValue = (field: string, sourceValue: any) => {
+    const dom = editorContext?.targetDom;
+    if (!dom || typeof sourceValue !== 'string') return sourceValue;
+
+    // 只处理 100vh、calc(100vh - 24px) 等；24px、50%、fit-content、var(--size) 先原样保留。
+    // 保留 100% 才能继续识别「填满」，保留 var(--size) 才能继续显示变量胶囊。
+    const needsCalculation = isViewportSize(sourceValue) || /^calc\(/i.test(sourceValue.trim());
+    if (!needsCalculation) return sourceValue;
+
+    // minHeight → min-height：视口高 900px 时，min-height: 100vh 的计算值是 900px。
+    // 即使内容把元素撑到 1200px，也要显示约束值 900px，不能拿 offsetHeight 的 1200px 代替。
+    const cssProperty = field.replace(/[A-Z]/g, letter => `-${letter.toLowerCase()}`);
+    const computedValue = window.getComputedStyle(dom).getPropertyValue(cssProperty).trim();
+    // 例如 min-height: calc(100vh - 24px)，视口高 900px 时由浏览器返回 876px，这里不自己算公式。
+    // 接受 876px、876.5px、0 等数字结果；若仍是 calc(...) 或空串，则保留原值，沿用后续原有展示逻辑。
+    const isNumericLength = /^-?(?:\d+\.?\d*|\.\d+)(?:px)?$/i.test(computedValue);
+    return isNumericLength ? `${parseFloat(computedValue)}px` : sourceValue;
+  };
+  SIZE_PROPERTY_KEYS.forEach(field => {
+    value[field] = resolveSizeDisplayValue(field, value[field]);
+  });
   const rawOnChange = useStyleChange(fallbackOnChange);
   const [cfg] = useState({...DEFAULT_CONFIG, ...config});
 
@@ -599,10 +621,12 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
     const resolved: Partial<Record<SizeFieldKey, string | null>> = {};
     (Object.keys(boundVarRefs) as SizeFieldKey[]).forEach((field) => {
       const varRef = boundVarRefs[field];
-      if (varRef) resolved[field] = resolveCssVarLength(varRef, targetDom);
+      // 例如 minHeight 绑定 var(--page-height)：先查出 100vh，再读取 min-height 的 900px 用于胶囊回显。
+      // 若变量内容是 calc(100vh - 24px)，同样继续交给浏览器取值；绑定本身仍保留 var(--page-height)。
+      if (varRef) resolved[field] = resolveSizeDisplayValue(field, resolveCssVarLength(varRef, targetDom));
     });
     return resolved;
-  }, [boundVarRefs, targetDom]);
+  }, [boundVarRefs, targetDom, actualWidth, actualHeight]);
 
   const getDragPropsWidth = useDragNumber({
     onDragStart: (currentValue, inputEl) => {
