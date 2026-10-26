@@ -25,9 +25,9 @@ import { AddMin } from "../../icons/AddMin";
 import { AddMax } from "../../icons/AddMax";
 import { AspectRatioLock } from "../../icons/AspectRatioLock";
 import { AspectRatioUnlock } from "../../icons/AspectRatioUnlock";
-import { useDragNumber, useCanvasLengthVariables, isCssVarValue } from "../../hooks";
+import { useDragNumber, useCanvasLengthVariables } from "../../hooks";
 import { useEffectiveStyleValue, useStyleChange, useStyleEditorContext } from "../../context";
-import { resolveCssVarLength } from "../../../core/resolve-css-var-length";
+import { useSizeLengthFields } from "./useSizeLengthFields";
 import { formatLengthDisplay } from "../../utils";
 
 import type {ChangeEvent, PanelBaseProps} from "../../type";
@@ -49,21 +49,6 @@ function percentToPx(percentVal: string, parentSize: number, fallbackPx: number)
     return `${Math.max(1, Math.round((pct / 100) * parentSize))}px`;
   }
   return `${Math.max(1, Math.round(fallbackPx) || 1)}px`;
-}
-
-const VIEWPORT_UNIT_RE = /^-?[\d.]+(?:vw|vh|vmin|vmax|dvw|dvh|svw|svh|lvw|lvh)$/i;
-
-function isViewportSize(val: string | undefined): boolean {
-  return !!val && VIEWPORT_UNIT_RE.test(val.trim());
-}
-
-/** vw/vh 等视口单位换算为实测 px，避免 InputNumber 把 100vw 显示成 100 */
-function resolveViewportToPx(val: string | undefined, actualSize: number): string | undefined {
-  if (!val || !isViewportSize(val)) return val;
-  if (actualSize > 0) {
-    return `${Math.max(0, Math.round(actualSize))}px`;
-  }
-  return val;
 }
 
 /** svg 等非 HTMLElement 没有 offsetWidth/offsetHeight，用 getComputedStyle 计算 */
@@ -518,24 +503,33 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
     if (normalizeSizeValue(minHeightPending) === external) setMinHeightPending(undefined);
   }, [value.minHeight]);
 
-  const widthEffective = normalizeSizeValue(widthPending !== undefined ? widthPending : value.width);
-  const heightEffective = normalizeSizeValue(heightPending !== undefined ? heightPending : value.height);
-  // 首帧同步读 offset，避免等 ResizeObserver 才把 100vw 换成 px
-  const measuredWidth = targetDom?.offsetWidth || actualWidth;
-  const measuredHeight = targetDom?.offsetHeight || actualHeight;
-  const widthResolved = resolveViewportToPx(widthEffective, measuredWidth);
-  const heightResolved = resolveViewportToPx(heightEffective, measuredHeight);
-  const maxWidthEffective = normalizeSizeValue(maxWidthPending !== undefined ? maxWidthPending : value.maxWidth);
+  // lengthFields：六个尺寸字段的读值结果，同时保留原声明和解析后的回显值。
+  // Pending：优先采用本地刚修改的值；undefined 表示没有待同步值，null 表示刚清空。
+  const lengthFields = useSizeLengthFields({
+    width: normalizeSizeValue(widthPending !== undefined ? widthPending : value.width), // 宽度
+    height: normalizeSizeValue(heightPending !== undefined ? heightPending : value.height), // 高度
+    minWidth: normalizeSizeValue(minWidthPending !== undefined ? minWidthPending : value.minWidth), // 最小宽度
+    maxWidth: normalizeSizeValue(maxWidthPending !== undefined ? maxWidthPending : value.maxWidth), // 最大宽度
+    minHeight: normalizeSizeValue(minHeightPending !== undefined ? minHeightPending : value.minHeight), // 最小高度
+    maxHeight: normalizeSizeValue(maxHeightPending !== undefined ? maxHeightPending : value.maxHeight), // 最大高度
+  });
+  // Effective：当前采用的原声明，用于判断填满、适应内容等模式。
+  const widthEffective = lengthFields.width.source;
+  const heightEffective = lengthFields.height.source;
+  // Resolved：回显和编辑的起点，例如 100vh → 1121px；回显本身不修改 CSS。
+  const widthResolved = lengthFields.width.resolvedValue;
+  const heightResolved = lengthFields.height.resolvedValue;
 
   // Fill 仅对应「填满父容器」写入的 100%；用户显式选 %（含换算成 100%）走普通 % 单位展示
   // cfg.disableWidth 代表父元素是横向排版，且子元素宽度由 flex 决定
   const isWidthFill = cfg.disableWidth || !!(widthEffective?.includes('%') && parseFloat(widthEffective) === 100 && actualWidth > 0 && !widthPreferPercent);
   // cfg.disableHeight 代表父元素是纵向排版，且子元素高度由 flex 决定
   const isHeightFill = cfg.disableHeight || !!(heightEffective?.includes('%') && parseFloat(heightEffective) === 100 && actualHeight > 0 && !heightPreferPercent);
+  // Hug：适应内容；Default：未设置尺寸。公式也属于已设置尺寸。
   const isWidthHug = widthEffective === 'fit-content';
   const isHeightHug = heightEffective === 'fit-content';
-  const isWidthDefault = (!isWidthFill && !isWidthHug && !widthEffective) || (typeof value.width === 'string' ? value.width.startsWith('calc(') : false);
-  const isHeightDefault = (!isHeightFill && !isHeightHug && !heightEffective) || (typeof value.height === 'string' ? value.height.startsWith('calc(') : false);
+  const isWidthDefault = !isWidthFill && !isWidthHug && !widthEffective;
+  const isHeightDefault = !isHeightFill && !isHeightHug && !heightEffective;
   const widthActualPx = targetDom ? Math.max(0, Math.round(actualWidth)) : null;
   const heightActualPx = targetDom ? Math.max(0, Math.round(actualHeight)) : null;
 
@@ -561,9 +555,6 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
       ratioRef.current = heightPxVal / widthPxVal;
     }
   }, [locked, widthPxVal, heightPxVal]);
-  const minWidthEffective = normalizeSizeValue(minWidthPending !== undefined ? minWidthPending : value.minWidth);
-  const maxHeightEffective = normalizeSizeValue(maxHeightPending !== undefined ? maxHeightPending : value.maxHeight);
-  const minHeightEffective = normalizeSizeValue(minHeightPending !== undefined ? minHeightPending : value.minHeight);
 
   const { variableOptions: lengthVariables } = useCanvasLengthVariables();
   const hasLengthVariables = lengthVariables.length > 0;
@@ -578,31 +569,12 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
     fieldAnchors.current[field] = el;
   }, []);
 
-  const widthVarRef = isCssVarValue(widthEffective) ? widthEffective : undefined;
-  const heightVarRef = isCssVarValue(heightEffective) ? heightEffective : undefined;
-  const minWidthVarRef = isCssVarValue(minWidthEffective) ? minWidthEffective : undefined;
-  const maxWidthVarRef = isCssVarValue(maxWidthEffective) ? maxWidthEffective : undefined;
-  const minHeightVarRef = isCssVarValue(minHeightEffective) ? minHeightEffective : undefined;
-  const maxHeightVarRef = isCssVarValue(maxHeightEffective) ? maxHeightEffective : undefined;
-
-  const boundVarRefs = useMemo<Partial<Record<SizeFieldKey, string>>>(() => ({
-    width: widthVarRef,
-    height: heightVarRef,
-    minWidth: minWidthVarRef,
-    maxWidth: maxWidthVarRef,
-    minHeight: minHeightVarRef,
-    maxHeight: maxHeightVarRef,
-  }), [widthVarRef, heightVarRef, minWidthVarRef, maxWidthVarRef, minHeightVarRef, maxHeightVarRef]);
-
-  /** 变量解析成具体长度，用于胶囊提示与「固定值」文案 */
-  const resolvedVarLengths = useMemo(() => {
-    const resolved: Partial<Record<SizeFieldKey, string | null>> = {};
-    (Object.keys(boundVarRefs) as SizeFieldKey[]).forEach((field) => {
-      const varRef = boundVarRefs[field];
-      if (varRef) resolved[field] = resolveCssVarLength(varRef, targetDom);
-    });
-    return resolved;
-  }, [boundVarRefs, targetDom]);
+  const widthVarRef = lengthFields.width.varRef;
+  const heightVarRef = lengthFields.height.varRef;
+  const minWidthVarRef = lengthFields.minWidth.varRef;
+  const maxWidthVarRef = lengthFields.maxWidth.varRef;
+  const minHeightVarRef = lengthFields.minHeight.varRef;
+  const maxHeightVarRef = lengthFields.maxHeight.varRef;
 
   const getDragPropsWidth = useDragNumber({
     onDragStart: (currentValue, inputEl) => {
@@ -781,8 +753,7 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
 
   const handleWidthChange = useCallback((val: string | null) => {
     let realVal: string | null = val === 'default' || val == null ? null : val;
-    const rawPrevWidth = normalizeSizeValue(widthPending !== undefined ? widthPending : value.width);
-    const prevWidth = resolveViewportToPx(rawPrevWidth, targetDomRef.current?.offsetWidth || actualWidthRef.current);
+    const prevWidth = widthResolved;
     const parentW = targetDomRef.current?.parentElement?.clientWidth ?? 0;
     if (realVal === null || realVal === 'fit-content' || realVal?.endsWith('px')) {
       setWidthPreferPercent(false);
@@ -864,12 +835,11 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
     if (realVal === null) syncActualSizeFromDom();
     // null 表示乐观清空，保留 pending 覆盖，避免回退到尚未更新的 value.width
     if (!isDraggingWidth.current) setWidthPending(realVal);
-  }, [onChange, cfg.disableWidth, locked, value.width, widthPending, heightVarRef, syncActualSizeFromDom]);
+  }, [onChange, cfg.disableWidth, locked, widthResolved, heightVarRef, syncActualSizeFromDom]);
 
   const handleHeightChange = useCallback((val: string | null) => {
     let realVal: string | null = val === 'default' || val == null ? null : val;
-    const rawPrevHeight = normalizeSizeValue(heightPending !== undefined ? heightPending : value.height);
-    const prevHeight = resolveViewportToPx(rawPrevHeight, targetDomRef.current?.offsetHeight || actualHeightRef.current);
+    const prevHeight = heightResolved;
     const parentH = targetDomRef.current?.parentElement?.clientHeight ?? 0;
     if (realVal === null || realVal === 'fit-content' || realVal?.endsWith('px')) {
       setHeightPreferPercent(false);
@@ -949,7 +919,7 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
     if (realVal === null) syncActualSizeFromDom();
     // null 表示乐观清空，保留 pending 覆盖，避免回退到尚未更新的 value.height
     if (!isDraggingHeight.current) setHeightPending(realVal);
-  }, [onChange, cfg.disableHeight, locked, value.height, heightPending, widthVarRef, syncActualSizeFromDom]);
+  }, [onChange, cfg.disableHeight, locked, heightResolved, widthVarRef, syncActualSizeFromDom]);
 
   const constraintPendingSetters = useMemo(() => ({
     minWidth: setMinWidthPending,
@@ -1012,8 +982,8 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
   /** 解绑变量：落成变量当前解析值，解析不到时退回实测尺寸 */
   const detachVariable = useCallback((field: SizeFieldKey) => {
     const measured = isWidthField(field) ? actualWidthRef.current : actualHeightRef.current;
-    writeSizeValue(field, resolvedVarLengths[field] || `${Math.max(0, Math.round(measured))}px`);
-  }, [resolvedVarLengths, writeSizeValue]);
+    writeSizeValue(field, lengthFields[field].resolvedValue || `${Math.max(0, Math.round(measured))}px`);
+  }, [lengthFields, writeSizeValue]);
 
   /** 变量胶囊右侧下拉：解绑 + 该字段原有的快捷模式 */
   const getVariableMenuOptions = useCallback((field: SizeFieldKey) => {
@@ -1030,7 +1000,7 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
         type: 'divider',
       },
       {
-        label: `${lang.fixedValuePrefix} (${resolvedVarLengths[field] || `${measured}px`})`,
+        label: `${lang.fixedValuePrefix} (${lengthFields[field].resolvedValue || `${measured}px`})`,
         value: DETACH_VARIABLE_ACTION,
         type: 'action',
         icon: <FixedWidth />,
@@ -1045,7 +1015,7 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
       options.push({ label: CONSTRAINT_REMOVE_LABEL[field], value: 'remove', type: 'action' });
     }
     return options;
-  }, [actualWidth, actualHeight, resolvedVarLengths]);
+  }, [actualWidth, actualHeight, lengthFields]);
 
   const handleVariableMenuAction = useCallback((field: SizeFieldKey, action: string) => {
     if (action === SIZE_DEFAULT_ACTION) {
@@ -1089,7 +1059,7 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
   const getVariableDragProps = useCallback((field: SizeFieldKey, tip: string) => {
     const measured = Math.round(isWidthField(field) ? actualWidthRef.current : actualHeightRef.current);
     // calc() 等无法直接取数的变量值，退回实测尺寸作为起点
-    const resolved = resolvedVarLengths[field];
+    const resolved = lengthFields[field].resolvedValue;
     const startValue = resolved && !isNaN(parseFloat(resolved)) ? resolved : `${Math.max(0, measured)}px`;
     const { onMouseDown, ...rest } = getDragPropsVariable(startValue, tip);
     return {
@@ -1099,14 +1069,14 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
         onMouseDown(e);
       },
     };
-  }, [getDragPropsVariable, resolvedVarLengths]);
+  }, [getDragPropsVariable, lengthFields]);
 
   /** 变量态的行：胶囊替代输入框，公共参数一次收敛 */
   const renderVariableChip = useCallback((field: SizeFieldKey, varRef: string) => (
     <VariableChip
       value={varRef}
-      resolvedValue={resolvedVarLengths[field]}
-      display={formatLengthDisplay(resolvedVarLengths[field])}
+      resolvedValue={lengthFields[field].resolvedValue}
+      display={formatLengthDisplay(lengthFields[field].resolvedValue)}
       onRequestPicker={() => openVariablePicker(field)}
       menuOptions={getVariableMenuOptions(field)}
       onMenuAction={(action) => handleVariableMenuAction(field, action)}
@@ -1115,7 +1085,7 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
       // flex-basis 显式为 0：胶囊与输入区都不能把列宽撑开，否则会挤掉相邻的高度列
       style={{ flex: '1 1 0', minWidth: 0, width: 0, marginLeft: 4 }}
     />
-  ), [resolvedVarLengths, openVariablePicker, writeSizeValue, getVariableMenuOptions, handleVariableMenuAction, detachVariable]);
+  ), [lengthFields, openVariablePicker, writeSizeValue, getVariableMenuOptions, handleVariableMenuAction, detachVariable]);
 
   const widthUnitOptions = useMemo(() => [
     ...BASE_UNIT_OPTIONS.filter(o => o.value !== 'max-content'),
@@ -1490,17 +1460,17 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
                       ref={setFieldAnchor('minWidth')}
                       {...(minWidthVarRef
                         ? getVariableDragProps('minWidth', lang.dragMinWidthUnbind)
-                        : getDragPropsMinWidth(minWidthEffective, lang.dragMinWidth))}
+                        : getDragPropsMinWidth(lengthFields.minWidth.resolvedValue, lang.dragMinWidth))}
                       style={{ height: "100%", display: "flex", alignItems: "center", cursor: "ew-resize" }}
                     >
                       <span className={css.tip} style={{ flexShrink: 0 }}>{lang.minLabel}</span>
                     </div>
                     {minWidthVarRef ? renderVariableChip('minWidth', minWidthVarRef) : (
                     <InputNumber
-                      key={getUnitKey(minWidthEffective)}
+                      key={getUnitKey(lengthFields.minWidth.resolvedValue)}
                       tip={lang.minWidthTip}
                       style={{ flex: 1, minWidth: 0, marginLeft: 4 }}
-                      defaultValue={minWidthEffective}
+                      defaultValue={lengthFields.minWidth.resolvedValue}
                       defaultUnitValue="px"
                       unitOptions={constraintUnitOptions.minWidth}
                       placeholder=""
@@ -1526,17 +1496,17 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
                       ref={setFieldAnchor('maxWidth')}
                       {...(maxWidthVarRef
                         ? getVariableDragProps('maxWidth', lang.dragMaxWidthUnbind)
-                        : getDragPropsMaxWidth(maxWidthEffective, lang.dragMaxWidth))}
+                        : getDragPropsMaxWidth(lengthFields.maxWidth.resolvedValue, lang.dragMaxWidth))}
                       style={{ height: "100%", display: "flex", alignItems: "center", cursor: "ew-resize" }}
                     >
                       <span className={css.tip} style={{ flexShrink: 0 }}>{lang.maxLabel}</span>
                     </div>
                     {maxWidthVarRef ? renderVariableChip('maxWidth', maxWidthVarRef) : (
                     <InputNumber
-                      key={getUnitKey(maxWidthEffective)}
+                      key={getUnitKey(lengthFields.maxWidth.resolvedValue)}
                       tip={lang.maxWidthTip}
                       style={{ flex: 1, minWidth: 0, marginLeft: 4 }}
-                      defaultValue={maxWidthEffective}
+                      defaultValue={lengthFields.maxWidth.resolvedValue}
                       defaultUnitValue="px"
                       unitOptions={constraintUnitOptions.maxWidth}
                       placeholder=""
@@ -1566,17 +1536,17 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
                       ref={setFieldAnchor('minHeight')}
                       {...(minHeightVarRef
                         ? getVariableDragProps('minHeight', lang.dragMinHeightUnbind)
-                        : getDragPropsMinHeight(minHeightEffective, lang.dragMinHeight))}
+                        : getDragPropsMinHeight(lengthFields.minHeight.resolvedValue, lang.dragMinHeight))}
                       style={{ height: "100%", display: "flex", alignItems: "center", cursor: "ew-resize" }}
                     >
                       <span className={css.tip} style={{ flexShrink: 0 }}>{lang.minLabel}</span>
                     </div>
                     {minHeightVarRef ? renderVariableChip('minHeight', minHeightVarRef) : (
                     <InputNumber
-                      key={getUnitKey(minHeightEffective)}
+                      key={getUnitKey(lengthFields.minHeight.resolvedValue)}
                       tip={lang.minHeightTip}
                       style={{ flex: 1, minWidth: 0, marginLeft: 4 }}
-                      defaultValue={minHeightEffective}
+                      defaultValue={lengthFields.minHeight.resolvedValue}
                       defaultUnitValue="px"
                       unitOptions={constraintUnitOptions.minHeight}
                       placeholder=""
@@ -1602,17 +1572,17 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
                       ref={setFieldAnchor('maxHeight')}
                       {...(maxHeightVarRef
                         ? getVariableDragProps('maxHeight', lang.dragMaxHeightUnbind)
-                        : getDragPropsMaxHeight(maxHeightEffective, lang.dragMaxHeight))}
+                        : getDragPropsMaxHeight(lengthFields.maxHeight.resolvedValue, lang.dragMaxHeight))}
                       style={{ height: "100%", display: "flex", alignItems: "center", cursor: "ew-resize" }}
                     >
                       <span className={css.tip} style={{ flexShrink: 0 }}>{lang.maxLabel}</span>
                     </div>
                     {maxHeightVarRef ? renderVariableChip('maxHeight', maxHeightVarRef) : (
                     <InputNumber
-                      key={getUnitKey(maxHeightEffective)}
+                      key={getUnitKey(lengthFields.maxHeight.resolvedValue)}
                       tip={lang.maxHeightTip}
                       style={{ flex: 1, minWidth: 0, marginLeft: 4 }}
-                      defaultValue={maxHeightEffective}
+                      defaultValue={lengthFields.maxHeight.resolvedValue}
                       defaultUnitValue="px"
                       unitOptions={constraintUnitOptions.maxHeight}
                       placeholder=""
@@ -1649,7 +1619,7 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
             <VariableList
               list={lengthVariables}
               open={!!variablePickerField}
-              selectedName={variablePickerField ? boundVarRefs[variablePickerField] : undefined}
+              selectedName={variablePickerField ? lengthFields[variablePickerField].varRef : undefined}
               onClose={closeVariablePicker}
               onSelect={(item) => {
                 if (variablePickerField) writeSizeValue(variablePickerField, `var(${item.name})`);
