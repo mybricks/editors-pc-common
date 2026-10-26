@@ -352,12 +352,16 @@
 .moreBtn svg {
   width: 18px;
   height: 18px;
+
+  path {
+    fill: @font-color-content;
+  }
 }
 
 .zoneTabSingleTitle {
   font-size: 13px;
   font-weight: 500;
-  color: #000;
+  color: @font-color-content;
   flex: 1;
   margin-left: -4px;
 }
@@ -486,9 +490,9 @@
 
 .editModeControlBatch {
   --checkbox-hover-color: @color-warning;
-  // 与 Ant Design Alert 的 warning 背景、边框配色保持一致。
-  border-color: #ffe58f;
-  background-color: #fffbe6;
+  // 半透明警示色叠加在面板背景上，兼容明暗主题。
+  border-color: fade(@color-warning, 40%);
+  background-color: fade(@color-warning, 10%);
 
   :global(.ant-checkbox-checked .ant-checkbox-inner),
   :global(.ant-checkbox-wrapper:hover .ant-checkbox-checked:not(.ant-checkbox-disabled) .ant-checkbox-inner) {
