@@ -83,9 +83,6 @@ async function readClipboardText(): Promise<string> {
 }
 
 export default function StyleEditorShell({ editConfig }: EditorProps) {
-  const [titleContent, setTitleContent] = useState('')
-  const [targetStyle, setTargetStyle] = useState<any>(null)
-
   useMemo(() => {
     // 将 selector 写为空，避免后续依赖 selector 的逻辑（如 zone tab 生成、样式写入）拿到错误的值。便于发现问题
     if (editConfig && editConfig.options) {
@@ -93,7 +90,7 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
     }
   }, [editConfig])
 
-  const [{ finalOpen, finalDisabledSwitch, finalSelector }, canvasEle] = useMemo(() => {
+  const [{ finalOpen, finalSelector }, canvasEle] = useMemo(() => {
     return [
       getDefaultConfiguration2(editConfig),
       // @ts-ignore
@@ -673,7 +670,7 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
         <Menu.Item key="edit" onClick={onEditModeClick}>{lang.cssEditorTip}</Menu.Item>
       </Menu>
     );
-  }, [open, editMode, titleContent, batchMeta, onBatchDiscard, onBatchCommit, onCopyStyle, onPasteStyle])
+  }, [open, editMode, batchMeta, onBatchDiscard, onBatchCommit, onCopyStyle, onPasteStyle])
 
   const onBatchStyleSourceChange = useCallback(() => {
     if (!pendingBatchStyleRefreshRef.current || !selectedTarget || !baseSelector) return
@@ -905,31 +902,6 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
             {show && editor}
           </div>
         </div>
-        {canvasEle &&
-          targetStyle &&
-          createPortal(
-            <>
-              <div className={css.popupTips} style={targetStyle.canvas}></div>
-              <Tooltip
-                placement="topLeft"
-                title={editConfig.title || lang.currentDomZone}
-                visible={true}
-                overlayInnerStyle={{
-                  color: '#555',
-                  fontSize: 12,
-                  minWidth: 50,
-                  textAlign: 'center',
-                  boxShadow: '0px 1px 4px 2px rgba(39, 54, 78, 0.37)',
-                  borderRadius: 4,
-                }}
-                color="#fff"
-                transitionName=""
-              >
-                <div className={css.popupTips} style={targetStyle.tips}></div>
-              </Tooltip>
-            </>,
-            canvasEle
-          )}
       </>
     ),
   }
