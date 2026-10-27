@@ -43,7 +43,6 @@ import {
 } from "../../helper/text-fill";
 import { getColorEditorValue } from "../../helper/get-color-editor-value";
 import { normalizeCssValue } from "../../helper/normalize-css-value";
-import { collectZoneTabs, mergeZoneTabsByState } from "../../../core/zone-tab";
 import { createStyleResolution } from "../../../core/style-property";
 import { formatCssVarTitle, parseCssVar } from "../../../core/css-var";
 import type { EffectiveStyleValue } from "../../../core/zone-tab";
@@ -356,11 +355,9 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
   const options = editConfig?.options;
   const zoneTab = options && !Array.isArray(options) && 'zoneTab' in options ? options.zoneTab : null;
   const normalFontResolution = useMemo(() => {
-    if (!zoneTab?.pseudo || ![':hover', ':focus', ':active', ':disabled'].includes(zoneTab.pseudo) || !targetDom?.isConnected) return null;
+    if (!zoneTab?.pseudo || ![':hover', ':focus', ':active', ':disabled'].includes(zoneTab.pseudo) || !targetDom?.isConnected || !options || Array.isArray(options)) return null;
     // 新增伪类的基础规则可能尚未刷新；只在字体内读取最新常规声明，保留变量和单位。
-    const selectors = [zoneTab.baseSelector, ...Array.from(targetDom.classList, name => '.' + name)];
-    const normalTab = mergeZoneTabsByState(collectZoneTabs([targetDom], selectors, (options as any)?.comId))
-      .find(tab => !tab.pseudo);
+    const normalTab = options.mergedTabs?.find(tab => !tab.pseudo);
     return normalTab ? createStyleResolution(normalTab, targetDom) : null;
   }, [zoneTab, targetDom, options, effectiveStyle]);
   const getFontPreview = (key: string, computed?: string) => {

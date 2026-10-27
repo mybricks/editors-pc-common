@@ -1,13 +1,13 @@
 import React, { useCallback, useContext, createContext, useMemo, CSSProperties } from 'react'
 import type { EditorProps } from '../type'
-import type { EffectiveStyleValue, ZoneTab } from '../core/zone-tab'
+import type { EffectiveStyleValue } from '../core/zone-tab'
 import type { StyleClearPlan, StyleProperty } from '../core/style-property'
 import { buildStyleMutationChange } from './helper/style-mutations'
 import type { ApplyStyleMutations, ChangeEvent, StyleChangeResult, StyleMutation } from './type'
 
 interface StyleEditorContextValue {
   editConfig: {
-    options?: EditorProps['editConfig']['options'] | { comId?: string; zoneTab?: ZoneTab }
+    options?: EditorProps['editConfig']['options']
     /** 文件上传 */
     upload?: (files: Array<File>) => Array<string>
     /** 外部字体列表（仅支持 label/value） */

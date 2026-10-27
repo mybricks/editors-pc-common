@@ -10,6 +10,7 @@ import { getDocument } from './dom'
 import { calculateSafeSpecificity, splitTopLevelSelectors } from './selector-utils'
 import { isStatePreviewStyleSheet } from './state-preview-tag'
 import lang from '../index.i18n'
+import type { getEffectedCssPropertyAndOptions } from './get-effected-css'
 
 export type ZoneSourceRule = {
   rule: CSSStyleRule
@@ -44,6 +45,8 @@ export type ZoneTab = {
   target?: Element
   label?: string
   effectiveStyle?: Record<string, EffectiveStyleValue>
+  /** 与 effectiveStyle 同次求解的完整 CSS 值及面板来源，供默认配置直接复用。 */
+  effectedCssResult?: ReturnType<typeof getEffectedCssPropertyAndOptions>
   /** 是否由右侧新增状态按钮临时添加。 */
   isAdded?: boolean
   /** 批量回显忽略当前元素的单独规则，供 CSSOM 重编译后继续过滤。 */

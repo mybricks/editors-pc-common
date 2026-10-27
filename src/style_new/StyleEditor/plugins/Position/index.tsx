@@ -4,7 +4,6 @@ import { Panel, InputNumber } from '../../components'
 import { useEffectiveStyleValue, useStyleChange, useStyleEditorContext } from '../../context'
 import { useDragNumber } from '../../hooks'
 import { useStyleDisplayValue } from '../../hooks/useStyleDisplayValue'
-import { collectZoneTabs, mergeZoneTabsByState } from '../../../core/zone-tab'
 import { createStyleResolution } from '../../../core/style-property'
 import { createAbsolutePatch } from '../../../core/position'
 import { isZh } from '../../../core/i18n'
@@ -145,11 +144,9 @@ export function Position({ value: panelValue, onChange: fallbackOnChange, showTi
 
   const targetDom = editorContext?.targetDom ?? null
   const offsetPreview = useMemo(() => {
-    if (!isPseudoState || !targetDom?.isConnected || !zoneTab) return null
+    if (!isPseudoState || !targetDom?.isConnected || !zoneTab || !options || Array.isArray(options)) return null
     // 新增伪类尚无 CSS 规则，Tab 的基础规则可能早于上一次编辑；位置预览单独读取最新常规声明。
-    const selectors = [zoneTab.baseSelector, ...Array.from(targetDom.classList, name => '.' + name)]
-    const normalTab = mergeZoneTabsByState(collectZoneTabs([targetDom], selectors, (options as any)?.comId))
-      .find(tab => !tab.pseudo)
+    const normalTab = options.mergedTabs?.find(tab => !tab.pseudo)
     if (!normalTab) return null
     const resolution = createStyleResolution(normalTab, targetDom)
     return Object.fromEntries(['top', 'right', 'bottom', 'left'].map(key => {
