@@ -31,7 +31,7 @@ export function getVariations(dom: HTMLElement, comId: string): StyleVariation[]
     selector: tab.selector,
     pseudo: tab.pseudo,
     focused: tab.selector === focusSelector,
-    select: () => useVariation(dom, comId, tab.pseudo),
+    select: () => useVariation(dom, comId, tab.pseudo, tabs),
   }))
 }
 
@@ -91,9 +91,14 @@ export function registerVariationFocusHandler(handler: VariationFocusHandler): (
  * - 面板没挂载时：直接应用变体预览样式
  * 变体不存在时返回 false
  */
-export function useVariation(dom: HTMLElement, comId: string, pseudo: string | null): boolean {
+export function useVariation(
+  dom: HTMLElement,
+  comId: string,
+  pseudo: string | null,
+  tabs?: ReturnType<typeof collectDisplayZoneTabs>
+): boolean {
   if (!dom) return false
-  const found = collectDisplayZoneTabs([dom], comId).find(({ tab }) => tab.pseudo === pseudo)
+  const found = (tabs ?? collectDisplayZoneTabs([dom], comId)).find(({ tab }) => tab.pseudo === pseudo)
   if (!found) return false
   const { tab } = found
   if (focusHandler) {
