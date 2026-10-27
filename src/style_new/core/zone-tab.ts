@@ -638,6 +638,8 @@ export function collectZoneTabs(
     // 完整祖先路径校验，可以同时避免把不适用于当前元素的规则收进来。
     for (const part of splitTopLevelSelectors(rule.selectorText)) {
       const state = splitZoneSelectorState(part)
+      // 暂时过滤伪元素 Tab
+      if (state.pseudo?.includes('::')) continue
       const targetIndex = elements.findIndex((el) => {
         try { return el.matches(state.matchSelector) } catch { return false }
       })
