@@ -351,6 +351,12 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
     return shellComId ? getDocument().getElementById(shellComId) : null
   }, [shellComId])
 
+  const savedSoloStyle = useMemo(() => {
+    return selectedTarget && baseSelector
+      ? getSavedSoloStyle(selectedTarget, baseSelector, componentRoot, getDocument())
+      : null
+  }, [selectedTarget, baseSelector, componentRoot])
+
   const expectedSoloSelector = useMemo(() => {
     return selectedTarget && baseSelector
       ? buildSoloSelector(selectedTarget, baseSelector, componentRoot)
@@ -475,12 +481,6 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
   // 切回批量时，完整路径规则会备份并移除；手写短规则保留，仅切换后续编辑的写入目标。
   const onExitSoloEdit = useCallback(() => {
     if (soloSelector && selectedTarget && baseSelector) {
-      const savedSoloStyle = getSavedSoloStyle(
-        selectedTarget,
-        baseSelector,
-        componentRoot,
-        getDocument()
-      )
       if (savedSoloStyle) {
         const hasShortSelector =
           !!expectedSoloSelector &&
@@ -517,9 +517,7 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
           if (removed) {
             refreshBatchMeta()
             // 宿主异步重编译时才等待源码通知；同步删除已经由本次切换刷新。
-            pendingBatchStyleRefreshRef.current = !!getSavedSoloStyle(
-              selectedTarget, baseSelector, componentRoot, getDocument()
-            )
+            pendingBatchStyleRefreshRef.current = !!savedSoloStyle
           }
         }
       }
@@ -647,10 +645,6 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
       return
     }
 
-    const savedSoloStyle =
-      selectedTarget && baseSelector
-        ? getSavedSoloStyle(selectedTarget, baseSelector, componentRoot, getDocument())
-        : null
     const nextSoloSelector = savedSoloStyle?.selector || null
     const nextIsSoloEdit = !!nextSoloSelector
 
@@ -683,7 +677,7 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
 
   const onBatchStyleSourceChange = useCallback(() => {
     if (!pendingBatchStyleRefreshRef.current || !selectedTarget || !baseSelector) return
-    if (getSavedSoloStyle(selectedTarget, baseSelector, componentRoot, getDocument())) return
+    if (savedSoloStyle) return
     pendingBatchStyleRefreshRef.current = false
     setKey(k => k + 1)
   }, [selectedTarget, baseSelector, componentRoot])
@@ -694,15 +688,15 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
     // 有手写短规则时退出单独编辑不会删除 CSS；批量面板应按公共来源回显，
     // 而不是继续把当前节点的 nth-child 覆盖当成公共值。
     if (!isSoloEdit && selectedTarget && baseSelector && !Array.isArray(resolvedEditConfig.options)) {
-      const savedSoloStyle = getSavedSoloStyle(selectedTarget, baseSelector, componentRoot, getDocument())
+      const batchSoloStyle = savedSoloStyle
         || (expectedSoloSelector ? soloStyleBackupRef.current.get(expectedSoloSelector) : null)
       const zoneTab = (resolvedEditConfig.options as { zoneTab?: ZoneTab }).zoneTab
-      if (savedSoloStyle && zoneTab) {
+      if (batchSoloStyle && zoneTab) {
         resolvedEditConfig = {
           ...resolvedEditConfig,
           options: {
             ...resolvedEditConfig.options,
-            zoneTab: excludeSoloSources(zoneTab, savedSoloStyle.rules.map(rule => rule.selector)),
+            zoneTab: excludeSoloSources(zoneTab, batchSoloStyle.rules.map(rule => rule.selector)),
           } as EditorProps['editConfig']['options'],
         }
       }
@@ -713,7 +707,6 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
       : resolvedEditConfig
     const config = getDefaultConfiguration(configEditConfig, suggestOptionsCacheRef.current)
     if (isSoloEdit && selectedTarget && baseSelector) {
-      const savedSoloStyle = getSavedSoloStyle(selectedTarget, baseSelector, componentRoot, getDocument())
       const soloStyle = Object.assign({}, ...((savedSoloStyle?.rules || []).map((rule) =>
         parseToStyleData(buildCssRule(rule.selector, rule.body), rule.selector)
       )))
