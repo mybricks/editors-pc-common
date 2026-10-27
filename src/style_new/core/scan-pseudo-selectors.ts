@@ -51,6 +51,8 @@ export function scanPseudoSelectors(
       base = part.slice(0, part.length - pseudo.length).trim()
     } else {
       const state = splitZoneSelectorState(part)
+      // 暂停过滤伪元素的扫描
+      if (state.pseudo?.includes('::')) return false
       // 条件匹配型伪类（如 :is / :where / :not）不会生成独立 Tab。
       // :has(...) 虽然也是匹配条件，但同时属于可编辑状态，因此会通过这里。
       if (state.pseudo !== pseudo) return false
