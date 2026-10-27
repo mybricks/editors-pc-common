@@ -35,7 +35,7 @@ export function useZoneSelectors(editConfig: any, targetDom: any, _open: boolean
 
     // 变体列表管线与对外 getVariations 共享（core/zone-display-tabs），
     // 面板在共享结果上继续算每个 tab 的生效样式。
-    const displayTabs = collectDisplayZoneTabs(domList, comId)
+    const { displayTabs } = collectDisplayZoneTabs(domList, comId)
     const generatedTabs = displayTabs.map(({ tab, label }) => {
       const target = domList[0] as HTMLElement | undefined
       let effectiveStyle = tab.effectiveStyle ?? {}

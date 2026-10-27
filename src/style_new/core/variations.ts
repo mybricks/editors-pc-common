@@ -1,4 +1,5 @@
 import { collectDisplayZoneTabs } from './zone-display-tabs'
+import type { DisplayZoneTab } from './zone-display-tabs'
 import { applyStatePreview, clearStatePreview, isPreviewablePseudo, refreshStatePreview } from './state-preview'
 
 export type StyleVariation = {
@@ -20,7 +21,7 @@ export type StyleVariation = {
  */
 export function getVariations(dom: HTMLElement, comId: string): StyleVariation[] {
   if (!dom) return []
-  const tabs = collectDisplayZoneTabs([dom], comId)
+  const { displayTabs: tabs } = collectDisplayZoneTabs([dom], comId)
   // 默认常规
   const focusSelector =
     tabs.find(({ tab }) => tab.selector === focusedSelector)?.tab.selector
@@ -95,10 +96,10 @@ export function useVariation(
   dom: HTMLElement,
   comId: string,
   pseudo: string | null,
-  tabs?: ReturnType<typeof collectDisplayZoneTabs>
+  tabs?: DisplayZoneTab[]
 ): boolean {
   if (!dom) return false
-  const found = (tabs ?? collectDisplayZoneTabs([dom], comId)).find(({ tab }) => tab.pseudo === pseudo)
+  const found = (tabs ?? collectDisplayZoneTabs([dom], comId).displayTabs).find(({ tab }) => tab.pseudo === pseudo)
   if (!found) return false
   const { tab } = found
   if (focusHandler) {

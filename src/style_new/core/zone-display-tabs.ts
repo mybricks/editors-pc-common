@@ -8,15 +8,23 @@ import { scanPseudoSelectors } from './scan-pseudo-selectors'
 import { collectZoneTabs, getZoneTabLabels, mergeZoneTabsByState } from './zone-tab'
 import type { ZoneTab } from './zone-tab'
 
+export type DisplayZoneTab = { tab: ZoneTab; label: string }
+
+export type DisplayZoneTabsResult = {
+  displayTabs: Array<DisplayZoneTab & { index: number }>
+  mergedTabs: ZoneTab[]
+  originTabs: ZoneTab[]
+}
+
 /**
  * 算出元素的变体列表（即样式面板顶部的那些 tab：常规、悬浮态、激活态…），
- * 返回排好序的 tab 和展示名。
+ * 返回排好序的展示 tab、合并后的 tab，以及合并前的原始 tab。
  * 样式面板和getVariations 共用
  */
 export function collectDisplayZoneTabs(
   domList: Element[],
   comId: string
-): Array<{ tab: ZoneTab; label: string }> {
+): DisplayZoneTabsResult {
   const result: string[] = []
   const baseSelectors: string[] = []
 
@@ -73,5 +81,5 @@ export function collectDisplayZoneTabs(
       const byRank = getRank(a) - getRank(b)
       return byRank || a.index - b.index
     })
-  return displayTabs
+  return { displayTabs, mergedTabs: merged, originTabs: tabs }
 }
