@@ -326,6 +326,22 @@ export default i18n({
     zh: '当前画布没有可用变量',
     en: 'No variables available on this canvas',
   },
+  allLibraries: {
+    zh: '全部库',
+    en: 'All libraries',
+  },
+  designVariables: {
+    zh: '自定义库',
+    en: 'Custom library',
+  },
+  designVariablesTip: {
+    zh: '通过业务空间配置的自定义设计变量',
+    en: 'Custom design variables configured through the business space',
+  },
+  otherVariables: {
+    zh: '其它库',
+    en: 'Other libraries',
+  },
   noSizeVariables: {
     zh: '当前画布没有可用的尺寸变量',
     en: 'No size variables available on this canvas',
@@ -713,6 +729,7 @@ export default i18n({
   directionInline: { zh: '内联', en: 'Inline' },
   directionColumn: { zh: '纵向排版', en: 'Vertical' },
   directionRow: { zh: '横向排版', en: 'Horizontal' },
+  directionFreedom: { zh: '自由布局', en: 'Free layout' },
 
   // Layout/JustifyContent
   justifyEven: { zh: '均匀', en: 'Space evenly' },
@@ -918,7 +935,7 @@ export default i18n({
   onlyCurrentZone: { zh: '只修改当前区域', en: 'Edit current zone only' },
   syncAllZones: { zh: '同步修改使用同一套样式的全部区域', en: 'Sync all zones that share the same styles' },
   applyToAll: { zh: '应用至全部', en: 'Apply to all' },
-  editCurrentZoneOnly: { zh: '仅编辑选中区域', en: 'Edit selected zone only' },
+  editCurrentZoneOnly: { zh: '仅编辑选中区域', en: 'selected zone only' },
   affectedZones: { zh: '个区域', en: 'zone(s)' },
   affectedLabel: { zh: '影响', en: 'Affects' },
   markedLabel: { zh: '(已标记)', en: '(marked)' },

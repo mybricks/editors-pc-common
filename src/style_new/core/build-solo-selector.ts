@@ -12,7 +12,7 @@ function isOnlyChild(element: Element): boolean {
   return element.parentElement?.children.length === 1
 }
 
-function appendNthChild(selector: string, index: number): string {
+export function appendNthChild(selector: string, index: number): string {
   const pseudoMatch = selector.match(/(:{1,2}[a-zA-Z\-]+(?:\([^)]*\))?\s*)$/)
   if (pseudoMatch) {
     const insertAt = selector.lastIndexOf(pseudoMatch[1])
@@ -224,9 +224,11 @@ export const buildSoloSelector = (
   targetDom: Element,
   baseSelector: string,
   componentRoot?: Element | null,
+  options?: { keepTopLevelFirstChild?: boolean },
 ): string => {
   const baseTail = baseSelector.trim().split(/\s+/).pop() || baseSelector
   const segments: string[] = []
+  let hasTargetSegment = false
   let current: Element | null = targetDom
 
   while (current && current !== componentRoot) {
@@ -240,12 +242,21 @@ export const buildSoloSelector = (
       } else if (!isOnlyChild(current)) {
         segments.unshift(appendNthChild(selector, getChildIndex(current)))
       }
+      if (current === targetDom) hasTargetSegment = true
     }
     current = current.parentElement
   }
 
+  // 目标自身没有 data-zone-classnames 时，上面的循环拼不出它这一段；
+  // 末尾补上目标自己的类名 + nth-child，保证 selector 命中目标nth元素而不是父级。
+  if (!hasTargetSegment && segments.length) {
+    segments.push(isOnlyChild(targetDom)
+      ? baseTail
+      : appendNthChild(baseTail, getChildIndex(targetDom)))
+  }
+
   // 未标记区域沿用原 selector，保证第三方元素等既有场景不退化。
-  const filteredSegments = omitTopLevelFirstChild(segments)
+  const filteredSegments = options?.keepTopLevelFirstChild ? segments : omitTopLevelFirstChild(segments)
   return filteredSegments.length ? filteredSegments.join(' ') : baseTail
 }
 
@@ -260,6 +271,7 @@ function getRuntimeSoloSelector(
 ): string | null {
   const baseTail = baseSelector.trim().split(/\s+/).pop() || baseSelector
   const segments: string[] = []
+  let hasTargetSegment = false
   let current: Element | null = targetDom
 
   while (current && current !== componentRoot) {
@@ -274,8 +286,17 @@ function getRuntimeSoloSelector(
       } else if (!isOnlyChild(current)) {
         segments.unshift(appendNthChild(selector, getChildIndex(current)))
       }
+      if (current === targetDom) hasTargetSegment = true
     }
     current = current.parentElement
+  }
+
+  // 同上：目标没有 data-zone-classnames 时，末尾补上运行时类名 + nth-child。
+  if (!hasTargetSegment && segments.length) {
+    const runtimeTarget = getRuntimeSelector(targetDom, baseTail)
+    segments.push(isOnlyChild(targetDom)
+      ? runtimeTarget
+      : appendNthChild(runtimeTarget, getChildIndex(targetDom)))
   }
 
   const filteredSegments = omitTopLevelFirstChild(segments)

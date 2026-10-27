@@ -1,5 +1,6 @@
 import { splitTopLevelSelectors } from './selector-utils'
 import { splitZoneSelectorState } from './zone-tab'
+import { STATE_PREVIEW_ATTR, getStatePreviewSize, isStatePreviewStyleSheet } from './state-preview-tag'
 
 /** 这些真实交互态可能污染 DOM 上读到的常规态计算样式。 */
 const INTERACTIVE_STATES = [':hover', ':focus', ':focus-within', ':focus-visible', ':active', ':disabled']
@@ -58,10 +59,15 @@ export function readNormalStyleSignature(target: HTMLElement | null): string | u
     for (let element: Element | null = target; element;) {
       const root = element.getRootNode() as Document | ShadowRoot
       roots.add(root)
+      // 预览期间元素的 live 尺寸被预览样式影响，用预览开始时冻结的尺寸参与比较
+      const frozenSize = getStatePreviewSize(element)
       sources.push([
         element.tagName,
-        Array.from(element.attributes, attribute => [attribute.name, attribute.value]),
-        element.clientWidth, element.clientHeight,
+        // 预览标记是面板临时加的，不算样式来源变化
+        Array.from(element.attributes, attribute => [attribute.name, attribute.value])
+          .filter(([name]) => name !== STATE_PREVIEW_ATTR),
+        frozenSize ? frozenSize[0] : element.clientWidth,
+        frozenSize ? frozenSize[1] : element.clientHeight,
       ])
       element = element.parentElement || ('host' in root ? root.host : null)
     }
@@ -71,7 +77,10 @@ export function readNormalStyleSignature(target: HTMLElement | null): string | u
         const sheet = (node as HTMLStyleElement | HTMLLinkElement).sheet
         if (sheet) sheets.add(sheet as CSSStyleSheet)
       })
-      for (const sheet of (root as any).adoptedStyleSheets || []) sheets.add(sheet)
+      // 预览样式表不是真实样式来源，跳过
+      for (const sheet of (root as any).adoptedStyleSheets || []) {
+        if (!isStatePreviewStyleSheet(sheet)) sheets.add(sheet)
+      }
       sources.push(Array.from(sheets).flatMap(describeSheet))
     }
     const view = target.ownerDocument.defaultView
@@ -83,11 +92,15 @@ export function readNormalStyleSignature(target: HTMLElement | null): string | u
   }
 }
 
-/** 返回当前目标可信的常规态计算样式；不改变元素的真实状态。 */
+/**
+ * 返回目标元素的常规态计算样式。元素正在真实交互（:hover 等）或正在
+ * 预览状态样式时，计算值已被污染、不可信，返回 undefined。
+ */
 export function readNormalComputedStyle(target: HTMLElement | null): CSSStyleDeclaration | undefined {
   if (!target?.isConnected) return undefined
   try {
     for (let element: Element | null = target; element; element = element.parentElement) {
+      if (element.hasAttribute(STATE_PREVIEW_ATTR)) return undefined
       if (INTERACTIVE_STATES.some(state => {
         try { return element!.matches(state) } catch { return false }
       })) return undefined

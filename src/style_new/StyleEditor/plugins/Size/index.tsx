@@ -244,7 +244,7 @@ function DefaultModeBadge({
 
 /** 归一化尺寸值：auto / inherit / default / 未配置 → undefined。fit-content 保留原值，用于区分"显式 Hug"与"未配置" */
 function normalizeSizeValue(val: any): string | undefined {
-  if (val == null || val === '' || val === 'auto' || val === 'inherit' || val === 'default') return undefined;
+  if (val == null || val === '' || val === 'auto' || val === 'inherit' || val === 'default' || val === 'none') return undefined;
   return typeof val === 'number' ? `${val}px` : String(val);
 }
 
@@ -290,7 +290,51 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
     maxHeight: lang.removeMaxHeight,
   }), []);
   const editorContext = useStyleEditorContext();
-  const value = useEffectiveStyleValue();
+  // rawValue 保留源码里的 100vh、calc(...) 或 var(...)；value 只作为面板显示副本，避免把 900px 回写成源码。
+  const rawValue = useEffectiveStyleValue() as CSSProperties & Record<string, any>;
+  // 每个字段同时记住源码值和初始回显值：例如 minHeight 从 100vh 回显为 900px 后，用户改成 600px 时应立即显示 600px。
+  const [initialSizeValues, setInitialSizeValues] = useState<Record<string, { source: any; display: any }>>({});
+
+  // 初始样式由 StyleMount 同步传入；首次挂载或切换元素时统一初始化六个字段。
+  // 例如 minHeight: '100vh' 在 900px 视口初始显示 900px；后续修改 width 不会重新读取 min-height。
+  useLayoutEffect(() => {
+    const dom = editorContext?.targetDom;
+    const initialValues: typeof initialSizeValues = {};
+    const computedStyle = dom ? window.getComputedStyle(dom) : undefined;
+
+    SIZE_PROPERTY_KEYS.forEach(field => {
+      const source = rawValue[field];
+      // var(--page-height) 先查出 100vh 或 calc(...)；source 保留变量引用，继续显示胶囊。
+      let display = isCssVarValue(source) ? resolveCssVarLength(source, dom) : source;
+      const needsCalculation = typeof display === 'string'
+        && (isViewportSize(display) || /^calc\(/i.test(display.trim()));
+
+      // 24px、50%、fit-content 等直接保留；需要计算的字段从上面共用的 computedStyle 中取值。
+      if (computedStyle && needsCalculation) {
+        const cssProperty = field.replace(/[A-Z]/g, letter => `-${letter.toLowerCase()}`);
+        const computedValue = computedStyle.getPropertyValue(cssProperty).trim();
+        // min-height: 100vh 在 900px 视口中读到 900px，即使内容把元素撑到 1200px，也不取 offsetHeight。
+        // calc(100vh - 24px) 则读到 876px；若仍返回公式或空串，保留原值，沿用原有展示逻辑。
+        if (/^-?(?:\d+\.?\d*|\.\d+)(?:px)?$/i.test(computedValue)) {
+          display = `${parseFloat(computedValue)}px`;
+        }
+      }
+      // 后续只在 rawValue[field] 仍等于 source 时使用 display；值变成 600px 后就使用用户的新值。
+      initialValues[field] = { source, display };
+    });
+    setInitialSizeValues(initialValues);
+  }, [editorContext?.targetDom]);
+
+  // 只替换回显副本，不调用 onChange；保存的 CSS 仍是原始 100vh / calc(...)。
+  const value = {...rawValue};
+  SIZE_PROPERTY_KEYS.forEach(field => {
+    const initial = initialSizeValues[field];
+    // 原配置仍为 100vh 时用初始的 900px；用户改为 600px 后直接显示新值，不再取 DOM 计算值。
+    // 变量仍传递原始 var(...)，其初始计算结果用于下面的胶囊回显。
+    if (initial && initial.source === rawValue[field] && !isCssVarValue(initial.source)) {
+      value[field] = initial.display;
+    }
+  });
   const rawOnChange = useStyleChange(fallbackOnChange);
   const [cfg] = useState({...DEFAULT_CONFIG, ...config});
 
@@ -329,7 +373,7 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
     return !(display === 'flex' || display === 'inline-flex');
   }, [targetDom]);
 
-  // 切换选中元素时，按实际配置重置显示（避免上一元素的空「未配置」残留）
+  // 切换元素时，按实际配置重置显示（避免上一目标的空「未配置」残留）
   useEffect(() => {
     setShowMaxWidth(!!normalizeSizeValue(value.maxWidth));
     setShowMinWidth(!!normalizeSizeValue(value.minWidth));
@@ -528,12 +572,14 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
   const maxWidthEffective = normalizeSizeValue(maxWidthPending !== undefined ? maxWidthPending : value.maxWidth);
 
   // Fill 仅对应「填满父容器」写入的 100%；用户显式选 %（含换算成 100%）走普通 % 单位展示
-  const isWidthFill = !!(widthEffective?.includes('%') && parseFloat(widthEffective) === 100 && actualWidth > 0 && !widthPreferPercent);
-  const isHeightFill = !!(heightEffective?.includes('%') && parseFloat(heightEffective) === 100 && actualHeight > 0 && !heightPreferPercent);
+  // cfg.disableWidth 代表父元素是横向排版，且子元素宽度由 flex 决定
+  const isWidthFill = cfg.disableWidth || !!(widthEffective?.includes('%') && parseFloat(widthEffective) === 100 && actualWidth > 0 && !widthPreferPercent);
+  // cfg.disableHeight 代表父元素是纵向排版，且子元素高度由 flex 决定
+  const isHeightFill = cfg.disableHeight || !!(heightEffective?.includes('%') && parseFloat(heightEffective) === 100 && actualHeight > 0 && !heightPreferPercent);
   const isWidthHug = widthEffective === 'fit-content';
   const isHeightHug = heightEffective === 'fit-content';
-  const isWidthDefault = !isWidthFill && !isWidthHug && !widthEffective;
-  const isHeightDefault = !isHeightFill && !isHeightHug && !heightEffective;
+  const isWidthDefault = (!isWidthFill && !isWidthHug && !widthEffective) || (typeof value.width === 'string' ? value.width.startsWith('calc(') : false);
+  const isHeightDefault = (!isHeightFill && !isHeightHug && !heightEffective) || (typeof value.height === 'string' ? value.height.startsWith('calc(') : false);
   const widthActualPx = targetDom ? Math.max(0, Math.round(actualWidth)) : null;
   const heightActualPx = targetDom ? Math.max(0, Math.round(actualHeight)) : null;
 
@@ -597,10 +643,16 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
     const resolved: Partial<Record<SizeFieldKey, string | null>> = {};
     (Object.keys(boundVarRefs) as SizeFieldKey[]).forEach((field) => {
       const varRef = boundVarRefs[field];
-      if (varRef) resolved[field] = resolveCssVarLength(varRef, targetDom);
+      const initial = initialSizeValues[field];
+      if (varRef && initial) {
+        // 初始绑定复用已算好的 900px；换绑其他变量只查变量内容，不重新计算尺寸。
+        resolved[field] = initial.source === varRef
+          ? initial.display
+          : resolveCssVarLength(varRef, targetDom);
+      }
     });
     return resolved;
-  }, [boundVarRefs, targetDom]);
+  }, [boundVarRefs, targetDom, initialSizeValues]);
 
   const getDragPropsWidth = useDragNumber({
     onDragStart: (currentValue, inputEl) => {
@@ -1268,7 +1320,7 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
       <div className={css.sizeRows} ref={sizeRowsRef}>
           {showWidthHeight && (
             <Panel.Content style={{ position: 'relative' }}>
-              <Panel.Item className={isWidthFill || isWidthHug ? css.sizingModeField : undefined} style={{ display: "flex", alignItems: "center", paddingLeft: 4, minWidth: 0 }}>
+              <Panel.Item className={isWidthFill || isWidthHug ? css.sizingModeField : undefined} style={{ display: "flex", alignItems: "center", paddingLeft: 8, minWidth: 0 }}>
                 <div
                   ref={setFieldAnchor('width')}
                   {...(widthVarRef
@@ -1371,7 +1423,7 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
                   )}
                 </div>
               </Panel.Item>
-              <Panel.Item className={isHeightFill || isHeightHug ? css.sizingModeField : undefined} style={{ display: "flex", alignItems: "center", paddingLeft: 4, minWidth: 0 }}>
+              <Panel.Item className={isHeightFill || isHeightHug ? css.sizingModeField : undefined} style={{ display: "flex", alignItems: "center", paddingLeft: 8, minWidth: 0 }}>
                 <div
                   ref={setFieldAnchor('height')}
                   {...(heightVarRef
@@ -1483,7 +1535,7 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
             return (
               <Panel.Content key={`cr-${i}`}>
                 {leftKey === 'minWidth' ? (
-                  <Panel.Item style={{ display: "flex", alignItems: "center", paddingLeft: 4, minWidth: 0 }}>
+                  <Panel.Item style={{ display: "flex", alignItems: "center", paddingLeft: 8, minWidth: 0 }}>
                     <div
                       ref={setFieldAnchor('minWidth')}
                       {...(minWidthVarRef
@@ -1519,7 +1571,7 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
                     )}
                   </Panel.Item>
                 ) : leftKey === 'maxWidth' ? (
-                  <Panel.Item style={{ display: "flex", alignItems: "center", paddingLeft: 4, minWidth: 0 }}>
+                  <Panel.Item style={{ display: "flex", alignItems: "center", paddingLeft: 8, minWidth: 0 }}>
                     <div
                       ref={setFieldAnchor('maxWidth')}
                       {...(maxWidthVarRef
@@ -1559,7 +1611,7 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
                   <Panel.Item className={css.constraintSpacer} />
                 )}
                 {rightKey === 'minHeight' ? (
-                  <Panel.Item style={{ display: "flex", alignItems: "center", paddingLeft: 4, minWidth: 0 }}>
+                  <Panel.Item style={{ display: "flex", alignItems: "center", paddingLeft: 8, minWidth: 0 }}>
                     <div
                       ref={setFieldAnchor('minHeight')}
                       {...(minHeightVarRef
@@ -1595,7 +1647,7 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
                     )}
                   </Panel.Item>
                 ) : rightKey === 'maxHeight' ? (
-                  <Panel.Item style={{ display: "flex", alignItems: "center", paddingLeft: 4, minWidth: 0 }}>
+                  <Panel.Item style={{ display: "flex", alignItems: "center", paddingLeft: 8, minWidth: 0 }}>
                     <div
                       ref={setFieldAnchor('maxHeight')}
                       {...(maxHeightVarRef

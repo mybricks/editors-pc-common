@@ -4,6 +4,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  min-width: 0;
+  max-width: 100%;
 
   .color {
     width: 100%;
@@ -12,9 +14,11 @@
     align-items: center;
     justify-content: space-between;
     padding: 0px 6px 0 8px;
+    min-width: 0;
 
     &:hover [data-input-clear],
-    &:focus-within [data-input-clear] {
+    &:focus-within [data-input-clear],
+    &:hover .unbind {
       opacity: 1;
       pointer-events: auto;
     }
@@ -30,7 +34,13 @@
       overflow: hidden;
       text-wrap: nowrap;
       text-overflow: ellipsis;
+      /* 与 .variableValue / .input 的回显样式对齐 */
+      font-size: 11px;
+      font-weight: 500;
+      color: @font-color-content;
+      line-height: 1.4;
       cursor: pointer;
+      margin-left: 6px;
     }
 
     .inheritedText {
@@ -50,6 +60,10 @@
       cursor: pointer;
       display: flex;
       align-items: center;
+      flex-shrink: 0;
+      /* hover 才显示（占位不变），见上方 .color:hover 规则 */
+      opacity: 0;
+      pointer-events: none;
     }
 
     .block {
@@ -119,6 +133,7 @@
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
+        line-height: 1.4;
         cursor: pointer;
       }
 

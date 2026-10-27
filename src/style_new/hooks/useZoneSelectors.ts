@@ -1,28 +1,21 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
-import {
-  buildZoneSelectorsFromCssom,
-  collectSubjectClassSelectors,
-  fallbackZoneSelectorsFromClassnames,
-} from '../core/build-zone-selectors-from-cssom'
 import { elMatchesSelectorTail } from '../core/css-modules-match'
 import { toElementArray } from '../core/dom'
-import { scanPseudoSelectors } from '../core/scan-pseudo-selectors'
 import { getEffectedCssPropertyAndOptions } from '../core/get-effected-css'
+import { collectDisplayZoneTabs } from '../core/zone-display-tabs'
+import { getStatePreviewContext, isStatePreviewSurface } from '../core/state-preview'
 import {
   buildZoneEffectiveStyle,
   collectZoneTabs,
-  getZoneTabLabels,
-  mergeZoneTabsByState,
 } from '../core/zone-tab'
 import type { ZoneTab } from '../core/zone-tab'
-import { collectSourceAntClassNames } from '../core/style-write-target'
 import { uniqBy } from 'lodash'
 
 const INIT_TABS: ZoneTab[] = [];
 export function useZoneSelectors(editConfig: any, targetDom: any, _open: boolean) {
   const [activeZoneIdx, setActiveZoneIdx] = useState(0)
-  const [customZoneTabs, setCustomZoneTabs] = useState<ZoneTab[]>([])
+  const [customZoneTabs, setCustomZoneTabs] = useState<ZoneTab[]>(INIT_TABS)
   // 用户手动点 tab 后，禁止被「按 DOM class 对齐」立刻打回基础态（:hover / 状态类等）
   const userSelectedRef = useRef(false)
 
@@ -40,62 +33,9 @@ export function useZoneSelectors(editConfig: any, targetDom: any, _open: boolean
   const zoneTabs = useMemo<ZoneTab[]>(() => {
     const domList = toElementArray(targetDom)
 
-    const result: string[] = []
-    const baseSelectors: string[] = []
-
-    for (const dom of domList) {
-      // CSSOM 先收集组件样式表命中的选择器（含后代路径），内部已用 classList 补自身 class。
-      // 无 comId / CSSOM 为空时直接用 classList；纯标签节点再走祖先+tag 兜底。
-      // :hover 等伪类由 scanPseudoSelectors 另扫 CSSOM，不在这里拼。
-      let bases = comId
-        ? buildZoneSelectorsFromCssom(dom, comId)
-        : collectSubjectClassSelectors(dom)
-      if (!bases.length && dom.classList.length && dom.getAttribute('data-zone-selector') && !dom.hasAttribute('data-drag-insert')) {
-        bases = collectSourceAntClassNames(dom).map(name => `.${name}`)
-      }
-      if (!bases.length) {
-        bases = fallbackZoneSelectorsFromClassnames(dom)
-      }
-
-      for (const s of bases) {
-        if (!baseSelectors.includes(s)) baseSelectors.push(s)
-        if (!result.includes(s)) result.push(s)
-      }
-    }
-
-    const tabs = collectZoneTabs(domList, baseSelectors, comId)
-    const tabKeys = new Set(tabs.map((tab) => tab.selector))
-    for (const pseudo of scanPseudoSelectors(baseSelectors, comId, domList)) {
-      if (!tabKeys.has(pseudo) && !/:nth-child\(\d+\)$/.test(pseudo)) {
-        const baseSelector = [...baseSelectors]
-          .sort((a, b) => b.length - a.length)
-          .find((base) => pseudo.startsWith(base)) || pseudo
-        tabs.push({
-          selector: pseudo,
-          baseSelector,
-          pseudo: pseudo.slice(baseSelector.length) || null,
-          sourceRules: [],
-          baseRules: [],
-          effectiveStyle: {},
-        })
-      }
-    }
-    // 保持 CSSOM 命中顺序，同时把没有可读 sourceRule 的兼容 fallback 放在末尾。
-    const ordered = result.map((selector) => tabs.find((tab) => tab.selector === selector)).filter(Boolean) as ZoneTab[]
-    tabs.filter((tab) => !result.includes(tab.selector)).forEach((tab) => ordered.push(tab))
-    const merged = mergeZoneTabsByState(ordered)
-    const labels = getZoneTabLabels(merged.map((tab) => tab.selector))
-    // 未配置中文名的伪类保留 CSSOM 顺序，但整体排在已命名状态之后。
-    const displayTabs = merged
-      .map((tab, index) => ({ tab, label: labels[index], index }))
-      .sort((a, b) => {
-        const getRank = (item: { tab: ZoneTab; label: string }) => {
-          if (!item.tab.pseudo) return 0
-          return item.label === item.tab.pseudo ? 2 : 1
-        }
-        const byRank = getRank(a) - getRank(b)
-        return byRank || a.index - b.index
-      })
+    // 变体列表管线与对外 getVariations 共享（core/zone-display-tabs），
+    // 面板在共享结果上继续算每个 tab 的生效样式。
+    const displayTabs = collectDisplayZoneTabs(domList, comId)
     const generatedTabs = displayTabs.map(({ tab, label }) => {
       const target = domList[0] as HTMLElement | undefined
       let effectiveStyle = tab.effectiveStyle ?? {}
@@ -133,6 +73,19 @@ export function useZoneSelectors(editConfig: any, targetDom: any, _open: boolean
 
   const zoneSelectorList = useMemo(() => zoneTabs.map((tab) => tab.selector), [zoneTabs])
 
+  // 切回一个还开着变体预览的元素时，直接把 tab 选中到那个状态（比如 :hover）。
+  // 原来会先选中常规，闪一下才切到 hover
+  const prevTargetDomRef = useRef<unknown>(null)
+  if (prevTargetDomRef.current !== targetDom) {
+    prevTargetDomRef.current = targetDom
+    const el = toElementArray(targetDom)[0] ?? null
+    const preview = getStatePreviewContext()
+    if (el && preview && isStatePreviewSurface(el)) {
+      const idx = zoneSelectorList.findIndex((sel) => sel.endsWith(preview.pseudo))
+      if (idx >= 0) setActiveZoneIdx(idx)
+    }
+  }
+
   // 按 DOM class 对齐 activeZoneIdx：
   // - 仅在「未手动选 tab」时做初始/列表变化对齐
   // - class 真实变化时（MutationObserver）始终对齐，并清除手动选择标记
@@ -144,6 +97,15 @@ export function useZoneSelectors(editConfig: any, targetDom: any, _open: boolean
     }
 
     function syncActiveIdx() {
+      // 预览还跟着这个元素（或其同类元素）时，对齐回那个状态 tab；用户手动点基础态才退出
+      const preview = getStatePreviewContext()
+      if (preview && isStatePreviewSurface(el)) {
+        const previewIdx = zoneSelectorList.findIndex((sel) => sel.endsWith(preview.pseudo))
+        if (previewIdx >= 0) {
+          setActiveZoneIdx(previewIdx)
+          return
+        }
+      }
       const idx = zoneSelectorList.findIndex((sel) => {
         const lastPart = sel.trim().split(/\s+/).pop() || ''
         if (/:{1,2}[a-zA-Z\-]+(?:\([^)]*\))?$/.test(lastPart)) return false
@@ -241,5 +203,7 @@ export function useZoneSelectors(editConfig: any, targetDom: any, _open: boolean
     setActiveZoneIdx: setActiveZoneIdxByUser,
     addZoneTab,
     deleteZoneTab,
+    // 供外部区分「用户手动点了 tab」和「换元素后自动对齐」两种情况
+    userSelectedRef,
   }
 }

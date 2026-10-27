@@ -16,13 +16,14 @@ import { expandFourShorthand } from './core/shorthand-normalizer'
 import { readNormalComputedStyle, readNormalStyleSignature } from './core/normal-style-preview'
 import { recordPendingSoloValues, reconcilePendingSoloValues } from './core/solo-pending-style'
 import type { PendingSoloValue } from './core/solo-pending-style'
+import { notifyVariationsChange } from './core/variations'
+import { INTERACTIVE_PSEUDO_STATES, refreshStatePreview } from './core/state-preview'
+import { STATE_PREVIEW_ATTR } from './core/state-preview-tag'
 
 const BOX_MODEL_KEYS = {
   margin: ['marginTop', 'marginRight', 'marginBottom', 'marginLeft'],
   padding: ['paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft'],
 }
-
-const PREVIEW_PSEUDO_STATES = new Set([':hover', ':focus', ':active', ':disabled'])
 
 function mergeAuthoredBoxModelValues(
   setValue: Record<string, any>,
@@ -77,6 +78,7 @@ export function StyleMount({
     normalStyleSignature?: string
     values: Map<string, string | undefined>
   } | null>(null)
+  const variationsBaselineRef = useRef<string | null>(null)
   const zoneOptions = !Array.isArray(editConfig.options) ? editConfig.options as any : null
   const zoneTab: ZoneTab | undefined = zoneOptions?.zoneTab
   const isSoloEdit = !!zoneOptions?.soloEdit
@@ -108,10 +110,23 @@ export function StyleMount({
             }
             refreshZoneTabSources(zoneTab, current)
           }
+          // 第一次记录初始变体数组
+          // 后续对比signature，如果数组变了且变化来自 CSS 写入，通知变体onChange
+          const signature = tabs.map(tab => tab.selector).join('\u0001')
+          if (variationsBaselineRef.current == null) {
+            variationsBaselineRef.current = signature
+          } else if (signature !== variationsBaselineRef.current) {
+            variationsBaselineRef.current = signature
+            if (sourceChangePending) notifyVariationsChange()
+          }
         }
         invalidateStyleResolution(zoneTab)
         setStyleRevision(revision => revision + 1)
-        if (sourceChangePending) onStyleSourceChange?.()
+        if (sourceChangePending) {
+          // 样式源变了，预览内容跟着重算
+          refreshStatePreview()
+          onStyleSourceChange?.()
+        }
         sourceChangePending = false
       })
     }
@@ -133,11 +148,13 @@ export function StyleMount({
       subtree: true, childList: true, characterData: true,
       attributes: true, attributeFilter: ['style', 'class', 'data-style-info'],
     })
+    // 挂载后强制跑一帧用于记录初始变体数组
+    refresh(false)
     return () => { observer.disconnect(); cancelAnimationFrame(frame) }
   }, [zoneTab, target, onStyleSourceChange])
 
   useEffect(() => {
-    if (!zoneTab?.pseudo || !PREVIEW_PSEUDO_STATES.has(zoneTab.pseudo) || !target) return
+    if (!zoneTab?.pseudo || !INTERACTIVE_PSEUDO_STATES.has(zoneTab.pseudo) || !target) return
     const doc = target.ownerDocument
     const view = doc.defaultView
     let frame = 0
@@ -145,7 +162,11 @@ export function StyleMount({
       view?.cancelAnimationFrame(frame)
       frame = view?.requestAnimationFrame(() => setPreviewRevision(revision => revision + 1)) ?? 0
     }
-    const refreshStyle = () => setStyleRevision(revision => revision + 1)
+    const refreshStyle = () => {
+      // 窗口大小变了，@media 命中情况可能变，预览要重建
+      refreshStatePreview()
+      setStyleRevision(revision => revision + 1)
+    }
     const events = ['pointerover', 'pointerout', 'pointerdown', 'pointerup', 'focusin', 'focusout']
     events.forEach(event => doc.addEventListener(event, refreshPreview, true))
     view?.addEventListener('resize', refreshStyle)
@@ -164,7 +185,8 @@ export function StyleMount({
   const liveStyleRef = useRef<Record<string, any>>(
     initLiveStyle(
       mergeAuthoredBoxModelValues(setValue || {}, isSoloEdit ? undefined : authoredStyle),
-      (defaultValue as any) || {}
+      // isSoloEdit的意义：单独编辑模式下，没有更改的属性，不用默认值覆盖，之前是没有修改的地方，统一会用defaultvalue进去修改
+      isSoloEdit ? {} : ((defaultValue as any) || {})
     )
   )
 
@@ -172,7 +194,7 @@ export function StyleMount({
   useEffect(() => {
     liveStyleRef.current = initLiveStyle(
       mergeAuthoredBoxModelValues(setValue || {}, isSoloEdit ? undefined : authoredStyle),
-      (defaultValue as any) || {}
+      isSoloEdit ? {} : ((defaultValue as any) || {})
     )
     if (isSoloEdit) {
       reconcilePendingSoloValues(pendingSoloValuesRef.current, setValue, liveStyleRef.current)
@@ -264,7 +286,7 @@ export function StyleMount({
   }, [zoneTab, isSoloEdit, defaultValue, effectiveStyle, setValue, target, styleRevision])
 
   // 仅样式来源更新时比较常规态依赖；鼠标进出只刷新预览，不重复扫描样式表。
-  const normalStyleSignature = useMemo(() => zoneTab?.pseudo && PREVIEW_PSEUDO_STATES.has(zoneTab.pseudo)
+  const normalStyleSignature = useMemo(() => zoneTab?.pseudo && INTERACTIVE_PSEUDO_STATES.has(zoneTab.pseudo)
     ? readNormalStyleSignature(target)
     : undefined,
     [target, zoneTab, styleRevision, setValue, authoredStyle, effectiveStyle, defaultValue]
@@ -300,7 +322,7 @@ export function StyleMount({
     }
     // 真实交互态下不读取被污染的计算值。当前目标仅修改伪类规则时，
     // 常规态来源未变，可继续使用已有可信快照，避免其他字段瞬间变空。
-    const normalComputed = zoneTab?.pseudo && PREVIEW_PSEUDO_STATES.has(zoneTab.pseudo)
+    const normalComputed = zoneTab?.pseudo && INTERACTIVE_PSEUDO_STATES.has(zoneTab.pseudo)
       ? readNormalComputedStyle(realDom)
       : undefined
     const styleSources = [setValue, authoredStyle, effectiveStyle, defaultValue]
@@ -315,7 +337,12 @@ export function StyleMount({
       : undefined
     const displayPreviewCache = normalComputed
       ? new Map<string, string | undefined>()
-      : reusablePreview
+      : reusablePreview ?? new Map<string, string | undefined>()
+    // 状态预览期间 normalComputed 不可信，快照也可能因编辑（宿主更新元素属性等）失效。
+    // 兜底读当前计算值：状态没声明的属性不受预览影响，值依然正确，回显不会变空。
+    const fallbackComputed = !normalComputed && realDom?.hasAttribute(STATE_PREVIEW_ATTR)
+      ? (realDom.ownerDocument.defaultView || window).getComputedStyle(realDom)
+      : undefined
     if (normalComputed && realDom && zoneTab) {
       normalPreviewRef.current = {
         target: realDom,
@@ -328,7 +355,7 @@ export function StyleMount({
     }
     const getStyleDisplayPreview = (key: string) => {
       const property = cssPropertyName(key)
-      if (zoneTab?.pseudo && PREVIEW_PSEUDO_STATES.has(zoneTab.pseudo) && ['top', 'right', 'bottom', 'left'].includes(property)) {
+      if (zoneTab?.pseudo && INTERACTIVE_PSEUDO_STATES.has(zoneTab.pseudo) && ['top', 'right', 'bottom', 'left'].includes(property)) {
         if (!realDom?.isConnected) return undefined
         // 绝对定位的 computed 会把 auto 换成实际距离，不能据此把未配置的边显示成 0。
         // 偏移预览保留基础态声明（含 inline）的单位和 auto，当前态声明仍由控件优先读取。
@@ -337,8 +364,9 @@ export function StyleMount({
         )?.value
       }
       if (!displayPreviewCache) return undefined
-      if (normalComputed && !displayPreviewCache.has(property)) {
-        displayPreviewCache.set(property, normalComputed.getPropertyValue(property).trim() || undefined)
+      const fillFrom = normalComputed || fallbackComputed
+      if (fillFrom && !displayPreviewCache.has(property)) {
+        displayPreviewCache.set(property, fillFrom.getPropertyValue(property).trim() || undefined)
       }
       return displayPreviewCache.get(property)
     }

@@ -10,9 +10,9 @@ import ColorUtil from "color";
 import { Popover } from "antd";
 import { useApplyStyleMutations, useEffectiveStyleValue, useStyleClear, useStyleEditorContext } from "../..";
 import { PanelBaseProps, StyleChangeResult, StyleMutation } from "./../../type";
-import { Panel, Colorpicker } from "../../components";
+import { Panel, Colorpicker, UnBindLinkIcon } from "../../components";
 import { MinusOutlined, TransparentColorOutlined } from "../../components/Icon";
-import { useDragNumber, useCanvasColorVariables } from "../../hooks";
+import { useDragNumber, useCanvasColorVariables, useThemeVars } from "../../hooks";
 import css from "./index.less";
 import lang from "../../../index.i18n";
 import {
@@ -33,6 +33,8 @@ import {
   resolveCssVarsInCssValue,
 } from "../../../core/resolve-css-var-color";
 import type { CssVarColorOption } from "../../../core/resolve-css-var-color";
+import { formatCssVarTitle } from "../../../core/css-var";
+import { normalizeCssValue } from "../../helper/normalize-css-value";
 import { stylePropertyKey } from "../../../core/style-shorthand-groups";
 
 function GripIcon() {
@@ -183,11 +185,25 @@ function LayerItem({
     [layer.value, onLayerChange]
   );
 
+  const themeVars = useThemeVars();
   const isVariableReference = !!parseCssVar(layer.value);
   const pickerValue = isVariableReference ? resolvedColor || layer.value : layer.value;
   const opacity = layer.type === "solid" && !isVariableReference
     ? getColorOpacity(layer.value)
     : 100;
+
+  // 解绑：把变量解析出的色值固化成纯色层
+  const handleUnbind = useCallback(() => {
+    const raw = resolvedColor || resolveCssVarColor(layer.value, scopeEl);
+    if (!raw) return;
+    try {
+      const color = new ColorUtil(raw);
+      const hex = (color.alpha() === 1 ? color.hex() : color.hexa()).toUpperCase();
+      onLayerChange({ type: "solid", value: hex });
+    } catch {
+      // 变量值解析不成颜色时保持原样
+    }
+  }, [resolvedColor, layer.value, scopeEl, onLayerChange]);
 
   // ── Opacity drag scrubbing (reuses useDragNumber hook) ──────────────────
   const getDragProps = useDragNumber({
@@ -322,13 +338,24 @@ function LayerItem({
           spellCheck={false}
         />
       ) : (
-        <div
-          className={css.layerLabel}
-          data-mybricks-tip={isVariableReference ? `${lang.variablePrefix}${getLayerLabel(layer)}` : undefined}
-          onClick={startEditing}
-        >
-          {/* 暂时去掉具体变量名的展示，直接展示文案 {getLayerLabel(layer)} */}
-          {isVariableReference ? lang.colorVariableAt : getLayerLabel(layer)}
+        <div className={css.layerLabelArea}>
+          <div
+            className={css.layerLabel}
+            data-mybricks-tip={isVariableReference ? `${lang.variablePrefix}${getLayerLabel(layer)}` : undefined}
+            onClick={startEditing}
+          >
+            {/* 变量层显示 title / xxx-xx 风格名，原始变量名收在 hover 提示里 */}
+            {isVariableReference ? formatCssVarTitle(getLayerLabel(layer), themeVars) : getLayerLabel(layer)}
+          </div>
+          {isVariableReference && (
+            <div
+              className={css.layerUnbind}
+              data-mybricks-tip={lang.unbind}
+              onClick={handleUnbind}
+            >
+              <UnBindLinkIcon />
+            </div>
+          )}
         </div>
       )}
 
@@ -415,11 +442,11 @@ export function Background({
     const meta = getContentBackgroundMeta(style);
     const bgColor = meta.backgroundColor ?? "";
     return [
-      meta.backgroundImage,
-      bgColor,
-      meta.backgroundSize,
-      meta.backgroundRepeat,
-      meta.backgroundPosition,
+      normalizeCssValue('background-image', meta.backgroundImage),
+      normalizeCssValue('background-color', bgColor),
+      normalizeCssValue('background-size', meta.backgroundSize),
+      normalizeCssValue('background-repeat', meta.backgroundRepeat),
+      normalizeCssValue('background-position', meta.backgroundPosition),
     ].join("|");
   };
 
@@ -455,7 +482,17 @@ export function Background({
       if (fingerprint === localEmitPendingRef.current && fingerprint !== lastEmittedRef.current) return;
       localEmitPendingRef.current = null;
     }
-    if (fingerprint === lastEmittedRef.current && ownershipFingerprint === lastOwnershipRef.current) return;
+    if (fingerprint === lastEmittedRef.current) {
+      if (ownershipFingerprint !== lastOwnershipRef.current) {
+        // 首次写入后图层变为可删除，只同步来源权限，保留打开取色器的图层 ID。
+        lastOwnershipRef.current = ownershipFingerprint;
+        setLayers(current => current.map(layer => ({
+          ...layer,
+          canRemove: ownership[layer.sourceProperty || 'backgroundImage'],
+        })));
+      }
+      return;
+    }
     lastEmittedRef.current = fingerprint;
     lastOwnershipRef.current = ownershipFingerprint;
     const meta = getContentBackgroundMeta(style);
@@ -515,15 +552,15 @@ export function Background({
           ? changes.find((c) => c.key === key)?.value ?? ""
           : value?.[key] ?? "";
       lastEmittedRef.current = [
-        get("backgroundImage") || "none",
-        get("backgroundColor") || "",
-        get("backgroundSize") || "",
-        get("backgroundRepeat") || "",
-        get("backgroundPosition") || "",
+        normalizeCssValue('background-image', get("backgroundImage") || "none"),
+        normalizeCssValue('background-color', get("backgroundColor") || ""),
+        normalizeCssValue('background-size', get("backgroundSize") || ""),
+        normalizeCssValue('background-repeat', get("backgroundRepeat") || ""),
+        normalizeCssValue('background-position', get("backgroundPosition") || ""),
       ].join("|");
-      // 普通编辑会把纯色写成 image 层；按实际写出的属性更新来源，保证后续删除目标正确。
+      // 新增图层写入 image，已有 background-color 图层保留来源，保证后续删除目标正确。
       const nextLayers = changes.some(c => c.key === 'backgroundImage' && c.value != null)
-        ? newLayers.map(layer => layer.sourceProperty === 'backgroundColor' && layer.canRemove === false
+        ? newLayers.map(layer => layer.sourceProperty === 'backgroundColor'
           ? layer
           : { ...layer, sourceProperty: 'backgroundImage' as const })
         : newLayers;
