@@ -95,11 +95,15 @@ export function StyleMount({
         // 重编译后的旧节点已失去祖先作用域，不能用它清空 class 来源。
         // 内联值和源码范围仍会更新，下面的缓存失效与回显刷新不能跳过。
         if (target.isConnected) {
-          const selectors = Array.from(new Set([
-            zoneTab.baseSelector,
-            ...Array.from(target.classList).map(name => '.' + name),
-          ]))
-          const tabs = mergeZoneTabsByState(collectZoneTabs([target], selectors, zoneOptions?.comId))
+          let tabs: ZoneTab[] = zoneOptions?.mergedTabs ?? []
+          // 同一帧内只要发生过样式源变化，就重新计算；其余刷新复用共享结果。
+          if (sourceChangePending) {
+            const selectors = Array.from(new Set([
+              zoneTab.baseSelector,
+              ...Array.from(target.classList).map(name => '.' + name),
+            ]))
+            tabs = mergeZoneTabsByState(collectZoneTabs([target], selectors, zoneOptions?.comId))
+          }
           const current = tabs.find(tab => tab.pseudo === zoneTab.pseudo)
           if (current) {
             zoneTab.sourceRules = current.sourceRules

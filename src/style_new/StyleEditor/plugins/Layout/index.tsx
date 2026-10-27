@@ -9,9 +9,8 @@ import { Panel } from "../../components";
 import type { ChangeEvent, PanelBaseProps } from "../../type";
 import { useEffectiveStyleValue, useStyleChange, useStyleEditorContext } from "../../context";
 import { useStyleDisplayValue } from "../../hooks/useStyleDisplayValue";
-import { toElementArray } from "../../../core/dom";
 import { createStyleResolution } from "../../../core/style-property";
-import { collectZoneTabs, excludeSoloSources, mergeZoneTabsByState } from "../../../core/zone-tab";
+import { excludeSoloSources } from "../../../core/zone-tab";
 import type { ZoneTab } from "../../../core/zone-tab";
 import { buildFreedomPlan } from '../../../core/freedom-plan';
 import type { FreedomPlanOptions } from '../../../core/freedom-plan';
@@ -150,13 +149,8 @@ export function Layout({ value: panelValue, onChange: fallbackOnChange, showTitl
     const target = context?.targetDom;
     if (!zoneTab?.pseudo || zoneTab.pseudo.startsWith('::') || displayField.hasDeclaration ||
       !target?.isConnected || !options || Array.isArray(options)) return undefined;
-    // computed 会将 flex/grid 子项的 inline-flex 等块化；只为 Layout 读取最新声明，不改动共享 Tab。
-    const targets = 'targetDom' in options ? toElementArray(options.targetDom) : [target];
-    const selectors = Array.from(new Set([
-      zoneTab.baseSelector,
-      ...targets.flatMap(element => Array.from(element.classList, name => '.' + name)),
-    ]));
-    const baseTab = mergeZoneTabsByState(collectZoneTabs(targets, selectors, options.comId)).find(tab => !tab.pseudo);
+    // computed 会将 flex/grid 子项的 inline-flex 等块化；从共享常规态读取声明，不改动共享 Tab。
+    const baseTab = options.mergedTabs?.find(tab => !tab.pseudo);
     if (!baseTab) return undefined;
     const value = createStyleResolution(
       excludeSoloSources(baseTab, zoneTab.excludedSourceSelectors ?? []), target

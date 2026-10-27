@@ -148,6 +148,8 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
   const {
     zoneSelectorList,
     zoneTabs,
+    mergedTabs,
+    originTabs,
     activeZoneIdx,
     setActiveZoneIdx,
     addZoneTab,
@@ -421,6 +423,8 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
               // 诊断样式写入来源时需要看到当前元素的全部候选 selector，
               // 不能只拿 activeZoneTab，否则无法列出其他未生效的 classname。
               zoneTabs,
+              mergedTabs,
+              originTabs,
             },
           }
     let activeSelector =
@@ -440,7 +444,7 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
     }
 
     return { resolvedEditConfig, activeSelector }
-  }, [editConfig, zoneSelectorList, zoneTabs, activeZoneIdx, activeZoneTab, finalSelector, isSoloEdit, soloSelector])
+  }, [editConfig, zoneSelectorList, zoneTabs, mergedTabs, originTabs, activeZoneIdx, activeZoneTab, finalSelector, isSoloEdit, soloSelector])
 
   // 进入单独编辑模式
   const onEnterSoloEdit = useCallback(() => {
