@@ -132,7 +132,7 @@ export function getDefaultConfiguration ({value, options}: GetDefaultConfigurati
     // 对象形式的 options 是带上下文的高级配置：插件列表决定可见面板，
     // targetDom/selector 决定从哪个元素或 CSS 规则读取实际生效样式。
     const { plugins, selector, targetDom, defaultOpen = false, autoOptions = false, exclude, comId } = options
-    const zoneTab = (options as any).zoneTab
+    const zoneTab = options.zoneTab
     dom = targetDom
     finalSelector = selector
     finalOpen = defaultOpen
@@ -203,8 +203,9 @@ export function getDefaultConfiguration ({value, options}: GetDefaultConfigurati
       // getEffectedCssPropertyAndOptions 同时返回：当前样式值、自己规则命中的面板、
       // 祖先继承命中的面板，以及源码中明确声明的 authoredStyle。
       getDefaultValue = false;
-      // TODO: 此方法耗时比较多，平均耗时 30ms 左右
-      const [styleValues, options, ownRulesPanels, ancestorPanels, authoredStyle] = getEffectedCssPropertyAndOptions(
+      // 当前 Tab 已携带完整求解；目标/selector 不同或来源被排除时走原计算。
+      const sharedResult = zoneTab?.selector === realSelector ? zoneTab?.effectedCssResult : undefined
+      const [styleValues, options, ownRulesPanels, ancestorPanels, authoredStyle] = sharedResult ?? getEffectedCssPropertyAndOptions(
         realDom,
         realSelectors.length > 1 ? realSelectors : (realSelector ?? ''),
         comId,
@@ -219,7 +220,7 @@ export function getDefaultConfiguration ({value, options}: GetDefaultConfigurati
         })
       }
       if (zoneTab) {
-        effectiveStyle = buildZoneEffectiveStyle(
+        effectiveStyle = sharedResult ? { ...zoneTab.effectiveStyle } : buildZoneEffectiveStyle(
           zoneTab as ZoneTab,
           styleValues as Record<string, unknown>,
           realDom,

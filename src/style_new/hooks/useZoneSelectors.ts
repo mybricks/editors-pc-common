@@ -32,41 +32,31 @@ export function useZoneSelectors(editConfig: any, targetDom: any, _open: boolean
 
   const { zoneTabs, mergedTabs, originTabs } = useMemo(() => {
     const domList = toElementArray(targetDom)
+    const target = domList[0] as HTMLElement | undefined
+    const resolveTabStyle = (tab: ZoneTab): ZoneTab => {
+      if (!target) return tab
+      const effectedCssResult = getEffectedCssPropertyAndOptions(target, tab.selector, comId, tab)
+      return {
+        ...tab,
+        target,
+        effectedCssResult,
+        effectiveStyle: buildZoneEffectiveStyle(tab, effectedCssResult[0] as Record<string, unknown>, target),
+      }
+    }
 
     // 变体列表管线与对外 getVariations 共享（core/zone-display-tabs），
     // 面板在共享结果上继续算每个 tab 的生效样式。
     const { displayTabs, mergedTabs, originTabs } = collectDisplayZoneTabs(domList, comId)
-    const generatedTabs = displayTabs.map(({ tab, label }) => {
-      const target = domList[0] as HTMLElement | undefined
-      let effectiveStyle = tab.effectiveStyle ?? {}
-      if (target) {
-        const [styleValues] = getEffectedCssPropertyAndOptions(
-          target,
-          tab.selector,
-          comId,
-          tab,
-        )
-        effectiveStyle = buildZoneEffectiveStyle(tab, styleValues as Record<string, unknown>, target)
-      }
-      return {
-        ...tab,
-        label,
-        effectiveStyle,
-      }
-    })
+    const generatedTabs = displayTabs.map(({ tab, label }) =>
+      resolveTabStyle({ ...tab, label, effectiveStyle: tab.effectiveStyle ?? {} })
+    )
     const customTabs = customZoneTabs.map((tab) => {
       // 手动新增的 Tab 合入最新扫描规则，保留新增标记。
       const generated = generatedTabs.find((item) => item.selector === tab.selector)
       if (generated) {
         return { ...tab, ...generated, isAdded: tab.isAdded }
       }
-      const target = domList[0] as HTMLElement | undefined
-      if (!target) return tab
-      const [styleValues] = getEffectedCssPropertyAndOptions(target, tab.selector, comId, tab)
-      return {
-        ...tab,
-        effectiveStyle: buildZoneEffectiveStyle(tab, styleValues as Record<string, unknown>, target),
-      }
+      return resolveTabStyle(tab)
     })
     return {
       zoneTabs: uniqBy([...generatedTabs, ...customTabs].reverse(), (tab) => tab.selector).reverse(),
