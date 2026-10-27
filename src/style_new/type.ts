@@ -20,6 +20,8 @@ export interface EditorProps {
      mergedTabs?: ZoneTab[]
      /** 编辑器内部附加属性。 当前目标的原始规则集合，由 Zone 收集链路提供。 */
      originTabs?: ZoneTab[]
+     /** 编辑器内部附加属性。是否单独编辑模式 */
+     soloEdit?: boolean
     }
     | undefined
     value: {
