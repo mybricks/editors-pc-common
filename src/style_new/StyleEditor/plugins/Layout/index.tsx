@@ -14,6 +14,7 @@ import { createStyleResolution } from "../../../core/style-property";
 import { collectZoneTabs, excludeSoloSources, mergeZoneTabsByState } from "../../../core/zone-tab";
 import type { ZoneTab } from "../../../core/zone-tab";
 import { buildFreedomPlan } from '../../../core/freedom-plan';
+import { isInlineFreedomTarget } from '../../../core/freedom-inline-plan';
 import type { FreedomPlanOptions } from '../../../core/freedom-plan';
 import styles from "./index.less";
 import lang from '../../../index.i18n'
@@ -117,6 +118,9 @@ const defaultValue: LayoutModel = {
 // freeform 标记属于当前实例；即使批量面板排除了单独规则，也要读取它的真实布局状态。
 function readFreeformMode(zoneTab: ZoneTab | null | undefined, targetDom: Element | null | undefined) {
   try {
+    if (targetDom && isInlineFreedomTarget(targetDom)) {
+      return (targetDom as HTMLElement).style.getPropertyValue('--layout-mode').trim() || undefined;
+    }
     const freeformMode = zoneTab && [
       ...zoneTab.sourceRules.map(source => source.rule), ...(zoneTab.excludedRules ?? []),
     ].find(rule => rule.style.getPropertyValue('--layout-mode') && targetDom?.matches(rule.selectorText))
@@ -138,6 +142,16 @@ export function Layout({ value: panelValue, onChange: fallbackOnChange, showTitl
   const value = hasZoneTab ? effectiveValue : panelValue;
   // 仅挂载时读取；后续由布局操作更新，普通属性引发的 CSS 重编译不重新扫描。
   const [freeformMode, setFreeformMode] = useState(() => readFreeformMode(zoneTab, context?.targetDom));
+  useEffect(() => {
+    const target = context?.targetDom;
+    if (!target || !isInlineFreedomTarget(target)) return;
+    const syncMode = () => setFreeformMode(readFreeformMode(zoneTab, target));
+    syncMode();
+    // inline 的 undo/redo 不重挂载 DOM，面板跟随自身持久化标记更新。
+    const observer = new MutationObserver(syncMode);
+    observer.observe(target, { attributes: true, attributeFilter: ['style'] });
+    return () => observer.disconnect();
+  }, [context?.targetDom, zoneTab]);
 
   const displayField = useStyleDisplayValue('display');
   const positionField = useStyleDisplayValue('position');
@@ -195,12 +209,19 @@ export function Layout({ value: panelValue, onChange: fallbackOnChange, showTitl
 
   const refresh = useCallback(() => {
     const keys = Object.keys(value ?? {}).filter(key => LAYOUT_KEYS.has(key));
-    const result = onChange([...keys, '--layout-mode'].map(key => ({ key, value: null })));
-    if (!result || result.applied) setFreeformMode(undefined);
+    const target = context?.targetDom;
+    if (freeformMode === 'freedom' && target && [target, ...Array.from(target.children)].some(isInlineFreedomTarget)) {
+      const plan = buildFreedomPlan(target, Object.fromEntries(keys.map(key => [key, null])), options as FreedomPlanOptions, 'flex');
+      (window as any).__mybricks_applyStylePlan(plan);
+      setFreeformMode(undefined);
+    } else {
+      const result = onChange([...keys, '--layout-mode'].map(key => ({ key, value: null })));
+      if (!result || result.applied) setFreeformMode(undefined);
+    }
     setClearedGapKeys({rowGap: true, columnGap: true});
     setIsReset(true);
     setForceRenderKey(prev => prev + 1);
-  }, [value, onChange]);
+  }, [value, onChange, freeformMode, context?.targetDom, options]);
 
   useEffect(() => {
     if (isReset && value && Object.keys(value).some(k => value[k] != null)) {
