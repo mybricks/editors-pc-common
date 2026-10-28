@@ -93,7 +93,10 @@ export default ({
             className={`${styles["direction"]} ${
               isActive(value as Layout) ? styles["direction-active"] : ""
             }`}
-            onClick={() => onSelect(value as Layout)}
+            onClick={() => {
+              if (isActive(value as Layout)) return;
+              onSelect(value as Layout);
+            }}
           >
             {render()}
           </div>
