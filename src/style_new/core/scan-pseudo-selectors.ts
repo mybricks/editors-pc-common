@@ -131,19 +131,19 @@ export function scanPseudoSelectors(
         // 这些规则虽然没有把目标元素写在 selector 末尾，但它们可能通过
         // CSS 继承或后代结构影响当前目标。把它们也归入同一个悬浮态集合，
         // 后续由现有的有效样式计算和级联逻辑决定最终值。
-        const ancestorPseudoRegex = new RegExp(
-          escapeRegExp(comId) + '.*' + PSEUDO_SUFFIX_PATTERN
-        )
-        forEachSelectorPart(selectorText, (part) => {
-          const ancestorMatch = part.match(ancestorPseudoRegex)
-          if (
-            ancestorMatch &&
-            ancestorMatch[1] === ':hover' &&
-            matchesTarget(part, ancestorMatch[1], true)
-          ) {
-            pseudoMap.get(sel)!.add(ancestorMatch[1])
-          }
-        })
+        // const ancestorPseudoRegex = new RegExp(
+        //   escapeRegExp(comId) + '.*' + PSEUDO_SUFFIX_PATTERN
+        // )
+        // forEachSelectorPart(selectorText, (part) => {
+        //   const ancestorMatch = part.match(ancestorPseudoRegex)
+        //   if (
+        //     ancestorMatch &&
+        //     ancestorMatch[1] === ':hover' &&
+        //     matchesTarget(part, ancestorMatch[1], true)
+        //   ) {
+        //     pseudoMap.get(sel)!.add(ancestorMatch[1])
+        //   }
+        // })
 
         // 3：祖先带伪类、末尾目标无伪类 
         // 场景：.noticeIcon:hover .productDynamicIcon { }
