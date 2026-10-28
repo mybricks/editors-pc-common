@@ -119,7 +119,10 @@ export default ({
         data-mybricks-tip={getTitle({ flexItem, flexDirection })}
         onMouseEnter={() => handleMouseEnter()}
         onMouseLeave={() => handleMouseLeave()}
-        onClick={() => onSelected(flexItem)}
+        onClick={() => {
+          if (isActive) return;
+          onSelected(flexItem);
+        }}
       >
         {isActive ? (
           <Bar flexItem={flexItem} flexDirection={flexDirection} />
