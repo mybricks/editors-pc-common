@@ -5,7 +5,7 @@ import { useEffectiveStyleValue, useStyleChange, useStyleEditorContext } from '.
 import { useDragNumber } from '../../hooks'
 import { useStyleDisplayValue } from '../../hooks/useStyleDisplayValue'
 import { createStyleResolution } from '../../../core/style-property'
-import { createAbsolutePatch } from '../../../core/position'
+import { createPositionAbsolutePatch } from '../../../core/position'
 import { isZh } from '../../../core/i18n'
 
 import type { ChangeEvent, PanelBaseProps } from '../../type'
@@ -183,7 +183,7 @@ export function Position({ value: panelValue, onChange: fallbackOnChange, showTi
 
   /** 开启自由定位：锁定当前 DOM 位置（点击瞬间重新计算，避免闭包旧值） */
   const handleActivate = useCallback(() => {
-    const style = createAbsolutePatch(targetDom, value)
+    const style = createPositionAbsolutePatch(targetDom, value)
     setOptimisticFree(true)
     onChange(Object.entries(style).map(([key, value]) => ({ key, value })))
     setLeftVal(style.left)
