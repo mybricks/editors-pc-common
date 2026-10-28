@@ -51,6 +51,40 @@ function percentToPx(percentVal: string, parentSize: number, fallbackPx: number)
   return `${Math.max(1, Math.round(fallbackPx) || 1)}px`;
 }
 
+/**
+ * 存在最大小宽高的时候，计算宽高输入框该显示的值，并回显
+ * 超过最大值就压到最大值，低于最小值就抬到最小值；
+ * 四种情况（前者是宽高单位，后者是约束单位）：
+ * - px / px、% / %：直接比较数字。
+ * - px / %：先把约束的 % 换成 px，再比较，宽高仍显示 px。
+ * - % / px：先把约束的 px 换成 %，再比较，宽高仍显示 %。
+ */
+function constrainSizeDisplay(size: string | undefined, min: string | undefined, max: string | undefined, parentSize: number): string | undefined {
+  // 1. 从完整样式值（如 80%、40px）拆出数字和单位；不支持的值保持原样。
+  const match = size?.trim().match(/^(\d*\.?\d+)(px|%)$/i);
+  if (!match) return size;
+  const unit = match[2].toLowerCase();
+  // 2. 把最大/最小宽高换成宽高的单位；未配置或无法换算的约束不参与比较。
+  const toDisplayUnit = (constraint: string | undefined): number | undefined => {
+    const limit = constraint?.trim().match(/^(\d*\.?\d+)(px|%)$/i);
+    if (!limit) return undefined;
+    const number = Number(limit[1]);
+    if (limit[2].toLowerCase() === unit) return number;
+    if (parentSize <= 0) return undefined;
+    if (unit === 'px') return number * parentSize / 100;
+    return number / parentSize * 100;
+  };
+  const minValue = toDisplayUnit(min);
+  const maxValue = toDisplayUnit(max);
+  // 3. 超过最大值就压到最大值，低于最小值就抬到最小值；两者冲突时最小值优先。
+  const original = Number(match[1]);
+  let display = original;
+  if (maxValue !== undefined) display = Math.min(display, maxValue);
+  if (minValue !== undefined) display = Math.max(display, minValue);
+  // 4. 没超出约束就返回原值；发生限制时保留宽高单位，最多保留四位小数。
+  return display === original ? size : `${Number(display.toFixed(4))}${unit}`;
+}
+
 const VIEWPORT_UNIT_RE = /^-?[\d.]+(?:vw|vh|vmin|vmax|dvw|dvh|svw|svh|lvw|lvh)$/i;
 
 function isViewportSize(val: string | undefined): boolean {
@@ -609,6 +643,17 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
   const maxHeightEffective = normalizeSizeValue(maxHeightPending !== undefined ? maxHeightPending : value.maxHeight);
   const minHeightEffective = normalizeSizeValue(minHeightPending !== undefined ? minHeightPending : value.minHeight);
 
+  const parentWidth = targetDom?.parentElement?.clientWidth ?? 0;
+  const parentHeight = targetDom?.parentElement?.clientHeight ?? 0;
+  let widthDisplay = widthResolved;
+  let heightDisplay = heightResolved;
+  if (!isDraggingWidth.current && !isWidthFill && !isWidthHug) {
+    widthDisplay = constrainSizeDisplay(widthResolved, minWidthEffective, maxWidthEffective, parentWidth);
+  }
+  if (!isDraggingHeight.current && !isHeightFill && !isHeightHug) {
+    heightDisplay = constrainSizeDisplay(heightResolved, minHeightEffective, maxHeightEffective, parentHeight);
+  }
+
   const { variableOptions: lengthVariables } = useCanvasLengthVariables();
   const hasLengthVariables = lengthVariables.length > 0;
   /** 正在为哪个字段挑选变量；null 表示弹层关闭。整个面板只有这一个变量弹层 */
@@ -852,8 +897,8 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
       }
     }
     // px → %：按相对父级换算（InputNumber 默认会沿用同一数字，如 162px → 162%）
-    if (realVal?.endsWith('%') && prevWidth?.endsWith('px')) {
-      realVal = sizeToPercent(parseFloat(prevWidth), parentW);
+    if (realVal?.endsWith('%') && widthDisplay?.endsWith('px')) {
+      realVal = sizeToPercent(parseFloat(widthDisplay), parentW);
       setWidthPreferPercent(true);
       setWidthLockKey(k => k + 1);
     } else if (realVal?.endsWith('%')) {
@@ -862,11 +907,11 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
     }
     // % → px：仅单位切换（数字未变，如 50%→50px）时按父级反算；
     // 填满(100%)下用户新输入 11px 时数字已变，应直接采用，勿覆盖成父级宽度。
-    if (realVal?.endsWith('px') && prevWidth?.endsWith('%')) {
+    if (realVal?.endsWith('px') && widthDisplay?.endsWith('%')) {
       const incomingNum = parseFloat(realVal);
-      const prevNum = parseFloat(prevWidth);
+      const prevNum = parseFloat(widthDisplay);
       if (!isNaN(incomingNum) && !isNaN(prevNum) && incomingNum === prevNum) {
-        realVal = percentToPx(prevWidth, parentW, actualWidthRef.current);
+        realVal = percentToPx(widthDisplay, parentW, actualWidthRef.current);
         setWidthLockKey(k => k + 1);
       }
     }
@@ -914,7 +959,7 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
     if (realVal === null) syncActualSizeFromDom();
     // null 表示乐观清空，保留 pending 覆盖，避免回退到尚未更新的 value.width
     if (!isDraggingWidth.current) setWidthPending(realVal);
-  }, [onChange, cfg.disableWidth, locked, value.width, widthPending, heightVarRef, syncActualSizeFromDom]);
+  }, [onChange, cfg.disableWidth, locked, value.width, widthPending, widthDisplay, heightVarRef, syncActualSizeFromDom]);
 
   const handleHeightChange = useCallback((val: string | null) => {
     let realVal: string | null = val === 'default' || val == null ? null : val;
@@ -939,8 +984,8 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
       }
     }
     // px → %：按相对父级换算
-    if (realVal?.endsWith('%') && prevHeight?.endsWith('px')) {
-      realVal = sizeToPercent(parseFloat(prevHeight), parentH);
+    if (realVal?.endsWith('%') && heightDisplay?.endsWith('px')) {
+      realVal = sizeToPercent(parseFloat(heightDisplay), parentH);
       setHeightPreferPercent(true);
       setHeightLockKey(k => k + 1);
     } else if (realVal?.endsWith('%')) {
@@ -948,11 +993,11 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
       setHeightPreferPercent(true);
     }
     // % → px：仅单位切换（数字未变）时按父级反算；用户新输入不同数字则直接采用。
-    if (realVal?.endsWith('px') && prevHeight?.endsWith('%')) {
+    if (realVal?.endsWith('px') && heightDisplay?.endsWith('%')) {
       const incomingNum = parseFloat(realVal);
-      const prevNum = parseFloat(prevHeight);
+      const prevNum = parseFloat(heightDisplay);
       if (!isNaN(incomingNum) && !isNaN(prevNum) && incomingNum === prevNum) {
-        realVal = percentToPx(prevHeight, parentH, actualHeightRef.current);
+        realVal = percentToPx(heightDisplay, parentH, actualHeightRef.current);
         setHeightLockKey(k => k + 1);
       }
     }
@@ -999,7 +1044,7 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
     if (realVal === null) syncActualSizeFromDom();
     // null 表示乐观清空，保留 pending 覆盖，避免回退到尚未更新的 value.height
     if (!isDraggingHeight.current) setHeightPending(realVal);
-  }, [onChange, cfg.disableHeight, locked, value.height, heightPending, widthVarRef, syncActualSizeFromDom]);
+  }, [onChange, cfg.disableHeight, locked, value.height, heightPending, heightDisplay, widthVarRef, syncActualSizeFromDom]);
 
   const constraintPendingSetters = useMemo(() => ({
     minWidth: setMinWidthPending,
@@ -1037,7 +1082,7 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
   }, [onChange, constraintPendingSetters]);
 
   /** 统一写入尺寸：宽/高复用带单位换算的处理函数，约束字段直写 */
-  const writeSizeValue = useCallback((field: SizeFieldKey, val: string) => {
+  const writeSizeValue = useCallback((field: SizeFieldKey, val: string | null) => {
     if (field === 'width') {
       handleWidthChange(val);
       return;
@@ -1260,8 +1305,8 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
 
   const allHidden = !showWidthHeight && !showMinRow && !showMaxRow;
 
-  const parentWidth = targetDom?.parentElement?.clientWidth ?? 0;
-  const parentHeight = targetDom?.parentElement?.clientHeight ?? 0;
+  const widthConstraintKey = widthDisplay !== widthResolved ? `${widthEffective}-${widthDisplay}` : '';
+  const heightConstraintKey = heightDisplay !== heightResolved ? `${heightEffective}-${heightDisplay}` : '';
 
   return (
     <Panel
@@ -1325,7 +1370,7 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
                   ref={setFieldAnchor('width')}
                   {...(widthVarRef
                     ? getVariableDragProps('width', lang.dragWidthUnbind)
-                    : getDragPropsWidth(widthResolved ?? (actualWidth > 0 ? `${Math.round(actualWidth)}px` : undefined), cfg.disableWidth ? lang.sizeDisabledTip : lang.dragWidth))}
+                    : getDragPropsWidth(widthDisplay ?? (actualWidth > 0 ? `${Math.round(actualWidth)}px` : undefined), cfg.disableWidth ? lang.sizeDisabledTip : lang.dragWidth))}
                   style={{ height: "100%", display: "flex", alignItems: "center", cursor: "ew-resize" }}
                 >
                   <span className={css.tip} style={{ flexShrink: 0}}>{lang.widthLabel}</span>
@@ -1333,7 +1378,7 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
                 <div ref={widthInputWrapRef} style={{ flex: 1, minWidth: 0, display: 'contents' }}>
                   {widthVarRef ? renderVariableChip('width', widthVarRef) : (
                   <InputNumber
-                    key={`${isWidthFill ? 'fill-w' : (isWidthHug ? 'hug-w' : (isWidthDefault ? 'default-w' : getUnitKey(widthResolved)))}-wlk${widthLockKey}`}
+                    key={`${isWidthFill ? 'fill-w' : (isWidthHug ? 'hug-w' : (isWidthDefault ? 'default-w' : getUnitKey(widthResolved)))}-wlk${widthLockKey}-${widthConstraintKey}`}
                     style={{ flex: 1, minWidth: 0, marginLeft: 4 }}
                     value={
                       isWidthFill || isWidthHug
@@ -1346,7 +1391,7 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
                     defaultValue={
                       isWidthFill || isWidthHug || isWidthDefault
                         ? undefined
-                        : widthResolved
+                        : widthDisplay
                     }
                     defaultUnitValue="px"
                     unitOptions={widthUnitOptions}
@@ -1428,7 +1473,7 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
                   ref={setFieldAnchor('height')}
                   {...(heightVarRef
                     ? getVariableDragProps('height', lang.dragHeightUnbind)
-                    : getDragPropsHeight(heightResolved ?? (actualHeight > 0 ? `${Math.round(actualHeight)}px` : undefined), cfg.disableHeight ? lang.sizeDisabledTip : lang.dragHeight))}
+                    : getDragPropsHeight(heightDisplay ?? (actualHeight > 0 ? `${Math.round(actualHeight)}px` : undefined), cfg.disableHeight ? lang.sizeDisabledTip : lang.dragHeight))}
                   style={{ height: "100%", display: "flex", alignItems: "center", cursor: "ew-resize" }}
                 >
                   <span className={css.tip} style={{ flexShrink: 0 }}>{lang.heightLabel}</span>
@@ -1436,7 +1481,7 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
                 <div ref={heightInputWrapRef} style={{ flex: 1, minWidth: 0, display: 'contents' }}>
                   {heightVarRef ? renderVariableChip('height', heightVarRef) : (
                   <InputNumber
-                    key={`${isHeightFill ? 'fill-h' : (isHeightHug ? 'hug-h' : (isHeightDefault ? 'default-h' : getUnitKey(heightResolved)))}-hlk${heightLockKey}`}
+                    key={`${isHeightFill ? 'fill-h' : (isHeightHug ? 'hug-h' : (isHeightDefault ? 'default-h' : getUnitKey(heightResolved)))}-hlk${heightLockKey}-${heightConstraintKey}`}
                     style={{ flex: 1, minWidth: 0, marginLeft: 4 }}
                     value={
                       isHeightFill || isHeightHug
@@ -1449,7 +1494,7 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
                     defaultValue={
                       isHeightFill || isHeightHug || isHeightDefault
                         ? undefined
-                        : heightResolved
+                        : heightDisplay
                     }
                     defaultUnitValue="px"
                     unitOptions={heightUnitOptions}
@@ -1555,7 +1600,7 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
                       unitOptions={constraintUnitOptions.minWidth}
                       placeholder=""
                       hideUnitWhenEmpty
-                      onChange={(val) => onChange({key: 'minWidth', value: val})}
+                      onChange={(val) => writeSizeValue('minWidth', val)}
                       onAction={(val) => {
                         if (val === APPLY_VARIABLE_ACTION) openVariablePicker('minWidth');
                         else removeConstraint('minWidth');
@@ -1591,7 +1636,7 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
                       unitOptions={constraintUnitOptions.maxWidth}
                       placeholder=""
                       hideUnitWhenEmpty
-                      onChange={(val) => onChange({key: 'maxWidth', value: val})}
+                      onChange={(val) => writeSizeValue('maxWidth', val)}
                       onAction={(val) => {
                         if (val === APPLY_VARIABLE_ACTION) openVariablePicker('maxWidth');
                         else removeConstraint('maxWidth');
@@ -1631,7 +1676,7 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
                       unitOptions={constraintUnitOptions.minHeight}
                       placeholder=""
                       hideUnitWhenEmpty
-                      onChange={(val) => onChange({key: 'minHeight', value: val})}
+                      onChange={(val) => writeSizeValue('minHeight', val)}
                       onAction={(val) => {
                         if (val === APPLY_VARIABLE_ACTION) openVariablePicker('minHeight');
                         else removeConstraint('minHeight');
@@ -1667,7 +1712,7 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
                       unitOptions={constraintUnitOptions.maxHeight}
                       placeholder=""
                       hideUnitWhenEmpty
-                      onChange={(val) => onChange({key: 'maxHeight', value: val})}
+                      onChange={(val) => writeSizeValue('maxHeight', val)}
                       onAction={(val) => {
                         if (val === APPLY_VARIABLE_ACTION) openVariablePicker('maxHeight');
                         else removeConstraint('maxHeight');
