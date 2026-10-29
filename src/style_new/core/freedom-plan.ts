@@ -1,4 +1,5 @@
 import type { CSSProperties } from 'react'
+import { getInlineFreedomOptions, prepareInlineFreedomChanges } from './freedom-inline-plan'
 import { appendNthChild, buildSoloSelector } from './build-solo-selector'
 import { buildZoneSelectorsFromCssom, collectSubjectClassSelectors, resolveCssomSourceSelector } from './build-zone-selectors-from-cssom'
 import { createCascadeResolver } from './cascade-winner'
@@ -113,7 +114,7 @@ function resolveFreedomDeclarations(changes: StylePlanItem[], tabs: ZoneTab[]) {
 }
 
 export function buildFreedomPlan(parent: HTMLElement, parentStyle: CSSProperties, options: FreedomPlanOptions, mode: 'freedom' | 'flex' = 'freedom') {
-  let { selector, soloEdit } = options
+  let { selector, soloEdit } = getInlineFreedomOptions(parent, options)
   const { comId } = options
   const root = parent.getRootNode() as Document | ShadowRoot
   const componentRoot = root.getElementById(comId)!
@@ -275,7 +276,7 @@ export function buildFreedomPlan(parent: HTMLElement, parentStyle: CSSProperties
       const parentPlan = parentPlans.find(change => change.target === target)
       if (parentPlan) Object.assign(parentPlan.style, style)
       else {
-        const baseSelector = collectFreedomClassSelectors(target)[0]
+        const baseSelector = collectFreedomClassSelectors(target)[0] || target.tagName.toLowerCase()
         changes.push({ target, selector: buildSoloSelector(target, baseSelector, componentRoot, { keepTopLevelFirstChild: true }),
           lessFile: JSON.parse(target.dataset.loc!).files.less, style })
       }
@@ -320,7 +321,9 @@ export function buildFreedomPlan(parent: HTMLElement, parentStyle: CSSProperties
     }
   }
 
-  let resolvedChanges = resolveFreedomDeclarations(changes, tabs)
+  // 拖入或无 class 的节点在这里分流；普通规则继续沿用优先级、共享和恢复流程。
+  const inlinePlan = prepareInlineFreedomChanges(changes, parents, mode, scope)
+  let resolvedChanges = resolveFreedomDeclarations(inlinePlan.lessChanges, tabs)
   if (mode === 'flex') {
     // 退出恢复：父容器定位和父子尺寸共用原值标记；原来没有声明则通过 null 删除。
     for (const { styleKey, originalMarker } of restoreFields) {
@@ -339,5 +342,5 @@ export function buildFreedomPlan(parent: HTMLElement, parentStyle: CSSProperties
   } else if (mode === 'flex') {
     resolvedChanges = splitFreedomRulesForExit(resolvedChanges, tabs[0].sourceRules, parentPlans, componentRoot, scope)
   }
-  return { scope: soloEdit ? 'single' : 'all', changes: resolvedChanges }
+  return { scope: soloEdit ? 'single' : 'all', changes: inlinePlan.merge(resolvedChanges) }
 }
