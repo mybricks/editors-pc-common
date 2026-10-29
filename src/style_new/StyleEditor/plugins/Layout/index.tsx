@@ -199,19 +199,12 @@ export function Layout({ value: panelValue, onChange: fallbackOnChange, showTitl
 
   const refresh = useCallback(() => {
     const keys = Object.keys(value ?? {}).filter(key => LAYOUT_KEYS.has(key));
-    const target = context?.targetDom;
-    if (freeformMode === 'freedom' && target && [target, ...Array.from(target.children)].some(isInlineFreedomTarget)) {
-      const plan = buildFreedomPlan(target, Object.fromEntries(keys.map(key => [key, null])), options as FreedomPlanOptions, 'flex');
-      (window as any).__mybricks_applyStylePlan(plan);
-      setFreeformMode(undefined);
-    } else {
-      const result = onChange([...keys, '--layout-mode'].map(key => ({ key, value: null })));
-      if (!result || result.applied) setFreeformMode(undefined);
-    }
+    const result = onChange([...keys, '--layout-mode'].map(key => ({ key, value: null })));
+    if (!result || result.applied) setFreeformMode(undefined);
     setClearedGapKeys({rowGap: true, columnGap: true});
     setIsReset(true);
     setForceRenderKey(prev => prev + 1);
-  }, [value, onChange, freeformMode, context?.targetDom, options]);
+  }, [value, onChange]);
 
   useEffect(() => {
     if (isReset && value && Object.keys(value).some(k => value[k] != null)) {
