@@ -772,12 +772,21 @@ export function ColorEditor({
     );
   }, [userInput, state.value, state.nonColorValue, state.finalValue, inherited, showInheritedColor, hasInheritedDraft, inheritedTipColor, emptyValueLabel, paintPreviewValue, onPresetClick, handleReset, handleUnbind, handleInputChange, handleInputBlur, varDraft, varName, varRef, variableDisplayText, handleVarKeyDown, commitVarDraft]);
 
+  // 预览色共用现有透明度输入和写入链路，修改后使用本地色值。
+  const previewColor = useMemo(() => {
+    const color = state.nonColorValue ? resolvedVarColor || resolvedColor : undefined;
+    if (!color) return;
+    try {
+      return new ColorUtil(color);
+    } catch {}
+  }, [state.nonColorValue, resolvedVarColor, resolvedColor]);
+
   const handleOpacityChange = useCallback(
     (value: string) => {
       let finalValue = state.value;
 
       try {
-        const color = new ColorUtil(state.value).alpha(Number(value) / 100);
+        const color = new ColorUtil(previewColor || state.value).alpha(Number(value) / 100);
         finalValue = color.hexa();
       } catch {}
 
@@ -786,9 +795,10 @@ export function ColorEditor({
       dispatch({
         value: finalValue,
         finalValue: finalValue,
+        nonColorValue: false,
       });
     },
-    [state.value, emitChange]
+    [state.value, previewColor, emitChange]
   );
 
   const handleOpacityKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -798,18 +808,18 @@ export function ColorEditor({
     const currentValue = Number(e.currentTarget.value);
     const currentOpacity = Number.isFinite(currentValue)
       ? currentValue
-      : Math.round(opacityNumber * 100);
+      : Math.round((previewColor?.alpha() ?? opacityNumber) * 100);
     const nextOpacity = Math.min(100, Math.max(0, Math.round(currentOpacity) + (e.key === 'ArrowUp' ? 1 : -1)));
 
     handleOpacityChange(String(nextOpacity));
     e.currentTarget.select();
-  }, [opacityNumber, handleOpacityChange]);
+  }, [opacityNumber, previewColor, handleOpacityChange]);
 
   const inputRef = useRef<HTMLInputElement>(null);
 
   const opacityInput = useMemo(() => {
     if (
-      state.nonColorValue ||
+      (state.nonColorValue && !previewColor) ||
       (isNaN(opacityNumber) && opacityNumber !== undefined)
     ) {
       return <></>;
@@ -821,7 +831,7 @@ export function ColorEditor({
           data-mybricks-tip={lang.opacityPanelTitle}
           ref={inputRef}
           type="inputNumber"
-          value={Math.round(opacityNumber * 100)}
+          value={Math.round((previewColor?.alpha() ?? opacityNumber) * 100)}
           onChange={(e) => handleOpacityChange(e.target.value)}
           onBlur={handleInputBlur}
           onKeyDown={handleOpacityKeyDown}
@@ -829,7 +839,7 @@ export function ColorEditor({
         <div onClick={() => inputRef.current?.focus?.()}>%</div>
       </div>
     );
-  }, [opacityNumber, state.nonColorValue, handleOpacityChange, handleOpacityKeyDown]);
+  }, [opacityNumber, state.nonColorValue, handleOpacityChange, handleOpacityKeyDown, previewColor]);
 
   const onBindingChange = useCallback((params: any) => {
     const { name, value, resetValue } = params;
