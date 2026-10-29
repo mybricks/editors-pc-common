@@ -396,11 +396,6 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
 
   const targetDom = editorContext?.targetDom ?? null;
 
-  // 切换目标时恢复该元素的初始尺寸配置
-  useLayoutEffect(() => {
-    setCfg({...DEFAULT_CONFIG, ...config});
-  }, [targetDom]);
-
   // 有「弹性」面板时（父为 flex 子项），尺寸恢复顶部分割线；否则与布局合并视觉分组
   const hideSizeTopBorder = useMemo(() => {
     if (!targetDom) return true;
