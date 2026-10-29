@@ -107,7 +107,12 @@ export function BorderRadius({ value, onChange: fallbackOnChange, config, collap
     const winner = context?.getStyleProperty?.(key).winner
     let raw: unknown
     if (context?.getStyleProperty) {
-      raw = winner?.currentState ? winner.value : undefined
+      // 优先读取当前声明的值，不然用 effectiveStyle
+      if (winner?.currentState) {
+        raw = winner.value
+      } else if (source && source.type !== 'computed') {
+        raw = source.value
+      }
     } else if (source && source.type !== 'computed') {
       raw = source.value
     } else if (context?.effectiveStyle) {
