@@ -22,6 +22,8 @@ export type ZoneSourceRule = {
   target: Element
   /** 是否来自 data-desn-page 页面源码作用域（AI 页面 Less）。 */
   isPageStyle: boolean
+  /** 采集时保存 ID；重编译后旧 CSSStyleSheet 的 ownerNode 会变成 null。 */
+  styleSheetId?: string
 }
 
 export type EffectiveStyleValue = {
@@ -658,6 +660,7 @@ export function collectZoneTabs(
         sourceOrder,
         target,
         isPageStyle: isPageScopedSelector(part),
+        styleSheetId: (rule.parentStyleSheet?.ownerNode as HTMLElement | null)?.id,
       }
       if (state.pseudo) {
         const pseudoSelector = `${tab}${state.pseudo}`
