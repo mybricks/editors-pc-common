@@ -19,7 +19,7 @@ export type StyleWriteCandidate = {
 export type StyleWriteTarget = {
   selector: string | null
   source: 'property-winner' | 'inline' | 'computed-highest-selector' | 'classname-fallback'
-  | 'current-rule' | 'host-fallback' | 'scoped-state-fallback' | 'unsupported'
+    | 'current-rule' | 'host-fallback' | 'scoped-state-fallback' | 'unsupported'
   candidates: StyleWriteCandidate[]
   reason: string
 }
