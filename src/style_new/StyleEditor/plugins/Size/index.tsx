@@ -370,7 +370,7 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
     }
   });
   const rawOnChange = useStyleChange(fallbackOnChange);
-  const [cfg] = useState({...DEFAULT_CONFIG, ...config});
+  const [cfg, setCfg] = useState({...DEFAULT_CONFIG, ...config});
 
   // const hasInitWidthHeight = !!normalizeSizeValue(value.width) || !!normalizeSizeValue(value.height);
 
@@ -429,18 +429,27 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
     if (normalizeSizeValue(value.minHeight)) setShowMinHeight(true);
   }, [value.minHeight]);
   const onChange: ChangeEvent = useCallback((change) => {
+    // 1. 沿用 inline 元素的固定尺寸规则，合并到同一次提交。
     const changes = Array.isArray(change) ? change : [change];
     const changesToFixedSize = changes.some(
       ({ key, value }) => SIZE_PROPERTY_KEYS.has(key) && value !== null && value !== undefined,
     );
     const isInline = targetDom && window.getComputedStyle(targetDom).display === 'inline';
 
+    let submittedChange = change;
     if (changesToFixedSize && isInline && !changes.some(({ key }) => key === 'display')) {
-      rawOnChange([...changes, { key: 'display', value: 'block' }]);
-      return;
+      submittedChange = [...changes, { key: 'display', value: 'block' }];
     }
 
-    rawOnChange(change);
+    // 2. flex 相关样式清除成功后，不再因为原来的 flex 配置显示 Fill
+    const result = rawOnChange(submittedChange);
+    const clearsFlex = ['flex', 'flexGrow', 'flexShrink', 'flexBasis'].every(
+      key => changes.some(item => item.key === key && item.value === null),
+    );
+    if (clearsFlex && (!result || result.applied)) {
+      setCfg(previous => ({...previous, disableWidth: false, disableHeight: false}));
+    }
+    return result;
   }, [rawOnChange, targetDom]);
 
   const [actualWidth, setActualWidth] = useState<number>(0);

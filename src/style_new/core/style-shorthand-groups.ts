@@ -28,7 +28,7 @@ export const BATCH_CLEAR_SHORTHANDS = [
   'border',
   ...SIDES.map(side => `border-${side}`),
   'border-color', 'border-width', 'border-style',
-  'border-radius', 'outline', 'margin', 'padding',
+  'border-radius', 'outline', 'margin', 'padding', 'flex',
 ]
 
 export const stylePropertyKey = (property: string) => property.startsWith('--')
