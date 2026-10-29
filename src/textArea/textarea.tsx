@@ -124,6 +124,7 @@ export default function ({editConfig}: EditorProps): JSX.Element {
 
   useEffect(() => {
     if (vCenter && changedRef.current) {
+      // 引擎双击编辑框只在单行水平拖选越界时修正选区，卸载时移除监听。
       return limitSingleLineSelection(changedRef.current)
     }
   }, [])

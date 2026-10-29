@@ -1,15 +1,19 @@
-/** 单行双击编辑时，左右越界仍按水平方向延伸选区，避免 textarea 的跨行规则反转选区。 */
+/**
+ * 单行双击编辑时，左右越界仍按水平方向延伸选区。
+ * 原生 textarea 会把越界点按纵向位置映射到文首或文末，导致选区反转。
+ */
 export function limitSingleLineSelection(textarea: HTMLTextAreaElement): () => void {
   const doc = textarea.ownerDocument
   let finishDrag = () => {}
 
   const startDrag = (event: MouseEvent) => {
     finishDrag()
+    // 第一次 mousedown 启动拖选；双击的后续 mousedown 留给原生词语选中逻辑。
     if (event.button !== 0 || event.detail !== 1 || /[\r\n]/.test(textarea.value)) return
 
     const style = getComputedStyle(textarea)
 
-    // 用同宽的一行副本判断实际折行；原框可能被拉高，不能用它的高度推断行数。
+    // 原框可能被拉高，所以用同宽副本判断文字是否实际自动折行。
     const measure = textarea.cloneNode() as HTMLTextAreaElement
     measure.value = textarea.value
     measure.rows = 1
@@ -19,7 +23,7 @@ export function limitSingleLineSelection(textarea: HTMLTextAreaElement): () => v
       overflow: 'hidden',
     })
     textarea.parentElement!.appendChild(measure)
-    // 字形可能高于 line-height，不能据此判定折行，也不能让测量副本的滚动条挤窄文字。
+    // hidden 防止滚动条挤窄测量宽度；比较 pre-wrap 与不换行高度，避免把字形高度误判为折行。
     const wrappedHeight = measure.scrollHeight
     measure.style.whiteSpace = 'pre'
     const singleLine = wrappedHeight === measure.scrollHeight
@@ -34,7 +38,7 @@ export function limitSingleLineSelection(textarea: HTMLTextAreaElement): () => v
     const clampSelection = () => {
       if (anchor === undefined) return
       if (textarea.selectionStart !== textarea.selectionEnd) selecting = true
-      // 缩放手柄不会产生文字选区，继续保留原生 resize。
+      // 缩放手柄没有文字选区，保持 textarea 原生 resize 行为。
       if (!selecting) return
       const rect = textarea.getBoundingClientRect()
       if (lastX < rect.left && (textarea.selectionStart !== 0 || textarea.selectionEnd !== anchor)) {
@@ -44,12 +48,13 @@ export function limitSingleLineSelection(textarea: HTMLTextAreaElement): () => v
       }
     }
     const move = (event: MouseEvent) => {
+      // 拖动离开 textarea 后仍由 document 接收 mousemove；释放鼠标后立即结束本次监听。
       if (!(event.buttons & 1)) {
         finishDrag()
         return
       }
       if (anchor === undefined) {
-        // 此时 mousedown 的原生定位已经完成；拖动已有选区仍交给浏览器。
+        // 等原生 mousedown 完成定位，再读取真正的锚点；已有选区继续交给浏览器。
         if (textarea.selectionStart !== textarea.selectionEnd) {
           finishDrag()
           return
@@ -64,6 +69,7 @@ export function limitSingleLineSelection(textarea: HTMLTextAreaElement): () => v
       clampSelection()
       finishDrag()
     }
+    // 同一套清理供 mouseup、失焦、下一次按下和组件卸载复用，避免 document 监听累积。
     finishDrag = () => {
       cancelAnimationFrame(frame)
       doc.removeEventListener('mousemove', move, true)
