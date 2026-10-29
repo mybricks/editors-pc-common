@@ -819,6 +819,7 @@ export function ColorEditor({
 
   const opacityInput = useMemo(() => {
     if (
+      varRef ||
       (state.nonColorValue && !previewColor) ||
       (isNaN(opacityNumber) && opacityNumber !== undefined)
     ) {
@@ -839,7 +840,7 @@ export function ColorEditor({
         <div onClick={() => inputRef.current?.focus?.()}>%</div>
       </div>
     );
-  }, [opacityNumber, state.nonColorValue, handleOpacityChange, handleOpacityKeyDown, previewColor]);
+  }, [opacityNumber, state.nonColorValue, handleOpacityChange, handleOpacityKeyDown, previewColor, varRef]);
 
   const onBindingChange = useCallback((params: any) => {
     const { name, value, resetValue } = params;
