@@ -158,9 +158,12 @@ export function createStyleWriteTargetResolver(
     const winner = tab.pseudo
       ? resolveEffectiveStyleSource(property.candidates.filter(candidate => candidate.currentState))
       : property.winner
-    // 确保 winner 是不是“页面源码”里的规则，避免第三方组件规则被加入规则清单，然后修改后的样式改到了第三方组件规则上
     if (winner?.currentState && !winner.inline && winner.source?.isPageStyle === false) {
-      return getDefaultTarget()
+      const fallback = getDefaultTarget()
+      // 仅修复已有属性来源被丢弃、退化为 class 兜底的情况。
+      if (fallback.source !== 'classname-fallback') {
+        return fallback
+      }
     }
     if (winner?.currentState && winner.label) {
       return {
