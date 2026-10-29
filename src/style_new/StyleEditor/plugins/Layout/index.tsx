@@ -142,16 +142,6 @@ export function Layout({ value: panelValue, onChange: fallbackOnChange, showTitl
   const value = hasZoneTab ? effectiveValue : panelValue;
   // 仅挂载时读取；后续由布局操作更新，普通属性引发的 CSS 重编译不重新扫描。
   const [freeformMode, setFreeformMode] = useState(() => readFreeformMode(zoneTab, context?.targetDom));
-  useEffect(() => {
-    const target = context?.targetDom;
-    if (!target || !isInlineFreedomTarget(target)) return;
-    const syncMode = () => setFreeformMode(readFreeformMode(zoneTab, target));
-    syncMode();
-    // inline 的 undo/redo 不重挂载 DOM，面板跟随自身持久化标记更新。
-    const observer = new MutationObserver(syncMode);
-    observer.observe(target, { attributes: true, attributeFilter: ['style'] });
-    return () => observer.disconnect();
-  }, [context?.targetDom, zoneTab]);
 
   const displayField = useStyleDisplayValue('display');
   const positionField = useStyleDisplayValue('position');
