@@ -160,11 +160,8 @@ export function createStyleWriteTargetResolver(
       : property.winner
     if (winner?.currentState && !winner.inline && winner.source?.isPageStyle === false) {
       const fallback = getDefaultTarget()
-      // 仅修复已有 Less 属性来源被丢弃、退化为 class 兜底的情况。
-      if (
-        fallback.source !== 'classname-fallback' ||
-        !winner.source.styleSheetId?.endsWith('__less')
-      ) {
+      // 仅修复已有属性来源被丢弃、退化为 class 兜底的情况。
+      if (fallback.source !== 'classname-fallback') {
         return fallback
       }
     }
