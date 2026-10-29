@@ -600,15 +600,6 @@ function classTokens(selector: string): string[] {
   return (selector.match(/\.([a-zA-Z_][a-zA-Z0-9_-]*)/g) || []).map((token) => token.slice(1))
 }
 
-function belongsToBase(sourcePart: string, baseSelector: string): boolean {
-  const sourceClasses = classTokens(sourcePart.slice(selectorSubjectStart(sourcePart)))
-  const baseClasses = classTokens(baseSelector)
-  if (!sourceClasses.length || !baseClasses.length) return !baseClasses.length
-  return baseClasses.some((base) => sourceClasses.some((source) =>
-    source === base || source.endsWith(`-${base}`) || source.endsWith(`_${base}`)
-  ))
-}
-
 /**
  * 将 CSSOM 中真正命中的规则挂到已经筛选出的 tab 上。
  * tab 仍使用简化 selector 展示，但 sourceRules 保留原始分支，供回显和写回使用。
@@ -632,6 +623,14 @@ export function collectZoneTabs(
   }
   if (!elements.length || !baseSelectors.length) return Array.from(tabs.values())
 
+  // 每个基础 selector 的 class token 在本次调用中不变，提前解析一次，
+  // 避免原 belongsToBase 在每条规则、每个候选基础 selector 上重复执行正则。
+  // map 保留 baseSelectors 的顺序，后续 find 仍选择第一个命中的 Tab，不改变归属优先级。
+  const bases = baseSelectors.map(selector => ({ selector, classes: classTokens(selector) }))
+  // key 是实际传给 matches 的 selector，value 是首个命中元素的下标；-1 表示全部未命中。
+  // 缓存只活在本次同步调用内：下一次调用会重新匹配，避免 DOM / CSSOM 更新后读到旧结果。
+  const targetIndices = new Map<string, number>()
+  // 沿用原 CSSOM 收集流程及 sourceOrder，不改变条件规则、预览样式排除等语义。
   const cssomRules = collectZoneStyleRules()
 
   for (const { rule, sourceOrder } of cssomRules) {
@@ -640,14 +639,38 @@ export function collectZoneTabs(
     // 后面的 Element.matches(state.matchSelector) 已经用当前目标 DOM 做了
     // 完整祖先路径校验，可以同时避免把不适用于当前元素的规则收进来。
     for (const part of splitTopLevelSelectors(rule.selectorText)) {
+      // 沿用原归属规则：截取最后的主体段，再提取 class token，避免拿祖先段的 class 归属 Tab。
+      // 每个分支只提取一次，所有基础 selector 共用结果，不在 find 的每次比较里重新解析。
+      const sourceClasses = classTokens(part.slice(selectorSubjectStart(part)))
+      // 先用 class token 廉价判断归属，再做状态解析和 DOM 匹配；无 class 的基础 selector
+      // 仍按原逻辑允许兜底，不能因为提前筛选而丢掉 span 等纯标签配置。
+      const tab = bases.find(({ classes }) => !classes.length || classes.some(base =>
+        // 保留精确类名和 - / _ 后缀匹配，兼容原有 CSS Modules 运行时类名，不收紧匹配范围。
+        sourceClasses.some(source => source === base || source.endsWith(`-${base}`) || source.endsWith(`_${base}`))
+      // 返回首个命中的基础 selector；不把一条规则改成同时归属多个 Tab。
+      ))?.selector
+      // 原来是 matches 后才判断归属；这里提前跳过无关规则，省掉状态解析和原生匹配成本。
+      if (!tab) continue
+      // 只有相关规则才解析状态；继续使用原解析器，保留 :not / :has 等实际匹配条件。
       const state = splitZoneSelectorState(part)
-      // 暂时过滤伪元素 Tab
+      // 保留已有的伪元素过滤：这类规则不生成 Tab，也不进入后面的 DOM 匹配。
       if (state.pseudo?.includes('::')) continue
-      const targetIndex = elements.findIndex((el) => {
-        try { return el.matches(state.matchSelector) } catch { return false }
-      })
-      const tab = baseSelectors.find((base) => belongsToBase(part, base))
-      if (targetIndex < 0 || !tab) continue
+      // 按实际 matchSelector 查缓存：例如 .card 和 .card:hover 都可能匹配 .card，
+      // 不同 CSSRule 或不同状态共享这次 DOM 校验，但后续仍分别保留各自的规则身份和状态。
+      let targetIndex = targetIndices.get(state.matchSelector)
+      // 必须判断 undefined，不能判断真假：下标 0 是有效命中，-1 是需要复用的未命中结果。
+      if (targetIndex === undefined) {
+        // 缓存不存在时才遍历 elements；findIndex 保持原行为，只选择第一个匹配的目标元素。
+        targetIndex = elements.findIndex((el) => {
+          // 仍用完整匹配条件验证祖先作用域；无效 selector 抛错时只跳过该元素，不中断收集。
+          try { return el.matches(state.matchSelector) } catch { return false }
+        })
+        // 命中和未命中都缓存，避免相同 selector 在多条规则或多个状态中重复遍历目标元素。
+        targetIndices.set(state.matchSelector, targetIndex)
+      }
+      // 缓存只省略重复校验，不放宽命中条件；所有目标都不匹配时仍不收集这条规则。
+      if (targetIndex < 0) continue
+      // 使用原先找到的首个目标，保证 source.target 和后续源码 selector 还原仍基于同一元素。
       const target = elements[targetIndex]
       const entry = tabs.get(tab)
       if (!entry) continue
