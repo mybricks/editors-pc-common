@@ -233,6 +233,11 @@ export function createStyleRemovalPlan(
     if (!hasImage) Object.keys(preserved).forEach(name => {
       const raw = preserved[name].replace(IMPORTANT_SUFFIX_RE, '').trim().toLowerCase()
       if (BACKGROUND_INITIAL_VALUES[name]?.includes(raw)) delete preserved[name]
+      // 删除最后一层图片时，只清理不再需要屏蔽后备颜色来源的 unset。
+      if (name === 'backgroundColor' && raw === 'unset' && requested.has('backgroundImage') &&
+        !hasFallbackStyleCandidate(resolution.get(name))) {
+        delete preserved[name]
+      }
     })
     Object.assign(group.style, preserved)
     group.deletions.push('background', ...backgroundKeys)
