@@ -367,14 +367,18 @@
 }
 
 .zoneTabDropdown {
-  background: #fff;
+  background: @menu-bg-color;
+  color: @font-color-content;
   border-radius: 6px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 
   &:global(.ant-dropdown-menu),
-  :global(.ant-dropdown-menu) {
+  :global(.ant-dropdown-menu),
+  &:global(.ant-menu),
+  :global(.ant-menu) {
     padding: 0;
-    background: #fff;
+    background: @menu-bg-color;
+    color: @font-color-content;
     border-radius: 6px;
     box-shadow: none;
   }
@@ -387,15 +391,22 @@
 
   :global(.ant-dropdown-menu-item),
   :global(.ant-dropdown-menu-submenu-title),
-  :global(.ant-menu-item) {
+  :global(.ant-menu-item),
+  :global(.ant-menu-submenu-title) {
     font-size: 12px;
+    color: @font-color-content;
   }
 
   :global(.ant-dropdown-menu-item:hover),
+  :global(.ant-dropdown-menu-item-active),
   :global(.ant-dropdown-menu-submenu-title:hover),
-  :global(.ant-menu-item:hover) {
-    background-color: rgba(82,49,253,.18);
-    color: #864cf3;
+  :global(.ant-dropdown-menu-submenu-active > .ant-dropdown-menu-submenu-title),
+  :global(.ant-menu-item:hover),
+  :global(.ant-menu-item-active),
+  :global(.ant-menu-submenu-title:hover),
+  :global(.ant-menu-submenu-active > .ant-menu-submenu-title) {
+    background-color: @bg-color-hover;
+    color: @color-primary;
   }
 
   :global(.ant-dropdown-menu-submenu-expand-icon) {
