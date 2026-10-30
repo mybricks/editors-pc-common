@@ -93,6 +93,10 @@ export const PROP_SPECS: PropSpec[] = [
   { camel: 'marginBottom', inherit: false, fallback: 'computed' },
   { camel: 'marginLeft', inherit: false, fallback: 'computed' },
 
+  // image-fit
+  { camel: 'objectFit', inherit: false, fallback: 'computed' },
+  { camel: 'objectPosition', inherit: false, fallback: 'computed' },
+
   // background
   { camel: 'backgroundColor', inherit: false, fallback: 'computed' },
   { camel: 'backgroundImage', inherit: false, fallback: 'computed', staticValue: 'none' },

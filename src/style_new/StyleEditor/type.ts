@@ -6,7 +6,7 @@ export type Style = {
   [key: string]: any;
 };
 
-export type Type = (typeof DEFAULT_OPTIONS)[number];
+export type Type = (typeof DEFAULT_OPTIONS)[number] | 'image-fit';
 
 export type Option =
   | Type

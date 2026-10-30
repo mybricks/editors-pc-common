@@ -60,6 +60,12 @@ export const getDefaultValueFunctionMap = {
       borderRadius: values.borderRadius,
     }
   },
+  'image-fit'(values: CSSProperties, config: any) {
+    return {
+      objectFit: values.objectFit,
+      objectPosition: values.objectPosition
+    }
+  },
   background(values: CSSProperties, config: any) {
     return {
       backgroundColor: values.backgroundColor,
@@ -235,6 +241,12 @@ export const getDefaultValueFunctionMap2 = {
       borderBottomRightRadius: '0px',
       borderBottomLeftRadius: '0px',
       borderRadius: '',
+    }
+  },
+  'image-fit'() {
+    return {
+      objectFit: 'fill',
+      objectPosition: '50% 50%'
     }
   },
   background() {

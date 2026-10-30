@@ -83,6 +83,7 @@ export function getSuggestOptionsByElement(selectDom: HTMLElement): { type: stri
         ? { type: 'layout', config: { displayOnly: true } }
         : { type: 'layout' },
       fontOption,
+      selectDom.tagName === 'IMG' ? { type: 'image-fit' } : void 0,
       marginOption,
       paddingOption,
       {
