@@ -19,6 +19,7 @@ import {
   ZIndex,
   Rotation,
   Position,
+  ImageFit,
 } from "./plugins";
 
 import type { StyleEditorProps, Option } from "./type";
@@ -33,6 +34,7 @@ const PLUGINS_MAP: Record<string, (value: any) => React.ReactNode> = {
   SIZE: Size,
   POSITION: Position,
   FONT: Font,
+  'IMAGE-FIT': ImageFit,
   BACKGROUND: Background,
   BORDER: Border,
   RADIUS: Radius,
