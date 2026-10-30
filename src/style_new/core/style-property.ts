@@ -136,6 +136,10 @@ export function createStyleResolution(tab: ZoneTab, target: HTMLElement | null =
     const contributingShorthands = inlineProperties?.size
       ? possibleShorthands.filter(name => inlineProperties.has(name))
       : possibleShorthands
+    // background 无法序列化时可能只枚举 position-x/y，补齐已确认可读的背景成员。
+    if (contributingShorthands.includes('background')) {
+      STYLE_SHORTHANDS.background.forEach(key => expanded.add(key))
+    }
     const specificity = source && calculateSafeSpecificity(source.selectorPart, target)
     expanded.forEach(key => {
       const value = style.getPropertyValue(key).trim()
