@@ -1,43 +1,48 @@
 /**
  * 状态预览的标记和识别工具。
- * 单独放一个文件，是因为 zone-tab、normal-style-preview 也要用它来排除
- * 预览样式，放进 state-preview.ts 会造成循环依赖。
  */
 
-/** 预览标记属性名。改写后的选择器靠它匹配元素。 */
 export const STATE_PREVIEW_ATTR = 'data-mybricks-state'
 
-/**
- * 当前预览样式表。预览样式用 adoptedStyleSheets 挂载而不是 <style> 标签，
- * 这样大部分按标签扫描的代码天然看不到它，只有两处收集 adoptedStyleSheets
- * 的代码需要按 identity 把它排除（见 zone-tab.ts / normal-style-preview.ts）。
- */
+/** 当前编辑画布共用一张预览表；收集真实样式来源时排除。 */
 let previewSheet: CSSStyleSheet | null = null
+const previewSizes = new Map<Element, [number, number]>()
 
-/** 预览期间的元素尺寸快照（预览开始时冻结）。 */
-let previewSizes = new WeakMap<Element, [number, number]>()
-
-/** 记录当前预览样式表，清除时置回 null。 */
-export function setStatePreviewSheet(sheet: CSSStyleSheet | null): void {
+export function registerStatePreviewSheet(sheet: CSSStyleSheet): void {
   previewSheet = sheet
 }
 
-/** 是否为预览样式表。 */
+export function unregisterStatePreviewSheet(sheet: CSSStyleSheet): void {
+  if (previewSheet === sheet) previewSheet = null
+}
+
 export function isStatePreviewStyleSheet(sheet: unknown): boolean {
-  return !!sheet && sheet === previewSheet
+  return previewSheet === sheet
 }
 
-/** 记录预览开始时元素的冻结尺寸。 */
-export function setStatePreviewSize(el: Element, width: number, height: number): void {
-  previewSizes.set(el, [width, height])
+/**
+ * 同步仍需冻结尺寸的元素；共享祖先沿用首次快照，退出最后一份预览后释放。
+ * 新增元素只在缺少快照时测量，并临时停用预览表，避免记录其他预览影响后的尺寸。
+ */
+export function syncStatePreviewSizes(elements: Set<Element>): void {
+  // 1. 删除已无使用者的快照，仅收集本次新增的测量目标。
+  for (const element of previewSizes.keys()) {
+    if (!elements.has(element)) previewSizes.delete(element)
+  }
+  const missing = Array.from(elements).filter(element => !previewSizes.has(element))
+  if (!missing.length) return
+  // 2. 同步读取常规尺寸；无论测量是否成功，都在返回前恢复原来的启用状态。
+  const sheets = previewSheet ? [{ sheet: previewSheet, disabled: previewSheet.disabled }] : []
+  try {
+    sheets.forEach(({ sheet }) => { sheet.disabled = true })
+    missing.forEach(element => {
+      previewSizes.set(element, [element.clientWidth, element.clientHeight])
+    })
+  } finally {
+    sheets.forEach(({ sheet, disabled }) => { sheet.disabled = disabled })
+  }
 }
 
-/** 取预览冻结的尺寸；不在预览冻结名单里返回 null。 */
 export function getStatePreviewSize(el: Element): [number, number] | null {
   return previewSizes.get(el) ?? null
-}
-
-/** 预览结束时清空冻结尺寸。 */
-export function clearStatePreviewSizes(): void {
-  previewSizes = new WeakMap()
 }

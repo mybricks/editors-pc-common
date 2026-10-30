@@ -1,6 +1,7 @@
 /**
  * 伪类状态预览：切到伪类 tab（如悬浮态）时，把该状态的样式直接套到选中的
- * 元素上，不用真的把鼠标放上去就能看到效果；切走 tab、换元素时自动恢复。
+ * 元素上，不用真的把鼠标放上去就能看到效果；换选中和面板卸载都保留预览，
+ * 手动切回常规态才退出对应元素（批量模式退出整组）。
  *
  * 原理：把样式表里带该伪类的选择器改写成等价的 data 属性选择器，再给元素
  * 挂上这个属性，例如：
@@ -8,10 +9,9 @@
  * 特指度不变、声明原样保留，所以显示效果和真实触发该状态一致。
  *
  * 几个关键点：
- * - 规则用全量扫描而不是只取当前 tab 的规则：像 `.topTipBar:hover` 这种
- *   写在祖先上的规则不在 tab 里，但预览时也要生效；
- * - hover/active/focus-within 会同时作用于祖先（压住子元素时父元素也是
- *   hover），所以把整条祖先链都标记；focus/disabled 等只作用于元素自身；
+ * - 规则用全量扫描而不是只取当前 tab 的规则，保留父级状态控制子元素的规则；
+ * - 只给主动预览的元素打标记，不把子元素的状态传播给祖先；
+ * - 每个元素至多一个预览状态，当前编辑画布共用一张预览样式表；
  * - 状态规则的声明一律加 !important：切到状态 tab 就是要看这个状态配的
  *   样式，不能被基础态、内联等任何冲突压住；没有冲突时加 important 也
  *   不影响结果。:not(...) 里的否定规则不加（描述的是“不处于该状态”的元素）；
@@ -21,9 +21,8 @@
 import { collectZoneStyleRules } from './zone-tab'
 import type { ZoneTab } from './zone-tab'
 import { elMatchesSelectorTail } from './css-modules-match'
-import { getDocument } from './dom'
 import { splitTopLevelSelectors } from './selector-utils'
-import { STATE_PREVIEW_ATTR, clearStatePreviewSizes, setStatePreviewSheet, setStatePreviewSize } from './state-preview-tag'
+import { STATE_PREVIEW_ATTR, registerStatePreviewSheet, unregisterStatePreviewSheet, syncStatePreviewSizes } from './state-preview-tag'
 
 /** 真实交互态：鼠标真悬停、真聚焦等场景下，计算样式会被干扰，StyleMount 用它做保护。 */
 export const INTERACTIVE_PSEUDO_STATES: ReadonlySet<string> = new Set([
@@ -35,42 +34,42 @@ export function isPreviewablePseudo(pseudo: string): boolean {
   return pseudo.startsWith(':') && !pseudo.startsWith('::')
 }
 
-/** 这些状态会同时作用于祖先（压住子元素时，父元素也处于 hover 等），预览要连祖先一起标记。 */
-const CHAIN_STATES: ReadonlySet<string> = new Set([':hover', ':active', ':focus-within'])
-
-/** 回退用的父级会话快照：重新应用一次父级预览所需的全部信息 */
+/** 批量元素共用一个会话；单独编辑的会话只有一个元素。 */
 type PreviewSession = {
-  target: Element
+  roots: Set<Element>
   tab: ZoneTab
-  batch: boolean
-  comId?: string
-}
-
-type ActivePreview = {
-  /** 发起预览的元素（用户点 tab 时选中的那个） */
-  target: Element
-  /** 预览根元素：批量模式是所有同类元素，单独编辑只有选中元素 */
-  roots: Element[]
-  /** 是否批量预览（对应面板的“应用至全部”） */
-  batch: boolean
-  /** 批量预览的组件根 id，回退重建时用 */
-  comId?: string
   pseudo: string
-  /** 预览对应 tab 的完整选择器，用于同类元素判断 */
-  tabSelector: string
-  /** 发起预览的 tab，回退到本会话时重新应用用 */
-  tab: ZoneTab
-  sheet: CSSStyleSheet
-  /** 打了预览标记的元素，清除时用 */
-  marked: Element[]
-  /** 下钻前的父级会话：在本元素上退出状态时回退到它，只退自己这层 */
-  parent: PreviewSession | null
+  batch: boolean
+  comId?: string
+  owner: PreviewRoot
 }
 
-/** 当前正在预览的内容；同一时刻只有一个元素 + 一个状态 */
-let active: ActivePreview | null = null
-/** 上次写入的内容，没变化就不重写，省一次解析 */
-let lastCssText = ''
+type PreviewRoot = {
+  root: ShadowRoot
+  sheet: CSSStyleSheet
+  sessions: Set<PreviewSession>
+  lastCssText: string
+  frame: number
+  view: Window
+  observer: MutationObserver
+  onResize: () => void
+}
+
+const previews = new Map<Element, PreviewSession>()
+// 预览退出后仍保留编辑范围；使用 WeakMap 避免模式记录反向持有已删除的 DOM。
+let previewModes = new WeakMap<Element, { batch: boolean; comId?: string }>()
+let previewRoot: PreviewRoot | null = null
+const listeners = new Set<() => void>()
+
+/** 只通知预览归属/状态变化，CSS 内容刷新不触发面板重选 tab。 */
+export function onStatePreviewChange(listener: () => void): () => void {
+  listeners.add(listener)
+  return () => { listeners.delete(listener) }
+}
+
+function notifyPreviewChange(): void {
+  listeners.forEach(listener => listener())
+}
 
 function escapeAttrValue(value: string): string {
   return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
@@ -211,13 +210,13 @@ function previewSubjectSelector(selector: string): string {
 
 /**
  * 判断一条改写后的规则，预览是不是真用得到。
- * 用法很简单：预览时只有预览元素和它的祖先挂着标记，所以
+ * 预览时只有主动预览的元素挂着标记，所以
  * - 普通规则：能查到带标记的元素 → 用得到；查不到 → 是陪跑的，丢掉
  * - :not(:hover) 这种否定规则：查“挂标记”和“不挂标记”两种情况各自命中
  *   哪些元素，命中面没变化就说明和预览无关，丢掉
  */
 function ruleUsesPreviewState(
-  root: Document | ShadowRoot,
+  root: ShadowRoot,
   activeSelector: string,
   inactiveSelector: string,
   positive: boolean,
@@ -244,70 +243,153 @@ function ruleUsesPreviewState(
 }
 
 /**
- * 扫出预览样式表的全部内容。
- * 全量扫是因为像 `.topTipBar:hover` 这种写在祖先上的规则不在当前 tab 里，
- * 但预览时也要生效；扫到后每条都用 ruleUsesPreviewState 验一遍，
- * 用不到的不写进去。
+ * 共用一次源规则扫描，按源码顺序生成各个状态的预览规则。
+ * 每次只改写一种伪类，保留原有真实交互配合预览的语义，不扩展不同伪类联合匹配。
  */
-function buildPreviewCssText(pseudo: string): string {
-  if (!active) return ''
-  const root = active.target.getRootNode() as Document | ShadowRoot
-  const attrSelector = `[${STATE_PREVIEW_ATTR}="${escapeAttrValue(pseudo)}"]`
+function buildPreviewCssText(owner: PreviewRoot): string {
+  // 1. 相同状态只处理一次；固定顺序，避免预览开启顺序改变规则优先级。
+  const pseudos = Array.from(new Set(Array.from(owner.sessions, session => session.pseudo))).sort()
   const lines: string[] = []
   const seen = new Set<string>()
-  collectZoneStyleRules().forEach(({ rule }) => {
+  // 2. 全量收集，保留父级状态影响子孙的规则；每条规则仍验证实际命中范围。
+  collectZoneStyleRules(owner.root).forEach(({ rule }) => {
     if (!rule.selectorText || !rule.style?.length) return
-    // 一条规则可能写了好几个选择器（逗号隔开的），拆开逐个处理
     for (const selector of splitTopLevelSelectors(rule.selectorText)) {
-      const rewritten = replaceStatePseudo(selector, pseudo, attrSelector)
-      if (!rewritten) continue
-      // “没处于该状态”的版本，只在上面否定规则比对时用
-      const inactive = replaceStatePseudo(selector, pseudo, ':not(*)')!
-      if (!ruleUsesPreviewState(root, rewritten.text, inactive.text, rewritten.positive)) continue
-      const line = `${rewritten.text}{${buildPreviewRuleBody(rewritten.positive, rule)}}`
-      // 宿主有时会把同一份样式注入两遍，重复的只留一份
-      if (seen.has(line)) continue
-      seen.add(line)
-      lines.push(line)
+      for (const pseudo of pseudos) {
+        const attrSelector = `[${STATE_PREVIEW_ATTR}="${escapeAttrValue(pseudo)}"]`
+        const rewritten = replaceStatePseudo(selector, pseudo, attrSelector)
+        if (!rewritten) continue
+        const inactive = replaceStatePseudo(selector, pseudo, ':not(*)')!
+        if (!ruleUsesPreviewState(owner.root, rewritten.text, inactive.text, rewritten.positive)) continue
+        const line = `${rewritten.text}{${buildPreviewRuleBody(rewritten.positive, rule)}}`
+        if (seen.has(line)) continue
+        seen.add(line)
+        lines.push(line)
+      }
     }
   })
   return lines.join('\n')
 }
 
-function renderPreviewSheet(pseudo: string): void {
-  if (!active) return
-  const cssText = buildPreviewCssText(pseudo)
-  if (cssText === lastCssText) return
-  active.sheet.replaceSync(cssText)
-  lastCssText = cssText
+/** 合并同一帧来自 CSS 写入、撤销重做、窗口变化的刷新。 */
+function schedulePreviewRefresh(owner: PreviewRoot): void {
+  if (owner.frame) return
+  owner.frame = owner.view.requestAnimationFrame(() => {
+    owner.frame = 0
+    renderPreviewSheet(owner)
+  })
 }
 
-/** 在元素所在的文档/shadow root 里创建预览样式表，挂到 adoptedStyleSheets 末尾。 */
-function adoptPreviewSheet(target: Element): CSSStyleSheet {
-  const root = target.getRootNode() as Document | ShadowRoot
-  const sheet = new CSSStyleSheet()
-  const existing = Array.from(root.adoptedStyleSheets || [])
-  root.adoptedStyleSheets = [...existing, sheet]
-  return sheet
-}
-
-/** 把预览样式表摘掉，其他样式表不受影响。 */
-function disposePreviewSheet(target: Element, sheet: CSSStyleSheet): void {
-  const root = target.getRootNode() as Document | ShadowRoot
-  root.adoptedStyleSheets = Array.from(root.adoptedStyleSheets || [])
-    .filter((item) => item !== sheet)
-}
-
-/**
- * 冻结元素向上的整条链（含 shadow host）的尺寸。
- * 遍历范围和 readNormalStyleSignature 保持一致，保证签名两边都用冻结值。
- */
-function freezeSignatureChainSizes(target: Element): void {
-  for (let el: Element | null = target; el;) {
-    setStatePreviewSize(el, el.clientWidth, el.clientHeight)
-    const root = el.getRootNode() as Document | ShadowRoot
-    el = el.parentElement || ('host' in root ? (root as ShadowRoot).host : null)
+/** 只处理样式源或预览所在画布的变化，避免属性面板更新引起全表扫描。 */
+function previewMutationNeedsRefresh(owner: PreviewRoot, records: MutationRecord[]): boolean {
+  const scopes = new Set<Node>()
+  for (const session of owner.sessions) {
+    for (const target of session.roots) {
+      if (!target.isConnected || target.getRootNode() !== owner.root) return true
+      const component = session.comId ? owner.root.getElementById(session.comId) : null
+      scopes.add(target.closest('[data-desn-page]') || component || owner.root)
+    }
   }
+  return records.some(record => {
+    if (record.target.getRootNode() !== owner.root) return false
+    const element = record.target.nodeType === 1 ? record.target as Element : record.target.parentElement
+    if (element?.closest('style, link[rel="stylesheet"]')) return true
+    const changedNodes = [...Array.from(record.addedNodes), ...Array.from(record.removedNodes)]
+    if (changedNodes.some(node => node.nodeType === 1 && (
+      (node as Element).matches('style, link[rel="stylesheet"]')
+      || (node as Element).querySelector('style, link[rel="stylesheet"]')
+    ))) return true
+    return Array.from(scopes).some(scope => scope.contains(record.target) || record.target.contains(scope))
+  })
+}
+
+/** 建立共享样式表和监听，最后一份预览退出时一并释放。 */
+function createPreviewRoot(root: ShadowRoot): PreviewRoot {
+  const doc = root.ownerDocument
+  const view = doc.defaultView!
+  const sheet = new CSSStyleSheet()
+  root.adoptedStyleSheets = [...root.adoptedStyleSheets, sheet]
+  registerStatePreviewSheet(sheet)
+  const owner: PreviewRoot = {
+    root, sheet, view,
+    sessions: new Set(), lastCssText: '', frame: 0,
+    observer: new MutationObserver(records => {
+      if (previewMutationNeedsRefresh(owner, records)) schedulePreviewRefresh(owner)
+    }),
+    onResize: () => schedulePreviewRefresh(owner),
+  }
+  owner.observer.observe(root, {
+    subtree: true, childList: true, characterData: true,
+    attributes: true, attributeFilter: ['style', 'class', 'data-style-info'],
+  })
+  // ShadowRoot 自身收不到宿主移除通知，文档观察只用于清理断连的预览。
+  if ('host' in root) owner.observer.observe(doc, { subtree: true, childList: true })
+  view.addEventListener('resize', owner.onResize)
+  previewRoot = owner
+  return owner
+}
+
+function disposePreviewRoot(owner: PreviewRoot): void {
+  owner.observer.disconnect()
+  owner.view.removeEventListener('resize', owner.onResize)
+  owner.view.cancelAnimationFrame(owner.frame)
+  owner.root.adoptedStyleSheets = owner.root.adoptedStyleSheets.filter(sheet => sheet !== owner.sheet)
+  unregisterStatePreviewSheet(owner.sheet)
+  previewRoot = null
+}
+
+/** 移除元素的会话归属；其余同组元素继续保留，空会话直接释放。 */
+function detachPreviewTarget(target: Element): void {
+  const session = previews.get(target)
+  if (!session) return
+  session.roots.delete(target)
+  previews.delete(target)
+  target.removeAttribute(STATE_PREVIEW_ATTR)
+  if (!session.roots.size) session.owner.sessions.delete(session)
+}
+
+/** 汇总仍在使用的尺寸链；共享祖先的快照保留到最后一个使用者退出。 */
+function syncPreviewSizes(): void {
+  const elements = new Set<Element>()
+  for (const target of previews.keys()) {
+    for (let el: Element | null = target; el && !elements.has(el);) {
+      elements.add(el)
+      const root = el.getRootNode() as Document | ShadowRoot
+      el = el.parentElement || ('host' in root ? root.host : null)
+    }
+  }
+  syncStatePreviewSizes(elements)
+}
+
+/** 刷新时只清理已断连的元素或已被宿主移除的预览表，不牵连其他会话。 */
+function renderPreviewSheet(owner: PreviewRoot): void {
+  // 1. 先取消待执行刷新并剔除失效记录，防止保留已删除的 DOM。
+  owner.view.cancelAnimationFrame(owner.frame)
+  owner.frame = 0
+  const sheetAlive = owner.root.adoptedStyleSheets.includes(owner.sheet)
+  let changed = false
+  for (const session of owner.sessions) {
+    for (const target of session.roots) {
+      if (!sheetAlive || !target.isConnected || target.getRootNode() !== owner.root) {
+        detachPreviewTarget(target)
+        previewModes.delete(target)
+        changed = true
+      }
+    }
+  }
+  // 同一 root 内换父级也需要更新尺寸链，释放旧祖先引用。
+  syncPreviewSizes()
+  // 2. 空 root 释放监听；仍有预览时仅在内容变化后替换 CSS。
+  if (!owner.sessions.size) {
+    disposePreviewRoot(owner)
+  } else {
+    const cssText = buildPreviewCssText(owner)
+    if (cssText !== owner.lastCssText) {
+      owner.sheet.replaceSync(cssText)
+      owner.lastCssText = cssText
+    }
+  }
+  if (changed) notifyPreviewChange()
 }
 
 /**
@@ -317,7 +399,7 @@ function freezeSignatureChainSizes(target: Element): void {
 function findSimilarElements(anchor: Element, tabSelector: string, comId: string): Element[] {
   const base = tabSelector.replace(/:{1,2}[a-zA-Z-]+(\([^)]*\))?/g, '').trim()
   if (!base) return [anchor]
-  const doc = getDocument()
+  const doc = anchor.getRootNode() as Document | ShadowRoot
   const pageRoot = anchor.closest('[data-desn-page]')
   const scope = pageRoot || (comId ? doc.getElementById(comId) : null) || doc
   try {
@@ -333,161 +415,100 @@ function findSimilarElements(anchor: Element, tabSelector: string, comId: string
 }
 
 /**
- * 开始预览：给元素（需要时连同祖先链）打上标记，挂上预览样式表。
- * 传 batchOptions 时为批量模式：同类元素一起标记，对应“应用至全部”的写入语义。
- * 样式源变化后的内容刷新由 refreshStatePreview 负责。
+ * 更新目标的预览：批量操作覆盖同类整组，单独编辑只拆出当前元素。
+ * 换选中不调用此入口；只在用户切换变体或编辑范围时更新。
  */
 export function applyStatePreview(
   target: Element,
   tab: ZoneTab,
   batchOptions?: { comId: string }
 ): void {
-  // 下钻从父级会话切到它子孙的状态 tab 时，记下父级会话。
-  // 子元素如果退出变体（点回常规 tab），回退到父级状态
-  const parent = active && active.roots.some((root) => root !== target && root.contains(target))
-    ? { target: active.target, tab: active.tab, batch: active.batch, comId: active.comId }
-    : null
-  clearStatePreview()
   const pseudo = tab.pseudo
   if (!pseudo) return
-
-  const roots = batchOptions
-    ? findSimilarElements(target, tab.selector, batchOptions.comId)
-    : [target]
-
-  const marked: Element[] = []
-  const chain = CHAIN_STATES.has(pseudo)
-  for (const root of roots) {
-    marked.push(root)
-    if (chain) {
-      // 沿祖先链向上标记，到根节点为止
-      // 为什么祖先也要标：鼠标压在 payItem 上时，父元素 paymentSection 同时也处于 hover 态，
-      // .paymentSection:hover 这类规则预览时也要生效，所以祖先得一起挂。
-      for (let el = root.parentElement; el; el = el.parentElement) {
-        marked.push(el)
-      }
-    }
+  // 1. 确定本次操作范围，其他元素/分组不受影响；宿主移除的旧表先释放再创建。
+  const root = target.getRootNode() as ShadowRoot
+  const previousOwner = previewRoot
+  if (previousOwner && !root.adoptedStyleSheets.includes(previousOwner.sheet)) {
+    renderPreviewSheet(previousOwner)
+  }
+  const roots = batchOptions ? findSimilarElements(target, tab.selector, batchOptions.comId) : [target]
+  const current = previews.get(target)
+  if (current && current.owner.root === root && current.pseudo === pseudo && current.batch === !!batchOptions
+    && current.comId === batchOptions?.comId && current.tab.selector === tab.selector
+    && roots.length === current.roots.size && roots.every(el => current.roots.has(el))) return
+  const owner = previewRoot || createPreviewRoot(root)
+  const session: PreviewSession = {
+    roots: new Set(roots), pseudo, batch: !!batchOptions, comId: batchOptions?.comId, owner,
+    // 只保留回显需要的元信息，避免长期引用旧 CSSRule 或已移除的原始目标。
+    tab: { selector: tab.selector, baseSelector: tab.baseSelector, pseudo,
+      label: tab.label, isAdded: tab.isAdded, sourceRules: [], baseRules: [] },
+  }
+  for (const el of roots) {
+    detachPreviewTarget(el)
+  }
+  owner.sessions.add(session)
+  for (const el of roots) {
+    previews.set(el, session)
+    previewModes.set(el, { batch: !!batchOptions, comId: batchOptions?.comId })
   }
 
-  const sheet = adoptPreviewSheet(target)
-  active = {
-    target,
-    roots,
-    batch: !!batchOptions,
-    comId: batchOptions?.comId,
-    pseudo,
-    tabSelector: tab.selector,
-    tab,
-    sheet,
-    marked,
-    parent,
-  }
-  setStatePreviewSheet(sheet)
-  marked.forEach((el) => el.setAttribute(STATE_PREVIEW_ATTR, pseudo))
-  // 预览样式马上要应用、布局可能变化；先把各条链的尺寸冻结下来，
-  // 签名比较用它，避免“预览改了布局”被误判成“常规态变了”
-  roots.forEach(freezeSignatureChainSizes)
-  renderPreviewSheet(pseudo)
+  // 2. 先冻结未记录的常规尺寸，再标记目标；不向祖先传播伪类。
+  syncPreviewSizes()
+  for (const el of roots) el.setAttribute(STATE_PREVIEW_ATTR, pseudo)
+  // 3. 立即呈现用户操作，并让面板/工具栏同步各自目标的状态。
+  renderPreviewSheet(owner)
+  notifyPreviewChange()
 }
 
-/** 结束预览：去掉所有标记、摘掉样式表，画布恢复原样。 */
-export function clearStatePreview(): void {
-  if (!active) return
-  active.marked.forEach((el) => el.removeAttribute(STATE_PREVIEW_ATTR))
-  disposePreviewSheet(active.target, active.sheet)
-  setStatePreviewSheet(null)
-  clearStatePreviewSizes()
-  active = null
-  lastCssText = ''
-}
-
-/**
- * 在预览根元素上退出状态时优先用它：若本预览是从祖先的状态 tab 下钻来的，
- * 只退自己这层——重新应用父级会话（如子元素 hover 退出后，父元素的 hover
- * 效果保留）
- */
-export function retreatStatePreview(): boolean {
-  if (!active?.parent) return false
-  const { target, tab, batch, comId } = active.parent
-  applyStatePreview(target, tab, batch && comId ? { comId } : undefined)
-  return true
-}
-
-/**
- * 预览记录是否还真实生效。
- * 引擎切换至运行时，需要记录预览样式失效
- */
-function isPreviewAlive(): boolean {
-  if (!active) return false
-  if (active.roots.every((root) => !root.isConnected)) return false
-  if (active.target.isConnected) {
-    const root = active.target.getRootNode() as Document | ShadowRoot
-    if (!Array.from(root.adoptedStyleSheets || []).includes(active.sheet)) return false
-  }
-  return true
-}
-
-/** 样式源变化后重算预览内容；没在预览时啥也不做。 */
-export function refreshStatePreview(): void {
-  if (!active) return
-  // 预览根元素被宿主删掉/替换、或样式表被摘掉时自愈，避免残留过期记录
-  if (!isPreviewAlive()) {
-    clearStatePreview()
+/** 用户退出时清理目标所属分组；不传目标仅用于 undo all 等全局清理。 */
+export function clearStatePreview(target?: Element): void {
+  // 1. 有目标只退出对应会话，批量会话中的任意元素都能退出整组。
+  const session = target ? previews.get(target) : null
+  if (target && !session) return
+  const owner = session?.owner || previewRoot
+  const targets = session ? Array.from(session.roots) : Array.from(previews.keys())
+  if (!targets.length) {
+    if (!session) previewModes = new WeakMap<Element, { batch: boolean; comId?: string }>()
     return
   }
-  renderPreviewSheet(active.pseudo)
+  targets.forEach(detachPreviewTarget)
+  if (!session) previewModes = new WeakMap<Element, { batch: boolean; comId?: string }>()
+  // 2. 释放不再使用的尺寸和样式表，保留其他元素的预览。
+  syncPreviewSizes()
+  if (owner) renderPreviewSheet(owner)
+  notifyPreviewChange()
 }
 
-/** 元素是否为当前预览的同类元素（如另一个 .payItem）。 */
-function isSimilarToPreview(el: Element): boolean {
-  if (!active) return false
-  const base = active.tabSelector.replace(/:{1,2}[a-zA-Z-]+(\([^)]*\))?/g, '').trim()
-  if (!base) return false
-  try {
-    return elMatchesSelectorTail(el, base)
-  } catch {
-    return false
-  }
+/** 样式源变化/undo/redo 时刷新所有有效预览，同一帧只扫描一次每个 root。 */
+export function refreshStatePreview(): void {
+  if (previewRoot) schedulePreviewRefresh(previewRoot)
 }
 
-/**
- * 元素是否为预览根元素、同类元素，或下钻来源的父级会话元素。
- * 换选中时据此恢复状态 tab——下钻到子元素后切回它的父级（如 discountValue
- * 切回 discountRow），父级的状态 tab 恢复选中、预览不丢。
- * 其余祖先不算：点链外的祖先应退出预览；子孙也不算——子孙落回基础态编辑。
- */
-export function isStatePreviewSurface(el: Element): boolean {
-  if (!active) return false
-  return active.roots.includes(el) || active.parent?.target === el || isSimilarToPreview(el)
-}
-
-/** 元素是否在预览范围内：预览根、同类元素，或它们的子孙。 */
-export function isStatePreviewRelated(el: Element): boolean {
-  if (!active) return false
-  if (isStatePreviewSurface(el)) return true
-  return active.roots.some((root) => root.contains(el))
-}
-
-/** 当前预览的信息（状态、发起元素、预览根、是否批量、下钻父级）；没预览时返回 null。 */
-export function getStatePreviewContext(): {
-  target: Element
-  roots: Element[]
+/** 只查询目标自己的预览，不按同类 class 或父子关系推测状态。 */
+export function getStatePreviewMode(target: Element | null): {
   batch: boolean
-  pseudo: string
-  /** 下钻前预览的那个父级元素；在它上面点常规 tab，整个预览退出，包括子元素的预览 */
-  parentTarget: Element | null
+  comId?: string
 } | null {
-  if (!active) return null
-  // 读到过期数据清除
-  if (!isPreviewAlive()) {
-    clearStatePreview()
+  if (!target || !target.isConnected) {
+    if (target) previewModes.delete(target)
     return null
   }
-  return {
-    target: active.target,
-    roots: [...active.roots],
-    batch: active.batch,
-    pseudo: active.pseudo,
-    parentTarget: active.parent?.target ?? null,
+  return previewModes.get(target) || null
+}
+
+export function getStatePreviewContext(target: Element | null): {
+  pseudo: string
+  batch: boolean
+  comId?: string
+  tab: ZoneTab
+} | null {
+  if (!target) return null
+  const session = previews.get(target)
+  if (!session) return null
+  if (!target.isConnected || target.getRootNode() !== session.owner.root
+    || !session.owner.root.adoptedStyleSheets.includes(session.owner.sheet)) {
+    schedulePreviewRefresh(session.owner)
+    return null
   }
+  return { pseudo: session.pseudo, batch: session.batch, comId: session.comId, tab: session.tab }
 }
