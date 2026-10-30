@@ -134,6 +134,9 @@ const BORDER_COLOR_KEYS = [
   'borderTopColor', 'borderRightColor', 'borderBottomColor', 'borderLeftColor',
 ];
 
+// 删除 border-color 会回退到 currentColor；透明覆盖才能只清颜色并保留宽度、线型。
+const CLEARED_BORDER_COLOR = 'transparent';
+
 const BORDER_WIDTH_KEYS = [
   'borderTopWidth', 'borderRightWidth', 'borderBottomWidth', 'borderLeftWidth',
 ];
@@ -807,7 +810,8 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
     return !hasNoVisibleBorderLine(
       borderValue[`border${side}Style`],
       borderValue[`border${side}Width`]
-    ) && String(current).trim().toLowerCase() !== 'currentcolor';
+    ) && String(current).trim().toLowerCase() !== 'currentcolor' &&
+      !isFullyTransparentColor(String(current));
   };
   const borderColorIsDefault = !borderGradientValue && !isConfiguredKey('borderTopColor');
   const borderColorValue = borderColorIsDefault
@@ -938,7 +942,8 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
     );
     // console.log("clearGradient",clearGradient)
     const result = handleChange({
-      ...Object.fromEntries(BORDER_COLOR_KEYS.map((key) => [key, null])),
+      //单独删除边框颜色时，使用CLEARED_BORDER_COLOR覆盖，不设置为null，不然border-color 缺失后回退到 currentColor，所以仍然是黑边
+      ...Object.fromEntries(BORDER_COLOR_KEYS.map((key) => [key, CLEARED_BORDER_COLOR])),
       ...clearGradient,
     });
     if (!mutationFailed(result)) {
@@ -1178,7 +1183,8 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
                       scopeEl={targetDom}
                       showSubTabs={false}
                       clearable={fieldCanClear.borderLeftColor}
-                      onClear={() => handleSplitModeChange({ borderLeftColor: null })}
+                      //删除边框颜色时，使用CLEARED_BORDER_COLOR覆盖，不设置为null，不然border-color 缺失后回退到 currentColor，所以仍然是黑边
+                      onClear={() => handleSplitModeChange({ borderLeftColor: CLEARED_BORDER_COLOR })}
                       onChange={(input: any) => {
                         const value = getColorEditorValue(input);
                         if (!value) return;
@@ -1260,7 +1266,7 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
                       scopeEl={targetDom}
                       showSubTabs={false}
                       clearable={fieldCanClear.borderTopColor}
-                      onClear={() => handleSplitModeChange({ borderTopColor: null })}
+                      onClear={() => handleSplitModeChange({ borderTopColor: CLEARED_BORDER_COLOR })}
                       onChange={(input: any) => {
                         const value = getColorEditorValue(input);
                         if (!value) return;
@@ -1343,7 +1349,7 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
                       scopeEl={targetDom}
                       showSubTabs={false}
                       clearable={fieldCanClear.borderRightColor}
-                      onClear={() => handleSplitModeChange({ borderRightColor: null })}
+                      onClear={() => handleSplitModeChange({ borderRightColor: CLEARED_BORDER_COLOR })}
                       onChange={(input: any) => {
                         const value = getColorEditorValue(input);
                         if (!value) return;
@@ -1426,7 +1432,7 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
                       scopeEl={targetDom}
                       showSubTabs={false}
                       clearable={fieldCanClear.borderBottomColor}
-                      onClear={() => handleSplitModeChange({ borderBottomColor: null })}
+                      onClear={() => handleSplitModeChange({ borderBottomColor: CLEARED_BORDER_COLOR })}
                       onChange={(input: any) => {
                         const value = getColorEditorValue(input);
                         if (!value) return;
