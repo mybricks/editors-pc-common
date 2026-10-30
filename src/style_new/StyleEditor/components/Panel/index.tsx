@@ -4,6 +4,7 @@ import { PlusOutlined, MinusOutlined, QuestionCircleOutlined } from '../Icon'
 import { Dropdown } from '../DropDown'
 
 import css from './index.less'
+import { useDarkMode } from '../../../../hooks/useDarkMode'
 
 interface AddOption {
   label: string;
@@ -61,6 +62,7 @@ function isEmptyChildren(children: ReactNode): boolean {
 }
 
 export function Panel ({title, titleTip, children, showReset = false, showTitle = true, showDelete = true, deleteNode, onDelete, rightColumn, deleteRef, resetFunction = () => {}, isActive = false, collapse = false, onExpand, onAdd, addTip, addOptions, onAddOption, headerRight, hideTopBorder = false, keepTopBorder = false}: PanelProps) {
+  const isDark = useDarkMode()
   const isInherited = collapse === 'inherited'
   // 手动添加但尚未配置样式时，也允许用减号收起。
   const [panelState, setPanelState] = useState<'collapsed' | 'expanded' | 'added'>(collapse === true ? 'collapsed' : 'expanded')
@@ -94,7 +96,7 @@ export function Panel ({title, titleTip, children, showReset = false, showTitle 
     ? rightColumn({ showDelete: canDelete, onDelete: handleDeleteClick })
     : rightColumn
   return (
-    <div className={`${css.panel} ${collapsed ? css.collapsed : ''} ${isEmpty ? css.empty : ''} ${hideTopBorder ? css.hideTopBorder : ''} ${keepTopBorder ? css.keepTopBorder : ''}`}>
+    <div className={`${css.panel} ${isDark ? css.dark : ''} ${collapsed ? css.collapsed : ''} ${isEmpty ? css.empty : ''} ${hideTopBorder ? css.hideTopBorder : ''} ${keepTopBorder ? css.keepTopBorder : ''}`}>
       <div className={css.header}>
         {showTitle && (
           <div className={css.title} {...(titleTip ? { 'data-mybricks-tip': titleTip } : {})}>

@@ -27,7 +27,7 @@
     }
 
     &.active .label {
-      color: rgba(0, 0, 0, 0.65);
+      color: var(--style-editor-toggle-active-color, rgba(0, 0, 0, 0.65));
     }
 
     .moveBlock {
@@ -37,7 +37,7 @@
       width: 100%;
       height: 100%;
       border-radius: 4px;
-      background-color: white;
+      background-color: var(--style-editor-toggle-active-bg, white);
       transition: transform 0.2s ease-in-out 0s;
     }
   }
