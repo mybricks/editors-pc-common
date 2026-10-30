@@ -1490,7 +1490,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
         // 无对齐行时，按钮已合并进行高/字间距行或字重/字号行，无需单独兜底
         null
       ) : (
-        <Panel.Content style={{ position: 'relative' }}>
+        <Panel.Content className={css.alignmentRow} style={{ position: 'relative' }}>
           <Toggle
             key={cfg.textAlignMode === 'flex'
               ? `flex-${justifyContentValue || ''}`
