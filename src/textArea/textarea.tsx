@@ -140,6 +140,12 @@ export default function ({editConfig}: EditorProps): JSX.Element {
         <textarea
           ref={handleTextareaRef}
           style={editorStyle}
+          onPointerDown={(evt) => {
+            if (evt.button === 0) {
+              // 保持原生拖选目标，避免缩放后移过外层手柄时选区坐标错位；松开时自动释放。
+              evt.currentTarget.setPointerCapture(evt.pointerId);
+            }
+          }}
           onDoubleClick={stopPropagation}
           onChange={(evt) => {
             setCurText(evt.target.value);
