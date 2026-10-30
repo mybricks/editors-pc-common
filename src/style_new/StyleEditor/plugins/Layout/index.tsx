@@ -183,6 +183,15 @@ export function Layout({ value: panelValue, onChange: fallbackOnChange, showTitl
 
   const currentValue = isReset ? {} : (value ?? {});
 
+  const overflowXField = useStyleDisplayValue('overflowX');
+  const overflowYField = useStyleDisplayValue('overflowY');
+
+  const overflowX = context?.getStyleProperty?.('overflowX').winner?.value
+    ?? overflowXField.displayValue ?? value?.overflowX ?? value?.overflow;
+  const overflowY = context?.getStyleProperty?.('overflowY').winner?.value
+    ?? overflowYField.displayValue ?? value?.overflowY ?? value?.overflow;
+  const overflowHidden = !isReset && overflowX === 'hidden' && overflowY === 'hidden';
+
   const editValue = Object.fromEntries(
     Object.entries(currentValue).filter(([key, v]) => v != null && LAYOUT_KEYS.has(key))
   );
@@ -214,6 +223,7 @@ export function Layout({ value: panelValue, onChange: fallbackOnChange, showTitl
         <LayoutEditor
           editValue={editValue}
           previewValue={previewValue}
+          overflowHidden={overflowHidden}
           clearedGapKeys={clearedGapKeys}
           displayOnly={displayOnly}
           freedomValue={!isReset && freeformMode === 'freedom'}
@@ -262,6 +272,7 @@ export function Layout({ value: panelValue, onChange: fallbackOnChange, showTitl
 interface LayoutEditorInternalProps {
   editValue: Record<string, any>;
   previewValue?: Record<string, any>;
+  overflowHidden: boolean;
   clearedGapKeys: Record<GapKey, boolean>;
   onChangeValue: (val: Record<string, any>) => void;
   displayOnly?: boolean;
@@ -269,7 +280,7 @@ interface LayoutEditorInternalProps {
   onFreedomSelect: () => void;
 }
 
-function LayoutEditor({ editValue, previewValue, clearedGapKeys, onChangeValue, displayOnly, freedomValue, onFreedomSelect }: LayoutEditorInternalProps): JSX.Element {
+function LayoutEditor({ editValue, previewValue, overflowHidden, clearedGapKeys, onChangeValue, displayOnly, freedomValue, onFreedomSelect }: LayoutEditorInternalProps): JSX.Element {
   const targetDom = useStyleEditorContext()?.targetDom;
   const _value = parsePxValues({ ...previewValue, ...editValue });
 
@@ -520,7 +531,7 @@ function LayoutEditor({ editValue, previewValue, clearedGapKeys, onChangeValue, 
     // 替换元素无内容可裁剪；「内联显示」写的是 inline-block，会与方向上的「内联」语义冲突
     if (displayOnly) return null;
 
-    const isHidden = model.overflow === "hidden";
+    const isHidden = overflowHidden;
     const toggle = () => {
       const overflow = isHidden ? "visible" : "hidden";
       setModel((pre) => ({ ...pre, overflow }));
