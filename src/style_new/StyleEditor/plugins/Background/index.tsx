@@ -36,6 +36,7 @@ import type { CssVarColorOption } from "../../../core/resolve-css-var-color";
 import { formatCssVarTitle } from "../../../core/css-var";
 import { normalizeCssValue } from "../../helper/normalize-css-value";
 import { stylePropertyKey } from "../../../core/style-shorthand-groups";
+import { getBackgroundColorMigration } from "../../../core/background-color-migration";
 
 function GripIcon() {
   return (
@@ -624,8 +625,26 @@ export function Background({
       sourceProperty: 'backgroundImage',
       canRemove: true,
     };
-    emitLayers([newLayer, ...layersRef.current]);
-  }, [emitLayers]);
+    const editOptions = context?.editConfig.options;
+    const migration = layersRef.current.some(layer => layer.sourceProperty === 'backgroundColor') && context?.getStyleProperty
+      ? getBackgroundColorMigration({ get: context.getStyleProperty }, context.targetDom ?? targetDom,
+        !Array.isArray(editOptions) ? editOptions?.comId || '' : '')
+      : null;
+    if (migration) {
+      // 点击前：.demo { background-color: red; }
+      // 点击 +：原来的 [红色底色] 变成 [白色图片层, 红色图片层]。
+      // 点击后（仅列颜色）：.demo { background-image: linear-gradient(#FFFFFF, #FFFFFF), linear-gradient(red, red); }
+      // 若原色是 var(--bg-color)，上面的 red 就保留为 var(--bg-color)；已有图片插在白色层和旧底色层之间。
+      const nextLayers = [newLayer, ...layersRef.current.map(layer => layer.sourceProperty === 'backgroundColor'
+        ? { ...layer, value: migration.value, sourceProperty: 'backgroundImage' as const, canRemove: true }
+        : layer)];
+      // .demo { background-color: red; } → 请求中带 background: null，执行器实际删除 background-color。
+      // .demo { background: red; }       → 同样的请求，执行器实际删除 background；null 本身不写入 CSS。
+      emitLayers(nextLayers, [...serializeLayers(nextLayers), { key: 'background', value: null }]);
+    } else {
+      emitLayers([newLayer, ...layersRef.current]);
+    }
+  }, [emitLayers, context?.getStyleProperty, context?.targetDom, context?.editConfig.options, targetDom]);
 
   const handleReset = useCallback(() => {
     if (clearBackground.clear) emitLayers([], serializeLayers([]), clearBackground.clear);
