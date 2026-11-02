@@ -4,7 +4,7 @@ import { elMatchesSelectorTail } from '../core/css-modules-match'
 import { toElementArray } from '../core/dom'
 import { getEffectedCssPropertyAndOptions } from '../core/get-effected-css'
 import { collectDisplayZoneTabs } from '../core/zone-display-tabs'
-import { getStatePreviewContext, isStatePreviewSurface } from '../core/state-preview'
+import { clearStatePreview, getStatePreviewContext, onStatePreviewChange } from '../core/state-preview'
 import {
   buildZoneEffectiveStyle,
   collectZoneTabs,
@@ -67,17 +67,14 @@ export function useZoneSelectors(editConfig: any, targetDom: any, _open: boolean
 
   const zoneSelectorList = useMemo(() => zoneTabs.map((tab) => tab.selector), [zoneTabs])
 
-  // 切回一个还开着变体预览的元素时，直接把 tab 选中到那个状态（比如 :hover）。
-  // 原来会先选中常规，闪一下才切到 hover
+  // 换选中直接回显当前元素的预览；没有记录则回到常规，不能沿用上一个元素的 tab。
   const prevTargetDomRef = useRef<unknown>(null)
   if (prevTargetDomRef.current !== targetDom) {
     prevTargetDomRef.current = targetDom
     const el = toElementArray(targetDom)[0] ?? null
-    const preview = getStatePreviewContext()
-    if (el && preview && isStatePreviewSurface(el)) {
-      const idx = zoneSelectorList.findIndex((sel) => sel.endsWith(preview.pseudo))
-      if (idx >= 0) setActiveZoneIdx(idx)
-    }
+    const preview = getStatePreviewContext(el)
+    const idx = zoneTabs.findIndex(tab => tab.pseudo === (preview?.pseudo ?? null))
+    setActiveZoneIdx(idx >= 0 ? idx : 0)
   }
 
   // 按 DOM class 对齐 activeZoneIdx：
@@ -91,14 +88,16 @@ export function useZoneSelectors(editConfig: any, targetDom: any, _open: boolean
     }
 
     function syncActiveIdx() {
-      // 预览还跟着这个元素（或其同类元素）时，对齐回那个状态 tab；用户手动点基础态才退出
-      const preview = getStatePreviewContext()
-      if (preview && isStatePreviewSurface(el)) {
+      // 只回显该元素所属的预览会话，父子或同类 class 不再隐式继承面板状态。
+      const preview = getStatePreviewContext(el)
+      if (preview) {
         const previewIdx = zoneSelectorList.findIndex((sel) => sel.endsWith(preview.pseudo))
         if (previewIdx >= 0) {
           setActiveZoneIdx(previewIdx)
           return
         }
+        // 新增 tab 尚未提交到列表时，保留本次用户选择，避免预览通知抢先切回常规。
+        if (userSelectedRef.current) return
       }
       const idx = zoneSelectorList.findIndex((sel) => {
         const lastPart = sel.trim().split(/\s+/).pop() || ''
@@ -115,12 +114,19 @@ export function useZoneSelectors(editConfig: any, targetDom: any, _open: boolean
       setActiveZoneIdx((prev) => (prev >= zoneSelectorList.length ? zoneSelectorList.length - 1 : prev))
     }
 
+    let previewPseudo = getStatePreviewContext(el)?.pseudo
+    const unsubscribe = onStatePreviewChange(() => {
+      const nextPseudo = getStatePreviewContext(el)?.pseudo
+      if (nextPseudo === previewPseudo) return
+      previewPseudo = nextPseudo
+      syncActiveIdx()
+    })
     const observer = new MutationObserver(() => {
       userSelectedRef.current = false
       syncActiveIdx()
     })
     observer.observe(el, { attributes: true, attributeFilter: ['class'] })
-    return () => observer.disconnect()
+    return () => { observer.disconnect(); unsubscribe() }
   }, [targetDom, zoneSelectorList])
 
   const setActiveZoneIdxByUser = useCallback((idx: number) => {
@@ -186,6 +192,11 @@ export function useZoneSelectors(editConfig: any, targetDom: any, _open: boolean
       }
     })
 
+    const target = toElementArray(targetDom)[0] ?? null
+    if (target && getStatePreviewContext(target)?.pseudo === addedTab.pseudo) {
+      clearStatePreview(target)
+      setActiveZoneIdx(Math.max(0, zoneTabs.findIndex(tab => !tab.pseudo)))
+    }
     setCustomZoneTabs((tabs) => tabs.filter((tab) => tab.selector !== selector))
     userSelectedRef.current = true
   }, [comId, editConfig, targetDom, zoneTabs])

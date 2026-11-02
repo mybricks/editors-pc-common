@@ -17,7 +17,7 @@ import { readNormalComputedStyle, readNormalStyleSignature } from './core/normal
 import { recordPendingSoloValues, reconcilePendingSoloValues } from './core/solo-pending-style'
 import type { PendingSoloValue } from './core/solo-pending-style'
 import { notifyVariationsChange } from './core/variations'
-import { INTERACTIVE_PSEUDO_STATES, refreshStatePreview } from './core/state-preview'
+import { INTERACTIVE_PSEUDO_STATES } from './core/state-preview'
 import { STATE_PREVIEW_ATTR } from './core/state-preview-tag'
 
 const BOX_MODEL_KEYS = {
@@ -127,8 +127,6 @@ export function StyleMount({
         invalidateStyleResolution(zoneTab)
         setStyleRevision(revision => revision + 1)
         if (sourceChangePending) {
-          // 样式源变了，预览内容跟着重算
-          refreshStatePreview()
           onStyleSourceChange?.()
         }
         sourceChangePending = false
@@ -167,8 +165,6 @@ export function StyleMount({
       frame = view?.requestAnimationFrame(() => setPreviewRevision(revision => revision + 1)) ?? 0
     }
     const refreshStyle = () => {
-      // 窗口大小变了，@media 命中情况可能变，预览要重建
-      refreshStatePreview()
       setStyleRevision(revision => revision + 1)
     }
     const events = ['pointerover', 'pointerout', 'pointerdown', 'pointerup', 'focusin', 'focusout']

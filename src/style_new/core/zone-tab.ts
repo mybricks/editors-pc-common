@@ -555,8 +555,7 @@ export function subjectClassNames(subject: string, el: Element): string[] {
 }
 
 /** 一次扫描共用于 tab 和回显；只递归可在当前环境验证的条件规则。 */
-export function collectZoneStyleRules(): Array<{ rule: CSSStyleRule; sourceOrder: number }> {
-  const root = getDocument()
+export function collectZoneStyleRules(root: Document | ShadowRoot = getDocument()): Array<{ rule: CSSStyleRule; sourceOrder: number }> {
   const result: Array<{ rule: CSSStyleRule; sourceOrder: number }> = []
   const sheets = new Set<CSSStyleSheet>()
   const styleNodes = Array.from(root.querySelectorAll('style, link[rel="stylesheet"]'))

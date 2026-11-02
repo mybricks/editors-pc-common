@@ -1,6 +1,6 @@
 import { collectDisplayZoneTabs } from './zone-display-tabs'
 import type { DisplayZoneTab } from './zone-display-tabs'
-import { applyStatePreview, clearStatePreview, isPreviewablePseudo, refreshStatePreview } from './state-preview'
+import { applyStatePreview, clearStatePreview, getStatePreviewContext, getStatePreviewMode, isPreviewablePseudo, onStatePreviewChange, refreshStatePreview } from './state-preview'
 
 export type StyleVariation = {
   /** 展示名，如“常规”“悬浮态”“Hover”，跟随画布语言。 */
@@ -22,11 +22,16 @@ export type StyleVariation = {
 export function getVariations(dom: HTMLElement, comId: string): StyleVariation[] {
   if (!dom) return []
   const { displayTabs: tabs } = collectDisplayZoneTabs([dom], comId)
-  // 默认常规
-  const focusSelector =
-    tabs.find(({ tab }) => tab.selector === focusedSelector)?.tab.selector
-    ?? tabs.find(({ tab }) => !tab.pseudo)?.tab.selector
-    ?? null
+  const preview = getStatePreviewContext(dom)
+  const panelTab = dom === focusedTarget
+    ? tabs.find(({ tab }) => tab.selector === focusedSelector)?.tab
+    : undefined
+  // 伪类以元素当前会话为准，避免批量退出后的旧焦点残留。
+  let focusSelector = tabs.find(({ tab }) => !tab.pseudo)?.tab.selector ?? null
+  if (preview) focusSelector = tabs.find(({ tab }) => tab.pseudo === preview.pseudo)?.tab.selector ?? focusSelector
+  if (!preview && panelTab && !panelTab.pseudo) {
+    focusSelector = panelTab.selector
+  }
   return tabs.map(({ tab, label }) => ({
     title: label,
     selector: tab.selector,
@@ -66,15 +71,20 @@ export function notifyVariationsChange(): void {
 // 面板当前选中的变体（如 '.payItem:hover'）；面板没挂载时为 null。
 // getVariations 靠它给 focused 字段赋值。
 let focusedSelector: string | null = null
+let focusedTarget: Element | null = null
+
+onStatePreviewChange(notifyVariationsChange)
 
 // 面板选中变体时调用；只有真变了才通知引擎重拉（引擎拉 getVariations 就能看到最新选中）
-export function setFocusedVariation(selector: string | null): void {
-  if (focusedSelector === selector) return
+export function setFocusedVariation(target: Element, selector: string | null): void {
+  if (!selector && focusedTarget !== target) return
+  if (focusedTarget === target && focusedSelector === selector) return
+  focusedTarget = selector ? target : null
   focusedSelector = selector
   notifyVariationsChange()
 }
 
-type VariationFocusHandler = (selector: string) => boolean
+type VariationFocusHandler = (target: Element, selector: string) => boolean
 
 let focusHandler: VariationFocusHandler | null = null
 
@@ -103,16 +113,18 @@ export function useVariation(
   if (!found) return false
   const { tab } = found
   if (focusHandler) {
-    if (focusHandler(tab.selector)) return true
+    if (focusHandler(dom, tab.selector)) return true
     // 面板在但没接住（比如面板正在编辑别的元素），下面自己应用
   }
   // 伪元素（如 ::before）不预览，只切状态
   if (tab.pseudo && isPreviewablePseudo(tab.pseudo)) {
-    applyStatePreview(dom, tab, comId ? { comId } : undefined)
-  } else {
-    clearStatePreview()
+    const previewMode = getStatePreviewMode(dom)
+    const batch = previewMode ? previewMode.batch : !!comId
+    applyStatePreview(dom, tab, batch ? { comId } : undefined)
+  } else if (!tab.pseudo) {
+    clearStatePreview(dom)
   }
-  setFocusedVariation(tab.selector)
+  setFocusedVariation(dom, tab.selector)
   return true
 }
 

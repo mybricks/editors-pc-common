@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 
 import { Button, Checkbox, Menu, message, Tooltip } from 'antd'
@@ -33,7 +33,7 @@ import {
 import type { SavedSoloStyle } from './core/build-solo-selector'
 import { excludeSoloSources } from './core/zone-tab'
 import type { ZoneTab } from './core/zone-tab'
-import { applyStatePreview, clearStatePreview, getStatePreviewContext, isPreviewablePseudo, isStatePreviewRelated, isStatePreviewSurface, refreshStatePreview, retreatStatePreview } from './core/state-preview'
+import { applyStatePreview, clearStatePreview, getStatePreviewContext, getStatePreviewMode, isPreviewablePseudo, onStatePreviewChange } from './core/state-preview'
 import { registerVariationFocusHandler, setFocusedVariation } from './core/variations'
 import { getDocument, toElementArray } from './core/dom'
 import { ZoneTabBar } from './ZoneTabBar'
@@ -140,7 +140,6 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
     setActiveZoneIdx,
     addZoneTab,
     deleteZoneTab,
-    userSelectedRef,
   } = useZoneSelectors(
     editConfig,
     targetDom,
@@ -216,66 +215,29 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
 
   const activeZoneTab = zoneTabs[activeZoneIdx] ?? null
 
-  // 伪类 tab 激活时，把该状态的样式套到选中元素上预览。
-  // 批量（非单独编辑）：同类元素一起预览；单独编辑：只预览选中的。
-  // 换选相关元素（祖先/子孙/同类）时预览保留，手动点回基础态才清除。
-  // 面板卸载不清除：宿主画布交互会反复卸载/重挂面板，清了预览会跟丢；
-  // 清理由本 effect 的判定和 refreshStatePreview 的断连自愈兜底。
-  useEffect(() => {
-    const pseudo = activeZoneTab?.pseudo
-    const preview = getStatePreviewContext()
-    const batch = !isSoloEdit
-    if (editMode && pseudo && isPreviewablePseudo(pseudo) && selectedTarget) {
-      // 同一状态、同模式已在预览且点的是预览对象本身（或同类元素）：效果不变，跳过。
-      // 子孙不能算：子孙的伪类 tab 只可能是手动点的（自动对齐会落回常规 tab），
+  // 用户切换变体才改变预览；换选中和自动回显只读取目标自己的状态。
+  const previewZoneTab = useCallback((tab: ZoneTab) => {
+    if (!selectedTarget) return
+    if (tab.pseudo && isPreviewablePseudo(tab.pseudo)) {
+      applyStatePreview(selectedTarget, tab, isSoloEdit ? undefined : { comId: shellComId })
+    } else if (!tab.pseudo) {
+      clearStatePreview(selectedTarget)
+    }
+  }, [selectedTarget, isSoloEdit, shellComId])
 
-      if (preview?.pseudo === pseudo && preview.batch === batch && isStatePreviewSurface(selectedTarget)) {
-        return
-      }
-      applyStatePreview(
-        selectedTarget,
-        activeZoneTab,
-        batch ? { comId: shellComId } : undefined
-      )
-      return
-    }
-    // 手动点常规 tab 退出预览，分三种情况：
-    // - 点在预览根上（发起预览的那个元素）：退一层，回到父级的预览
-    // - 点在父级上（下钻前预览过的那个）：整个预览退出
-    // - 点在子孙等其他相关元素上：不算退出，只是切过去编辑
-    const manualExitAtRoot = !!preview && userSelectedRef.current && preview.roots.includes(selectedTarget)
-    const manualExit = manualExitAtRoot
-      || (!!preview && userSelectedRef.current && preview.parentTarget === selectedTarget)
-    if (editMode && selectedTarget && !manualExit && isStatePreviewRelated(selectedTarget)) {
-      return
-    }
-    // 只有预览根上的退出才退一层；父级上退出直接全清——
-    // 父子同时 hover 是一体的，没法只退父、留着子
-    if (manualExitAtRoot && retreatStatePreview()) {
-      return
-    }
-    clearStatePreview()
-  }, [editMode, selectedTarget, activeZoneTab, isSoloEdit, shellComId])
+  // 其他同组元素发起批量操作时，同步当前面板的编辑范围。
+  useEffect(() => onStatePreviewChange(() => {
+    const mode = getStatePreviewMode(selectedTarget)
+    if (mode) setIsSoloEdit(!mode.batch)
+  }), [selectedTarget])
 
-  // 把当前选中的变体同步给引擎
-  // 宿主会反复卸载/重挂面板，重挂后 tab 对齐回默认，这里会重新同步。
+  // 面板焦点只描述当前元素；画布预览独立保留，不随面板卸载清理。
   useEffect(() => {
-    setFocusedVariation(activeZoneTab?.selector ?? null)
-  }, [activeZoneTab])
-  // 面板卸载：画布上的状态预览还活着时（关面板不清预览），选中状态也保留，
+    if (selectedTarget) setFocusedVariation(selectedTarget, activeZoneTab?.selector ?? null)
+  }, [selectedTarget, activeZoneTab])
   useEffect(() => () => {
-    if (!getStatePreviewContext()) setFocusedVariation(null)
-  }, [])
-
-  // 引擎通过 useVariation让面板聚焦某个变体，效果等同用户手动点 tab
-  useEffect(() => {
-    return registerVariationFocusHandler((selector) => {
-      const idx = zoneTabs.findIndex((tab) => tab.selector === selector)
-      if (idx < 0) return false
-      setActiveZoneIdx(idx)
-      return true
-    })
-  }, [zoneTabs, setActiveZoneIdx])
+    if (selectedTarget) setFocusedVariation(selectedTarget, null)
+  }, [selectedTarget])
 
   const zoneTabAddOptions = useMemo(() => {
     const ZONE_TAB_ADD_OPTIONS = [
@@ -338,7 +300,8 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
     }
     // console.log('[添加Tab]', tab);
     addZoneTab(tab)
-  }, [activeZoneTab, addZoneTab, baseSelector, selectedTarget, zoneTabs])
+    previewZoneTab(tab)
+  }, [activeZoneTab, addZoneTab, baseSelector, selectedTarget, zoneTabs, previewZoneTab])
 
   const onDeleteZoneTab = useCallback((selector: string) => {
     deleteZoneTab(selector)
@@ -362,9 +325,9 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
 
   const onZoneTabSelect = useCallback(
     (idx: number) => {
-      if (idx === activeZoneIdx) return
-
       const nextTab = zoneTabs[idx]
+      previewZoneTab(nextTab)
+      if (idx === activeZoneIdx) return
       const selectors = Array.from(new Set([
         nextTab?.selector,
         ...((nextTab?.baseRules || []).map((item) => item.sourceSelector || item.selectorPart)),
@@ -398,8 +361,20 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
       setActiveZoneIdx,
       zoneSelectorList,
       zoneTabs,
+      previewZoneTab,
     ]
   )
+
+  // 引擎指定的 DOM 必须与面板目标一致，不能仅按同名 selector 接走其他元素的操作。
+  useEffect(() => {
+    return registerVariationFocusHandler((target, selector) => {
+      if (target !== selectedTarget) return false
+      const idx = zoneTabs.findIndex(tab => tab.selector === selector)
+      if (idx < 0) return false
+      onZoneTabSelect(idx)
+      return true
+    })
+  }, [selectedTarget, zoneTabs, onZoneTabSelect])
 
   const resolveActiveEditContext = useCallback(() => {
     const originalOptions = editConfig.options
@@ -472,8 +447,10 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
     setSoloSelector(savedBackup?.selector || expectedSoloSelector)
 
     setIsSoloEdit(true)
+    const preview = getStatePreviewContext(selectedTarget)
+    if (selectedTarget && preview) applyStatePreview(selectedTarget, preview.tab)
     setKey((k) => k + 1)
-  }, [editConfig, expectedSoloSelector, refreshBatchMeta])
+  }, [editConfig, expectedSoloSelector, refreshBatchMeta, selectedTarget])
 
   // 切回批量时，完整路径规则会备份并移除；手写短规则保留，仅切换后续编辑的写入目标。
   const onExitSoloEdit = useCallback(() => {
@@ -522,6 +499,8 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
     skipSoloRehydrateRef.current = true
     setSoloSelector(null)
     setIsSoloEdit(false)
+    const preview = getStatePreviewContext(selectedTarget)
+    if (selectedTarget && preview) applyStatePreview(selectedTarget, preview.tab, { comId: shellComId })
     setKey((k) => k + 1)
   }, [
     editConfig,
@@ -531,6 +510,7 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
     componentRoot,
     expectedSoloSelector,
     refreshBatchMeta,
+    shellComId,
   ])
 
   const onCopyStyle = useCallback(async () => {
@@ -635,15 +615,21 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
     setKey((key) => key + 1)
   }, [editConfig.ifRefresh?.()])
 
-  // 有单独规则自动回显，否则默认回到批量编辑。
-  useEffect(() => {
+  // 在浏览器绘制前恢复编辑范围，避免重新选中时先显示批量模式再切到单独模式。
+  useLayoutEffect(() => {
     if (skipSoloRehydrateRef.current) {
       skipSoloRehydrateRef.current = false
       return
     }
 
-    const nextSoloSelector = savedSoloStyle?.selector || null
-    const nextIsSoloEdit = !!nextSoloSelector
+    const previewMode = getStatePreviewMode(selectedTarget)
+    let nextSoloSelector = savedSoloStyle?.selector || null
+    let nextIsSoloEdit = !!nextSoloSelector
+    if (previewMode) {
+      nextIsSoloEdit = !previewMode.batch
+      nextSoloSelector = null
+      if (nextIsSoloEdit) nextSoloSelector = savedSoloStyle?.selector || expectedSoloSelector
+    }
 
     if (soloSelector !== nextSoloSelector || isSoloEdit !== nextIsSoloEdit) {
       setSoloSelector(nextSoloSelector)
@@ -656,6 +642,7 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
     componentRoot,
     soloSelector,
     isSoloEdit,
+    expectedSoloSelector,
   ])
 
   useEffect(() => {
