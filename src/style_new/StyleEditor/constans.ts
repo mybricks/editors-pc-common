@@ -1,6 +1,7 @@
 export const DEFAULT_OPTIONS = [
   'layout',
   'font',
+  'image-fit',
   'border',
   'border-radius',
   'background',

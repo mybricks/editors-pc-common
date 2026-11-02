@@ -179,6 +179,26 @@ export default i18n({
     en: 'Click to upload',
   },
 
+  // ImageFit
+  imageFitPanelTitle: { zh: '图片适配', en: 'Image fit' },
+  imageFitLabel: { zh: '模式', en: 'Mode' },
+  imageFitAlignLabel: { zh: '对齐', en: 'Alignment' },
+  imageStyleDefault: { zh: '默认', en: 'Default' },
+  imageFitFill: { zh: '拉伸填满', en: 'Stretch' },
+  imageFitContain: { zh: '完整显示', en: 'Contain' },
+  imageFitCover: { zh: '铺满裁切', en: 'Cover' },
+  imageFitNone: { zh: '原始尺寸', en: 'Original size' },
+  imageFitScaleDown: { zh: '只缩不放', en: 'Scale down' },
+  imagePositionTopLeft: { zh: '左上', en: 'Top left' },
+  imagePositionTop: { zh: '上中', en: 'Top' },
+  imagePositionTopRight: { zh: '右上', en: 'Top right' },
+  imagePositionLeft: { zh: '左中', en: 'Left' },
+  imagePositionCenter: { zh: '居中', en: 'Center' },
+  imagePositionRight: { zh: '右中', en: 'Right' },
+  imagePositionBottomLeft: { zh: '左下', en: 'Bottom left' },
+  imagePositionBottom: { zh: '下中', en: 'Bottom' },
+  imagePositionBottomRight: { zh: '右下', en: 'Bottom right' },
+
   // Image size options
   imgSizeCover: {
     zh: '填充（无留白）',

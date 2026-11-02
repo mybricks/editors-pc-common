@@ -197,6 +197,9 @@ export function buildExportBag(acc: ValuesAcc): Record<string, any> {
     marginBottom: acc.marginBottom,
     marginLeft: acc.marginLeft,
 
+    objectFit: acc.objectFit,
+    objectPosition: acc.objectPosition,
+
     backgroundColor: acc.backgroundColor,
     backgroundImage: acc.backgroundImage,
     backgroundPositionX: acc.backgroundPositionX,
