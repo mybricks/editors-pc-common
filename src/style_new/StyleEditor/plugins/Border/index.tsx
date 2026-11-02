@@ -777,6 +777,9 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
     const styleKey = `border${side}Style`;
     const widthKey = `border${side}Width`;
     const colorKey = `border${side}Color`;
+    // 显式透明色只进入预览
+    const declaredColor = resolveCssVarColor(borderValue[colorKey] || '', targetDom);
+    if (declaredColor && isFullyTransparentColor(declaredColor)) return declaredColor;
     if (
       hasNoVisibleBorderLine(
         borderValue[styleKey] ?? getPreviewValue(styleKey),
