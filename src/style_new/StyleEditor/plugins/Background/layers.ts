@@ -77,6 +77,7 @@ export function parseLayers(
   backgroundRepeat?: string,
   backgroundPosition?: string,
   ownership?: BackgroundLayerOwnership,
+  showTransparentColor = false,
 ): BgLayer[] {
   const layers: BgLayer[] = [];
 
@@ -135,9 +136,11 @@ export function parseLayers(
 
   // CSS 规则中的 background-color，以及 background: var(...) 的上游兼容回填，
   // 都会从 backgroundColor 进入；统一解析为最底部纯色层。
-  const SKIP_BG_COLOR = /^(transparent|initial|inherit|unset|revert|none)$/i;
-  // rgba(0,0,0,0) 是浏览器 computedStyle 中 transparent 的等价形式，统一跳过，避免误建图层
+  // 仅放行有声明来源的透明色，默认计算透明仍不生成图层。
+  const SKIP_BG_COLOR = /^(initial|inherit|unset|revert|none)$/i;
+  // transparent 与透明黑的等价形式共用现有过滤，显式声明时允许回显。
   const isTransparentComputed = (color: string) =>
+    /^transparent$/i.test(color.trim()) ||
     /^rgba?\(\s*0\s*,\s*0\s*,\s*0\s*,\s*0\s*\)$/i.test(color.trim()) ||
     /^#00000000$/i.test(color.trim());
   if (backgroundColor) {
@@ -145,7 +148,7 @@ export function parseLayers(
     if (
       color &&
       !SKIP_BG_COLOR.test(color) &&
-      !isTransparentComputed(color) &&
+      (showTransparentColor || !isTransparentComputed(color)) &&
       isEditableSolidColor(color)
     ) {
       layers.push({
