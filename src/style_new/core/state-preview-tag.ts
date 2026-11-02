@@ -21,11 +21,11 @@ export function isStatePreviewStyleSheet(sheet: unknown): boolean {
 }
 
 /**
- * 按 DOM 位置生成尺寸缓存 key，区分同 class 元素，也覆盖无 class 的祖先。
+ * 按 DOM 位置生成预览归属、尺寸和编辑模式的缓存 key，区分同 class 元素，也覆盖无 class 的祖先。
  * selectors 仅供本轮复用路径；>>> 表示跨 ShadowRoot，不用于查询 DOM。
  * 节点位置变化时 key 随之变化。
  */
-function getSizeSelector(element: Element, selectors: Map<Element, string>): string {
+export function getPreviewElementSelector(element: Element, selectors = new Map<Element, string>()): string {
   // 1. 复用本轮已计算的路径。
   const cached = selectors.get(element)
   if (cached) return cached
@@ -33,9 +33,9 @@ function getSizeSelector(element: Element, selectors: Map<Element, string>): str
   const parent = element.parentNode as Element | Document | ShadowRoot
   let prefix = ''
   if (parent.nodeType === 1) {
-    prefix = `${getSizeSelector(parent as Element, selectors)} > `
+    prefix = `${getPreviewElementSelector(parent as Element, selectors)} > `
   } else if ('host' in parent) {
-    prefix = `${getSizeSelector(parent.host, selectors)} >>> `
+    prefix = `${getPreviewElementSelector(parent.host, selectors)} >>> `
   }
   // 3. 按兄弟顺序生成路径，返回当前节点的结果。
   Array.from(parent.children).forEach((child, index) => {
@@ -54,7 +54,7 @@ export function syncStatePreviewSizes(elements: Set<Element>): void {
   const nextSizes = new Map<string, [number, number]>()
   const missing: Array<{ element: Element; selector: string }> = []
   elements.forEach(element => {
-    const selector = getSizeSelector(element, selectors)
+    const selector = getPreviewElementSelector(element, selectors)
     const size = previewSizes.get(selector)
     if (size) nextSizes.set(selector, size)
     else missing.push({ element, selector })
@@ -76,6 +76,6 @@ export function syncStatePreviewSizes(elements: Set<Element>): void {
 
 export function getStatePreviewSize(el: Element): [number, number] | null {
   if (!previewSizes.size) return null
-  const selector = getSizeSelector(el, new Map())
+  const selector = getPreviewElementSelector(el, new Map())
   return previewSizes.get(selector) ?? null
 }

@@ -23,7 +23,7 @@ import { buildSoloSelector } from './build-solo-selector'
 import type { ZoneTab } from './zone-tab'
 import { elMatchesSelectorTail } from './css-modules-match'
 import { splitTopLevelSelectors } from './selector-utils'
-import { STATE_PREVIEW_ATTR, registerStatePreviewSheet, unregisterStatePreviewSheet, syncStatePreviewSizes } from './state-preview-tag'
+import { STATE_PREVIEW_ATTR, registerStatePreviewSheet, unregisterStatePreviewSheet, syncStatePreviewSizes, getPreviewElementSelector } from './state-preview-tag'
 
 /** 真实交互态：鼠标真悬停、真聚焦等场景下，计算样式会被干扰，StyleMount 用它做保护。 */
 export const INTERACTIVE_PSEUDO_STATES: ReadonlySet<string> = new Set([
@@ -38,7 +38,7 @@ export function isPreviewablePseudo(pseudo: string): boolean {
 /** 批量元素共用一个会话；单独编辑的会话只有一个元素。 */
 type PreviewSession = {
   key: string
-  roots: Set<Element>
+  roots: Set<string>
   tab: ZoneTab
   pseudo: string
   batch: boolean
@@ -58,9 +58,10 @@ type PreviewRoot = {
 }
 
 const previews = new Map<string, Set<PreviewSession>>()
-// 预览退出后仍保留编辑范围；使用 WeakMap 避免模式记录反向持有已删除的 DOM。
-let previewModes = new WeakMap<Element, { batch: boolean; comId?: string }>()
+// 预览退出后仍按节点路径保留编辑范围，不持有 DOM。
+const previewModes = new Map<string, { batch: boolean; comId?: string }>()
 let previewRoot: PreviewRoot | null = null
+let modeObserver: MutationObserver | null = null
 const listeners = new Set<() => void>()
 
 /** 只通知预览归属/状态变化，CSS 内容刷新不触发面板重选 tab。 */
@@ -81,19 +82,39 @@ function getPreviewKey(selector: string, pseudo: string, batchOptions?: { comId:
   return [batchOptions?.comId || '', selector, pseudo].join('\u0000')
 }
 
-function findPreviewSession(target: Element): PreviewSession | null {
+function findPreviewSession(selector: string): PreviewSession | null {
   for (const sessions of Array.from(previews.values())) {
     for (const session of Array.from(sessions)) {
-      if (session.roots.has(target)) return session
+      if (session.roots.has(selector)) return session
     }
   }
   return null
 }
 
+/** 按缓存路径逐级找当前节点；路径失效或宿主断连时返回 null。 */
+function resolvePreviewTarget(owner: PreviewRoot, selector: string): Element | null {
+  if (!owner.root.host.isConnected) return null
+  const prefix = `${getPreviewElementSelector(owner.root.host)} >>> `
+  if (!selector.startsWith(prefix)) return null
+  let parent: Element | ShadowRoot = owner.root
+  for (const part of selector.slice(prefix.length).split(' > ')) {
+    const index = Number(part.slice(11, -1)) - 1
+    const child: Element | null = parent.children.item(index)
+    if (!child) return null
+    parent = child
+  }
+  return parent as Element
+}
+
 function getPreviewTargets(): Element[] {
   const targets: Element[] = []
   for (const sessions of Array.from(previews.values())) {
-    for (const session of Array.from(sessions)) targets.push(...Array.from(session.roots))
+    for (const session of Array.from(sessions)) {
+      session.roots.forEach(selector => {
+        const target = resolvePreviewTarget(session.owner, selector)
+        if (target) targets.push(target)
+      })
+    }
   }
   return targets
 }
@@ -311,8 +332,9 @@ function schedulePreviewRefresh(owner: PreviewRoot): void {
 function previewMutationNeedsRefresh(owner: PreviewRoot, records: MutationRecord[]): boolean {
   const scopes = new Set<Node>()
   for (const session of Array.from(owner.sessions)) {
-    for (const target of Array.from(session.roots)) {
-      if (!target.isConnected || target.getRootNode() !== owner.root) return true
+    for (const selector of Array.from(session.roots)) {
+      const target = resolvePreviewTarget(owner, selector)
+      if (!target) return true
       const component = session.comId ? owner.root.getElementById(session.comId) : null
       scopes.add(target.closest('[data-desn-page]') || component || owner.root)
     }
@@ -332,6 +354,7 @@ function previewMutationNeedsRefresh(owner: PreviewRoot, records: MutationRecord
 
 /** 建立共享样式表和监听，最后一份预览退出时一并释放。 */
 function createPreviewRoot(root: ShadowRoot): PreviewRoot {
+  stopModeObserver()
   const doc = root.ownerDocument
   const view = doc.defaultView!
   const sheet = new CSSStyleSheet()
@@ -363,14 +386,34 @@ function disposePreviewRoot(owner: PreviewRoot): void {
   owner.root.adoptedStyleSheets = owner.root.adoptedStyleSheets.filter(sheet => sheet !== owner.sheet)
   unregisterStatePreviewSheet(owner.sheet)
   previewRoot = null
+  if (previewModes.size) observeRemainingModes(owner)
+}
+
+function stopModeObserver(): void {
+  modeObserver?.disconnect()
+  modeObserver = null
+}
+
+/** 预览退出后只监听节点增删；删除失效模式，最后一条释放时停止监听。 */
+function observeRemainingModes(owner: PreviewRoot): void {
+  stopModeObserver()
+  modeObserver = new MutationObserver(records => {
+    if (owner.root.host.isConnected && !records.some(record => record.target.getRootNode() === owner.root)) return
+    previewModes.forEach((_, selector) => {
+      if (!resolvePreviewTarget(owner, selector)) previewModes.delete(selector)
+    })
+    if (!previewModes.size) stopModeObserver()
+  })
+  modeObserver.observe(owner.root, { subtree: true, childList: true })
+  modeObserver.observe(owner.root.ownerDocument, { subtree: true, childList: true })
 }
 
 /** 移除元素的会话归属；其余同组元素继续保留，空会话直接释放。 */
-function detachPreviewTarget(target: Element): void {
-  const session = findPreviewSession(target)
+function detachPreviewTarget(selector: string): void {
+  const session = findPreviewSession(selector)
   if (!session) return
-  session.roots.delete(target)
-  target.removeAttribute(STATE_PREVIEW_ATTR)
+  session.roots.delete(selector)
+  resolvePreviewTarget(session.owner, selector)?.removeAttribute(STATE_PREVIEW_ATTR)
   if (!session.roots.size) {
     session.owner.sessions.delete(session)
     const sessions = previews.get(session.key)!
@@ -399,17 +442,37 @@ function renderPreviewSheet(owner: PreviewRoot): void {
   owner.frame = 0
   const sheetAlive = owner.root.adoptedStyleSheets.includes(owner.sheet)
   let changed = false
+  const targets = new Map<Element, string>()
   for (const session of Array.from(owner.sessions)) {
-    for (const target of Array.from(session.roots)) {
-      if (!sheetAlive || !target.isConnected || target.getRootNode() !== owner.root) {
-        detachPreviewTarget(target)
-        previewModes.delete(target)
+    for (const selector of Array.from(session.roots)) {
+      const target = resolvePreviewTarget(owner, selector)
+      if (!sheetAlive || !target) {
+        detachPreviewTarget(selector)
         changed = true
+      } else {
+        targets.set(target, session.pseudo)
       }
     }
   }
+  // 清掉移动节点的旧标记；同位置替换的新节点在尺寸同步后补标记。
+  owner.root.querySelectorAll(`[${STATE_PREVIEW_ATTR}]`).forEach(target => {
+    if (!targets.has(target)) target.removeAttribute(STATE_PREVIEW_ATTR)
+  })
+  // 模式按位置保存；清除失效路径，画布预览表移除时清空全部模式。
+  if (!sheetAlive) previewModes.clear()
+  else {
+    previewModes.forEach((_, selector) => {
+      if (!resolvePreviewTarget(owner, selector)) previewModes.delete(selector)
+    })
+  }
   // 同一 root 内换父级也需要更新尺寸链，释放旧祖先引用。
   syncPreviewSizes()
+  targets.forEach((pseudo, target) => {
+    if (target.getAttribute(STATE_PREVIEW_ATTR) !== pseudo) {
+      target.setAttribute(STATE_PREVIEW_ATTR, pseudo)
+      changed = true
+    }
+  })
   // 2. 空 root 释放监听；仍有预览时仅在内容变化后替换 CSS。
   if (!owner.sessions.size) {
     disposePreviewRoot(owner)
@@ -465,20 +528,21 @@ export function applyStatePreview(
   const previewSelector = getPreviewSelector(target, tab, batchOptions)
   const previewKey = getPreviewKey(previewSelector, pseudo, batchOptions)
   const roots = batchOptions ? findSimilarElements(target, tab.selector, batchOptions.comId) : [target]
-  const current = findPreviewSession(target)
+  const selectors = new Map<Element, string>()
+  const rootSelectors = roots.map(el => getPreviewElementSelector(el, selectors))
+  const current = findPreviewSession(getPreviewElementSelector(target, selectors))
   if (current && current.owner.root === root && current.pseudo === pseudo && current.batch === !!batchOptions
     && current.comId === batchOptions?.comId && current.key === previewKey
-    && roots.length === current.roots.size && roots.every(el => current.roots.has(el))) return
+    && roots.length === current.roots.size && rootSelectors.every(selector => current.roots.has(selector))
+    && roots.every(el => el.getAttribute(STATE_PREVIEW_ATTR) === pseudo)) return
   const owner = previewRoot || createPreviewRoot(root)
   const session: PreviewSession = {
-    key: previewKey, roots: new Set(roots), pseudo, batch: !!batchOptions, comId: batchOptions?.comId, owner,
+    key: previewKey, roots: new Set(rootSelectors), pseudo, batch: !!batchOptions, comId: batchOptions?.comId, owner,
     // 只保留回显需要的元信息，避免长期引用旧 CSSRule 或已移除的原始目标。
     tab: { selector: tab.selector, baseSelector: tab.baseSelector, pseudo,
       label: tab.label, isAdded: tab.isAdded, sourceRules: [], baseRules: [] },
   }
-  for (const el of roots) {
-    detachPreviewTarget(el)
-  }
+  rootSelectors.forEach(detachPreviewTarget)
   owner.sessions.add(session)
   let sessions = previews.get(previewKey)
   if (!sessions) {
@@ -486,8 +550,8 @@ export function applyStatePreview(
     previews.set(previewKey, sessions)
   }
   sessions.add(session)
-  for (const el of roots) {
-    previewModes.set(el, { batch: !!batchOptions, comId: batchOptions?.comId })
+  for (const selector of rootSelectors) {
+    previewModes.set(selector, { batch: !!batchOptions, comId: batchOptions?.comId })
   }
 
   // 2. 先冻结未记录的常规尺寸，再标记目标；不向祖先传播伪类。
@@ -501,16 +565,21 @@ export function applyStatePreview(
 /** 用户退出时清理目标所属分组；不传目标仅用于 undo all 等全局清理。 */
 export function clearStatePreview(target?: Element): void {
   // 1. 有目标只退出对应会话，批量会话中的任意元素都能退出整组。
-  const session = target ? findPreviewSession(target) : null
+  const session = target?.isConnected ? findPreviewSession(getPreviewElementSelector(target)) : null
   if (target && !session) return
   const owner = session?.owner || previewRoot
-  const targets = session ? Array.from(session.roots) : getPreviewTargets()
+  const targets: string[] = []
+  const sessions = session ? [session] : Array.from(owner?.sessions || [])
+  sessions.forEach(item => targets.push(...Array.from(item.roots)))
   if (!targets.length) {
-    if (!session) previewModes = new WeakMap<Element, { batch: boolean; comId?: string }>()
+    if (!session) {
+      previewModes.clear()
+      stopModeObserver()
+    }
     return
   }
   targets.forEach(detachPreviewTarget)
-  if (!session) previewModes = new WeakMap<Element, { batch: boolean; comId?: string }>()
+  if (!session) previewModes.clear()
   // 2. 释放不再使用的尺寸和样式表，保留其他元素的预览。
   syncPreviewSizes()
   if (owner) renderPreviewSheet(owner)
@@ -527,11 +596,8 @@ export function getStatePreviewMode(target: Element | null): {
   batch: boolean
   comId?: string
 } | null {
-  if (!target || !target.isConnected) {
-    if (target) previewModes.delete(target)
-    return null
-  }
-  return previewModes.get(target) || null
+  if (!target || !target.isConnected) return null
+  return previewModes.get(getPreviewElementSelector(target)) || null
 }
 
 export function getStatePreviewContext(target: Element | null): {
@@ -540,10 +606,10 @@ export function getStatePreviewContext(target: Element | null): {
   comId?: string
   tab: ZoneTab
 } | null {
-  if (!target) return null
-  const session = findPreviewSession(target)
+  if (!target || !target.isConnected) return null
+  const session = findPreviewSession(getPreviewElementSelector(target))
   if (!session) return null
-  if (!target.isConnected || target.getRootNode() !== session.owner.root
+  if (target.getRootNode() !== session.owner.root
     || !session.owner.root.adoptedStyleSheets.includes(session.owner.sheet)) {
     schedulePreviewRefresh(session.owner)
     return null
