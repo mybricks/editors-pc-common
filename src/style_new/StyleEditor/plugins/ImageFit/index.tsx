@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { Panel, Select } from '../../components'
 import { useEffectiveStyleValue, useStyleChange, useStyleClear, useStyleEditorContext } from '../../context'
 import type { ChangeEvent, PanelBaseProps } from '../../type'
@@ -13,20 +13,24 @@ export function ImageFit({ onChange: fallbackOnChange, showTitle, collapse }:
   const context = useStyleEditorContext()
   const targetDom = context?.targetDom
   const effectiveValue = useEffectiveStyleValue()
-  const value = {
-    objectFit: effectiveValue.objectFit || '',
-    objectPosition: effectiveValue.objectPosition || ''
-  }
-  // 保留生效值回显，仅把 unset 和未声明时的浏览器初始值显示为默认。
-  IMAGE_FIT_KEYS.forEach(key => {
-    const source = context?.effectiveStyle?.[key]
-    if (/^unset$/i.test(String(source?.value).trim()) ||
-      (source?.type === 'computed' && value[key] === (key === 'objectFit' ? 'fill' : '50% 50%'))) {
-      value[key] = ''
+  const { objectFit, objectPosition } = useMemo(() => {
+    let objectFit = effectiveValue.objectFit || ''
+    let objectPosition = effectiveValue.objectPosition || ''
+    const fitSource = context?.effectiveStyle?.objectFit
+    const positionSource = context?.effectiveStyle?.objectPosition
+    // 保留生效值回显，仅把 unset 和未声明时的浏览器初始值显示为默认。
+    if (/^unset$/i.test(String(fitSource?.value).trim()) ||
+      (fitSource?.type === 'computed' && objectFit === 'fill')) {
+      objectFit = ''
     }
-  })
+    if (/^unset$/i.test(String(positionSource?.value).trim()) ||
+      (positionSource?.type === 'computed' && objectPosition === '50% 50%')) {
+      objectPosition = ''
+    }
+    return { objectFit, objectPosition }
+  }, [effectiveValue, context?.effectiveStyle])
   const [imageStyle, setImageStyle] = useState(() => ({
-    objectFit: value.objectFit, objectPosition: value.objectPosition
+    objectFit, objectPosition
   }))
   // 点击加号的临时展开仍由 Panel 自己维护。
   const effectiveCollapse = !imageStyle.objectFit && !imageStyle.objectPosition
@@ -34,20 +38,19 @@ export function ImageFit({ onChange: fallbackOnChange, showTitle, collapse }:
     : collapse === 'inherited' ? 'inherited' : false
 
   useEffect(() => {
-    setImageStyle({ objectFit: value.objectFit, objectPosition: value.objectPosition })
-  }, [targetDom, value.objectFit, value.objectPosition])
+    setImageStyle({ objectFit, objectPosition })
+  }, [targetDom, objectFit, objectPosition])
 
-  if (targetDom?.tagName !== 'IMG') return null
-
-  const fitOptions = [
+  const langType = (window as any).__lang_type__
+  const fitOptions = useMemo(() => [
     { value: '', label: lang.imageStyleDefault },
     { value: 'fill', label: lang.imageFitFill },
     { value: 'contain', label: lang.imageFitContain },
     { value: 'cover', label: lang.imageFitCover },
     { value: 'none', label: lang.imageFitNone },
     { value: 'scale-down', label: lang.imageFitScaleDown },
-  ]
-  const positionOptions = [
+  ], [langType])
+  const positionOptions = useMemo(() => [
     { value: '', label: lang.imageStyleDefault },
     { value: '0% 0%', label: lang.imagePositionTopLeft },
     { value: '50% 0%', label: lang.imagePositionTop },
@@ -58,14 +61,16 @@ export function ImageFit({ onChange: fallbackOnChange, showTitle, collapse }:
     { value: '0% 100%', label: lang.imagePositionBottomLeft },
     { value: '50% 100%', label: lang.imagePositionBottom },
     { value: '100% 100%', label: lang.imagePositionBottomRight },
-  ]
-  const fields = [
+  ], [langType])
+  const fields = useMemo(() => [
     { key: 'objectFit' as const, label: lang.imageFitLabel, options: fitOptions },
     { key: 'objectPosition' as const, label: lang.imageFitAlignLabel,
       options: positionOptions.some(({ value }) => value === imageStyle.objectPosition)
         ? positionOptions
         : [...positionOptions, { value: imageStyle.objectPosition, label: imageStyle.objectPosition }] },
-  ]
+  ], [fitOptions, positionOptions, imageStyle.objectPosition])
+
+  if (targetDom?.tagName !== 'IMG') return null
 
   // 单项默认和整组清空都交给公共链路决定删除声明或写入 unset。
   return (
