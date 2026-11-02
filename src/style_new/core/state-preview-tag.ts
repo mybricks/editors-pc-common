@@ -26,7 +26,7 @@ export function isStatePreviewStyleSheet(sheet: unknown): boolean {
  */
 export function syncStatePreviewSizes(elements: Set<Element>): void {
   // 1. 删除已无使用者的快照，仅收集本次新增的测量目标。
-  for (const element of previewSizes.keys()) {
+  for (const element of Array.from(previewSizes.keys())) {
     if (!elements.has(element)) previewSizes.delete(element)
   }
   const missing = Array.from(elements).filter(element => !previewSizes.has(element))

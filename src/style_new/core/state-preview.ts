@@ -19,6 +19,7 @@
  *   大部分按标签扫描的代码看不到它，不用到处做排除。
  */
 import { collectZoneStyleRules } from './zone-tab'
+import { buildSoloSelector } from './build-solo-selector'
 import type { ZoneTab } from './zone-tab'
 import { elMatchesSelectorTail } from './css-modules-match'
 import { splitTopLevelSelectors } from './selector-utils'
@@ -36,6 +37,7 @@ export function isPreviewablePseudo(pseudo: string): boolean {
 
 /** 批量元素共用一个会话；单独编辑的会话只有一个元素。 */
 type PreviewSession = {
+  key: string
   roots: Set<Element>
   tab: ZoneTab
   pseudo: string
@@ -55,7 +57,7 @@ type PreviewRoot = {
   onResize: () => void
 }
 
-const previews = new Map<Element, PreviewSession>()
+const previews = new Map<string, Set<PreviewSession>>()
 // 预览退出后仍保留编辑范围；使用 WeakMap 避免模式记录反向持有已删除的 DOM。
 let previewModes = new WeakMap<Element, { batch: boolean; comId?: string }>()
 let previewRoot: PreviewRoot | null = null
@@ -69,6 +71,31 @@ export function onStatePreviewChange(listener: () => void): () => void {
 
 function notifyPreviewChange(): void {
   listeners.forEach(listener => listener())
+}
+
+function getPreviewSelector(target: Element, tab: ZoneTab, batchOptions?: { comId: string }): string {
+  return batchOptions ? tab.baseSelector : buildSoloSelector(target, tab.baseSelector)
+}
+
+function getPreviewKey(selector: string, pseudo: string, batchOptions?: { comId: string }): string {
+  return [batchOptions?.comId || '', selector, pseudo].join('\u0000')
+}
+
+function findPreviewSession(target: Element): PreviewSession | null {
+  for (const sessions of Array.from(previews.values())) {
+    for (const session of Array.from(sessions)) {
+      if (session.roots.has(target)) return session
+    }
+  }
+  return null
+}
+
+function getPreviewTargets(): Element[] {
+  const targets: Element[] = []
+  for (const sessions of Array.from(previews.values())) {
+    for (const session of Array.from(sessions)) targets.push(...Array.from(session.roots))
+  }
+  return targets
 }
 
 function escapeAttrValue(value: string): string {
@@ -283,8 +310,8 @@ function schedulePreviewRefresh(owner: PreviewRoot): void {
 /** 只处理样式源或预览所在画布的变化，避免属性面板更新引起全表扫描。 */
 function previewMutationNeedsRefresh(owner: PreviewRoot, records: MutationRecord[]): boolean {
   const scopes = new Set<Node>()
-  for (const session of owner.sessions) {
-    for (const target of session.roots) {
+  for (const session of Array.from(owner.sessions)) {
+    for (const target of Array.from(session.roots)) {
       if (!target.isConnected || target.getRootNode() !== owner.root) return true
       const component = session.comId ? owner.root.getElementById(session.comId) : null
       scopes.add(target.closest('[data-desn-page]') || component || owner.root)
@@ -340,18 +367,22 @@ function disposePreviewRoot(owner: PreviewRoot): void {
 
 /** 移除元素的会话归属；其余同组元素继续保留，空会话直接释放。 */
 function detachPreviewTarget(target: Element): void {
-  const session = previews.get(target)
+  const session = findPreviewSession(target)
   if (!session) return
   session.roots.delete(target)
-  previews.delete(target)
   target.removeAttribute(STATE_PREVIEW_ATTR)
-  if (!session.roots.size) session.owner.sessions.delete(session)
+  if (!session.roots.size) {
+    session.owner.sessions.delete(session)
+    const sessions = previews.get(session.key)!
+    sessions.delete(session)
+    if (!sessions.size) previews.delete(session.key)
+  }
 }
 
 /** 汇总仍在使用的尺寸链；共享祖先的快照保留到最后一个使用者退出。 */
 function syncPreviewSizes(): void {
   const elements = new Set<Element>()
-  for (const target of previews.keys()) {
+  for (const target of getPreviewTargets()) {
     for (let el: Element | null = target; el && !elements.has(el);) {
       elements.add(el)
       const root = el.getRootNode() as Document | ShadowRoot
@@ -368,8 +399,8 @@ function renderPreviewSheet(owner: PreviewRoot): void {
   owner.frame = 0
   const sheetAlive = owner.root.adoptedStyleSheets.includes(owner.sheet)
   let changed = false
-  for (const session of owner.sessions) {
-    for (const target of session.roots) {
+  for (const session of Array.from(owner.sessions)) {
+    for (const target of Array.from(session.roots)) {
       if (!sheetAlive || !target.isConnected || target.getRootNode() !== owner.root) {
         detachPreviewTarget(target)
         previewModes.delete(target)
@@ -431,14 +462,16 @@ export function applyStatePreview(
   if (previousOwner && !root.adoptedStyleSheets.includes(previousOwner.sheet)) {
     renderPreviewSheet(previousOwner)
   }
+  const previewSelector = getPreviewSelector(target, tab, batchOptions)
+  const previewKey = getPreviewKey(previewSelector, pseudo, batchOptions)
   const roots = batchOptions ? findSimilarElements(target, tab.selector, batchOptions.comId) : [target]
-  const current = previews.get(target)
+  const current = findPreviewSession(target)
   if (current && current.owner.root === root && current.pseudo === pseudo && current.batch === !!batchOptions
-    && current.comId === batchOptions?.comId && current.tab.selector === tab.selector
+    && current.comId === batchOptions?.comId && current.key === previewKey
     && roots.length === current.roots.size && roots.every(el => current.roots.has(el))) return
   const owner = previewRoot || createPreviewRoot(root)
   const session: PreviewSession = {
-    roots: new Set(roots), pseudo, batch: !!batchOptions, comId: batchOptions?.comId, owner,
+    key: previewKey, roots: new Set(roots), pseudo, batch: !!batchOptions, comId: batchOptions?.comId, owner,
     // 只保留回显需要的元信息，避免长期引用旧 CSSRule 或已移除的原始目标。
     tab: { selector: tab.selector, baseSelector: tab.baseSelector, pseudo,
       label: tab.label, isAdded: tab.isAdded, sourceRules: [], baseRules: [] },
@@ -447,8 +480,13 @@ export function applyStatePreview(
     detachPreviewTarget(el)
   }
   owner.sessions.add(session)
+  let sessions = previews.get(previewKey)
+  if (!sessions) {
+    sessions = new Set<PreviewSession>()
+    previews.set(previewKey, sessions)
+  }
+  sessions.add(session)
   for (const el of roots) {
-    previews.set(el, session)
     previewModes.set(el, { batch: !!batchOptions, comId: batchOptions?.comId })
   }
 
@@ -463,10 +501,10 @@ export function applyStatePreview(
 /** 用户退出时清理目标所属分组；不传目标仅用于 undo all 等全局清理。 */
 export function clearStatePreview(target?: Element): void {
   // 1. 有目标只退出对应会话，批量会话中的任意元素都能退出整组。
-  const session = target ? previews.get(target) : null
+  const session = target ? findPreviewSession(target) : null
   if (target && !session) return
   const owner = session?.owner || previewRoot
-  const targets = session ? Array.from(session.roots) : Array.from(previews.keys())
+  const targets = session ? Array.from(session.roots) : getPreviewTargets()
   if (!targets.length) {
     if (!session) previewModes = new WeakMap<Element, { batch: boolean; comId?: string }>()
     return
@@ -503,7 +541,7 @@ export function getStatePreviewContext(target: Element | null): {
   tab: ZoneTab
 } | null {
   if (!target) return null
-  const session = previews.get(target)
+  const session = findPreviewSession(target)
   if (!session) return null
   if (!target.isConnected || target.getRootNode() !== session.owner.root
     || !session.owner.root.adoptedStyleSheets.includes(session.owner.sheet)) {
