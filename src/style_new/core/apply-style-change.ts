@@ -27,6 +27,7 @@ import { BORDER_DETAIL_KEYS, BORDER_RADIUS_KEYS, createBorderRadiusWritePlans, c
 import { createOverflowWritePlans, isOverflowProperty } from './overflow'
 import { createFlexLonghandWritePlans } from './flex-write'
 import { getTextBackgroundShorthandWrite } from './text-background-write'
+import { createBackgroundColorMigrationPlan } from './background-color-migration'
 
 export type StyleChangeItem = {
   key: string
@@ -596,6 +597,17 @@ function applyEffectiveStyleChanges(
 ): ApplyStyleChangeResult {
   const resolution = getStyleResolution(tab, target)
   const changes = preserveStateInlinePriority(preservePaintRoles(items, liveStyle), tab, target)
+  // .demo { background-color: red; } 点 + 后，应变成（仅列颜色）：
+  // .demo { background-image: linear-gradient(#FFFFFF, #FFFFFF), linear-gradient(red, red); }
+  // 专用方法给出这次替换计划；例如 .demo { width: 10px; } 改为 width: 20px，则返回 null，继续下方流程。
+  const backgroundPlan = createBackgroundColorMigrationPlan(
+    items, changes, resolution, target, editConfig.options?.comId || '')
+  if (backgroundPlan) {
+    const result = applyStyleRemoval(backgroundPlan, liveStyle, resolution, target, editConfig)
+    if (result.applied) onBatchMetaChange?.()
+    // .demo 从 1 个红色填充变成白、红 2 个填充，所以按新增完成返回，不是“清空了填充”。
+    return { ...result, clearApplied: false }
+  }
   const flexKeys = getShorthandFamily('flex').map(stylePropertyKey)
   // Flex 面板提交的是整组替换；其中的 null 只是清理冲突写法，不是屏蔽级联。
   const replacingFlex = flexKeys.every(key => changes.some(item => item.key === key)) &&
