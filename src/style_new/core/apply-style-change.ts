@@ -602,7 +602,6 @@ function applyEffectiveStyleChanges(
   // 专用方法给出这次替换计划；例如 .demo { width: 10px; } 改为 width: 20px，则返回 null，继续下方流程。
   const backgroundPlan = createBackgroundColorMigrationPlan(
     items, changes, resolution, target, editConfig.options?.comId || '')
-    console.log("backgroundPlan",backgroundPlan)
   if (backgroundPlan) {
     const result = applyStyleRemoval(backgroundPlan, liveStyle, resolution, target, editConfig)
     if (result.applied) onBatchMetaChange?.()
