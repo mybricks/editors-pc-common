@@ -83,8 +83,14 @@ export type SpacingWritePlan = {
 }
 
 /**
+ * 将 margin/padding 的编辑按属性组和目标 selector 生成写入计划：
+ * style 是要写入的声明，deletions 是要删除的声明，unsupported 表示该计划不能安全执行。
+ * 本函数只生成计划，实际源码写入由 applyStyleChange 执行。
  * 只在同一个写入来源内压缩间距。不能把 liveStyle 中其他 class 的四边值
  * 拼进当前简写，也不能把归一化产生的 longhand 删除路由到其他 class。
+ * 例如 .test { padding-left: 8px !important; } 已覆盖 JSX 的 style={{ paddingLeft: '24px' }}，
+ * 把左内边距改为 12px 时，应允许生成 .test 的更新计划；执行后规则变为
+ * .test { padding-left: 12px !important; }，JSX 中的 24px 保持不变。
  */
 export function createSpacingWritePlans(
   changes: StyleChangeItem[],
@@ -166,7 +172,7 @@ export function createSpacingWritePlans(
     const deletions = normalized.deletions.filter(key => !(key in output))
     let unsupported = !selector
     const inlineProperties = readInlineStyleProperties(target)
-    // 宿主的常规写入优先路由同名 JSX 属性；不能把“当前 class”写入偷换成 inline。
+    // 同时检查写入和删除涉及的 inline 属性，避免 class 计划误改或误删 JSX 声明。
     const inlineConflicts = [...Object.keys(output), ...deletions]
       .filter(key => inlineProperties.has(cssPropertyName(key)))
     const consolidatingSources = groupChanges.some(change => change.target === 'current-rule')
@@ -185,7 +191,28 @@ export function createSpacingWritePlans(
       })
       unsupported ||= inlineUnsupported
     } else {
-      unsupported ||= inlineConflicts.length > 0
+      // 例如本次准备写 .test 的 paddingLeft，JSX 又有 style={{ paddingLeft: '24px' }}，
+      // inlineConflicts 就会包含 paddingLeft。这里只检查普通状态；:hover 等仍走下方状态规则。
+      if (inlineConflicts.length && !pseudo) {
+        // 放行例子：.test { padding-left: 8px !important; } 已覆盖上述 inline 的 24px。
+        // 输入 12px 后，计划把 class 改为 .test { padding-left: 12px !important; }，保留 inline 的 24px。
+        // 反例：.test { padding-left: 8px; } 没有 !important，实际生效的是 inline 的 24px，
+        // 这种 class 更新不能通过这里放行，应由原有 inline 写入路径处理。margin 的判断相同。
+        unsupported ||= inlineConflicts.some(key => {
+          const winner = resolution.get(key).winner
+          // winner 必须是当前状态下实际生效的目标 class，且这次 output 中的新值仍带 !important。
+          const canUpdateWinningClass = winner?.currentState &&
+            !winner.inline &&
+            winner.label === selector &&
+            winner.important &&
+            /!important\s*$/i.test(String(output[key]))
+          // 例如 paddingLeft 只出现在 deletions 中、output.paddingLeft 为空时，返回 true 阻止计划，
+          // 避免把删除同名 inline 声明当成更新 class 放行；获胜的是其他 class 时也继续拦截。
+          return !canUpdateWinningClass
+        })
+      } else {
+        unsupported ||= inlineConflicts.length > 0
+      }
       // 状态规则通过上面的 !important 覆盖常规态 inline，不删除基础态声明。
       if (pseudo) unsupported = !selector
     }

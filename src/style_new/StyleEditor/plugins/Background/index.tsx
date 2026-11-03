@@ -36,6 +36,7 @@ import type { CssVarColorOption } from "../../../core/resolve-css-var-color";
 import { formatCssVarTitle } from "../../../core/css-var";
 import { normalizeCssValue } from "../../helper/normalize-css-value";
 import { stylePropertyKey } from "../../../core/style-shorthand-groups";
+import { getBackgroundColorMigration } from "../../../core/background-color-migration";
 
 function GripIcon() {
   return (
@@ -421,6 +422,13 @@ export function Background({
     backgroundImage: (!!clearImages.clear || sharesTextBackground) && (!context?.getStyleProperty || !!context.getStyleProperty('backgroundImage').winner?.currentState),
     backgroundColor: !!clearColor.clear,
   };
+  const colorSource = context?.effectiveStyle?.backgroundColor;
+  const declaredColor = context?.getStyleProperty
+    ? context.getStyleProperty('backgroundColor').winner?.value
+    : colorSource?.value;
+  const showTransparentColor = declaredColor != null &&
+    (!!context?.getStyleProperty || colorSource?.type !== 'computed') &&
+    !/^unset$/i.test(String(declaredColor).trim());
   const ownershipFingerprint = `${ownership.backgroundImage}:${ownership.backgroundColor}`;
   const lastOwnershipRef = useRef(ownershipFingerprint);
 
@@ -445,6 +453,7 @@ export function Background({
       meta.backgroundRepeat,
       meta.backgroundPosition,
       ownership,
+      showTransparentColor,
     );
   });
 
@@ -480,12 +489,15 @@ export function Background({
       if (fingerprint === localEmitPendingRef.current && fingerprint !== lastEmittedRef.current) return;
       localEmitPendingRef.current = null;
     }
-    if (fingerprint === lastEmittedRef.current) {
+    const meta = getContentBackgroundMeta(style);
+    // 默认透明与显式透明可能色值相同，按现有颜色层是否存在决定是否重新解析。
+    const transparentDisplayMatches = getColorOpacity(meta.backgroundColor || '') !== 0 ||
+      layersRef.current.some(layer => layer.sourceProperty === 'backgroundColor') === showTransparentColor;
+    if (fingerprint === lastEmittedRef.current && transparentDisplayMatches) {
       return;
     }
     lastEmittedRef.current = fingerprint;
     lastOwnershipRef.current = ownershipFingerprint;
-    const meta = getContentBackgroundMeta(style);
     setLayers(
       parseLayers(
         meta.backgroundImage,
@@ -494,6 +506,7 @@ export function Background({
         meta.backgroundRepeat,
         meta.backgroundPosition,
         ownership,
+        showTransparentColor,
       )
     );
   }, [
@@ -506,6 +519,7 @@ export function Background({
     value?.WebkitBackgroundClip,
     value?.backgroundOrigin,
     ownershipFingerprint,
+    showTransparentColor,
   ]);
 
   // ── Emit helper ──────────────────────────────────────────────────────────
@@ -522,7 +536,7 @@ export function Background({
           remaining.backgroundSize, remaining.backgroundRepeat, remaining.backgroundPosition, {
             backgroundImage: !!context.getStyleProperty('backgroundImage').winner?.currentState && !!context.getStyleRemovalState?.(IMAGE_CLEAR_KEYS).canClear,
             backgroundColor: !!context.getStyleRemovalState?.(['backgroundColor']).canClear,
-          });
+          }, !!remaining.backgroundColor && !/^unset$/i.test(String(remaining.backgroundColor).trim()));
         // computed / 外部回显层没有 StyleProperty winner，不能因删除当前状态的新层而丢失。
         const nextLayers = mergeResolvedLayersWithReadonly(resolvedLayers, newLayers);
         const nextSnapshot = Object.fromEntries(
@@ -642,8 +656,26 @@ export function Background({
       sourceProperty: 'backgroundImage',
       canRemove: true,
     };
-    emitLayers([newLayer, ...layersRef.current]);
-  }, [emitLayers]);
+    const editOptions = context?.editConfig.options;
+    const migration = layersRef.current.some(layer => layer.sourceProperty === 'backgroundColor') && context?.getStyleProperty
+      ? getBackgroundColorMigration({ get: context.getStyleProperty }, context.targetDom ?? targetDom,
+        !Array.isArray(editOptions) ? editOptions?.comId || '' : '')
+      : null;
+    if (migration) {
+      // 点击前：.demo { background-color: red; }
+      // 点击 +：原来的 [红色底色] 变成 [白色图片层, 红色图片层]。
+      // 点击后（仅列颜色）：.demo { background-image: linear-gradient(#FFFFFF, #FFFFFF), linear-gradient(red, red); }
+      // 若原色是 var(--bg-color)，上面的 red 就保留为 var(--bg-color)；已有图片插在白色层和旧底色层之间。
+      const nextLayers = [newLayer, ...layersRef.current.map(layer => layer.sourceProperty === 'backgroundColor'
+        ? { ...layer, value: migration.value, sourceProperty: 'backgroundImage' as const, canRemove: true }
+        : layer)];
+      // .demo { background-color: red; } → 请求中带 background: null，执行器实际删除 background-color。
+      // .demo { background: red; }       → 同样的请求，执行器实际删除 background；null 本身不写入 CSS。
+      emitLayers(nextLayers, [...serializeLayers(nextLayers), { key: 'background', value: null }]);
+    } else {
+      emitLayers([newLayer, ...layersRef.current]);
+    }
+  }, [emitLayers, context?.getStyleProperty, context?.targetDom, context?.editConfig.options, targetDom]);
 
   const handleReset = useCallback(() => {
     if (clearBackground.clear) emitLayers([], serializeLayers([]), clearBackground.clear);

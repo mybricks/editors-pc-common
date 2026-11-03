@@ -27,8 +27,8 @@ export function createBackgroundReplacementPlan(
   const colorSource = resolution.get('backgroundColor').winner
   // 只接管当前状态的 CSS 来源；inline 和基础态回显仍走旧链路。
   if (!colorSource?.currentState || colorSource.inline || !colorSource.source) return null
-  // 透明色/unset 等没有颜色行：新增或编辑图片仍走旧链路。
-  // 复用面板解析排除这些来源，避免误删屏蔽声明、露出下层底色。
+  // 透明色/unset 不进入替换流程，新增或编辑图片仍走旧链路。
+  // 复用解析方法默认过滤透明色的规则，避免误删屏蔽声明、露出下层底色。
   if (!parseLayers(undefined, colorSource.value).length) return null
   const selector = colorSource.label
   const resolveWriteTarget = createStyleWriteTargetResolver(tab, target, resolution)
