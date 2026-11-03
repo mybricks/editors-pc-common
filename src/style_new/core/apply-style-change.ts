@@ -212,11 +212,10 @@ export function createStyleRemovalPlan(
     )
     const backgroundPlan = backgroundCore(key, property, target)
     const fromBackground = backgroundKeys.includes(key) && (
-      // 例如 --bg-color 为 red，.test { background: var(--bg-color); } 在面板改为蓝色后变成：
-      // .test { background: var(--bg-color); background-color: blue; }
-      // 此时 CSSOM 只暴露颜色长写，下面的来源判断会漏掉仍在源码中的变量简写。
-      // backgroundCore 从源码识别出删除方案后，也要进入背景分支，一起删除这两条声明；
-      // 否则会在 !fromBackground 分支只删除 background-color 后提前结束，原红色重新生效。
+      // 改色前：.test { background: var(--bg-color); }（变量为 red）。
+      // 面板改蓝色后：.test { background: var(--bg-color); background-color: blue; }
+      // CSSOM 只暴露颜色长写，下面的来源判断会漏掉变量简写，需要用源码生成的方案补充判断。
+      // 这样删除时才能进入背景分支，一起清理两条声明，避免只删 background-color 后原红色重新生效。
       !!backgroundPlan ||
       sameSource('background').length > 0 ||
       backgroundKeys.some(name => sameSource(name).some(candidate => candidate.property === 'background'))
@@ -230,12 +229,14 @@ export function createStyleRemovalPlan(
     const sources = new Set(backgroundKeys.flatMap(name => sameSource(name).map(candidate => candidate.source?.rule)))
     if (sources.size > 1) return blocked('同一 selector 存在多条背景规则，无法安全拆分')
     if (backgroundPlan) {
-      // 例如 --bg-color 为 red，删除 .test { background: var(--bg-color); background-image: url("a.png"); } 的底色，
-      // 结果应为 .test { background-image: url("a.png"); }，独立图片声明保留原样。
-      // 若此前改色又追加了 background-color: blue，删除计划会把它和 background 一起清理。
+      // 旧流程没有纯色变量简写的专用删除方案，会走下面的通用拆分。
+      // 通用拆分需要读取各个背景长写，判断删掉颜色后要保留什么；
+      // var(...) 在 CSSOM 中可能缺少这些候选，因此返回“无法安全拆分”，面板不显示减号。
+      // 本方案已确认变量解析为纯色，直接删除颜色声明，保留独立图片，无需拆分。例如：
+      // 删除前：.test { background: var(--bg-color); background-image: url("a.png"); }
+      // 删除后：.test { background-image: url("a.png"); }
       group.deletions.push(...backgroundPlan.deletions)
-      // 已有明确的删除项，跳过下面的简写拆分；变量简写在 CSSOM 中可能缺少长写候选，
-      // 继续拆分会被下方“背景简写无法安全拆分”的检查拦截。
+      // 该属性的删除项已收集完，跳过通用拆分，继续处理下一个属性。
       continue
     }
     const preserved: Record<string, string> = {}
