@@ -2,7 +2,7 @@
 import { compare } from 'specificity'
 
 import { isPageScopedSelector, resolveCssomSourceSelector } from './build-zone-selectors-from-cssom'
-import { getCssRuleDeletionKeys, parseToStyleData, toLine } from './css-code-codec'
+import { mergeObjectKeys, parseToStyleData, toLine } from './css-code-codec'
 import { cssPropertyName, getStyleResolution, resolveEffectiveStyleSource } from './style-property'
 import { getShorthandFamily, stylePropertyKey } from './style-shorthand-groups'
 import { createCascadeResolver } from './cascade-winner'
@@ -58,7 +58,7 @@ export type ZoneTab = {
 /** 合并这些来源的声明字段及简写相关字段，供规则删除和回显排除共用。 */
 export function collectZoneSourceStyleKeys(sources: readonly ZoneSourceRule[]): string[] {
   return Array.from(new Set(sources.flatMap(source =>
-    getCssRuleDeletionKeys(
+    mergeObjectKeys(
       parseToStyleData(source.rule.style.cssText || '', 'element'),
       Array.from({ length: source.rule.style.length }, (_, index) =>
         stylePropertyKey(source.rule.style.item(index))
