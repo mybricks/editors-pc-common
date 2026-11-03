@@ -28,6 +28,7 @@ import { createOverflowWritePlans, isOverflowProperty } from './overflow'
 import { createFlexLonghandWritePlans } from './flex-write'
 import { getTextBackgroundShorthandWrite } from './text-background-write'
 import { createBackgroundColorMigrationPlan } from './background-color-migration'
+import { backgroundCore } from './background-core'
 
 export type StyleChangeItem = {
   key: string
@@ -209,7 +210,14 @@ export function createStyleRemovalPlan(
     const sameSource = (name: string) => resolution.get(name).candidates.filter(candidate =>
       candidate.currentState && candidate.label === selector
     )
+    const backgroundPlan = backgroundCore(key, property, target)
     const fromBackground = backgroundKeys.includes(key) && (
+      // 例如 --bg-color 为 red，.test { background: var(--bg-color); } 在面板改为蓝色后变成：
+      // .test { background: var(--bg-color); background-color: blue; }
+      // 此时 CSSOM 只暴露颜色长写，下面的来源判断会漏掉仍在源码中的变量简写。
+      // backgroundCore 从源码识别出删除方案后，也要进入背景分支，一起删除这两条声明；
+      // 否则会在 !fromBackground 分支只删除 background-color 后提前结束，原红色重新生效。
+      !!backgroundPlan ||
       sameSource('background').length > 0 ||
       backgroundKeys.some(name => sameSource(name).some(candidate => candidate.property === 'background'))
     )
@@ -221,6 +229,15 @@ export function createStyleRemovalPlan(
     // 同 selector 的多条规则无法通过当前宿主协议分别拆写，禁止混合它们的值。
     const sources = new Set(backgroundKeys.flatMap(name => sameSource(name).map(candidate => candidate.source?.rule)))
     if (sources.size > 1) return blocked('同一 selector 存在多条背景规则，无法安全拆分')
+    if (backgroundPlan) {
+      // 例如 --bg-color 为 red，删除 .test { background: var(--bg-color); background-image: url("a.png"); } 的底色，
+      // 结果应为 .test { background-image: url("a.png"); }，独立图片声明保留原样。
+      // 若此前改色又追加了 background-color: blue，删除计划会把它和 background 一起清理。
+      group.deletions.push(...backgroundPlan.deletions)
+      // 已有明确的删除项，跳过下面的简写拆分；变量简写在 CSSOM 中可能缺少长写候选，
+      // 继续拆分会被下方“背景简写无法安全拆分”的检查拦截。
+      continue
+    }
     const preserved: Record<string, string> = {}
     for (const name of backgroundKeys) {
       const candidate = resolveEffectiveStyleSource(sameSource(name))
