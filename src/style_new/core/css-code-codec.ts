@@ -453,6 +453,11 @@ export function parseToStyleData(cssCode: string, selector: string) {
   return styleData
 }
 
+/** 合并已解析的声明和 CSSOM 枚举字段，删除整份规则时同时覆盖简写与长写。 */
+export function getCssRuleDeletionKeys(style: Record<string, unknown>, declarationKeys: readonly string[]): string[] {
+  return Array.from(new Set([...Object.keys(style), ...declarationKeys]))
+}
+
 /** 对比 baseline 与下一份样式，生成 applyStyleChange 所需的变更列表 */
 export function diffStyleData(
   baseline: Record<string, any>,

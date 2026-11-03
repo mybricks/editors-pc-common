@@ -11,7 +11,8 @@ import {
   overlayNormalizedShorthands,
 } from './shorthand-normalizer'
 import { isTextFillActive } from '../StyleEditor/helper/text-fill'
-import { resolveZoneDeletionTarget, splitZoneSelectorState } from './zone-tab'
+import { resolveZoneDeletionTarget, splitZoneSelectorState, excludeSoloSources, collectZoneSourceStyleKeys } from './zone-tab'
+import { buildSoloSelector } from './build-solo-selector'
 import type { ZoneTab } from './zone-tab'
 import {
   collectStyleSourceCandidates, createBatchStyleClearPlans, createStyleClearPlan,
@@ -858,7 +859,105 @@ export type ApplyStyleChangeResult = {
  * 返回更新后的 liveStyle；未实际变更时 applied=false。
  */
 export function applyStyleChange(params: ApplyStyleChangeParams): ApplyStyleChangeResult {
-  return applyStyleChangeInternal(params)
+  const editOptions = params.editConfig.options
+  const tab: ZoneTab | undefined = editOptions?.zoneTab
+  if (!tab || editOptions.soloEdit || !tab.sourceRules.some(source =>
+    source.sourceSelector.includes(' ') && source.sourceSelector.includes(':nth-child('))) {
+    return applyStyleChangeInternal(params)
+  }
+  const target = toElementArray(editOptions.targetDom)[0]
+  if (!target) return applyStyleChangeInternal(params)
+
+  // 1. 只识别当前状态的完整路径单独规则；手写短规则和其他状态保留。
+  const root = target.getRootNode() as Document | ShadowRoot
+  const componentRoot = editOptions.comId ? root.getElementById(editOptions.comId) : null
+  const expectedSelector = buildSoloSelector(target, tab.selector, componentRoot)
+  if (!expectedSelector.includes(' ') || !expectedSelector.includes(':nth-child(')) {
+    return applyStyleChangeInternal(params)
+  }
+  const soloSources = tab.sourceRules.filter(source =>
+    source.sourceSelector === expectedSelector && splitZoneSelectorState(source.selectorPart).pseudo === tab.pseudo)
+  if (!soloSources.length) return applyStyleChangeInternal(params)
+  const batchTab = excludeSoloSources(tab, [expectedSelector])
+
+  // 2. 用公共规则选址，但保留本次输入值；旧单独属性不能被整包带入公共规则。
+  const liveStyle = { ...params.liveStyle }
+  const resolution = getStyleResolution(batchTab, target as HTMLElement)
+  const soloKeys = new Set(collectZoneSourceStyleKeys(soloSources))
+  soloKeys.forEach(key => {
+    if (!Object.prototype.hasOwnProperty.call(liveStyle, key)) return
+    const winner = resolution.get(key).winner
+    if (winner) liveStyle[key] = winner.value
+    else delete liveStyle[key]
+  })
+  const zoneWriteTargets = params.zoneWriteTargets ? new Map<string, ZoneWriteTarget>() : undefined
+  const importantPriorityCache = params.importantPriorityCache ? new Map<string, boolean>() : undefined
+  const value = params.editConfig.value
+  let removed = false
+  const beforeWrite = () => {
+    if (removed) return
+    const previousDeletions = (window as unknown as { __mybricks_style_deletions: string[] | null }).__mybricks_style_deletions
+    // 3. 本次操作通过原有预检并真正写入时，先删除整份规则；失败时恢复删除信号。
+    try {
+      const scope = window as unknown as { __mybricks_style_deletions: string[] | null }
+      scope.__mybricks_style_deletions = Array.from(soloKeys)
+      withExplicitStyleSelector(expectedSelector, () => value.set({}, { selector: expectedSelector }))
+      removed = true
+      const currentResolution = getStyleResolution(tab, target as HTMLElement)
+      soloKeys.forEach(key => currentResolution.record(key, null, expectedSelector))
+      tab.sourceRules = batchTab.sourceRules
+      tab.baseRules = batchTab.baseRules
+      tab.excludedSourceSelectors = batchTab.excludedSourceSelectors
+      tab.excludedRules = batchTab.excludedRules
+      tab.excludedStyleKeys = batchTab.excludedStyleKeys
+      tab.effectedCssResult = undefined
+      tab.effectiveStyle = {}
+      params.zoneWriteTargets?.clear()
+      params.importantPriorityCache?.clear()
+    } finally {
+      ;(window as unknown as { __mybricks_style_deletions: string[] | null }).__mybricks_style_deletions = previousDeletions
+    }
+  }
+  const wrappedValue = {
+    ...value,
+    set: (...args: unknown[]) => { beforeWrite(); return value.set(...args) },
+  }
+  if (value.previewBatch) {
+    wrappedValue.previewBatch = (...args: unknown[]) => { beforeWrite(); return value.previewBatch(...args) }
+  }
+  // 4. 后续仍走原有批量写入，覆盖可视化、CSS 编辑和粘贴入口。
+  const result = applyStyleChangeInternal({
+    ...params,
+    liveStyle,
+    zoneWriteTargets,
+    importantPriorityCache,
+    editConfig: { ...params.editConfig, options: { ...editOptions, zoneTab: batchTab }, value: wrappedValue },
+  })
+  const items = Array.isArray(params.value) ? params.value : [params.value]
+  const clearsSoloProperty = params.removeKeys?.some(key => soloKeys.has(key)) ||
+    items.some(item => {
+      if (item.value !== null || !soloKeys.has(item.key)) return false
+      if (item.intent === 'clear-effective-style') return true
+      const panel = PANEL_MAP[item.key]
+      return !!panel && !(params.collapsedOptions || []).includes(panel)
+    })
+  // 单独属性没有公共后备值时，公共清空为 noop；删除单独规则本身仍完成了本次清空。
+  if (!removed && !result.clearUnsupported && clearsSoloProperty) {
+    beforeWrite()
+    params.onBatchMetaChange?.()
+    return { ...result, nextLiveStyle: liveStyle, applied: true, clearApplied: true }
+  }
+  if (removed) {
+    const currentResolution = getStyleResolution(tab, target as HTMLElement)
+    for (const key of new Set([...soloKeys, ...Object.keys(result.nextLiveStyle)])) {
+      const winner = resolution.get(key).winner
+      if (winner) currentResolution.record(key, winner.value, winner.label, winner.property)
+    }
+    zoneWriteTargets?.forEach((target, key) => params.zoneWriteTargets?.set(key, target))
+    importantPriorityCache?.forEach((priority, key) => params.importantPriorityCache?.set(key, priority))
+  }
+  if (!result.applied) return { ...result, nextLiveStyle: params.liveStyle }
+  return result
 }
 
 function applyStyleChangeInternal({

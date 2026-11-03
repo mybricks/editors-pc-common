@@ -8,6 +8,7 @@ import { applyStyleChange } from './core/apply-style-change'
 import {
   buildCssRule,
   diffStyleData,
+  getCssRuleDeletionKeys,
   extractCssRuleBody,
   filterStyleForCssCode,
   parseToCssCode,
@@ -111,8 +112,16 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
   const editModeHintRef = useRef<HTMLDivElement | null>(null)
   const [soloSelector, setSoloSelector] = useState<string | null>(null)
   const skipSoloRehydrateRef = useRef(false)
+  const useBatchStyleSourcesRef = useRef(false)
   const pendingBatchStyleRefreshRef = useRef(false)
   const soloStyleBackupRef = useRef(new Map<string, SavedSoloStyle>())
+  const batchSwitchSoloStyleRef = useRef<{
+    key: number
+    target: Element
+    selector: string
+    componentRoot: Element | null
+    style: SavedSoloStyle | null
+  } | null>(null)
   const suggestOptionsCacheRef = useRef<SuggestOptionsCache>(new WeakMap())
   const cssEditorHandleRef = useRef<CssEditorHandle | null>(null)
   const activeStyleEditorCacheKeyRef = useRef<string | null>(null)
@@ -312,11 +321,18 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
     return shellComId ? getDocument().getElementById(shellComId) : null
   }, [shellComId])
 
+  // 退出单独编辑后的本次刷新复用现场读取结果；其他切换和刷新重新扫描。
   const savedSoloStyle = useMemo(() => {
+    const snapshot = batchSwitchSoloStyleRef.current
+    if (!isSoloEdit && snapshot && snapshot.key === key &&
+      snapshot.target === selectedTarget && snapshot.selector === baseSelector &&
+      snapshot.componentRoot === componentRoot) {
+      return snapshot.style
+    }
     return selectedTarget && baseSelector
       ? getSavedSoloStyle(selectedTarget, baseSelector, componentRoot, getDocument())
       : null
-  }, [selectedTarget, baseSelector, componentRoot])
+  }, [selectedTarget, baseSelector, componentRoot, key, isSoloEdit])
 
   const expectedSoloSelector = useMemo(() => {
     return selectedTarget && baseSelector
@@ -416,6 +432,7 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
 
   // 进入单独编辑模式
   const onEnterSoloEdit = useCallback(() => {
+    useBatchStyleSourcesRef.current = false
     if (!expectedSoloSelector) return
     const savedBackup = soloStyleBackupRef.current.get(expectedSoloSelector)
     if (savedBackup) {
@@ -445,7 +462,7 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
     }
     pendingBatchStyleRefreshRef.current = false
     skipSoloRehydrateRef.current = true
-    setSoloSelector(savedBackup?.selector || expectedSoloSelector)
+    setSoloSelector(expectedSoloSelector)
 
     setIsSoloEdit(true)
     const preview = getStatePreviewContext(selectedTarget)
@@ -455,18 +472,20 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
 
   // 切回批量时，完整路径规则会备份并移除；手写短规则保留，仅切换后续编辑的写入目标。
   const onExitSoloEdit = useCallback(() => {
+    useBatchStyleSourcesRef.current = true
     if (soloSelector && selectedTarget && baseSelector) {
+      // 子面板写入不一定触发 Shell 渲染，退出前读取最新规则再备份和删除。
+      const savedSoloStyle = getSavedSoloStyle(selectedTarget, baseSelector, componentRoot, getDocument())
       if (savedSoloStyle) {
-        const hasShortSelector =
-          !!expectedSoloSelector &&
-          savedSoloStyle.rules.some((savedRule) => savedRule.selector !== expectedSoloSelector)
-
-        // 手写短 selector 由宿主删除时会误伤同类基础规则；保留它，仅切换后续编辑的写入目标。
-        if (!hasShortSelector) {
-          soloStyleBackupRef.current.set(expectedSoloSelector || soloSelector, savedSoloStyle)
+        // 只备份和删除当前元素的完整规则；共用的手写短规则保持不动。
+        const soloRules = savedSoloStyle.rules.filter(rule => rule.selector === expectedSoloSelector)
+        if (soloRules.length) {
+          soloStyleBackupRef.current.set(expectedSoloSelector || soloSelector, {
+            ...soloRules[0], rules: soloRules,
+          })
           let removed = false
           try {
-            savedSoloStyle.rules.forEach((savedRule) => {
+            soloRules.forEach((savedRule) => {
               const soloStyle = parseToStyleData(
                 buildCssRule(savedRule.selector, savedRule.body),
                 savedRule.selector
@@ -476,9 +495,9 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
               // 同时需要 explicit_selector side-channel，否则宿主重编译后会忽略 selector option
               // 回退到面板原始 selector，导致基础规则（如 .featureTag{}）的属性被误删。
               ;(window as any).__mybricks_style_explicit_selector = savedRule.selector
-              ;(window as any).__mybricks_style_deletions = Array.from(new Set([
-                ...Object.keys(soloStyle), ...savedRule.declarationKeys,
-              ]))
+              ;(window as any).__mybricks_style_deletions = getCssRuleDeletionKeys(
+                soloStyle, savedRule.declarationKeys
+              )
               try {
                 editConfig.value.set({}, { selector: savedRule.selector })
               } finally {
@@ -496,6 +515,10 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
           }
         }
       }
+      // 只供紧接着的批量渲染使用，包含没有规则的 null；删除失败时不会记录。
+      batchSwitchSoloStyleRef.current = {
+        key: key + 1, target: selectedTarget, selector: baseSelector, componentRoot, style: savedSoloStyle,
+      }
     }
     skipSoloRehydrateRef.current = true
     setSoloSelector(null)
@@ -504,6 +527,7 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
     if (selectedTarget && preview) applyStatePreview(selectedTarget, preview.tab, { comId: shellComId })
     setKey((k) => k + 1)
   }, [
+    key,
     editConfig,
     soloSelector,
     selectedTarget,
@@ -616,35 +640,27 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
     setKey((key) => key + 1)
   }, [editConfig.ifRefresh?.()])
 
-  // 在浏览器绘制前恢复编辑范围，避免重新选中时先显示批量模式再切到单独模式。
+  // 重新选中元素时默认批量编辑；已有单独样式只参与回显，不恢复上次的编辑模式。
+  useLayoutEffect(() => {
+    skipSoloRehydrateRef.current = false
+    useBatchStyleSourcesRef.current = false
+    setSoloSelector(null)
+    setIsSoloEdit(false)
+  }, [selectedTarget])
+
+  // 本次手动进入单独编辑后，状态切换和刷新都使用当前元素算出的完整路径。
   useLayoutEffect(() => {
     if (skipSoloRehydrateRef.current) {
       skipSoloRehydrateRef.current = false
       return
     }
-
-    const previewMode = getStatePreviewMode(selectedTarget)
-    let nextSoloSelector = savedSoloStyle?.selector || null
-    let nextIsSoloEdit = !!nextSoloSelector
-    if (previewMode) {
-      nextIsSoloEdit = !previewMode.batch
-      nextSoloSelector = null
-      if (nextIsSoloEdit) nextSoloSelector = savedSoloStyle?.selector || expectedSoloSelector
-    }
-
-    if (soloSelector !== nextSoloSelector || isSoloEdit !== nextIsSoloEdit) {
+    if (!isSoloEdit) return
+    const nextSoloSelector = expectedSoloSelector
+    if (soloSelector !== nextSoloSelector) {
       setSoloSelector(nextSoloSelector)
-      setIsSoloEdit(nextIsSoloEdit)
       setKey((k) => k + 1)
     }
-  }, [
-    selectedTarget,
-    baseSelector,
-    componentRoot,
-    soloSelector,
-    isSoloEdit,
-    expectedSoloSelector,
-  ])
+  }, [selectedTarget, baseSelector, componentRoot, soloSelector, isSoloEdit, expectedSoloSelector])
 
   // 在绘制前同步编辑模式状态
   useLayoutEffect(() => {
@@ -668,19 +684,19 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
 
   const onBatchStyleSourceChange = useCallback(() => {
     if (!pendingBatchStyleRefreshRef.current || !selectedTarget || !baseSelector) return
-    if (savedSoloStyle) return
+    const currentSoloStyle = getSavedSoloStyle(selectedTarget, baseSelector, componentRoot, getDocument())
+    if (currentSoloStyle?.rules.some(rule => rule.selector === expectedSoloSelector)) return
     pendingBatchStyleRefreshRef.current = false
     setKey(k => k + 1)
-  }, [selectedTarget, baseSelector, componentRoot])
+  }, [selectedTarget, baseSelector, componentRoot, expectedSoloSelector])
 
   const editor = useMemo(() => {
     let { resolvedEditConfig, activeSelector } = resolveActiveEditContext()
 
-    // 有手写短规则时退出单独编辑不会删除 CSS；批量面板应按公共来源回显，
-    // 而不是继续把当前节点的 nth-child 覆盖当成公共值。
+    // 手动切回批量时仍沿用原来的公共回显；默认打开则保留现有单独样式回显。
     if (!isSoloEdit && selectedTarget && baseSelector && !Array.isArray(resolvedEditConfig.options)) {
-      const batchSoloStyle = savedSoloStyle
-        || (expectedSoloSelector ? soloStyleBackupRef.current.get(expectedSoloSelector) : null)
+      let batchSoloStyle = expectedSoloSelector ? soloStyleBackupRef.current.get(expectedSoloSelector) : null
+      if (useBatchStyleSourcesRef.current) batchSoloStyle = savedSoloStyle || batchSoloStyle
       const zoneTab = (resolvedEditConfig.options as { zoneTab?: ZoneTab }).zoneTab
       if (batchSoloStyle && zoneTab) {
         resolvedEditConfig = {
@@ -698,7 +714,11 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
       : resolvedEditConfig
     const config = getDefaultConfiguration(configEditConfig, suggestOptionsCacheRef.current)
     if (isSoloEdit && selectedTarget && baseSelector) {
-      const soloStyle = Object.assign({}, ...((savedSoloStyle?.rules || []).map((rule) =>
+      // 恢复写入尚未完成重编译时，用已有备份回显；CSSOM 更新后优先读取最新规则。
+      const soloStyleSource = savedSoloStyle || (expectedSoloSelector
+        ? soloStyleBackupRef.current.get(expectedSoloSelector)
+        : null)
+      const soloStyle = Object.assign({}, ...((soloStyleSource?.rules || []).map((rule) =>
         parseToStyleData(buildCssRule(rule.selector, rule.body), rule.selector)
       )))
       config.setValue = soloStyle
