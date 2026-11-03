@@ -28,6 +28,7 @@ import { createOverflowWritePlans, isOverflowProperty } from './overflow'
 import { createFlexLonghandWritePlans } from './flex-write'
 import { getTextBackgroundShorthandWrite } from './text-background-write'
 import { createBackgroundColorMigrationPlan } from './background-color-migration'
+import { backgroundCore } from './background-core'
 
 export type StyleChangeItem = {
   key: string
@@ -209,7 +210,13 @@ export function createStyleRemovalPlan(
     const sameSource = (name: string) => resolution.get(name).candidates.filter(candidate =>
       candidate.currentState && candidate.label === selector
     )
+    const backgroundPlan = backgroundCore(key, property, target)
     const fromBackground = backgroundKeys.includes(key) && (
+      // 改色前：.test { background: var(--bg-color); }（变量为 red）。
+      // 面板改蓝色后：.test { background: var(--bg-color); background-color: blue; }
+      // CSSOM 只暴露颜色长写，下面的来源判断会漏掉变量简写，需要用源码生成的方案补充判断。
+      // 这样删除时才能进入背景分支，一起清理两条声明，避免只删 background-color 后原红色重新生效。
+      !!backgroundPlan ||
       sameSource('background').length > 0 ||
       backgroundKeys.some(name => sameSource(name).some(candidate => candidate.property === 'background'))
     )
@@ -221,6 +228,17 @@ export function createStyleRemovalPlan(
     // 同 selector 的多条规则无法通过当前宿主协议分别拆写，禁止混合它们的值。
     const sources = new Set(backgroundKeys.flatMap(name => sameSource(name).map(candidate => candidate.source?.rule)))
     if (sources.size > 1) return blocked('同一 selector 存在多条背景规则，无法安全拆分')
+    if (backgroundPlan) {
+      // 旧流程没有纯色变量简写的专用删除方案，会走下面的通用拆分。
+      // 通用拆分需要读取各个背景长写，判断删掉颜色后要保留什么；
+      // var(...) 在 CSSOM 中可能缺少这些候选，因此返回“无法安全拆分”，面板不显示减号。
+      // 本方案已确认变量解析为纯色，直接删除颜色声明，保留独立图片，无需拆分。例如：
+      // 删除前：.test { background: var(--bg-color); background-image: url("a.png"); }
+      // 删除后：.test { background-image: url("a.png"); }
+      group.deletions.push(...backgroundPlan.deletions)
+      // 该属性的删除项已收集完，跳过通用拆分，继续处理下一个属性。
+      continue
+    }
     const preserved: Record<string, string> = {}
     for (const name of backgroundKeys) {
       const candidate = resolveEffectiveStyleSource(sameSource(name))
