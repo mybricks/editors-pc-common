@@ -171,6 +171,10 @@ export const getDefaultValueFunctionMap = {
   layout(values: CSSProperties, config: any) {
     return {
       display: values.display,
+      gridTemplateColumns: values.gridTemplateColumns,
+      gridTemplateRows: values.gridTemplateRows,
+      gridAutoRows: values.gridAutoRows,
+      gridAutoFlow: values.gridAutoFlow,
       flexDirection: values.flexDirection,
       alignItems: values.alignItems,
       justifyContent: values.justifyContent,
@@ -354,6 +358,10 @@ export const getDefaultValueFunctionMap2 = {
   layout() {
     return {
       display: 'flex',
+      gridTemplateColumns: '',
+      gridTemplateRows: '',
+      gridAutoRows: '',
+      gridAutoFlow: '',
       flexDirection: 'row',
       alignItems: 'flex-start',
       justifyContent: 'flex-start',

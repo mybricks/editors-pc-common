@@ -1,0 +1,81 @@
+@import "../../../../../theme";
+
+.grid { margin: 8px 0 4px; }
+.label { margin-bottom: 6px; font-size: 12px; color: @font-color-content; }
+
+.summary {
+  width: 100%;
+  height: 56px;
+  border: 1px solid @boder-color;
+  border-radius: @border-radius;
+  color: @font-color-content;
+  cursor: pointer;
+  background-color: @bg-color-main;
+  background-image: linear-gradient(to right, @bg-color-main-secondary 3px, transparent 3px),
+    linear-gradient(to bottom, @bg-color-main-secondary 3px, transparent 3px);
+  // 将 3px 网格线居中到格子边界，四周各保留半条线。
+  background-position: -1.5px -1.5px;
+  background-clip: padding-box;
+  span { padding: 2px 6px; border-radius: 3px; background: @bg-color-main; color: @font-color-content; }
+  &:hover { border-color: @color-primary; }
+}
+
+.popup {
+  position: fixed;
+  z-index: 1000;
+  width: 288px;
+  box-sizing: border-box;
+  padding: 8px;
+  border: 0.3px solid @boder-color;
+  border-radius: 12px;
+  background: @bg-color-main;
+  box-shadow: @shadow-main;
+  color: @font-color-content;
+  font-size: 12px;
+  --fpl-icon-color: currentColor;
+}
+
+.header, .trackHeader { display: flex; align-items: center; justify-content: space-between; }
+.header { padding-bottom: 6px; border-bottom: 1px solid @boder-color; }
+.counts { display: flex; align-items: center; gap: 8px; margin: 8px 0; }
+.counts > :first-child, .counts > :last-child { flex: 1; min-width: 0; }
+.picker { display: grid; grid-template-columns: repeat(12, 1fr); }
+.cell {
+  aspect-ratio: 1;
+  box-sizing: border-box;
+  padding: 1.5px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+
+  // 间隔放在按钮内部，让格子之间的留白也能悬停和点击。
+  &::before {
+    content: '';
+    display: block;
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
+    border: 1px solid transparent;
+    border-radius: 3px;
+    background: @bg-color-main-secondary;
+  }
+}
+.preview::before { border-color: @color-primary; background: color-mix(in srgb, @color-primary 10%, @bg-color-main-secondary); }
+.selected::before { border-color: @color-primary; background: color-mix(in srgb, @color-primary 30%, @bg-color-main-secondary); }
+.selected.preview::before { background: color-mix(in srgb, @color-primary 50%, @bg-color-main-secondary); }
+.hoverCount { text-align: center; margin: 6px 0; }
+.settingsButton { .button-base(); width: 100%; border: 1px solid @boder-color; }
+.settingsButton:hover { background: @bg-color-hover; }
+.trackList { max-height: 360px; overflow-y: auto; }
+.tracks + .tracks { margin-top: 8px; border-top: 1px solid @boder-color; }
+.trackRow { display: flex; align-items: center; gap: 4px; margin-top: 4px; }
+.trackIndex { min-width: 24px; text-align: center; }
+.trackInput { display: flex; align-items: center; flex: 1; min-width: 0; gap: 4px; }
+.trackInput > * { flex: 1; min-width: 0; }
+.iconButton {
+  width: 24px; height: 24px; padding: 0; border: none; border-radius: 5px;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  background: transparent; color: @font-color-content; cursor: pointer;
+  &:hover { background: @bg-color-hover; }
+  &:disabled { opacity: 0.3; cursor: default; }
+}

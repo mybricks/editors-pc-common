@@ -4,6 +4,7 @@ import AlignItems from "./AlignItems";
 import JustifyContent from "./JustifyContent";
 import Padding, { PaddingProps } from "./Padding";
 import Gap, { GapProps } from "./Gap";
+import Grid from "./Grid";
 import type { Layout } from "./types";
 import { Panel } from "../../components";
 import type { ChangeEvent, PanelBaseProps } from "../../type";
@@ -25,6 +26,10 @@ interface LayoutEditorProps extends PanelBaseProps {
 
 interface LayoutModel {
   display?: CSSProperties["display"];
+  gridTemplateColumns?: string | null;
+  gridTemplateRows?: string | null;
+  gridAutoRows?: string | null;
+  gridAutoFlow?: string | null;
   position?: CSSProperties["position"] | "default";
   flexDirection: CSSProperties["flexDirection"];
   alignItems: CSSProperties["alignItems"];
@@ -46,17 +51,23 @@ function isFlexLikeDisplay(display?: CSSProperties["display"]) {
   return display === "flex" || display === "inline-flex";
 }
 
+function isGridLikeDisplay(display?: CSSProperties["display"]) {
+  return display === "grid" || display === "inline-grid";
+}
+
 function getDisplayWhenEnableFlex(display?: CSSProperties["display"]) {
-  if (display === "inline-flex" || display === "inline-block") {
+  if (display === "inline-flex" || display === "inline-block" || display === "inline-grid") {
     return "inline-flex";
   }
   return "flex";
 }
 
+const GRID_KEYS = ['gridTemplateColumns', 'gridTemplateRows', 'gridAutoRows', 'gridAutoFlow'];
 const LAYOUT_KEYS = new Set([
   'display', 'position', 'flexDirection', 'alignItems', 'justifyContent',
   'flexWrap', 'gap', 'rowGap', 'columnGap', 'overflow',
   'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft',
+  ...GRID_KEYS,
 ]);
 
 const NON_CSS_KEYS = new Set(['paddingType']);
@@ -96,7 +107,7 @@ function parsePxValues(style: Record<string, unknown>): Record<string, unknown> 
   const result: Record<string, unknown> = {};
   for (const [key, val] of Object.entries(style)) {
     result[key] =
-      typeof val === "string" && /^-?\d+(\.\d+)?px$/.test(val)
+      !GRID_KEYS.includes(key) && typeof val === "string" && /^-?\d+(\.\d+)?px$/.test(val)
         ? parseFloat(val)
         : val;
   }
@@ -200,14 +211,52 @@ export function Layout({ value: panelValue, onChange: fallbackOnChange, showTitl
     Object.entries(currentValue).filter(([key, v]) => v != null && LAYOUT_KEYS.has(key))
   );
 
+  // Temporary style-instrument-debug: 验收确认后删除。
+  useEffect(() => {
+    const target = context?.targetDom;
+    if (!target) return;
+    const computed = window.getComputedStyle(target);
+    const keys = ['display', 'position', ...GRID_KEYS, 'rowGap', 'columnGap', 'width', 'height'];
+    void fetch('http://127.0.0.1:4318/logs', {
+      method: 'POST', headers: { 'content-type': 'application/json' }, keepalive: true,
+      body: JSON.stringify({ sessionId: 'grid-card1-20261103', event: 'grid-state-display', time: new Date().toISOString(), data: {
+        selector: options && !Array.isArray(options) ? options.selector : undefined,
+        soloEdit: options && !Array.isArray(options) ? options.soloEdit : undefined,
+        freeformMode, declared: Object.fromEntries(keys.map(key => [key, value?.[key]])),
+        computed: Object.fromEntries(keys.map(key => [key, computed.getPropertyValue(key.replace(/[A-Z]/g, char => `-${char.toLowerCase()}`))])),
+        children: Array.from(target.children).map((child, index) => {
+          const rect = child.getBoundingClientRect();
+          return { index, x: rect.x, y: rect.y, width: rect.width, height: rect.height, position: window.getComputedStyle(child).position };
+        }),
+      } }),
+    }).catch(() => {});
+  }, [value, freeformMode, context?.targetDom]);
+
   const refresh = useCallback(() => {
     const keys = Object.keys(value ?? {}).filter(key => LAYOUT_KEYS.has(key));
+    if (freeformMode === 'freedom' && isGridLikeDisplay(value?.display)) {
+      // Grid 仍保留在自由布局的父容器上；退出计划同时恢复父子定位和尺寸。
+      const patch = Object.fromEntries([...keys, '--layout-mode'].map(key => [key, null]));
+      const plan = buildFreedomPlan(context!.targetDom!, patch, options as FreedomPlanOptions, 'flex');
+      // Temporary style-instrument-debug: 验收确认后删除。
+      void fetch('http://127.0.0.1:4318/logs', {
+        method: 'POST', headers: { 'content-type': 'application/json' }, keepalive: true,
+        body: JSON.stringify({ sessionId: 'grid-card1-20261103', event: 'grid-reset-plan', time: new Date().toISOString(),
+          data: { scope: plan.scope, changes: plan.changes.map(({ selector, style }) => ({ selector, style })) } }),
+      }).catch(() => {});
+      (window as any).__mybricks_applyStylePlan(plan);
+      setFreeformMode(undefined);
+      setClearedGapKeys({rowGap: true, columnGap: true});
+      setIsReset(true);
+      setForceRenderKey(prev => prev + 1);
+      return;
+    }
     const result = onChange([...keys, '--layout-mode'].map(key => ({ key, value: null })));
     if (!result || result.applied) setFreeformMode(undefined);
     setClearedGapKeys({rowGap: true, columnGap: true});
     setIsReset(true);
     setForceRenderKey(prev => prev + 1);
-  }, [value, onChange]);
+  }, [value, onChange, freeformMode, context, options]);
 
   useEffect(() => {
     if (isReset && value && Object.keys(value).some(k => value[k] != null)) {
@@ -217,6 +266,12 @@ export function Layout({ value: panelValue, onChange: fallbackOnChange, showTitl
 
   const handleFreedomSelect = () => {
     const plan = buildFreedomPlan(context!.targetDom!, value, options as FreedomPlanOptions);
+    // Temporary style-instrument-debug: 验收确认后删除。
+    void fetch('http://127.0.0.1:4318/logs', {
+      method: 'POST', headers: { 'content-type': 'application/json' }, keepalive: true,
+      body: JSON.stringify({ sessionId: 'grid-card1-20261103', event: 'grid-freedom-enter-plan', time: new Date().toISOString(),
+        data: { scope: plan.scope, changes: plan.changes.map(({ selector, style }) => ({ selector, style })) } }),
+    }).catch(() => {});
     (window as any).__mybricks_applyStylePlan(plan);
     setFreeformMode('freedom');
   };
@@ -233,6 +288,13 @@ export function Layout({ value: panelValue, onChange: fallbackOnChange, showTitl
           freedomValue={!isReset && freeformMode === 'freedom'}
           onFreedomSelect={handleFreedomSelect}
           onChangeValue={(newVal) => {
+            // Temporary style-instrument-debug: 验收确认后删除。
+            void fetch('http://127.0.0.1:4318/logs', {
+              method: 'POST', headers: { 'content-type': 'application/json' }, keepalive: true,
+              body: JSON.stringify({ sessionId: 'grid-card1-20261103', event: 'grid-patch', time: new Date().toISOString(),
+                data: { selector: options && !Array.isArray(options) ? options.selector : undefined,
+                  soloEdit: options && !Array.isArray(options) ? options.soloEdit : undefined, freeformMode, patch: newVal } }),
+            }).catch(() => {});
             setClearedGapKeys((previous) => {
               const next = {...previous};
               let changed = false;
@@ -254,6 +316,12 @@ export function Layout({ value: panelValue, onChange: fallbackOnChange, showTitl
             if (freeformMode === 'freedom' && 'flexDirection' in newVal
               && (isFlexLikeDisplay(newVal.display) || newVal.flexDirection === null)) {
               const plan = buildFreedomPlan(context!.targetDom!, newVal, options as FreedomPlanOptions, 'flex');
+              // Temporary style-instrument-debug: 验收确认后删除。
+              void fetch('http://127.0.0.1:4318/logs', {
+                method: 'POST', headers: { 'content-type': 'application/json' }, keepalive: true,
+                body: JSON.stringify({ sessionId: 'grid-card1-20261103', event: 'grid-freedom-exit-plan', time: new Date().toISOString(),
+                  data: { scope: plan.scope, changes: plan.changes.map(({ selector, style }) => ({ selector, style })) } }),
+              }).catch(() => {});
               (window as any).__mybricks_applyStylePlan(plan);
               setFreeformMode(undefined);
               return;
@@ -295,7 +363,7 @@ function LayoutEditor({ editValue, previewValue, overflowHidden, clearedGapKeys,
     ? (_value.position as string)
     : isPreservedCssPosition(_value.position)
       ? (_value.position as string)
-      : (isFlexLikeDisplay(_value.display as CSSProperties["display"]) ? "inherit" : "default");
+      : (isFlexLikeDisplay(_value.display as CSSProperties["display"]) || isGridLikeDisplay(_value.display as CSSProperties["display"]) ? "inherit" : "default");
 
   const initialModel: LayoutModel = {
     ...defaultValue,
@@ -333,7 +401,7 @@ function LayoutEditor({ editValue, previewValue, overflowHidden, clearedGapKeys,
     (style: Partial<LayoutModel>) => {
       // 切换到默认：清除所有 flex 布局相关属性；容器自身的 position 不动
       if (style.position === "default") {
-        const resetDisplay = model.display === "inline-flex" || model.display === "inline-block"
+        const resetDisplay = model.display === "inline-flex" || model.display === "inline-block" || model.display === "inline-grid"
           ? "inline-block"
           : null;
         onChangeValue({
@@ -344,6 +412,7 @@ function LayoutEditor({ editValue, previewValue, overflowHidden, clearedGapKeys,
           flexWrap: null,
           rowGap: null,
           columnGap: null,
+          ...(isGridLikeDisplay(model.display) ? Object.fromEntries(GRID_KEYS.map(key => [key, null])) : {}),
         });
         return;
       }
@@ -369,6 +438,7 @@ function LayoutEditor({ editValue, previewValue, overflowHidden, clearedGapKeys,
     !freedom &&
     isFlexLikeDisplay(model.display) &&
     (model.flexDirection === "row" || model.flexDirection === "column");
+  const isGridActive = !freedom && isGridLikeDisplay(model.display);
 
   const renderFlexDirection = () => {
     const onSelect = (layout: Layout) => {
@@ -380,6 +450,24 @@ function LayoutEditor({ editValue, previewValue, overflowHidden, clearedGapKeys,
         return;
       }
       setFreedom(false);
+      if (layout === 'grid') {
+        const sourceDisplay = model.display ?? editValue.display;
+        const display = sourceDisplay?.startsWith('inline') ? 'inline-grid' : 'grid';
+        // 只在显式启用时补初始轨道；从自由布局返回或重新选中时保留声明。
+        const patch = {
+          display,
+          flexDirection: null,
+          flexWrap: null,
+          gridTemplateColumns: model.gridTemplateColumns && model.gridTemplateColumns !== 'none' ? model.gridTemplateColumns : '1fr',
+          gridTemplateRows: model.gridTemplateRows || 'none',
+          gridAutoRows: model.gridAutoRows || '1fr',
+          gridAutoFlow: model.gridAutoFlow || 'row',
+        };
+        setModel(prev => ({ ...prev, ...patch, flexDirection: prev.flexDirection, flexWrap: prev.flexWrap, position: 'inherit' }));
+        emitValue(patch);
+        return;
+      }
+      const clearGrid = isGridLikeDisplay(model.display) ? Object.fromEntries(GRID_KEYS.map(key => [key, null])) : {};
       const isAbsolute = layout === "absolute";
       const isDefault = layout === "default";
       const isInline = layout === "inline";
@@ -413,6 +501,7 @@ function LayoutEditor({ editValue, previewValue, overflowHidden, clearedGapKeys,
         // 切换到默认：清空 flex 相关样式，并同步重置面板内的对齐状态 align-items和justify-content
         setModel(prev => ({
           ...prev,
+          ...clearGrid,
           flexDirection,
           display: undefined,
           position: "default",
@@ -435,7 +524,7 @@ function LayoutEditor({ editValue, previewValue, overflowHidden, clearedGapKeys,
       }
 
       if (isInline) {
-        setModel(prev => ({ ...prev, display: "inline", flexDirection, position: "inherit" }));
+        setModel(prev => ({ ...prev, ...clearGrid, display: "inline", flexDirection, position: "inherit" }));
         emitValue({
           display: "inline",
           flexDirection: null,
@@ -444,15 +533,16 @@ function LayoutEditor({ editValue, previewValue, overflowHidden, clearedGapKeys,
           flexWrap: null,
           rowGap: null,
           columnGap: null,
+          ...clearGrid,
         });
         return;
       }
 
       // 横/纵切换时写入 display 和 flex 方向，不自动修改对齐方式。
-      const sourceDisplay = (editValue.display as CSSProperties["display"] | undefined) ?? model.display;
+      const sourceDisplay = isGridLikeDisplay(model.display) ? model.display : (editValue.display as CSSProperties["display"] | undefined) ?? model.display;
       const nextDisplay = getDisplayWhenEnableFlex(sourceDisplay);
-      setModel(prev => ({ ...prev, flexDirection, display: nextDisplay, position: "inherit", flexWrap }));
-      emitValue({ display: nextDisplay, flexDirection, flexWrap });
+      setModel(prev => ({ ...prev, ...clearGrid, flexDirection, display: nextDisplay, position: "inherit", flexWrap }));
+      emitValue({ display: nextDisplay, flexDirection, flexWrap, ...clearGrid });
     };
     return (
       <Direction
@@ -521,12 +611,12 @@ function LayoutEditor({ editValue, previewValue, overflowHidden, clearedGapKeys,
       setModel((pre) => ({ ...pre, ...val }));
       emitValue({ ...val });
     };
-    return isFlexActive ? (
+    return isFlexActive || isGridActive ? (
       <Gap
         value={{ rowGap: model.rowGap, columnGap: model.columnGap }}
         cleared={clearedGapKeys}
         onChange={onGapChange}
-        flexDirection={model.flexDirection}
+        flexDirection={isGridActive ? "row" : model.flexDirection}
       />
     ) : null;
   };
@@ -566,7 +656,7 @@ function LayoutEditor({ editValue, previewValue, overflowHidden, clearedGapKeys,
   const renderInlineBlock = () => {
     if (model.display === "inline") return null;
 
-    const isInlineBlock = model.display === "inline-block" || model.display === "inline-flex";
+    const isInlineBlock = model.display === "inline-block" || model.display === "inline-flex" || model.display === "inline-grid";
     const toggle = () => {
       let display = '';
 
@@ -575,10 +665,14 @@ function LayoutEditor({ editValue, previewValue, overflowHidden, clearedGapKeys,
           display = 'block';
         } else if (model.display === "inline-flex") {
           display = 'flex';
+        } else if (model.display === "inline-grid") {
+          display = 'grid';
         }
       } else {
         if (model.display === "flex") {
           display = 'inline-flex';
+        } else if (model.display === "grid") {
+          display = 'inline-grid';
         } else {
           display = 'inline-block';
         }
@@ -640,6 +734,16 @@ function LayoutEditor({ editValue, previewValue, overflowHidden, clearedGapKeys,
   return (
     <div>
       {renderFlexDirection()}
+      {isGridActive && <div className={styles.gridLayout}>
+        <Grid value={model} onChange={patch => {
+          setModel(previous => ({ ...previous, ...patch }));
+          emitValue(patch);
+        }} />
+        <div className={styles.gridGap}>
+          <div className={styles.gridGapLabel}>{lang.gridGapLabel}</div>
+          {renderGap()}
+        </div>
+      </div>}
       {isFlexActive && (
         <div className={styles.layout}>
           <div className={styles.centerLayout}>

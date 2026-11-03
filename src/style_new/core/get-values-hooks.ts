@@ -267,6 +267,10 @@ export function buildExportBag(acc: ValuesAcc): Record<string, any> {
     transform: acc.transform,
 
     display: acc.display,
+    gridTemplateColumns: acc.gridTemplateColumns,
+    gridTemplateRows: acc.gridTemplateRows,
+    gridAutoRows: acc.gridAutoRows,
+    gridAutoFlow: acc.gridAutoFlow,
     flexDirection: acc.flexDirection,
     alignItems: acc.alignItems,
     justifyContent: acc.justifyContent,
