@@ -35,6 +35,7 @@ import { excludeSoloSources } from './core/zone-tab'
 import type { ZoneTab } from './core/zone-tab'
 import { applyStatePreview, clearStatePreview, getStatePreviewContext, getStatePreviewMode, isPreviewablePseudo, onStatePreviewChange } from './core/state-preview'
 import { registerVariationFocusHandler, setFocusedVariation } from './core/variations'
+import { setSoloEditState } from './core/get-similar-zones'
 import { getDocument, toElementArray } from './core/dom'
 import { ZoneTabBar } from './ZoneTabBar'
 import lang from './index.i18n'
@@ -644,6 +645,12 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
     isSoloEdit,
     expectedSoloSelector,
   ])
+
+  // 在绘制前同步编辑模式状态
+  useLayoutEffect(() => {
+    setSoloEditState(isSoloEdit)
+    return () => setSoloEditState(false)
+  }, [isSoloEdit])
 
   useEffect(() => {
     refreshBatchMeta()

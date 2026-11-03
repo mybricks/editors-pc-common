@@ -47,3 +47,20 @@ export function getSimilarZones(
 
   return Array.from(result)
 }
+
+export type ApplyUpdateType = 'all' | 'single'
+
+let soloEditState = false
+
+/** 挂载时返回 isSoloEdit，卸载时恢复默认值。 */
+export function setSoloEditState(isSoloEdit: boolean): void {
+  soloEditState = isSoloEdit
+}
+
+/**
+ * 返回当前样式面板的编辑模式勾选状态，批量编辑或单独编辑
+ * 面板未挂载时返回 'all'。
+ */
+export function getApplyUpdateType(): ApplyUpdateType {
+  return soloEditState ? 'single' : 'all'
+}
