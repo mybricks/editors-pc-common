@@ -27,6 +27,7 @@ import { BORDER_DETAIL_KEYS, BORDER_RADIUS_KEYS, createBorderRadiusWritePlans, c
 import { createOverflowWritePlans, isOverflowProperty } from './overflow'
 import { createFlexLonghandWritePlans } from './flex-write'
 import { getTextBackgroundShorthandWrite } from './text-background-write'
+import { createBackgroundReplacementPlan } from './background'
 
 export type StyleChangeItem = {
   key: string
@@ -596,6 +597,18 @@ function applyEffectiveStyleChanges(
 ): ApplyStyleChangeResult {
   const resolution = getStyleResolution(tab, target)
   const changes = preserveStateInlinePriority(preservePaintRoles(items, liveStyle), tab, target)
+  // 范围：同一 selector 内的颜色切图片/渐变，具体条件由 background 模块判断。
+  // 之前只追加 background-image，旧 background 仍可能提供底色；现在一次提交删除旧声明并写入新值。
+  // 例（省略配套属性）：.test { background: #fff; } → .test { background-image: url("a.png"); }
+  // 普通改色、减号/清空、透明底色上的图片编辑不进入此分支，继续下面的旧链路。
+  const backgroundReplacement = createBackgroundReplacementPlan(changes, resolution, tab, target)
+  if (backgroundReplacement) {
+    // 沿用已有写入、来源同步、删除信号清理及批量状态通知。
+    const result = applyStyleRemoval(backgroundReplacement, liveStyle, resolution, target, editConfig)
+    if (result.applied) onBatchMetaChange?.()
+    return result
+  }
+
   const flexKeys = getShorthandFamily('flex').map(stylePropertyKey)
   // Flex 面板提交的是整组替换；其中的 null 只是清理冲突写法，不是屏蔽级联。
   const replacingFlex = flexKeys.every(key => changes.some(item => item.key === key)) &&
