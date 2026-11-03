@@ -147,5 +147,5 @@ export function emitRedo(): void {
  * 提供给引擎在 undo all 后调用触发变体预览样式刷新
  */
 export function emitUndoAll(): void {
-  clearStatePreview()
+  refreshStatePreview()
 }
