@@ -1,1 +1,1 @@
-export type Layout = "absolute" | "row" | "column" | "default" | "inline" | "freedom";
+export type Layout = "absolute" | "row" | "column" | "default" | "inline" | "freedom" | "grid";

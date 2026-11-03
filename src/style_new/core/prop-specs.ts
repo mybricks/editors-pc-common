@@ -168,6 +168,10 @@ export const PROP_SPECS: PropSpec[] = [
 
   // layout
   { camel: 'display', inherit: false, fallback: 'computed' },
+  { camel: 'gridTemplateColumns', inherit: false, fallback: 'none' },
+  { camel: 'gridTemplateRows', inherit: false, fallback: 'none' },
+  { camel: 'gridAutoRows', inherit: false, fallback: 'none' },
+  { camel: 'gridAutoFlow', inherit: false, fallback: 'none' },
   { camel: 'flexDirection', inherit: false, fallback: 'computed' },
   { camel: 'alignItems', inherit: false, fallback: 'computed' },
   { camel: 'justifyContent', inherit: false, fallback: 'computed' },
