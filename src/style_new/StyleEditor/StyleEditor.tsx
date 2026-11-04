@@ -130,13 +130,10 @@ export default function ({
       const JSX = PLUGINS_MAP[pluginKey];
       const option = keyToOption[pluginKey];
       const config = typeof option === "string" ? {} : option?.config || {}; // 使用选项中的配置或空对象
-      const autoExpandZIndex =
-        pluginKey === 'ZINDEX' &&
-        String(positionForOrder).toLowerCase() === 'absolute' &&
-        defaultValue?.zIndex == null;
-      // 沿用常规态定位时，层级置顶但默认折叠。
-      let panelCollapse: boolean | 'inherited' = autoExpandZIndex && defaultValue?.position == null && positionField.computedPreview != null;
-      if (!autoExpandZIndex) {
+      // 层级没有值时默认折叠；绝对定位只影响排序，不作为展开依据。
+      const collapseEmptyZIndex = pluginKey === 'ZINDEX' && defaultValue?.zIndex == null;
+      let panelCollapse: boolean | 'inherited' = collapseEmptyZIndex;
+      if (!collapseEmptyZIndex) {
         if (collapsedOptions.includes(pluginKey.toLowerCase())) {
           panelCollapse = true;
         } else if (readonlyExpandedOptions?.includes(pluginKey.toLowerCase())) {
