@@ -255,6 +255,8 @@ export function buildZoneEffectiveStyle(
   }
   const result: Record<string, EffectiveStyleValue> = {}
   const computedStyle = target ? window.getComputedStyle(target) : null
+  // 复用属性索引，后面用它补齐浏览器读不到的边框分项及来源。
+  const resolution = getStyleResolution(tab, target instanceof HTMLElement ? target : null)
   const cascadeResolver = target instanceof HTMLElement && !tab.pseudo
     ? createCascadeResolver(target)
     : null
@@ -293,7 +295,27 @@ export function buildZoneEffectiveStyle(
         }
       }
     }
-    result[styleKey] = {
+    // 边框分项读不到时，从属性索引取简写拆出的原值；
+    // 1. 只查询四边的宽度、线型和颜色，其他属性不走补值分支。
+    const resolvedBorder = /^border-(?:top|right|bottom|left)-(?:width|style|color)$/.test(cssProperty)
+      ? resolution.get(styleKey).winner
+      : null
+    let borderWinner: typeof resolvedBorder = null
+    // 2. 确认值来自简写，且原规则或内联样式确实读不到该分项，才采用补值。
+    if (resolvedBorder && resolvedBorder.property !== cssProperty) {
+      const declaration = resolvedBorder.inline ? inlineStyle : resolvedBorder.source?.rule.style
+      if (!declaration?.getPropertyValue(cssProperty)) borderWinner = resolvedBorder
+    }
+    // 3. 补值保留原声明值和来源，计算值仅供预览；不需要补值的属性沿用原回显逻辑。
+    result[styleKey] = borderWinner ? {
+      value: borderWinner.value,
+      computedValue,
+      type: borderWinner.inline ? 'inline' : 'stylesheet',
+      sourceSelector: borderWinner.inline ? undefined : borderWinner.label,
+      selectorPart: borderWinner.inline ? 'inline' : borderWinner.source?.selectorPart,
+      sourceOrder: borderWinner.inline ? undefined : borderWinner.sourceOrder,
+      important: borderWinner.important || undefined,
+    } : {
       ...(hasEffectiveValue ? { value: effectiveValue } : {}),
       computedValue,
       type: source ? (inlineWins ? 'inline' : 'stylesheet') : (inlineValue ? 'inline' : 'computed'),
