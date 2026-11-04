@@ -453,6 +453,11 @@ export function parseToStyleData(cssCode: string, selector: string) {
   return styleData
 }
 
+/** 合并对象字段名与额外字段名，返回去重后的字段名数组。 */
+export function mergeObjectKeys(object: Record<string, unknown>, keys: readonly string[]): string[] {
+  return Array.from(new Set([...Object.keys(object), ...keys]))
+}
+
 /** 对比 baseline 与下一份样式，生成 applyStyleChange 所需的变更列表 */
 export function diffStyleData(
   baseline: Record<string, any>,

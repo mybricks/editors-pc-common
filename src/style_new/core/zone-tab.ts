@@ -2,8 +2,8 @@
 import { compare } from 'specificity'
 
 import { isPageScopedSelector, resolveCssomSourceSelector } from './build-zone-selectors-from-cssom'
-import { toLine } from './css-code-codec'
-import { getStyleResolution, resolveEffectiveStyleSource } from './style-property'
+import { mergeObjectKeys, parseToStyleData, toLine } from './css-code-codec'
+import { cssPropertyName, getStyleResolution, resolveEffectiveStyleSource } from './style-property'
 import { getShorthandFamily, stylePropertyKey } from './style-shorthand-groups'
 import { createCascadeResolver } from './cascade-winner'
 import { getDocument } from './dom'
@@ -55,6 +55,18 @@ export type ZoneTab = {
   excludedStyleKeys?: readonly string[]
 }
 
+/** 合并这些来源的声明字段及简写相关字段，供规则删除和回显排除共用。 */
+export function collectZoneSourceStyleKeys(sources: readonly ZoneSourceRule[]): string[] {
+  return Array.from(new Set(sources.flatMap(source =>
+    mergeObjectKeys(
+      parseToStyleData(source.rule.style.cssText || '', 'element'),
+      Array.from({ length: source.rule.style.length }, (_, index) =>
+        stylePropertyKey(source.rule.style.item(index))
+      )
+    ).flatMap(key => getShorthandFamily(cssPropertyName(key)).map(stylePropertyKey))
+  )))
+}
+
 /** 批量面板只读取公共规则；单独规则依然留在 CSSOM 中作用于当前节点。 */
 export function excludeSoloSources(tab: ZoneTab, soloSelectors: readonly string[]): ZoneTab {
   if (!soloSelectors.length) return tab
@@ -64,12 +76,9 @@ export function excludeSoloSources(tab: ZoneTab, soloSelectors: readonly string[
   if (sourceRules.length === tab.sourceRules.length && baseRules.length === tab.baseRules.length) return tab
   const removed = [...tab.sourceRules, ...tab.baseRules].filter(source => excluded.has(source.sourceSelector))
   const excludedRules = Array.from(new Set(removed.map(source => source.rule)))
-  const excludedStyleKeys = Array.from(new Set(removed.flatMap(source =>
-    Array.from({ length: source.rule.style.length }, (_, index) =>
-      getShorthandFamily(source.rule.style.item(index)).map(stylePropertyKey)
-    ).flat()
-  )))
-  return { ...tab, sourceRules, baseRules, effectiveStyle: {},
+  const excludedStyleKeys = collectZoneSourceStyleKeys(removed)
+  // 来源改变后不能沿用原求解缓存，否则初始化会把旧缓存与空回显一起使用。
+  return { ...tab, sourceRules, baseRules, effectiveStyle: {}, effectedCssResult: undefined,
     excludedSourceSelectors: soloSelectors, excludedRules, excludedStyleKeys }
 }
 
@@ -82,7 +91,10 @@ export function refreshZoneTabSources(tab: ZoneTab, current: ZoneTab): void {
   tab.baseRules = refreshed.baseRules
   if (tab.excludedSourceSelectors) {
     tab.excludedRules = refreshed.excludedRules ?? []
-    tab.excludedStyleKeys = refreshed.excludedStyleKeys ?? []
+    // 规则已从 CSSOM 删除后不能再从旧 CSSRule 反推字段，保留原排除结果。
+    tab.excludedStyleKeys = Array.from(new Set([
+      ...(tab.excludedStyleKeys ?? []), ...(refreshed.excludedStyleKeys ?? []),
+    ]))
   }
 }
 
