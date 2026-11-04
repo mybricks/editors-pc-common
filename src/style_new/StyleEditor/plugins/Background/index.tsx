@@ -472,6 +472,18 @@ export function Background({
   useEffect(() => {
     const style = value as Record<string, any>;
     const fingerprint = buildContentFingerprint(style);
+
+    // 作用：权限同步前移，避免旧回显提前 return，导致换图后减号不出现。
+    // 范围：背景来源权限变化（不限于换图）；这里只更新 canRemove。
+    // 不变：CSS 写入、图片值、图层 ID 和取色器状态；后面的回显判断沿用原逻辑。
+    if (ownershipFingerprint !== lastOwnershipRef.current) {
+      lastOwnershipRef.current = ownershipFingerprint;
+      setLayers(current => current.map(layer => ({
+        ...layer,
+        canRemove: ownership[layer.sourceProperty || 'backgroundImage'],
+      })));
+    }
+
     // 只拦截提交前的旧回显；删除后其他来源的新值不能被当成“旧值”吞掉。
     if (localEmitPendingRef.current !== null) {
       if (fingerprint === localEmitPendingRef.current && fingerprint !== lastEmittedRef.current) return;
@@ -482,14 +494,6 @@ export function Background({
     const transparentDisplayMatches = getColorOpacity(meta.backgroundColor || '') !== 0 ||
       layersRef.current.some(layer => layer.sourceProperty === 'backgroundColor') === showTransparentColor;
     if (fingerprint === lastEmittedRef.current && transparentDisplayMatches) {
-      if (ownershipFingerprint !== lastOwnershipRef.current) {
-        // 首次写入后图层变为可删除，只同步来源权限，保留打开取色器的图层 ID。
-        lastOwnershipRef.current = ownershipFingerprint;
-        setLayers(current => current.map(layer => ({
-          ...layer,
-          canRemove: ownership[layer.sourceProperty || 'backgroundImage'],
-        })));
-      }
       return;
     }
     lastEmittedRef.current = fingerprint;
@@ -592,16 +596,30 @@ export function Background({
           // 颜色解析失败（如渐变/图片/CSS 变量），跳过比较，正常提交
         }
       }
-      const nextLayers = layersRef.current.map((l, i) => (i === index ? { ...l, ...partial } : l));
-      // 外部 background-color 不参与普通图层序列化，但颜色本身仍可编辑；
-      // 只在这次确实编辑该层时把它作为单独属性写出。
+      const nextLayers = layersRef.current.map((layer, layerIndex) => (
+        layerIndex === index ? { ...layer, ...partial } : layer
+      ));
+      const updatedLayer = nextLayers[index];
+      const isColorToImageTransition = currentLayer?.sourceProperty === 'backgroundColor' &&
+        (updatedLayer.type === 'image' || updatedLayer.type === 'gradient');
+
+      // 范围：backgroundColor 来源的颜色层切为图片/渐变。
+      // 作用：同步切换来源，避免旧来源把 url(...) 写进 background-color。
+      // 不变：普通改色、已有图片编辑的来源；图片切回纯色仍用原来的同色渐变表示。
+      if (isColorToImageTransition) {
+        updatedLayer.sourceProperty = 'backgroundImage';
+      }
+      // 换图时复用序列化提交 color:null 和新图片；同规则的旧声明由写入层一次替换，不写透明色覆盖。
       const changes = serializeLayers(nextLayers);
+
+      // 普通改色保持原行为：补写序列化跳过的 canRemove=false 颜色层。
+      // 改为检查更新后的来源，已切成图片/渐变的层不再误补 backgroundColor: url(...)。
       if (
-        currentLayer?.sourceProperty === 'backgroundColor' &&
+        updatedLayer.sourceProperty === 'backgroundColor' &&
         currentLayer.canRemove === false &&
         partial.value !== undefined
       ) {
-        changes.push({ key: 'backgroundColor', value: nextLayers[index].value });
+        changes.push({ key: 'backgroundColor', value: updatedLayer.value });
       }
       emitLayers(nextLayers, changes);
     },
