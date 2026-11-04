@@ -22,7 +22,8 @@ interface SelectProps {
   onChange: (value: any) => void;
   onAction?: (value: any) => void;
   onReorder?: (newOrder: any[]) => void;
-  options: Array<{ value: any; label: string | number; suffix?: string | number; type?: 'action' | 'divider'; checked?: boolean; icon?: ReactNode; iconSize?: 'sm' | 'md'; disabled?: boolean; style?: CSSProperties; tip?: string }>;
+  /** label 用于回显；menuLabel 仅覆盖下拉菜单文案。 */
+  options: Array<{ value: any; label: string | number; menuLabel?: string | number; suffix?: string | number; type?: 'action' | 'divider'; checked?: boolean; icon?: ReactNode; iconSize?: 'sm' | 'md'; disabled?: boolean; style?: CSSProperties; tip?: string }>;
   multiple?: boolean;
   /** 是否展示下拉的icon */
   showIcon?: boolean;
@@ -30,6 +31,8 @@ interface SelectProps {
   showIconOnHover?: boolean;
   /** 隐藏当前选中 label，只保留下拉箭头 */
   hideLabel?: boolean;
+  /** 是否回显选中项的辅助文案，不影响下拉列表 */
+  showSelectedSuffix?: boolean;
   labelClassName?: string;
   iconClassName?: string;
   tip?: string;
@@ -56,6 +59,7 @@ export function Select({
   showIcon = true,
   showIconOnHover = false,
   hideLabel = false,
+  showSelectedSuffix = true,
   labelClassName,
   iconClassName,
   multiple = false,
@@ -144,7 +148,9 @@ export function Select({
     >
       <Dropdown
         multiple={multiple}
-        options={options}
+        options={options.some(option => option.menuLabel !== undefined)
+          ? options.map(option => option.menuLabel === undefined ? option : { ...option, label: option.menuLabel })
+          : options}
         value={value}
         onClick={handleDropDownClick}
         onAction={onAction}
@@ -171,7 +177,7 @@ export function Select({
             >
               <span className={css.valueText}>
                 {label || (hasDisplayValue ? displayValue : placeholder)}
-                {!Array.isArray(value) && options.find(o => o.value === value)?.suffix
+                {showSelectedSuffix && !Array.isArray(value) && options.find(o => o.value === value)?.suffix
                   ? <span className={css.valueSuffix}>{options.find(o => o.value === value)?.suffix}</span>
                   : null
                 }

@@ -440,6 +440,26 @@ function LayoutEditor({ editValue, previewValue, overflowHidden, clearedGapKeys,
     (model.flexDirection === "row" || model.flexDirection === "column");
   const isGridActive = !freedom && isGridLikeDisplay(model.display);
 
+  // 默认按钮与网格末项删除复用同一次布局提交，保留容器自身的定位和其他样式。
+  const selectDefault = () => {
+    const clearGrid = isGridLikeDisplay(model.display) ? Object.fromEntries(GRID_KEYS.map(key => [key, null])) : {};
+    setModel(prev => ({
+      ...prev,
+      ...clearGrid,
+      flexDirection: model.flexDirection,
+      display: undefined,
+      position: "default",
+      flexWrap: defaultValue.flexWrap,
+      alignItems: defaultValue.alignItems,
+      justifyContent: defaultValue.justifyContent,
+      rowGap: null,
+      columnGap: null,
+    }));
+    setRowFlexWrap(defaultValue.flexWrap);
+    setColumnFlexWrap(defaultValue.flexWrap);
+    emitValue({ position: "default" });
+  };
+
   const renderFlexDirection = () => {
     const onSelect = (layout: Layout) => {
       if (layout === 'freedom') {
@@ -498,22 +518,7 @@ function LayoutEditor({ editValue, previewValue, overflowHidden, clearedGapKeys,
       }
 
       if (isDefault) {
-        // 切换到默认：清空 flex 相关样式，并同步重置面板内的对齐状态 align-items和justify-content
-        setModel(prev => ({
-          ...prev,
-          ...clearGrid,
-          flexDirection,
-          display: undefined,
-          position: "default",
-          flexWrap: defaultValue.flexWrap,
-          alignItems: defaultValue.alignItems,
-          justifyContent: defaultValue.justifyContent,
-          rowGap: null,
-          columnGap: null,
-        }));
-        setRowFlexWrap(defaultValue.flexWrap);
-        setColumnFlexWrap(defaultValue.flexWrap);
-        emitValue({ position: "default" });
+        selectDefault();
         return;
       }
 
@@ -735,7 +740,7 @@ function LayoutEditor({ editValue, previewValue, overflowHidden, clearedGapKeys,
     <div>
       {renderFlexDirection()}
       {isGridActive && <div className={styles.gridLayout}>
-        <Grid value={model} onChange={patch => {
+        <Grid value={model} onRemoveLayout={selectDefault} onChange={patch => {
           setModel(previous => ({ ...previous, ...patch }));
           emitValue(patch);
         }} />
