@@ -1212,9 +1212,9 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
                         chipStyle={CHIP_STYLE_SPLIT}
                         compact
                         inputProps={{
-                          tip: borderValue.borderLeftWidth == null
+                          tip: `{content:'${borderValue.borderLeftWidth == null
                             ? buildComputedTip(lang.leftBorderWidthTip, effectiveStyle?.borderLeftWidth, getPreviewValue('borderLeftWidth'))
-                            : lang.leftBorderWidthTip,
+                            : lang.leftBorderWidthTip}',position:'left'}`,
                           style: WIDTH_STYLE_SPLIT,
                           defaultValue: borderValue.borderLeftWidth,
                           value: borderValue.borderLeftWidth,
@@ -1294,9 +1294,9 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
                         chipStyle={CHIP_STYLE_SPLIT}
                         compact
                         inputProps={{
-                          tip: borderValue.borderTopWidth == null
+                          tip: `{content:'${borderValue.borderTopWidth == null
                             ? buildComputedTip(lang.topBorderWidthTip, effectiveStyle?.borderTopWidth, getPreviewValue('borderTopWidth'))
-                            : lang.topBorderWidthTip,
+                            : lang.topBorderWidthTip}',position:'left'}`,
                           style: WIDTH_STYLE_SPLIT,
                           defaultValue: borderValue.borderTopWidth,
                           value: borderValue.borderTopWidth,
@@ -1377,9 +1377,9 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
                         chipStyle={CHIP_STYLE_SPLIT}
                         compact
                         inputProps={{
-                          tip: borderValue.borderRightWidth == null
+                          tip: `{content:'${borderValue.borderRightWidth == null
                             ? buildComputedTip(lang.rightBorderWidthTip, effectiveStyle?.borderRightWidth, getPreviewValue('borderRightWidth'))
-                            : lang.rightBorderWidthTip,
+                            : lang.rightBorderWidthTip}',position:'left'}`,
                           style: WIDTH_STYLE_SPLIT,
                           defaultValue: borderValue.borderRightWidth,
                           value: borderValue.borderRightWidth,
@@ -1460,9 +1460,9 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
                         chipStyle={CHIP_STYLE_SPLIT}
                         compact
                         inputProps={{
-                          tip: borderValue.borderBottomWidth == null
+                          tip: `{content:'${borderValue.borderBottomWidth == null
                             ? buildComputedTip(lang.bottomBorderWidthTip, effectiveStyle?.borderBottomWidth, getPreviewValue('borderBottomWidth'))
-                            : lang.bottomBorderWidthTip,
+                            : lang.bottomBorderWidthTip}',position:'left'}`,
                           style: WIDTH_STYLE_SPLIT,
                           defaultValue: borderValue.borderBottomWidth,
                           value: borderValue.borderBottomWidth,
