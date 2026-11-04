@@ -309,7 +309,6 @@ type PreviewRule = {
  * 先找出原本该显示的值，再只给受影响的元素补一条预览，不改原规则。
  */
 function buildPreviewCascadeCorrections(root: ShadowRoot, rules: PreviewRule[]): string[] {
-  console.time('test')
   // 1. 给每个元素找出实际作用于它的状态规则；否定状态和伪元素仍走原预览。
   type MatchedRule = { entry: PreviewRule;
     specificity: NonNullable<ReturnType<typeof calculateSafeSpecificity>>;
@@ -379,7 +378,6 @@ function buildPreviewCascadeCorrections(root: ShadowRoot, rules: PreviewRule[]):
       lines.push(`${targetSelector}:is(${promoted.entry.selector}){${property}: ${original.value} !important}`)
     })
   })
-  console.timeEnd('test')
   return lines
 }
 
