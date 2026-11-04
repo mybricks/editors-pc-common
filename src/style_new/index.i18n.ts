@@ -762,8 +762,14 @@ export default i18n({
   gridSettings: { zh: '网格设置', en: 'Grid settings' },
   gridOpenSettings: { zh: '打开网格设置', en: 'Open grid settings' },
   gridFixed: { zh: '固定', en: 'Fixed' },
+  gridFixedWidth: { zh: '固定', en: 'Fixed width' },
+  gridFixedHeight: { zh: '固定', en: 'Fixed height' },
+  gridHugContents: { zh: '适应', en: 'Hug contents' },
+  gridFillContainer: { zh: '填满', en: 'Fill container' },
   gridAddTrack: { zh: '添加轨道', en: 'Add track' },
   gridRemoveTrack: { zh: '删除轨道', en: 'Remove track' },
+  gridRemoveColumn: { zh: '删除第 {index} 列，共 {count} 列', en: 'Remove column {index} of {count}' },
+  gridRemoveRow: { zh: '删除第 {index} 行，共 {count} 行', en: 'Remove row {index} of {count}' },
   directionFreedom: { zh: '自由布局', en: 'Free layout' },
 
   // Layout/JustifyContent

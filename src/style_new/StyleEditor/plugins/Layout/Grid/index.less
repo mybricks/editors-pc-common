@@ -16,7 +16,7 @@
   // 将 3px 网格线居中到格子边界，四周各保留半条线。
   background-position: -1.5px -1.5px;
   background-clip: padding-box;
-  span { padding: 2px 6px; border-radius: 3px; background: @bg-color-main; color: @font-color-content; }
+  span { padding: 2px 6px; color: @font-color-content; }
   &:hover { border-color: @color-primary; }
 }
 
@@ -36,9 +36,23 @@
 }
 
 .header, .trackHeader { display: flex; align-items: center; justify-content: space-between; }
+.trackHeader > .iconButton {
+  opacity: 0.55;
+  &:hover { opacity: 1; }
+}
 .header { padding-bottom: 6px; border-bottom: 1px solid @boder-color; }
+.settingsPopup {
+  width: 360px;
+  padding: 0;
+  container-type: inline-size;
+  .header { height: 48px; box-sizing: border-box; padding: 0 12px 0 16px; }
+}
 .counts { display: flex; align-items: center; gap: 8px; margin: 8px 0; }
-.counts > :first-child, .counts > :last-child { flex: 1; min-width: 0; }
+.counts > :first-child, .counts > :last-child { flex: 1; min-width: 0; padding: 0 6px; box-sizing: border-box; }
+.counts > span { opacity: 0.45; }
+.counts input { min-width: 0; }
+.popup .counts input::placeholder { color: @font-color-content; opacity: 1; }
+.counts [data-select-icon] { margin-right: 0; }
 .picker { display: grid; grid-template-columns: repeat(12, 1fr); }
 .cell {
   aspect-ratio: 1;
@@ -63,15 +77,42 @@
 .preview::before { border-color: @color-primary; background: color-mix(in srgb, @color-primary 10%, @bg-color-main-secondary); }
 .selected::before { border-color: @color-primary; background: color-mix(in srgb, @color-primary 30%, @bg-color-main-secondary); }
 .selected.preview::before { background: color-mix(in srgb, @color-primary 50%, @bg-color-main-secondary); }
-.hoverCount { text-align: center; margin: 6px 0; }
-.settingsButton { .button-base(); width: 100%; border: 1px solid @boder-color; }
+.settingsButton { .button-base(); font-size: 11px; width: 100%; margin-top: 8px; border: 1px solid @boder-color; }
 .settingsButton:hover { background: @bg-color-hover; }
-.trackList { max-height: 360px; overflow-y: auto; }
-.tracks + .tracks { margin-top: 8px; border-top: 1px solid @boder-color; }
-.trackRow { display: flex; align-items: center; gap: 4px; margin-top: 4px; }
-.trackIndex { min-width: 24px; text-align: center; }
-.trackInput { display: flex; align-items: center; flex: 1; min-width: 0; gap: 4px; }
-.trackInput > * { flex: 1; min-width: 0; }
+.trackList { max-height: 360px; overflow-y: auto; overflow-x: hidden; }
+// 内容宽度跟随弹窗，滚动条只覆盖行尾留白，不挤压输入框。
+.tracks { width: 100cqw; padding-bottom: 12px; }
+.tracks + .tracks { border-top: 1px solid @boder-color; }
+.trackHeader { height: 40px; padding: 0 12px 0 16px; }
+.trackRow { position: relative; display: flex; align-items: center; gap: 4px; padding: 4px 12px; }
+.trackRow > .iconButton { visibility: hidden; }
+.trackRow:hover > .iconButton { visibility: visible; }
+.trackRowSelected {
+  background: color-mix(in srgb, @color-primary 12%, transparent);
+  .trackIndex { opacity: 1; }
+  .trackInput > * { box-shadow: inset 0 0 0 1px @color-primary; }
+  > .iconButton { visibility: visible; }
+}
+.trackRowDragging { opacity: 0.5; }
+.trackHandle {
+  width: 24px; height: 24px; padding: 0; border: none; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: transparent; color: @font-color-content; font: inherit; cursor: grab;
+  &:active { cursor: grabbing; }
+}
+.trackIndex { text-align: center; opacity: 0.45; font-size: 11px; }
+.trackGrip { display: none; }
+.trackRow:hover, .trackRowDragging {
+  .trackIndex { display: none; }
+  .trackGrip { display: block; }
+}
+.dropIndicator { position: absolute; left: 0; right: 0; height: 2px; background: @color-primary; pointer-events: none; }
+.trackInput { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: center; flex: 1; min-width: 0; gap: 8px; }
+.trackInput > * { box-sizing: border-box; height: 24px; min-width: 0; }
+.trackInput > *:not(:first-child) { margin-left: 0; }
+.trackInput > :only-child { grid-column: 1 / -1; }
+.trackInput input { min-width: 0; margin-left: 0; padding: 0 8px; }
+.trackInput .trackArrow { display: flex; justify-content: center; width: 16px; flex-shrink: 0; }
 .iconButton {
   width: 24px; height: 24px; padding: 0; border: none; border-radius: 5px;
   display: flex; align-items: center; justify-content: center; flex-shrink: 0;
