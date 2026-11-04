@@ -88,6 +88,7 @@ export function StyleMount({
     if (!zoneTab || !target) return
     let frame = 0
     let sourceChangePending = false
+    let refreshSourcesOnMount = isSoloEdit
     const refresh = (sourceChanged: boolean) => {
       sourceChangePending = sourceChangePending || sourceChanged
       cancelAnimationFrame(frame)
@@ -96,8 +97,8 @@ export function StyleMount({
         // 内联值和源码范围仍会更新，下面的缓存失效与回显刷新不能跳过。
         if (target.isConnected) {
           let tabs: ZoneTab[] = zoneOptions?.mergedTabs ?? []
-          // 同一帧内只要发生过样式源变化，就重新计算；其余刷新复用共享结果。
-          if (sourceChangePending) {
+          // 单独面板首次刷新读取恢复后的规则；后续只有源码变化才重新收集。
+          if (sourceChangePending || refreshSourcesOnMount) {
             const selectors = Array.from(new Set([
               zoneTab.baseSelector,
               ...Array.from(target.classList).map(name => '.' + name),
@@ -130,6 +131,7 @@ export function StyleMount({
           onStyleSourceChange?.()
         }
         sourceChangePending = false
+        refreshSourcesOnMount = false
       })
     }
     const observer = new MutationObserver(records => {
@@ -150,10 +152,10 @@ export function StyleMount({
       subtree: true, childList: true, characterData: true,
       attributes: true, attributeFilter: ['style', 'class', 'data-style-info'],
     })
-    // 挂载后强制跑一帧用于记录初始变体数组
+    // 单独规则可能在监听安装前已恢复，首次刷新补读；批量仍复用共享来源。
     refresh(false)
     return () => { observer.disconnect(); cancelAnimationFrame(frame) }
-  }, [zoneTab, target, onStyleSourceChange])
+  }, [zoneTab, target, onStyleSourceChange, isSoloEdit])
 
   useEffect(() => {
     if (!zoneTab?.pseudo || !INTERACTIVE_PSEUDO_STATES.has(zoneTab.pseudo) || !target) return
@@ -253,10 +255,19 @@ export function StyleMount({
       const resolution = getStyleResolution(zoneTab, target)
       const batchStyle = { ...effectiveStyle }
       zoneTab.excludedStyleKeys.forEach(key => {
-        const item = batchStyle[key]
         const winner = resolution.get(key).winner
-        if (item && winner) {
-          batchStyle[key] = { ...item, computedValue: String(item.value ?? winner.value) }
+        if (!winner) {
+          delete batchStyle[key]
+          return
+        }
+        batchStyle[key] = {
+          value: winner.value,
+          computedValue: winner.value,
+          type: winner.inline ? 'inline' : 'stylesheet',
+          sourceSelector: winner.label,
+          selectorPart: winner.source?.selectorPart,
+          sourceOrder: winner.sourceOrder,
+          important: winner.important,
         }
       })
       return batchStyle
