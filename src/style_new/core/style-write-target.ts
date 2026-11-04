@@ -41,7 +41,8 @@ function collectRuleCandidates(
 ): StyleWriteCandidate[] {
   const candidates: StyleWriteCandidate[] = []
   sources.forEach(source => {
-    if (!source.sourceSelector) return
+    // isRuntimeStyle用于判断跳过第三方库自带样式规则
+    if (!source.sourceSelector || source.isRuntimeStyle) return
     const state = splitZoneSelectorState(source.selectorPart)
     if (state.pseudo !== (appendState ? null : pseudo)) return
     try {
@@ -158,6 +159,8 @@ export function createStyleWriteTargetResolver(
     const winner = tab.pseudo
       ? resolveEffectiveStyleSource(property.candidates.filter(candidate => candidate.currentState))
       : property.winner
+    // 这里如果判定为第三方组件自身样式，找到该组件对应的classname去进行样式修改，而不是找Antd的样式规则
+    if (winner?.source?.isRuntimeStyle) return getDefaultTarget()
     if (winner?.currentState && !winner.inline && winner.source?.isPageStyle === false) {
       const fallback = getDefaultTarget()
       // 仅修复已有属性来源被丢弃、退化为 class 兜底的情况。

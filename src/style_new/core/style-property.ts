@@ -93,6 +93,8 @@ function planClear(key: string, candidates: StyleSourceCandidate[], target: HTML
   const winner = resolveEffectiveStyleSource(candidates)
   const base = { key, candidates, winner }
   if (!winner || !winner.currentState) return { ...base, action: 'noop', reason: 'no-local-declaration' }
+  // 当前只是在看 Antd 自带的默认状态，没有属于页面源码的声明可以清空，所以不做任何操作
+  if (winner.source?.isRuntimeStyle) return { ...base, action: 'noop', reason: 'runtime-style-not-writable' }
   if (/^unset$/i.test(winner.value.trim())) return { ...base, action: 'noop', reason: 'already-neutralized' }
   const selector = winner.label
   if (!selector) return { ...base, action: 'unsupported', reason: 'winner-selector-unavailable' }
@@ -120,6 +122,8 @@ export function createStyleResolution(tab: ZoneTab, target: HTMLElement | null =
   const addStyle = (style: CSSStyleDeclaration, source?: ZoneSourceRule) => {
     const declared = Array.from({ length: style.length }, (_, i) => style.item(i))
     const expanded = new Set(declared)
+    // 浏览器可能只枚举位置的 x/y 分项；完整位置可读时仍收录，避免删除背景时漏掉。
+    if (style.getPropertyValue('background-position')) expanded.add('background-position')
     const shorthandNames = Object.keys(STYLE_SHORTHANDS).filter(name => !!style.getPropertyValue(name))
     shorthandNames.forEach(name => {
       // CSSOM 枚举通常只有 longhand，简写本身也必须进入索引。
@@ -348,7 +352,7 @@ export function createBatchStyleClearPlans(
     if (property === 'margin' || property === 'padding') {
       // 没有后备来源时，间距整组清空仍支持稀疏长写和各方向不同来源。
       const winners = longhandProperties.map(item => item.winner).filter((item): item is StyleSourceCandidate =>
-        !!item?.currentState
+        !!item?.currentState && !item.source?.isRuntimeStyle
       )
       const sources = winners.filter((item, index) => winners.findIndex(other =>
         other.label === item.label && other.inline === item.inline
@@ -378,7 +382,7 @@ export function createBatchStyleClearPlans(
     const winner = property === 'background'
       ? longhandProperties.find(item => item.winner)?.winner
       : longhandProperties[0]?.winner
-    if (!winner) return
+    if (!winner || winner.source?.isRuntimeStyle) return
     const family = getShorthandFamily(property)
     const sameSource = longhandProperties.every(({ winner: current }) =>
       (property === 'background' && !current) || !!current &&

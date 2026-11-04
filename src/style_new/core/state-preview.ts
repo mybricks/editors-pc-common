@@ -22,7 +22,11 @@ import { collectZoneStyleRules } from './zone-tab'
 import { buildSoloSelector } from './build-solo-selector'
 import type { ZoneTab } from './zone-tab'
 import { elMatchesSelectorTail } from './css-modules-match'
-import { splitTopLevelSelectors } from './selector-utils'
+import { calculateSafeSpecificity, splitTopLevelSelectors } from './selector-utils'
+import { isComponentScopedSelector, isPageScopedSelector } from './build-zone-selectors-from-cssom'
+import { STYLE_SHORTHANDS } from './style-shorthand-groups'
+// @ts-ignore
+import { compare } from 'specificity'
 import { STATE_PREVIEW_ATTR, registerStatePreviewSheet, unregisterStatePreviewSheet, syncStatePreviewSizes, getPreviewElementSelector } from './state-preview-tag'
 
 /** 真实交互态：鼠标真悬停、真聚焦等场景下，计算样式会被干扰，StyleMount 用它做保护。 */
@@ -290,6 +294,95 @@ function ruleUsesPreviewState(
   }
 }
 
+type PreviewRule = {
+  rule: CSSStyleRule
+  selector: string
+  /** 改写前的运行时选择器，用来比较原始权重，不是源码写入地址。 */
+  sourceSelector: string
+  positive: boolean
+  /** 没有页面或当前组件作用域的规则，本次只修正这类外部预览。 */
+  external: boolean
+}
+
+/**
+ * 预览给第三方样式补了 !important，可能把用户的颜色盖住。
+ * 先找出原本该显示的值，再只给受影响的元素补一条预览，不改原规则。
+ */
+function buildPreviewCascadeCorrections(root: ShadowRoot, rules: PreviewRule[]): string[] {
+  console.time('test')
+  // 1. 给每个元素找出实际作用于它的状态规则；否定状态和伪元素仍走原预览。
+  type MatchedRule = { entry: PreviewRule;
+    specificity: NonNullable<ReturnType<typeof calculateSafeSpecificity>>;
+    previewSpecificity: NonNullable<ReturnType<typeof calculateSafeSpecificity>> }
+  const byElement = new Map<Element, MatchedRule[]>()
+  for (const entry of rules) {
+    if (!entry.positive || previewSubjectSelector(entry.selector) !== entry.selector) continue
+    // 上游已验证选择器可查询；同一规则作用于多个元素时，权重只算一次。
+    const elements = root.querySelectorAll(entry.selector)
+    if (!elements.length) continue
+    const specificity = calculateSafeSpecificity(entry.sourceSelector)
+    const previewSpecificity = calculateSafeSpecificity(entry.selector)
+    if (!specificity || !previewSpecificity) continue
+    const matchedRule = { entry, specificity, previewSpecificity }
+    elements.forEach(element => {
+      const matched = byElement.get(element) || []
+      matched.push(matchedRule)
+      byElement.set(element, matched)
+    })
+  }
+  const lines: string[] = []
+  const paths = new Map<Element, string>()
+  // 2. 有第三方规则才比较；按属性分别处理，改背景色不动背景图和文字色。
+  byElement.forEach((matched, element) => {
+    if (!matched.some(({ entry }) => entry.external)) return
+    type Candidate = MatchedRule & { value: string; important: boolean }
+    const properties = new Map<string, Candidate[]>()
+    const unresolved = new Set<string>()
+    for (const { entry, specificity, previewSpecificity } of matched) {
+      const style = entry.rule.style
+      for (let index = 0; index < style.length; index++) {
+        const declared = style.item(index)
+        // background 等简写拆成各个属性，分别找出该用的值。
+        const expanded = STYLE_SHORTHANDS[declared] || [declared]
+        for (const property of expanded) {
+          const value = style.getPropertyValue(property)
+          // var() 简写可能读不到分项值；记下来，让这个属性保持原预览，不猜值。
+          if (!value) {
+            unresolved.add(property)
+            continue
+          }
+          const candidates = properties.get(property) || []
+          candidates.push({ entry, value, specificity, previewSpecificity,
+            important: style.getPropertyPriority(property) === 'important' ||
+              style.getPropertyPriority(declared) === 'important' })
+          properties.set(property, candidates)
+        }
+      }
+    }
+    // 3. 比较补 !important 前后的显示值，只修第三方预览盖错颜色等属性的情况。
+    properties.forEach((candidates, property) => {
+      if (unresolved.has(property)) return
+      // 原本谁该生效：先比原声明的 important，再比权重；相同则后写的生效。
+      const original = candidates.reduce((winner, current) => {
+        if (winner.important !== current.important) return current.important ? current : winner
+        return compare(current.specificity, winner.specificity) >= 0 ? current : winner
+      })
+      // 预览后都加了 important，只比权重和先后顺序，看实际会显示谁的值。
+      const promoted = candidates.reduce((winner, current) =>
+        compare(current.previewSpecificity, winner.previewSpecificity) >= 0 ? current : winner)
+      if (!promoted.entry.external || original.value === promoted.value) return
+      // 用路径只选中这个元素；保留第三方条件和权重，最后追加正确的值。
+      // :where 不增加权重，:is 沿用第三方权重，同权重时后面的修正规则生效。
+      const fullPath = getPreviewElementSelector(element, paths)
+      const path = fullPath.slice(fullPath.lastIndexOf(' >>> ') + 5)
+      const targetSelector = `:where(:host) > ${path.split(' > ').map(part => `:where(${part})`).join(' > ')}`
+      lines.push(`${targetSelector}:is(${promoted.entry.selector}){${property}: ${original.value} !important}`)
+    })
+  })
+  console.timeEnd('test')
+  return lines
+}
+
 /**
  * 共用一次源规则扫描，按源码顺序生成各个状态的预览规则。
  * 每次只改写一种伪类，保留原有真实交互配合预览的语义，不扩展不同伪类联合匹配。
@@ -299,6 +392,8 @@ function buildPreviewCssText(owner: PreviewRoot): string {
   const pseudos = Array.from(new Set(Array.from(owner.sessions, session => session.pseudo))).sort()
   const lines: string[] = []
   const seen = new Set<string>()
+  const previewRules: PreviewRule[] = []
+  const comIds = Array.from(new Set(Array.from(owner.sessions, session => session.comId).filter(Boolean))) as string[]
   // 2. 全量收集，保留父级状态影响子孙的规则；每条规则仍验证实际命中范围。
   collectZoneStyleRules(owner.root).forEach(({ rule }) => {
     if (!rule.selectorText || !rule.style?.length) return
@@ -309,6 +404,12 @@ function buildPreviewCssText(owner: PreviewRoot): string {
         if (!rewritten) continue
         const inactive = replaceStatePseudo(selector, pseudo, ':not(*)')!
         if (!ruleUsesPreviewState(owner.root, rewritten.text, inactive.text, rewritten.positive)) continue
+        // 先保留原声明的 important 信息，再做预览去重，避免把普通声明和 important 混为一条。
+        previewRules.push({ rule, selector: rewritten.text, sourceSelector: selector,
+          positive: rewritten.positive,
+          external: !isPageScopedSelector(selector) &&
+            !comIds.some(comId => isComponentScopedSelector(selector, comId)),
+        })
         const line = `${rewritten.text}{${buildPreviewRuleBody(rewritten.positive, rule)}}`
         if (seen.has(line)) continue
         seen.add(line)
@@ -316,6 +417,8 @@ function buildPreviewCssText(owner: PreviewRoot): string {
       }
     }
   })
+  // 3. 原预览和统一 important 都保留，最后追加受影响元素的正确值。
+  lines.push(...buildPreviewCascadeCorrections(owner.root, previewRules))
   return lines.join('\n')
 }
 
