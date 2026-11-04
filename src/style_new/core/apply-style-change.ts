@@ -669,7 +669,10 @@ function applyEffectiveStyleChanges(
     ...createBorderRadiusWritePlans(specializedChanges, resolution, target,
       change => writeTargets.get(change.key)?.selector || null),
     ...createBorderWritePlans(specializedChanges, resolution, target,
-      change => writeTargets.get(change.key)?.selector || null),
+      change => writeTargets.get(change.key)?.selector || null,
+      // 无源码内联属性的 AI 节点通过 DOM 预览编辑，不要求 JSX 属性位置，也允许 important。
+      !!target && !target.getAttribute('data-zone-selector') &&
+        !target.hasAttribute('data-drag-insert') && inlineProperties.size === 0),
     ...createOverflowWritePlans(changes.filter(item => item.value != null), resolution, target,
       change => writeTargets.get(change.key)?.selector || null),
   ]
@@ -868,24 +871,23 @@ export function applyStyleChange(params: ApplyStyleChangeParams): ApplyStyleChan
     soloSources: ZoneTab['sourceRules']
   } | undefined
 
-  // 1. 仅在批量编辑、有样式来源和目标元素，且来源中存在与当前元素完整 nth 路径和当前状态都相同的规则时，进入新增处理；其他情况走原方法。
-  // some 只检查是否存在同时含空格和 :nth-child( 的候选来源，避免无候选时计算路径；完整路径和状态由后面的 filter 精确匹配。
+  // 1. 仅在批量编辑、有样式来源（tab）和目标，且来源中存在与当前元素完整 nth 路径和当前状态都相同的规则时，进入新增处理；其他情况走原方法。
   if (tab && !editOptions.soloEdit && tab.sourceRules.some(source =>
     source.sourceSelector.includes(' ') && source.sourceSelector.includes(':nth-child('))) {
     const target = toElementArray(editOptions.targetDom)[0]
-    if (target) {
-      const root = target.getRootNode() as Document | ShadowRoot
-      const componentRoot = editOptions.comId ? root.getElementById(editOptions.comId) : null
-      const expectedSelector = buildSoloSelector(target, tab.selector, componentRoot)
-      if (expectedSelector.includes(' ') && expectedSelector.includes(':nth-child(')) {
-        const soloSources = tab.sourceRules.filter(source =>
-          source.sourceSelector === expectedSelector && splitZoneSelectorState(source.selectorPart).pseudo === tab.pseudo)
-        if (soloSources.length) batchSoloContext = { tab, target, expectedSelector, soloSources }
-      }
+
+    const root = target.getRootNode() as Document | ShadowRoot
+    const componentRoot = editOptions.comId ? root.getElementById(editOptions.comId) : null
+    const expectedSelector = buildSoloSelector(target, tab.selector, componentRoot)
+    if (expectedSelector.includes(' ') && expectedSelector.includes(':nth-child(')) {
+      const soloSources = tab.sourceRules.filter(source =>
+        source.sourceSelector === expectedSelector && splitZoneSelectorState(source.selectorPart).pseudo === tab.pseudo)
+      if (soloSources.length) batchSoloContext = { tab, target, expectedSelector, soloSources }
     }
   }
 
   if (batchSoloContext) {
+
     const { tab, target, expectedSelector, soloSources } = batchSoloContext
     const batchTab = excludeSoloSources(tab, [expectedSelector])
 
