@@ -387,7 +387,8 @@ export default function Grid({ value, onChange, onRemoveLayout }: { value: GridV
       className={[styles.popup, view === 'settings' && styles.settingsPopup].filter(Boolean).join(' ')} repositionKey={`${view}-${columns.length}-${rows.length}`}>
       <div className={styles.header}>
         <span>{view === 'settings' ? lang.gridSettings : lang.gridLabel}</span>
-        <button type="button" className={styles.iconButton} onClick={() => setView(null)} aria-label={lang.close}>
+        {/* 设置页关闭后返回格子盘，沿用当前行列和预览状态；格子盘的关闭按钮才退出弹窗。 */}
+        <button type="button" className={styles.iconButton} onClick={() => setView(view === 'settings' ? 'picker' : null)} aria-label={lang.close}>
           <svg width="24" height="24" fill="none" viewBox="0 0 24 24" data-fpl-icon-size="24L" aria-hidden="true">
             <path fill="var(--fpl-icon-color, var(--color-icon))" fillRule="evenodd" d="M17.354 6.646a.5.5 0 0 1 0 .708L12.707 12l4.647 4.646a.5.5 0 0 1-.708.708L12 12.707l-4.646 4.647a.5.5 0 0 1-.708-.708L11.293 12 6.646 7.354a.5.5 0 0 1 .708-.707L12 11.293l4.646-4.647a.5.5 0 0 1 .708 0" clipRule="evenodd" />
           </svg>
