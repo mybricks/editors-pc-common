@@ -749,6 +749,7 @@ export default i18n({
   directionInline: { zh: '内联', en: 'Inline' },
   directionColumn: { zh: '纵向排版', en: 'Vertical' },
   directionRow: { zh: '横向排版', en: 'Horizontal' },
+  // Grid 专用新增文案：区分菜单完整名称与收起回显，并提供 Remove column 2 of 4 等提示；不替换历史组件的翻译键。
   directionGrid: { zh: '网格排版', en: 'Grid' },
   gridLabel: { zh: '网格', en: 'Grid' },
   gridGapLabel: { zh: '间距', en: 'Gap' },

@@ -1,5 +1,6 @@
 @import "../../../../theme";
 
+// Grid 面板专用行列/间距排版；仅 isGridActive 分支挂载这些类，不修改历史 flex 的 .layout 样式。
 .gridLayout {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

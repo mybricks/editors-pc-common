@@ -22,7 +22,7 @@ interface SelectProps {
   onChange: (value: any) => void;
   onAction?: (value: any) => void;
   onReorder?: (newOrder: any[]) => void;
-  /** label 用于回显；menuLabel 仅覆盖下拉菜单文案。 */
+  /** Grid 菜单用完整文案（如 Hug contents），回显仍用短 label（如 Hug）；目前仅 Grid 传 menuLabel，未传时沿用原 label。 */
   options: Array<{ value: any; label: string | number; menuLabel?: string | number; suffix?: string | number; type?: 'action' | 'divider'; checked?: boolean; icon?: ReactNode; iconSize?: 'sm' | 'md'; disabled?: boolean; style?: CSSProperties; tip?: string }>;
   multiple?: boolean;
   /** 是否展示下拉的icon */
@@ -31,7 +31,7 @@ interface SelectProps {
   showIconOnHover?: boolean;
   /** 隐藏当前选中 label，只保留下拉箭头 */
   hideLabel?: boolean;
-  /** 是否回显选中项的辅助文案，不影响下拉列表 */
+  /** Grid 传 false，使括号仅出现在菜单中（如固定 (100)），回显只显示固定；默认 true，保留历史调用方的 suffix 回显。 */
   showSelectedSuffix?: boolean;
   labelClassName?: string;
   iconClassName?: string;
@@ -148,6 +148,7 @@ export function Select({
     >
       <Dropdown
         multiple={multiple}
+        // 仅提供 menuLabel 的选项覆盖菜单文案；不修改原 options，收起后的 label 和历史调用方仍走原逻辑。
         options={options.some(option => option.menuLabel !== undefined)
           ? options.map(option => option.menuLabel === undefined ? option : { ...option, label: option.menuLabel })
           : options}
@@ -177,6 +178,7 @@ export function Select({
             >
               <span className={css.valueText}>
                 {label || (hasDisplayValue ? displayValue : placeholder)}
+                {/* Grid 显式关闭选中项括号；其他调用方默认继续显示原 suffix。 */}
                 {showSelectedSuffix && !Array.isArray(value) && options.find(o => o.value === value)?.suffix
                   ? <span className={css.valueSuffix}>{options.find(o => o.value === value)?.suffix}</span>
                   : null

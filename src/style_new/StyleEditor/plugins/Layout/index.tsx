@@ -26,6 +26,7 @@ interface LayoutEditorProps extends PanelBaseProps {
 
 interface LayoutModel {
   display?: CSSProperties["display"];
+  // Grid 保留完整 CSS 字符串（如 repeat(3, 1fr)、25% 1fr），交给 Grid 解析层；历史 flex 字段类型不变。
   gridTemplateColumns?: string | null;
   gridTemplateRows?: string | null;
   gridAutoRows?: string | null;
@@ -51,17 +52,20 @@ function isFlexLikeDisplay(display?: CSSProperties["display"]) {
   return display === "flex" || display === "inline-flex";
 }
 
+// 仅 grid/inline-grid 进入网格面板与退出清理，其他 display 继续走原布局分支。
 function isGridLikeDisplay(display?: CSSProperties["display"]) {
   return display === "grid" || display === "inline-grid";
 }
 
 function getDisplayWhenEnableFlex(display?: CSSProperties["display"]) {
+  // 新增 inline-grid → inline-flex，切换横/纵排版时保留内联语义；原 block/flex 等映射不变。
   if (display === "inline-flex" || display === "inline-block" || display === "inline-grid") {
     return "inline-flex";
   }
   return "flex";
 }
 
+// Grid 面板读写、重置及退出清理仅补充这四项；纳入已有布局字段白名单，继续复用原 onChange 样式提交链路。
 const GRID_KEYS = ['gridTemplateColumns', 'gridTemplateRows', 'gridAutoRows', 'gridAutoFlow'];
 const LAYOUT_KEYS = new Set([
   'display', 'position', 'flexDirection', 'alignItems', 'justifyContent',
@@ -106,6 +110,7 @@ function normalizePx(style: Record<string, unknown>): Record<string, unknown> {
 function parsePxValues(style: Record<string, unknown>): Record<string, unknown> {
   const result: Record<string, unknown> = {};
   for (const [key, val] of Object.entries(style)) {
+    // 单列 100px 也须作为 CSS 字符串交给 Grid 解析；非 Grid 字段（如间距 11px）继续按原规则转数字。
     result[key] =
       !GRID_KEYS.includes(key) && typeof val === "string" && /^-?\d+(\.\d+)?px$/.test(val)
         ? parseFloat(val)
@@ -302,6 +307,7 @@ function LayoutEditor({ editValue, previewValue, overflowHidden, clearedGapKeys,
   if ((_value as any).alignItems === "normal") (_value as any).alignItems = "flex-start";
   if ((_value as any).justifyContent === "normal") (_value as any).justifyContent = "flex-start";
 
+  // Grid 与 Flex 一样不因缺少 position 被识别成默认布局；显式 absolute/relative 等定位仍按原优先级保留。
   const _position: string = ["absolute", "default"].includes(_value.position as string)
     ? (_value.position as string)
     : isPreservedCssPosition(_value.position)
@@ -342,7 +348,7 @@ function LayoutEditor({ editValue, previewValue, overflowHidden, clearedGapKeys,
 
   const emitValue = useCallback(
     (style: Partial<LayoutModel>) => {
-      // 切换到默认：清除所有 flex 布局相关属性；容器自身的 position 不动
+      // 切换到默认沿用原 flex 清理；新增 inline-grid → inline-block，并仅在退出 Grid 时清理 GRID_KEYS，容器 position 不动。
       if (style.position === "default") {
         const resetDisplay = model.display === "inline-flex" || model.display === "inline-block" || model.display === "inline-grid"
           ? "inline-block"
@@ -355,6 +361,7 @@ function LayoutEditor({ editValue, previewValue, overflowHidden, clearedGapKeys,
           flexWrap: null,
           rowGap: null,
           columnGap: null,
+          // 非 Grid 布局不附加网格删除字段，保留历史默认按钮的提交内容。
           ...(isGridLikeDisplay(model.display) ? Object.fromEntries(GRID_KEYS.map(key => [key, null])) : {}),
         });
         return;
@@ -383,7 +390,7 @@ function LayoutEditor({ editValue, previewValue, overflowHidden, clearedGapKeys,
     (model.flexDirection === "row" || model.flexDirection === "column");
   const isGridActive = !freedom && isGridLikeDisplay(model.display);
 
-  // 默认按钮与网格末项删除复用同一次布局提交，保留容器自身的定位和其他样式。
+  // Grid 删除最后一列/行（如仅剩 1 列时点减号）复用默认按钮提交；原默认按钮的状态重置保留，仅当前 Grid 增加四项清理。
   const selectDefault = () => {
     const clearGrid = isGridLikeDisplay(model.display) ? Object.fromEntries(GRID_KEYS.map(key => [key, null])) : {};
     setModel(prev => ({
@@ -413,10 +420,11 @@ function LayoutEditor({ editValue, previewValue, overflowHidden, clearedGapKeys,
         return;
       }
       setFreedom(false);
+      // 仅网格按钮进入此分支；清除 flex 方向/换行并保留内联语义，历史横/纵/默认按钮继续走下面原分支。
       if (layout === 'grid') {
         const sourceDisplay = model.display ?? editValue.display;
         const display = sourceDisplay?.startsWith('inline') ? 'inline-grid' : 'grid';
-        // 只在显式启用时补初始轨道；从自由布局返回或重新选中时保留声明。
+        // 仅显式启用时补缺省行列（如未配置列时用 1fr）；已有声明优先保留，单纯打开面板不写入这些初始值。
         const patch = {
           display,
           flexDirection: null,
@@ -430,6 +438,7 @@ function LayoutEditor({ editValue, previewValue, overflowHidden, clearedGapKeys,
         emitValue(patch);
         return;
       }
+      // Grid → inline/flex 时附加清理，避免残留网格声明；当前非 Grid 则为空，不增加历史切换的写入字段。
       const clearGrid = isGridLikeDisplay(model.display) ? Object.fromEntries(GRID_KEYS.map(key => [key, null])) : {};
       const isAbsolute = layout === "absolute";
       const isDefault = layout === "default";
@@ -487,6 +496,7 @@ function LayoutEditor({ editValue, previewValue, overflowHidden, clearedGapKeys,
       }
 
       // 横/纵切换时写入 display 和 flex 方向，不自动修改对齐方式。
+      // 当前 Grid 优先使用面板模型，保证 inline-grid → inline-flex；非 Grid 仍优先 editValue，保留历史取值顺序。
       const sourceDisplay = isGridLikeDisplay(model.display) ? model.display : (editValue.display as CSSProperties["display"] | undefined) ?? model.display;
       const nextDisplay = getDisplayWhenEnableFlex(sourceDisplay);
       setModel(prev => ({ ...prev, ...clearGrid, flexDirection, display: nextDisplay, position: "inherit", flexWrap }));
@@ -559,6 +569,7 @@ function LayoutEditor({ editValue, previewValue, overflowHidden, clearedGapKeys,
       setModel((pre) => ({ ...pre, ...val }));
       emitValue({ ...val });
     };
+    // Grid 复用原 Gap 读写，只按 row 固定展示行列间距；Flex 仍传原 flexDirection，保留横/纵布局的字段顺序。
     return isFlexActive || isGridActive ? (
       <Gap
         value={{ rowGap: model.rowGap, columnGap: model.columnGap }}
@@ -604,6 +615,7 @@ function LayoutEditor({ editValue, previewValue, overflowHidden, clearedGapKeys,
   const renderInlineBlock = () => {
     if (model.display === "inline") return null;
 
+    // 内联开关新增 grid ↔ inline-grid，仅切 display、保留行列定义；原 block/flex 的往返映射保持不变。
     const isInlineBlock = model.display === "inline-block" || model.display === "inline-flex" || model.display === "inline-grid";
     const toggle = () => {
       let display = '';
@@ -682,6 +694,7 @@ function LayoutEditor({ editValue, previewValue, overflowHidden, clearedGapKeys,
   return (
     <div>
       {renderFlexDirection()}
+      {/* 仅当前 Grid 挂载网格编辑器；修改继续走 emitValue，末项删除复用默认入口，原 Flex 面板保留独立条件。 */}
       {isGridActive && <div className={styles.gridLayout}>
         <Grid value={model} onRemoveLayout={selectDefault} onChange={patch => {
           setModel(previous => ({ ...previous, ...patch }));

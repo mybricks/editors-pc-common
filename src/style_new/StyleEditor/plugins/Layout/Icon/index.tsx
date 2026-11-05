@@ -2,6 +2,7 @@ import React, {CSSProperties} from "react";
 import styles from "./index.less";
 
 const icons = {
+  // Grid 新增的行列数拖拽标识和布局按钮；使用独立 key，不替换历史方向图标。
   "grid-columns": (
     <svg viewBox="0 0 24 24" width="24" height="24" style={{transform: 'scale(1.8)'}}>
       <path fill="currentColor" fillRule="evenodd" d="M10 7.5v9c0 .276-.224.5-.5.5h-2c-.276 0-.5-.224-.5-.5v-9c0-.276.224-.5.5-.5h2c.276 0 .5.224.5.5M9.5 6c.828 0 1.5.672 1.5 1.5v9c0 .828-.672 1.5-1.5 1.5h-2c-.828 0-1.5-.672-1.5-1.5v-9C6 6.672 6.672 6 7.5 6zM17 7.5v9c0 .276-.224.5-.5.5h-2c-.276 0-.5-.224-.5-.5v-9c0-.276.224-.5.5-.5h2c.276 0 .5.224.5.5M16.5 6c.828 0 1.5.672 1.5 1.5v9c0 .828-.672 1.5-1.5 1.5h-2c-.828 0-1.5-.672-1.5-1.5v-9c0-.828.672-1.5 1.5-1.5z" clipRule="evenodd" />
@@ -129,6 +130,7 @@ const icons = {
         d="M8 3h2c1.933 0 3.5 1.567 3.5 3.5 0 1.933-1.567 3.5-3.5 3.5H4.707l2.147 2.146-.708.708-3-3-.353-.354.353-.354 3-3 .708.708L4.707 9H10c1.38 0 2.5-1.12 2.5-2.5C12.5 5.12 11.38 4 10 4H8z"></path>
     </svg>
   ),
+  // Grid 与历史 Flex 共用这组间距图标，按需求一起更新形状、缩放及深浅；不改变 row-gap/column-gap 的值或写入逻辑。
   "row-gap": (
     <svg style={{transform: 'scale(2)', opacity: 0.6}} width="24" height="24" fill="none" viewBox="0 0 24 24" aria-hidden="true">
       <path fill="currentColor"

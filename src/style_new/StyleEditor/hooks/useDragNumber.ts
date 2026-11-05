@@ -31,7 +31,7 @@ interface DragNumberOptions {
   endWithLastDraggedValue?: boolean
   /** 拖拽过程中 input 显示的格式化，默认直接用数字字符串；如 v => `${v}%` */
   formatDisplay?: (value: number) => string
-  /** 变量胶囊仅通过回调提交，不查找或修改相邻的普通输入框。 */
+  /** 目前仅 Grid 变量行/列数胶囊启用，通过回调将 3 改为 4；默认 false，保留历史输入框的查找与更新。 */
   skipInput?: boolean
 }
 
@@ -92,6 +92,7 @@ export function useDragNumber(options: DragNumberOptions = {}) {
     e.preventDefault()
     
     const iconEl = e.currentTarget as HTMLElement
+    // Grid 胶囊没有普通数值 input，不借用邻近字段；未启用 skipInput 的历史拖拽仍查找原 input。
     const inputEl = skipInput ? null : findInputEl(iconEl)
 
     // 优先从 DOM input 读取最新值（上次拖拽/输入的结果），避免因父组件未及时回传而使用过期的 props 值
