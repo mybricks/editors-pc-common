@@ -472,6 +472,17 @@ export function Background({
   useEffect(() => {
     const style = value as Record<string, any>;
     const fingerprint = buildContentFingerprint(style);
+
+    // 之前先拦截旧样式回显，连已变化的删除权限也一起跳过，导致刚换图没有「−」。
+    // 现在先同步 canRemove，再按原逻辑拦截旧值；这里只更新权限，保留图片值和图层 ID。
+    // 仅调整同步时机，哪些背景允许删除仍由原有 ownership 判断。
+    if (ownershipFingerprint !== lastOwnershipRef.current) {
+      lastOwnershipRef.current = ownershipFingerprint;
+      setLayers(current => current.map(layer => ({
+        ...layer,
+        canRemove: ownership[layer.sourceProperty || 'backgroundImage'],
+      })));
+    }
     // 只拦截提交前的旧回显；删除后其他来源的新值不能被当成“旧值”吞掉。
     if (localEmitPendingRef.current !== null) {
       if (fingerprint === localEmitPendingRef.current && fingerprint !== lastEmittedRef.current) return;
@@ -482,14 +493,6 @@ export function Background({
     const transparentDisplayMatches = getColorOpacity(meta.backgroundColor || '') !== 0 ||
       layersRef.current.some(layer => layer.sourceProperty === 'backgroundColor') === showTransparentColor;
     if (fingerprint === lastEmittedRef.current && transparentDisplayMatches) {
-      if (ownershipFingerprint !== lastOwnershipRef.current) {
-        // 首次写入后图层变为可删除，只同步来源权限，保留打开取色器的图层 ID。
-        lastOwnershipRef.current = ownershipFingerprint;
-        setLayers(current => current.map(layer => ({
-          ...layer,
-          canRemove: ownership[layer.sourceProperty || 'backgroundImage'],
-        })));
-      }
       return;
     }
     lastEmittedRef.current = fingerprint;
@@ -593,15 +596,24 @@ export function Background({
         }
       }
       const nextLayers = layersRef.current.map((l, i) => (i === index ? { ...l, ...partial } : l));
-      // 外部 background-color 不参与普通图层序列化，但颜色本身仍可编辑；
-      // 只在这次确实编辑该层时把它作为单独属性写出。
+      const updatedLayer = nextLayers[index];
+      // 之前白色换图后仍标记为 backgroundColor，序列化和下方补写会把 url(...) 当颜色。
+      // 现在先改为 backgroundImage：.test { background-color: #fff; }
+      // → .test { background-image: url("a.png"); }（旧颜色由 core 的替换计划删除）。
+      // 仅影响颜色切图片/渐变，普通改色和已有图片编辑保持原流程。
+      if (updatedLayer.sourceProperty === 'backgroundColor' &&
+        (updatedLayer.type === 'image' || updatedLayer.type === 'gradient')) {
+        updatedLayer.sourceProperty = 'backgroundImage';
+      }
+      // 补写也按修改后的来源判断，避免换图后再次追加 backgroundColor: url(...)。
+      // 仍为颜色且原来源不可删除时，保留原有改色补写，例如 background-color: blue。
       const changes = serializeLayers(nextLayers);
       if (
-        currentLayer?.sourceProperty === 'backgroundColor' &&
+        updatedLayer.sourceProperty === 'backgroundColor' &&
         currentLayer.canRemove === false &&
         partial.value !== undefined
       ) {
-        changes.push({ key: 'backgroundColor', value: nextLayers[index].value });
+        changes.push({ key: 'backgroundColor', value: updatedLayer.value });
       }
       emitLayers(nextLayers, changes);
     },

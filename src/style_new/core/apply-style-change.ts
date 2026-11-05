@@ -211,7 +211,8 @@ export function createStyleRemovalPlan(
     const sameSource = (name: string) => resolution.get(name).candidates.filter(candidate =>
       candidate.currentState && candidate.label === selector
     )
-    const backgroundPlan = backgroundCore(key, property, target)
+    // 原有变量纯色删除仅改为 backgroundCore.xxx 调用，下方删除和拆分规则不变。
+    const backgroundPlan = backgroundCore.getBackgroundColorShorthandRemoval(key, property, target)
     const fromBackground = backgroundKeys.includes(key) && (
       // 改色前：.test { background: var(--bg-color); }（变量为 red）。
       // 面板改蓝色后：.test { background: var(--bg-color); background-color: blue; }
@@ -626,6 +627,15 @@ function applyEffectiveStyleChanges(
     if (result.applied) onBatchMetaChange?.()
     // .demo 从 1 个红色填充变成白、红 2 个填充，所以按新增完成返回，不是“清空了填充”。
     return { ...result, clearApplied: false }
+  }
+  // 之前换图只追加 background-image，未清理旧 background；现在由 core 同时给出删除和写入计划。
+  // 复用原执行器一次提交，沿用原有记录与通知；具体 CSS 前后例子见 createBackgroundReplacementPlan。
+  // 未命中时继续下方原链路；「＋」底色迁移仍由上方分支处理。
+  const replacement = backgroundCore.createBackgroundReplacementPlan(changes, resolution, tab, target)
+  if (replacement) {
+    const result = applyStyleRemoval(replacement, liveStyle, resolution, target, editConfig)
+    if (result.applied) onBatchMetaChange?.()
+    return result
   }
   const flexKeys = getShorthandFamily('flex').map(stylePropertyKey)
   // Flex 面板提交的是整组替换；其中的 null 只是清理冲突写法，不是屏蔽级联。
