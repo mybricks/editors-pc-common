@@ -23,7 +23,6 @@ import { buildSoloSelector } from './build-solo-selector'
 import type { ZoneTab } from './zone-tab'
 import { elMatchesSelectorTail } from './css-modules-match'
 import { calculateSafeSpecificity, splitTopLevelSelectors } from './selector-utils'
-import { isComponentScopedSelector, isPageScopedSelector } from './build-zone-selectors-from-cssom'
 import { STYLE_SHORTHANDS } from './style-shorthand-groups'
 // @ts-ignore
 import { compare } from 'specificity'
@@ -299,9 +298,10 @@ type PreviewRule = {
   selector: string
   /** 改写前的运行时选择器，用来比较原始权重，不是源码写入地址。 */
   sourceSelector: string
+  /** 当前状态出现在 :not 外才为 true，如 :not(:disabled):hover；:not(:hover) 为 false。 */
   positive: boolean
-  /** 没有页面或当前组件作用域的规则，本次只修正这类外部预览。 */
-  external: boolean
+  /** 属于平台按源码文件注入的 Less 表；未识别的来源仍检查，不断言它是第三方。 */
+  isSourceStyle: boolean
 }
 
 /**
@@ -331,9 +331,9 @@ function buildPreviewCascadeCorrections(root: ShadowRoot, rules: PreviewRule[]):
   }
   const lines: string[] = []
   const paths = new Map<Element, string>()
-  // 2. 有第三方规则才比较；按属性分别处理，改背景色不动背景图和文字色。
+  // 2. 有未识别为源码的规则才比较；按属性分别处理，改背景色不动背景图和文字色。
   byElement.forEach((matched, element) => {
-    if (!matched.some(({ entry }) => entry.external)) return
+    if (!matched.some(({ entry }) => !entry.isSourceStyle)) return
     type Candidate = MatchedRule & { value: string; important: boolean }
     const properties = new Map<string, Candidate[]>()
     const unresolved = new Set<string>()
@@ -369,7 +369,7 @@ function buildPreviewCascadeCorrections(root: ShadowRoot, rules: PreviewRule[]):
       // 预览后都加了 important，只比权重和先后顺序，看实际会显示谁的值。
       const promoted = candidates.reduce((winner, current) =>
         compare(current.previewSpecificity, winner.previewSpecificity) >= 0 ? current : winner)
-      if (!promoted.entry.external || original.value === promoted.value) return
+      if (promoted.entry.isSourceStyle || original.value === promoted.value) return
       // 用路径只选中这个元素；保留第三方条件和权重，最后追加正确的值。
       // :where 不增加权重，:is 沿用第三方权重，同权重时后面的修正规则生效。
       const fullPath = getPreviewElementSelector(element, paths)
@@ -391,7 +391,7 @@ function buildPreviewCssText(owner: PreviewRoot): string {
   const lines: string[] = []
   const seen = new Set<string>()
   const previewRules: PreviewRule[] = []
-  const comIds = Array.from(new Set(Array.from(owner.sessions, session => session.comId).filter(Boolean))) as string[]
+  const sourceStyles = new Map<CSSStyleSheet | null, boolean>()
   // 2. 全量收集，保留父级状态影响子孙的规则；每条规则仍验证实际命中范围。
   collectZoneStyleRules(owner.root).forEach(({ rule }) => {
     if (!rule.selectorText || !rule.style?.length) return
@@ -402,11 +402,19 @@ function buildPreviewCssText(owner: PreviewRoot): string {
         if (!rewritten) continue
         const inactive = replaceStatePseudo(selector, pseudo, ':not(*)')!
         if (!ruleUsesPreviewState(owner.root, rewritten.text, inactive.text, rewritten.positive)) continue
+        // 判断原始 :hover 规则所属的stylesheet
+        const sheet = rule.parentStyleSheet
+        let isSourceStyle = sourceStyles.get(sheet)
+        if (isSourceStyle === undefined) {
+          const node = sheet?.ownerNode as Element | null
+          // 源码 Less 表 ID 由组件 ID + 文件路径生成：点变 __、斜杠变 _。
+          // 符合约定才认作源码表；没识别出来仍检查修正，不直接认作第三方。
+          isSourceStyle = !!node && node.nodeName === 'STYLE' && /^u_[\w-]+_.+__less$/.test(node.id)
+          sourceStyles.set(sheet, isSourceStyle)
+        }
         // 先保留原声明的 important 信息，再做预览去重，避免把普通声明和 important 混为一条。
         previewRules.push({ rule, selector: rewritten.text, sourceSelector: selector,
-          positive: rewritten.positive,
-          external: !isPageScopedSelector(selector) &&
-            !comIds.some(comId => isComponentScopedSelector(selector, comId)),
+          positive: rewritten.positive, isSourceStyle,
         })
         const line = `${rewritten.text}{${buildPreviewRuleBody(rewritten.positive, rule)}}`
         if (seen.has(line)) continue
@@ -415,8 +423,11 @@ function buildPreviewCssText(owner: PreviewRoot): string {
       }
     }
   })
-  // 3. 原预览和统一 important 都保留，最后追加受影响元素的正确值。
-  lines.push(...buildPreviewCascadeCorrections(owner.root, previewRules))
+  // 3. 只要还有未识别为源码的正向状态规则，就检查修正。
+  // 新增的 submitBtn:hover 被识别为源码，不会让原来的 Antd Hover 跳过检查；全是源码才跳过。
+  if (previewRules.some(entry => entry.positive && !entry.isSourceStyle)) {
+    lines.push(...buildPreviewCascadeCorrections(owner.root, previewRules))
+  }
   return lines.join('\n')
 }
 
