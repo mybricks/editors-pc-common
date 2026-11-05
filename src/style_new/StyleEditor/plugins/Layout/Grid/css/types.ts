@@ -10,6 +10,8 @@ export type TrackListResult = {
   kind: 'empty' | 'tracks' | 'auto-repeat' | 'readonly';
   source: string;
   tracks: Track[];
+  /** 整轴变量展开前的尺寸定义；source 仍保存 var(...)，供胶囊标识来源。 */
+  variableValue?: string;
 };
 
 export type TrackWriteResult =
