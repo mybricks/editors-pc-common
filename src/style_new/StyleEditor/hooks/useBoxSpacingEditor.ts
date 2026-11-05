@@ -6,8 +6,6 @@ import {
   BOX_SPACING_KEYS, createSpacingWritePlans, getUnifiedSpacingValue, normalizeBoxSpacingChange, readBoxSpacingValue,
 } from '../../core/box-spacing'
 import type { BoxSpacingProperty } from '../../core/box-spacing'
-import { expandFourShorthand } from '../../core/shorthand-normalizer'
-import { isCssVarValue } from './useLengthVarBinding'
 
 type Options = {
   property: BoxSpacingProperty
@@ -24,17 +22,16 @@ export function useBoxSpacingEditor({ property, value, onChange: fallbackOnChang
   const groupClear = useStyleClear(keys)
   const externalValue = context?.effectiveStyle ? effectiveValue : value
   const incoming = readBoxSpacingValue(property, externalValue, context?.effectiveStyle)
-  // 简写里的变量需要补到四边，输入框才能显示变量胶囊。
-  const shorthandWinner = context?.getStyleProperty?.(property).winner
-  const shorthandSides = shorthandWinner?.currentState && isCssVarValue(shorthandWinner.value)
-    ? expandFourShorthand(shorthandWinner.value)
-    : null
-  shorthandSides?.forEach((side, index) => {
-    const key = keys[index]
-    const source = context?.effectiveStyle?.[key]
-    if (incoming[key] == null && !context?.getStyleProperty?.(key).winner &&
-      (!source || (source.type === 'computed' && source.value === side))) {
-      incoming[key] = side
+  // winner已经做了简写的四边拆分，直接拿key去取对应的winner值
+  keys.forEach(key => {
+    const winner = context?.getStyleProperty?.(key).winner
+    if (winner?.currentState) {
+      // unset 就清空输入值，不是unset就直接用winner的值
+      if (/^unset$/i.test(winner.value.trim())) {
+        delete incoming[key]
+      } else {
+        incoming[key] = winner.value
+      }
     }
   })
   const editorOptions = context?.editConfig.options
@@ -56,8 +53,13 @@ export function useBoxSpacingEditor({ property, value, onChange: fallbackOnChang
   // 第三方库样式预览
   const computedPreviews = Object.fromEntries(keys.map(key => {
     const item = context?.effectiveStyle?.[key]
+    let raw = item?.value
+    // 清除后的快照可能仍含旧变量，批量预览读取当前计算值。
+    if (item?.type === 'computed' && context?.getStyleProperty) {
+      raw = context.getStylePreview?.(key, true)
+    }
     const preview = item && item.type === 'computed'
-      ? String(item.value ?? '').trim()
+      ? String(raw ?? '').trim()
       : undefined
     return [key, preview && preview !== '0px' && preview !== '0' ? preview : undefined]
   }))
@@ -76,8 +78,8 @@ export function useBoxSpacingEditor({ property, value, onChange: fallbackOnChang
   const [toggle, setToggle] = useState(incomingToggle)
   const [previewValues, setPreviewValues] = useState<Record<string, string | undefined>>({})
   const [forceRenderKey, setForceRenderKey] = useState(0)
-  // Zone 回显只跟随 effectiveStyle，避免 liveStyle 先更新时回滚本地新值。
-  const standaloneSignature = context?.effectiveStyle ? '' : JSON.stringify(incoming)
+  // 批量声明可先于 effectiveStyle 更新，四边值变化也要同步到输入框。
+  const standaloneSignature = context?.effectiveStyle && !context.getStyleProperty ? '' : JSON.stringify(incoming)
   useLayoutEffect(() => {
     valueRef.current = incoming
     setSpacingValue(incoming)
