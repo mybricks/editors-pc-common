@@ -1,7 +1,8 @@
 // @ts-ignore
 import { compare } from 'specificity'
 
-import { isPageScopedSelector, resolveCssomSourceSelector } from './build-zone-selectors-from-cssom'
+import { isComponentScopedSelector, isPageScopedSelector, resolveCssomSourceSelector } from './build-zone-selectors-from-cssom'
+import { elMatchesSelectorTail } from './css-modules-match'
 import { mergeObjectKeys, parseToStyleData, toLine } from './css-code-codec'
 import { cssPropertyName, getStyleResolution, resolveEffectiveStyleSource } from './style-property'
 import { getShorthandFamily, stylePropertyKey } from './style-shorthand-groups'
@@ -22,6 +23,8 @@ export type ZoneSourceRule = {
   target: Element
   /** 是否来自 data-desn-page 页面源码作用域（AI 页面 Less）。 */
   isPageStyle: boolean
+  /** 补收的第三方状态：可以读取和预览，不能直接改写或删除原规则。 */
+  isRuntimeStyle?: boolean
 }
 
 export type EffectiveStyleValue = {
@@ -452,7 +455,7 @@ export function resolveZonePropertySelector(tab: ZoneTab, key: string): string |
 
 export function resolveZoneDeletionTarget(tab: ZoneTab, key: string): ZoneDeletionTarget | undefined {
   const winner = getStyleResolution(tab).get(key).winner
-  if (!winner?.currentState || !winner.label) return undefined
+  if (!winner?.currentState || !winner.label || winner.source?.isRuntimeStyle) return undefined
   return { selector: winner.label, property: winner.property === 'gap' ? 'gap' : key }
 }
 
@@ -677,20 +680,37 @@ export function collectZoneTabs(
       const sourceClasses = classTokens(part.slice(selectorSubjectStart(part)))
       // 先用 class token 廉价判断归属，再做状态解析和 DOM 匹配；无 class 的基础 selector
       // 仍按原逻辑允许兜底，不能因为提前筛选而丢掉 span 等纯标签配置。
-      const tab = bases.find(({ classes }) => !classes.length || classes.some(base =>
+      let tab = bases.find(({ classes }) => !classes.length || classes.some(base =>
         // 保留精确类名和 - / _ 后缀匹配，兼容原有 CSS Modules 运行时类名，不收紧匹配范围。
         sourceClasses.some(source => source === base || source.endsWith(`-${base}`) || source.endsWith(`_${base}`))
       // 返回首个命中的基础 selector；不把一条规则改成同时归属多个 Tab。
       ))?.selector
-      // 原来是 matches 后才判断归属；这里提前跳过无关规则，省掉状态解析和原生匹配成本。
-      if (!tab) continue
-      // 只有相关规则才解析状态；继续使用原解析器，保留 :not / :has 等实际匹配条件。
+      // 1. 原逻辑找不到归属时，只补第三方状态；页面、组件和常规规则不放宽。
+      const isRuntimeStyle = !tab
+      if (isRuntimeStyle && (!sourceClasses.length || !part.includes(':') ||
+        isPageScopedSelector(part) || isComponentScopedSelector(part, comId || ''))) continue
       const state = splitZoneSelectorState(part)
+      if (isRuntimeStyle && !state.pseudo) continue
       // 保留已有的伪元素过滤：这类规则不生成 Tab，也不进入后面的 DOM 匹配。
       if (state.pseudo?.includes('::')) continue
+      // 2. 规则要作用于这个元素，元素也要对应基础 Tab；不满足就继续找下一个。
+      let targetIndex: number | undefined
+      if (isRuntimeStyle) {
+        targetIndex = elements.findIndex(el => {
+          try {
+            if (!el.matches(state.matchSelector)) return false
+          } catch {
+            return false
+          }
+          if (!subjectClassNames(state.subject, el).some(name => el.classList.contains(name))) return false
+          tab = bases.find(({ selector }) => elMatchesSelectorTail(el, selector))?.selector
+          return !!tab
+        })
+        if (!tab) continue
+      }
       // 按实际 matchSelector 查缓存：例如 .card 和 .card:hover 都可能匹配 .card，
       // 不同 CSSRule 或不同状态共享这次 DOM 校验，但后续仍分别保留各自的规则身份和状态。
-      let targetIndex = targetIndices.get(state.matchSelector)
+      if (!isRuntimeStyle) targetIndex = targetIndices.get(state.matchSelector)
       // 必须判断 undefined，不能判断真假：下标 0 是有效命中，-1 是需要复用的未命中结果。
       if (targetIndex === undefined) {
         // 缓存不存在时才遍历 elements；findIndex 保持原行为，只选择第一个匹配的目标元素。
@@ -714,6 +734,7 @@ export function collectZoneTabs(
         sourceOrder,
         target,
         isPageStyle: isPageScopedSelector(part),
+        ...(isRuntimeStyle ? { isRuntimeStyle: true } : {}),
       }
       if (state.pseudo) {
         const pseudoSelector = `${tab}${state.pseudo}`
