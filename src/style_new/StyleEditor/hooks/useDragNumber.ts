@@ -31,6 +31,8 @@ interface DragNumberOptions {
   endWithLastDraggedValue?: boolean
   /** 拖拽过程中 input 显示的格式化，默认直接用数字字符串；如 v => `${v}%` */
   formatDisplay?: (value: number) => string
+  /** 变量胶囊仅通过回调提交，不查找或修改相邻的普通输入框。 */
+  skipInput?: boolean
 }
 
 /**
@@ -48,7 +50,7 @@ interface DragNumberOptions {
  * <InputNumber defaultValue={...} onChange={...} />
  */
 export function useDragNumber(options: DragNumberOptions = {}) {
-  const { min = 0, max = Infinity, sensitivity = 1, continuous = false, onDragStart, onDragChange, onDragEnd, endWithLastDraggedValue = false, formatDisplay } = options
+  const { min = 0, max = Infinity, sensitivity = 1, continuous = false, onDragStart, onDragChange, onDragEnd, endWithLastDraggedValue = false, formatDisplay, skipInput = false } = options
 
   // 用 ref 保存回调，避免 handler 因回调变化而重建
   const onDragStartRef = useRef(onDragStart)
@@ -90,7 +92,7 @@ export function useDragNumber(options: DragNumberOptions = {}) {
     e.preventDefault()
     
     const iconEl = e.currentTarget as HTMLElement
-    const inputEl = findInputEl(iconEl)
+    const inputEl = skipInput ? null : findInputEl(iconEl)
 
     // 优先从 DOM input 读取最新值（上次拖拽/输入的结果），避免因父组件未及时回传而使用过期的 props 值
     let startValue = parseFloat(currentValue) || 0
@@ -122,7 +124,7 @@ export function useDragNumber(options: DragNumberOptions = {}) {
     }
     document.body.style.cursor = 'ew-resize'
     document.body.style.userSelect = 'none'
-  }, [findInputEl])
+  }, [findInputEl, skipInput])
 
   const handleMouseMove = useCallback((e: MouseEvent) => {
     const state = dragStateRef.current

@@ -102,11 +102,13 @@ export function VariableChip({
         ]
       : []),
     ...menuOptions,
-    ...(menuOptions.length ? [{ label: '', value: '__chipDivider__', type: 'divider' as const }] : []),
-    isPresetList
-      ? { label: '', value: REPLACE_ACTION, type: 'action' as const, icon: <Variable />, tip: lang.replaceVariable }
-      : { label: lang.replaceVariable, value: REPLACE_ACTION, type: 'action' as const, icon: <Variable /> },
-  ]), [menuOptions, isPresetList, varName, displayText])
+    ...(onRequestPicker ? [
+      ...(menuOptions.length ? [{ label: '', value: '__chipDivider__', type: 'divider' as const }] : []),
+      isPresetList
+        ? { label: '', value: REPLACE_ACTION, type: 'action' as const, icon: <Variable />, tip: lang.replaceVariable }
+        : { label: lang.replaceVariable, value: REPLACE_ACTION, type: 'action' as const, icon: <Variable /> },
+    ] : []),
+  ]), [menuOptions, isPresetList, varName, displayText, onRequestPicker])
 
   const handleAction = useCallback((actionValue: string) => {
     if (actionValue === REPLACE_ACTION) {
@@ -122,8 +124,8 @@ export function VariableChip({
     onMenuSelect?.(selectedValue)
   }, [varName, onMenuSelect])
 
-  const commitDraft = useCallback(() => {
-    const trimmed = draft.trim()
+  const commitDraft = useCallback((value = draft) => {
+    const trimmed = value.trim()
     setDraft('')
     if (!trimmed) return
     const matched = trimmed.match(NUMBER_WITH_UNIT_RE)
@@ -145,6 +147,8 @@ export function VariableChip({
     }
     if (event.key === 'Escape') {
       setDraft('')
+      // blur 会在本次状态更新前执行；清空实际输入，避免提交已取消的草稿。
+      event.currentTarget.value = ''
       event.currentTarget.blur()
     }
   }, [draft, commitDraft, onDetach])
@@ -177,7 +181,7 @@ export function VariableChip({
             data-drag-ignore
             onChange={(event) => setDraft(event.target.value)}
             onKeyDown={handleKeyDown}
-            onBlur={commitDraft}
+            onBlur={(event) => commitDraft(event.currentTarget.value)}
           />
           {draft && unitLabel && <span className={css.unit}>{unitLabel}</span>}
         </div>

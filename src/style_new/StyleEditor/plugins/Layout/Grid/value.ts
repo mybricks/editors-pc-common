@@ -2,6 +2,7 @@ import { expandRepeatToken, parseAutoRepeat } from './css/repeat';
 import { splitTopLevelTrackTokens } from './css/track-list';
 import { createTrack, serializeTrack } from './css/track-size';
 import { MAX_EDITABLE_TRACKS } from './css/types';
+import { resolveGridVariable } from './css/variable';
 import type { Track, TrackListResult, TrackWriteResult } from './css/types';
 
 export type { Track, TrackListResult } from './css/types';
@@ -36,6 +37,16 @@ export function resolveAutoRepeat(list: TrackListResult, computedValue: string):
   const count = parseTracks(computedValue).length;
   if (!count) return list;
   return { kind: 'auto-repeat', source: list.source, tracks: Array.from({ length: count }, () => repeat) };
+}
+
+/** 只展开可理解的变量内容；浏览器计算值仅用于动态 repeat 的数量。 */
+export function resolveVariableTracks(list: TrackListResult, target: Element, computedValue: string): TrackListResult {
+  const variableValue = resolveGridVariable(list.source, target);
+  if (variableValue === null) return list;
+  let resolved = parseTrackList(variableValue);
+  if (resolved.kind === 'readonly') resolved = resolveAutoRepeat(resolved, computedValue);
+  if (resolved.kind !== 'tracks' && resolved.kind !== 'auto-repeat') return list;
+  return { ...resolved, source: list.source, variableValue };
 }
 
 export function serializeTracks(tracks: Track[]): string {

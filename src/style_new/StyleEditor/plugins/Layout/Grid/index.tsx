@@ -1,12 +1,12 @@
 import React, { useRef, useState } from 'react';
-import { Input, InputNumber, incrementDecrement, Select, Dropdown, DownOutlined, SketchPopup } from '../../../components';
+import { Input, InputNumber, incrementDecrement, Select, Dropdown, DownOutlined, SketchPopup, VariableChip, buildDetachMenuOptions } from '../../../components';
 import { useStyleEditorContext } from '../../../context';
 import { useDragNumber } from '../../../hooks/useDragNumber';
 import { FixedWidth } from '../../../icons/FixedWidth';
 import { FillContainer } from '../../../icons/FillContainer';
 import { HugContents } from '../../../icons/HugContents';
 import Icon from '../Icon';
-import { parseTrackList, parseTracks, resizeTracks, serializeTrackList, resolveAutoRepeat, getTrackDisplay, createTrack, updateTrackValue, MAX_EDITABLE_TRACKS, Track, TrackListResult } from './value';
+import { parseTrackList, parseTracks, resizeTracks, serializeTrackList, resolveAutoRepeat, resolveVariableTracks, getTrackDisplay, createTrack, updateTrackValue, MAX_EDITABLE_TRACKS, Track, TrackListResult } from './value';
 import lang from '../../../../index.i18n';
 import styles from './index.less';
 
@@ -16,7 +16,9 @@ interface GridValue {
   gridAutoRows?: string | null;
 }
 
-function TrackValueInput({ track, onChange }: { track: Track; onChange: (track: Track) => void }) {
+function TrackValueInput({ track, variableSource, variableValue, actualSize, onChange }: {
+  track: Track; variableSource?: string; variableValue?: string; actualSize?: number; onChange: (track: Track) => void;
+}) {
   const [draft, setDraft] = useState<string | null>(null);
   const display = getTrackDisplay(track);
   const commitValue = (next: string) => {
@@ -26,11 +28,21 @@ function TrackValueInput({ track, onChange }: { track: Track; onChange: (track: 
     if (match) {
       const nextValue = Number(match[1]);
       const mode = match[2] ? 'fill' : 'fixed';
-      if (Number.isFinite(nextValue) && (nextValue !== display.value || mode !== display.mode)) {
+      if (Number.isFinite(nextValue) && (variableSource || nextValue !== display.value || mode !== display.mode)) {
         onChange(updateTrackValue(track, nextValue, mode));
       }
     }
   };
+
+  if (variableSource) {
+    const text = display.mode === 'hug' && actualSize !== undefined ? String(actualSize) : display.text;
+    return <VariableChip value={variableSource} resolvedValue={variableValue} display={text} defaultUnit=""
+      menuOptions={display.mode === 'fill'
+        ? [0.25, 0.5, 0.75, 1, 2, 3, 4, 5].map(value => ({ value: `${value}fr`, label: `${value}fr` }))
+        : buildDetachMenuOptions(text)}
+      onMenuSelect={commitValue} onMenuAction={() => onChange(track)}
+      onInputValue={commitValue} onDetach={() => onChange(track)} />;
+  }
 
   return <Input
     value={draft ?? display.text}
@@ -62,7 +74,9 @@ function TrackValueInput({ track, onChange }: { track: Track; onChange: (track: 
   />;
 }
 
-function TrackInput({ axis, track, actualSize, onChange }: { axis: 'column' | 'row'; track: Track; actualSize?: number; onChange: (track: Track) => void }) {
+function TrackInput({ axis, track, actualSize, variableSource, variableValue, onChange }: {
+  axis: 'column' | 'row'; track: Track; actualSize?: number; variableSource?: string; variableValue?: string; onChange: (track: Track) => void;
+}) {
   const optionStyle = { '--dropdown-suffix-opacity': 1 } as React.CSSProperties;
   const display = getTrackDisplay(track);
   return <div className={styles.trackInput}>
@@ -79,11 +93,15 @@ function TrackInput({ axis, track, actualSize, onChange }: { axis: 'column' | 'r
         { value: 'fill', label: lang.sizeFillBadge, menuLabel: lang.gridFillContainer, suffix: `(${display.mode === 'fill' ? display.value : 1}fr)`, icon: <FillContainer />, style: optionStyle },
       ]}
       onChange={(mode: 'fixed' | 'fill' | 'hug') => {
-        if (track.kind === 'minmax' && mode === display.mode) return;
+        if (track.kind === 'minmax' && mode === display.mode) {
+          if (variableSource) onChange(track);
+          return;
+        }
         onChange(createTrack(mode));
       }}
     />
-    {display.mode === 'raw' ? <Input value={display.text} tip={display.text} disabled />
+    {variableSource ? <TrackValueInput track={track} variableSource={variableSource} variableValue={variableValue} actualSize={actualSize} onChange={onChange} />
+      : display.mode === 'raw' ? <Input value={display.text} tip={display.text} disabled />
       : display.mode === 'hug' ? <Input value={actualSize} disabled />
       : <TrackValueInput key={display.mode} track={track} onChange={onChange} />}
   </div>;
@@ -98,14 +116,23 @@ export default function Grid({ value, onChange, onRemoveLayout }: { value: GridV
   const [countPreviewLocked, setCountPreviewLocked] = useState(false);
   const countDraggingRef = useRef(false);
   const countDragRepeatRef = useRef<Track>();
+  const countDragVariableRef = useRef(false);
   const [selectedTrack, setSelectedTrack] = useState<{ axis: 'column' | 'row'; index: number } | null>(null);
   const [dragTrack, setDragTrack] = useState<{ axis: 'column' | 'row'; index: number } | null>(null);
   const [dropTarget, setDropTarget] = useState<{ axis: 'column' | 'row'; index: number; half: 'top' | 'bottom' } | null>(null);
   let columnList = parseTrackList(value.gridTemplateColumns);
   let rowList = parseTrackList(value.gridTemplateRows);
   if (targetDom) {
-    if (columnList.kind === 'readonly') columnList = resolveAutoRepeat(columnList, window.getComputedStyle(targetDom).gridTemplateColumns);
-    if (rowList.kind === 'readonly') rowList = resolveAutoRepeat(rowList, window.getComputedStyle(targetDom).gridTemplateRows);
+    if (columnList.kind === 'readonly') {
+      const computed = window.getComputedStyle(targetDom).gridTemplateColumns;
+      columnList = resolveVariableTracks(columnList, targetDom, computed);
+      if (columnList.kind === 'readonly') columnList = resolveAutoRepeat(columnList, computed);
+    }
+    if (rowList.kind === 'readonly') {
+      const computed = window.getComputedStyle(targetDom).gridTemplateRows;
+      rowList = resolveVariableTracks(rowList, targetDom, computed);
+      if (rowList.kind === 'readonly') rowList = resolveAutoRepeat(rowList, computed);
+    }
   }
   const autoList = parseTrackList(value.gridAutoRows || '1fr');
   // 只有确实没有声明时沿用原有首次编辑预览；未知语法不能变成默认轨道。
@@ -147,7 +174,7 @@ export default function Grid({ value, onChange, onRemoveLayout }: { value: GridV
     if (!Number.isFinite(number) || !next.trim()) return;
     const count = Math.min(MAX_EDITABLE_TRACKS, Math.max(1, Math.floor(number)));
     const list = axis === 'column' ? columnList : rowEditList;
-    if (list.kind === 'auto-repeat' && count === list.tracks.length) return;
+    if (list.kind === 'auto-repeat' && !list.variableValue && count === list.tracks.length) return;
     commitTracks([{ key: axis === 'column' ? 'gridTemplateColumns' : 'gridTemplateRows',
       list,
       tracks: resizeTracks(axis === 'column' ? columns : rows, count,
@@ -162,10 +189,15 @@ export default function Grid({ value, onChange, onRemoveLayout }: { value: GridV
   // 拖动仍由公共 hook 处理；保留首次拖动前的范围，恢复悬停后也沿用这一基准。
   const countDragOptions = (axis: 'column' | 'row', currentCount: number) => ({
     min: 1, max: MAX_EDITABLE_TRACKS, sensitivity: 0.1, continuous: true, endWithLastDraggedValue: true,
+    skipInput: !!(axis === 'column' ? columnList : rowEditList).variableValue,
+    onDragChange: (axis === 'column' ? columnList : rowEditList).variableValue || countDragVariableRef.current
+      ? (count: number) => { if (count !== currentCount) changeCount(axis, String(count)); }
+      : undefined,
     onDragStart: (count: number) => {
       countDraggingRef.current = true;
       // 一次连续拖动沿用起始模板，首次提交展开后新增的轨道也保留 minmax。
       const list = axis === 'column' ? columnList : rowEditList;
+      countDragVariableRef.current = !!list.variableValue;
       countDragRepeatRef.current = list.kind === 'auto-repeat' ? list.tracks[0] : undefined;
       setHover(null);
       setCountDragStart(start => start ?? { columns: previewColumnCount, rows: previewRowCount });
@@ -175,11 +207,29 @@ export default function Grid({ value, onChange, onRemoveLayout }: { value: GridV
     onDragEnd: (count: number) => {
       if (count !== currentCount) changeCount(axis, String(count));
       // 松手后保留范围高亮；延迟解除拖动态，避免同次弹窗外 click 关闭弹窗。
-      requestAnimationFrame(() => { countDraggingRef.current = false; countDragRepeatRef.current = undefined; });
+      requestAnimationFrame(() => {
+        countDraggingRef.current = false;
+        countDragRepeatRef.current = undefined;
+        countDragVariableRef.current = false;
+      });
     },
   });
   const getColumnCountDragProps = useDragNumber(countDragOptions('column', columns.length));
   const getRowCountDragProps = useDragNumber(countDragOptions('row', previewRowCount || 1));
+
+  const renderVariableCount = (axis: 'column' | 'row', list: TrackListResult) => {
+    const count = String(list.tracks.length);
+    return <VariableChip value={list.source} resolvedValue={list.variableValue} display={count} defaultUnit=""
+      prefix={<div {...(axis === 'column' ? getColumnCountDragProps(Number(count), lang.gridColumnCount) : getRowCountDragProps(Number(count), lang.gridRowCount))}>
+        <Icon name={axis === 'column' ? 'grid-columns' : 'grid-rows'} />
+      </div>}
+      menuOptions={[
+        ...buildDetachMenuOptions(count),
+        ...(axis === 'row' ? [{ value: 'auto', label: lang.gridAuto }] : []),
+      ]}
+      onMenuAction={() => changeCount(axis, count)} onMenuSelect={selectAutoRows}
+      onInputValue={next => changeCount(axis, next)} onDetach={() => changeCount(axis, count)} />;
+  };
 
   const renderTracks = (axis: 'column' | 'row') => {
     const list = axis === 'column' ? columnList : rowEditList;
@@ -273,7 +323,8 @@ export default function Grid({ value, onChange, onRemoveLayout }: { value: GridV
             <path fill="currentColor" fillRule="evenodd" d="M11 11.5a.5.5 0 0 1-.5.5h-5a.5.5 0 0 1 0-1h5a.5.5 0 0 1 .5.5M11 8a.5.5 0 0 1-.5.5h-5a.5.5 0 0 1 0-1h5a.5.5 0 0 1 .5.5m0-3.5a.5.5 0 0 1-.5.5h-5a.5.5 0 0 1 0-1h5a.5.5 0 0 1 .5.5" clipRule="evenodd" />
           </svg>
         </button>
-        <TrackInput axis={axis} track={track} actualSize={actualSizes[index]} onChange={next => {
+        <TrackInput axis={axis} track={track} actualSize={actualSizes[index]}
+          variableSource={list.variableValue ? list.source : undefined} variableValue={list.variableValue} onChange={next => {
           const updated = tracks.slice();
           updated[index] = next;
           commitTracks([{ key: axis === 'row' && autoRows ? 'gridAutoRows' : key, list, tracks: updated }]);
@@ -328,10 +379,12 @@ export default function Grid({ value, onChange, onRemoveLayout }: { value: GridV
         </button>
       </div>
       {view === 'picker' && <div className={styles.counts}>
-        <InputNumber disabled={!columnsEditable} value={columnsEditable ? columns.length : previewColumnCount || null} placeholder="CSS" prefix={<div {...(columnsEditable ? getColumnCountDragProps(columns.length, lang.gridColumnCount) : {})}><Icon name="grid-columns" /></div>} tip={lang.gridColumnCount}
-          defaultUnitValue="" clearable={false} onChange={next => changeCount('column', next)} />
+        {columnList.variableValue ? renderVariableCount('column', columnList)
+          : <InputNumber disabled={!columnsEditable} value={columnsEditable ? columns.length : previewColumnCount || null} placeholder="CSS" prefix={<div {...(columnsEditable ? getColumnCountDragProps(columns.length, lang.gridColumnCount) : {})}><Icon name="grid-columns" /></div>} tip={lang.gridColumnCount}
+            defaultUnitValue="" clearable={false} onChange={next => changeCount('column', next)} />}
         <span>×</span>
-        <InputNumber disabled={!rowsEditable} value={!rowsEditable ? previewRowCount || null : autoRows ? null : rows.length} placeholder={rowsEditable ? lang.gridAuto : 'CSS'}
+        {rowList.variableValue ? renderVariableCount('row', rowList)
+          : <InputNumber disabled={!rowsEditable} value={!rowsEditable ? previewRowCount || null : autoRows ? null : rows.length} placeholder={rowsEditable ? lang.gridAuto : 'CSS'}
           prefix={<div {...(rowsEditable ? getRowCountDragProps(previewRowCount || 1, lang.gridRowCount) : {})}><Icon name="grid-rows" /></div>}
           tip={lang.gridRowCount} defaultUnitValue="" clearable={false}
           suffix={<Select
@@ -345,7 +398,7 @@ export default function Grid({ value, onChange, onRemoveLayout }: { value: GridV
             ]}
             onChange={mode => mode === 'auto' ? selectAutoRows() : changeCount('row', String(previewRowCount))}
           />}
-          onChange={next => changeCount('row', next)} />
+          onChange={next => changeCount('row', next)} />}
       </div>}
       {view === 'picker' ? <>
         <div className={styles.picker} onMouseLeave={() => setHover(null)}>
