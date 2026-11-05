@@ -213,23 +213,12 @@ export function Layout({ value: panelValue, onChange: fallbackOnChange, showTitl
 
   const refresh = useCallback(() => {
     const keys = Object.keys(value ?? {}).filter(key => LAYOUT_KEYS.has(key));
-    if (freeformMode === 'freedom' && isGridLikeDisplay(value?.display)) {
-      // Grid 仍保留在自由布局的父容器上；退出计划同时恢复父子定位和尺寸。
-      const patch = Object.fromEntries([...keys, '--layout-mode'].map(key => [key, null]));
-      const plan = buildFreedomPlan(context!.targetDom!, patch, options as FreedomPlanOptions, 'flex');
-      (window as any).__mybricks_applyStylePlan(plan);
-      setFreeformMode(undefined);
-      setClearedGapKeys({rowGap: true, columnGap: true});
-      setIsReset(true);
-      setForceRenderKey(prev => prev + 1);
-      return;
-    }
     const result = onChange([...keys, '--layout-mode'].map(key => ({ key, value: null })));
     if (!result || result.applied) setFreeformMode(undefined);
     setClearedGapKeys({rowGap: true, columnGap: true});
     setIsReset(true);
     setForceRenderKey(prev => prev + 1);
-  }, [value, onChange, freeformMode, context, options]);
+  }, [value, onChange]);
 
   useEffect(() => {
     if (isReset && value && Object.keys(value).some(k => value[k] != null)) {
