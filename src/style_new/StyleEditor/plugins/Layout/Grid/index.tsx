@@ -6,7 +6,8 @@ import { FixedWidth } from '../../../icons/FixedWidth';
 import { FillContainer } from '../../../icons/FillContainer';
 import { HugContents } from '../../../icons/HugContents';
 import Icon from '../Icon';
-import { parseTrackList, parseTracks, resizeTracks, serializeTrackList, resolveAutoRepeat, resolveVariableTracks, getTrackDisplay, createTrack, updateTrackValue, MAX_EDITABLE_TRACKS, Track, TrackListResult } from './value';
+import { parseTrackList, resizeTracks, serializeTrackList, resolveAutoRepeat, resolveVariableTracks, getTrackDisplay, createTrack, updateTrackValue, MAX_EDITABLE_TRACKS, Track, TrackListResult } from './value';
+import { getReadonlyTrackPreview, readComputedTrackSizes } from './css/preview';
 import lang from '../../../../index.i18n';
 import styles from './index.less';
 
@@ -144,15 +145,17 @@ export default function Grid({ value, onChange, onRemoveLayout }: { value: GridV
   const columnsEditable = columnList.kind !== 'readonly';
   const rowsEditable = rowEditList.kind !== 'readonly' && (!autoRows || rowEditList.kind === 'tracks');
   const pickerEditable = columnsEditable && rowsEditable;
-  // 未识别的规则仍可展示实际数量，不把计算出的像素尺寸写回。
-  const previewColumnCount = !columnsEditable && targetDom
-    ? parseTracks(window.getComputedStyle(targetDom).gridTemplateColumns).length
-    : columns.length;
+  const measuredColumns = !columnsEditable && targetDom
+    ? readComputedTrackSizes(window.getComputedStyle(targetDom).gridTemplateColumns) : [];
+  const measuredRows = (autoRows || !rowsEditable) && targetDom
+    ? readComputedTrackSizes(window.getComputedStyle(targetDom).gridTemplateRows) : [];
+  const columnPreview = !columnsEditable ? getReadonlyTrackPreview(columnList.source, measuredColumns) : null;
+  const rowPreview = !rowsEditable ? getReadonlyTrackPreview(rowEditList.source, measuredRows) : null;
+  // 只读展示独立于写入模型，数量、格子盘与设置列表使用同一份预览。
+  const previewColumnCount = columnPreview ? columnPreview.tracks.length : columns.length;
   // Auto 按实际行数展示预览和设置列表，轨道尺寸仍读取 gridAutoRows，避免写入 computed 像素值。
-  const previewRowCount = (autoRows || !rowsEditable) && targetDom
-    ? parseTracks(window.getComputedStyle(targetDom).gridTemplateRows).length
-    : rows.length;
-  const summary = `${columnsEditable ? columns.length : previewColumnCount || 'CSS'} × ${rowsEditable ? (autoRows ? lang.gridAuto : rows.length) : previewRowCount || 'CSS'}`;
+  const previewRowCount = rowPreview ? rowPreview.tracks.length : autoRows && targetDom ? measuredRows.length : rows.length;
+  const summary = `${columnsEditable ? columns.length : previewColumnCount || '—'} × ${rowsEditable ? (autoRows ? lang.gridAuto : rows.length) : previewRowCount || '—'}`;
 
   // 所有轨道编辑共用这一提交入口；只读规则不进入现有 onChange 写入链路。
   const commitTracks = (changes: { key: keyof GridValue; list: TrackListResult; tracks: Track[] }[]) => {
@@ -235,10 +238,27 @@ export default function Grid({ value, onChange, onRemoveLayout }: { value: GridV
   const renderTracks = (axis: 'column' | 'row') => {
     const list = axis === 'column' ? columnList : rowEditList;
     const label = axis === 'column' ? lang.gridColumns : lang.gridRows;
-    if (list.kind === 'readonly' || (axis === 'row' && autoRows && list.kind === 'empty')) {
+    const preview = axis === 'column' ? columnPreview : rowPreview;
+    if (preview) {
+      const measured = axis === 'column' ? measuredColumns : measuredRows;
+      const tip = `${lang.gridReadOnlyTip}\n${list.source}`;
       return <section className={styles.tracks}>
-        <div className={styles.trackHeader}><span>{label}</span></div>
-        <div className={styles.ruleValue} title={list.source}>{list.source}</div>
+        <div className={styles.trackHeader}><span data-mybricks-tip={tip}>{label}</span></div>
+        {(preview.tracks.length ? preview.tracks : [undefined]).map((track, index) => {
+          const display = track && getTrackDisplay(track);
+          const mode = preview.measured ? lang.gridMeasuredSize
+            : display?.mode === 'fill' ? lang.sizeFillBadge : display?.mode === 'fixed' ? lang.gridFixed
+            : display?.mode === 'hug' ? lang.sizeAdaptive : 'CSS';
+          const text = display?.mode === 'hug' ? measured[index] : display?.text;
+          return <div key={index} className={`${styles.trackRow} ${styles.trackRowReadonly}`} data-mybricks-tip={tip}>
+            <span className={styles.trackHandle}><span className={styles.trackIndex}>{preview.tracks.length ? index + 1 : '—'}</span></span>
+            <div className={styles.trackInput}>
+              <Input value={mode} disabled tip={tip} />
+              <Input value={text} placeholder="—" disabled tip={`${preview.measured ? lang.gridMeasuredSizeTip : lang.gridReadOnlyTip}\n${list.source}`} />
+            </div>
+            <span className={styles.trackActionSpacer} />
+          </div>;
+        })}
       </section>;
     }
     let tracks = axis === 'column' ? columns : rows;
@@ -248,7 +268,7 @@ export default function Grid({ value, onChange, onRemoveLayout }: { value: GridV
     const key = axis === 'column' ? 'gridTemplateColumns' : 'gridTemplateRows';
     // Hug 仅回显浏览器计算的轨道尺寸，不参与轨道模型或 CSS 写回。
     const actualSizes = targetDom && tracks.some(track => getTrackDisplay(track).mode === 'hug')
-      ? parseTracks(window.getComputedStyle(targetDom)[key]).map(track => track.kind === 'dimension' ? Math.round(track.value) : undefined)
+      ? readComputedTrackSizes(window.getComputedStyle(targetDom)[key]).map(size => size === undefined ? undefined : Math.round(size))
       : [];
     const removeLabel = (axis === 'column' ? lang.gridRemoveColumn : lang.gridRemoveRow).replace('{count}', String(tracks.length));
     const dropIndex = dropTarget?.axis === axis ? dropTarget.index + (dropTarget.half === 'bottom' ? 1 : 0) : null;
@@ -381,11 +401,11 @@ export default function Grid({ value, onChange, onRemoveLayout }: { value: GridV
       </div>
       {view === 'picker' && <div className={styles.counts}>
         {columnList.variableValue ? renderVariableCount('column', columnList)
-          : <InputNumber disabled={!columnsEditable} value={columnsEditable ? columns.length : previewColumnCount || null} placeholder="CSS" prefix={<div {...(columnsEditable ? getColumnCountDragProps(columns.length, lang.gridColumnCount) : {})}><Icon name="grid-columns" /></div>} tip={lang.gridColumnCount}
+          : <InputNumber disabled={!columnsEditable} value={columnsEditable ? columns.length : previewColumnCount || null} placeholder="—" prefix={<div {...(columnsEditable ? getColumnCountDragProps(columns.length, lang.gridColumnCount) : {})}><Icon name="grid-columns" /></div>} tip={lang.gridColumnCount}
             defaultUnitValue="" clearable={false} onChange={next => changeCount('column', next)} />}
         <span>×</span>
         {rowList.variableValue ? renderVariableCount('row', rowList)
-          : <InputNumber disabled={!rowsEditable} value={!rowsEditable ? previewRowCount || null : autoRows ? null : rows.length} placeholder={rowsEditable ? lang.gridAuto : 'CSS'}
+          : <InputNumber disabled={!rowsEditable} value={!rowsEditable ? previewRowCount || null : autoRows ? null : rows.length} placeholder={rowsEditable ? lang.gridAuto : '—'}
           prefix={<div {...(rowsEditable ? getRowCountDragProps(previewRowCount || 1, lang.gridRowCount) : {})}><Icon name="grid-rows" /></div>}
           tip={lang.gridRowCount} defaultUnitValue="" clearable={false}
           suffix={<Select
@@ -411,7 +431,7 @@ export default function Grid({ value, onChange, onRemoveLayout }: { value: GridV
               ? column <= previewColumnCount && row <= previewRowCount
               : hover && column <= hover.columns && row <= hover.rows;
             return <button type="button" key={index} disabled={!pickerEditable} aria-label={`${column} × ${row}`}
-              data-mybricks-tip={JSON.stringify({ content: `${column} × ${row}`, position: 'bottom' })}
+              data-mybricks-tip={JSON.stringify({ content: pickerEditable ? `${column} × ${row}` : lang.gridReadOnlyTip, position: 'bottom' })}
               className={[styles.cell, selected && styles.selected, preview && styles.preview].filter(Boolean).join(' ')}
               onMouseEnter={() => {
                 if (countPreviewLocked || !pickerEditable) return;

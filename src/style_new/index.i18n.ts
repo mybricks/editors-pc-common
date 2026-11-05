@@ -769,6 +769,15 @@ export default i18n({
     zh: '当前 CSS 值暂不支持直接编辑；切换尺寸模式将替换该值。',
     en: 'This CSS value cannot be edited directly yet. Changing the sizing mode will replace it.',
   },
+  gridReadOnlyTip: {
+    zh: '当前网格规则仅支持回显，暂不支持编辑。',
+    en: 'This grid rule can be previewed but cannot be edited yet.',
+  },
+  gridMeasuredSize: { zh: '实际尺寸', en: 'Computed size' },
+  gridMeasuredSizeTip: {
+    zh: '显示当前布局的实际尺寸，不代表原始尺寸设置；无法读取时显示 —。',
+    en: 'Shows the current layout size, not the authored sizing rule. Unavailable sizes appear as —.',
+  },
   gridFillContainer: { zh: '填满', en: 'Fill container' },
   gridAddTrack: { zh: '添加轨道', en: 'Add track' },
   gridRemoveTrack: { zh: '删除轨道', en: 'Remove track' },

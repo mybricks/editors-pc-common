@@ -1,7 +1,7 @@
 import { findCssClosingParenthesis } from '../../../../../core/css-functions';
 
 /** 轨道空白和函数参数逗号使用同一套边界规则；函数内容交给现有括号扫描器。 */
-function splitTopLevel(source: string, separator: 'space' | 'comma'): string[] | null {
+function splitTopLevel(source: string, separator: 'space' | 'comma', separateLineNames = false): string[] | null {
   const values: string[] = [];
   let start = 0;
   let brackets = 0;
@@ -38,8 +38,12 @@ function splitTopLevel(source: string, separator: 'space' | 'comma'): string[] |
       continue;
     }
     if (char === ')') return null;
-    if (char === '[') brackets++;
+    if (char === '[') {
+      if (separateLineNames && brackets === 0) { push(index); start = index; }
+      brackets++;
+    }
     if (char === ']' && --brackets < 0) return null;
+    if (char === ']' && separateLineNames && brackets === 0) { push(index + 1); start = index + 1; }
     if (brackets === 0 && (separator === 'space' ? /\s/.test(char) : char === ',')) {
       push(index);
       start = index + 1;
@@ -51,6 +55,8 @@ function splitTopLevel(source: string, separator: 'space' | 'comma'): string[] |
 }
 
 export const splitTopLevelTrackTokens = (source: string) => splitTopLevel(source, 'space');
+// 回显允许跳过命名线，包括 [start]1fr[end]；可编辑解析仍保留完整结构。
+export const splitPreviewTrackTokens = (source: string) => splitTopLevel(source, 'space', true);
 export const splitTopLevelArguments = (source: string) => splitTopLevel(source, 'comma');
 
 export function readFunctionParts(source: string): { name: string; arguments: string } | null {

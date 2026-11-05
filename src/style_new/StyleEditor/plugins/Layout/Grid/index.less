@@ -122,7 +122,11 @@
   &:disabled { opacity: 0.3; cursor: default; }
 }
 
-// 暂不支持的规则完整可读，不伪装成一条数字轨道。
-.ruleValue { padding: 0 16px 8px; line-height: 1.6; overflow-wrap: anywhere; user-select: text; }
+.trackRowReadonly {
+  .trackHandle { cursor: default; }
+  .trackIndex { display: block; }
+  input:disabled { opacity: 0.55; }
+}
+.trackActionSpacer { width: 24px; flex-shrink: 0; }
 .cell:disabled { cursor: default; opacity: 0.4; }
 .cell.selected:disabled { opacity: 1; }
