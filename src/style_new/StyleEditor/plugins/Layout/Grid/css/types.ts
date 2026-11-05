@@ -7,7 +7,7 @@ export type Track = Breadth
   | { kind: 'minmax'; min: Breadth; max: Breadth; raw?: string };
 
 export type TrackListResult = {
-  kind: 'empty' | 'tracks' | 'readonly';
+  kind: 'empty' | 'tracks' | 'auto-repeat' | 'readonly';
   source: string;
   tracks: Track[];
 };

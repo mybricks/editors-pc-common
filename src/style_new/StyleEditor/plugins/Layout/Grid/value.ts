@@ -1,4 +1,4 @@
-import { expandRepeatToken } from './css/repeat';
+import { expandRepeatToken, parseAutoRepeat } from './css/repeat';
 import { splitTopLevelTrackTokens } from './css/track-list';
 import { createTrack, serializeTrack } from './css/track-size';
 import { MAX_EDITABLE_TRACKS } from './css/types';
@@ -29,6 +29,15 @@ export function parseTracks(value?: string | null): Track[] {
   return parseTrackList(value).tracks;
 }
 
+/** computed 只提供数量，轨道尺寸沿用源码模板；主动提交前不改写动态规则。 */
+export function resolveAutoRepeat(list: TrackListResult, computedValue: string): TrackListResult {
+  const repeat = parseAutoRepeat(list.source);
+  if (!repeat) return list;
+  const count = parseTracks(computedValue).length;
+  if (!count) return list;
+  return { kind: 'auto-repeat', source: list.source, tracks: Array.from({ length: count }, () => repeat) };
+}
+
 export function serializeTracks(tracks: Track[]): string {
   return tracks.map(serializeTrack).join(' ');
 }
@@ -38,8 +47,8 @@ export function serializeTrackList(list: TrackListResult, tracks: Track[]): Trac
   return { kind: 'change', value: serializeTracks(tracks) };
 }
 
-export function resizeTracks(tracks: Track[], count: number): Track[] {
-  return Array.from({ length: count }, (_, index) => tracks[index] || createTrack('fill', 1));
+export function resizeTracks(tracks: Track[], count: number, repeatTrack?: Track): Track[] {
+  return Array.from({ length: count }, (_, index) => tracks[index] || repeatTrack || createTrack('fill', 1));
 }
 
 export function getTrackDisplay(track: Track): { mode: 'fixed' | 'fill' | 'hug' | 'raw'; value?: number; text: string } {
