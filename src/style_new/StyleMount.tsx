@@ -11,6 +11,7 @@ import type { ZoneWriteTarget } from './core/apply-style-change'
 import { toElementArray } from './core/dom'
 import { createBatchStyleClearPlans, cssPropertyName, getStyleResolution, invalidateStyleResolution, resolveEffectiveStyleSource } from './core/style-property'
 import { buildZoneEffectiveStyle, buildZoneStateStyle, collectZoneTabs, mergeZoneTabsByState, refreshZoneTabSources } from './core/zone-tab'
+import { collectSubjectClassSelectors } from './core/build-zone-selectors-from-cssom'
 import type { ZoneTab } from './core/zone-tab'
 import { expandFourShorthand } from './core/shorthand-normalizer'
 import { readNormalComputedStyle, readNormalStyleSignature } from './core/normal-style-preview'
@@ -99,14 +100,16 @@ export function StyleMount({
           let tabs: ZoneTab[] = zoneOptions?.mergedTabs ?? []
           // 单独面板首次刷新读取恢复后的规则；后续只有源码变化才重新收集。
           if (sourceChangePending || refreshSourcesOnMount) {
+            // 过滤运行时 class，避免刷新后误把第三方组件规则当作可写源码，导致变体切换异常。
             const selectors = Array.from(new Set([
               zoneTab.baseSelector,
-              ...Array.from(target.classList).map(name => '.' + name),
+              ...collectSubjectClassSelectors(target),
             ]))
             tabs = mergeZoneTabsByState(collectZoneTabs([target], selectors, zoneOptions?.comId))
           }
           const current = tabs.find(tab => tab.pseudo === zoneTab.pseudo)
-          if (current) {
+          // 只有重新读取了样式规则才更新，避免切回 Tab 时用旧规则把改好的颜色显示回旧值。
+          if (current && (sourceChangePending || refreshSourcesOnMount)) {
             zoneTab.sourceRules = current.sourceRules
             // CSSOM 重编译可能先出现状态规则、稍后才恢复基础规则。
             // 基础态仍用于布局预览和清除判断，不能被这次空扫描清掉。
