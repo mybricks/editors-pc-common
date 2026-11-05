@@ -158,8 +158,20 @@ export function createStyleResolution(tab: ZoneTab, target: HTMLElement | null =
         if (!style.getPropertyValue(longhand)) borderFallbacks.set(longhand, { value, property })
       })
     })
+    // 变量简写的单侧也属于当前声明，补齐来源后菜单预检和实际清除才能一致。
+    ;['margin', 'padding', 'border-radius'].forEach(property => {
+      const raw = style.getPropertyValue(property)
+      if (!raw.includes('var(')) return
+      const values = expandFourShorthand(raw)
+      if (!values) return
+      STYLE_SHORTHANDS[property].forEach((longhand, index) => {
+        if (!style.getPropertyValue(longhand)) {
+          borderFallbacks.set(longhand, { value: values[index], property })
+        }
+      })
+    })
     const specificity = source && calculateSafeSpecificity(source.selectorPart, target)
-    // 2. 将属性值和来源存入索引；优先直接读取，边框分项为空时才用上面拆出的值。
+    // 2. 将属性值和来源存入索引；优先直接读取，简写分项为空时才用上面拆出的值。
     expanded.forEach(key => {
       const fallback = borderFallbacks.get(key)
       const value = style.getPropertyValue(key).trim() || fallback?.value
