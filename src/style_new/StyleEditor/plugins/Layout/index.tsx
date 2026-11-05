@@ -211,39 +211,12 @@ export function Layout({ value: panelValue, onChange: fallbackOnChange, showTitl
     Object.entries(currentValue).filter(([key, v]) => v != null && LAYOUT_KEYS.has(key))
   );
 
-  // Temporary style-instrument-debug: 验收确认后删除。
-  useEffect(() => {
-    const target = context?.targetDom;
-    if (!target) return;
-    const computed = window.getComputedStyle(target);
-    const keys = ['display', 'position', ...GRID_KEYS, 'rowGap', 'columnGap', 'width', 'height'];
-    void fetch('http://127.0.0.1:4318/logs', {
-      method: 'POST', headers: { 'content-type': 'application/json' }, keepalive: true,
-      body: JSON.stringify({ sessionId: 'grid-card1-20261103', event: 'grid-state-display', time: new Date().toISOString(), data: {
-        selector: options && !Array.isArray(options) ? options.selector : undefined,
-        soloEdit: options && !Array.isArray(options) ? options.soloEdit : undefined,
-        freeformMode, declared: Object.fromEntries(keys.map(key => [key, value?.[key]])),
-        computed: Object.fromEntries(keys.map(key => [key, computed.getPropertyValue(key.replace(/[A-Z]/g, char => `-${char.toLowerCase()}`))])),
-        children: Array.from(target.children).map((child, index) => {
-          const rect = child.getBoundingClientRect();
-          return { index, x: rect.x, y: rect.y, width: rect.width, height: rect.height, position: window.getComputedStyle(child).position };
-        }),
-      } }),
-    }).catch(() => {});
-  }, [value, freeformMode, context?.targetDom]);
-
   const refresh = useCallback(() => {
     const keys = Object.keys(value ?? {}).filter(key => LAYOUT_KEYS.has(key));
     if (freeformMode === 'freedom' && isGridLikeDisplay(value?.display)) {
       // Grid 仍保留在自由布局的父容器上；退出计划同时恢复父子定位和尺寸。
       const patch = Object.fromEntries([...keys, '--layout-mode'].map(key => [key, null]));
       const plan = buildFreedomPlan(context!.targetDom!, patch, options as FreedomPlanOptions, 'flex');
-      // Temporary style-instrument-debug: 验收确认后删除。
-      void fetch('http://127.0.0.1:4318/logs', {
-        method: 'POST', headers: { 'content-type': 'application/json' }, keepalive: true,
-        body: JSON.stringify({ sessionId: 'grid-card1-20261103', event: 'grid-reset-plan', time: new Date().toISOString(),
-          data: { scope: plan.scope, changes: plan.changes.map(({ selector, style }) => ({ selector, style })) } }),
-      }).catch(() => {});
       (window as any).__mybricks_applyStylePlan(plan);
       setFreeformMode(undefined);
       setClearedGapKeys({rowGap: true, columnGap: true});
@@ -266,12 +239,6 @@ export function Layout({ value: panelValue, onChange: fallbackOnChange, showTitl
 
   const handleFreedomSelect = () => {
     const plan = buildFreedomPlan(context!.targetDom!, value, options as FreedomPlanOptions);
-    // Temporary style-instrument-debug: 验收确认后删除。
-    void fetch('http://127.0.0.1:4318/logs', {
-      method: 'POST', headers: { 'content-type': 'application/json' }, keepalive: true,
-      body: JSON.stringify({ sessionId: 'grid-card1-20261103', event: 'grid-freedom-enter-plan', time: new Date().toISOString(),
-        data: { scope: plan.scope, changes: plan.changes.map(({ selector, style }) => ({ selector, style })) } }),
-    }).catch(() => {});
     (window as any).__mybricks_applyStylePlan(plan);
     setFreeformMode('freedom');
   };
@@ -288,13 +255,6 @@ export function Layout({ value: panelValue, onChange: fallbackOnChange, showTitl
           freedomValue={!isReset && freeformMode === 'freedom'}
           onFreedomSelect={handleFreedomSelect}
           onChangeValue={(newVal) => {
-            // Temporary style-instrument-debug: 验收确认后删除。
-            void fetch('http://127.0.0.1:4318/logs', {
-              method: 'POST', headers: { 'content-type': 'application/json' }, keepalive: true,
-              body: JSON.stringify({ sessionId: 'grid-card1-20261103', event: 'grid-patch', time: new Date().toISOString(),
-                data: { selector: options && !Array.isArray(options) ? options.selector : undefined,
-                  soloEdit: options && !Array.isArray(options) ? options.soloEdit : undefined, freeformMode, patch: newVal } }),
-            }).catch(() => {});
             setClearedGapKeys((previous) => {
               const next = {...previous};
               let changed = false;
@@ -316,12 +276,6 @@ export function Layout({ value: panelValue, onChange: fallbackOnChange, showTitl
             if (freeformMode === 'freedom' && 'flexDirection' in newVal
               && (isFlexLikeDisplay(newVal.display) || newVal.flexDirection === null)) {
               const plan = buildFreedomPlan(context!.targetDom!, newVal, options as FreedomPlanOptions, 'flex');
-              // Temporary style-instrument-debug: 验收确认后删除。
-              void fetch('http://127.0.0.1:4318/logs', {
-                method: 'POST', headers: { 'content-type': 'application/json' }, keepalive: true,
-                body: JSON.stringify({ sessionId: 'grid-card1-20261103', event: 'grid-freedom-exit-plan', time: new Date().toISOString(),
-                  data: { scope: plan.scope, changes: plan.changes.map(({ selector, style }) => ({ selector, style })) } }),
-              }).catch(() => {});
               (window as any).__mybricks_applyStylePlan(plan);
               setFreeformMode(undefined);
               return;
