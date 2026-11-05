@@ -22,6 +22,7 @@ function TrackValueInput({ track, variableSource, variableValue, actualSize, onC
 }) {
   const [draft, setDraft] = useState<string | null>(null);
   const display = getTrackDisplay(track);
+  const inputText = display.mode === 'hug' ? String(actualSize ?? '') : display.text;
   const commitValue = (next: string) => {
     // 数字和百分比均为固定模式，fr 为填满；无效草稿恢复当前值。
     const match = next.trim().match(/^(\d+(?:\.\d*)?|\.\d+)(fr|%)?$/i);
@@ -30,7 +31,7 @@ function TrackValueInput({ track, variableSource, variableValue, actualSize, onC
       const nextValue = Number(match[1]);
       const mode = match[2] === '%' ? 'percent' : match[2] ? 'fill' : 'fixed';
       // 比较带单位的值，确保 100% 与 100 即使数字相同也能互相切换。
-      if (Number.isFinite(nextValue) && (variableSource || `${nextValue}${match[2]?.toLowerCase() || ''}` !== display.text)) {
+      if (Number.isFinite(nextValue) && (variableSource || `${nextValue}${match[2]?.toLowerCase() || ''}` !== inputText)) {
         onChange(updateTrackValue(track, nextValue, mode));
       }
     }
@@ -47,7 +48,8 @@ function TrackValueInput({ track, variableSource, variableValue, actualSize, onC
   }
 
   return <Input
-    value={draft ?? display.text}
+    className={display.mode === 'hug' ? styles.hugValue : undefined}
+    value={draft ?? inputText}
     onChange={setDraft}
     onBlur={event => commitValue(event.currentTarget.value)}
     onKeyDown={event => {
@@ -104,8 +106,7 @@ function TrackInput({ axis, track, actualSize, variableSource, variableValue, on
     />
     {variableSource ? <TrackValueInput track={track} variableSource={variableSource} variableValue={variableValue} actualSize={actualSize} onChange={onChange} />
       : display.mode === 'raw' ? <Input value={display.text} tip={display.text} disabled />
-      : display.mode === 'hug' ? <Input className={styles.hugValue} value={actualSize} disabled />
-      : <TrackValueInput key={display.mode} track={track} onChange={onChange} />}
+      : <TrackValueInput key={display.mode} track={track} actualSize={actualSize} onChange={onChange} />}
   </div>;
 }
 
@@ -266,7 +267,7 @@ export default function Grid({ value, onChange, onRemoveLayout }: { value: GridV
       tracks = Array.from({ length: previewRowCount }, (_, index) => autoList.tracks[index % autoList.tracks.length]);
     }
     const key = axis === 'column' ? 'gridTemplateColumns' : 'gridTemplateRows';
-    // Hug 仅回显浏览器计算的轨道尺寸，不参与轨道模型或 CSS 写回。
+    // Hug 回显浏览器计算的轨道尺寸，只有用户修改数值后才转为 Fixed 写回。
     const actualSizes = targetDom && tracks.some(track => getTrackDisplay(track).mode === 'hug')
       ? readComputedTrackSizes(window.getComputedStyle(targetDom)[key]).map(size => size === undefined ? undefined : Math.round(size))
       : [];
