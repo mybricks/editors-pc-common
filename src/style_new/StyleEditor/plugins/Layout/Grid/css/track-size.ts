@@ -54,8 +54,8 @@ export function createTrack(mode: 'fixed' | 'fill' | 'hug', value = mode === 'fi
     : { kind: 'dimension', value, unit: mode === 'fill' ? 'fr' : 'px' };
 }
 
-// 比例输入只修改 minmax 的上限；切换尺寸模式由 createTrack 明确替换整条轨道。
-export function updateTrackValue(track: Track, value: number, mode: 'fixed' | 'fill'): Track {
-  const next: Dimension = { kind: 'dimension', value, unit: mode === 'fill' ? 'fr' : 'px' };
+// 尺寸输入只修改 minmax 的上限；切换尺寸模式由 createTrack 明确替换整条轨道。
+export function updateTrackValue(track: Track, value: number, mode: 'fixed' | 'fill' | 'percent'): Track {
+  const next: Dimension = { kind: 'dimension', value, unit: mode === 'fill' ? 'fr' : mode === 'percent' ? '%' : 'px' };
   return track.kind === 'minmax' ? { ...track, max: next, raw: undefined } : next;
 }
