@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { Input, InputNumber, incrementDecrement, Select, Dropdown, DownOutlined, SketchPopup, VariableChip, buildDetachMenuOptions } from '../../../components';
+import { Input, InputNumber, Select, Dropdown, DownOutlined, SketchPopup, Panel, buildDetachMenuOptions } from '../../../components';
 import { useStyleEditorContext } from '../../../context';
 import { useDragNumber } from '../../../hooks/useDragNumber';
 import { FixedWidth } from '../../../icons/FixedWidth';
@@ -8,6 +8,7 @@ import { HugContents } from '../../../icons/HugContents';
 import Icon from '../Icon';
 import { parseTrackList, resizeTracks, serializeTrackList, resolveAutoRepeat, resolveVariableTracks, getTrackDisplay, createTrack, updateTrackValue, MAX_EDITABLE_TRACKS, Track, TrackListResult } from './value';
 import { getReadonlyTrackPreview, readComputedTrackSizes } from './css/preview';
+import GridVariableInput from './GridVariableInput';
 import lang from '../../../../index.i18n';
 import styles from './index.less';
 
@@ -15,6 +16,16 @@ interface GridValue {
   gridTemplateColumns?: string | null;
   gridTemplateRows?: string | null;
   gridAutoRows?: string | null;
+}
+
+// Grid 文本输入保留小数末位步进（1.25fr → 1.26fr）；公共 InputNumber 的内部函数不再对外导出。
+function incrementDecrement(inputNumber: string, key: 'ArrowUp' | 'ArrowDown') {
+  if (!Number.isFinite(parseFloat(inputNumber))) inputNumber = '0';
+  const decimalPlaces = inputNumber.includes('.') ? inputNumber.split('.')[1].length : 0;
+  const step = Math.pow(10, -decimalPlaces);
+  const nextValue = parseFloat(inputNumber) + (key === 'ArrowUp' ? step : -step);
+  const next = inputNumber.includes('.') ? nextValue.toFixed(decimalPlaces) : String(nextValue);
+  return Number(next) > 0 ? next : '0';
 }
 
 function TrackValueInput({ track, variableSource, variableValue, actualSize, onChange }: {
@@ -39,7 +50,7 @@ function TrackValueInput({ track, variableSource, variableValue, actualSize, onC
 
   if (variableSource) {
     const text = display.mode === 'hug' && actualSize !== undefined ? String(actualSize) : display.text;
-    return <VariableChip value={variableSource} resolvedValue={variableValue} display={text} defaultUnit=""
+    return <GridVariableInput value={variableSource} resolvedValue={variableValue} display={text}
       menuOptions={display.mode === 'fill'
         ? [0.25, 0.5, 0.75, 1, 2, 3, 4, 5].map(value => ({ value: `${value}fr`, label: `${value}fr` }))
         : buildDetachMenuOptions(text)}
@@ -81,29 +92,27 @@ function TrackValueInput({ track, variableSource, variableValue, actualSize, onC
 function TrackInput({ axis, track, actualSize, variableSource, variableValue, onChange }: {
   axis: 'column' | 'row'; track: Track; actualSize?: number; variableSource?: string; variableValue?: string; onChange: (track: Track) => void;
 }) {
-  const optionStyle = { '--dropdown-suffix-opacity': 1 } as React.CSSProperties;
   const display = getTrackDisplay(track);
   return <div className={styles.trackInput}>
-    <Select
-      value={display.mode === 'raw' ? '' : display.mode}
-      displayValue={display.mode === 'raw' ? 'CSS' : undefined}
-      tip={display.mode === 'raw' ? lang.gridCssValueTip : track.kind === 'minmax' ? track.raw : undefined}
-      showSelectedSuffix={false}
-      labelStyle={{ textAlign: 'left', padding: 0 }}
-      iconClassName={styles.trackArrow}
-      options={[
-        { value: 'fixed', label: lang.gridFixed, menuLabel: axis === 'column' ? lang.gridFixedWidth : lang.gridFixedHeight, suffix: `(${display.mode === 'fixed' ? display.text : 100})`, icon: <FixedWidth />, style: optionStyle },
-        { value: 'hug', label: lang.sizeAdaptive, menuLabel: lang.gridHugContents, icon: <HugContents /> },
-        { value: 'fill', label: lang.sizeFillBadge, menuLabel: lang.gridFillContainer, suffix: `(${display.mode === 'fill' ? display.value : 1}fr)`, icon: <FillContainer />, style: optionStyle },
-      ]}
-      onChange={(mode: 'fixed' | 'fill' | 'hug') => {
-        if (track.kind === 'minmax' && mode === display.mode) {
-          if (variableSource) onChange(track);
-          return;
-        }
-        onChange(createTrack(mode));
-      }}
-    />
+    {/* 回显和菜单分别渲染；括号属于菜单 label，与正文同色，公共 Select/Dropdown 无需增加 Grid 参数。 */}
+    <Panel.Item style={{ padding: '0 8px' }}>
+      <Dropdown value={display.mode === 'raw' ? '' : display.mode}
+        options={[
+          { value: 'fixed', label: `${axis === 'column' ? lang.gridFixedWidth : lang.gridFixedHeight} (${display.mode === 'fixed' ? display.text : 100})`, icon: <FixedWidth /> },
+          { value: 'hug', label: lang.gridHugContents, icon: <HugContents /> },
+          { value: 'fill', label: `${lang.gridFillContainer} (${display.mode === 'fill' ? display.value : 1}fr)`, icon: <FillContainer /> },
+        ]}
+        onClick={(mode: 'fixed' | 'fill' | 'hug') => {
+          // 沿用 Select 的语义：选择当前模式不触发写入，也不改写已有 minmax 或变量。
+          if (mode !== display.mode) onChange(createTrack(mode));
+        }}>
+        <button type="button" className={styles.trackMode}
+          data-mybricks-tip={display.mode === 'raw' ? lang.gridCssValueTip : track.kind === 'minmax' ? track.raw : undefined}>
+          <span>{display.mode === 'raw' ? 'CSS' : display.mode === 'fixed' ? lang.gridFixed : display.mode === 'hug' ? lang.sizeAdaptive : lang.sizeFillBadge}</span>
+          <span className={styles.trackArrow}><DownOutlined /></span>
+        </button>
+      </Dropdown>
+    </Panel.Item>
     {variableSource ? <TrackValueInput track={track} variableSource={variableSource} variableValue={variableValue} actualSize={actualSize} onChange={onChange} />
       : display.mode === 'raw' ? <Input value={display.text} tip={display.text} disabled />
       : <TrackValueInput key={display.mode} track={track} actualSize={actualSize} onChange={onChange} />}
@@ -224,7 +233,7 @@ export default function Grid({ value, onChange, onRemoveLayout }: { value: GridV
 
   const renderVariableCount = (axis: 'column' | 'row', list: TrackListResult) => {
     const count = String(list.tracks.length);
-    return <VariableChip value={list.source} resolvedValue={list.variableValue} display={count} defaultUnit=""
+    return <GridVariableInput value={list.source} resolvedValue={list.variableValue} display={count}
       prefix={<div {...(axis === 'column' ? getColumnCountDragProps(Number(count), lang.gridColumnCount) : getRowCountDragProps(Number(count), lang.gridRowCount))}>
         <Icon name={axis === 'column' ? 'grid-columns' : 'grid-rows'} />
       </div>}

@@ -102,20 +102,11 @@ export function VariableChip({
         ]
       : []),
     ...menuOptions,
-    // 这段改动控制下拉菜单里有没有「替换变量...」。以网格设置中的列宽为例：
-    // CSS 是 var(--col-width)，变量值为 100px，输入框显示数字胶囊「100」。点击右侧箭头：
-    //   修改前的菜单：[固定值 (100)]、分隔线、[替换变量...]。
-    //   修改后的菜单：[固定值 (100)]。
-    // 原因：Grid 没有实现选择其他变量的弹窗，原来的「替换变量...」点了没反应。
-    // onRequestPicker 就是打开该弹窗的函数；没传时，不添加「替换变量...」及其前面的分隔线。
-    // 旧宽高输入框 Size、通用数值框 VariableNumberInput 都传了这个函数，仍显示该菜单项，点击仍打开变量列表。
-    ...(onRequestPicker ? [
-      ...(menuOptions.length ? [{ label: '', value: '__chipDivider__', type: 'divider' as const }] : []),
-      isPresetList
-        ? { label: '', value: REPLACE_ACTION, type: 'action' as const, icon: <Variable />, tip: lang.replaceVariable }
-        : { label: lang.replaceVariable, value: REPLACE_ACTION, type: 'action' as const, icon: <Variable /> },
-    ] : []),
-  ]), [menuOptions, isPresetList, varName, displayText, onRequestPicker])
+    ...(menuOptions.length ? [{ label: '', value: '__chipDivider__', type: 'divider' as const }] : []),
+    isPresetList
+      ? { label: '', value: REPLACE_ACTION, type: 'action' as const, icon: <Variable />, tip: lang.replaceVariable }
+      : { label: lang.replaceVariable, value: REPLACE_ACTION, type: 'action' as const, icon: <Variable /> },
+  ]), [menuOptions, isPresetList, varName, displayText])
 
   const handleAction = useCallback((actionValue: string) => {
     if (actionValue === REPLACE_ACTION) {
@@ -131,11 +122,8 @@ export function VariableChip({
     onMenuSelect?.(selectedValue)
   }, [varName, onMenuSelect])
 
-  // 新增 value 参数：失焦时传入 input 的实际文本，按 Enter 时仍默认使用 draft。
-  // 这样 Esc 清空 input 后触发失焦，会收到空串并跳过提交，不会把已取消的 3fr 写回。
-  // 数字校验和补单位沿用旧逻辑；提交/取消的修复也作用于 Size、VariableNumberInput 等历史调用方。
-  const commitDraft = useCallback((value = draft) => {
-    const trimmed = value.trim()
+  const commitDraft = useCallback(() => {
+    const trimmed = draft.trim()
     setDraft('')
     if (!trimmed) return
     const matched = trimmed.match(NUMBER_WITH_UNIT_RE)
@@ -157,9 +145,6 @@ export function VariableChip({
     }
     if (event.key === 'Escape') {
       setDraft('')
-      // 例如原值是 var(--col-size)，输入 3fr 后按 Esc，应保留原变量。
-      // setDraft('') 尚未更新输入框就会执行 blur，必须先清空实际 input，否则失焦仍会提交 3fr。
-      event.currentTarget.value = ''
       event.currentTarget.blur()
     }
   }, [draft, commitDraft, onDetach])
@@ -192,8 +177,7 @@ export function VariableChip({
             data-drag-ignore
             onChange={(event) => setDraft(event.target.value)}
             onKeyDown={handleKeyDown}
-            // 普通失焦提交当前文本（如 3fr）；Esc 后这里读到空串，commitDraft 会跳过提交。
-            onBlur={(event) => commitDraft(event.currentTarget.value)}
+            onBlur={commitDraft}
           />
           {draft && unitLabel && <span className={css.unit}>{unitLabel}</span>}
         </div>
