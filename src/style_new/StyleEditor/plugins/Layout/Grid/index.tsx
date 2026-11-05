@@ -379,12 +379,6 @@ export default function Grid({ value, onChange, onRemoveLayout }: { value: GridV
       setCountPreviewLocked(false);
       setSelectedTrack(null);
       setView('picker');
-      // Temporary style-instrument-debug: 验收确认后删除。
-      void fetch('http://127.0.0.1:4318/logs', {
-        method: 'POST', headers: { 'content-type': 'application/json' }, keepalive: true,
-        body: JSON.stringify({ sessionId: 'grid-card1-20261103', event: 'grid-picker-open', time: new Date().toISOString(),
-          data: { columns: columns.length, autoRows, previewRowCount } }),
-      }).catch(() => {});
     }}
       style={{ backgroundSize: `${100 / (previewColumnCount || 1)}% ${100 / (previewRowCount || 1)}%` }}>
       <span>{summary}</span>
@@ -436,12 +430,6 @@ export default function Grid({ value, onChange, onRemoveLayout }: { value: GridV
               onMouseEnter={() => {
                 if (countPreviewLocked || !pickerEditable) return;
                 setHover({ columns: column, rows: row });
-                // Temporary style-instrument-debug: 验收确认后删除。
-                void fetch('http://127.0.0.1:4318/logs', {
-                  method: 'POST', headers: { 'content-type': 'application/json' }, keepalive: true,
-                  body: JSON.stringify({ sessionId: 'grid-card1-20261103', event: 'grid-picker-hover', time: new Date().toISOString(),
-                    data: { columns: column, rows: row } }),
-                }).catch(() => {});
               }}
               onClick={() => {
                 // 数量拖动后保留高亮，首次点击格子盘只恢复悬停预览。
