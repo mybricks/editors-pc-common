@@ -6,7 +6,6 @@ import {
   BOX_SPACING_KEYS, createSpacingWritePlans, getUnifiedSpacingValue, normalizeBoxSpacingChange, readBoxSpacingValue,
 } from '../../core/box-spacing'
 import type { BoxSpacingProperty } from '../../core/box-spacing'
-import { expandFourShorthand } from '../../core/shorthand-normalizer'
 
 type Options = {
   property: BoxSpacingProperty
@@ -23,22 +22,16 @@ export function useBoxSpacingEditor({ property, value, onChange: fallbackOnChang
   const groupClear = useStyleClear(keys)
   const externalValue = context?.effectiveStyle ? effectiveValue : value
   const incoming = readBoxSpacingValue(property, externalValue, context?.effectiveStyle)
-  // 批量回读优先用当前单边声明；CSSOM 未展开变量简写时补回对应边。
-  const shorthandWinner = context?.getStyleProperty?.(property).winner
-  const shorthandSides = shorthandWinner?.currentState && shorthandWinner.value.includes('var(')
-    ? expandFourShorthand(shorthandWinner.value)
-    : null
-  keys.forEach((key, index) => {
+  // winner已经做了简写的四边拆分，直接拿key去取对应的winner值
+  keys.forEach(key => {
     const winner = context?.getStyleProperty?.(key).winner
-    const source = context?.effectiveStyle?.[key]
     if (winner?.currentState) {
+      // unset 就清空输入值，不是unset就直接用winner的值
       if (/^unset$/i.test(winner.value.trim())) {
         delete incoming[key]
       } else {
         incoming[key] = winner.value
       }
-    } else if (!winner && shorthandSides && (!source || source.type === 'computed')) {
-      incoming[key] = shorthandSides[index]
     }
   })
   const editorOptions = context?.editConfig.options
