@@ -1,7 +1,8 @@
-import { splitTopLevelArguments, readFunctionParts } from './track-list';
+import { readFunctionParts, splitTopLevelArguments } from './track-list';
 import type { Breadth, Dimension, Track } from './types';
 
-const DIMENSION = /^([+]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?)(px|fr|%|r?em|r?lh|r?ex|r?ch|r?cap|r?ic|[sld]?v(?:w|h|i|b|min|max)|cq(?:w|h|i|b|min|max)|cm|mm|q|in|pt|pc)?$/i;
+const DIMENSION =
+  /^([+]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?)(px|fr|%|r?em|r?lh|r?ex|r?ch|r?cap|r?ic|[sld]?v(?:w|h|i|b|min|max)|cq(?:w|h|i|b|min|max)|cm|mm|q|in|pt|pc)?$/i;
 const MATH_FUNCTIONS = ['calc', 'min', 'max', 'clamp'];
 
 function parseBreadth(raw: string, allowFlex: boolean): Breadth | null {
@@ -42,15 +43,20 @@ export function parseTrackSize(raw: string): Track | null {
 export function serializeTrack(track: Track): string {
   if (track.raw !== undefined) return track.raw;
   switch (track.kind) {
-    case 'dimension': return `${track.value}${track.unit}`;
-    case 'keyword': return track.value;
-    case 'minmax': return `minmax(${serializeTrack(track.min)}, ${serializeTrack(track.max)})`;
-    case 'expression': return track.raw;
+    case 'dimension':
+      return `${track.value}${track.unit}`;
+    case 'keyword':
+      return track.value;
+    case 'minmax':
+      return `minmax(${serializeTrack(track.min)}, ${serializeTrack(track.max)})`;
+    case 'expression':
+      return track.raw;
   }
 }
 
 export function createTrack(mode: 'fixed' | 'fill' | 'hug', value = mode === 'fixed' ? 100 : 1): Track {
-  return mode === 'hug' ? { kind: 'keyword', value: 'max-content' }
+  return mode === 'hug'
+    ? { kind: 'keyword', value: 'max-content' }
     : { kind: 'dimension', value, unit: mode === 'fill' ? 'fr' : 'px' };
 }
 

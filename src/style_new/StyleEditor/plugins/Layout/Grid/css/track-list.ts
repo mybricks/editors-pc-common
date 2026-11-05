@@ -31,7 +31,10 @@ function splitTopLevel(source: string, separator: 'space' | 'comma', separateLin
       if (index >= source.length) return null;
       continue;
     }
-    if (char === '\\') { index++; continue; }
+    if (char === '\\') {
+      index++;
+      continue;
+    }
     if (char === '(') {
       index = findCssClosingParenthesis(source, index);
       if (index === -1) return null;
@@ -39,11 +42,17 @@ function splitTopLevel(source: string, separator: 'space' | 'comma', separateLin
     }
     if (char === ')') return null;
     if (char === '[') {
-      if (separateLineNames && brackets === 0) { push(index); start = index; }
+      if (separateLineNames && brackets === 0) {
+        push(index);
+        start = index;
+      }
       brackets++;
     }
     if (char === ']' && --brackets < 0) return null;
-    if (char === ']' && separateLineNames && brackets === 0) { push(index + 1); start = index + 1; }
+    if (char === ']' && separateLineNames && brackets === 0) {
+      push(index + 1);
+      start = index + 1;
+    }
     if (brackets === 0 && (separator === 'space' ? /\s/.test(char) : char === ',')) {
       push(index);
       start = index + 1;

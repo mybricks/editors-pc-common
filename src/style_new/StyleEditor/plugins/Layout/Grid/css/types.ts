@@ -1,9 +1,11 @@
 // CSS 语义模型不依赖 Fixed/Fill/Hug 控件；raw 只用于保留未编辑的原文。
 export type Dimension = { kind: 'dimension'; value: number; unit: string; raw?: string };
-export type Breadth = Dimension
+export type Breadth =
+  | Dimension
   | { kind: 'keyword'; value: 'auto' | 'min-content' | 'max-content'; raw?: string }
   | { kind: 'expression'; raw: string };
-export type Track = Breadth
+export type Track =
+  | Breadth
   | { kind: 'minmax'; min: Breadth; max: Breadth; raw?: string };
 
 export type TrackListResult = {
