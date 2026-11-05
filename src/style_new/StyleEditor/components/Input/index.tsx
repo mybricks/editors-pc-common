@@ -22,6 +22,7 @@ export interface InputProps {
   style?: CSSProperties;
   onChange?: (value: string) => void;
   disabled?: boolean;
+  autoFocus?: boolean;
   onBlur?: React.FocusEventHandler<HTMLInputElement>;
   onFocus?: React.FocusEventHandler<HTMLInputElement>;
   onKeyDown?: React.KeyboardEventHandler<HTMLInputElement>;
@@ -44,6 +45,7 @@ export function Input({
   suffix,
   style = {},
   disabled = false,
+  autoFocus = false,
   placeholder,
   onFocus = () => {},
   onKeyDown = () => {},
@@ -87,6 +89,7 @@ export function Input({
               value={inputValue ?? ''}
               onChange={handleInputChange}
               disabled={disabled}
+              autoFocus={autoFocus}
               placeholder={placeholder}
               onFocus={onFocus}
               onBlur={onBlur}
@@ -111,6 +114,7 @@ export function Input({
               style={{ textAlign: 'right',paddingRight: 3 }}
               onChange={handleInputChange}
               disabled={disabled}
+              autoFocus={autoFocus}
               placeholder={placeholder}
               onFocus={onFocus}
               onBlur={onBlur}

@@ -1,4 +1,4 @@
-import React, { CSSProperties } from 'react'
+import React, { CSSProperties, useLayoutEffect, useState } from 'react'
 
 import { InputNumber, SketchPopup, VariableChip, VariableList } from '../'
 import { Variable } from '../../icons/Variable'
@@ -94,6 +94,13 @@ export function VariableNumberInput({
   emptyText = lang.noSizeVariables,
   compact = false,
 }: VariableNumberInputProps) {
+  const [focusAfterDetach, setFocusAfterDetach] = useState(false)
+
+  useLayoutEffect(() => {
+    // 删除解绑时由新挂载的输入框接住焦点；挂载后清掉标记，避免后续重挂载抢焦点。
+    if (focusAfterDetach) setFocusAfterDetach(false)
+  }, [focusAfterDetach])
+
   // 「固定值」是所有字段共有的解绑出口，调用方不传菜单时兜底给它
   const defaultUnitOption = inputProps.unitOptions?.find((option) => option.value === 'default')
   const chipMenuOptions = menuOptions ?? [
@@ -138,14 +145,17 @@ export function VariableNumberInput({
           onMenuSelect={handleMenuSelect}
           onMenuAction={handleMenuAction}
           onInputValue={inputProps.onChange as (value: string) => void}
-          onDetach={binding.detach}
+          onDetach={() => {
+            setFocusAfterDetach(true)
+            binding.detach()
+          }}
           prefix={chipPrefix}
           style={chipStyle}
           compact={compact}
           showIconOnHover={inputProps.showIconOnHover}
         />
       ) : (
-        <InputNumber key={inputKey} {...inputProps} />
+        <InputNumber key={inputKey} {...inputProps} autoFocus={focusAfterDetach || inputProps.autoFocus} />
       )}
       <SketchPopup
         open={binding.pickerOpen}

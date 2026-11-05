@@ -87,7 +87,12 @@ export function BorderRadius({ value, onChange: fallbackOnChange, config, collap
   const externalRadiusPreview = (key: typeof RADIUS_KEYS[number]) => {
     const item = context?.effectiveStyle?.[key]
     if (!item || item.type !== 'computed') return undefined
-    const preview = String(item.value ?? '').trim()
+    // 批量快照可能仍保留已删除的变量，预览改读当前计算值。
+    let raw = item.value
+    if (context?.getStyleProperty) {
+      raw = context.getStylePreview?.(key, true)
+    }
+    const preview = String(raw ?? '').trim()
     return preview && preview !== '0px' && preview !== '0' ? preview : undefined
   }
   const radiusPreview: Record<typeof RADIUS_KEYS[number], string | undefined> = {

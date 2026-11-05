@@ -158,8 +158,21 @@ export function createStyleResolution(tab: ZoneTab, target: HTMLElement | null =
         if (!style.getPropertyValue(longhand)) borderFallbacks.set(longhand, { value, property })
       })
     })
+    // 之前margin: var(...)会导致读不到margin-left这些单侧值
+    // 现在从整条简写拆出单侧值，并记住来自哪条简写，这样就知道清除哪条边，单侧就能展示default选项
+    ;['margin', 'padding', 'border-radius'].forEach(property => {
+      const raw = style.getPropertyValue(property)
+      if (!raw.includes('var(')) return
+      const values = expandFourShorthand(raw)
+      if (!values) return
+      STYLE_SHORTHANDS[property].forEach((longhand, index) => {
+        if (!style.getPropertyValue(longhand)) {
+          borderFallbacks.set(longhand, { value: values[index], property })
+        }
+      })
+    })
     const specificity = source && calculateSafeSpecificity(source.selectorPart, target)
-    // 2. 将属性值和来源存入索引；优先直接读取，边框分项为空时才用上面拆出的值。
+    // 2. 将属性值和来源存入索引；优先直接读取，简写分项为空时才用上面拆出的值。
     expanded.forEach(key => {
       const fallback = borderFallbacks.get(key)
       const value = style.getPropertyValue(key).trim() || fallback?.value
