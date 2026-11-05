@@ -31,8 +31,6 @@ interface DragNumberOptions {
   endWithLastDraggedValue?: boolean
   /** 拖拽过程中 input 显示的格式化，默认直接用数字字符串；如 v => `${v}%` */
   formatDisplay?: (value: number) => string
-  /** 目前仅 Grid 变量行/列数胶囊启用，通过回调将 3 改为 4；默认 false，保留历史输入框的查找与更新。 */
-  skipInput?: boolean
 }
 
 /**
@@ -50,7 +48,7 @@ interface DragNumberOptions {
  * <InputNumber defaultValue={...} onChange={...} />
  */
 export function useDragNumber(options: DragNumberOptions = {}) {
-  const { min = 0, max = Infinity, sensitivity = 1, continuous = false, onDragStart, onDragChange, onDragEnd, endWithLastDraggedValue = false, formatDisplay, skipInput = false } = options
+  const { min = 0, max = Infinity, sensitivity = 1, continuous = false, onDragStart, onDragChange, onDragEnd, endWithLastDraggedValue = false, formatDisplay } = options
 
   // 用 ref 保存回调，避免 handler 因回调变化而重建
   const onDragStartRef = useRef(onDragStart)
@@ -92,8 +90,7 @@ export function useDragNumber(options: DragNumberOptions = {}) {
     e.preventDefault()
     
     const iconEl = e.currentTarget as HTMLElement
-    // Grid 胶囊没有普通数值 input，不借用邻近字段；未启用 skipInput 的历史拖拽仍查找原 input。
-    const inputEl = skipInput ? null : findInputEl(iconEl)
+    const inputEl = findInputEl(iconEl)
 
     // 优先从 DOM input 读取最新值（上次拖拽/输入的结果），避免因父组件未及时回传而使用过期的 props 值
     let startValue = parseFloat(currentValue) || 0
@@ -125,7 +122,7 @@ export function useDragNumber(options: DragNumberOptions = {}) {
     }
     document.body.style.cursor = 'ew-resize'
     document.body.style.userSelect = 'none'
-  }, [findInputEl, skipInput])
+  }, [findInputEl])
 
   const handleMouseMove = useCallback((e: MouseEvent) => {
     const state = dragStateRef.current

@@ -203,7 +203,6 @@ export default function Grid({ value, onChange, onRemoveLayout }: { value: GridV
   // 拖动仍由公共 hook 处理；保留首次拖动前的范围，恢复悬停后也沿用这一基准。
   const countDragOptions = (axis: 'column' | 'row', currentCount: number) => ({
     min: 1, max: MAX_EDITABLE_TRACKS, sensitivity: 0.1, continuous: true, endWithLastDraggedValue: true,
-    skipInput: !!(axis === 'column' ? columnList : rowEditList).variableValue,
     onDragChange: (axis === 'column' ? columnList : rowEditList).variableValue || countDragVariableRef.current
       ? (count: number) => { if (count !== currentCount) changeCount(axis, String(count)); }
       : undefined,
@@ -235,6 +234,8 @@ export default function Grid({ value, onChange, onRemoveLayout }: { value: GridV
     const count = String(list.tracks.length);
     return <GridVariableInput value={list.source} resolvedValue={list.variableValue} display={count}
       prefix={<div {...(axis === 'column' ? getColumnCountDragProps(Number(count), lang.gridColumnCount) : getRowCountDragProps(Number(count), lang.gridRowCount))}>
+        {/* 仅 Grid 胶囊：供原 hook 就近读取和更新数值，避免找到相邻字段；写入仍走拖拽回调。 */}
+        <input type="hidden" value={count} readOnly />
         <Icon name={axis === 'column' ? 'grid-columns' : 'grid-rows'} />
       </div>}
       menuOptions={[
