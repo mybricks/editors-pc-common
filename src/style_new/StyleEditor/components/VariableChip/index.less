@@ -83,7 +83,7 @@
   .arrowWrap {
     width: 16px;
     height: 100%;
-    // 下拉箭头与输入框右边缘留出内间距，避免贴边。
+    // 按 Grid 胶囊的间距需求留出右侧空间；历史变量胶囊也共享此视觉调整，不改变数值或菜单回调。
     margin-right: 6px;
     flex-shrink: 0;
   }
@@ -129,6 +129,7 @@
 
     .arrowWrap {
       width: 16px;
+      // 紧凑模式同步上述右侧间距，历史 compact 胶囊也受此视觉调整影响。
       margin-right: 6px;
     }
   }

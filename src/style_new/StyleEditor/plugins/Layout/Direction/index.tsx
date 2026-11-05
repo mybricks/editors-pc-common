@@ -49,6 +49,7 @@ export default ({
       render: () => <Icon name="row-direction" />,
     },
     {
+      // 新增 Grid 入口；仍受下方 defaultDirection 过滤，displayOnly 等历史受限入口不增加按钮。
       title: lang.directionGrid,
       value: "grid",
       render: () => <Icon name="grid" />,
@@ -67,6 +68,7 @@ export default ({
     if (freedom) return false;
     if (value === "absolute") return isAbsolute;
     if (value === "inline") return isInline;
+    // grid/inline-grid 只高亮网格按钮，避免同时命中默认；原 flex、inline 及自由布局的判断不变。
     if (value === "default") return !isFlexLike && !isInline && !isGridLike;
     if (value === "grid") return isGridLike;
     if (value === "row") return isFlexLike && isRow;

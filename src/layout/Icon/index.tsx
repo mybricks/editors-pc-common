@@ -103,6 +103,7 @@ const icons = {
         d="M8 3h2c1.933 0 3.5 1.567 3.5 3.5 0 1.933-1.567 3.5-3.5 3.5H4.707l2.147 2.146-.708.708-3-3-.353-.354.353-.354 3-3 .708.708L4.707 9H10c1.38 0 2.5-1.12 2.5-2.5C12.5 5.12 11.38 4 10 4H8z"></path>
     </svg>
   ),
+  // 按 Grid 需求同步替换行/列间距图标并调浅、缩放；此公共字典的历史 Flex 图标也更新，仅影响外观，不改变 gap 读写。
   "row-gap": (
     <svg style={{transform: 'scale(2)', opacity: 0.6}} width="24" height="24" fill="none" viewBox="0 0 24 24" aria-hidden="true">
       <path fill="currentColor"

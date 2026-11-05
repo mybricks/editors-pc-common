@@ -569,6 +569,7 @@ function getUnit (value: any, defaultUnitValue: string | undefined = void 0, uni
   return unit || unitOptions[0]?.value || ''
 }
 
+// 为 Grid 的 1fr → 2fr、25% → 26% 键盘步进导出已有函数；单位由 Grid 拼回，函数实现及原 InputNumber 调用不变。
 export function incrementDecrement(inputNumber: string, keyEvent: 'ArrowUp' | 'ArrowDown', allowNegative = false) {
   // 未配置或输入中的非法数字从 0 开始调整，避免把 NaN 写入输入框。
   if (!Number.isFinite(parseFloat(inputNumber))) inputNumber = '0'
