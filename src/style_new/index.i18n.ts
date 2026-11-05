@@ -765,6 +765,10 @@ export default i18n({
   gridFixedWidth: { zh: '固定', en: 'Fixed width' },
   gridFixedHeight: { zh: '固定', en: 'Fixed height' },
   gridHugContents: { zh: '适应', en: 'Hug contents' },
+  gridCssValueTip: {
+    zh: '当前 CSS 值暂不支持直接编辑；切换尺寸模式将替换该值。',
+    en: 'This CSS value cannot be edited directly yet. Changing the sizing mode will replace it.',
+  },
   gridFillContainer: { zh: '填满', en: 'Fill container' },
   gridAddTrack: { zh: '添加轨道', en: 'Add track' },
   gridRemoveTrack: { zh: '删除轨道', en: 'Remove track' },

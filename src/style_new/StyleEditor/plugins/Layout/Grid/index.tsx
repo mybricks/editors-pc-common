@@ -6,7 +6,7 @@ import { FixedWidth } from '../../../icons/FixedWidth';
 import { FillContainer } from '../../../icons/FillContainer';
 import { HugContents } from '../../../icons/HugContents';
 import Icon from '../Icon';
-import { parseTrackList, parseTracks, resizeTracks, serializeTrackList, getTrackDisplay, createTrack, updateTrackValue, MAX_EDITABLE_TRACKS, Track, TrackListResult } from './value';
+import { parseTrackList, parseTracks, resizeTracks, serializeTrackList, resolveAutoRepeat, getTrackDisplay, createTrack, updateTrackValue, MAX_EDITABLE_TRACKS, Track, TrackListResult } from './value';
 import lang from '../../../../index.i18n';
 import styles from './index.less';
 
@@ -62,14 +62,14 @@ function TrackValueInput({ track, onChange }: { track: Track; onChange: (track: 
   />;
 }
 
-function TrackInput({ axis, track, onChange }: { axis: 'column' | 'row'; track: Track; onChange: (track: Track) => void }) {
+function TrackInput({ axis, track, actualSize, onChange }: { axis: 'column' | 'row'; track: Track; actualSize?: number; onChange: (track: Track) => void }) {
   const optionStyle = { '--dropdown-suffix-opacity': 1 } as React.CSSProperties;
   const display = getTrackDisplay(track);
   return <div className={styles.trackInput}>
     <Select
       value={display.mode === 'raw' ? '' : display.mode}
       displayValue={display.mode === 'raw' ? 'CSS' : undefined}
-      tip={track.kind === 'minmax' ? track.raw : undefined}
+      tip={display.mode === 'raw' ? lang.gridCssValueTip : track.kind === 'minmax' ? track.raw : undefined}
       showSelectedSuffix={false}
       labelStyle={{ textAlign: 'left', padding: 0 }}
       iconClassName={styles.trackArrow}
@@ -84,7 +84,8 @@ function TrackInput({ axis, track, onChange }: { axis: 'column' | 'row'; track: 
       }}
     />
     {display.mode === 'raw' ? <Input value={display.text} tip={display.text} disabled />
-      : display.mode !== 'hug' && <TrackValueInput key={display.mode} track={track} onChange={onChange} />}
+      : display.mode === 'hug' ? <Input value={actualSize} disabled />
+      : <TrackValueInput key={display.mode} track={track} onChange={onChange} />}
   </div>;
 }
 
@@ -96,11 +97,16 @@ export default function Grid({ value, onChange, onRemoveLayout }: { value: GridV
   const [countDragStart, setCountDragStart] = useState<{ columns: number; rows: number } | null>(null);
   const [countPreviewLocked, setCountPreviewLocked] = useState(false);
   const countDraggingRef = useRef(false);
+  const countDragRepeatRef = useRef<Track>();
   const [selectedTrack, setSelectedTrack] = useState<{ axis: 'column' | 'row'; index: number } | null>(null);
   const [dragTrack, setDragTrack] = useState<{ axis: 'column' | 'row'; index: number } | null>(null);
   const [dropTarget, setDropTarget] = useState<{ axis: 'column' | 'row'; index: number; half: 'top' | 'bottom' } | null>(null);
-  const columnList = parseTrackList(value.gridTemplateColumns);
-  const rowList = parseTrackList(value.gridTemplateRows);
+  let columnList = parseTrackList(value.gridTemplateColumns);
+  let rowList = parseTrackList(value.gridTemplateRows);
+  if (targetDom) {
+    if (columnList.kind === 'readonly') columnList = resolveAutoRepeat(columnList, window.getComputedStyle(targetDom).gridTemplateColumns);
+    if (rowList.kind === 'readonly') rowList = resolveAutoRepeat(rowList, window.getComputedStyle(targetDom).gridTemplateRows);
+  }
   const autoList = parseTrackList(value.gridAutoRows || '1fr');
   // 只有确实没有声明时沿用原有首次编辑预览；未知语法不能变成默认轨道。
   const columns = columnList.kind === 'empty' ? resizeTracks([], 1) : columnList.tracks;
@@ -110,11 +116,15 @@ export default function Grid({ value, onChange, onRemoveLayout }: { value: GridV
   const columnsEditable = columnList.kind !== 'readonly';
   const rowsEditable = rowEditList.kind !== 'readonly' && (!autoRows || rowEditList.kind === 'tracks');
   const pickerEditable = columnsEditable && rowsEditable;
+  // 未识别的规则仍可展示实际数量，不把计算出的像素尺寸写回。
+  const previewColumnCount = !columnsEditable && targetDom
+    ? parseTracks(window.getComputedStyle(targetDom).gridTemplateColumns).length
+    : columns.length;
   // Auto 按实际行数展示预览和设置列表，轨道尺寸仍读取 gridAutoRows，避免写入 computed 像素值。
-  const previewRowCount = autoRows && targetDom
+  const previewRowCount = (autoRows || !rowsEditable) && targetDom
     ? parseTracks(window.getComputedStyle(targetDom).gridTemplateRows).length
     : rows.length;
-  const summary = `${columnsEditable ? columns.length : 'CSS'} × ${rowsEditable ? (autoRows ? lang.gridAuto : rows.length) : 'CSS'}`;
+  const summary = `${columnsEditable ? columns.length : previewColumnCount || 'CSS'} × ${rowsEditable ? (autoRows ? lang.gridAuto : rows.length) : previewRowCount || 'CSS'}`;
 
   // 所有轨道编辑共用这一提交入口；只读规则不进入现有 onChange 写入链路。
   const commitTracks = (changes: { key: keyof GridValue; list: TrackListResult; tracks: Track[] }[]) => {
@@ -136,9 +146,12 @@ export default function Grid({ value, onChange, onRemoveLayout }: { value: GridV
     const number = Number(next);
     if (!Number.isFinite(number) || !next.trim()) return;
     const count = Math.min(MAX_EDITABLE_TRACKS, Math.max(1, Math.floor(number)));
+    const list = axis === 'column' ? columnList : rowEditList;
+    if (list.kind === 'auto-repeat' && count === list.tracks.length) return;
     commitTracks([{ key: axis === 'column' ? 'gridTemplateColumns' : 'gridTemplateRows',
-      list: axis === 'column' ? columnList : rowEditList,
-      tracks: resizeTracks(axis === 'column' ? columns : rows, count) }]);
+      list,
+      tracks: resizeTracks(axis === 'column' ? columns : rows, count,
+        countDragRepeatRef.current || (list.kind === 'auto-repeat' ? list.tracks[0] : undefined)) }]);
   };
   const selectAutoRows = () => {
     setCountDragStart(null);
@@ -151,15 +164,18 @@ export default function Grid({ value, onChange, onRemoveLayout }: { value: GridV
     min: 1, max: MAX_EDITABLE_TRACKS, sensitivity: 0.1, continuous: true, endWithLastDraggedValue: true,
     onDragStart: (count: number) => {
       countDraggingRef.current = true;
+      // 一次连续拖动沿用起始模板，首次提交展开后新增的轨道也保留 minmax。
+      const list = axis === 'column' ? columnList : rowEditList;
+      countDragRepeatRef.current = list.kind === 'auto-repeat' ? list.tracks[0] : undefined;
       setHover(null);
-      setCountDragStart(start => start ?? { columns: columns.length, rows: previewRowCount });
+      setCountDragStart(start => start ?? { columns: previewColumnCount, rows: previewRowCount });
       setCountPreviewLocked(true);
       return count;
     },
     onDragEnd: (count: number) => {
       if (count !== currentCount) changeCount(axis, String(count));
       // 松手后保留范围高亮；延迟解除拖动态，避免同次弹窗外 click 关闭弹窗。
-      requestAnimationFrame(() => { countDraggingRef.current = false; });
+      requestAnimationFrame(() => { countDraggingRef.current = false; countDragRepeatRef.current = undefined; });
     },
   });
   const getColumnCountDragProps = useDragNumber(countDragOptions('column', columns.length));
@@ -179,6 +195,10 @@ export default function Grid({ value, onChange, onRemoveLayout }: { value: GridV
       tracks = Array.from({ length: previewRowCount }, (_, index) => autoList.tracks[index % autoList.tracks.length]);
     }
     const key = axis === 'column' ? 'gridTemplateColumns' : 'gridTemplateRows';
+    // Hug 仅回显浏览器计算的轨道尺寸，不参与轨道模型或 CSS 写回。
+    const actualSizes = targetDom && tracks.some(track => getTrackDisplay(track).mode === 'hug')
+      ? parseTracks(window.getComputedStyle(targetDom)[key]).map(track => track.kind === 'dimension' ? Math.round(track.value) : undefined)
+      : [];
     const removeLabel = (axis === 'column' ? lang.gridRemoveColumn : lang.gridRemoveRow).replace('{count}', String(tracks.length));
     const dropIndex = dropTarget?.axis === axis ? dropTarget.index + (dropTarget.half === 'bottom' ? 1 : 0) : null;
     const showDropIndicator = dragTrack?.axis === axis && dropIndex !== null
@@ -222,7 +242,7 @@ export default function Grid({ value, onChange, onRemoveLayout }: { value: GridV
         <span>{axis === 'column' ? lang.gridColumns : lang.gridRows}</span>
         <button type="button" className={styles.iconButton} aria-label={lang.gridAddTrack}
           disabled={tracks.length >= MAX_EDITABLE_TRACKS}
-          onClick={() => commitTracks([{ key, list, tracks: resizeTracks(tracks, tracks.length + 1) }])}>
+          onClick={() => commitTracks([{ key, list, tracks: resizeTracks(tracks, tracks.length + 1, list.kind === 'auto-repeat' ? tracks[0] : undefined) }])}>
           <svg width="24" height="24" fill="none" viewBox="0 0 24 24" data-fpl-icon-size="24L" aria-hidden="true">
             <path fill="var(--fpl-icon-color, var(--color-icon))" fillRule="evenodd" d="M12 6a.5.5 0 0 1 .5.5v5h5a.5.5 0 0 1 0 1h-5v5a.5.5 0 0 1-1 0v-5h-5a.5.5 0 0 1 0-1h5v-5A.5.5 0 0 1 12 6" clipRule="evenodd" />
           </svg>
@@ -253,7 +273,7 @@ export default function Grid({ value, onChange, onRemoveLayout }: { value: GridV
             <path fill="currentColor" fillRule="evenodd" d="M11 11.5a.5.5 0 0 1-.5.5h-5a.5.5 0 0 1 0-1h5a.5.5 0 0 1 .5.5M11 8a.5.5 0 0 1-.5.5h-5a.5.5 0 0 1 0-1h5a.5.5 0 0 1 .5.5m0-3.5a.5.5 0 0 1-.5.5h-5a.5.5 0 0 1 0-1h5a.5.5 0 0 1 .5.5" clipRule="evenodd" />
           </svg>
         </button>
-        <TrackInput axis={axis} track={track} onChange={next => {
+        <TrackInput axis={axis} track={track} actualSize={actualSizes[index]} onChange={next => {
           const updated = tracks.slice();
           updated[index] = next;
           commitTracks([{ key: axis === 'row' && autoRows ? 'gridAutoRows' : key, list, tracks: updated }]);
@@ -294,7 +314,7 @@ export default function Grid({ value, onChange, onRemoveLayout }: { value: GridV
           data: { columns: columns.length, autoRows, previewRowCount } }),
       }).catch(() => {});
     }}
-      style={{ backgroundSize: `${100 / (columns.length || 1)}% ${100 / (previewRowCount || 1)}%` }}>
+      style={{ backgroundSize: `${100 / (previewColumnCount || 1)}% ${100 / (previewRowCount || 1)}%` }}>
       <span>{summary}</span>
     </button>
     <SketchPopup open={view !== null} mounted={view !== null} anchorRef={anchorRef} onClose={() => { if (!countDraggingRef.current) setView(null); }}
@@ -308,10 +328,10 @@ export default function Grid({ value, onChange, onRemoveLayout }: { value: GridV
         </button>
       </div>
       {view === 'picker' && <div className={styles.counts}>
-        <InputNumber disabled={!columnsEditable} value={columnsEditable ? columns.length : null} placeholder="CSS" prefix={<div {...(columnsEditable ? getColumnCountDragProps(columns.length, lang.gridColumnCount) : {})}><Icon name="grid-columns" /></div>} tip={lang.gridColumnCount}
+        <InputNumber disabled={!columnsEditable} value={columnsEditable ? columns.length : previewColumnCount || null} placeholder="CSS" prefix={<div {...(columnsEditable ? getColumnCountDragProps(columns.length, lang.gridColumnCount) : {})}><Icon name="grid-columns" /></div>} tip={lang.gridColumnCount}
           defaultUnitValue="" clearable={false} onChange={next => changeCount('column', next)} />
         <span>×</span>
-        <InputNumber disabled={!rowsEditable} value={autoRows || !rowsEditable ? null : rows.length} placeholder={rowsEditable ? lang.gridAuto : 'CSS'}
+        <InputNumber disabled={!rowsEditable} value={!rowsEditable ? previewRowCount || null : autoRows ? null : rows.length} placeholder={rowsEditable ? lang.gridAuto : 'CSS'}
           prefix={<div {...(rowsEditable ? getRowCountDragProps(previewRowCount || 1, lang.gridRowCount) : {})}><Icon name="grid-rows" /></div>}
           tip={lang.gridRowCount} defaultUnitValue="" clearable={false}
           suffix={<Select
@@ -332,9 +352,9 @@ export default function Grid({ value, onChange, onRemoveLayout }: { value: GridV
           {Array.from({ length: 12 * 8 }, (_, index) => {
             const column = index % 12 + 1;
             const row = Math.floor(index / 12) + 1;
-            const selected = column <= (countDragStart?.columns ?? columns.length) && row <= (countDragStart?.rows ?? previewRowCount);
+            const selected = column <= (countDragStart?.columns ?? previewColumnCount) && row <= (countDragStart?.rows ?? previewRowCount);
             const preview = countPreviewLocked
-              ? column <= columns.length && row <= previewRowCount
+              ? column <= previewColumnCount && row <= previewRowCount
               : hover && column <= hover.columns && row <= hover.rows;
             return <button type="button" key={index} disabled={!pickerEditable} aria-label={`${column} × ${row}`}
               data-mybricks-tip={JSON.stringify({ content: `${column} × ${row}`, position: 'bottom' })}
@@ -357,8 +377,8 @@ export default function Grid({ value, onChange, onRemoveLayout }: { value: GridV
                   return;
                 }
                 commitTracks([
-                  { key: 'gridTemplateColumns', list: columnList, tracks: resizeTracks(columns, column) },
-                  { key: 'gridTemplateRows', list: rowEditList, tracks: resizeTracks(rows, row) },
+                  { key: 'gridTemplateColumns', list: columnList, tracks: resizeTracks(columns, column, columnList.kind === 'auto-repeat' ? columns[0] : undefined) },
+                  { key: 'gridTemplateRows', list: rowEditList, tracks: resizeTracks(rows, row, rowEditList.kind === 'auto-repeat' ? rows[0] : undefined) },
                 ]);
                 setView(null);
               }} />;
