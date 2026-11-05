@@ -64,9 +64,9 @@ export function resizeTracks(tracks: Track[], count: number, repeatTrack?: Track
 
 export function getTrackDisplay(track: Track): { mode: 'fixed' | 'fill' | 'hug' | 'raw'; value?: number; text: string } {
   const size = track.kind === 'minmax' ? track.max : track;
-  if (size.kind === 'dimension' && ['px', 'fr', ''].includes(size.unit)) {
+  if (size.kind === 'dimension' && ['px', 'fr', '%', ''].includes(size.unit)) {
     return { mode: size.unit === 'fr' ? 'fill' : 'fixed', value: size.value,
-      text: `${size.value}${size.unit === 'fr' ? 'fr' : ''}` };
+      text: `${size.value}${size.unit === 'fr' || size.unit === '%' ? size.unit : ''}` };
   }
   if (track.kind === 'keyword' && track.value === 'max-content') return { mode: 'hug', text: 'max-content' };
   return { mode: 'raw', text: serializeTrack(track) };

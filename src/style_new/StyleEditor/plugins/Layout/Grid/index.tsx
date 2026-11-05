@@ -22,13 +22,14 @@ function TrackValueInput({ track, variableSource, variableValue, actualSize, onC
   const [draft, setDraft] = useState<string | null>(null);
   const display = getTrackDisplay(track);
   const commitValue = (next: string) => {
-    // 仅提交非负数字或数字 + fr，并按输入切换固定/填满；无效草稿恢复当前轨道值。
-    const match = next.trim().match(/^(\d+(?:\.\d*)?|\.\d+)(fr)?$/i);
+    // 数字和百分比均为固定模式，fr 为填满；无效草稿恢复当前值。
+    const match = next.trim().match(/^(\d+(?:\.\d*)?|\.\d+)(fr|%)?$/i);
     setDraft(null);
     if (match) {
       const nextValue = Number(match[1]);
-      const mode = match[2] ? 'fill' : 'fixed';
-      if (Number.isFinite(nextValue) && (variableSource || nextValue !== display.value || mode !== display.mode)) {
+      const mode = match[2] === '%' ? 'percent' : match[2] ? 'fill' : 'fixed';
+      // 比较带单位的值，确保 100% 与 100 即使数字相同也能互相切换。
+      if (Number.isFinite(nextValue) && (variableSource || `${nextValue}${match[2]?.toLowerCase() || ''}` !== display.text)) {
         onChange(updateTrackValue(track, nextValue, mode));
       }
     }
@@ -54,8 +55,8 @@ function TrackValueInput({ track, variableSource, variableValue, actualSize, onC
         event.currentTarget.blur();
       } else if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
         const text = event.currentTarget.value.trim();
-        const number = text.replace(/fr$/i, '');
-        const next = `${incrementDecrement(number, event.key)}${/fr$/i.test(text) ? 'fr' : ''}`;
+        const number = text.replace(/(fr|%)$/i, '');
+        const next = `${incrementDecrement(number, event.key)}${text.match(/(fr|%)$/i)?.[0] || ''}`;
         setDraft(next);
         event.currentTarget.value = next;
         event.currentTarget.select();
@@ -88,7 +89,7 @@ function TrackInput({ axis, track, actualSize, variableSource, variableValue, on
       labelStyle={{ textAlign: 'left', padding: 0 }}
       iconClassName={styles.trackArrow}
       options={[
-        { value: 'fixed', label: lang.gridFixed, menuLabel: axis === 'column' ? lang.gridFixedWidth : lang.gridFixedHeight, suffix: `(${display.mode === 'fixed' ? display.value : 100})`, icon: <FixedWidth />, style: optionStyle },
+        { value: 'fixed', label: lang.gridFixed, menuLabel: axis === 'column' ? lang.gridFixedWidth : lang.gridFixedHeight, suffix: `(${display.mode === 'fixed' ? display.text : 100})`, icon: <FixedWidth />, style: optionStyle },
         { value: 'hug', label: lang.sizeAdaptive, menuLabel: lang.gridHugContents, icon: <HugContents /> },
         { value: 'fill', label: lang.sizeFillBadge, menuLabel: lang.gridFillContainer, suffix: `(${display.mode === 'fill' ? display.value : 1}fr)`, icon: <FillContainer />, style: optionStyle },
       ]}
@@ -102,7 +103,7 @@ function TrackInput({ axis, track, actualSize, variableSource, variableValue, on
     />
     {variableSource ? <TrackValueInput track={track} variableSource={variableSource} variableValue={variableValue} actualSize={actualSize} onChange={onChange} />
       : display.mode === 'raw' ? <Input value={display.text} tip={display.text} disabled />
-      : display.mode === 'hug' ? <Input value={actualSize} disabled />
+      : display.mode === 'hug' ? <Input className={styles.hugValue} value={actualSize} disabled />
       : <TrackValueInput key={display.mode} track={track} onChange={onChange} />}
   </div>;
 }
