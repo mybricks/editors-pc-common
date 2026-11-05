@@ -80,6 +80,7 @@ export function InputNumber ({
   suffix: customSuffix,
   style = {},
   disabled = false,
+  autoFocus = false,
   align = 'left',
   unitOptions,
   unitDisabledList = [],
@@ -537,6 +538,7 @@ export function InputNumber ({
       onChange={handleInputChange}
       suffix={suffix}
       disabled={isDisabledUnit()}
+      autoFocus={autoFocus}
       onFocus={handleFocus}
       onKeyDown={onKeyDown}
       onBlur={onBlur}
