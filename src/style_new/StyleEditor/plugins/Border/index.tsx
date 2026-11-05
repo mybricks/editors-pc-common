@@ -420,6 +420,23 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
     () => getBorderEditorValue(effectiveStyle ? effectiveValue : value, effectiveStyle),
     [externalStyleSource, effectiveValue]
   );
+  // 例：仅有 border-bottom: none; border-radius: 22px → 折叠。
+  // 按初始值判定，手动展开交给 Panel，避免点 + 后切回 inherited 导致减号消失。
+  const effectiveCollapse = useMemo(() => {
+    if (!effectiveStyle || hasGradientBorderBackground(defaultBorderValue) ||
+      !BORDER_STYLE_KEYS.some(key => defaultBorderValue[key] === 'none')) return collapse;
+
+    const onlyNone = BORDER_STYLE_KEYS.every(key => {
+      if (defaultBorderValue[key] === 'none') return true;
+      // 仅配宽度/颜色也要保留，如 border-top-width: 2px。
+      if (getBorderSideKeys(key).some(name => defaultBorderValue[name] != null)) return false;
+      const line = effectiveStyle[key]?.value;
+      return !line || hasNoVisibleBorderLine(
+        line, effectiveStyle[key.replace(/Style$/, 'Width')]?.value
+      );
+    });
+    return onlyNone ? true : collapse;
+  }, [collapse, defaultBorderValue, effectiveStyle]);
   const [borderToggleValue, setBorderToggleValue] = useState<'all' | 'split'>(
     getBorderToggleDefaultValue(defaultBorderValue, effectiveValue)
   );
@@ -1565,7 +1582,7 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
     <Panel
       title={lang.borderPanelTitle}
       showTitle={showTitle}
-      collapse={collapse}
+      collapse={effectiveCollapse}
       onExpand={handleExpand}
       showDelete={canReset}
       resetFunction={refresh}
