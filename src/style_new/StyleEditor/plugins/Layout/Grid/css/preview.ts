@@ -16,7 +16,7 @@ function readAuthoredPreview(source: string): Track[] | null {
       if (!args || args.length !== 2) return null;
       const pattern = splitPreviewTrackTokens(args[1]);
       if (!pattern) return null;
-      token = `repeat(${args[0]}, ${pattern.filter(item => !item.startsWith('[')).join(' ')})`;
+      token = `repeat(${args[0]}, ${pattern.filter((item) => !item.startsWith('[')).join(' ')})`;
     }
     const expanded = expandRepeatToken(token, MAX_EDITABLE_TRACKS - tracks.length);
     if (!expanded) return null;
@@ -43,12 +43,16 @@ export function readComputedTrackSizes(source: string): (number | undefined)[] {
 }
 
 export function getReadonlyTrackPreview(source: string, actualSizes: (number | undefined)[]): {
-  tracks: (Track | undefined)[]; measured: boolean;
+  tracks: (Track | undefined)[];
+  measured: boolean;
 } {
   const authored = readAuthoredPreview(source);
   if (authored && (!actualSizes.length || authored.length === actualSizes.length)) {
     return { tracks: authored, measured: false };
   }
   // 无法逐项对应源码时，只展示实际尺寸；缺失尺寸用空值表示，不猜测 Fixed/Fill。
-  return { tracks: actualSizes.map(value => value === undefined ? undefined : { kind: 'dimension', value, unit: 'px' }), measured: true };
+  return {
+    tracks: actualSizes.map((value) => value === undefined ? undefined : { kind: 'dimension', value, unit: 'px' }),
+    measured: true,
+  };
 }

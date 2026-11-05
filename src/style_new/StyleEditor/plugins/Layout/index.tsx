@@ -57,8 +57,15 @@ function isGridLikeDisplay(display?: CSSProperties["display"]) {
   return display === "grid" || display === "inline-grid";
 }
 
-function getDisplayWhenEnableFlex(display?: CSSProperties["display"]) {
-  // 新增 inline-grid → inline-flex，切换横/纵排版时保留内联语义；原 block/flex 等映射不变。
+/**
+ * 用户点击“横向排列”或“纵向排列”时，决定新的 display 应该是 flex 还是 inline-flex。
+ * 例：文字旁有一个 inline-grid 容器，里面的两个按钮原本按网格排列。
+ * 点击“横向排列”后，本方法返回 inline-flex，调用方再设置 flexDirection: row：
+ * 两个按钮改用 Flex 横排，容器本身仍可以和旁边的文字排在同一行。
+ * 如果原来是 grid，则返回 flex。
+ * 返回值表示切换后的布局，不能用它判断原来是不是 inline-grid。
+ */
+function getDisplayAfterEnablingFlex(display?: CSSProperties["display"]) {
   if (display === "inline-flex" || display === "inline-block" || display === "inline-grid") {
     return "inline-flex";
   }
@@ -391,7 +398,7 @@ function LayoutEditor({ editValue, previewValue, overflowHidden, clearedGapKeys,
   const isGridActive = !freedom && isGridLikeDisplay(model.display);
 
   // Grid 删除最后一列/行（如仅剩 1 列时点减号）复用默认按钮提交；原默认按钮的状态重置保留，仅当前 Grid 增加四项清理。
-  const selectDefault = () => {
+  const resetToDefault = () => {
     const clearGrid = isGridLikeDisplay(model.display) ? Object.fromEntries(GRID_KEYS.map(key => [key, null])) : {};
     setModel(prev => ({
       ...prev,
@@ -410,7 +417,8 @@ function LayoutEditor({ editValue, previewValue, overflowHidden, clearedGapKeys,
     emitValue({ position: "default" });
   };
 
-  const renderFlexDirection = () => {
+  // 渲染布局模式选择器，统一处理默认、内联、自由布局、横向、纵向和网格按钮的切换。
+  const renderLayoutModeSelector = () => {
     const onSelect = (layout: Layout) => {
       if (layout === 'freedom') {
         // 已选中时不重复转换，避免覆盖首次进入时记录的原始样式。
@@ -420,7 +428,8 @@ function LayoutEditor({ editValue, previewValue, overflowHidden, clearedGapKeys,
         return;
       }
       setFreedom(false);
-      // 仅网格按钮进入此分支；清除 flex 方向/换行并保留内联语义，历史横/纵/默认按钮继续走下面原分支。
+      // 点击网格按钮时切换 display，原来的行内布局对应 inline-grid。
+      // Grid 需要单独处理并返回，避免下面的横/纵逻辑把 'grid' 当成 flexDirection 写出。
       if (layout === 'grid') {
         const sourceDisplay = model.display ?? editValue.display;
         const display = sourceDisplay?.startsWith('inline') ? 'inline-grid' : 'grid';
@@ -434,6 +443,7 @@ function LayoutEditor({ editValue, previewValue, overflowHidden, clearedGapKeys,
           gridAutoRows: model.gridAutoRows || '1fr',
           gridAutoFlow: model.gridAutoFlow || 'row',
         };
+        // 写出的样式清除 Flex 方向和换行；面板仍记住之前的值，供切回 Flex 时使用。
         setModel(prev => ({ ...prev, ...patch, flexDirection: prev.flexDirection, flexWrap: prev.flexWrap, position: 'inherit' }));
         emitValue(patch);
         return;
@@ -470,7 +480,7 @@ function LayoutEditor({ editValue, previewValue, overflowHidden, clearedGapKeys,
       }
 
       if (isDefault) {
-        selectDefault();
+        resetToDefault();
         return;
       }
 
@@ -498,7 +508,7 @@ function LayoutEditor({ editValue, previewValue, overflowHidden, clearedGapKeys,
       // 横/纵切换时写入 display 和 flex 方向，不自动修改对齐方式。
       // 当前 Grid 优先使用面板模型，保证 inline-grid → inline-flex；非 Grid 仍优先 editValue，保留历史取值顺序。
       const sourceDisplay = isGridLikeDisplay(model.display) ? model.display : (editValue.display as CSSProperties["display"] | undefined) ?? model.display;
-      const nextDisplay = getDisplayWhenEnableFlex(sourceDisplay);
+      const nextDisplay = getDisplayAfterEnablingFlex(sourceDisplay);
       setModel(prev => ({ ...prev, ...clearGrid, flexDirection, display: nextDisplay, position: "inherit", flexWrap }));
       emitValue({ display: nextDisplay, flexDirection, flexWrap, ...clearGrid });
     };
@@ -693,10 +703,10 @@ function LayoutEditor({ editValue, previewValue, overflowHidden, clearedGapKeys,
 
   return (
     <div>
-      {renderFlexDirection()}
+      {renderLayoutModeSelector()}
       {/* 仅当前 Grid 挂载网格编辑器；修改继续走 emitValue，末项删除复用默认入口，原 Flex 面板保留独立条件。 */}
       {isGridActive && <div className={styles.gridLayout}>
-        <Grid value={model} onRemoveLayout={selectDefault} onChange={patch => {
+        <Grid value={model} onRemoveLayout={resetToDefault} onChange={patch => {
           setModel(previous => ({ ...previous, ...patch }));
           emitValue(patch);
         }} />

@@ -1,4 +1,4 @@
-import { splitTopLevelTrackTokens, splitTopLevelArguments, readFunctionParts } from './track-list';
+import { readFunctionParts, splitTopLevelArguments, splitTopLevelTrackTokens } from './track-list';
 import { parseTrackSize } from './track-size';
 import type { Track } from './types';
 
@@ -10,8 +10,10 @@ export function parseAutoRepeat(source: string): Extract<Track, { kind: 'minmax'
   if (!args || args.length !== 2 || !/^auto-(fit|fill)$/i.test(args[0])) return null;
   const track = parseTrackSize(args[1]);
   // 本次接入像素下限及像素/fr 上限的单轨道 minmax；其他模板继续保留原文。
-  if (track?.kind !== 'minmax' || track.min.kind !== 'dimension' || !['px', ''].includes(track.min.unit)
-    || track.max.kind !== 'dimension' || !['px', 'fr', ''].includes(track.max.unit)) return null;
+  if (
+    track?.kind !== 'minmax' || track.min.kind !== 'dimension' || !['px', ''].includes(track.min.unit) ||
+    track.max.kind !== 'dimension' || !['px', 'fr', ''].includes(track.max.unit)
+  ) return null;
   return track;
 }
 
