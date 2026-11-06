@@ -711,7 +711,6 @@ function LayoutEditor({ editValue, previewValue, overflowHidden, clearedGapKeys,
           emitValue(patch);
         }} />
         <div className={styles.gridGap}>
-          <div className={styles.gridGapLabel}>{lang.gridGapLabel}</div>
           {renderGap()}
         </div>
       </div>}
