@@ -661,7 +661,6 @@ export function collectZoneTabs(
       effectiveStyle: {},
     })
   }
-  console.log('###', tabs)
   if (!elements.length || !baseSelectors.length) return Array.from(tabs.values())
 
   // 每个基础 selector 的 class token 在本次调用中不变，提前解析一次，
