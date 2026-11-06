@@ -61,6 +61,7 @@ export function collectAffectedElements(
 
   // 同一个 DOM 被多条规则命中时只计一次。
   const affected = new Set<Element>()
+  const queriedSelectors = new Set<string>()
   selectors.forEach((runtime, selector) => {
     if (selector === 'inline') {
       if (anchor) affected.add(anchor)
@@ -68,6 +69,9 @@ export function collectAffectedElements(
     }
     // 仅忽略hover等主体交互状态；where/not、属性和祖先条件仍由浏览器完整匹配。
     const { matchSelector } = splitZoneSelectorState(runtime)
+    // 不同规则的匹配条件相同时，本次调用只查询一次 DOM。
+    if (queriedSelectors.has(matchSelector)) return
+    queriedSelectors.add(matchSelector)
     try {
       // querySelectorAll() 只查后代，不包括范围节点自己，比如 scope 本身就是那个菜单，只查里面就会漏掉它。所以查两次
       if (scope instanceof Element && scope.matches(matchSelector)) affected.add(scope)
