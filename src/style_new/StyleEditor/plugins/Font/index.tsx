@@ -433,12 +433,22 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
           [key, getFontPreview(key, key === 'color' ? colorDisplayField.computedPreview : undefined)])
       ))
     : undefined;
-  const textFillValue = textFillPreviewColor ?? (textFillAuthored ? effectiveTextFillValue : normalTextFillPreview || effectiveTextFillValue);
+  // 例如父级 `.logoArea { color: var(--font-color); }`，当前 span 没有自己的 color：
+  // computedValue 会保留 `var(--font-color)`，变量当前值 `red` 则由 ColorEditor 解析用于预览。
+  const inheritedColor = effectiveStyle?.color?.computedValue;
+  const inheritedVariable = isCssVarValue(inheritedColor) ? inheritedColor : undefined;
+  // defaultValue 传 `var(--font-color)` 才能显示变量绑定；普通继承 `rgb(...)` 继续走原有回显。
+  const textFillValue = textFillPreviewColor ?? (
+    textFillAuthored
+      ? effectiveTextFillValue
+      : normalTextFillPreview || inheritedVariable || effectiveTextFillValue
+  );
+  // 变量场景不把 `var(--font-color)` 传给 resolvedColor，避免覆盖 ColorEditor 对 targetDom 的解析。
   const textFillComputedColor = textFillPreviewColor ?? (
     solidTextFillColor ? effectiveStyle?.backgroundColor?.computedValue :
     effectiveStyle?.WebkitTextFillColor?.computedValue ??
     effectiveStyle?.webkitTextFillColor?.computedValue ??
-    effectiveStyle?.color?.computedValue ??
+    (inheritedVariable ? undefined : inheritedColor) ??
     (colorDisplayField.displaySource === 'normal-computed' ? colorDisplayField.computedPreview : undefined)
   ) as string | undefined;
   // 选色由 ColorEditor 内部同步；key 只随清空或外部数据刷新变化，避免首次选色重挂并关闭弹层。
@@ -1256,7 +1266,8 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
             clearable={!!colorField.clear || (isTextFillActive(value as Record<string, any>) &&
               !!(solidTextFillColor ? backgroundColorField.clear : imageField.clear))}
             onClear={handleTextFillClear}
-            inherited={!textFillAuthored && !normalTextFillPreview}
+            // `defaultValue` 是 var 时若仍传 inherited=true，ColorEditor 会先显示 #FF0000 输入框，变量胶囊不会渲染。
+            inherited={!textFillAuthored && !normalTextFillPreview && !inheritedVariable}
             showInheritedColor
             onChange={handleTextFillChange}
           />
