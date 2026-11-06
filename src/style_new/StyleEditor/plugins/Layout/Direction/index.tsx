@@ -48,12 +48,19 @@ export default ({
       value: "row",
       render: () => <Icon name="row-direction" />,
     },
+    {
+      // 新增 Grid 入口；仍受下方 defaultDirection 过滤，displayOnly 等历史受限入口不增加按钮。
+      title: lang.directionGrid,
+      value: "grid",
+      render: () => <Icon name="grid" />,
+    },
   ], []);
   const isAbsolute = position === "absolute";
   const isRow = flexDirection === "row";
   const isColumn = flexDirection === "column";
   const isInline = display === "inline";
   const isFlexLike = display === "flex" || display === "inline-flex";
+  const isGridLike = display === "grid" || display === "inline-grid";
 
   // 高亮逻辑只看 display + flexDirection，与容器自身的 position 无关
   const isActive = (value: Layout) => {
@@ -61,7 +68,9 @@ export default ({
     if (freedom) return false;
     if (value === "absolute") return isAbsolute;
     if (value === "inline") return isInline;
-    if (value === "default") return !isFlexLike && !isInline;
+    // grid/inline-grid 只高亮网格按钮，避免同时命中默认；原 flex、inline 及自由布局的判断不变。
+    if (value === "default") return !isFlexLike && !isInline && !isGridLike;
+    if (value === "grid") return isGridLike;
     if (value === "row") return isFlexLike && isRow;
     if (value === "column") return isFlexLike && isColumn;
     return false;

@@ -168,6 +168,11 @@ export const PROP_SPECS: PropSpec[] = [
 
   // layout
   { camel: 'display', inherit: false, fallback: 'computed' },
+  // Grid 回显保留源码声明（如 repeat(4, 1fr)），不以 computed 的逐列 px 覆盖；仅新增这四个字段，原 display/flex 读取策略不变。
+  { camel: 'gridTemplateColumns', inherit: false, fallback: 'none' },
+  { camel: 'gridTemplateRows', inherit: false, fallback: 'none' },
+  { camel: 'gridAutoRows', inherit: false, fallback: 'none' },
+  { camel: 'gridAutoFlow', inherit: false, fallback: 'none' },
   { camel: 'flexDirection', inherit: false, fallback: 'computed' },
   { camel: 'alignItems', inherit: false, fallback: 'computed' },
   { camel: 'justifyContent', inherit: false, fallback: 'computed' },

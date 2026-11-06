@@ -4,6 +4,7 @@ import AlignItems from "./AlignItems";
 import JustifyContent from "./JustifyContent";
 import Padding, { PaddingProps } from "./Padding";
 import Gap, { GapProps } from "./Gap";
+import Grid from "./Grid";
 import type { Layout } from "./types";
 import { Panel } from "../../components";
 import type { ChangeEvent, PanelBaseProps } from "../../type";
@@ -25,6 +26,11 @@ interface LayoutEditorProps extends PanelBaseProps {
 
 interface LayoutModel {
   display?: CSSProperties["display"];
+  // Grid 保留完整 CSS 字符串（如 repeat(3, 1fr)、25% 1fr），交给 Grid 解析层；历史 flex 字段类型不变。
+  gridTemplateColumns?: string | null;
+  gridTemplateRows?: string | null;
+  gridAutoRows?: string | null;
+  gridAutoFlow?: string | null;
   position?: CSSProperties["position"] | "default";
   flexDirection: CSSProperties["flexDirection"];
   alignItems: CSSProperties["alignItems"];
@@ -46,17 +52,33 @@ function isFlexLikeDisplay(display?: CSSProperties["display"]) {
   return display === "flex" || display === "inline-flex";
 }
 
-function getDisplayWhenEnableFlex(display?: CSSProperties["display"]) {
-  if (display === "inline-flex" || display === "inline-block") {
+// 仅 grid/inline-grid 进入网格面板与退出清理，其他 display 继续走原布局分支。
+function isGridLikeDisplay(display?: CSSProperties["display"]) {
+  return display === "grid" || display === "inline-grid";
+}
+
+/**
+ * 用户点击“横向排列”或“纵向排列”时，决定新的 display 应该是 flex 还是 inline-flex。
+ * 例：文字旁有一个 inline-grid 容器，里面的两个按钮原本按网格排列。
+ * 点击“横向排列”后，本方法返回 inline-flex，调用方再设置 flexDirection: row：
+ * 两个按钮改用 Flex 横排，容器本身仍可以和旁边的文字排在同一行。
+ * 如果原来是 grid，则返回 flex。
+ * 返回值表示切换后的布局，不能用它判断原来是不是 inline-grid。
+ */
+function getDisplayAfterEnablingFlex(display?: CSSProperties["display"]) {
+  if (display === "inline-flex" || display === "inline-block" || display === "inline-grid") {
     return "inline-flex";
   }
   return "flex";
 }
 
+// Grid 面板读写、重置及退出清理仅补充这四项；纳入已有布局字段白名单，继续复用原 onChange 样式提交链路。
+const GRID_KEYS = ['gridTemplateColumns', 'gridTemplateRows', 'gridAutoRows', 'gridAutoFlow'];
 const LAYOUT_KEYS = new Set([
   'display', 'position', 'flexDirection', 'alignItems', 'justifyContent',
   'flexWrap', 'gap', 'rowGap', 'columnGap', 'overflow',
   'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft',
+  ...GRID_KEYS,
 ]);
 
 const NON_CSS_KEYS = new Set(['paddingType']);
@@ -95,8 +117,9 @@ function normalizePx(style: Record<string, unknown>): Record<string, unknown> {
 function parsePxValues(style: Record<string, unknown>): Record<string, unknown> {
   const result: Record<string, unknown> = {};
   for (const [key, val] of Object.entries(style)) {
+    // 单列 100px 也须作为 CSS 字符串交给 Grid 解析；非 Grid 字段（如间距 11px）继续按原规则转数字。
     result[key] =
-      typeof val === "string" && /^-?\d+(\.\d+)?px$/.test(val)
+      !GRID_KEYS.includes(key) && typeof val === "string" && /^-?\d+(\.\d+)?px$/.test(val)
         ? parseFloat(val)
         : val;
   }
@@ -291,11 +314,12 @@ function LayoutEditor({ editValue, previewValue, overflowHidden, clearedGapKeys,
   if ((_value as any).alignItems === "normal") (_value as any).alignItems = "flex-start";
   if ((_value as any).justifyContent === "normal") (_value as any).justifyContent = "flex-start";
 
+  // Grid 与 Flex 一样不因缺少 position 被识别成默认布局；显式 absolute/relative 等定位仍按原优先级保留。
   const _position: string = ["absolute", "default"].includes(_value.position as string)
     ? (_value.position as string)
     : isPreservedCssPosition(_value.position)
       ? (_value.position as string)
-      : (isFlexLikeDisplay(_value.display as CSSProperties["display"]) ? "inherit" : "default");
+      : (isFlexLikeDisplay(_value.display as CSSProperties["display"]) || isGridLikeDisplay(_value.display as CSSProperties["display"]) ? "inherit" : "default");
 
   const initialModel: LayoutModel = {
     ...defaultValue,
@@ -331,9 +355,9 @@ function LayoutEditor({ editValue, previewValue, overflowHidden, clearedGapKeys,
 
   const emitValue = useCallback(
     (style: Partial<LayoutModel>) => {
-      // 切换到默认：清除所有 flex 布局相关属性；容器自身的 position 不动
+      // 切换到默认沿用原 flex 清理；新增 inline-grid → inline-block，并仅在退出 Grid 时清理 GRID_KEYS，容器 position 不动。
       if (style.position === "default") {
-        const resetDisplay = model.display === "inline-flex" || model.display === "inline-block"
+        const resetDisplay = model.display === "inline-flex" || model.display === "inline-block" || model.display === "inline-grid"
           ? "inline-block"
           : null;
         onChangeValue({
@@ -344,6 +368,8 @@ function LayoutEditor({ editValue, previewValue, overflowHidden, clearedGapKeys,
           flexWrap: null,
           rowGap: null,
           columnGap: null,
+          // 非 Grid 布局不附加网格删除字段，保留历史默认按钮的提交内容。
+          ...(isGridLikeDisplay(model.display) ? Object.fromEntries(GRID_KEYS.map(key => [key, null])) : {}),
         });
         return;
       }
@@ -369,8 +395,30 @@ function LayoutEditor({ editValue, previewValue, overflowHidden, clearedGapKeys,
     !freedom &&
     isFlexLikeDisplay(model.display) &&
     (model.flexDirection === "row" || model.flexDirection === "column");
+  const isGridActive = !freedom && isGridLikeDisplay(model.display);
 
-  const renderFlexDirection = () => {
+  // Grid 删除最后一列/行（如仅剩 1 列时点减号）复用默认按钮提交；原默认按钮的状态重置保留，仅当前 Grid 增加四项清理。
+  const resetToDefault = () => {
+    const clearGrid = isGridLikeDisplay(model.display) ? Object.fromEntries(GRID_KEYS.map(key => [key, null])) : {};
+    setModel(prev => ({
+      ...prev,
+      ...clearGrid,
+      flexDirection: model.flexDirection,
+      display: undefined,
+      position: "default",
+      flexWrap: defaultValue.flexWrap,
+      alignItems: defaultValue.alignItems,
+      justifyContent: defaultValue.justifyContent,
+      rowGap: null,
+      columnGap: null,
+    }));
+    setRowFlexWrap(defaultValue.flexWrap);
+    setColumnFlexWrap(defaultValue.flexWrap);
+    emitValue({ position: "default" });
+  };
+
+  // 渲染布局模式选择器，统一处理默认、内联、自由布局、横向、纵向和网格按钮的切换。
+  const renderLayoutModeSelector = () => {
     const onSelect = (layout: Layout) => {
       if (layout === 'freedom') {
         // 已选中时不重复转换，避免覆盖首次进入时记录的原始样式。
@@ -380,6 +428,28 @@ function LayoutEditor({ editValue, previewValue, overflowHidden, clearedGapKeys,
         return;
       }
       setFreedom(false);
+      // 点击网格按钮时切换 display，原来的行内布局对应 inline-grid。
+      // Grid 需要单独处理并返回，避免下面的横/纵逻辑把 'grid' 当成 flexDirection 写出。
+      if (layout === 'grid') {
+        const sourceDisplay = model.display ?? editValue.display;
+        const display = sourceDisplay?.startsWith('inline') ? 'inline-grid' : 'grid';
+        // 仅显式启用时补缺省行列（如未配置列时用 1fr）；已有声明优先保留，单纯打开面板不写入这些初始值。
+        const patch = {
+          display,
+          flexDirection: null,
+          flexWrap: null,
+          gridTemplateColumns: model.gridTemplateColumns && model.gridTemplateColumns !== 'none' ? model.gridTemplateColumns : '1fr',
+          gridTemplateRows: model.gridTemplateRows || 'none',
+          gridAutoRows: model.gridAutoRows || '1fr',
+          gridAutoFlow: model.gridAutoFlow || 'row',
+        };
+        // 写出的样式清除 Flex 方向和换行；面板仍记住之前的值，供切回 Flex 时使用。
+        setModel(prev => ({ ...prev, ...patch, flexDirection: prev.flexDirection, flexWrap: prev.flexWrap, position: 'inherit' }));
+        emitValue(patch);
+        return;
+      }
+      // Grid → inline/flex 时附加清理，避免残留网格声明；当前非 Grid 则为空，不增加历史切换的写入字段。
+      const clearGrid = isGridLikeDisplay(model.display) ? Object.fromEntries(GRID_KEYS.map(key => [key, null])) : {};
       const isAbsolute = layout === "absolute";
       const isDefault = layout === "default";
       const isInline = layout === "inline";
@@ -410,21 +480,7 @@ function LayoutEditor({ editValue, previewValue, overflowHidden, clearedGapKeys,
       }
 
       if (isDefault) {
-        // 切换到默认：清空 flex 相关样式，并同步重置面板内的对齐状态 align-items和justify-content
-        setModel(prev => ({
-          ...prev,
-          flexDirection,
-          display: undefined,
-          position: "default",
-          flexWrap: defaultValue.flexWrap,
-          alignItems: defaultValue.alignItems,
-          justifyContent: defaultValue.justifyContent,
-          rowGap: null,
-          columnGap: null,
-        }));
-        setRowFlexWrap(defaultValue.flexWrap);
-        setColumnFlexWrap(defaultValue.flexWrap);
-        emitValue({ position: "default" });
+        resetToDefault();
         return;
       }
 
@@ -435,7 +491,7 @@ function LayoutEditor({ editValue, previewValue, overflowHidden, clearedGapKeys,
       }
 
       if (isInline) {
-        setModel(prev => ({ ...prev, display: "inline", flexDirection, position: "inherit" }));
+        setModel(prev => ({ ...prev, ...clearGrid, display: "inline", flexDirection, position: "inherit" }));
         emitValue({
           display: "inline",
           flexDirection: null,
@@ -444,15 +500,17 @@ function LayoutEditor({ editValue, previewValue, overflowHidden, clearedGapKeys,
           flexWrap: null,
           rowGap: null,
           columnGap: null,
+          ...clearGrid,
         });
         return;
       }
 
       // 横/纵切换时写入 display 和 flex 方向，不自动修改对齐方式。
-      const sourceDisplay = (editValue.display as CSSProperties["display"] | undefined) ?? model.display;
-      const nextDisplay = getDisplayWhenEnableFlex(sourceDisplay);
-      setModel(prev => ({ ...prev, flexDirection, display: nextDisplay, position: "inherit", flexWrap }));
-      emitValue({ display: nextDisplay, flexDirection, flexWrap });
+      // 当前 Grid 优先使用面板模型，保证 inline-grid → inline-flex；非 Grid 仍优先 editValue，保留历史取值顺序。
+      const sourceDisplay = isGridLikeDisplay(model.display) ? model.display : (editValue.display as CSSProperties["display"] | undefined) ?? model.display;
+      const nextDisplay = getDisplayAfterEnablingFlex(sourceDisplay);
+      setModel(prev => ({ ...prev, ...clearGrid, flexDirection, display: nextDisplay, position: "inherit", flexWrap }));
+      emitValue({ display: nextDisplay, flexDirection, flexWrap, ...clearGrid });
     };
     return (
       <Direction
@@ -521,12 +579,13 @@ function LayoutEditor({ editValue, previewValue, overflowHidden, clearedGapKeys,
       setModel((pre) => ({ ...pre, ...val }));
       emitValue({ ...val });
     };
-    return isFlexActive ? (
+    // Grid 复用原 Gap 读写，只按 row 固定展示行列间距；Flex 仍传原 flexDirection，保留横/纵布局的字段顺序。
+    return isFlexActive || isGridActive ? (
       <Gap
         value={{ rowGap: model.rowGap, columnGap: model.columnGap }}
         cleared={clearedGapKeys}
         onChange={onGapChange}
-        flexDirection={model.flexDirection}
+        flexDirection={isGridActive ? "row" : model.flexDirection}
       />
     ) : null;
   };
@@ -566,7 +625,8 @@ function LayoutEditor({ editValue, previewValue, overflowHidden, clearedGapKeys,
   const renderInlineBlock = () => {
     if (model.display === "inline") return null;
 
-    const isInlineBlock = model.display === "inline-block" || model.display === "inline-flex";
+    // 内联开关新增 grid ↔ inline-grid，仅切 display、保留行列定义；原 block/flex 的往返映射保持不变。
+    const isInlineBlock = model.display === "inline-block" || model.display === "inline-flex" || model.display === "inline-grid";
     const toggle = () => {
       let display = '';
 
@@ -575,10 +635,14 @@ function LayoutEditor({ editValue, previewValue, overflowHidden, clearedGapKeys,
           display = 'block';
         } else if (model.display === "inline-flex") {
           display = 'flex';
+        } else if (model.display === "inline-grid") {
+          display = 'grid';
         }
       } else {
         if (model.display === "flex") {
           display = 'inline-flex';
+        } else if (model.display === "grid") {
+          display = 'inline-grid';
         } else {
           display = 'inline-block';
         }
@@ -639,7 +703,17 @@ function LayoutEditor({ editValue, previewValue, overflowHidden, clearedGapKeys,
 
   return (
     <div>
-      {renderFlexDirection()}
+      {renderLayoutModeSelector()}
+      {/* 仅当前 Grid 挂载网格编辑器；修改继续走 emitValue，末项删除复用默认入口，原 Flex 面板保留独立条件。 */}
+      {isGridActive && <div className={styles.gridLayout}>
+        <Grid value={model} onRemoveLayout={resetToDefault} onChange={patch => {
+          setModel(previous => ({ ...previous, ...patch }));
+          emitValue(patch);
+        }} />
+        <div className={styles.gridGap}>
+          {renderGap()}
+        </div>
+      </div>}
       {isFlexActive && (
         <div className={styles.layout}>
           <div className={styles.centerLayout}>

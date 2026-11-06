@@ -171,6 +171,11 @@ export const getDefaultValueFunctionMap = {
   layout(values: CSSProperties, config: any) {
     return {
       display: values.display,
+      // Grid 声明原样交给布局编辑器，例如 25% 1fr；这里不转换为实际 px，也不改变已有 flex 默认值。
+      gridTemplateColumns: values.gridTemplateColumns,
+      gridTemplateRows: values.gridTemplateRows,
+      gridAutoRows: values.gridAutoRows,
+      gridAutoFlow: values.gridAutoFlow,
       flexDirection: values.flexDirection,
       alignItems: values.alignItems,
       justifyContent: values.justifyContent,
@@ -354,6 +359,11 @@ export const getDefaultValueFunctionMap2 = {
   layout() {
     return {
       display: 'flex',
+      // 无外部样式时 Grid 字段保持空；仅用户显式启用 Grid 才在 Layout 初始化行列，历史默认布局仍为 flex。
+      gridTemplateColumns: '',
+      gridTemplateRows: '',
+      gridAutoRows: '',
+      gridAutoFlow: '',
       flexDirection: 'row',
       alignItems: 'flex-start',
       justifyContent: 'flex-start',
