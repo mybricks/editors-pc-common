@@ -79,6 +79,8 @@ export function useDragNumber(options: DragNumberOptions = {}) {
       // data-drag-ignore：变量胶囊里的受控输入框，直接改它的 value 会被 React 覆盖
       const input = current.querySelector<HTMLInputElement>('input:not([data-drag-ignore])')
       if (input) return input
+      // 已到达变量胶囊，拖动由回调提交，不再向上查找相邻字段的输入框。
+      if (current.querySelector('input[data-drag-ignore]')) return null
       current = current.parentElement
       maxDepth--
     }
