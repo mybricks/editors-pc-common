@@ -603,7 +603,6 @@ export default function Grid(
 
   return (
     <div className={styles.grid}>
-      <div className={styles.label}>{lang.gridLabel}</div>
       <button
         type='button'
         ref={anchorRef}
