@@ -128,7 +128,6 @@ export function ImagePanel({
         <div className={css.imageLabel}>{lang.imageSizeLabel}</div>
         <div className={css.imageValue}>
           <Select
-            style={{ padding: 0 }}
             defaultValue={localImageValue.backgroundSize || 'auto'}
             options={BACKGROUND_SIZE_OPTIONS}
             onChange={(val: string) => handleImageChange('backgroundSize', val)}
@@ -140,7 +139,6 @@ export function ImagePanel({
           <div className={css.imageLabel}>{lang.imageRepeatLabel}</div>
           <div className={css.imageValue}>
             <Select
-              style={{ padding: 0 }}
               defaultValue={localImageValue.backgroundRepeat || 'no-repeat'}
               options={BACKGROUND_REPEAT_OPTIONS}
               onChange={(val: string) => handleImageChange('backgroundRepeat', val)}
@@ -153,7 +151,6 @@ export function ImagePanel({
           <div className={css.imageLabel}>{lang.imagePositionLabel}</div>
           <div className={css.imageValue}>
             <Select
-              style={{ padding: 0 }}
               defaultValue={localImageValue.backgroundPosition || 'center center'}
               options={BACKGROUND_POSITION_OPTIONS}
               onChange={(val: string) => handleImageChange('backgroundPosition', val)}
