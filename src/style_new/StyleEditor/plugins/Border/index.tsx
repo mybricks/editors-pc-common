@@ -1611,7 +1611,6 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
 function getBorderToggleDefaultValue(value: CSSProperties, previewValue: CSSProperties = {}): 'all' | 'split' {
   // 计算值只参与展示模式判断，不放进编辑值，避免自动切换时写回默认样式。
   const displayValue = { ...previewValue, ...value };
-  console.log('####display', displayValue)
   return allEqual([
     displayValue.borderTopWidth,
     displayValue.borderRightWidth,
