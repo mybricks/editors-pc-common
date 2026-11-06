@@ -146,7 +146,9 @@ export function BorderRadius({ value, onChange: fallbackOnChange, config, collap
     }
   }
   delete editorValue.borderRadius
-  const modeValue = Object.keys(configuredValue).length === 0 && allCornersAvailable
+  // 例如只有右上角 8px，其余 0px 预览会留空；仍需比较四角，自动分角展示。
+  // 预览只用于模式判断，不放进编辑值，避免写回计算样式。
+  const modeValue = Object.keys(configuredValue).length === 0 && previewCorners.some(item => item !== undefined)
     ? radiusPreview
     : editorValue
   const [{ useImportant, disableBorderRadius }] = useState({ useImportant: false, disableBorderRadius: false, ...config })
