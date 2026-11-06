@@ -6,6 +6,7 @@ import {EditorProps} from "../interface";
 import {useObservable} from "@mybricks/rxui";
 import {getOptionsFromEditor, isValid} from "../utils";
 import {restoreInlineLineBreaks} from "./restoreInlineLineBreaks";
+import {limitSingleLineSelection} from "./limitSingleLineSelection";
 
 import css from "./index.less";
 
@@ -119,6 +120,13 @@ export default function ({editConfig}: EditorProps): JSX.Element {
 
   const stopPropagation = useCallback((e: React.MouseEvent<HTMLElement>) => {
     e.stopPropagation();
+  }, [])
+
+  useEffect(() => {
+    if (vCenter && changedRef.current) {
+      // 引擎双击编辑框只在单行水平拖选越界时修正选区，卸载时移除监听。
+      return limitSingleLineSelection(changedRef.current)
+    }
   }, [])
 
   // 引擎双击编辑文案链路：Enter 使用原生换行，失焦时保存。
