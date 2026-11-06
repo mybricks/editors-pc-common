@@ -420,6 +420,29 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
     () => getBorderEditorValue(effectiveStyle ? effectiveValue : value, effectiveStyle),
     [externalStyleSource, effectiveValue]
   );
+  // 以下 CSS 示例假设其余边未配置且没有可见边框，也没有渐变边框。
+  // 按初始值判定，手动展开交给 Panel，避免点 + 后切回 inherited 导致减号消失。
+  const effectiveCollapse = useMemo(() => {
+    // border-top: 1px solid red; → 没有 none，直接保留原 collapse。
+    // border-bottom: none; → 只进入下面的四边检查，还不能据此决定折叠。
+    if (!effectiveStyle || hasGradientBorderBackground(defaultBorderValue) ||
+      !BORDER_STYLE_KEYS.some(key => defaultBorderValue[key] === 'none')) return collapse;
+
+    // border-bottom: none; border-radius: 22px; → 四边检查均通过，强制折叠；圆角不影响判断。
+    // border-bottom: none; border-top: 1px solid red; → 上边有边框，保留原 collapse。
+    // border-bottom: none; border-top-width: 2px; → 上边仅配置宽度，也保留原 collapse。
+    const onlyNone = BORDER_STYLE_KEYS.every(key => {
+      // border-bottom: none; border-bottom-width: 2px; → 同一条边仍是 none，宽度不阻止折叠，颜色同理。
+      if (defaultBorderValue[key] === 'none') return true;
+      // 仅配宽度/颜色也要保留，如 border-top-width: 2px。
+      if (getBorderSideKeys(key).some(name => defaultBorderValue[name] != null)) return false;
+      const line = effectiveStyle[key]?.value;
+      return !line || hasNoVisibleBorderLine(
+        line, effectiveStyle[key.replace(/Style$/, 'Width')]?.value
+      );
+    });
+    return onlyNone ? true : collapse;
+  }, [collapse, defaultBorderValue, effectiveStyle]);
   const [borderToggleValue, setBorderToggleValue] = useState<'all' | 'split'>(
     getBorderToggleDefaultValue(defaultBorderValue, effectiveValue)
   );
@@ -1565,7 +1588,7 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
     <Panel
       title={lang.borderPanelTitle}
       showTitle={showTitle}
-      collapse={collapse}
+      collapse={effectiveCollapse}
       onExpand={handleExpand}
       showDelete={canReset}
       resetFunction={refresh}
