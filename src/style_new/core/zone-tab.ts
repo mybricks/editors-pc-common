@@ -278,8 +278,12 @@ export function buildZoneEffectiveStyle(
     let computedValue = skipComputedValue
       ? undefined
       : (computedStyle?.getPropertyValue(cssProperty).trim() || undefined)
-    if (!skipComputedValue && cascadeResolver && !inlineValue && cssProperty === 'color' && !source) {
-      const inheritedColor = readInheritedColorWithoutHover(target)
+    // !cascadeResolver('color', 'default')用于判断这个元素自己有没有常规态颜色声明
+    if (!skipComputedValue && cascadeResolver && !inlineValue && cssProperty === 'color' && !source &&
+      !cascadeResolver('color', 'default')) {
+      // 例如 th 的颜色规则没归到 Tab，但元素自身仍有常规态 color 声明。
+      // 新增扫描确认也没有自身声明时才读父级，避免覆盖浏览器已算对的颜色。
+      const inheritedColor = readInheritedColorWithoutHover(target as HTMLElement)
       if (inheritedColor) {
         hasEffectiveValue = false
         computedValue = inheritedColor
