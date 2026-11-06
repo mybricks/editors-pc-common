@@ -28,7 +28,7 @@ export function collectAffectedElements(
   scope: AffectedScope,
   anchor: Element | null,
   comId = ''
-): Map<Element, Set<string>> {
+): Set<Element> {
   const selectors = new Map<string, string>()
   if (tab) {
     // 收集真正匹配当前选中元素的 CSS 规则，而不是只收集实际写入目标。
@@ -47,7 +47,7 @@ export function collectAffectedElements(
         try {
           // 如 .siderContent .ant-menu：选中的 ul 必须在 siderContent 内且带 ant-menu，才保留。
           if (target.matches(matchSelector)) {
-            // 记下源码名和运行时完整路径：前者供日志展示，后者供后续查找其他匹配的 DOM。
+            // 按源码选择器去重，保存完整运行时选择器供后续查询 DOM。
             selectors.set(source.sourceSelector, source.selectorPart)
           }
         } catch {}
@@ -59,24 +59,19 @@ export function collectAffectedElements(
     })
   }
 
-  // 记录去重后的哪些DOM被命中
-  const affected = new Map<Element, Set<string>>()
-  const add = (element: Element, selector: string) => {
-    const matched = affected.get(element) || new Set<string>()
-    matched.add(selector)
-    affected.set(element, matched)
-  }
+  // 同一个 DOM 被多条规则命中时只计一次。
+  const affected = new Set<Element>()
   selectors.forEach((runtime, selector) => {
     if (selector === 'inline') {
-      if (anchor) add(anchor, selector)
+      if (anchor) affected.add(anchor)
       return
     }
     // 仅忽略hover等主体交互状态；where/not、属性和祖先条件仍由浏览器完整匹配。
     const { matchSelector } = splitZoneSelectorState(runtime)
     try {
       // querySelectorAll() 只查后代，不包括范围节点自己，比如 scope 本身就是那个菜单，只查里面就会漏掉它。所以查两次
-      if (scope instanceof Element && scope.matches(matchSelector)) add(scope, selector)
-      scope.querySelectorAll(matchSelector).forEach(element => add(element, selector))
+      if (scope instanceof Element && scope.matches(matchSelector)) affected.add(scope)
+      scope.querySelectorAll(matchSelector).forEach(element => affected.add(element))
     } catch {}
   })
   return affected
@@ -93,7 +88,7 @@ export function getSimilarZones(
   const { mergedTabs } = collectDisplayZoneTabs([fromEle], comId)
   const tab = mergedTabs.find(item => !item.pseudo) || null
   const scope = fromEle.closest('[data-desn-page]') || scopeEle
-  return Array.from(collectAffectedElements(tab, collectSubjectClassSelectors(fromEle), scope, fromEle, comId).keys()) as HTMLElement[]
+  return Array.from(collectAffectedElements(tab, collectSubjectClassSelectors(fromEle), scope, fromEle, comId)) as HTMLElement[]
 }
 
 export type ApplyUpdateType = 'all' | 'single'
