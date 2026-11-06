@@ -421,7 +421,7 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
     [externalStyleSource, effectiveValue]
   );
   const [borderToggleValue, setBorderToggleValue] = useState<'all' | 'split'>(
-    getBorderToggleDefaultValue(defaultBorderValue)
+    getBorderToggleDefaultValue(defaultBorderValue, effectiveValue)
   );
   const contentBackgroundLayersRef = useRef<string[] | null>(getContentBackgroundLayers(defaultBorderValue));
   const [borderValue, setBorderValue] = useState(defaultBorderValue);
@@ -589,10 +589,10 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
     const targetChanged = colorEditorTargetRef.current !== targetDom;
     colorEditorTargetRef.current = targetDom;
     if (targetChanged || (!isSoloEdit && !sameBorder)) {
-      setBorderToggleValue(getBorderToggleDefaultValue(next));
+      setBorderToggleValue(getBorderToggleDefaultValue(next, effectiveValue));
       setBorderColorEditorKey((key) => key + 1);
     }
-  }, [targetDom, defaultBorderValue, isSoloEdit]);
+  }, [targetDom, defaultBorderValue, effectiveValue, isSoloEdit]);
 
   const refresh = useCallback(() => {
     const current = borderValueRef.current;
@@ -1608,24 +1608,27 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
   );
 }
 
-function getBorderToggleDefaultValue(value: CSSProperties): 'all' | 'split' {
+function getBorderToggleDefaultValue(value: CSSProperties, previewValue: CSSProperties = {}): 'all' | 'split' {
+  // 计算值只参与展示模式判断，不放进编辑值，避免自动切换时写回默认样式。
+  const displayValue = { ...previewValue, ...value };
+  console.log('####display', displayValue)
   return allEqual([
-    value.borderTopWidth,
-    value.borderRightWidth,
-    value.borderBottomWidth,
-    value.borderLeftWidth,
+    displayValue.borderTopWidth,
+    displayValue.borderRightWidth,
+    displayValue.borderBottomWidth,
+    displayValue.borderLeftWidth,
   ]) &&
     allEqual([
-      value.borderTopStyle,
-      value.borderRightStyle,
-      value.borderBottomStyle,
-      value.borderLeftStyle,
+      displayValue.borderTopStyle,
+      displayValue.borderRightStyle,
+      displayValue.borderBottomStyle,
+      displayValue.borderLeftStyle,
     ]) &&
     allEqual([
-      value.borderTopColor,
-      value.borderRightColor,
-      value.borderBottomColor,
-      value.borderLeftColor,
+      displayValue.borderTopColor,
+      displayValue.borderRightColor,
+      displayValue.borderBottomColor,
+      displayValue.borderLeftColor,
     ])
     ? "all"
     : "split";
