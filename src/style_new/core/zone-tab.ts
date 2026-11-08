@@ -647,7 +647,8 @@ function classTokens(selector: string): string[] {
 export function collectZoneTabs(
   elements: Element[],
   baseSelectors: string[],
-  comId?: string
+  comId?: string,
+  options: { baseOnly?: boolean } = {}
 ): ZoneTab[] {
   const tabs = new Map<string, ZoneTab>()
   for (const baseSelector of baseSelectors) {
@@ -662,11 +663,16 @@ export function collectZoneTabs(
     })
   }
   if (!elements.length || !baseSelectors.length) return Array.from(tabs.values())
-
+  console.log('####', tabs)
   // 每个基础 selector 的 class token 在本次调用中不变，提前解析一次，
   // 避免原 belongsToBase 在每条规则、每个候选基础 selector 上重复执行正则。
   // map 保留 baseSelectors 的顺序，后续 find 仍选择第一个命中的 Tab，不改变归属优先级。
   const bases = baseSelectors.map(selector => ({ selector, classes: classTokens(selector) }))
+  console.log('####', bases)
+  // 仅常规模式提前按类名过滤，且要求每条基础选择器都带 class。
+  // 没有 class 也可能影响元素，如 div span；这种情况不能因缺少类名丢掉有效规则，仍走原匹配。
+  const canPrefilter = !!options.baseOnly && bases.every(base => base.classes.length > 0)
+  const baseClassNames = canPrefilter ? Array.from(new Set(bases.flatMap(base => base.classes))) : []
   // key 是实际传给 matches 的 selector，value 是首个命中元素的下标；-1 表示全部未命中。
   // 缓存只活在本次同步调用内：下一次调用会重新匹配，避免 DOM / CSSOM 更新后读到旧结果。
   const targetIndices = new Map<string, number>()
@@ -678,6 +684,12 @@ export function collectZoneTabs(
     // CSS Modules class（如 .siderContent___hash .ant-menu-item:hover）。
     // 后面的 Element.matches(state.matchSelector) 已经用当前目标 DOM 做了
     // 完整祖先路径校验，可以同时避免把不适用于当前元素的规则收进来。
+    if (canPrefilter) {
+      // 规则里连一个基础类名都没有，就不可能通过后面的类名归属判断，提前跳过，省掉拆分和解析。
+      // 包含类名不代表一定匹配，留下的规则仍要经过后面的完整判断。
+      const containsBaseClass = baseClassNames.some(name => rule.selectorText.includes(name))
+      if (!containsBaseClass) continue
+    }
     for (const part of splitTopLevelSelectors(rule.selectorText)) {
       // 沿用原归属规则：截取最后的主体段，再提取 class token，避免拿祖先段的 class 归属 Tab。
       // 每个分支只提取一次，所有基础 selector 共用结果，不在 find 的每次比较里重新解析。
@@ -688,12 +700,15 @@ export function collectZoneTabs(
         // 保留精确类名和 - / _ 后缀匹配，兼容原有 CSS Modules 运行时类名，不收紧匹配范围。
         sourceClasses.some(source => source === base || source.endsWith(`-${base}`) || source.endsWith(`_${base}`))
       // 返回首个命中的基础 selector；不把一条规则改成同时归属多个 Tab。
-      ))?.selector
+      ))?.selector || ''
       // 1. 原逻辑找不到归属时，只补第三方状态；页面、组件和常规规则不放宽。
       const isRuntimeStyle = !tab
-      if (isRuntimeStyle && (!sourceClasses.length || !part.includes(':') ||
+      // 常规模式不补第三方状态，无基础归属时直接跳过。
+      if (isRuntimeStyle && (options.baseOnly || !sourceClasses.length || !part.includes(':') ||
         isPageScopedSelector(part) || isComponentScopedSelector(part, comId || ''))) continue
       const state = splitZoneSelectorState(part)
+      // 保留条件伪类和祖先条件，只跳过原解析器识别出的主体状态。
+      if (options.baseOnly && state.pseudo) continue
       if (isRuntimeStyle && !state.pseudo) continue
       // 保留已有的伪元素过滤：这类规则不生成 Tab，也不进入后面的 DOM 匹配。
       if (state.pseudo?.includes('::')) continue
@@ -707,7 +722,7 @@ export function collectZoneTabs(
             return false
           }
           if (!subjectClassNames(state.subject, el).some(name => el.classList.contains(name))) return false
-          tab = bases.find(({ selector }) => elMatchesSelectorTail(el, selector))?.selector
+          tab = bases.find(({ selector }) => elMatchesSelectorTail(el, selector))?.selector || ''
           return !!tab
         })
         if (!tab) continue
@@ -731,10 +746,11 @@ export function collectZoneTabs(
       const target = elements[targetIndex]
       const entry = tabs.get(tab)
       if (!entry) continue
+      const sourceSelector = resolveCssomSourceSelector(part, target, comId || '')
       const source = {
         rule,
         selectorPart: part,
-        sourceSelector: resolveCssomSourceSelector(part, target, comId || ''),
+        sourceSelector,
         sourceOrder,
         target,
         isPageStyle: isPageScopedSelector(part),

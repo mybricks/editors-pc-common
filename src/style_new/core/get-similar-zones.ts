@@ -88,11 +88,13 @@ export function getSimilarZones(
   comId: string
 ): HTMLElement[] {
   if (!fromEle || !scopeEle) return []
-
-  const { mergedTabs } = collectDisplayZoneTabs([fromEle], comId)
+  const { mergedTabs } = collectDisplayZoneTabs([fromEle], comId, { baseOnly: true })
   const tab = mergedTabs.find(item => !item.pseudo) || null
   const scope = fromEle.closest('[data-desn-page]') || scopeEle
-  return Array.from(collectAffectedElements(tab, collectSubjectClassSelectors(fromEle), scope, fromEle, comId)) as HTMLElement[]
+  const fallbackSelectors = collectSubjectClassSelectors(fromEle)
+  const affected = collectAffectedElements(tab, fallbackSelectors, scope, fromEle, comId)
+  const result = Array.from(affected) as HTMLElement[]
+  return result
 }
 
 export type ApplyUpdateType = 'all' | 'single'

@@ -30,8 +30,6 @@ export function useAffectedCount(
     const affectedElements = collectAffectedElements(activeTab, fallbackSelectors, scope, anchor || null, comId)
     const count = affectedElements.size
     setAffectedCount((prev) => (prev === count ? prev : count))
-
   }, [activeZoneIdx, zoneTabs, finalSelector, comId, anchor])
-
   return affectedCount
 }
