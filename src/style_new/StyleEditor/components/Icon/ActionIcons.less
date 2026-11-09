@@ -1,0 +1,21 @@
+.icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: inherit;
+  line-height: 0;
+  vertical-align: -0.125em;
+
+  svg {
+    width: 1em;
+    height: 1em;
+  }
+}
+
+.loading {
+  animation: styleEditorIconSpin 1s linear infinite;
+}
+
+@keyframes styleEditorIconSpin {
+  to { transform: rotate(360deg); }
+}

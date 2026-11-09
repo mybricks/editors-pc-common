@@ -1,6 +1,7 @@
-import React, { ReactElement, useMemo } from 'react'
-import { Dropdown, Menu } from 'antd'
-import { CloseOutlined } from '@ant-design/icons'
+import React, { useMemo } from 'react'
+import { ActionMenu } from './StyleEditor/components/ActionMenu'
+import type { ActionMenuOption } from './StyleEditor/components/ActionMenu'
+import { CloseOutlined } from './StyleEditor/components/Icon/ActionIcons'
 import { MoreOutlined } from './StyleEditor/components/Icon'
 import { collectSubjectClassSelectors } from './core/build-zone-selectors-from-cssom'
 import lang from './index.i18n'
@@ -117,7 +118,7 @@ export function ZoneTabBar(props: {
   addOptions?: Array<{ key: string; label: string }>
   deletableSelectors?: string[]
   onDelete?: (selector: string) => void
-  moreMenus: ReactElement
+  moreMenus: ActionMenuOption[]
   targetDom?: HTMLElement | null
 }) {
   const {
@@ -141,31 +142,18 @@ export function ZoneTabBar(props: {
     if (!onAdd || addOptions.length === 0) {
       return moreMenus
     }
-    const addStateSubMenu = (
-      <Menu.SubMenu
-        key="__addState"
-        popupClassName={css.zoneTabDropdown}
-        popupOffset={[-0.5, 0]}
-        title={
-          <span style={{ fontWeight: 'normal', display: 'inline-flex', alignItems: 'center' }}>
-            {lang.addStateLabel}
-          </span>
-        }
-      >
-        {addOptions.map((option) => (
-          <Menu.Item key={option.key} onClick={() => onAdd(String(option.key))}>
-            {option.label}
-          </Menu.Item>
-        ))}
-      </Menu.SubMenu>
-    )
-    const existingChildren = moreMenus.props.children
-    const childrenArray = Array.isArray(existingChildren)
-      ? existingChildren
-      : existingChildren != null
-      ? [existingChildren]
-      : []
-    return React.cloneElement(moreMenus, {}, addStateSubMenu, ...childrenArray)
+    return [
+      {
+        key: '__addState',
+        label: lang.addStateLabel,
+        children: addOptions.map(option => ({
+          key: option.key,
+          label: option.label,
+          onClick: () => onAdd(String(option.key)),
+        })),
+      },
+      ...moreMenus,
+    ]
   }, [onAdd, addOptions, moreMenus])
 
   const isSingleNormalTab =
@@ -207,10 +195,7 @@ export function ZoneTabBar(props: {
         </div>
       )}
       {!hasNoClass && (
-        <Dropdown
-          overlayClassName={css.zoneTabDropdown}
-          overlay={moreOverlay}
-        >
+        <ActionMenu options={moreOverlay}>
           <button
             className={css.moreBtn}
             type="button"
@@ -219,7 +204,7 @@ export function ZoneTabBar(props: {
           >
             <MoreOutlined />
           </button>
-        </Dropdown>
+        </ActionMenu>
       )}
     </div>
   )

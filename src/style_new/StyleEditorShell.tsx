@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 
-import { Button, Checkbox, Menu, message, Tooltip } from 'antd'
-import { CheckOutlined, CloseOutlined } from '@ant-design/icons'
+import { CheckOutlined, CloseOutlined, LoadingOutlined } from './StyleEditor/components/Icon/ActionIcons'
+import { message } from './StyleEditor/components/Message'
 import { copyText } from '../utils'
 import { applyStyleChange } from './core/apply-style-change'
 import {
@@ -674,11 +674,11 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
 
   const title = useMemo(() => {
     return (
-      <Menu>
-        <Menu.Item key="copy" onClick={onCopyStyle}>{lang.copyStyleTip}</Menu.Item>
-        <Menu.Item key="paste" onClick={onPasteStyle}>{lang.pasteStyleTip}</Menu.Item>
-        <Menu.Item key="edit" onClick={onEditModeClick}>{lang.cssEditorTip}</Menu.Item>
-      </Menu>
+      [
+        { key: 'copy', label: lang.copyStyleTip, onClick: onCopyStyle },
+        { key: 'paste', label: lang.pasteStyleTip, onClick: onPasteStyle },
+        { key: 'edit', label: lang.cssEditorTip, onClick: onEditModeClick },
+      ]
     );
   }, [open, editMode, batchMeta, onBatchDiscard, onBatchCommit, onCopyStyle, onPasteStyle])
 
@@ -840,10 +840,8 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
             <div className={css.batchActionBar}>
               <div className={css.batchMetaInfo}>{batchMeta.dirtyCount} {lang.changesCount}</div>
               <div className={css.batchActions}>
-                <Button
-                  size="small"
-                  type="default"
-                  shape="circle"
+                <button
+                  type="button"
                   className={css.batchIconBtn}
                   data-tip={lang.discardAllTip}
                   data-mybricks-tip={lang.discardAllTip}
@@ -852,21 +850,23 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
                   aria-label={lang.discardAllAriaLabel}
                 >
                   <CloseOutlined />
-                </Button>
-                <Button
-                  size="small"
-                  type="default"
-                  shape="circle"
+                </button>
+                <button
+                  type="button"
                   className={`${css.batchIconBtn} ${css.batchConfirmBtn}`}
                   data-tip={lang.aiApplyTip}
                   data-mybricks-tip={`{content:'${lang.aiApplyTip}',position:'left'}`}
-                  loading={batchMeta.submitting}
+                  aria-busy={batchMeta.submitting}
                   disabled={batchMeta.dirtyCount === 0}
-                  onClick={onBatchCommit}
+                  onClick={(event) => {
+                    // 原 Button 的 loading 会拦截点击，不改变禁用条件和提交回调。
+                    if (batchMeta.submitting) event.preventDefault()
+                    else onBatchCommit()
+                  }}
                   aria-label={lang.aiApplyAriaLabel}
                 >
-                  {!batchMeta.submitting && <CheckOutlined />}
-                </Button>
+                  {batchMeta.submitting ? <LoadingOutlined /> : <CheckOutlined />}
+                </button>
               </div>
             </div>
           </div>
@@ -892,12 +892,23 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
               ? lang.onlyCurrentZone
               : lang.syncAllZones}
           >
-            <Checkbox
-              checked={!isSoloEdit}
-              onChange={(event) => (event.target.checked ? onExitSoloEdit() : onEnterSoloEdit())}
-            >
-              {lang.applyToAll}
-            </Checkbox>
+            <label className={css.applyAllCheckbox}>
+              <span className={css.checkboxBox}>
+                <input
+                  type="checkbox"
+                  checked={!isSoloEdit}
+                  onChange={(event) => (event.target.checked ? onExitSoloEdit() : onEnterSoloEdit())}
+                />
+                <span className={css.checkboxVisual} aria-hidden="true">
+                  {!isSoloEdit && (
+                    <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+                      <path d="M1 3.5L3.8 6.5L9 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  )}
+                </span>
+              </span>
+              <span className={css.checkboxLabel}>{lang.applyToAll}</span>
+            </label>
             <div
               key={isSoloEdit ? 'solo' : 'batch'}
               ref={editModeHintRef}
