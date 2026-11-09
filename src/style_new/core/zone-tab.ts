@@ -663,12 +663,10 @@ export function collectZoneTabs(
     })
   }
   if (!elements.length || !baseSelectors.length) return Array.from(tabs.values())
-  console.log('####', tabs)
   // 每个基础 selector 的 class token 在本次调用中不变，提前解析一次，
   // 避免原 belongsToBase 在每条规则、每个候选基础 selector 上重复执行正则。
   // map 保留 baseSelectors 的顺序，后续 find 仍选择第一个命中的 Tab，不改变归属优先级。
   const bases = baseSelectors.map(selector => ({ selector, classes: classTokens(selector) }))
-  console.log('####', bases)
   // 仅常规模式提前按类名过滤，且要求每条基础选择器都带 class。
   // 没有 class 也可能影响元素，如 div span；这种情况不能因缺少类名丢掉有效规则，仍走原匹配。
   const canPrefilter = !!options.baseOnly && bases.every(base => base.classes.length > 0)
