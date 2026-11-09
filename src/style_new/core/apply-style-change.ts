@@ -1,3 +1,4 @@
+import { createAncestorStateLinkWriteTab, withAncestorStateLinkSelector } from './ancestor-state-link'
 import { deepCopy } from '../../utils'
 import { mergeCSSProperties } from '../StyleEditor/helper'
 import { decomposeBackgroundStack, preservePaintRoles } from '../StyleEditor/helper/paint-stack'
@@ -60,7 +61,7 @@ const EXPLICIT_STYLE_SELECTOR_KEY = '__mybricks_style_explicit_selector'
  * selector options 回退成面板原 selector。用同步 side-channel 保留公共规划层已经
  * 确定的实际写入目标；styleProxy 会优先读取它。嵌套调用结束后恢复原值。
  */
-function withExplicitStyleSelector<T>(selector: string, write: () => T): T {
+export function withExplicitStyleSelector<T>(selector: string, write: () => T): T {
   const scope = window as any
   const hadPrevious = Object.prototype.hasOwnProperty.call(scope, EXPLICIT_STYLE_SELECTOR_KEY)
   const previous = scope[EXPLICIT_STYLE_SELECTOR_KEY]
@@ -279,7 +280,7 @@ export function createStyleRemovalPlan(
         Object.values(group.style).some(value => IMPORTANT_SUFFIX_RE.test(String(value)))) {
         return blocked('动态 JSX 或缺少源码范围，无法安全删除/拆分')
       }
-    } else if (!splitZoneSelectorState(group.selector).pseudo &&
+    } else if (!(resolution.linkedSelector === group.selector || splitZoneSelectorState(group.selector).pseudo) &&
       [...group.deletions, ...Object.keys(group.style)].some(key => inlineProperties.has(cssPropertyName(key)))) {
       return blocked('同名 JSX 样式会改变写入目标，无法安全删除')
     }
@@ -596,6 +597,14 @@ function preserveStateInlinePriority(
 ): StyleChangeItem[] {
   if (!tab?.pseudo || tab.pseudo.includes('::') || !target) return items
   const resolution = getStyleResolution(tab, target)
+  if (tab.isAncestorStateLinkWrite) {
+    // 仅保留固定规则自己的优先级，不借其他状态或 inline 提高权重。
+    return items.map(item => {
+      const ownImportant = resolution.get(item.key).candidates.some(candidate => candidate.important)
+      if (item.value == null || !ownImportant || IMPORTANT_SUFFIX_RE.test(String(item.value))) return item
+      return { ...item, value: `${item.value} !important` }
+    })
+  }
   const inlineProperties = readInlineStyleProperties(target)
   const inlineLonghands = new Set(Array.from(inlineProperties).flatMap(property =>
     STYLE_SHORTHANDS[property] || [property]
@@ -683,7 +692,7 @@ function applyEffectiveStyleChanges(
       ? flexWrites.some(item => !readStaticInlineStyleInfo(target, item.key)) ||
         flexDeletions.some(key => !readStaticInlineStyleInfo(target, key, true)) ||
         Object.values(flexStyle).some(value => IMPORTANT_SUFFIX_RE.test(String(value)))
-      : !splitZoneSelectorState(flexSelector).pseudo &&
+      : !(resolution.linkedSelector === flexSelector || splitZoneSelectorState(flexSelector).pseudo) &&
         flexKeys.some(key => inlineProperties.has(cssPropertyName(key)))))
   const flexPlans = !replacingFlex ? [] : flexWrites.some(item => item.key === 'flex')
     ? [{ property: 'flex' as const, selector: flexSelector, style: flexStyle,
@@ -889,6 +898,18 @@ export type ApplyStyleChangeResult = {
 export function applyStyleChange(params: ApplyStyleChangeParams): ApplyStyleChangeResult {
   const editOptions = params.editConfig.options
   const tab: ZoneTab | undefined = editOptions?.zoneTab
+  if (tab?.linkedSelector) {
+    // 联动写入只把固定规则视作当前态；其余状态来源可参与回显，不能被修改或清空。
+    const selector = editOptions.soloEdit ? editOptions.selector : tab.linkedSelector
+    const writeTab = createAncestorStateLinkWriteTab(tab, selector)
+    return withAncestorStateLinkSelector(selector, () => applyStyleChangeInternal({ ...params,
+      options: params.options ? { ...params.options, selector } : params.options,
+      value: (Array.isArray(params.value) ? params.value : [params.value]).map(item => ({
+        ...item, intent: item.value == null ? 'clear-effective-style' : 'set-effective-style',
+      })),
+      editConfig: { ...params.editConfig, options: { ...editOptions, soloEdit: false, selector, zoneTab: writeTab } },
+      preserveImportantPriority: false }))
+  }
   let batchSoloContext: {
     tab: ZoneTab
     target: Element

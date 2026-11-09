@@ -135,6 +135,9 @@ export function createStyleWriteTargetResolver(
   let defaultTarget: StyleWriteTarget | undefined
   const getDefaultTarget = () => defaultTarget || (defaultTarget = resolveDefaultWriteTarget(tab, target))
   return (key: string, mode?: 'current-rule'): StyleWriteTarget => {
+    if (tab.linkedSelector) {
+      return { selector: tab.linkedSelector, source: 'current-rule', candidates: [], reason: 'fixed-ancestor-state-link' }
+    }
     if (mode === 'current-rule') {
       // 统一间距要求所有方向落在一个规则；合并 Tab 后这个规则也由权重决定。
       const current = getDefaultTarget()

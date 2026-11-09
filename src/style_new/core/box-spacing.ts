@@ -4,7 +4,7 @@ import {
 } from './style-property'
 import type { StyleResolution } from './style-property'
 import type { StyleChangeItem } from './apply-style-change'
-import { splitZoneSelectorState } from './zone-tab'
+import { splitAncestorState, splitZoneSelectorState } from './zone-tab'
 import type { EffectiveStyleValue } from './zone-tab'
 import { createDirectionalWritePlans } from './four-side-write'
 
@@ -94,7 +94,7 @@ export type SpacingWritePlan = {
  */
 export function createSpacingWritePlans(
   changes: StyleChangeItem[],
-  resolution: Pick<StyleResolution, 'get'>,
+  resolution: Pick<StyleResolution, 'get' | 'linkedSelector'>,
   currentSelector: string,
   target: HTMLElement | null,
   resolveSelector?: (change: StyleChangeItem) => string | null
@@ -147,7 +147,7 @@ export function createSpacingWritePlans(
       ))
       if (candidate) style[key] = `${candidate.value}${candidate.important ? ' !important' : ''}`
     })
-    const pseudo = splitZoneSelectorState(selector).pseudo
+    const pseudo = resolution.linkedSelector === selector ? splitAncestorState(selector)!.pseudo : splitZoneSelectorState(selector).pseudo
     const nextChanges = groupChanges.map(change => {
       if (change.value == null) {
         style[change.key] = null

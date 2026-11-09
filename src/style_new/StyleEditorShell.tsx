@@ -32,8 +32,9 @@ import {
   getSavedSoloStyle,
 } from './core/build-solo-selector'
 import type { SavedSoloStyle } from './core/build-solo-selector'
-import { excludeSoloSources } from './core/zone-tab'
+import { excludeSoloSources, getZoneTabLabels } from './core/zone-tab'
 import type { ZoneTab } from './core/zone-tab'
+import { createAncestorStateLink, collectAncestorStateLinkTab, hasAncestorStateLinkRule, resolveStateLinkAncestor, withAncestorStateLinkSelector } from './core/ancestor-state-link'
 import { applyStatePreview, clearStatePreview, getStatePreviewContext, getStatePreviewMode, isPreviewablePseudo, onStatePreviewChange } from './core/state-preview'
 import { registerVariationFocusHandler, setFocusedVariation } from './core/variations'
 import { setSoloEditState } from './core/get-similar-zones'
@@ -182,7 +183,7 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
     selectedTarget,
     zoneSelectorSignature: zoneSelectorList.join('\u0001'),
     zoneTabSourceSignature: zoneTabs.map((tab) =>
-      `${tab.selector}:${tab.sourceRules.map((item) =>
+      `${tab.selector}:${tab.linkedSelector || ''}:${tab.sourceRules.map((item) =>
         `${item.sourceOrder}:${item.selectorPart}:${item.sourceSelector}`
           + `:${item.isPageStyle ? 'page' : 'external'}`
       ).join('|')}`
@@ -227,7 +228,7 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
 
   // 用户切换变体才改变预览；换选中和自动回显只读取目标自己的状态。
   const previewZoneTab = useCallback((tab: ZoneTab) => {
-    if (!selectedTarget) return
+    if (!selectedTarget || tab.ancestorStateLink) return
     if (tab.pseudo && isPreviewablePseudo(tab.pseudo)) {
       applyStatePreview(selectedTarget, tab, isSoloEdit ? undefined : { comId: shellComId })
     } else if (!tab.pseudo) {
@@ -321,6 +322,26 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
     return shellComId ? getDocument().getElementById(shellComId) : null
   }, [shellComId])
 
+  const [ancestorStateLinkRevision, setAncestorStateLinkRevision] = useState(0)
+  useEffect(() => onStatePreviewChange(() => setAncestorStateLinkRevision(revision => revision + 1)), [])
+  const ancestorStateLinkCandidate = useMemo(() => {
+    if (!selectedTarget || !activeZoneTab || activeZoneTab.ancestorStateLink) return null
+    const link = createAncestorStateLink(selectedTarget, activeZoneTab.baseSelector, shellComId)
+    if (!link) return null
+    const tab = collectAncestorStateLinkTab(selectedTarget, activeZoneTab, link, shellComId)
+    if (hasAncestorStateLinkRule(tab, link)) return null
+    return { ...tab, label: getZoneTabLabels([tab.selector])[0], isAdded: !zoneTabs.some(item => item.pseudo === link.pseudo) }
+  }, [selectedTarget, activeZoneTab, shellComId, zoneTabs, ancestorStateLinkRevision])
+  const onAddAncestorStateLink = useCallback(() => {
+    if (!ancestorStateLinkCandidate) return
+    // 只建立编辑上下文，不写空 CSS，也不额外开启后代自身状态。
+    addZoneTab(ancestorStateLinkCandidate)
+  }, [ancestorStateLinkCandidate, addZoneTab])
+  const soloBaseSelector = activeZoneTab?.ancestorStateLink ? activeZoneTab.baseSelector : baseSelector
+  const stateAncestor = activeZoneTab?.ancestorStateLink
+    ? resolveStateLinkAncestor(selectedTarget, activeZoneTab.ancestorStateLink) || undefined
+    : undefined
+
   // 退出单独编辑后的本次刷新复用现场读取结果；其他切换和刷新重新扫描。
   const savedSoloStyle = useMemo(() => {
     const snapshot = batchSwitchSoloStyleRef.current
@@ -330,15 +351,15 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
       return snapshot.style
     }
     return selectedTarget && baseSelector
-      ? getSavedSoloStyle(selectedTarget, baseSelector, componentRoot, getDocument())
+      ? getSavedSoloStyle(selectedTarget, soloBaseSelector || baseSelector, componentRoot, getDocument(), stateAncestor, activeZoneTab?.linkedSelector)
       : null
-  }, [selectedTarget, baseSelector, componentRoot, key, isSoloEdit])
+  }, [selectedTarget, baseSelector, soloBaseSelector, stateAncestor, activeZoneTab?.linkedSelector, componentRoot, key, isSoloEdit])
 
   const expectedSoloSelector = useMemo(() => {
     return selectedTarget && baseSelector
-      ? buildSoloSelector(selectedTarget, baseSelector, componentRoot)
+      ? buildSoloSelector(selectedTarget, soloBaseSelector || baseSelector, componentRoot, { stateAncestor, linkedSelector: activeZoneTab?.linkedSelector })
       : null
-  }, [selectedTarget, baseSelector, componentRoot])
+  }, [selectedTarget, baseSelector, soloBaseSelector, stateAncestor, activeZoneTab?.linkedSelector, componentRoot])
 
   const onZoneTabSelect = useCallback(
     (idx: number) => {
@@ -361,7 +382,10 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
       if (isSoloEdit) {
         skipSoloRehydrateRef.current = true
         const nextSoloSelector = selectedTarget
-          ? buildSoloSelector(selectedTarget, zoneSelectorList[idx], componentRoot)
+          ? buildSoloSelector(selectedTarget, nextTab?.ancestorStateLink ? nextTab.baseSelector : zoneSelectorList[idx], componentRoot, {
+              stateAncestor: nextTab?.ancestorStateLink ? resolveStateLinkAncestor(selectedTarget, nextTab.ancestorStateLink) || undefined : undefined,
+              linkedSelector: nextTab?.linkedSelector,
+            })
           : null
         if (nextSoloSelector) {
           setSoloSelector(nextSoloSelector)
@@ -418,6 +442,12 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
         : undefined) ||
       finalSelector
 
+    if (activeZoneTab?.linkedSelector) {
+      activeSelector = activeZoneTab.linkedSelector
+      if (resolvedEditConfig.options && !Array.isArray(resolvedEditConfig.options)) {
+        resolvedEditConfig = { ...resolvedEditConfig, options: { ...resolvedEditConfig.options, selector: activeSelector } }
+      }
+    }
     if (isSoloEdit && soloSelector && !Array.isArray(resolvedEditConfig.options) && resolvedEditConfig.options) {
       activeSelector = soloSelector
       resolvedEditConfig = {
@@ -449,7 +479,11 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
           // 必须通过 side-channel 强制写入目标，与 apply-style-change 保持一致。
           ;(window as any).__mybricks_style_explicit_selector = savedRule.selector
           try {
-            editConfig.value.set(restoredStyle, { selector: savedRule.selector })
+            if (activeZoneTab?.linkedSelector) {
+              withAncestorStateLinkSelector(savedRule.selector, () => editConfig.value.set(restoredStyle, { selector: savedRule.selector }))
+            } else {
+              editConfig.value.set(restoredStyle, { selector: savedRule.selector })
+            }
           } finally {
             delete (window as any).__mybricks_style_explicit_selector
           }
@@ -468,14 +502,14 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
     const preview = getStatePreviewContext(selectedTarget)
     if (selectedTarget && preview) applyStatePreview(selectedTarget, preview.tab)
     setKey((k) => k + 1)
-  }, [editConfig, expectedSoloSelector, refreshBatchMeta, selectedTarget])
+  }, [editConfig, expectedSoloSelector, refreshBatchMeta, selectedTarget, activeZoneTab?.linkedSelector])
 
   // 切回批量时，完整路径规则会备份并移除；手写短规则保留，仅切换后续编辑的写入目标。
   const onExitSoloEdit = useCallback(() => {
     useBatchStyleSourcesRef.current = true
     if (soloSelector && selectedTarget && baseSelector) {
       // 子面板写入不一定触发 Shell 渲染，退出前读取最新规则再备份和删除。
-      const savedSoloStyle = getSavedSoloStyle(selectedTarget, baseSelector, componentRoot, getDocument())
+      const savedSoloStyle = getSavedSoloStyle(selectedTarget, soloBaseSelector || baseSelector, componentRoot, getDocument(), stateAncestor, activeZoneTab?.linkedSelector)
       if (savedSoloStyle) {
         // 只备份和删除当前元素的完整规则；共用的手写短规则保持不动。
         const soloRules = savedSoloStyle.rules.filter(rule => rule.selector === expectedSoloSelector)
@@ -499,7 +533,11 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
                 soloStyle, savedRule.declarationKeys
               )
               try {
-                editConfig.value.set({}, { selector: savedRule.selector })
+                if (activeZoneTab?.linkedSelector) {
+                  withAncestorStateLinkSelector(savedRule.selector, () => editConfig.value.set({}, { selector: savedRule.selector }))
+                } else {
+                  editConfig.value.set({}, { selector: savedRule.selector })
+                }
               } finally {
                 delete (window as any).__mybricks_style_explicit_selector
               }
@@ -533,6 +571,9 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
     selectedTarget,
     baseSelector,
     componentRoot,
+    soloBaseSelector,
+    stateAncestor,
+    activeZoneTab?.linkedSelector,
     expectedSoloSelector,
     refreshBatchMeta,
     shellComId,
@@ -684,11 +725,11 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
 
   const onBatchStyleSourceChange = useCallback(() => {
     if (!pendingBatchStyleRefreshRef.current || !selectedTarget || !baseSelector) return
-    const currentSoloStyle = getSavedSoloStyle(selectedTarget, baseSelector, componentRoot, getDocument())
+    const currentSoloStyle = getSavedSoloStyle(selectedTarget, soloBaseSelector || baseSelector, componentRoot, getDocument(), stateAncestor, activeZoneTab?.linkedSelector)
     if (currentSoloStyle?.rules.some(rule => rule.selector === expectedSoloSelector)) return
     pendingBatchStyleRefreshRef.current = false
     setKey(k => k + 1)
-  }, [selectedTarget, baseSelector, componentRoot, expectedSoloSelector])
+  }, [selectedTarget, baseSelector, soloBaseSelector, stateAncestor, activeZoneTab?.linkedSelector, componentRoot, expectedSoloSelector])
 
   const editor = useMemo(() => {
     let { resolvedEditConfig, activeSelector } = resolveActiveEditContext()
@@ -807,6 +848,7 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
     editMode,
     key,
     activeZoneIdx,
+    activeZoneTab?.linkedSelector,
     // TODO: 暂时去掉这个依赖，此依赖会导致 editor 被频繁刷新重新渲染。持续观察，没问题就可以删除这依赖
     // resolveActiveEditContext,
     refreshBatchMeta,
@@ -883,6 +925,19 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
           moreMenus={title}
           targetDom={selectedTarget as HTMLElement}
         />
+        {ancestorStateLinkCandidate && (
+          <div className={`${css.editModeControl} ${css.ancestorStateLinkControl}`}>
+            <label className={css.applyAllCheckbox}>
+              <span className={css.checkboxBox}>
+                <input type="checkbox" checked={false} onChange={onAddAncestorStateLink} />
+                <span className={css.checkboxVisual} aria-hidden="true" />
+              </span>
+              <span className={css.checkboxLabel}>
+                {lang.addParentStateLink.replace('{state}', ancestorStateLinkCandidate.label)}
+              </span>
+            </label>
+          </div>
+        )}
         {showEditModeControl && (
           <div
             className={`${css.editModeControl} ${

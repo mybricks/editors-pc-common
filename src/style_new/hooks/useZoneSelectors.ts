@@ -7,14 +7,22 @@ import { collectDisplayZoneTabs } from '../core/zone-display-tabs'
 import { clearStatePreview, getStatePreviewContext, onStatePreviewChange } from '../core/state-preview'
 import {
   buildZoneEffectiveStyle,
+  getZoneTabLabels,
   collectZoneTabs,
 } from '../core/zone-tab'
 import type { ZoneTab } from '../core/zone-tab'
+import { collectAncestorStateLinkTab, createAncestorStateLink, hasAncestorStateLinkRule, withAncestorStateLinkSelector } from '../core/ancestor-state-link'
+import { withExplicitStyleSelector } from '../core/apply-style-change'
 import { uniqBy } from 'lodash'
 
 const INIT_TABS: ZoneTab[] = [];
 export function useZoneSelectors(editConfig: any, targetDom: any, _open: boolean) {
   const [activeZoneIdx, setActiveZoneIdx] = useState(0)
+  const [previewRevision, setPreviewRevision] = useState(0)
+  useEffect(() => onStatePreviewChange(() => setPreviewRevision(revision => revision + 1)), [])
+  const customTargetRef = useRef(targetDom)
+  const restoredLinkRef = useRef<{ target: unknown; tab?: ZoneTab }>({ target: targetDom })
+  if (restoredLinkRef.current.target !== targetDom) restoredLinkRef.current = { target: targetDom }
   const [customZoneTabs, setCustomZoneTabs] = useState<ZoneTab[]>(INIT_TABS)
   // 用户手动点 tab 后，禁止被「按 DOM class 对齐」立刻打回基础态（:hover / 状态类等）
   const userSelectedRef = useRef(false)
@@ -50,8 +58,27 @@ export function useZoneSelectors(editConfig: any, targetDom: any, _open: boolean
     const generatedTabs = displayTabs.map(({ tab, label }) =>
       resolveTabStyle({ ...tab, label, effectiveStyle: tab.effectiveStyle ?? {} })
     )
-    const customTabs = customZoneTabs.map((tab) => {
+    if (target) {
+      const restored = restoredLinkRef.current.tab
+      const normalTab = generatedTabs.find(tab => !tab.pseudo)
+      const link = restored?.ancestorStateLink || (normalTab && createAncestorStateLink(target, normalTab.baseSelector, comId))
+      if (normalTab && link) {
+        const stateIndex = generatedTabs.findIndex(tab => tab.pseudo === link.pseudo)
+        const baseTab = stateIndex >= 0 ? generatedTabs[stateIndex] : normalTab
+        const linked = collectAncestorStateLinkTab(target, baseTab, link, comId)
+        if (restored || hasAncestorStateLinkRule(linked, link)) {
+          restoredLinkRef.current.tab = linked
+          const label = getZoneTabLabels([linked.selector])[0]
+          const linkedTab = resolveTabStyle({ ...linked, label })
+          if (stateIndex >= 0) generatedTabs[stateIndex] = linkedTab
+          else generatedTabs.push(linkedTab)
+        }
+      }
+    }
+    const targetCustomTabs = customTargetRef.current === targetDom ? customZoneTabs : INIT_TABS
+    const customTabs = targetCustomTabs.map((tab) => {
       // 手动新增的 Tab 合入最新扫描规则，保留新增标记。
+      if (tab.ancestorStateLink && target) return resolveTabStyle(collectAncestorStateLinkTab(target, tab, tab.ancestorStateLink, comId))
       const generated = generatedTabs.find((item) => item.selector === tab.selector)
       if (generated) {
         return { ...tab, ...generated, isAdded: tab.isAdded }
@@ -63,7 +90,7 @@ export function useZoneSelectors(editConfig: any, targetDom: any, _open: boolean
       mergedTabs,
       originTabs,
     }
-  }, [targetDom, comId, customZoneTabs])
+  }, [targetDom, comId, customZoneTabs, previewRevision])
 
   const zoneSelectorList = useMemo(() => zoneTabs.map((tab) => tab.selector), [zoneTabs])
 
@@ -73,7 +100,8 @@ export function useZoneSelectors(editConfig: any, targetDom: any, _open: boolean
     prevTargetDomRef.current = targetDom
     const el = toElementArray(targetDom)[0] ?? null
     const preview = getStatePreviewContext(el)
-    const idx = zoneTabs.findIndex(tab => tab.pseudo === (preview?.pseudo ?? null))
+    const linked = zoneTabs.find(tab => tab.linkedSelector)
+    const idx = zoneTabs.findIndex(tab => tab.pseudo === (linked?.pseudo || preview?.pseudo || null))
     setActiveZoneIdx(idx >= 0 ? idx : 0)
   }
 
@@ -89,6 +117,11 @@ export function useZoneSelectors(editConfig: any, targetDom: any, _open: boolean
 
     function syncActiveIdx() {
       // 只回显该元素所属的预览会话，父子或同类 class 不再隐式继承面板状态。
+      const linkedIdx = zoneTabs.findIndex(tab => tab.linkedSelector)
+      if (linkedIdx >= 0 && !userSelectedRef.current) {
+        setActiveZoneIdx(linkedIdx)
+        return
+      }
       const preview = getStatePreviewContext(el)
       if (preview) {
         const previewIdx = zoneSelectorList.findIndex((sel) => sel.endsWith(preview.pseudo))
@@ -135,8 +168,17 @@ export function useZoneSelectors(editConfig: any, targetDom: any, _open: boolean
   }, [])
 
   const addZoneTab = useCallback((tab: ZoneTab) => {
+    customTargetRef.current = targetDom
     const existingIndex = zoneTabs.findIndex((item) => item.selector === tab.selector)
     const customIndex = customZoneTabs.findIndex((item) => item.selector === tab.selector)
+    if (tab.ancestorStateLink) {
+      const existingState = zoneTabs.find(item => item.pseudo === tab.pseudo)
+      const linkedTab = existingState ? { ...tab, selector: existingState.selector, baseSelector: existingState.baseSelector } : tab
+      setCustomZoneTabs(tabs => [...tabs.filter(item => item.pseudo !== tab.pseudo), linkedTab])
+      setActiveZoneIdx(existingState ? zoneTabs.indexOf(existingState) : zoneTabs.length)
+      userSelectedRef.current = true
+      return
+    }
     if (existingIndex >= 0) {
       setActiveZoneIdx(existingIndex)
       userSelectedRef.current = true
@@ -152,7 +194,7 @@ export function useZoneSelectors(editConfig: any, targetDom: any, _open: boolean
     })
     setActiveZoneIdx(uniqBy([...zoneTabs, ...customZoneTabs], (t) => t.selector).length)
     userSelectedRef.current = true
-  }, [customZoneTabs, zoneTabs])
+  }, [customZoneTabs, zoneTabs, targetDom])
 
   const deleteZoneTab = useCallback((selector: string) => {
     const addedTab = zoneTabs.find((tab) => tab.selector === selector && tab.isAdded)
@@ -164,14 +206,16 @@ export function useZoneSelectors(editConfig: any, targetDom: any, _open: boolean
       toElementArray(targetDom),
       [addedTab.baseSelector],
       comId,
+      addedTab.linkedSelector ? { includeAncestorState: true } : undefined,
     )
     const styleRules = [
-      ...zoneTabs.filter((tab) => tab.selector === selector).flatMap((tab) => tab.sourceRules),
+      ...zoneTabs.filter((tab) => tab.selector === selector).flatMap((tab) => tab.linkedRules || tab.sourceRules),
       ...latestTabs.filter((tab) => tab.selector === selector).flatMap((tab) => tab.sourceRules),
     ]
     const propertiesBySelector = new Map<string, string[]>()
 
     styleRules.forEach(({ rule, sourceSelector }) => {
+      if (addedTab.linkedSelector && sourceSelector !== addedTab.linkedSelector) return
       if (!rule?.style) return
       const writeSelector = sourceSelector || addedTab.selector
       const properties = propertiesBySelector.get(writeSelector) || []
@@ -186,14 +230,19 @@ export function useZoneSelectors(editConfig: any, targetDom: any, _open: boolean
       try {
         // 宿主通过 side-channel 区分「删除声明」和「写入空对象」。
         ;(window as any).__mybricks_style_deletions = properties
-        editConfig.value.set({}, { selector: sourceSelector })
+        if (addedTab.linkedSelector) {
+          withAncestorStateLinkSelector(sourceSelector, () =>
+            withExplicitStyleSelector(sourceSelector, () => editConfig.value.set({}, { selector: sourceSelector })))
+        } else {
+          editConfig.value.set({}, { selector: sourceSelector })
+        }
       } finally {
         ;(window as any).__mybricks_style_deletions = null
       }
     })
 
     const target = toElementArray(targetDom)[0] ?? null
-    if (target && getStatePreviewContext(target)?.pseudo === addedTab.pseudo) {
+    if (!addedTab.linkedSelector && target && getStatePreviewContext(target)?.pseudo === addedTab.pseudo) {
       clearStatePreview(target)
       setActiveZoneIdx(Math.max(0, zoneTabs.findIndex(tab => !tab.pseudo)))
     }

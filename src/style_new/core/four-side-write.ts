@@ -3,13 +3,13 @@ import { cssPropertyName, hasFallbackStyleCandidate, readInlineStyleProperties, 
 import type { StyleResolution } from './style-property'
 import type { StyleChangeItem } from './apply-style-change'
 import { STYLE_SHORTHANDS, stylePropertyKey } from './style-shorthand-groups'
-import { splitZoneSelectorState } from './zone-tab'
+import { splitAncestorState, splitZoneSelectorState } from './zone-tab'
 
 /** 方向属性在同一来源内拆写，保留未编辑方向及后备来源。 */
 export function createDirectionalWritePlans<Property extends 'borderRadius' | 'margin' | 'padding' | 'overflow'>(
   property: Property,
   changes: StyleChangeItem[],
-  resolution: Pick<StyleResolution, 'get'>,
+  resolution: Pick<StyleResolution, 'get' | 'linkedSelector'>,
   target: HTMLElement | null,
   resolveSelector: (change: StyleChangeItem) => string | null
 ) {
@@ -54,7 +54,7 @@ export function createDirectionalWritePlans<Property extends 'borderRadius' | 'm
       }
     })
 
-    const pseudo = splitZoneSelectorState(selector).pseudo
+    const pseudo = resolution.linkedSelector === selector ? splitAncestorState(selector)!.pseudo : splitZoneSelectorState(selector).pseudo
     const nextChanges = groupChanges.map(change => {
       let value = resetKeys.has(change.key) ? 'unset' : change.value
       // 状态声明保留在伪类规则中；用 important 覆盖默认态的内联值。

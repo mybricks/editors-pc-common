@@ -18,6 +18,7 @@ import { readNormalComputedStyle, readNormalStyleSignature } from './core/normal
 import { recordPendingSoloValues, reconcilePendingSoloValues } from './core/solo-pending-style'
 import type { PendingSoloValue } from './core/solo-pending-style'
 import { notifyVariationsChange } from './core/variations'
+import { collectAncestorStateLinkTab, createAncestorStateLinkWriteTab, getNearestStateAncestor } from './core/ancestor-state-link'
 import { INTERACTIVE_PSEUDO_STATES } from './core/state-preview'
 import { STATE_PREVIEW_ATTR } from './core/state-preview-tag'
 
@@ -106,6 +107,10 @@ export function StyleMount({
               ...collectSubjectClassSelectors(target),
             ]))
             tabs = mergeZoneTabsByState(collectZoneTabs([target], selectors, zoneOptions?.comId))
+            if (zoneTab.ancestorStateLink) {
+              const linked = collectAncestorStateLinkTab(target, zoneTab, zoneTab.ancestorStateLink, zoneOptions?.comId)
+              tabs = [...tabs.filter(tab => tab.pseudo !== zoneTab.ancestorStateLink?.pseudo), linked]
+            }
           }
           const current = tabs.find(tab => tab.pseudo === zoneTab.pseudo)
           // 只有重新读取了样式规则才更新，避免切回 Tab 时用旧规则把改好的颜色显示回旧值。
@@ -116,6 +121,7 @@ export function StyleMount({
             if (current.baseRules.length || !current.sourceRules.length || !zoneTab.baseRules.length) {
               zoneTab.baseRules = current.baseRules
             }
+            zoneTab.linkedRules = current.linkedRules
             refreshZoneTabSources(zoneTab, current)
           }
           // 第一次记录初始变体数组
@@ -354,7 +360,10 @@ export function StyleMount({
       : reusablePreview ?? new Map<string, string | undefined>()
     // 状态预览期间 normalComputed 不可信，快照也可能因编辑（宿主更新元素属性等）失效。
     // 兜底读当前计算值：状态没声明的属性不受预览影响，值依然正确，回显不会变空。
-    const fallbackComputed = !normalComputed && realDom?.hasAttribute(STATE_PREVIEW_ATTR)
+    // 联动仅预览祖先，也复用原有只读计算值兜底，不把它当作状态配置。
+    const hasManualPreview = realDom?.hasAttribute(STATE_PREVIEW_ATTR) ||
+      (zoneTab?.ancestorStateLink && getNearestStateAncestor(realDom))
+    const fallbackComputed = !normalComputed && realDom && hasManualPreview
       ? (realDom.ownerDocument.defaultView || window).getComputedStyle(realDom)
       : undefined
     if (normalComputed && realDom && zoneTab) {
@@ -384,6 +393,7 @@ export function StyleMount({
       }
       return displayPreviewCache.get(property)
     }
+    const propertyTab = zoneTab?.linkedSelector ? createAncestorStateLinkWriteTab(zoneTab, zoneOptions.selector) : zoneTab
     const CDN = (editConfig as any).getDefaultOptions?.('stylenew')?.CDN
     return {
       editConfig: {
@@ -396,12 +406,12 @@ export function StyleMount({
       langType: (window as any).__lang_type__,
       effectiveStyle: panelEffectiveStyle,
       applyStyleMutations,
-      getStyleProperty: zoneTab && !isSoloEdit ? (key: string) => getStyleResolution(zoneTab, realDom).get(key) : undefined,
-      getStyleClearPlans: zoneTab && !isSoloEdit ? (keys: readonly string[]) =>
-        createBatchStyleClearPlans(keys, getStyleResolution(zoneTab, realDom), realDom) : undefined,
+      getStyleProperty: propertyTab && !isSoloEdit ? (key: string) => getStyleResolution(propertyTab, realDom).get(key) : undefined,
+      getStyleClearPlans: propertyTab && !isSoloEdit ? (keys: readonly string[]) =>
+        createBatchStyleClearPlans(keys, getStyleResolution(propertyTab, realDom), realDom) : undefined,
       removeStyleProperties: zoneTab && !isSoloEdit ? removeStyleProperties : undefined,
-      getStyleRemovalState: zoneTab && !isSoloEdit ? (keys: readonly string[]) =>
-        createStyleRemovalPlan(keys, getStyleResolution(zoneTab, realDom), realDom, liveStyleRef.current) : undefined,
+      getStyleRemovalState: propertyTab && !isSoloEdit ? (keys: readonly string[]) =>
+        createStyleRemovalPlan(keys, getStyleResolution(propertyTab, realDom), realDom, liveStyleRef.current) : undefined,
       getStylePreview,
       getStyleDisplayPreview,
     }

@@ -1,6 +1,6 @@
 import { collectSubjectClassSelectors, resolveCssomSourceSelector } from './build-zone-selectors-from-cssom'
 import { collectDisplayZoneTabs } from './zone-display-tabs'
-import { splitZoneSelectorState } from './zone-tab'
+import { splitAncestorState, splitZoneSelectorState } from './zone-tab'
 import type { ZoneTab } from './zone-tab'
 
 type AffectedScope = Element | Document | ShadowRoot
@@ -29,6 +29,11 @@ export function collectAffectedElements(
   anchor: Element | null,
   comId = ''
 ): Set<Element> {
+  if (tab?.linkedSelector) {
+    // 联动统计固定规则的潜在范围，不受回显来源或真实交互状态影响。
+    const state = splitAncestorState(tab.linkedSelector)
+    return collectAffectedElements(null, [state?.matchSelector || tab.linkedSelector], scope, anchor, comId)
+  }
   const selectors = new Map<string, string>()
   if (tab) {
     // 收集真正匹配当前选中元素的 CSS 规则，而不是只收集实际写入目标。

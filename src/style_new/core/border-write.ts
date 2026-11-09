@@ -20,7 +20,7 @@ export const isBorderRadiusProperty = (key: string) => key === 'borderRadius' ||
 /** 圆角按来源写入，避免通用样式合并把其他 selector 的简写/长写一起删除。 */
 export function createBorderRadiusWritePlans(
   changes: StyleChangeItem[],
-  resolution: Pick<StyleResolution, 'get'>,
+  resolution: Pick<StyleResolution, 'get' | 'linkedSelector'>,
   target: HTMLElement | null,
   resolveSelector: (change: StyleChangeItem) => string | null
 ) {
@@ -30,7 +30,7 @@ export function createBorderRadiusWritePlans(
 /** 同一来源内压缩 border；统一宽度回填可携带已有显式线型/颜色，不补 computed 值。 */
 export function createBorderWritePlans(
   changes: StyleChangeItem[],
-  resolution: Pick<StyleResolution, 'get'>,
+  resolution: Pick<StyleResolution, 'get' | 'linkedSelector'>,
   target: HTMLElement | null,
   resolveSelector: (change: StyleChangeItem) => string | null
 ) {
@@ -143,7 +143,7 @@ export function createBorderWritePlans(
           : !rewritingInline) ||
         Object.values(output).some(value => /!important\s*$/i.test(String(value)))
       deletions = requiredDeletions
-    } else if (!splitZoneSelectorState(selector).pseudo) {
+    } else if (resolution.linkedSelector !== selector && !splitZoneSelectorState(selector).pseudo) {
       // 宿主可能优先路由同名 JSX 属性，不能将 class 的合并写入偷换为 inline。
       unsupported ||= [...Object.keys(output), ...deletions].some(key => inlineProperties.has(cssPropertyName(key)))
     }

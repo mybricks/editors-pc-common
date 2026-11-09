@@ -11,7 +11,7 @@ const IMPORTANT = /!important\s*$/i
 /** 高级弹性字段按各自来源写入；拆简写时只携带同一来源的其余值。 */
 export function createFlexLonghandWritePlans(
   changes: StyleChangeItem[],
-  resolution: Pick<StyleResolution, 'get'>,
+  resolution: Pick<StyleResolution, 'get' | 'linkedSelector'>,
   target: HTMLElement | null,
   resolveSelector: (change: StyleChangeItem) => string | null
 ) {
@@ -63,7 +63,7 @@ export function createFlexLonghandWritePlans(
         Object.keys(style).some(key => !readStaticInlineStyleInfo(target, key) &&
           !(splittingShorthand && !inlineProperties.has(cssPropertyName(key)))) ||
         Object.values(style).some(value => IMPORTANT.test(String(value)))
-    } else if (!splitZoneSelectorState(selector).pseudo) {
+    } else if (resolution.linkedSelector !== selector && !splitZoneSelectorState(selector).pseudo) {
       unsupported ||= [...Object.keys(style), ...requiredDeletions].some(key => inlineProperties.has(cssPropertyName(key)))
     }
     return { property: 'flex' as const, selector, style, deletions: requiredDeletions, clearedKeys: [] as string[], unsupported }
