@@ -9,7 +9,7 @@ import { splitAncestorState, splitZoneSelectorState } from './zone-tab'
 export function createDirectionalWritePlans<Property extends 'borderRadius' | 'margin' | 'padding' | 'overflow'>(
   property: Property,
   changes: StyleChangeItem[],
-  resolution: Pick<StyleResolution, 'get' | 'linkedSelector'>,
+  resolution: Pick<StyleResolution, 'get'>,
   target: HTMLElement | null,
   resolveSelector: (change: StyleChangeItem) => string | null
 ) {
@@ -54,7 +54,7 @@ export function createDirectionalWritePlans<Property extends 'borderRadius' | 'm
       }
     })
 
-    const pseudo = resolution.linkedSelector === selector ? splitAncestorState(selector)!.pseudo : splitZoneSelectorState(selector).pseudo
+    const pseudo = (splitAncestorState(selector) || splitZoneSelectorState(selector)).pseudo
     const nextChanges = groupChanges.map(change => {
       let value = resetKeys.has(change.key) ? 'unset' : change.value
       // 状态声明保留在伪类规则中；用 important 覆盖默认态的内联值。

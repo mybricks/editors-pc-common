@@ -201,7 +201,7 @@ export function createStyleResolution(tab: ZoneTab, target: HTMLElement | null =
     sources.findIndex(item => item.rule === source.rule && item.selectorPart === source.selectorPart) === i
   )
   uniqueSources.forEach(source => addStyle(source.rule.style, source))
-  if (target?.style && !tab.isAncestorStateLinkWrite && !tab.pseudo?.startsWith('::')) addStyle(target.style)
+  if (target?.style && !tab.pseudo?.startsWith('::')) addStyle(target.style)
 
   const recoverMissingBackgroundColorCandidates = () => {
     const existing = index.get('background-color') || []
@@ -244,7 +244,6 @@ export function createStyleResolution(tab: ZoneTab, target: HTMLElement | null =
   }
 
   return {
-    linkedSelector: tab.linkedSelector,
     get(key: string): StyleProperty {
       const property = cssPropertyName(key)
       if (!cache.has(property)) {

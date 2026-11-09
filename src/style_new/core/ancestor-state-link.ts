@@ -46,6 +46,7 @@ export function createAncestorStateLink(target: Element, baseSelector: string, c
   const { ancestor, ancestorDepth, preview } = nearest
   if (preview.tab.isAdded) {
     // 手动新增的空状态只是临时 Tab；实际写入对应状态样式后才允许后代联动。
+    // 通过父级是否保存了变体样式判断
     const persisted = collectZoneTabs([ancestor], [preview.tab.baseSelector], comId).some(tab =>
       tab.pseudo === preview.pseudo && tab.sourceRules.some(source => source.rule.style.length > 0))
     if (!persisted) return null
@@ -59,7 +60,7 @@ export function createAncestorStateLink(target: Element, baseSelector: string, c
   return { ancestorDepth, selector: `${ancestorSelector}${preview.pseudo} ${subject}`, pseudo: preview.pseudo as AncestorLinkPseudo }
 }
 
-/** 接入祖先状态规则，回显沿用原状态求值；固定写入另行取目标规则。 */
+/** 接入祖先状态规则，回显和已有属性写入沿用原状态求值；新属性默认使用联动地址。 */
 export function collectAncestorStateLinkTab(target: Element, baseTab: ZoneTab, link: AncestorStateLink, comId = ''): ZoneTab {
   const selectors = Array.from(new Set([baseTab.baseSelector, ...collectSubjectClassSelectors(target)]))
   const tabs = mergeZoneTabsByState(collectZoneTabs([target], selectors, comId, { includeAncestorState: true }))
@@ -74,25 +75,4 @@ export function collectAncestorStateLinkTab(target: Element, baseTab: ZoneTab, l
 export function hasAncestorStateLinkRule(tab: ZoneTab, link: AncestorStateLink): boolean {
   return (tab.linkedRules || tab.sourceRules).some(source =>
     source.sourceSelector === link.selector && source.rule.style.length > 0)
-}
-
-const ancestorStateLinkWriteTabs = new WeakMap<object, Map<string, { tab: ZoneTab; signature: string }>>()
-
-/** 属性规划只读取固定规则；源码尚未刷新时复用连续编辑记录。 */
-export function createAncestorStateLinkWriteTab(tab: ZoneTab, selector = tab.linkedSelector!): ZoneTab {
-  const sourceRules = (tab.linkedRules || tab.sourceRules).filter(source => source.sourceSelector === selector)
-  const signature = sourceRules.map(source => `${source.sourceOrder}:${source.selectorPart}:${source.rule.style.cssText}`).join('\u0001')
-  const cacheOwner = tab.ancestorStateLink || tab
-  let cachedTabs = ancestorStateLinkWriteTabs.get(cacheOwner)
-  if (!cachedTabs) {
-    cachedTabs = new Map()
-    ancestorStateLinkWriteTabs.set(cacheOwner, cachedTabs)
-  }
-  const cached = cachedTabs.get(selector)
-  if (cached && cached.signature === signature && cached.tab.target === tab.target &&
-    sourceRules.every((source, index) => source.rule === cached.tab.sourceRules[index]?.rule)) return cached.tab
-  const writeTab = { ...tab, linkedSelector: selector, isAncestorStateLinkWrite: true,
-    sourceRules, baseRules: [], effectiveStyle: {}, effectedCssResult: undefined }
-  cachedTabs.set(selector, { tab: writeTab, signature })
-  return writeTab
 }

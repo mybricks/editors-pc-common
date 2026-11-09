@@ -94,7 +94,7 @@ export type SpacingWritePlan = {
  */
 export function createSpacingWritePlans(
   changes: StyleChangeItem[],
-  resolution: Pick<StyleResolution, 'get' | 'linkedSelector'>,
+  resolution: Pick<StyleResolution, 'get'>,
   currentSelector: string,
   target: HTMLElement | null,
   resolveSelector?: (change: StyleChangeItem) => string | null
@@ -147,7 +147,7 @@ export function createSpacingWritePlans(
       ))
       if (candidate) style[key] = `${candidate.value}${candidate.important ? ' !important' : ''}`
     })
-    const pseudo = resolution.linkedSelector === selector ? splitAncestorState(selector)!.pseudo : splitZoneSelectorState(selector).pseudo
+    const pseudo = (splitAncestorState(selector) || splitZoneSelectorState(selector)).pseudo
     const nextChanges = groupChanges.map(change => {
       if (change.value == null) {
         style[change.key] = null

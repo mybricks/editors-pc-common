@@ -58,6 +58,8 @@ export function useZoneSelectors(editConfig: any, targetDom: any, _open: boolean
     const generatedTabs = displayTabs.map(({ tab, label }) =>
       resolveTabStyle({ ...tab, label, effectiveStyle: tab.effectiveStyle ?? {} })
     )
+
+    // 重新挂载后，根据当前祖先预览和实际规则，恢复联动变体tab的选中
     if (target) {
       const restored = restoredLinkRef.current.tab
       const normalTab = generatedTabs.find(tab => !tab.pseudo)
@@ -172,6 +174,7 @@ export function useZoneSelectors(editConfig: any, targetDom: any, _open: boolean
     const existingIndex = zoneTabs.findIndex((item) => item.selector === tab.selector)
     const customIndex = customZoneTabs.findIndex((item) => item.selector === tab.selector)
     if (tab.ancestorStateLink) {
+      // 子级已经有 Hover Tab，就复用；没有，就添加。
       const existingState = zoneTabs.find(item => item.pseudo === tab.pseudo)
       const linkedTab = existingState ? { ...tab, selector: existingState.selector, baseSelector: existingState.baseSelector } : tab
       setCustomZoneTabs(tabs => [...tabs.filter(item => item.pseudo !== tab.pseudo), linkedTab])

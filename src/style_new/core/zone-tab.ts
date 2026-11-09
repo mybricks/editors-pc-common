@@ -54,11 +54,10 @@ export type ZoneTab = {
   effectedCssResult?: ReturnType<typeof getEffectedCssPropertyAndOptions>
   /** 是否由右侧新增状态按钮临时添加。 */
   isAdded?: boolean
-  /** 本次联动编辑固定的源码规则；不改变展示 Tab 的 selector。 */
+  /** 本次联动新增属性的默认源码规则；不改变展示 Tab 的 selector。 */
   linkedSelector?: string
   ancestorStateLink?: { ancestorDepth: number; selector: string; pseudo: AncestorLinkPseudo }
   linkedRules?: ZoneSourceRule[]
-  isAncestorStateLinkWrite?: boolean
   /** 批量回显忽略当前元素的单独规则，供 CSSOM 重编译后继续过滤。 */
   excludedSourceSelectors?: readonly string[]
   excludedRules?: readonly CSSStyleRule[]
@@ -578,9 +577,13 @@ export function splitZoneSelectorState(selector: string) {
 
 export const ANCESTOR_LINK_PSEUDOS = [':hover', ':focus', ':active', ':disabled'] as const
 export type AncestorLinkPseudo = typeof ANCESTOR_LINK_PSEUDOS[number]
+// 判断是否存在于联动变体白名单
 export function isAncestorLinkPseudo(pseudo: string): pseudo is AncestorLinkPseudo {
   return ANCESTOR_LINK_PSEUDOS.some(state => state === pseudo)
 }
+
+// 只在 includeAncestorState 开启时接入
+// 拆分状态：:hover 和 用于匹配结构的 selector：.statItem .statValue
 export function splitAncestorState(selector: string) {
   const state = splitZoneSelectorState(selector)
   if (state.pseudo) return null

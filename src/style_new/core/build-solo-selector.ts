@@ -227,6 +227,8 @@ export const buildSoloSelector = (
   componentRoot?: Element | null,
   options?: { keepTopLevelFirstChild?: boolean; stateAncestor?: Element; linkedSelector?: string },
 ): string => {
+
+  // 有联动变体情况下，生成带有nth-child的选择器，例如：.statItem:nth-child(2):hover .statValue:nth-child(1)
   if (options?.stateAncestor && options.linkedSelector) {
     const pseudo = splitAncestorState(options.linkedSelector)!.pseudo
     // 单独编辑需区分当前祖先实例；已有祖先 solo 范围保持固定。
@@ -322,6 +324,7 @@ function getRuntimeSoloSelector(
     : getRuntimeSelector(targetDom, baseTail)
 }
 
+// 保存和恢复单独编辑模式下的样式
 export const getSavedSoloStyle = (
   targetDom: Element,
   baseSelector: string,
@@ -330,6 +333,7 @@ export const getSavedSoloStyle = (
   stateAncestor?: Element,
   linkedSelector?: string,
 ): SavedSoloStyle | null => {
+  // 先生成同一份源码 selector，再把 class 映射成 CSS Modules 运行时 class 去找规则
   const sourceSelector = buildSoloSelector(targetDom, baseSelector, componentRoot, { stateAncestor, linkedSelector })
   let runtimeSelector: string | null
   if (stateAncestor && linkedSelector) {

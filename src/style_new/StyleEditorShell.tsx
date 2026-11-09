@@ -323,18 +323,27 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
   }, [shellComId])
 
   const [ancestorStateLinkRevision, setAncestorStateLinkRevision] = useState(0)
+
   useEffect(() => onStatePreviewChange(() => setAncestorStateLinkRevision(revision => revision + 1)), [])
+
+  // 这里做三件事：
+  // 当前已经在联动编辑，就不重复展示入口。
+  // 调 createAncestorStateLink()，找能联动的父级。
+  // 这条联动规则已经保存过，就走恢复，不再展示“添加”入口。
   const ancestorStateLinkCandidate = useMemo(() => {
     if (!selectedTarget || !activeZoneTab || activeZoneTab.ancestorStateLink) return null
     const link = createAncestorStateLink(selectedTarget, activeZoneTab.baseSelector, shellComId)
     if (!link) return null
+    // 把祖先状态规则接进来，再交给原来的回显逻辑计算。
     const tab = collectAncestorStateLinkTab(selectedTarget, activeZoneTab, link, shellComId)
     if (hasAncestorStateLinkRule(tab, link)) return null
     return { ...tab, label: getZoneTabLabels([tab.selector])[0], isAdded: !zoneTabs.some(item => item.pseudo === link.pseudo) }
   }, [selectedTarget, activeZoneTab, shellComId, zoneTabs, ancestorStateLinkRevision])
+
+
   const onAddAncestorStateLink = useCallback(() => {
     if (!ancestorStateLinkCandidate) return
-    // 只建立编辑上下文，不写空 CSS，也不额外开启后代自身状态。
+    // 添加新的zonetab，只建立编辑上下文，不写空 CSS，也不额外开启后代自身状态。
     addZoneTab(ancestorStateLinkCandidate)
   }, [ancestorStateLinkCandidate, addZoneTab])
   const soloBaseSelector = activeZoneTab?.ancestorStateLink ? activeZoneTab.baseSelector : baseSelector
@@ -442,6 +451,7 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
         : undefined) ||
       finalSelector
 
+    // 联动地址作为新增属性的默认目标；已有属性由原来源解析决定。
     if (activeZoneTab?.linkedSelector) {
       activeSelector = activeZoneTab.linkedSelector
       if (resolvedEditConfig.options && !Array.isArray(resolvedEditConfig.options)) {

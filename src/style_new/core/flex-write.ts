@@ -3,7 +3,7 @@ import {
   cssPropertyName, readInlineStyleProperties, readStaticInlineStyleInfo, resolveEffectiveStyleSource,
 } from './style-property'
 import type { StyleResolution } from './style-property'
-import { splitZoneSelectorState } from './zone-tab'
+import { splitAncestorState, splitZoneSelectorState } from './zone-tab'
 
 const LONGHAND_KEYS = ['flexGrow', 'flexShrink', 'flexBasis'] as const
 const IMPORTANT = /!important\s*$/i
@@ -11,7 +11,7 @@ const IMPORTANT = /!important\s*$/i
 /** 高级弹性字段按各自来源写入；拆简写时只携带同一来源的其余值。 */
 export function createFlexLonghandWritePlans(
   changes: StyleChangeItem[],
-  resolution: Pick<StyleResolution, 'get' | 'linkedSelector'>,
+  resolution: Pick<StyleResolution, 'get'>,
   target: HTMLElement | null,
   resolveSelector: (change: StyleChangeItem) => string | null
 ) {
@@ -63,7 +63,7 @@ export function createFlexLonghandWritePlans(
         Object.keys(style).some(key => !readStaticInlineStyleInfo(target, key) &&
           !(splittingShorthand && !inlineProperties.has(cssPropertyName(key)))) ||
         Object.values(style).some(value => IMPORTANT.test(String(value)))
-    } else if (resolution.linkedSelector !== selector && !splitZoneSelectorState(selector).pseudo) {
+    } else if (!(splitAncestorState(selector) || splitZoneSelectorState(selector)).pseudo) {
       unsupported ||= [...Object.keys(style), ...requiredDeletions].some(key => inlineProperties.has(cssPropertyName(key)))
     }
     return { property: 'flex' as const, selector, style, deletions: requiredDeletions, clearedKeys: [] as string[], unsupported }

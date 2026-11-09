@@ -1,4 +1,4 @@
-import { createAncestorStateLinkWriteTab, withAncestorStateLinkSelector } from './ancestor-state-link'
+import { resolveStateLinkAncestor, withAncestorStateLinkSelector } from './ancestor-state-link'
 import { deepCopy } from '../../utils'
 import { mergeCSSProperties } from '../StyleEditor/helper'
 import { decomposeBackgroundStack, preservePaintRoles } from '../StyleEditor/helper/paint-stack'
@@ -12,7 +12,7 @@ import {
   overlayNormalizedShorthands,
 } from './shorthand-normalizer'
 import { isTextFillActive } from '../StyleEditor/helper/text-fill'
-import { resolveZoneDeletionTarget, splitZoneSelectorState, excludeSoloSources, collectZoneSourceStyleKeys } from './zone-tab'
+import { resolveZoneDeletionTarget, splitAncestorState, splitZoneSelectorState, excludeSoloSources, collectZoneSourceStyleKeys } from './zone-tab'
 import { buildSoloSelector } from './build-solo-selector'
 import type { ZoneTab } from './zone-tab'
 import {
@@ -67,6 +67,7 @@ export function withExplicitStyleSelector<T>(selector: string, write: () => T): 
   const previous = scope[EXPLICIT_STYLE_SELECTOR_KEY]
   scope[EXPLICIT_STYLE_SELECTOR_KEY] = selector
   try {
+    if (splitAncestorState(selector)) return withAncestorStateLinkSelector(selector, write)
     return write()
   } finally {
     if (hadPrevious) scope[EXPLICIT_STYLE_SELECTOR_KEY] = previous
@@ -280,7 +281,7 @@ export function createStyleRemovalPlan(
         Object.values(group.style).some(value => IMPORTANT_SUFFIX_RE.test(String(value)))) {
         return blocked('动态 JSX 或缺少源码范围，无法安全删除/拆分')
       }
-    } else if (!(resolution.linkedSelector === group.selector || splitZoneSelectorState(group.selector).pseudo) &&
+    } else if (!(splitAncestorState(group.selector) || splitZoneSelectorState(group.selector).pseudo) &&
       [...group.deletions, ...Object.keys(group.style)].some(key => inlineProperties.has(cssPropertyName(key)))) {
       return blocked('同名 JSX 样式会改变写入目标，无法安全删除')
     }
@@ -597,14 +598,6 @@ function preserveStateInlinePriority(
 ): StyleChangeItem[] {
   if (!tab?.pseudo || tab.pseudo.includes('::') || !target) return items
   const resolution = getStyleResolution(tab, target)
-  if (tab.isAncestorStateLinkWrite) {
-    // 仅保留固定规则自己的优先级，不借其他状态或 inline 提高权重。
-    return items.map(item => {
-      const ownImportant = resolution.get(item.key).candidates.some(candidate => candidate.important)
-      if (item.value == null || !ownImportant || IMPORTANT_SUFFIX_RE.test(String(item.value))) return item
-      return { ...item, value: `${item.value} !important` }
-    })
-  }
   const inlineProperties = readInlineStyleProperties(target)
   const inlineLonghands = new Set(Array.from(inlineProperties).flatMap(property =>
     STYLE_SHORTHANDS[property] || [property]
@@ -615,7 +608,10 @@ function preserveStateInlinePriority(
     const properties = STYLE_SHORTHANDS[property] || [property]
     const hasInline = properties.some(name => inlineLonghands.has(name) ||
       resolution.get(name).candidates.some(candidate => candidate.inline))
-    return hasInline ? { ...item, value: `${item.value} !important` } : item
+    const stateWinner = tab.ancestorStateLink && resolveEffectiveStyleSource(
+      resolution.get(item.key).candidates.filter(candidate => candidate.currentState)
+    )
+    return hasInline || stateWinner?.important ? { ...item, value: `${item.value} !important` } : item
   })
 }
 
@@ -692,7 +688,7 @@ function applyEffectiveStyleChanges(
       ? flexWrites.some(item => !readStaticInlineStyleInfo(target, item.key)) ||
         flexDeletions.some(key => !readStaticInlineStyleInfo(target, key, true)) ||
         Object.values(flexStyle).some(value => IMPORTANT_SUFFIX_RE.test(String(value)))
-      : !(resolution.linkedSelector === flexSelector || splitZoneSelectorState(flexSelector).pseudo) &&
+      : !(splitAncestorState(flexSelector) || splitZoneSelectorState(flexSelector).pseudo) &&
         flexKeys.some(key => inlineProperties.has(cssPropertyName(key)))))
   const flexPlans = !replacingFlex ? [] : flexWrites.some(item => item.key === 'flex')
     ? [{ property: 'flex' as const, selector: flexSelector, style: flexStyle,
@@ -898,17 +894,12 @@ export type ApplyStyleChangeResult = {
 export function applyStyleChange(params: ApplyStyleChangeParams): ApplyStyleChangeResult {
   const editOptions = params.editConfig.options
   const tab: ZoneTab | undefined = editOptions?.zoneTab
-  if (tab?.linkedSelector) {
-    // 联动写入只把固定规则视作当前态；其余状态来源可参与回显，不能被修改或清空。
-    const selector = editOptions.soloEdit ? editOptions.selector : tab.linkedSelector
-    const writeTab = createAncestorStateLinkWriteTab(tab, selector)
-    return withAncestorStateLinkSelector(selector, () => applyStyleChangeInternal({ ...params,
-      options: params.options ? { ...params.options, selector } : params.options,
-      value: (Array.isArray(params.value) ? params.value : [params.value]).map(item => ({
-        ...item, intent: item.value == null ? 'clear-effective-style' : 'set-effective-style',
-      })),
-      editConfig: { ...params.editConfig, options: { ...editOptions, soloEdit: false, selector, zoneTab: writeTab } },
-      preserveImportantPriority: false }))
+  if (tab?.ancestorStateLink && !editOptions.soloEdit) {
+    // 联动与普通状态共用属性来源决策，不再把候选过滤成固定规则。
+    const items = Array.isArray(params.value) ? params.value : [params.value]
+    params = { ...params, value: items.map(item => ({
+      ...item, intent: item.intent || (item.value == null ? 'clear-effective-style' : 'set-effective-style'),
+    })) }
   }
   let batchSoloContext: {
     tab: ZoneTab
@@ -923,11 +914,12 @@ export function applyStyleChange(params: ApplyStyleChangeParams): ApplyStyleChan
     const target = toElementArray(editOptions.targetDom)[0]
     const root = target.getRootNode() as Document | ShadowRoot
     const componentRoot = editOptions.comId ? root.getElementById(editOptions.comId) : null
-    const expectedSelector = buildSoloSelector(target, tab.selector, componentRoot)
-    if (expectedSelector.includes(' ') && expectedSelector.includes(':nth-child(')) {
+    const stateAncestor = tab.ancestorStateLink ? resolveStateLinkAncestor(target, tab.ancestorStateLink) || undefined : undefined
+    const expectedSelector = buildSoloSelector(target, tab.linkedSelector ? tab.baseSelector : tab.selector, componentRoot, { stateAncestor, linkedSelector: tab.linkedSelector })
+    if (expectedSelector !== tab.linkedSelector && expectedSelector.includes(' ') && expectedSelector.includes(':nth-child(')) {
       // 判断是否selector完全相等且状态相等
       const soloSources = tab.sourceRules.filter(source =>
-        source.sourceSelector === expectedSelector && splitZoneSelectorState(source.selectorPart).pseudo === tab.pseudo)
+        source.sourceSelector === expectedSelector && (splitAncestorState(source.selectorPart) || splitZoneSelectorState(source.selectorPart)).pseudo === tab.pseudo)
       if (soloSources.length) batchSoloContext = { tab, target, expectedSelector, soloSources }
     }
   }

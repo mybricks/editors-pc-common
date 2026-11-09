@@ -18,7 +18,7 @@ import { readNormalComputedStyle, readNormalStyleSignature } from './core/normal
 import { recordPendingSoloValues, reconcilePendingSoloValues } from './core/solo-pending-style'
 import type { PendingSoloValue } from './core/solo-pending-style'
 import { notifyVariationsChange } from './core/variations'
-import { collectAncestorStateLinkTab, createAncestorStateLinkWriteTab, getNearestStateAncestor } from './core/ancestor-state-link'
+import { collectAncestorStateLinkTab, getNearestStateAncestor } from './core/ancestor-state-link'
 import { INTERACTIVE_PSEUDO_STATES } from './core/state-preview'
 import { STATE_PREVIEW_ATTR } from './core/state-preview-tag'
 
@@ -393,7 +393,6 @@ export function StyleMount({
       }
       return displayPreviewCache.get(property)
     }
-    const propertyTab = zoneTab?.linkedSelector ? createAncestorStateLinkWriteTab(zoneTab, zoneOptions.selector) : zoneTab
     const CDN = (editConfig as any).getDefaultOptions?.('stylenew')?.CDN
     return {
       editConfig: {
@@ -406,12 +405,12 @@ export function StyleMount({
       langType: (window as any).__lang_type__,
       effectiveStyle: panelEffectiveStyle,
       applyStyleMutations,
-      getStyleProperty: propertyTab && !isSoloEdit ? (key: string) => getStyleResolution(propertyTab, realDom).get(key) : undefined,
-      getStyleClearPlans: propertyTab && !isSoloEdit ? (keys: readonly string[]) =>
-        createBatchStyleClearPlans(keys, getStyleResolution(propertyTab, realDom), realDom) : undefined,
+      getStyleProperty: zoneTab && !isSoloEdit ? (key: string) => getStyleResolution(zoneTab, realDom).get(key) : undefined,
+      getStyleClearPlans: zoneTab && !isSoloEdit ? (keys: readonly string[]) =>
+        createBatchStyleClearPlans(keys, getStyleResolution(zoneTab, realDom), realDom) : undefined,
       removeStyleProperties: zoneTab && !isSoloEdit ? removeStyleProperties : undefined,
-      getStyleRemovalState: propertyTab && !isSoloEdit ? (keys: readonly string[]) =>
-        createStyleRemovalPlan(keys, getStyleResolution(propertyTab, realDom), realDom, liveStyleRef.current) : undefined,
+      getStyleRemovalState: zoneTab && !isSoloEdit ? (keys: readonly string[]) =>
+        createStyleRemovalPlan(keys, getStyleResolution(zoneTab, realDom), realDom, liveStyleRef.current) : undefined,
       getStylePreview,
       getStyleDisplayPreview,
     }
