@@ -119,6 +119,21 @@
   cursor: pointer;
 }
 
+.imagePreviewPopup {
+  padding: 12px 16px;
+
+  &::after {
+    content: '';
+    position: absolute;
+    top: calc(50% - 4px);
+    right: -4px;
+    width: 8px;
+    height: 8px;
+    background: @menu-bg-color;
+    transform: rotate(45deg);
+  }
+}
+
 .previewImage {
   width: 150px;
   height: 150px;
