@@ -366,62 +366,6 @@
   margin-left: -4px;
 }
 
-.zoneTabDropdown {
-  background: @menu-bg-color;
-  color: @font-color-content;
-  border-radius: 6px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-
-  &:global(.ant-dropdown-menu),
-  :global(.ant-dropdown-menu),
-  &:global(.ant-menu),
-  :global(.ant-menu) {
-    padding: 0;
-    background: @menu-bg-color;
-    color: @font-color-content;
-    border-radius: 6px;
-    box-shadow: none;
-  }
-
-  &:global(.ant-dropdown-menu-submenu-popup) ul,
-  :global(.ant-dropdown-menu-submenu-popup ul) {
-    margin-right: 0;
-    margin-left: 0;
-  }
-
-  :global(.ant-dropdown-menu-item),
-  :global(.ant-dropdown-menu-submenu-title),
-  :global(.ant-menu-item),
-  :global(.ant-menu-submenu-title) {
-    font-size: 12px;
-    color: @font-color-content;
-  }
-
-  :global(.ant-dropdown-menu-item:hover),
-  :global(.ant-dropdown-menu-item-active),
-  :global(.ant-dropdown-menu-submenu-title:hover),
-  :global(.ant-dropdown-menu-submenu-active > .ant-dropdown-menu-submenu-title),
-  :global(.ant-menu-item:hover),
-  :global(.ant-menu-item-active),
-  :global(.ant-menu-submenu-title:hover),
-  :global(.ant-menu-submenu-active > .ant-menu-submenu-title) {
-    background-color: @bg-color-hover;
-    color: @color-primary;
-  }
-
-  :global(.ant-dropdown-menu-submenu-expand-icon) {
-    transform: translateY(-0.5px);
-  }
-
-  :global(.ant-dropdown-menu-submenu-title .ant-dropdown-menu-submenu-expand-icon .ant-dropdown-menu-submenu-arrow-icon) {
-    color: inherit;
-  }
-
-  // :global(.ant-dropdown-menu-submenu-title) {
-  //   padding-right: 12px;
-  // }
-}
-
 .affectedHint {
   font-size: 11px;
   line-height: 18px;
@@ -455,7 +399,7 @@
   background-color: @bg-color-main;
   user-select: none;
 
-  :global(.ant-checkbox-wrapper) {
+  .applyAllCheckbox {
     display: inline-flex;
     align-items: center;
     color: @font-color-content;
@@ -464,33 +408,58 @@
     font-weight: 500;
     flex-shrink: 0;
     white-space: nowrap;
+    cursor: pointer;
   }
 
-  :global(.ant-checkbox) {
-    top: 0;
-  }
-
-  :global(.ant-checkbox-inner) {
+  .checkboxBox {
+    position: relative;
+    display: inline-flex;
     width: 14px;
     height: 14px;
+    flex-shrink: 0;
+
+    input {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      width: 14px;
+      height: 14px;
+      padding: 0;
+      margin: 0;
+      opacity: 0;
+      cursor: pointer;
+    }
   }
 
-  :global(.ant-checkbox-wrapper:hover .ant-checkbox:not(.ant-checkbox-disabled) .ant-checkbox-inner),
-  :global(.ant-checkbox:not(.ant-checkbox-disabled) .ant-checkbox-input:focus + .ant-checkbox-inner) {
-    border-color: var(--checkbox-hover-color) !important;
+  .checkboxVisual {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    box-sizing: border-box;
+    border: 1px solid @boder-color;
+    border-radius: 2px;
+    background: @bg-color-main;
+    transition: border-color 0.15s, background-color 0.15s;
   }
 
-  :global(.ant-checkbox-input:focus-visible + .ant-checkbox-inner) {
+  .checkboxLabel {
+    padding: 0 8px;
+  }
+
+  .applyAllCheckbox:hover .checkboxVisual,
+  input:focus + .checkboxVisual {
+    border-color: var(--checkbox-hover-color);
+  }
+
+  input:focus-visible + .checkboxVisual {
     outline: 2px solid var(--checkbox-hover-color);
     outline-offset: 2px;
   }
 
   :global(.fangzhou-theme) & {
-    :global(.ant-checkbox-input:focus + .ant-checkbox-inner) {
-      border-color: var(--checkbox-hover-color) !important;
-    }
-
-    :global(.ant-checkbox + span) {
+    .checkboxLabel {
       padding-right: 4px;
       padding-left: 4px;
     }
@@ -509,18 +478,11 @@
   border-color: fade(@color-warning, 40%);
   background-color: fade(@color-warning, 10%);
 
-  :global(.ant-checkbox-checked .ant-checkbox-inner),
-  :global(.ant-checkbox-wrapper:hover .ant-checkbox-checked:not(.ant-checkbox-disabled) .ant-checkbox-inner) {
+  .checkboxVisual,
+  .applyAllCheckbox:hover .checkboxVisual,
+  input:focus + .checkboxVisual {
+    color: #fff;
     background-color: @color-warning;
-    border-color: @color-warning !important;
-  }
-
-  :global(.ant-checkbox-checked .ant-checkbox-inner::after) {
-    border-color: #fff;
-  }
-
-  :global(.ant-checkbox-checked::after),
-  :global(.ant-checkbox-wrapper:hover .ant-checkbox-checked::after) {
     border-color: @color-warning;
   }
 }
@@ -666,6 +628,13 @@
   box-shadow: none !important;
   position: relative;
   isolation: isolate;
+  cursor: pointer;
+  font-family: inherit;
+
+  &[aria-busy='true'] {
+    cursor: default;
+    opacity: 0.65;
+  }
 
   &::before {
     content: '';
@@ -694,7 +663,7 @@
     mask-composite: exclude;
   }
 
-  :global(.anticon) {
+  > span {
     color: inherit;
     font-size: 10px;
     line-height: 1;
@@ -708,13 +677,7 @@
 
   &:hover,
   &:focus,
-  &:active,
-  &.ant-btn:hover,
-  &.ant-btn:focus,
-  &.ant-btn:active,
-  &.ant-btn-default:hover,
-  &.ant-btn-default:focus,
-  &.ant-btn-default:active {
+  &:active {
     color: @font-color-content !important;
     border-color: transparent !important;
     background: #E2E2E2 !important;

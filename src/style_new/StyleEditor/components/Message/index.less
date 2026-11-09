@@ -1,0 +1,45 @@
+@import '../../../../theme';
+
+.messages {
+  position: fixed;
+  top: 8px;
+  left: 0;
+  width: 100%;
+  z-index: 1010;
+  pointer-events: none;
+  font-size: 14px;
+  line-height: 1.5715;
+  text-align: center;
+  color: @font-color-content;
+}
+
+.notice {
+  padding: 8px;
+}
+
+.content {
+  display: inline-flex;
+  align-items: center;
+  padding: 10px 16px;
+  background: @menu-bg-color;
+  border-radius: 6px;
+  box-shadow: 0 3px 6px -4px rgba(0, 0, 0, .12), 0 6px 16px rgba(0, 0, 0, .08), 0 9px 28px 8px rgba(0, 0, 0, .05);
+  pointer-events: auto;
+}
+
+.icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  margin-right: 8px;
+  border-radius: 50%;
+  color: #fff;
+  font-size: 10px;
+}
+
+.success { background: @color-success; }
+.error { background: @color-error; }
+.warning { background: @color-warning; }
+.warningIcon { font-weight: bold; }

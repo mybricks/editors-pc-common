@@ -7,7 +7,7 @@ import React, {
   useState,
 } from "react";
 import ColorUtil from "color";
-import { Popover } from "antd";
+import { HoverPopup } from "../../components/HoverPopup";
 import { useApplyStyleMutations, useEffectiveStyleValue, useStyleClear, useStyleEditorContext } from "../..";
 import { PanelBaseProps, StyleChangeResult, StyleMutation } from "./../../type";
 import { Panel, Colorpicker, UnBindLinkIcon } from "../../components";
@@ -309,8 +309,8 @@ function LayerItem({
         scopeEl={scopeEl}
       >
         {layer.type === "image" && !!layer.value ? (
-          <Popover
-            placement="left"
+          <HoverPopup
+            className={css.imagePreviewPopup}
             content={
               <div
                 className={css.previewImage}
@@ -319,7 +319,7 @@ function LayerItem({
             }
           >
             <div className={css.block} style={getSwatchStyle(layer, scopeEl, resolvedColor)} />
-          </Popover>
+          </HoverPopup>
         ) : <div className={css.block} style={getSwatchStyle(layer, scopeEl, resolvedColor)} />}
 
         <div className={css.icon}>

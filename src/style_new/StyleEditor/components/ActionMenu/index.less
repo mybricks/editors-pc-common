@@ -1,0 +1,84 @@
+@import '../../../../theme';
+
+.root {
+  min-width: 120px;
+}
+
+.menu {
+  padding: 0;
+  border-radius: 6px;
+  background: @menu-bg-color;
+  color: @font-color-content;
+}
+
+.item {
+  position: relative;
+}
+
+.button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  box-sizing: border-box;
+  border-radius: 6px;
+  padding: 5px 12px;
+  margin: 0;
+  border: 0;
+  background: transparent;
+  color: @font-color-content;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: normal;
+  line-height: 22px;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+
+  .label {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .arrow {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 10px;
+    width: 10px;
+    height: 10px;
+
+    svg {
+      display: block;
+      width: 10px;
+      height: 10px;
+      flex-shrink: 0;
+      color: inherit;
+    }
+  }
+
+  &:hover,
+  &:focus-visible,
+  &[aria-expanded='true'] {
+    background: @bg-color-hover;
+    color: @color-primary;
+  }
+}
+
+.submenu {
+  position: fixed;
+  z-index: 1;
+  min-width: 100px;
+  border-radius: 6px;
+  background: @menu-bg-color;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+
+  // 扩大左右命中区，穿过主菜单与子菜单的间隙时不关闭。
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0 -4px;
+    z-index: -1;
+  }
+}
