@@ -79,11 +79,11 @@ export function ImageFit({ onChange: fallbackOnChange, showTitle, collapse }:
         clear?.()
         setImageStyle({ objectFit: '', objectPosition: '' })
       }}>
-      <Panel.Content style={{ flexDirection: 'column', gap: 10 }}>
+      <Panel.Content style={{ display: 'grid', gridTemplateColumns: 'max-content minmax(0, 1fr)', alignItems: 'center', rowGap: 10, columnGap: 8 }}>
         {fields.filter(field => field.key !== 'objectPosition' || imageStyle.objectFit !== 'fill').map(field => (
-          <div key={field.key} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ width: 24, flexShrink: 0, fontSize: 11, color: 'var(--mybricks-text-color-secondary, #999)' }}>{field.label}</span>
-            <div style={{ flex: 1, minWidth: 0 }}>
+          <React.Fragment key={field.key}>
+            <span style={{ padding: '0 4px', whiteSpace: 'nowrap', fontSize: 11, color: 'var(--mybricks-text-color-main, #333)' }}>{field.label}</span>
+            <div style={{ minWidth: 0 }}>
               <Select
                 style={{ padding: '0 8px 0 0' }}
                 value={imageStyle[field.key]}
@@ -94,7 +94,7 @@ export function ImageFit({ onChange: fallbackOnChange, showTitle, collapse }:
                 }}
               />
             </div>
-          </div>
+          </React.Fragment>
         ))}
       </Panel.Content>
     </Panel>
