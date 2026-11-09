@@ -1,6 +1,6 @@
 import React, { useLayoutEffect, useRef, useState } from 'react'
 import { HoverPopup } from '../HoverPopup'
-import { ArrowRightOutlined } from '../Icon/ArrowRightOutlined'
+import { DownOutlined } from '../Icon/DownOutlined'
 import css from './index.less'
 
 export interface ActionMenuOption {
@@ -128,7 +128,7 @@ function MenuItem({ option, close }: { option: ActionMenuOption; close: () => vo
         }}
       >
         <span className={css.label}>{option.label}</span>
-        {children && <span className={css.arrow} aria-hidden="true"><ArrowRightOutlined /></span>}
+        {children && <span className={css.arrow} aria-hidden="true"><DownOutlined /></span>}
       </button>
       {children && expanded && (
         <div ref={submenuRef} className={css.submenu}>
