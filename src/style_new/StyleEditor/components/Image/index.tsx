@@ -16,7 +16,7 @@ import {
   ImageOutlined
 } from '..'
 
-import {DeleteOutlined, ReloadOutlined} from '@ant-design/icons'
+import { DeleteOutlined } from '../Icon/ActionIcons'
 import lang from '../../../index.i18n'
 
 import css from './index.less'
@@ -123,7 +123,7 @@ export function Image({
           {icon}
         </div>
         <div className={css.reset} onClick={handleReset} data-mybricks-tip={lang.resetTip}>
-          <DeleteOutlined onPointerOverCapture={void 0} onPointerMoveCapture={void 0}/>
+          <DeleteOutlined/>
         </div>
       </div>
       {show && createPortal(

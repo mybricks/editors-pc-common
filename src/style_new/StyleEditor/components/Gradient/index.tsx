@@ -9,7 +9,7 @@ import {createPortal} from "react-dom";
 
 import {Panel, GradientEditor, TransparentColorOutlined} from "../";
 
-import {DeleteOutlined, ReloadOutlined} from "@ant-design/icons";
+import { DeleteOutlined } from "../Icon/ActionIcons";
 
 import css from "./index.less";
 import {getGradientOptions} from "../GradientEditor/constants";
