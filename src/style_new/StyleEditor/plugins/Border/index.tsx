@@ -443,6 +443,31 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
     });
     return onlyNone ? true : collapse;
   }, [collapse, defaultBorderValue, effectiveStyle]);
+
+  const finalCollapse = useMemo(() => {
+    // 最后补充处理 outline: rgb(...) none 3px：线型为 none，非零宽度也不应单独撑开面板。
+    // 先去掉 !important，再匹配独立的 none 关键字，兼容它在简写中的不同位置。
+    const outlineValue = String(stripImportant(value.outline) || '');
+    const outlineIsNone = /(?:^|\s)none(?:\s|$)/i.test(outlineValue);
+    if (!outlineIsNone) return effectiveCollapse;
+
+    // 渐变边框和 inset box-shadow（内部边框）仍有展示内容，保留前面的折叠结果。
+    const hasGradientOrInsetBorder = hasGradientBorderBackground(value) || value.boxShadow?.includes('inset');
+    if (hasGradientOrInsetBorder) return effectiveCollapse;
+
+    // defaultBorderValue 会把 outline 转成虚拟四边值；这里检查原始 border，避免被虚拟值干扰。
+    const sourceValue = value as BorderValue;
+    const allSidesInvisible = BORDER_STYLE_KEYS.every(styleKey => {
+      const widthKey = styleKey.replace(/Style$/, 'Width');
+      const line = sourceValue[styleKey];
+      const width = sourceValue[widthKey];
+      if (!line && !width) return true;
+      // none/hidden 或零宽度：该边不可见；仅配置 border-top-width: 3px 则保留展开。
+      return hasNoVisibleBorderLine(line, width);
+    });
+    // 四边检查也通过才收起；border-top: 3px solid red 会阻止收起。
+    return allSidesInvisible ? true : effectiveCollapse;
+  }, [effectiveCollapse, value]);
   const [borderToggleValue, setBorderToggleValue] = useState<'all' | 'split'>(
     getBorderToggleDefaultValue(defaultBorderValue, effectiveValue)
   );
@@ -1588,7 +1613,7 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
     <Panel
       title={lang.borderPanelTitle}
       showTitle={showTitle}
-      collapse={effectiveCollapse}
+      collapse={finalCollapse}
       onExpand={handleExpand}
       showDelete={canReset}
       resetFunction={refresh}
