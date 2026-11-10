@@ -10,10 +10,7 @@ export function getSuggestOptionsByElement(selectDom: HTMLElement): { type: stri
   }
 
   try {
-    // flex/inline-flex/grid/inline-grid 容器：text-align 无效，需映射到 justify-content
     const selectDomStyle = window.getComputedStyle(selectDom);
-    const selectDomDisplay = selectDomStyle.display;
-    const isFlexLike = ['flex', 'inline-flex', 'grid', 'inline-grid'].includes(selectDomDisplay);
 
     // 沿用现有图标识别方式：目标自身或纯图标容器命中时，字体面板不适用。
     const hasText = !!selectDom.textContent?.trim();
@@ -23,9 +20,6 @@ export function getSuggestOptionsByElement(selectDom: HTMLElement): { type: stri
     const shouldHideEditor = isImgElement || isIconElement;
     const fontOption = shouldHideEditor ? void 0 : {
       type: 'font',
-      config: {
-        ...(isFlexLike ? { textAlignMode: 'flex' } : {}),
-      }
     };
 
     // 处理size
