@@ -23,7 +23,8 @@ export type DisplayZoneTabsResult = {
  */
 export function collectDisplayZoneTabs(
   domList: Element[],
-  comId: string
+  comId: string,
+  options: { baseOnly?: boolean } = {}
 ): DisplayZoneTabsResult {
   const result: string[] = []
   const baseSelectors: string[] = []
@@ -48,7 +49,15 @@ export function collectDisplayZoneTabs(
     }
   }
 
-  const tabs = collectZoneTabs(domList, baseSelectors, comId)
+  const tabs = collectZoneTabs(domList, baseSelectors, comId, options)
+  // 常规影响统计不需要补状态；基础 Tab 的顺序和规则来源沿用原收集结果。
+  if (options.baseOnly) {
+    const originTabs = tabs.filter(tab => !tab.pseudo)
+    const mergedTabs = mergeZoneTabsByState(originTabs)
+    const labels = getZoneTabLabels(mergedTabs.map(tab => tab.selector))
+    const displayTabs = mergedTabs.map((tab, index) => ({ tab, label: labels[index], index }))
+    return { displayTabs, mergedTabs, originTabs }
+  }
   const tabKeys = new Set(tabs.map((tab) => tab.selector))
   for (const pseudo of scanPseudoSelectors(baseSelectors, comId, domList)) {
     if (!tabKeys.has(pseudo) && !/:nth-child\(\d+\)$/.test(pseudo)) {
