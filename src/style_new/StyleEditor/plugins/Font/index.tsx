@@ -143,8 +143,6 @@ const DEFAULT_CONFIG = {
   disableLetterSpacing: false,
   disableWhiteSpace: false,
   disableTruncateText: false,
-  /** flex/inline-flex 容器时为 'flex'，此时对齐按钮映射到 justify-content */
-  textAlignMode: '' as '' | 'flex',
 
   fontfaces: [],
 };
@@ -196,20 +194,6 @@ function getLineHeightUnitKey(val: string | number | null | undefined): string {
   if (val == null || val === '' || !isConfiguredCssLength(val)) return 'default';
   const [, unit] = splitValueAndUnit(String(val));
   return unit || 'ratio';
-}
-
-/** justify-content 值 → 对齐按钮显示值 */
-function justifyContentToAlign(jc?: string): string {
-  if (jc === 'center') return 'center';
-  if (jc === 'flex-end' || jc === 'end' || jc === 'right') return 'right';
-  return 'left';
-}
-
-/** 对齐按钮值 → justify-content 值 */
-function alignToJustifyContent(align: string): string {
-  if (align === 'center') return 'center';
-  if (align === 'right' || align === 'end') return 'flex-end';
-  return 'flex-start';
 }
 
 type FontFamilyOption = { label: string; value: string; style?: CSSProperties };
@@ -534,17 +518,8 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
     : isCssVarValue(previewFamily) ? formatCssVarTitle(parseCssVar(String(previewFamily))?.varName ?? '', themeVars)
       : fontFamilyOptions().find(option => option.value === previewFamily)?.label ?? previewFamily;
   const textAlignValue = value.textAlign ?? getFontPreview('textAlign', context?.getStyleDisplayPreview?.('textAlign'));
-  const justifyContentValue = value.justifyContent ?? getFontPreview('justifyContent', context?.getStyleDisplayPreview?.('justifyContent'));
 
   const getTextAlignOptions = useCallback(() => {
-    // flex 模式下固定用 left/right，与 justifyContentToAlign 的返回值保持一致
-    if (cfg.textAlignMode === 'flex') {
-      return [
-        { label: <TextAlignLeftOutlined />, value: "left", tip: lang.alignLeft },
-        { label: <TextAlignCenterOutlined />, value: "center", tip: lang.alignCenter },
-        { label: <TextAlignRightOutlined />, value: "right", tip: lang.alignRight },
-      ];
-    }
     const useStart = ["start", "end"].includes(textAlignValue as any);
     return [
       {
@@ -559,7 +534,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
         tip: lang.alignRight,
       },
     ];
-  }, [cfg.textAlignMode, textAlignValue]);
+  }, [textAlignValue]);
 
   const fontSizeConfigured = isEffectiveStyleConfigured(effectiveStyle?.fontSize);
   const lineHeightConfigured = isEffectiveStyleConfigured(effectiveStyle?.lineHeight);
@@ -1076,7 +1051,6 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
       { key: 'textUnderlineOffset', value: null },
       // 触发 preservePaintRoles 清除文字渐变栈（仅 null color 不会拆 background-clip:text）
       { key: 'WebkitTextFillColor', value: null },
-      ...(cfg.textAlignMode === 'flex' ? [{ key: 'justifyContent', value: null }] : []),
     ];
 
     // 主动拆掉 text 层，保留 content / border，避免只靠拦截器猜意图
@@ -1092,7 +1066,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
     }
 
     onChange(items);
-  }, [onChange, cfg.textAlignMode]);
+  }, [onChange]);
 
 
   // 截断按钮附着位置计算：依次寻找第一个有实际内容的可见行
@@ -1503,24 +1477,11 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
       ) : (
         <Panel.Content className={css.alignmentRow} style={{ position: 'relative' }}>
           <Toggle
-            key={cfg.textAlignMode === 'flex'
-              ? `flex-${justifyContentValue || ''}`
-              : `text-${textAlignValue || ''}`}
-            defaultValue={
-              cfg.textAlignMode === 'flex'
-                ? justifyContentToAlign(justifyContentValue as string)
-                : textAlignValue
-            }
+            key={`text-${textAlignValue || ''}`}
+            defaultValue={textAlignValue}
             options={getTextAlignOptions()}
             onChange={(v) => {
-              if (cfg.textAlignMode === 'flex') {
-                onChange([
-                  { key: 'justifyContent', value: alignToJustifyContent(v) },
-                  { key: 'textAlign', value: null },
-                ]);
-              } else {
-                onChange({ key: 'textAlign', value: v });
-              }
+              onChange({ key: 'textAlign', value: v });
             }}
           />
           {cfg.disableTruncateText ? null : (
