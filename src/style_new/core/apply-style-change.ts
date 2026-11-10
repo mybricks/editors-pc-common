@@ -1058,6 +1058,9 @@ function applyStyleChangeInternal({
   const clearResolution = activeZoneTab
     ? getStyleResolution(activeZoneTab, realTargetDom)
     : undefined
+  // 单独编辑虽然不走批量写入，清除时仍要查当前选中的 Tab，不能退回常规态。
+  // 例如在 Hover 清除 margin，要查 Hover 自己的配置；常规态的 margin-left: unset 不代表 Hover 左边也已清除。
+  const clearSourceTab: ZoneTab | null = editOptions?.zoneTab ?? activeZoneTab
   const clearPlans = clearResolution
     ? createBatchStyleClearPlans(
       clearItems.map(item => item.key),
@@ -1065,7 +1068,7 @@ function applyStyleChangeInternal({
       realTargetDom
     )
     : clearItems.map((item) =>
-      createStyleClearPlan(realTargetDom, zoneTabs, activeZoneTab, item.key)
+      createStyleClearPlan(realTargetDom, zoneTabs, clearSourceTab, item.key)
     )
   const clearUnsupported = clearPlans.some(
     (plan) => plan.action === 'unsupported'
