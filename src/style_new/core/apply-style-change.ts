@@ -608,6 +608,8 @@ function preserveStateInlinePriority(
     const properties = STYLE_SHORTHANDS[property] || [property]
     const hasInline = properties.some(name => inlineLonghands.has(name) ||
       resolution.get(name).candidates.some(candidate => candidate.inline))
+    // 保留当前状态生效声明原有的 !important，避免改值后丢失优先级。
+    // 如 .B:hover 的绿色带 !important，改成蓝色后也保留它，否则 .A:hover .B 的红色可能重新生效。
     const stateWinner = tab.ancestorStateLink && resolveEffectiveStyleSource(
       resolution.get(item.key).candidates.filter(candidate => candidate.currentState)
     )
@@ -895,7 +897,7 @@ export function applyStyleChange(params: ApplyStyleChangeParams): ApplyStyleChan
   const editOptions = params.editConfig.options
   const tab: ZoneTab | undefined = editOptions?.zoneTab
   if (tab?.ancestorStateLink && !editOptions.soloEdit) {
-    // 联动与普通状态共用属性来源决策，不再把候选过滤成固定规则。
+    // 给每项输入补操作标记：有值走设置样式，空值走清空样式；已有标记保持不变。
     const items = Array.isArray(params.value) ? params.value : [params.value]
     params = { ...params, value: items.map(item => ({
       ...item, intent: item.intent || (item.value == null ? 'clear-effective-style' : 'set-effective-style'),
@@ -914,10 +916,13 @@ export function applyStyleChange(params: ApplyStyleChangeParams): ApplyStyleChan
     const target = toElementArray(editOptions.targetDom)[0]
     const root = target.getRootNode() as Document | ShadowRoot
     const componentRoot = editOptions.comId ? root.getElementById(editOptions.comId) : null
+    // 找回当前元素对应的状态祖先，生成它的单独规则地址，供批量编辑识别已有的单独样式。
+    // 如第二组文字生成 .A:nth-child(2):hover .B:nth-child(1)，Hover 仍放在父级 A 上。
     const stateAncestor = tab.ancestorStateLink ? resolveStateLinkAncestor(target, tab.ancestorStateLink) || undefined : undefined
     const expectedSelector = buildSoloSelector(target, tab.linkedSelector ? tab.baseSelector : tab.selector, componentRoot, { stateAncestor, linkedSelector: tab.linkedSelector })
+    // 联动默认地址即使已有父级 nth，也不能当作额外的子级单独规则清理。
     if (expectedSelector !== tab.linkedSelector && expectedSelector.includes(' ') && expectedSelector.includes(':nth-child(')) {
-      // 判断是否selector完全相等且状态相等
+      // 只取当前元素、当前状态的单独规则，交给下方原批量流程处理，不带入其他实例或状态。
       const soloSources = tab.sourceRules.filter(source =>
         source.sourceSelector === expectedSelector && (splitAncestorState(source.selectorPart) || splitZoneSelectorState(source.selectorPart)).pseudo === tab.pseudo)
       if (soloSources.length) batchSoloContext = { tab, target, expectedSelector, soloSources }
