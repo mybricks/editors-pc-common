@@ -1058,6 +1058,9 @@ function applyStyleChangeInternal({
   const clearResolution = activeZoneTab
     ? getStyleResolution(activeZoneTab, realTargetDom)
     : undefined
+  // 单独编辑虽然不走批量写入，清除时仍要查当前选中的 Tab，不能退回常规态。
+  // 例如在 Hover 清除 margin，要查 Hover 自己的配置；常规态的 margin-left: unset 不代表 Hover 左边也已清除。
+  const clearSourceTab: ZoneTab | null = editOptions?.zoneTab ?? activeZoneTab
   const clearPlans = clearResolution
     ? createBatchStyleClearPlans(
       clearItems.map(item => item.key),
@@ -1065,7 +1068,7 @@ function applyStyleChangeInternal({
       realTargetDom
     )
     : clearItems.map((item) =>
-      createStyleClearPlan(realTargetDom, zoneTabs, activeZoneTab, item.key)
+      createStyleClearPlan(realTargetDom, zoneTabs, clearSourceTab, item.key)
     )
   const clearUnsupported = clearPlans.some(
     (plan) => plan.action === 'unsupported'
@@ -1480,7 +1483,7 @@ function applyStyleChangeInternal({
     selector,
     writeLogContext
   )
-  if (editOptions && 'soloEdit' in editOptions && editOptions.soloEdit && typeof selector === 'string') {
+if (editOptions && 'soloEdit' in editOptions && editOptions.soloEdit && typeof selector === 'string') {
     // 单独编辑在源码重编译后可能仍持有旧 DOM；宿主回退 selector 时也要锁定 nth-child 规则。
     // solo 规则是新建的，里面没有旧属性可删，所以把删除改成写 unset 来压过基础类（如基础类 flex:1 会压住 width）
     const isRealAuthoredValue = (val: unknown) => val != null && String(val).trim() !== ''
@@ -1503,8 +1506,12 @@ function applyStyleChangeInternal({
           ...Object.fromEntries(soloDeletions.map((key) => [key, 'unset'])),
         }
       : finalCssProperties
-    // 删除已转成 unset 写入，所以清掉删除信号，否则宿主会把刚写的 unset 又当删除处理掉。
-    ;(window as any).__mybricks_style_deletions = null
+    // 写入新值时，也要通知宿主删掉当前单独规则里与它冲突的旧写法。
+    // 例如清除 margin 后再填 margin: 20px，要删掉旧的 margin-top/right/bottom/left: unset，
+    // 否则这些旧声明留在新 margin 后面，四边就不会按 20px 生效。
+    const replacementDeletions = effectiveDeletions.filter(key => !soloDeletions.includes(key))
+    ;(window as unknown as { __mybricks_style_deletions: string[] | null }).__mybricks_style_deletions =
+      replacementDeletions.length ? replacementDeletions : null
     withExplicitStyleSelector(selector, () => write(soloWriteValue, setOptions))
   } else {
     write(finalCssProperties, setOptions)

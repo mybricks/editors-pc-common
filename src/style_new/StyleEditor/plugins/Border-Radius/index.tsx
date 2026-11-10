@@ -159,9 +159,19 @@ export function BorderRadius({ value, onChange: fallbackOnChange, config, collap
   const getConfiguredDragProps = useDragNumber({ continuous: true })
   const allRadiusClear = useStyleClear(RADIUS_KEYS)
   const shorthandRadiusClear = useStyleClear('borderRadius', { mode: 'remove-declaration', fallbackOnChange })
-  const clearRadius = allRadiusClear.clear ?? (shorthandWinner?.currentState && isCssVarValue(shorthandWinner.value)
-    ? shorthandRadiusClear.clear
-    : undefined)
+  const editorOptions = context?.editConfig.options
+  const isSoloEdit = !!editorOptions && 'soloEdit' in editorOptions && !!editorOptions.soloEdit
+  const clearSoloRadius = useCallback(() => onChange(RADIUS_KEYS.map(key => ({ key, value: null }))), [onChange])
+  // 先取清除四角的方法
+  let clearRadius = allRadiusClear.clear
+  // 如果没有清除四角的方法，并且是变量
+  if (!clearRadius && shorthandWinner?.currentState && isCssVarValue(shorthandWinner.value)) {
+    clearRadius = shorthandRadiusClear.clear
+  }
+  // 单边有值用clearSoloRadius作为清除方法
+  if (!clearRadius && isSoloEdit && RADIUS_KEYS.some(key => editorValue[key] != null)) {
+    clearRadius = clearSoloRadius
+  }
   const canReset = !disableBorderRadius && !!clearRadius
   const topLeftClear = useStyleClear('borderTopLeftRadius')
   const topRightClear = useStyleClear('borderTopRightRadius')
@@ -295,7 +305,9 @@ export function BorderRadius({ value, onChange: fallbackOnChange, config, collap
     setToggleValue({ radiusToggleValue: 'all' })
   }, [onChange, useImportant, context?.getStyleProperty])
 
-  const renderInput = (binding: ReturnType<typeof useLengthVarBinding>, icon: React.ReactNode, key: typeof RADIUS_KEYS[number], tip: string, rawValue: unknown, style: CSSProperties) => (
+  const renderInput = (binding: ReturnType<typeof useLengthVarBinding>, icon: React.ReactNode, key: typeof RADIUS_KEYS[number], tip: string, rawValue: unknown, style: CSSProperties) => {
+    const clearable = !!fieldClear[key].clear || (isSoloEdit && rawValue != null)
+    return (
     <>
       <div className={css.icon} ref={binding.anchorRef} {...(binding.varRef
         ? binding.dragProps(`${lang.dragAdjust} ${tip}${lang.dragUnbindSuffix}`)
@@ -314,9 +326,9 @@ export function BorderRadius({ value, onChange: fallbackOnChange, config, collap
           placeholder: '',
           defaultUnitValue: 'px',
           hideUnitWhenEmpty: true,
-          unitOptions: withDefaultUnitOption(unitOptions, !!fieldClear[key].clear),
+          unitOptions: withDefaultUnitOption(unitOptions, clearable),
           unitDisabledList: UNIT_DISABLED_LIST,
-          clearable: !!fieldClear[key].clear,
+          clearable,
           onClear: () => handleChange({ [key]: null }, 'split'),
           showIcon: true,
           showIconOnHover: true,
@@ -325,7 +337,8 @@ export function BorderRadius({ value, onChange: fallbackOnChange, config, collap
         }}
       />
     </>
-  )
+    )
+  }
 
   let content: React.ReactNode = null
   if (!disableBorderRadius && radiusToggleValue === 'all') {
@@ -346,9 +359,9 @@ export function BorderRadius({ value, onChange: fallbackOnChange, config, collap
               value: radiusValue.borderTopLeftRadius,
               previewValue: unifiedPreview,
               placeholder: mixedPreview ? lang.mixedPlaceholder : '', defaultUnitValue: 'px', hideUnitWhenEmpty: true,
-              unitOptions: withDefaultUnitOption(unitOptions, !!allRadiusClear.clear),
+              unitOptions: withDefaultUnitOption(unitOptions, !!clearRadius),
               unitDisabledList: UNIT_DISABLED_LIST,
-              clearable: !!allRadiusClear.clear,
+              clearable: !!clearRadius,
               onClear: handleReset,
               showIcon: true, showIconOnHover: true,
               onChange: next => {
