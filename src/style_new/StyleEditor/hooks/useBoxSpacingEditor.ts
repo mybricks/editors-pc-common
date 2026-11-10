@@ -36,7 +36,7 @@ export function useBoxSpacingEditor({ property, value, onChange: fallbackOnChang
   })
   // 给输入框的值去掉 !important，例如 16px !important 只显示和编辑 16px；源码需要的 !important 仍由写入逻辑保留。
   // 否则输入框会把 px !important 当成未知单位，退回“默认”，把修改误当成清除。
-  //
+  // 之前 margin-bottom: 16px !important 修改后会变成 margin-bottom: unset !important
   keys.forEach(key => {
     if (typeof incoming[key] === 'string') {
       incoming[key] = incoming[key].replace(/\s*!important\s*$/i, '')
