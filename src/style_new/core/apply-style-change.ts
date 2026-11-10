@@ -1,4 +1,4 @@
-import { resolveStateLinkAncestor, withAncestorStateLinkSelector } from './ancestor-state-link'
+import { resolveStateLinkAncestor } from './ancestor-state-link'
 import { deepCopy } from '../../utils'
 import { mergeCSSProperties } from '../StyleEditor/helper'
 import { decomposeBackgroundStack, preservePaintRoles } from '../StyleEditor/helper/paint-stack'
@@ -67,7 +67,6 @@ export function withExplicitStyleSelector<T>(selector: string, write: () => T): 
   const previous = scope[EXPLICIT_STYLE_SELECTOR_KEY]
   scope[EXPLICIT_STYLE_SELECTOR_KEY] = selector
   try {
-    if (splitAncestorState(selector)) return withAncestorStateLinkSelector(selector, write)
     return write()
   } finally {
     if (hadPrevious) scope[EXPLICIT_STYLE_SELECTOR_KEY] = previous

@@ -5,18 +5,6 @@ import { getStatePreviewContext } from './state-preview'
 import { getDocument } from './dom'
 import { collectSubjectClassSelectors } from './build-zone-selectors-from-cssom'
 
-/** 同步联动写入结束后恢复上一层信号，供提交、备份和删除共用。 */
-export function withAncestorStateLinkSelector<T>(selector: string, write: () => T): T {
-  const scope = window as unknown as { __mybricks_style_ancestor_state_link_selector?: string }
-  const previous = scope.__mybricks_style_ancestor_state_link_selector
-  scope.__mybricks_style_ancestor_state_link_selector = selector
-  try { return write() }
-  finally {
-    if (previous === undefined) delete scope.__mybricks_style_ancestor_state_link_selector
-    else scope.__mybricks_style_ancestor_state_link_selector = previous
-  }
-}
-
 export type AncestorStateLink = { ancestorDepth: number; selector: string; pseudo: AncestorLinkPseudo }
 
 /** 只沿真实祖先链读取手动预览，最近的受支持状态祖先优先。 */

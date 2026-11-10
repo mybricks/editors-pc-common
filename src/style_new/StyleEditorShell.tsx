@@ -34,7 +34,7 @@ import {
 import type { SavedSoloStyle } from './core/build-solo-selector'
 import { excludeSoloSources, getZoneTabLabels } from './core/zone-tab'
 import type { ZoneTab } from './core/zone-tab'
-import { createAncestorStateLink, collectAncestorStateLinkTab, hasAncestorStateLinkRule, resolveStateLinkAncestor, withAncestorStateLinkSelector } from './core/ancestor-state-link'
+import { createAncestorStateLink, collectAncestorStateLinkTab, hasAncestorStateLinkRule, resolveStateLinkAncestor } from './core/ancestor-state-link'
 import { applyStatePreview, clearStatePreview, getStatePreviewContext, getStatePreviewMode, isPreviewablePseudo, onStatePreviewChange } from './core/state-preview'
 import { registerVariationFocusHandler, setFocusedVariation } from './core/variations'
 import { setSoloEditState } from './core/get-similar-zones'
@@ -489,11 +489,7 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
           // 必须通过 side-channel 强制写入目标，与 apply-style-change 保持一致。
           ;(window as any).__mybricks_style_explicit_selector = savedRule.selector
           try {
-            if (activeZoneTab?.linkedSelector) {
-              withAncestorStateLinkSelector(savedRule.selector, () => editConfig.value.set(restoredStyle, { selector: savedRule.selector }))
-            } else {
-              editConfig.value.set(restoredStyle, { selector: savedRule.selector })
-            }
+            editConfig.value.set(restoredStyle, { selector: savedRule.selector })
           } finally {
             delete (window as any).__mybricks_style_explicit_selector
           }
@@ -543,11 +539,7 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
                 soloStyle, savedRule.declarationKeys
               )
               try {
-                if (activeZoneTab?.linkedSelector) {
-                  withAncestorStateLinkSelector(savedRule.selector, () => editConfig.value.set({}, { selector: savedRule.selector }))
-                } else {
-                  editConfig.value.set({}, { selector: savedRule.selector })
-                }
+                editConfig.value.set({}, { selector: savedRule.selector })
               } finally {
                 delete (window as any).__mybricks_style_explicit_selector
               }

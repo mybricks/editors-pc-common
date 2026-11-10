@@ -11,7 +11,7 @@ import {
   collectZoneTabs,
 } from '../core/zone-tab'
 import type { ZoneTab } from '../core/zone-tab'
-import { collectAncestorStateLinkTab, createAncestorStateLink, hasAncestorStateLinkRule, withAncestorStateLinkSelector } from '../core/ancestor-state-link'
+import { collectAncestorStateLinkTab, createAncestorStateLink, hasAncestorStateLinkRule } from '../core/ancestor-state-link'
 import { withExplicitStyleSelector } from '../core/apply-style-change'
 import { uniqBy } from 'lodash'
 
@@ -234,8 +234,7 @@ export function useZoneSelectors(editConfig: any, targetDom: any, _open: boolean
         // 宿主通过 side-channel 区分「删除声明」和「写入空对象」。
         ;(window as any).__mybricks_style_deletions = properties
         if (addedTab.linkedSelector) {
-          withAncestorStateLinkSelector(sourceSelector, () =>
-            withExplicitStyleSelector(sourceSelector, () => editConfig.value.set({}, { selector: sourceSelector })))
+          withExplicitStyleSelector(sourceSelector, () => editConfig.value.set({}, { selector: sourceSelector }))
         } else {
           editConfig.value.set({}, { selector: sourceSelector })
         }
