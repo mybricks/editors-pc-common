@@ -144,7 +144,8 @@ export function createBorderWritePlans(
         Object.values(output).some(value => /!important\s*$/i.test(String(value)))
       deletions = requiredDeletions
     } else if (!(splitAncestorState(selector) || splitZoneSelectorState(selector)).pseudo) {
-      // 宿主可能优先路由同名 JSX 属性，不能将 class 的合并写入偷换为 inline。
+      // 普通边框修改如果涉及 inline 已有的属性，先阻止修改，避免最后改到 inline。
+      // 父级 Hover 时的边框要单独写 CSS；子级 inline 已有边框，不代表这次 Hover 修改不能执行。
       unsupported ||= [...Object.keys(output), ...deletions].some(key => inlineProperties.has(cssPropertyName(key)))
     }
     return { property: 'border' as const, selector, style: output, deletions, clearedKeys, unsupported }

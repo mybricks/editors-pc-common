@@ -64,6 +64,8 @@ export function createFlexLonghandWritePlans(
           !(splittingShorthand && !inlineProperties.has(cssPropertyName(key)))) ||
         Object.values(style).some(value => IMPORTANT.test(String(value)))
     } else if (!(splitAncestorState(selector) || splitZoneSelectorState(selector)).pseudo) {
+      // 普通样式要改的属性如果也写在 inline 里，先阻止修改，避免最后改到 inline。
+      // 父级 Hover 时的样式要单独写 CSS；子级 inline 已有 flex，不代表这次 Hover 修改不能执行。
       unsupported ||= [...Object.keys(style), ...requiredDeletions].some(key => inlineProperties.has(cssPropertyName(key)))
     }
     return { property: 'flex' as const, selector, style, deletions: requiredDeletions, clearedKeys: [] as string[], unsupported }

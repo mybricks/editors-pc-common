@@ -54,6 +54,8 @@ export function createDirectionalWritePlans<Property extends 'borderRadius' | 'm
       }
     })
 
+    // .A:hover .B 表示父级 Hover 时修改子级，这种写法也要认作状态样式。
+    // 如子级 inline 已有圆角，仍允许在父级 Hover 时设置另一个圆角，不能因此阻止修改。
     const pseudo = (splitAncestorState(selector) || splitZoneSelectorState(selector)).pseudo
     const nextChanges = groupChanges.map(change => {
       let value = resetKeys.has(change.key) ? 'unset' : change.value
