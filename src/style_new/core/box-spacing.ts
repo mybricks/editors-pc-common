@@ -4,7 +4,7 @@ import {
 } from './style-property'
 import type { StyleResolution } from './style-property'
 import type { StyleChangeItem } from './apply-style-change'
-import { splitZoneSelectorState } from './zone-tab'
+import { splitAncestorState, splitZoneSelectorState } from './zone-tab'
 import type { EffectiveStyleValue } from './zone-tab'
 import { createDirectionalWritePlans } from './four-side-write'
 
@@ -147,7 +147,9 @@ export function createSpacingWritePlans(
       ))
       if (candidate) style[key] = `${candidate.value}${candidate.important ? ' !important' : ''}`
     })
-    const pseudo = splitZoneSelectorState(selector).pseudo
+    // 子级 inline 已有 padding: 4px，仍允许在父级 Hover 时设置 padding: 8px，不能因此阻止修改。
+    // 所以也要认出 .A:hover .B 中父级的 Hover，让后面按状态样式处理。
+    const pseudo = (splitAncestorState(selector) || splitZoneSelectorState(selector)).pseudo
     const nextChanges = groupChanges.map(change => {
       if (change.value == null) {
         style[change.key] = null

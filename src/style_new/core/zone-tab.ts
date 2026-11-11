@@ -25,6 +25,8 @@ export type ZoneSourceRule = {
   isPageStyle: boolean
   /** 补收的第三方状态：可以读取和预览，不能直接改写或删除原规则。 */
   isRuntimeStyle?: boolean
+  /** 联动规则的运行时触发祖先，保留 Hover 的原始位置。 */
+  ancestorStateSelector?: string
 }
 
 export type EffectiveStyleValue = {
@@ -52,6 +54,10 @@ export type ZoneTab = {
   effectedCssResult?: ReturnType<typeof getEffectedCssPropertyAndOptions>
   /** 是否由右侧新增状态按钮临时添加。 */
   isAdded?: boolean
+  /** 本次联动新增属性的默认源码规则；不改变展示 Tab 的 selector。 */
+  linkedSelector?: string
+  ancestorStateLink?: { ancestorDepth: number; selector: string; pseudo: AncestorLinkPseudo }
+  linkedRules?: ZoneSourceRule[]
   /** 批量回显忽略当前元素的单独规则，供 CSSOM 重编译后继续过滤。 */
   excludedSourceSelectors?: readonly string[]
   excludedRules?: readonly CSSStyleRule[]
@@ -569,6 +575,47 @@ export function splitZoneSelectorState(selector: string) {
   }
 }
 
+export const ANCESTOR_LINK_PSEUDOS = [':hover', ':focus', ':active', ':disabled'] as const
+export type AncestorLinkPseudo = typeof ANCESTOR_LINK_PSEUDOS[number]
+// 判断是否存在于联动变体白名单
+export function isAncestorLinkPseudo(pseudo: string): pseudo is AncestorLinkPseudo {
+  return ANCESTOR_LINK_PSEUDOS.some(state => state === pseudo)
+}
+
+// 只在 includeAncestorState 开启时接入
+// 拆分状态：:hover 和 用于匹配结构的 selector：.statItem .statValue
+export function splitAncestorState(selector: string) {
+  const state = splitZoneSelectorState(selector)
+  if (state.pseudo) return null
+  const start = selectorSubjectStart(selector)
+  const prefix = selector.slice(0, start)
+  let stateAt = -1
+  let pseudo: AncestorLinkPseudo | null = null
+  let depth = 0
+  let quote = ''
+  for (let i = 0; i < selector.length; i++) {
+    const ch = selector[i]
+    if (ch === '\\') { i++; continue }
+    if (quote) { if (ch === quote) quote = ''; continue }
+    if (ch === '"' || ch === "'") { quote = ch; continue }
+    if (ch === '(' || ch === '[') depth++
+    else if (ch === ')' || ch === ']') depth--
+    else if (depth === 0 && ch === ':') {
+      const token = selector.slice(i).match(/^:(hover|focus|active|disabled)(?![\w-(])/)
+      if (!token) continue
+      // 只收单个正向祖先状态，不扩展祖先与主体的联合状态。
+      if (stateAt >= 0 || i >= start) return null
+      stateAt = i
+      pseudo = token[0] as AncestorLinkPseudo
+    }
+  }
+  if (stateAt < 0 || !pseudo || /[+~]/.test(prefix.slice(stateAt))) return null
+  const ancestorEnd = stateAt + pseudo.length
+  const ancestorStateSelector = prefix.slice(0, stateAt) + prefix.slice(ancestorEnd).split(/[\s>]/)[0]
+  return { ...state, pseudo,
+    matchSelector: selector.slice(0, stateAt) + selector.slice(ancestorEnd),
+    ancestorStateSelector: ancestorStateSelector.trim() }
+}
 /** 主体的正向 class，不把祖先、:not(.selected)、:has(.child) 当作自身 class。 */
 export function subjectClassNames(subject: string, el: Element): string[] {
   const result = new Set<string>()
@@ -648,7 +695,7 @@ export function collectZoneTabs(
   elements: Element[],
   baseSelectors: string[],
   comId?: string,
-  options: { baseOnly?: boolean } = {}
+  options: { baseOnly?: boolean; includeAncestorState?: boolean; cssomRules?: ReturnType<typeof collectZoneStyleRules> } = {}
 ): ZoneTab[] {
   const tabs = new Map<string, ZoneTab>()
   for (const baseSelector of baseSelectors) {
@@ -674,8 +721,8 @@ export function collectZoneTabs(
   // key 是实际传给 matches 的 selector，value 是首个命中元素的下标；-1 表示全部未命中。
   // 缓存只活在本次同步调用内：下一次调用会重新匹配，避免 DOM / CSSOM 更新后读到旧结果。
   const targetIndices = new Map<string, number>()
-  // 沿用原 CSSOM 收集流程及 sourceOrder，不改变条件规则、预览样式排除等语义。
-  const cssomRules = collectZoneStyleRules()
+  // 沿用原 CSSOM 收集流程及 sourceOrder；调用方可传入同次同步刷新读取的列表，下一次仍重新读取。
+  const cssomRules = options.cssomRules ?? collectZoneStyleRules()
 
   for (const { rule, sourceOrder } of cssomRules) {
     // 不能要求 selectorText 必须包含 comId：组件样式编译后可能只保留
@@ -704,7 +751,9 @@ export function collectZoneTabs(
       // 常规模式不补第三方状态，无基础归属时直接跳过。
       if (isRuntimeStyle && (options.baseOnly || !sourceClasses.length || !part.includes(':') ||
         isPageScopedSelector(part) || isComponentScopedSelector(part, comId || ''))) continue
-      const state = splitZoneSelectorState(part)
+      const ancestorState = options.includeAncestorState && !options.baseOnly
+        ? splitAncestorState(part) : null
+      const state = ancestorState || splitZoneSelectorState(part)
       // 保留条件伪类和祖先条件，只跳过原解析器识别出的主体状态。
       if (options.baseOnly && state.pseudo) continue
       if (isRuntimeStyle && !state.pseudo) continue
@@ -752,6 +801,7 @@ export function collectZoneTabs(
         sourceOrder,
         target,
         isPageStyle: isPageScopedSelector(part),
+        ...(ancestorState ? { ancestorStateSelector: ancestorState.ancestorStateSelector } : {}),
         ...(isRuntimeStyle ? { isRuntimeStyle: true } : {}),
       }
       if (state.pseudo) {

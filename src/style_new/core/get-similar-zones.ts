@@ -1,6 +1,6 @@
 import { collectSubjectClassSelectors, resolveCssomSourceSelector } from './build-zone-selectors-from-cssom'
 import { collectDisplayZoneTabs } from './zone-display-tabs'
-import { splitZoneSelectorState } from './zone-tab'
+import { splitAncestorState, splitZoneSelectorState } from './zone-tab'
 import type { ZoneTab } from './zone-tab'
 
 type AffectedScope = Element | Document | ShadowRoot
@@ -31,6 +31,8 @@ export function collectAffectedElements(
 ): Set<Element> {
   const selectors = new Map<string, string>()
   if (tab) {
+    // 新属性仍会写联动地址；已有属性同时沿原规则来源统计。
+    if (tab.linkedSelector) selectors.set(tab.linkedSelector, resolveRuntimeSelector(tab.linkedSelector, anchor, comId))
     // 收集真正匹配当前选中元素的 CSS 规则，而不是只收集实际写入目标。
     const target = anchor as HTMLElement | null
     if (target) {
@@ -43,7 +45,7 @@ export function collectAffectedElements(
       // 检查规则是否真的匹配当前元素
       uniqueSources.forEach((source) => {
         // “状态”与“匹配条件”分开，这样统计影响范围时，不要求用户此刻鼠标真的停在每个菜单上
-        const { matchSelector } = splitZoneSelectorState(source.selectorPart)
+        const { matchSelector } = (tab.ancestorStateLink && splitAncestorState(source.selectorPart)) || splitZoneSelectorState(source.selectorPart)
         try {
           // 如 .siderContent .ant-menu：选中的 ul 必须在 siderContent 内且带 ant-menu，才保留。
           if (target.matches(matchSelector)) {
@@ -67,8 +69,8 @@ export function collectAffectedElements(
       if (anchor) affected.add(anchor)
       return
     }
-    // 仅忽略hover等主体交互状态；where/not、属性和祖先条件仍由浏览器完整匹配。
-    const { matchSelector } = splitZoneSelectorState(runtime)
+    // 联动额外去掉已识别的祖先状态，结构条件仍完整保留。
+    const { matchSelector } = (tab?.ancestorStateLink && splitAncestorState(runtime)) || splitZoneSelectorState(runtime)
     // 不同规则的匹配条件相同时，本次调用只查询一次 DOM。
     if (queriedSelectors.has(matchSelector)) return
     queriedSelectors.add(matchSelector)

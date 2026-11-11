@@ -989,6 +989,8 @@ export default i18n({
   changesCount: { zh: '处变更', en: 'change(s)' },
   onlyCurrentZone: { zh: '只修改当前区域', en: 'Edit current zone only' },
   syncAllZones: { zh: '同步修改使用同一套样式的全部区域', en: 'Sync all zones that share the same styles' },
+  addParentStateLink: { zh: '勾选添加与父级的{state}联动效果', en: 'Check to link with the parent’s {state} state' },
+  addParentStateLinkTip: { zh: '勾选后，联动样式仅在父元素处于{state}时生效', en: 'When checked, the linked styles only take effect when the parent is in the {state} state' },
   applyToAll: { zh: '应用至全部', en: 'Apply to all' },
   editCurrentZoneOnly: { zh: '仅编辑选中区域', en: 'selected zone only' },
   affectedZones: { zh: '个区域', en: 'zone(s)' },

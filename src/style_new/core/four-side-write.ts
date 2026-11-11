@@ -3,7 +3,7 @@ import { cssPropertyName, hasFallbackStyleCandidate, readInlineStyleProperties, 
 import type { StyleResolution } from './style-property'
 import type { StyleChangeItem } from './apply-style-change'
 import { STYLE_SHORTHANDS, stylePropertyKey } from './style-shorthand-groups'
-import { splitZoneSelectorState } from './zone-tab'
+import { splitAncestorState, splitZoneSelectorState } from './zone-tab'
 
 /** 方向属性在同一来源内拆写，保留未编辑方向及后备来源。 */
 export function createDirectionalWritePlans<Property extends 'borderRadius' | 'margin' | 'padding' | 'overflow'>(
@@ -54,7 +54,9 @@ export function createDirectionalWritePlans<Property extends 'borderRadius' | 'm
       }
     })
 
-    const pseudo = splitZoneSelectorState(selector).pseudo
+    // .A:hover .B 表示父级 Hover 时修改子级，这种写法也要认作状态样式。
+    // 如子级 inline 已有圆角，仍允许在父级 Hover 时设置另一个圆角，不能因此阻止修改。
+    const pseudo = (splitAncestorState(selector) || splitZoneSelectorState(selector)).pseudo
     const nextChanges = groupChanges.map(change => {
       let value = resetKeys.has(change.key) ? 'unset' : change.value
       // 状态声明保留在伪类规则中；用 important 覆盖默认态的内联值。

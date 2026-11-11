@@ -1,3 +1,4 @@
+import { resolveStateLinkAncestor } from './ancestor-state-link'
 import { deepCopy } from '../../utils'
 import { mergeCSSProperties } from '../StyleEditor/helper'
 import { decomposeBackgroundStack, preservePaintRoles } from '../StyleEditor/helper/paint-stack'
@@ -11,7 +12,7 @@ import {
   overlayNormalizedShorthands,
 } from './shorthand-normalizer'
 import { isTextFillActive } from '../StyleEditor/helper/text-fill'
-import { resolveZoneDeletionTarget, splitZoneSelectorState, excludeSoloSources, collectZoneSourceStyleKeys } from './zone-tab'
+import { resolveZoneDeletionTarget, splitAncestorState, splitZoneSelectorState, excludeSoloSources, collectZoneSourceStyleKeys } from './zone-tab'
 import { buildSoloSelector } from './build-solo-selector'
 import type { ZoneTab } from './zone-tab'
 import {
@@ -60,7 +61,7 @@ const EXPLICIT_STYLE_SELECTOR_KEY = '__mybricks_style_explicit_selector'
  * selector options 回退成面板原 selector。用同步 side-channel 保留公共规划层已经
  * 确定的实际写入目标；styleProxy 会优先读取它。嵌套调用结束后恢复原值。
  */
-function withExplicitStyleSelector<T>(selector: string, write: () => T): T {
+export function withExplicitStyleSelector<T>(selector: string, write: () => T): T {
   const scope = window as any
   const hadPrevious = Object.prototype.hasOwnProperty.call(scope, EXPLICIT_STYLE_SELECTOR_KEY)
   const previous = scope[EXPLICIT_STYLE_SELECTOR_KEY]
@@ -279,7 +280,7 @@ export function createStyleRemovalPlan(
         Object.values(group.style).some(value => IMPORTANT_SUFFIX_RE.test(String(value)))) {
         return blocked('动态 JSX 或缺少源码范围，无法安全删除/拆分')
       }
-    } else if (!splitZoneSelectorState(group.selector).pseudo &&
+    } else if (!(splitAncestorState(group.selector) || splitZoneSelectorState(group.selector).pseudo) &&
       [...group.deletions, ...Object.keys(group.style)].some(key => inlineProperties.has(cssPropertyName(key)))) {
       return blocked('同名 JSX 样式会改变写入目标，无法安全删除')
     }
@@ -612,7 +613,12 @@ function preserveStateInlinePriority(
     const properties = STYLE_SHORTHANDS[property] || [property]
     const hasInline = properties.some(name => inlineLonghands.has(name) ||
       resolution.get(name).candidates.some(candidate => candidate.inline))
-    return hasInline ? { ...item, value: `${item.value} !important` } : item
+    // 保留当前状态生效声明原有的 !important，避免改值后丢失优先级。
+    // 如 .B:hover 的绿色带 !important，改成蓝色后也保留它，否则 .A:hover .B 的红色可能重新生效。
+    const stateWinner = tab.ancestorStateLink && resolveEffectiveStyleSource(
+      resolution.get(item.key).candidates.filter(candidate => candidate.currentState)
+    )
+    return hasInline || stateWinner?.important ? { ...item, value: `${item.value} !important` } : item
   })
 }
 
@@ -689,7 +695,7 @@ function applyEffectiveStyleChanges(
       ? flexWrites.some(item => !readStaticInlineStyleInfo(target, item.key)) ||
         flexDeletions.some(key => !readStaticInlineStyleInfo(target, key, true)) ||
         Object.values(flexStyle).some(value => IMPORTANT_SUFFIX_RE.test(String(value)))
-      : !splitZoneSelectorState(flexSelector).pseudo &&
+      : !(splitAncestorState(flexSelector) || splitZoneSelectorState(flexSelector).pseudo) &&
         flexKeys.some(key => inlineProperties.has(cssPropertyName(key)))))
   const flexPlans = !replacingFlex ? [] : flexWrites.some(item => item.key === 'flex')
     ? [{ property: 'flex' as const, selector: flexSelector, style: flexStyle,
@@ -895,6 +901,13 @@ export type ApplyStyleChangeResult = {
 export function applyStyleChange(params: ApplyStyleChangeParams): ApplyStyleChangeResult {
   const editOptions = params.editConfig.options
   const tab: ZoneTab | undefined = editOptions?.zoneTab
+  if (tab?.ancestorStateLink && !editOptions.soloEdit) {
+    // 给每项输入补操作标记：有值走设置样式，空值走清空样式；已有标记保持不变。
+    const items = Array.isArray(params.value) ? params.value : [params.value]
+    params = { ...params, value: items.map(item => ({
+      ...item, intent: item.intent || (item.value == null ? 'clear-effective-style' : 'set-effective-style'),
+    })) }
+  }
   let batchSoloContext: {
     tab: ZoneTab
     target: Element
@@ -908,11 +921,15 @@ export function applyStyleChange(params: ApplyStyleChangeParams): ApplyStyleChan
     const target = toElementArray(editOptions.targetDom)[0]
     const root = target.getRootNode() as Document | ShadowRoot
     const componentRoot = editOptions.comId ? root.getElementById(editOptions.comId) : null
-    const expectedSelector = buildSoloSelector(target, tab.selector, componentRoot)
-    if (expectedSelector.includes(' ') && expectedSelector.includes(':nth-child(')) {
-      // 判断是否selector完全相等且状态相等
+    // 找回当前元素对应的状态祖先，生成它的单独规则地址，供批量编辑识别已有的单独样式。
+    // 如第二组文字生成 .A:nth-child(2):hover .B:nth-child(1)，Hover 仍放在父级 A 上。
+    const stateAncestor = tab.ancestorStateLink ? resolveStateLinkAncestor(target, tab.ancestorStateLink) || undefined : undefined
+    const expectedSelector = buildSoloSelector(target, tab.linkedSelector ? tab.baseSelector : tab.selector, componentRoot, { stateAncestor, linkedSelector: tab.linkedSelector })
+    // 联动默认地址即使已有父级 nth，也不能当作额外的子级单独规则清理。
+    if (expectedSelector !== tab.linkedSelector && expectedSelector.includes(' ') && expectedSelector.includes(':nth-child(')) {
+      // 只取当前元素、当前状态的单独规则，交给下方原批量流程处理，不带入其他实例或状态。
       const soloSources = tab.sourceRules.filter(source =>
-        source.sourceSelector === expectedSelector && splitZoneSelectorState(source.selectorPart).pseudo === tab.pseudo)
+        source.sourceSelector === expectedSelector && (splitAncestorState(source.selectorPart) || splitZoneSelectorState(source.selectorPart)).pseudo === tab.pseudo)
       if (soloSources.length) batchSoloContext = { tab, target, expectedSelector, soloSources }
     }
   }
