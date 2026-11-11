@@ -442,9 +442,14 @@ function applyStyleClearPlans(
 
   groups.forEach((patch, selector) => {
     if (editConfig.options?.soloEdit) {
-      // 四边都写 unset 时，同步删除单独规则里的 margin/padding。
-      Object.entries(BOX_SPACING_KEYS).forEach(([property, keys]) => {
-        if (keys.every(key => patch[key] != null)) patch[property] = null
+      // 清除覆盖了某个简写的全部属性时，把旧简写一起删掉，保留各属性的 unset。
+      // 例如四个角都清除，就删除旧 border-radius: 8px；只清左上角则保留，其他角还要用。
+      // border 同理：宽度、样式、颜色全部清除才删旧 border，只清宽度时仍需保留它的样式和颜色。
+      const shorthands = ['margin', 'padding', 'border-radius', ...getShorthandFamily('border')]
+      shorthands.forEach(property => {
+        if (STYLE_SHORTHANDS[property]?.every(key => patch[stylePropertyKey(key)] != null)) {
+          patch[stylePropertyKey(property)] = null
+        }
       })
     }
     // 同一属性族一次提交，避免逐条删除期间读取到半清空的源码/CSSOM。
