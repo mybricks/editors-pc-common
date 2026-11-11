@@ -31,6 +31,7 @@ import { createFlexLonghandWritePlans } from './flex-write'
 import { getTextBackgroundShorthandWrite } from './text-background-write'
 import { createBackgroundColorMigrationPlan } from './background-color-migration'
 import { backgroundCore } from './background-core'
+import { shouldUseAIForThirdPartyStyle } from './ai-style/third-party-style-ai'
 
 export type StyleChangeItem = {
   key: string
@@ -730,6 +731,24 @@ function applyEffectiveStyleChanges(
       删除属性: plan.deletions.join(', '),
       可执行: !plan.unsupported,
     }))))
+  if (shouldUseAIForThirdPartyStyle(target, tab, writeTargets)) {
+    // 整次操作通过已有 set 通道交给宿主，包含同批的样式写入和清除。
+    const style = Object.fromEntries(changes.map(({ key, value }) => [key, value]))
+    editConfig.value.set({ type: 'ai-style-update', styles: style }, { selector: tab.selector })
+
+    const nextLiveStyle = { ...liveStyle }
+    changes.forEach(({ key, value }) => {
+      if (value == null) removeClearedLiveStyleKeys(nextLiveStyle, key)
+      else nextLiveStyle[key] = value
+    })
+    onBatchMetaChange?.()
+    return {
+      nextLiveStyle,
+      applied: true,
+      clearApplied: changes.some(item => item.value === null),
+      clearUnsupported: false,
+    }
+  }
   if (plans.some(plan => plan.action === 'unsupported') || propertyPlans.some(plan => plan.unsupported) ||
     Array.from(writeTargets.values()).some(item => !item.selector)) {
     changes.forEach(item => {
