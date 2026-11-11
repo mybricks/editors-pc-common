@@ -1,6 +1,7 @@
 import { classMatchesShortName } from './css-modules-match'
 import { splitTopLevelSelectors } from './selector-utils'
 import { stylePropertyKey } from './style-shorthand-groups'
+import { selectorSubjectStart, splitAncestorState } from './zone-tab'
 
 function getChildIndex(element: Element): number {
   const parent = element.parentElement
@@ -224,8 +225,26 @@ export const buildSoloSelector = (
   targetDom: Element,
   baseSelector: string,
   componentRoot?: Element | null,
-  options?: { keepTopLevelFirstChild?: boolean },
+  options?: { keepTopLevelFirstChild?: boolean; stateAncestor?: Element; linkedSelector?: string },
 ): string => {
+
+  // 有联动变体情况下，生成带有nth-child的选择器，例如：.statItem:nth-child(2):hover .statValue:nth-child(1)
+  if (options?.stateAncestor && options.linkedSelector) {
+    const pseudo = splitAncestorState(options.linkedSelector)!.pseudo
+    // 单独编辑需区分当前祖先实例；已有祖先 solo 范围保持固定。
+    let ancestorSelector = options.linkedSelector.slice(0, selectorSubjectStart(options.linkedSelector)).trim()
+    if (!ancestorSelector.includes(':nth-child(')) {
+      const ancestorBase = ancestorSelector.slice(0, -pseudo.length)
+      ancestorSelector = `${buildSoloSelector(options.stateAncestor, ancestorBase, componentRoot, {
+        keepTopLevelFirstChild: true,
+      })}${pseudo}`
+    }
+    // 祖先以内是源码定位范围，首节点也必须保留，不能按编辑器顶层节点省略。
+    const descendantSelector = buildSoloSelector(targetDom, baseSelector, options.stateAncestor, {
+      keepTopLevelFirstChild: true,
+    })
+    return `${ancestorSelector} ${descendantSelector}`
+  }
   const baseTail = baseSelector.trim().split(/\s+/).pop() || baseSelector
   const segments: string[] = []
   let hasTargetSegment = false
@@ -305,19 +324,38 @@ function getRuntimeSoloSelector(
     : getRuntimeSelector(targetDom, baseTail)
 }
 
+// 保存和恢复单独编辑模式下的样式
 export const getSavedSoloStyle = (
   targetDom: Element,
   baseSelector: string,
   componentRoot?: Element | null,
   root: Document | ShadowRoot = document,
+  stateAncestor?: Element,
+  linkedSelector?: string,
 ): SavedSoloStyle | null => {
-  const sourceSelector = buildSoloSelector(targetDom, baseSelector, componentRoot)
-  const runtimeSelector = getRuntimeSoloSelector(targetDom, baseSelector, componentRoot)
+  // 先生成同一份源码 selector，再把 class 映射成 CSS Modules 运行时 class 去找规则
+  const sourceSelector = buildSoloSelector(targetDom, baseSelector, componentRoot, { stateAncestor, linkedSelector })
+  let runtimeSelector: string | null
+  if (stateAncestor && linkedSelector) {
+    // 写入和恢复共用同一份定位，只将源码 class 映射为运行时 class。
+    runtimeSelector = sourceSelector
+    let current: Element | null = targetDom
+    while (current) {
+      runtimeSelector = getRuntimeSelector(current, runtimeSelector)
+      current = current.parentElement
+    }
+  } else {
+    runtimeSelector = getRuntimeSoloSelector(targetDom, baseSelector, componentRoot)
+  }
   const baseTail = baseSelector.trim().split(/\s+/).pop() || baseSelector
   // 唯一子节点等场景可能只生成基础类名；普通类规则不能被认作已保存的单独规则。
-  const hasSoloScope = sourceSelector !== baseSelector && sourceSelector !== baseTail
-  const matchedRules = runtimeSelector && hasSoloScope ? findMatchingSoloRules(root, runtimeSelector) : []
-  const targetTailRules = matchedRules.length
+  const hasSoloScope = linkedSelector
+    ? sourceSelector !== linkedSelector
+    : sourceSelector !== baseSelector && sourceSelector !== baseTail
+  const matchedRules = runtimeSelector && hasSoloScope ? findMatchingSoloRules(root, runtimeSelector)
+    .filter(({ selector }) => !stateAncestor || selector === normalizeSelector(runtimeSelector!) ||
+      selector.endsWith(` ${normalizeSelector(runtimeSelector!)}`)) : []
+  const targetTailRules = matchedRules.length || stateAncestor
     ? []
     : findTargetTailNthRules(root, targetDom, baseSelector)
   const rawSavedRules = (matchedRules.length ? matchedRules : targetTailRules)

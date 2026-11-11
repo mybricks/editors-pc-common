@@ -10,7 +10,7 @@ import { applyStyleChange, createStyleRemovalPlan } from './core/apply-style-cha
 import type { ZoneWriteTarget } from './core/apply-style-change'
 import { toElementArray } from './core/dom'
 import { createBatchStyleClearPlans, cssPropertyName, getStyleResolution, invalidateStyleResolution, resolveEffectiveStyleSource } from './core/style-property'
-import { buildZoneEffectiveStyle, buildZoneStateStyle, collectZoneTabs, mergeZoneTabsByState, refreshZoneTabSources } from './core/zone-tab'
+import { buildZoneEffectiveStyle, buildZoneStateStyle, collectZoneTabs, collectZoneStyleRules, mergeZoneTabsByState, refreshZoneTabSources } from './core/zone-tab'
 import { collectSubjectClassSelectors } from './core/build-zone-selectors-from-cssom'
 import type { ZoneTab } from './core/zone-tab'
 import { expandFourShorthand } from './core/shorthand-normalizer'
@@ -18,6 +18,7 @@ import { readNormalComputedStyle, readNormalStyleSignature } from './core/normal
 import { recordPendingSoloValues, reconcilePendingSoloValues } from './core/solo-pending-style'
 import type { PendingSoloValue } from './core/solo-pending-style'
 import { notifyVariationsChange } from './core/variations'
+import { collectAncestorStateLinkTab, getNearestStateAncestor } from './core/ancestor-state-link'
 import { INTERACTIVE_PSEUDO_STATES } from './core/state-preview'
 import { STATE_PREVIEW_ATTR } from './core/state-preview-tag'
 
@@ -105,7 +106,13 @@ export function StyleMount({
               zoneTab.baseSelector,
               ...collectSubjectClassSelectors(target),
             ]))
-            tabs = mergeZoneTabsByState(collectZoneTabs([target], selectors, zoneOptions?.comId))
+            // 本次刷新只读取一次样式表；普通和联动仍分别筛选，避免改变其他 Tab 的来源。
+            const cssomRules = collectZoneStyleRules()
+            tabs = mergeZoneTabsByState(collectZoneTabs([target], selectors, zoneOptions?.comId, { cssomRules }))
+            if (zoneTab.ancestorStateLink) {
+              const linked = collectAncestorStateLinkTab(target, zoneTab, zoneTab.ancestorStateLink, zoneOptions?.comId, cssomRules)
+              tabs = [...tabs.filter(tab => tab.pseudo !== zoneTab.ancestorStateLink?.pseudo), linked]
+            }
           }
           const current = tabs.find(tab => tab.pseudo === zoneTab.pseudo)
           // 只有重新读取了样式规则才更新，避免切回 Tab 时用旧规则把改好的颜色显示回旧值。
@@ -116,6 +123,7 @@ export function StyleMount({
             if (current.baseRules.length || !current.sourceRules.length || !zoneTab.baseRules.length) {
               zoneTab.baseRules = current.baseRules
             }
+            zoneTab.linkedRules = current.linkedRules
             refreshZoneTabSources(zoneTab, current)
           }
           // 第一次记录初始变体数组
@@ -354,7 +362,10 @@ export function StyleMount({
       : reusablePreview ?? new Map<string, string | undefined>()
     // 状态预览期间 normalComputed 不可信，快照也可能因编辑（宿主更新元素属性等）失效。
     // 兜底读当前计算值：状态没声明的属性不受预览影响，值依然正确，回显不会变空。
-    const fallbackComputed = !normalComputed && realDom?.hasAttribute(STATE_PREVIEW_ATTR)
+    // 联动仅预览祖先，也复用原有只读计算值兜底，不把它当作状态配置。
+    const hasManualPreview = realDom?.hasAttribute(STATE_PREVIEW_ATTR) ||
+      (zoneTab?.ancestorStateLink && getNearestStateAncestor(realDom))
+    const fallbackComputed = !normalComputed && realDom && hasManualPreview
       ? (realDom.ownerDocument.defaultView || window).getComputedStyle(realDom)
       : undefined
     if (normalComputed && realDom && zoneTab) {
