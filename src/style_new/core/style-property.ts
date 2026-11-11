@@ -8,6 +8,7 @@ import {
 } from './style-shorthand-groups'
 import type { ZoneSourceRule, ZoneTab } from './zone-tab'
 import { expandBorderShorthand, expandFourShorthand, expandTwoShorthand } from './shorthand-normalizer'
+import { normalizeBackgroundLonghandValue } from '../StyleEditor/helper/background-longhand'
 
 export const cssPropertyName = (key: string) => key.startsWith('--')
   ? key
@@ -175,7 +176,13 @@ export function createStyleResolution(tab: ZoneTab, target: HTMLElement | null =
     // 2. 将属性值和来源存入索引；优先直接读取，简写分项为空时才用上面拆出的值。
     expanded.forEach(key => {
       const fallback = borderFallbacks.get(key)
-      const value = style.getPropertyValue(key).trim() || fallback?.value
+      let value = style.getPropertyValue(key).trim() || fallback?.value
+      // 例如 background: linear-gradient(red, blue), #fff，Chromium 可能读不到完整 position，
+      // 并把 image 读成 linear-gradient(red, blue), initial。缺项会让删除计划隐藏「−」，
+      // 直接写回 initial 列表又会丢失剩余背景；这里先补齐/转换值，仍沿用下方的来源索引和删除流程。
+      if (shorthandNames.includes('background')) {
+        value = normalizeBackgroundLonghandValue(style, key, value)
+      }
       if (!value) return
       // 记住分项来自哪条简写，供后续编辑和清空判断；不要把补值当成独立声明。
       const shorthand = fallback?.property || contributingShorthands.find(name => STYLE_SHORTHANDS[name].includes(key))
