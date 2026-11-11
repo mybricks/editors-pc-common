@@ -128,19 +128,12 @@ export function Margin ({value, onChange: fallbackOnChange, config, showTitle, c
   const {
     spacingValue: marginValue, toggle, setToggle, forceRenderKey,
     previewValues, computedPreviews, unifiedComputedPreview,
-    handleChange, handleUnifiedChange, handleSwitchToUnified, refresh,
+    handleChange, handleUnifiedChange, handleExpand, handleSwitchToUnified, refresh,
     canResetSide, unifiedCanClear, canReset,
   } = useBoxSpacingEditor({ property: 'margin', value, onChange: fallbackOnChange })
   const [splitMarginIcon, setSplitMarginIcon] = useState(<MarginTopOutlined />)
   const getDragProps = useDragNumber({ continuous: true, min: -Infinity })
   const cfg = useMemo(() => ({ ...DEFAULT_CONFIG, ...(config ?? {}) }), [config]);
-
-  // 点击 + 是新增外边距配置，不只是展开 UI；通过统一入口写入 margin: 0px。
-  const handleExpand = useCallback(() => {
-    const result = handleUnifiedChange('0px')
-    if (result?.clearUnsupported || (result && !result.applied)) return
-    setToggle(true)
-  }, [handleUnifiedChange, setToggle])
 
   // 统一模式与四边各自持有绑定态：统一模式绑一个变量即写四边同值（对齐 Figma）
   const unifiedVar = useLengthVarBinding({

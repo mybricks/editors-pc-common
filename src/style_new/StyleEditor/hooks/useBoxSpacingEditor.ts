@@ -154,6 +154,15 @@ export function useBoxSpacingEditor({ property, value, onChange: fallbackOnChang
     return commit(Object.fromEntries(keys.map(key => [key, next])), true)
   }, [commit, keys, refresh])
 
+  const handleExpand = useCallback(() => {
+    if (!hasConfiguredSide) {
+      const next = Object.fromEntries(keys.map(key => [key, '0px']))
+      valueRef.current = next
+      setSpacingValue(next)
+    }
+    setToggle(true)
+  }, [hasConfiguredSide, keys])
+
   const handleSwitchToUnified = useCallback(() => {
     const winners = getConfiguredWinners()
     const configured = context?.getStyleProperty
@@ -190,7 +199,7 @@ export function useBoxSpacingEditor({ property, value, onChange: fallbackOnChang
   const unifiedCanClear = !!groupClear.clear || (!groupClear.disabledReason && keys.some(key => spacingValue[key] != null))
   return {
     spacingValue, toggle, setToggle, previewValues, computedPreviews, unifiedComputedPreview, forceRenderKey,
-    handleChange, handleUnifiedChange, handleSwitchToUnified, refresh,
+    handleChange, handleUnifiedChange, handleExpand, handleSwitchToUnified, refresh,
     canResetSide, unifiedCanClear, canReset: unifiedCanClear,
   }
 }
