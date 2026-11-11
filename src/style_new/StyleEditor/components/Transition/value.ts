@@ -28,6 +28,7 @@ const GROUP_PROPERTIES: Record<string, string[]> = {
   MARGIN: sides.map(side => `margin-${side}`),
   PADDING: sides.map(side => `padding-${side}`),
   OPACITY: ['opacity'],
+  APPEARANCE: ['opacity'],
   EFFECTS: ['box-shadow', 'text-shadow', 'filter', 'backdrop-filter'],
   ROTATION: ['transform'],
 }

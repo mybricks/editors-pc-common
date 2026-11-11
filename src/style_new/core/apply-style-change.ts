@@ -30,6 +30,7 @@ import { createFlexLonghandWritePlans } from './flex-write'
 import { getTextBackgroundShorthandWrite } from './text-background-write'
 import { createBackgroundColorMigrationPlan } from './background-color-migration'
 import { backgroundCore } from './background-core'
+import { appendMotionFillRemoval, createMotionFillPlan } from '../StyleEditor/plugins/Background/transition-adapter'
 
 export type StyleChangeItem = {
   key: string
@@ -38,6 +39,7 @@ export type StyleChangeItem = {
   target?: 'current-rule'
   borderMode?: 'all' | 'split'
   paintRole?: 'text'
+  motionFill?: boolean
 }
 
 type StyleWriteGroup = {
@@ -294,7 +296,9 @@ function applyStyleRemoval(
   if (plan.disabledReason) return { nextLiveStyle: liveStyle, applied: false, clearApplied: false, clearUnsupported: true }
   const nextLiveStyle = { ...liveStyle }
   const touched = new Set<string>()
-  plan.groups.forEach(({ selector, style, deletions }) => {
+  plan.groups.forEach(group => {
+    appendMotionFillRemoval(group, resolution, target)
+    const { selector, style, deletions } = group
     try {
       ;(window as any).__mybricks_style_deletions = Object.keys(style).length ? deletions : null
       withExplicitStyleSelector(selector, () => {
@@ -617,6 +621,17 @@ function applyEffectiveStyleChanges(
 ): ApplyStyleChangeResult {
   const resolution = getStyleResolution(tab, target)
   const changes = preserveStateInlinePriority(preservePaintRoles(items, liveStyle), tab, target)
+  const motion = items.find(item => item.motionFill && item.key === 'transition')
+  if (motion && tab.pseudo) {
+    const plan = createMotionFillPlan(motion.value, tab, resolution, target)
+    if (plan) {
+      // 起点与终点分别更新自己的来源索引，基础态不能被记成当前状态声明。
+      if (plan.base.groups.length) applyStyleRemoval(plan.base, {}, plan.baseResolution, target, editConfig)
+      const result = applyStyleRemoval(plan.current, liveStyle, resolution, target, editConfig)
+      if (result.applied) onBatchMetaChange?.()
+      return { ...result, clearApplied: false }
+    }
+  }
   // .demo { background-color: red; } 点 + 后，应变成（仅列颜色）：
   // .demo { background-image: linear-gradient(#FFFFFF, #FFFFFF), linear-gradient(red, red); }
   // 专用方法给出这次替换计划；例如 .demo { width: 10px; } 改为 width: 20px，则返回 null，继续下方流程。
@@ -1432,6 +1447,9 @@ function applyStyleChangeInternal({
 
     try {
       groups.forEach((group, sourceSelector) => {
+        const motionGroup = { ...group, selector: sourceSelector }
+        const motionRemoval = appendMotionFillRemoval(motionGroup, getStyleResolution(activeZoneTab, realTargetDom), realTargetDom)
+        if (motionRemoval) group.deletions = motionGroup.deletions
         ;(window as any).__mybricks_style_deletions =
           group.deletions.length > 0 ? group.deletions : null
         const groupOptions = { selector: sourceSelector }
@@ -1446,6 +1464,13 @@ function applyStyleChangeInternal({
           withExplicitStyleSelector(sourceSelector, () => write(group.style, groupOptions))
         } else {
           write(group.style, groupOptions)
+        }
+        if (motionRemoval) {
+          group.deletions.forEach(key => {
+            getStyleResolution(activeZoneTab, realTargetDom).record(key, null, sourceSelector)
+            delete finalCssProperties[key]
+          })
+          Object.assign(finalCssProperties, group.style)
         }
         Object.entries(group.style).forEach(([key, value]) => {
           getStyleResolution(activeZoneTab, realTargetDom).record(key, value, sourceSelector)

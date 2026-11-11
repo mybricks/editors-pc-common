@@ -37,6 +37,7 @@ import { formatCssVarTitle } from "../../../core/css-var";
 import { normalizeCssValue } from "../../helper/normalize-css-value";
 import { stylePropertyKey } from "../../../core/style-shorthand-groups";
 import { getBackgroundColorMigration } from "../../../core/background-color-migration";
+import { getMotionFillSignature, isMotionFillProperty, MOTION_FILL_PREFIX, readMotionFillLayers, writeMotionFillLayers } from "./transition-adapter";
 
 function GripIcon() {
   return (
@@ -432,6 +433,23 @@ export function Background({
   const ownershipFingerprint = `${ownership.backgroundImage}:${ownership.backgroundColor}`;
   const lastOwnershipRef = useRef(ownershipFingerprint);
 
+  const readMotionValue = (name: string) => context?.getStyleProperty?.(name).winner?.value;
+  const readBackgroundStyle = useCallback(() => {
+    const style = { ...(value as Record<string, any>) };
+    const options = context?.editConfig.options;
+    const isStateTab = !Array.isArray(options) && !!options?.zoneTab?.pseudo;
+    if (!context?.getStyleProperty) return style;
+    BACKGROUND_CLEAR_KEYS.forEach(key => {
+      const winner = context.getStyleProperty!(key).winner;
+      if (winner) style[key] = winner.value;
+      else if (isStateTab) delete style[key];
+    });
+    return style;
+  }, [context?.editConfig.options, context?.getStyleProperty, value]);
+  const readLayers = (...args: Parameters<typeof parseLayers>) =>
+    readMotionFillLayers(parseLayers(...args), readMotionValue);
+  const motionSignature = getMotionFillSignature(readBackgroundStyle().backgroundImage || '', readMotionValue);
+
   const buildContentFingerprint = (style: Record<string, any>) => {
     const meta = getContentBackgroundMeta(style);
     const bgColor = meta.backgroundColor ?? "";
@@ -441,12 +459,12 @@ export function Background({
       normalizeCssValue('background-size', meta.backgroundSize),
       normalizeCssValue('background-repeat', meta.backgroundRepeat),
       normalizeCssValue('background-position', meta.backgroundPosition),
-    ].join("|");
+    ].join("|") + getMotionFillSignature(meta.backgroundImage, name => style[name] ?? readMotionValue(name));
   };
 
   const [layers, setLayers] = useState<BgLayer[]>(() => {
     const meta = getContentBackgroundMeta(value as Record<string, any>);
-    return parseLayers(
+    return readLayers(
       meta.backgroundImage,
       meta.backgroundColor,
       meta.backgroundSize,
@@ -462,6 +480,18 @@ export function Background({
   const layersRef = useRef<BgLayer[]>(layers);
   layersRef.current = layers;
 
+  // 仅动画填充使用 CSS 原文参与操作；UI 图层只负责展示，不保存变量身份。
+  const readEditingLayers = useCallback(() => {
+    const style = Object.fromEntries([
+      ...BACKGROUND_CLEAR_KEYS, 'backgroundClip', 'WebkitBackgroundClip', 'backgroundOrigin',
+    ].map(key => [key, context?.getStyleProperty?.(key).winner?.value]));
+    const meta = getContentBackgroundMeta(style);
+    if (!meta.backgroundImage?.includes(MOTION_FILL_PREFIX)) return layersRef.current;
+    return parseLayers(meta.backgroundImage, meta.backgroundColor, meta.backgroundSize,
+      meta.backgroundRepeat, meta.backgroundPosition, ownership, showTransparentColor)
+      .map((layer, index) => ({ ...layer, id: layersRef.current[index]?.id || layer.id }));
+  }, [context?.getStyleProperty, ownershipFingerprint, showTransparentColor]);
+
   // Guard: skip re-parsing when the value change came from our own emit.
   // Fingerprint 含 content image + 并行属性 + color，避免角色层干扰且能同步外部 color 变更。
   const lastEmittedRef = useRef(
@@ -470,7 +500,7 @@ export function Background({
   const localEmitPendingRef = useRef<string | null>(null);
 
   useEffect(() => {
-    const style = value as Record<string, any>;
+    const style = readBackgroundStyle();
     const fingerprint = buildContentFingerprint(style);
 
     // 之前先拦截旧样式回显，连已变化的删除权限也一起跳过，导致刚换图没有「−」。
@@ -498,7 +528,7 @@ export function Background({
     lastEmittedRef.current = fingerprint;
     lastOwnershipRef.current = ownershipFingerprint;
     setLayers(
-      parseLayers(
+      readLayers(
         meta.backgroundImage,
         meta.backgroundColor ?? "",
         meta.backgroundSize,
@@ -519,6 +549,8 @@ export function Background({
     value?.backgroundOrigin,
     ownershipFingerprint,
     showTransparentColor,
+    motionSignature,
+    readBackgroundStyle,
   ]);
 
   // ── Emit helper ──────────────────────────────────────────────────────────
@@ -531,7 +563,7 @@ export function Background({
       if (remove && context?.getStyleProperty) {
         // 执行器已同步来源索引，立即展示剩余来源，避免先清空 UI 再吞掉级联回显。
         const remaining = Object.fromEntries(BACKGROUND_CLEAR_KEYS.map(key => [key, context.getStyleProperty!(key).winner?.value ?? '']));
-        const resolvedLayers = parseLayers(remaining.backgroundImage, remaining.backgroundColor,
+        const resolvedLayers = readLayers(remaining.backgroundImage, remaining.backgroundColor,
           remaining.backgroundSize, remaining.backgroundRepeat, remaining.backgroundPosition, {
             backgroundImage: !!context.getStyleProperty('backgroundImage').winner?.currentState && !!context.getStyleRemovalState?.(IMAGE_CLEAR_KEYS).canClear,
             backgroundColor: !!context.getStyleRemovalState?.(['backgroundColor']).canClear,
@@ -560,15 +592,16 @@ export function Background({
         normalizeCssValue('background-size', get("backgroundSize") || ""),
         normalizeCssValue('background-repeat', get("backgroundRepeat") || ""),
         normalizeCssValue('background-position', get("backgroundPosition") || ""),
-      ].join("|");
+      ].join("|") + getMotionFillSignature(get("backgroundImage") || '', name => get(name) || readMotionValue(name));
       // 新增图层写入 image，已有 background-color 图层保留来源，保证后续删除目标正确。
       const nextLayers = changes.some(c => c.key === 'backgroundImage' && c.value != null)
         ? newLayers.map(layer => layer.sourceProperty === 'backgroundColor'
           ? layer
           : { ...layer, sourceProperty: 'backgroundImage' as const })
         : newLayers;
-      layersRef.current = nextLayers;
-      setLayers(nextLayers);
+      const displayedLayers = readMotionFillLayers(nextLayers, readMotionValue);
+      layersRef.current = displayedLayers;
+      setLayers(displayedLayers);
     },
     [applyStyleMutations, context?.getStyleProperty, context?.getStyleRemovalState, value]
   );
@@ -582,7 +615,8 @@ export function Background({
 
   const handleLayerChange = useCallback(
     (index: number, partial: Partial<BgLayer>) => {
-      const currentLayer = layersRef.current[index];
+      const sourceLayers = readEditingLayers();
+      const currentLayer = readMotionFillLayers([sourceLayers[index]], readMotionValue)[0];
       // 颜色格式归一化比较：currentLayer.value 可能是 rgb() 格式，
       // partial.value 可能是 #rrggbbaa 格式（来自颜色拾取器），需统一转成 hexa 再比较，
 
@@ -595,7 +629,7 @@ export function Background({
           // 颜色解析失败（如渐变/图片/CSS 变量），跳过比较，正常提交
         }
       }
-      const nextLayers = layersRef.current.map((l, i) => (i === index ? { ...l, ...partial } : l));
+      const nextLayers = sourceLayers.map((l, i) => (i === index ? { ...currentLayer, ...partial } : l));
       const updatedLayer = nextLayers[index];
       // 之前白色换图后仍标记为 backgroundColor，序列化和下方补写会把 url(...) 当颜色。
       // 现在先改为 backgroundImage：.test { background-color: #fff; }
@@ -615,30 +649,38 @@ export function Background({
       ) {
         changes.push({ key: 'backgroundColor', value: updatedLayer.value });
       }
-      emitLayers(nextLayers, changes);
+      emitLayers(nextLayers, writeMotionFillLayers(nextLayers, changes, sourceLayers,
+        context?.getStyleProperty?.('transition').winner?.value));
     },
-    [emitLayers]
+    [emitLayers, readEditingLayers, context?.getStyleProperty]
   );
 
   const handleLayerRemove = useCallback(
     (index: number) => {
-      const currentLayers = layersRef.current;
+      const currentLayers = readEditingLayers();
       const changes = getLayerRemovalChanges(currentLayers, index);
       if (!changes.length) return;
       const nextLayers = currentLayers.filter((_, i) => i !== index);
+      const motionChanges = writeMotionFillLayers(
+        nextLayers,
+        changes,
+        currentLayers,
+        context?.getStyleProperty?.('transition').winner?.value,
+      );
       const updatesSharedImages = sharesTextBackground && currentLayers[index].sourceProperty === 'backgroundImage';
       if (!updatesSharedImages && changes.every(change => change.value == null)) {
         const remove = currentLayers[index].sourceProperty === 'backgroundColor' ? clearColor.clear : clearImages.clear;
-        if (remove) emitLayers(nextLayers, changes, remove);
+        if (remove) emitLayers(nextLayers, motionChanges, remove);
       } else {
         // 共用背景时由 paint-stack 保留文字层；普通多图层删除仍是更新列表。
-        emitLayers(nextLayers, changes);
+        emitLayers(nextLayers, motionChanges);
       }
     },
-    [emitLayers, clearColor.clear, clearImages.clear, sharesTextBackground]
+    [emitLayers, clearColor.clear, clearImages.clear, sharesTextBackground, readEditingLayers, context?.getStyleProperty]
   );
 
   const handleAddLayer = useCallback(() => {
+    const currentLayers = readEditingLayers();
     const newLayer: BgLayer = {
       id: generateLayerId(),
       type: "solid",
@@ -651,7 +693,7 @@ export function Background({
       canRemove: true,
     };
     const editOptions = context?.editConfig.options;
-    const migration = layersRef.current.some(layer => layer.sourceProperty === 'backgroundColor') && context?.getStyleProperty
+    const migration = currentLayers.some(layer => layer.sourceProperty === 'backgroundColor') && context?.getStyleProperty
       ? getBackgroundColorMigration({ get: context.getStyleProperty }, context.targetDom ?? targetDom,
         !Array.isArray(editOptions) ? editOptions?.comId || '' : '')
       : null;
@@ -660,16 +702,16 @@ export function Background({
       // 点击 +：原来的 [红色底色] 变成 [白色图片层, 红色图片层]。
       // 点击后（仅列颜色）：.demo { background-image: linear-gradient(#FFFFFF, #FFFFFF), linear-gradient(red, red); }
       // 若原色是 var(--bg-color)，上面的 red 就保留为 var(--bg-color)；已有图片插在白色层和旧底色层之间。
-      const nextLayers = [newLayer, ...layersRef.current.map(layer => layer.sourceProperty === 'backgroundColor'
+      const nextLayers = [newLayer, ...currentLayers.map(layer => layer.sourceProperty === 'backgroundColor'
         ? { ...layer, value: migration.value, sourceProperty: 'backgroundImage' as const, canRemove: true }
         : layer)];
       // .demo { background-color: red; } → 请求中带 background: null，执行器实际删除 background-color。
       // .demo { background: red; }       → 同样的请求，执行器实际删除 background；null 本身不写入 CSS。
       emitLayers(nextLayers, [...serializeLayers(nextLayers), { key: 'background', value: null }]);
     } else {
-      emitLayers([newLayer, ...layersRef.current]);
+      emitLayers([newLayer, ...currentLayers]);
     }
-  }, [emitLayers, context?.getStyleProperty, context?.targetDom, context?.editConfig.options, targetDom]);
+  }, [emitLayers, readEditingLayers, context?.getStyleProperty, context?.targetDom, context?.editConfig.options, targetDom]);
 
   const handleReset = useCallback(() => {
     if (clearBackground.clear) emitLayers([], serializeLayers([]), clearBackground.clear);
@@ -719,12 +761,12 @@ export function Background({
 
       if (dragIndex === insertAt) return;
 
-      const newLayers = [...layersRef.current];
+      const newLayers = [...readEditingLayers()];
       const [removed] = newLayers.splice(dragIndex, 1);
       newLayers.splice(insertAt, 0, removed);
       emitLayers(newLayers);
     },
-    [dragIndex, emitLayers]
+    [dragIndex, emitLayers, readEditingLayers]
   );
 
   const handleDragEnd = useCallback(() => {
@@ -797,7 +839,7 @@ export function Background({
                 disableBackgroundColor={disableBackgroundColor}
                 disableBackgroundImage={disableBackgroundImage}
                 disableGradient={disableGradient}
-                variableOptions={canvasVariableOptions}
+                variableOptions={canvasVariableOptions.filter(option => !isMotionFillProperty(option.name))}
                 resolvedColor={resolveCssVarColor(layer.value, targetDom) ?? undefined}
                 scopeEl={targetDom}
               />

@@ -12,6 +12,7 @@ import {
 } from './value'
 import type { TransitionAction, TransitionRule, TransitionRules } from './value'
 import css from './index.less'
+import { isMotionFillProperty } from '../../plugins/Background/transition-adapter'
 
 export function useTransitionController(fallbackOnChange: ChangeEvent) {
   const context = useStyleEditorContext()
@@ -48,9 +49,13 @@ export function useTransitionController(fallbackOnChange: ChangeEvent) {
   }
   const commit = useCallback((selected: string[], action: TransitionAction) => {
     if (!selected.length) return
+    const fill = selected.includes('background-color')
+    // 面板仍是一个“填充颜色”选项，参数和关闭操作同时作用于全部内部颜色。
+    if (fill) selected = selected.concat(Object.keys(rulesRef.current).filter(isMotionFillProperty))
     const next = patchTransitionRules(rulesRef.current, selected, action)
     const result = apply([{
       type: 'set', key: 'transition', value: serializeTransitionRules(next), target: 'current-rule',
+      ...(fill ? { motionFill: true } : {}),
     }])
     if (result && !result.applied) return
     rulesRef.current = next
