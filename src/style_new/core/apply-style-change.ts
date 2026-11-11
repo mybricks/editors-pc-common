@@ -440,6 +440,12 @@ function applyStyleClearPlans(
   })
 
   groups.forEach((patch, selector) => {
+    if (editConfig.options?.soloEdit) {
+      // 四边都写 unset 时，同步删除单独规则里的 margin/padding。
+      Object.entries(BOX_SPACING_KEYS).forEach(([property, keys]) => {
+        if (keys.every(key => patch[key] != null)) patch[property] = null
+      })
+    }
     // 同一属性族一次提交，避免逐条删除期间读取到半清空的源码/CSSOM。
     ;(window as any).__mybricks_style_deletions = null
     withExplicitStyleSelector(selector, () => editConfig.value.set(patch, { selector }))
