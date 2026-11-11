@@ -178,6 +178,11 @@ export function applyPostHooks(acc: ValuesAcc, computedValues: CSSStyleDeclarati
 /** 组装 getRealValue 入参（含 Webkit 出口别名） */
 export function buildExportBag(acc: ValuesAcc): Record<string, any> {
   return {
+    transition: acc.transition,
+    transitionProperty: acc.transitionProperty,
+    transitionDuration: acc.transitionDuration,
+    transitionTimingFunction: acc.transitionTimingFunction,
+    transitionDelay: acc.transitionDelay,
     color: acc.color,
     fontSize: acc.fontSize,
     textAlign: acc.textAlign,

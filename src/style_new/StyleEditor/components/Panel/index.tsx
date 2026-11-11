@@ -1,7 +1,8 @@
-import React, { CSSProperties, ReactNode, useCallback, useEffect, useMemo, useState } from 'react'
+import React, { CSSProperties, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 
 import { PlusOutlined, MinusOutlined, QuestionCircleOutlined } from '../Icon'
 import { Dropdown } from '../DropDown'
+import { TransitionHeaderContext } from '../Transition/context'
 
 import css from './index.less'
 import { useDarkMode } from '../../../../hooks/useDarkMode'
@@ -63,10 +64,12 @@ function isEmptyChildren(children: ReactNode): boolean {
 
 export function Panel ({title, titleTip, children, showReset = false, showTitle = true, showDelete = true, deleteNode, onDelete, rightColumn, deleteRef, resetFunction = () => {}, isActive = false, collapse = false, onExpand, onAdd, addTip, addOptions, onAddOption, headerRight, hideTopBorder = false, keepTopBorder = false}: PanelProps) {
   const isDark = useDarkMode()
+  const transitionEntry = useContext(TransitionHeaderContext)
   const isInherited = collapse === 'inherited'
   // 手动添加但尚未配置样式时，也允许用减号收起。
   const [panelState, setPanelState] = useState<'collapsed' | 'expanded' | 'added'>(collapse === true ? 'collapsed' : 'expanded')
   const collapsed = panelState === 'collapsed'
+  const showTransition = !!transitionEntry && !collapsed
   const isEmpty = useMemo(() => !collapsed && isEmptyChildren(children), [collapsed, children])
 
   const handleDelete = useCallback(() => {
@@ -97,7 +100,7 @@ export function Panel ({title, titleTip, children, showReset = false, showTitle 
     : rightColumn
   return (
     <div className={`${css.panel} ${isDark ? css.dark : ''} ${collapsed ? css.collapsed : ''} ${isEmpty ? css.empty : ''} ${hideTopBorder ? css.hideTopBorder : ''} ${keepTopBorder ? css.keepTopBorder : ''}`}>
-      <div className={css.header}>
+      <div className={`${css.header} ${showTransition ? css.withTransition : ''}`}>
         {showTitle && (
           <div className={css.title} {...(titleTip ? { 'data-mybricks-tip': titleTip } : {})}>
             {title}
@@ -108,6 +111,9 @@ export function Panel ({title, titleTip, children, showReset = false, showTitle 
             ) : null}
           </div>
         )}
+        {showTransition && <div className={css.transitionEntry}>
+          {transitionEntry}
+        </div>}
         {
           collapsed ? (
             addOptions && addOptions.length > 0 ? (
