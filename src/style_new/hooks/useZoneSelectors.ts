@@ -39,6 +39,16 @@ export function useZoneSelectors(editConfig: any, targetDom: any, _open: boolean
     setCustomZoneTabs(INIT_TABS)
   }, [targetDom])
 
+  // 把本次已查出的父级联动和子元素规则交给 Shell，显示添加入口时不用再算一遍。
+  const ancestorStateLinkCollectionRef = useRef<{
+    baseSelector: string
+    link: ReturnType<typeof createAncestorStateLink>
+    baseTab?: ZoneTab
+    tab?: ZoneTab
+  } | null>(null)
+  // 每次渲染先清空，只有下面本次重新计算时才填入。
+  // 例如只切换 Tab 时，下面的 useMemo 不重算，Shell 就按原方式读取，不能拿上次的规则代替。
+  ancestorStateLinkCollectionRef.current = null
   const { zoneTabs, mergedTabs, originTabs } = useMemo(() => {
     const domList = toElementArray(targetDom)
     const target = domList[0] as HTMLElement | undefined
@@ -71,10 +81,20 @@ export function useZoneSelectors(editConfig: any, targetDom: any, _open: boolean
       const restored = restoredLinkRef.current.tab
       const normalTab = generatedTabs.find(tab => !tab.pseudo)
       const link = restored?.ancestorStateLink || (normalTab && createAncestorStateLink(target, normalTab.baseSelector, comId))
+      // 这里只交出本次新查出的父级；恢复旧联动 Tab 时沿用的记录，不能代替当前父级预览。
+      // link 为 null 也记录，表示本次已经查过、没有可联动父级，Shell 不用再查一次。
+      if (normalTab && !restored?.ancestorStateLink) {
+        ancestorStateLinkCollectionRef.current = { baseSelector: normalTab.baseSelector, link: link || null }
+      }
       if (normalTab && link) {
         const stateIndex = generatedTabs.findIndex(tab => tab.pseudo === link.pseudo)
         const baseTab = stateIndex >= 0 ? generatedTabs[stateIndex] : normalTab
         const linked = collectLinkedTab(baseTab, link)
+        // 记下这次用哪个 Tab 收集、收集出了什么；Shell 使用同一个 Tab 时可直接取结果。
+        if (ancestorStateLinkCollectionRef.current) {
+          ancestorStateLinkCollectionRef.current.baseTab = baseTab
+          ancestorStateLinkCollectionRef.current.tab = linked
+        }
         if (restored || hasAncestorStateLinkRule(linked, link)) {
           restoredLinkRef.current.tab = linked
           const label = getZoneTabLabels([linked.selector])[0]
@@ -264,6 +284,7 @@ export function useZoneSelectors(editConfig: any, targetDom: any, _open: boolean
     zoneTabs,
     mergedTabs,
     originTabs,
+    ancestorStateLinkCollectionRef,
     activeZoneIdx,
     setActiveZoneIdx: setActiveZoneIdxByUser,
     addZoneTab,

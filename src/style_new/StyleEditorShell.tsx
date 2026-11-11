@@ -147,6 +147,7 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
     zoneTabs,
     mergedTabs,
     originTabs,
+    ancestorStateLinkCollectionRef,
     activeZoneIdx,
     setActiveZoneIdx,
     addZoneTab,
@@ -332,13 +333,28 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
   // 这条联动规则已经保存过，就走恢复，不再展示“添加”入口。
   const ancestorStateLinkCandidate = useMemo(() => {
     if (!selectedTarget || !activeZoneTab || activeZoneTab.ancestorStateLink) return null
-    const link = createAncestorStateLink(selectedTarget, activeZoneTab.baseSelector, shellComId)
+    const collection = ancestorStateLinkCollectionRef.current
+    // 找父级用的是基础选择器；只有与当前 Tab 的基础选择器相同时，结果才能直接拿来用。
+    const canReuseLink = collection && collection.baseSelector === activeZoneTab.baseSelector
+    let link: ReturnType<typeof createAncestorStateLink>
+    if (collection && canReuseLink) {
+      link = collection.link
+    } else {
+      link = createAncestorStateLink(selectedTarget, activeZoneTab.baseSelector, shellComId)
+    }
     if (!link) return null
-    // 把祖先状态规则接进来，再交给原来的回显逻辑计算。
-    const tab = collectAncestorStateLinkTab(selectedTarget, activeZoneTab, link, shellComId)
+    // 规则收集还会用到 Tab 自己的信息，必须是同一个 Tab 才能直接复用。
+    // 例如 Hook 收集了 Hover Tab，而现在选中的是常规 Tab，就不能整份照搬。
+    let tab: ZoneTab
+    if (collection && canReuseLink && collection.baseTab === activeZoneTab && collection.tab) {
+      tab = { ...collection.tab }
+    } else {
+
+      tab = collectAncestorStateLinkTab(selectedTarget, activeZoneTab, link, shellComId)
+    }
     if (hasAncestorStateLinkRule(tab, link)) return null
     return { ...tab, label: getZoneTabLabels([tab.selector])[0], isAdded: !zoneTabs.some(item => item.pseudo === link.pseudo) }
-  }, [selectedTarget, activeZoneTab, shellComId, zoneTabs, ancestorStateLinkRevision])
+  }, [selectedTarget, activeZoneTab, shellComId, zoneTabs, ancestorStateLinkRevision, ancestorStateLinkCollectionRef])
 
 
   const onAddAncestorStateLink = useCallback(() => {
@@ -928,7 +944,10 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
           targetDom={selectedTarget as HTMLElement}
         />
         {ancestorStateLinkCandidate && (
-          <div className={`${css.editModeControl} ${css.ancestorStateLinkControl}`}>
+          <div
+            className={`${css.editModeControl} ${css.ancestorStateLinkControl}`}
+            data-mybricks-tip={lang.addParentStateLinkTip.replace('{state}', ancestorStateLinkCandidate.label)}
+          >
             <label className={css.applyAllCheckbox}>
               <span className={css.checkboxBox}>
                 <input type="checkbox" checked={false} onChange={onAddAncestorStateLink} />
