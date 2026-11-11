@@ -212,74 +212,7 @@ function shouldMarginDisabled(selectDom: HTMLElement) {
 }
 
 function shouldPaddingDisabled(selectDom: HTMLElement) {
-  let cannotSetPadding = false
-
-  if (selectDom.tagName === 'IMG') {
-    return true;
-  }
-
-  const selectDomStyle = window.getComputedStyle(selectDom);
-  function isFixedSize(value: string) {
-    // 1. 具体的数值单位（px, em, rem, vh, vw等）
-    if (/^[0-9]+(\.[0-9]+)?(px|em|rem|vh|vw|pt|pc|cm|mm|in)$/.test(value)) {
-      return true;
-    }
-    // 2. 百分比值
-    if (/^[0-9]+(\.[0-9]+)?%$/.test(value)) {
-      return true;
-    }
-    // 3. 特定的关键字
-    const nonAutoValues = [
-      'max-content',
-    ];
-    return nonAutoValues.includes(value);
-  }
-
-  // 检查是否有非空的文本节点
-  function hasNonEmptyTextNode(element: Element) {
-    // 获取元素的直接子节点
-    const childNodes = Array.from(element.childNodes);
-    return childNodes.some(node => {
-      // 检查是否是文本节点且内容不为空
-      return node.nodeType === Node.TEXT_NODE && node.textContent?.trim() !== '';
-    });
-  }
-
-  // 检查是否有可见的伪元素
-  function hasVisiblePseudoElement(element: Element) {
-    const before = window.getComputedStyle(element, ':before');
-    const after = window.getComputedStyle(element, ':after');
-    
-    return (
-      before.content !== 'none' && before.content !== '""' ||
-      after.content !== 'none' && after.content !== '""'
-    );
-  }
-
-  if (isFixedSize(selectDomStyle.width + '') && isFixedSize(selectDomStyle.height + '')) {
-
-    // 检查是否有非空文本内容
-    const hasText = hasNonEmptyTextNode(selectDom);
-    
-    // 检查是否有可见的伪元素
-    const hasPseudo = hasVisiblePseudoElement(selectDom);
-
-    // 如果没有文本内容和，则检查子元素
-    if (!hasText && !hasPseudo) {
-      const childrenDoms = Array.from(selectDom.children)
-  
-      const allChildrenAbsolute = childrenDoms.length > 0 && childrenDoms.every(child => {
-        const childStyle = window.getComputedStyle(child);
-        return childStyle.position === 'absolute' || childStyle.position === 'fixed';
-      });
-  
-      if (allChildrenAbsolute) {
-        cannotSetPadding = true
-      }
-    }
-  }
-
-  return cannotSetPadding
+  return selectDom.tagName === 'IMG';
 }
 
 function shouldSizeDisabled(selectDom: HTMLElement) {
