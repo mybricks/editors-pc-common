@@ -9,6 +9,7 @@ import {
   buildZoneEffectiveStyle,
   getZoneTabLabels,
   collectZoneTabs,
+  collectZoneStyleRules,
 } from '../core/zone-tab'
 import type { ZoneTab } from '../core/zone-tab'
 import { collectAncestorStateLinkTab, createAncestorStateLink, hasAncestorStateLinkRule } from '../core/ancestor-state-link'
@@ -59,6 +60,12 @@ export function useZoneSelectors(editConfig: any, targetDom: any, _open: boolean
       resolveTabStyle({ ...tab, label, effectiveStyle: tab.effectiveStyle ?? {} })
     )
 
+    // 只共用本次联动收集读取的样式表，下一次计算重新读取；每次仍生成独立 Tab 和规则来源。
+    let linkedCssomRules: ReturnType<typeof collectZoneStyleRules> | undefined
+    const collectLinkedTab = (baseTab: ZoneTab, link: NonNullable<ZoneTab['ancestorStateLink']>) => {
+      linkedCssomRules = linkedCssomRules ?? collectZoneStyleRules()
+      return collectAncestorStateLinkTab(target, baseTab, link, comId, linkedCssomRules)
+    }
     // 重新挂载后，根据当前祖先预览和实际规则，恢复联动变体tab的选中
     if (target) {
       const restored = restoredLinkRef.current.tab
@@ -67,7 +74,7 @@ export function useZoneSelectors(editConfig: any, targetDom: any, _open: boolean
       if (normalTab && link) {
         const stateIndex = generatedTabs.findIndex(tab => tab.pseudo === link.pseudo)
         const baseTab = stateIndex >= 0 ? generatedTabs[stateIndex] : normalTab
-        const linked = collectAncestorStateLinkTab(target, baseTab, link, comId)
+        const linked = collectLinkedTab(baseTab, link)
         if (restored || hasAncestorStateLinkRule(linked, link)) {
           restoredLinkRef.current.tab = linked
           const label = getZoneTabLabels([linked.selector])[0]
@@ -80,7 +87,7 @@ export function useZoneSelectors(editConfig: any, targetDom: any, _open: boolean
     const targetCustomTabs = customTargetRef.current === targetDom ? customZoneTabs : INIT_TABS
     const customTabs = targetCustomTabs.map((tab) => {
       // 手动新增的 Tab 合入最新扫描规则，保留新增标记。
-      if (tab.ancestorStateLink && target) return resolveTabStyle(collectAncestorStateLinkTab(target, tab, tab.ancestorStateLink, comId))
+      if (tab.ancestorStateLink && target) return resolveTabStyle(collectLinkedTab(tab, tab.ancestorStateLink))
       const generated = generatedTabs.find((item) => item.selector === tab.selector)
       if (generated) {
         return { ...tab, ...generated, isAdded: tab.isAdded }

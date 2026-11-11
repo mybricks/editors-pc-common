@@ -10,7 +10,7 @@ import { applyStyleChange, createStyleRemovalPlan } from './core/apply-style-cha
 import type { ZoneWriteTarget } from './core/apply-style-change'
 import { toElementArray } from './core/dom'
 import { createBatchStyleClearPlans, cssPropertyName, getStyleResolution, invalidateStyleResolution, resolveEffectiveStyleSource } from './core/style-property'
-import { buildZoneEffectiveStyle, buildZoneStateStyle, collectZoneTabs, mergeZoneTabsByState, refreshZoneTabSources } from './core/zone-tab'
+import { buildZoneEffectiveStyle, buildZoneStateStyle, collectZoneTabs, collectZoneStyleRules, mergeZoneTabsByState, refreshZoneTabSources } from './core/zone-tab'
 import { collectSubjectClassSelectors } from './core/build-zone-selectors-from-cssom'
 import type { ZoneTab } from './core/zone-tab'
 import { expandFourShorthand } from './core/shorthand-normalizer'
@@ -106,9 +106,11 @@ export function StyleMount({
               zoneTab.baseSelector,
               ...collectSubjectClassSelectors(target),
             ]))
-            tabs = mergeZoneTabsByState(collectZoneTabs([target], selectors, zoneOptions?.comId))
+            // 本次刷新只读取一次样式表；普通和联动仍分别筛选，避免改变其他 Tab 的来源。
+            const cssomRules = collectZoneStyleRules()
+            tabs = mergeZoneTabsByState(collectZoneTabs([target], selectors, zoneOptions?.comId, { cssomRules }))
             if (zoneTab.ancestorStateLink) {
-              const linked = collectAncestorStateLinkTab(target, zoneTab, zoneTab.ancestorStateLink, zoneOptions?.comId)
+              const linked = collectAncestorStateLinkTab(target, zoneTab, zoneTab.ancestorStateLink, zoneOptions?.comId, cssomRules)
               tabs = [...tabs.filter(tab => tab.pseudo !== zoneTab.ancestorStateLink?.pseudo), linked]
             }
           }

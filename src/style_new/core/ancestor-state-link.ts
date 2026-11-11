@@ -1,5 +1,5 @@
 import { buildSoloSelector } from './build-solo-selector'
-import { collectZoneTabs, mergeZoneTabsByState, selectorSubjectStart, isAncestorLinkPseudo } from './zone-tab'
+import { collectZoneTabs, collectZoneStyleRules, mergeZoneTabsByState, selectorSubjectStart, isAncestorLinkPseudo } from './zone-tab'
 import type { AncestorLinkPseudo, ZoneTab } from './zone-tab'
 import { getStatePreviewContext } from './state-preview'
 import { getDocument } from './dom'
@@ -49,9 +49,9 @@ export function createAncestorStateLink(target: Element, baseSelector: string, c
 }
 
 /** 接入祖先状态规则，回显和已有属性写入沿用原状态求值；新属性默认使用联动地址。 */
-export function collectAncestorStateLinkTab(target: Element, baseTab: ZoneTab, link: AncestorStateLink, comId = ''): ZoneTab {
+export function collectAncestorStateLinkTab(target: Element, baseTab: ZoneTab, link: AncestorStateLink, comId = '', cssomRules?: ReturnType<typeof collectZoneStyleRules>): ZoneTab {
   const selectors = Array.from(new Set([baseTab.baseSelector, ...collectSubjectClassSelectors(target)]))
-  const tabs = mergeZoneTabsByState(collectZoneTabs([target], selectors, comId, { includeAncestorState: true }))
+  const tabs = mergeZoneTabsByState(collectZoneTabs([target], selectors, comId, { includeAncestorState: true, cssomRules }))
   const stateTab = tabs.find(tab => tab.pseudo === link.pseudo)
   const normal = tabs.find(tab => !tab.pseudo)
   const sourceRules = stateTab?.sourceRules || []

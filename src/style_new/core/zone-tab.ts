@@ -695,7 +695,7 @@ export function collectZoneTabs(
   elements: Element[],
   baseSelectors: string[],
   comId?: string,
-  options: { baseOnly?: boolean; includeAncestorState?: boolean } = {}
+  options: { baseOnly?: boolean; includeAncestorState?: boolean; cssomRules?: ReturnType<typeof collectZoneStyleRules> } = {}
 ): ZoneTab[] {
   const tabs = new Map<string, ZoneTab>()
   for (const baseSelector of baseSelectors) {
@@ -721,8 +721,8 @@ export function collectZoneTabs(
   // key 是实际传给 matches 的 selector，value 是首个命中元素的下标；-1 表示全部未命中。
   // 缓存只活在本次同步调用内：下一次调用会重新匹配，避免 DOM / CSSOM 更新后读到旧结果。
   const targetIndices = new Map<string, number>()
-  // 沿用原 CSSOM 收集流程及 sourceOrder，不改变条件规则、预览样式排除等语义。
-  const cssomRules = collectZoneStyleRules()
+  // 沿用原 CSSOM 收集流程及 sourceOrder；调用方可传入同次同步刷新读取的列表，下一次仍重新读取。
+  const cssomRules = options.cssomRules ?? collectZoneStyleRules()
 
   for (const { rule, sourceOrder } of cssomRules) {
     // 不能要求 selectorText 必须包含 comId：组件样式编译后可能只保留
