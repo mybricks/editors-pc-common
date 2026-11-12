@@ -137,7 +137,7 @@ export function TransitionTrigger({ controller, properties }: {
   return <>
     <button type='button' ref={anchorRef} className={`${css.trigger} ${configured ? css.configured : ''}`}
       aria-label={lang.transitionTitle + ': ' + properties.map(getPropertyLabel).join('、')}
-      aria-expanded={open} data-mybricks-tip={configured ? lang.transitionConfigured : lang.transitionUnconfigured}
+      aria-expanded={open} data-mybricks-tip={JSON.stringify({ content: configured ? lang.transitionConfigured : lang.transitionUnconfigured, position: 'left' })}
       onClick={() => {
         if (open) close()
         else {
