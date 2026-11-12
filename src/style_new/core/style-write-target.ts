@@ -70,6 +70,10 @@ function collectRuleCandidates(
  * 现有状态规则优先；新增状态从基础规则选址后追加状态；无匹配规则才使用自身源码 class。
  */
 function resolveDefaultWriteTarget(tab: ZoneTab, target: HTMLElement | null, sourceAntClasses?: string[]): StyleWriteTarget {
+  // 已有属性先按原来源修改；没有可写声明时才默认新增到祖先联动。
+  if (tab.linkedSelector) {
+    return { selector: tab.linkedSelector, source: 'current-rule', candidates: [], reason: 'ancestor-state-link-fallback' }
+  }
   if (!target) {
     return { selector: null, source: 'unsupported', candidates: [], reason: 'target-unavailable' }
   }

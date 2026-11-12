@@ -4,7 +4,7 @@ import type { StyleResolution } from './style-property'
 import type { StyleChangeItem } from './apply-style-change'
 import { createDirectionalWritePlans } from './four-side-write'
 import { stylePropertyKey } from './style-shorthand-groups'
-import { splitZoneSelectorState } from './zone-tab'
+import { splitAncestorState, splitZoneSelectorState } from './zone-tab'
 
 export const isBorderProperty = (key: string) => BORDER_KEYS.includes(key)
 
@@ -143,8 +143,9 @@ export function createBorderWritePlans(
           : !rewritingInline) ||
         Object.values(output).some(value => /!important\s*$/i.test(String(value)))
       deletions = requiredDeletions
-    } else if (!splitZoneSelectorState(selector).pseudo) {
-      // 宿主可能优先路由同名 JSX 属性，不能将 class 的合并写入偷换为 inline。
+    } else if (!(splitAncestorState(selector) || splitZoneSelectorState(selector)).pseudo) {
+      // 普通边框修改如果涉及 inline 已有的属性，先阻止修改，避免最后改到 inline。
+      // 父级 Hover 时的边框要单独写 CSS；子级 inline 已有边框，不代表这次 Hover 修改不能执行。
       unsupported ||= [...Object.keys(output), ...deletions].some(key => inlineProperties.has(cssPropertyName(key)))
     }
     return { property: 'border' as const, selector, style: output, deletions, clearedKeys, unsupported }

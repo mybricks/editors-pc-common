@@ -3,7 +3,7 @@ import {
   cssPropertyName, readInlineStyleProperties, readStaticInlineStyleInfo, resolveEffectiveStyleSource,
 } from './style-property'
 import type { StyleResolution } from './style-property'
-import { splitZoneSelectorState } from './zone-tab'
+import { splitAncestorState, splitZoneSelectorState } from './zone-tab'
 
 const LONGHAND_KEYS = ['flexGrow', 'flexShrink', 'flexBasis'] as const
 const IMPORTANT = /!important\s*$/i
@@ -63,7 +63,9 @@ export function createFlexLonghandWritePlans(
         Object.keys(style).some(key => !readStaticInlineStyleInfo(target, key) &&
           !(splittingShorthand && !inlineProperties.has(cssPropertyName(key)))) ||
         Object.values(style).some(value => IMPORTANT.test(String(value)))
-    } else if (!splitZoneSelectorState(selector).pseudo) {
+    } else if (!(splitAncestorState(selector) || splitZoneSelectorState(selector)).pseudo) {
+      // 普通样式要改的属性如果也写在 inline 里，先阻止修改，避免最后改到 inline。
+      // 父级 Hover 时的样式要单独写 CSS；子级 inline 已有 flex，不代表这次 Hover 修改不能执行。
       unsupported ||= [...Object.keys(style), ...requiredDeletions].some(key => inlineProperties.has(cssPropertyName(key)))
     }
     return { property: 'flex' as const, selector, style, deletions: requiredDeletions, clearedKeys: [] as string[], unsupported }
