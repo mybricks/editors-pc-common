@@ -154,8 +154,10 @@ export function createStyleWriteTargetResolver(
       const sides = relatedKeys
         .map(property => resolution.get(property).winner)
         .filter(candidate => candidate?.currentState)
-      if (sides.length && sides.every(candidate => candidate!.inline)) {
-        return { selector: 'inline', source: 'inline', candidates: [], reason: 'existing-inline-sides' }
+      // 当前状态至少有一项，且这些项都写在元素上、来源标记也相同，才共用这个修改目标。
+      // 预览用记录的选择器，JSX style 仍用 inline；来源不同就继续往下判断。
+      if (sides.length && sides.every(candidate => candidate!.inline && candidate!.label === sides[0]!.label)) {
+        return { selector: sides[0]!.label, source: 'inline', candidates: [], reason: 'existing-inline-sides' }
       }
     }
     const property = resolution.get(key)

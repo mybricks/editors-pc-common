@@ -1,5 +1,5 @@
 import { BORDER_KEYS, BORDER_DETAIL_KEYS, expandBorderShorthand, normalizeStyleShorthands } from './shorthand-normalizer'
-import { cssPropertyName, hasFallbackStyleCandidate, readInlineStyleProperties, readStaticInlineStyleInfo, resolveEffectiveStyleSource } from './style-property'
+import { cssPropertyName, hasFallbackStyleCandidate, isSourceInline, readInlineStyleProperties, readStaticInlineStyleInfo, resolveEffectiveStyleSource } from './style-property'
 import type { StyleResolution } from './style-property'
 import type { StyleChangeItem } from './apply-style-change'
 import { createDirectionalWritePlans } from './four-side-write'
@@ -39,10 +39,12 @@ export function createBorderWritePlans(
   const inlineSideClears = new Set<string>()
   ;['Top', 'Right', 'Bottom', 'Left'].forEach(side => {
     const keys = ['Width', 'Style', 'Color'].map(part => `border${side}${part}`)
+    // 同一条边的宽度、线型、颜色都要清除，且至少一项在当前状态来自 JSX style 时，三项一起按 inline 处理。
+    // 预览不算 JSX style，继续使用记录的选择器，避免被缺少源码位置的检查拦住。
     if (keys.every(key => changes.some(change => change.key === key && change.value == null)) &&
       keys.some(key => {
         const winner = resolution.get(key).winner
-        return winner?.currentState && winner.inline
+        return winner?.currentState && isSourceInline(winner)
       })) keys.forEach(key => inlineSideClears.add(key))
   })
   changes.filter(change => isBorderProperty(change.key)).forEach(change => {

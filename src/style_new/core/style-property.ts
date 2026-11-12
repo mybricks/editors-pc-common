@@ -35,6 +35,11 @@ export type StyleClearPlan = {
   | { action: 'noop' | 'unsupported'; reason: string }
 )
 
+/** 样式写在元素上、且来源标为 inline 时，按 JSX style 处理；这不代表已找到源码位置。 */
+export function isSourceInline(candidate: StyleSourceCandidate | null): boolean {
+  return !!candidate?.inline && candidate.label === 'inline'
+}
+
 export type StyleProperty = {
   winner: StyleSourceCandidate | null
   candidates: StyleSourceCandidate[]
@@ -100,15 +105,21 @@ function planClear(key: string, candidates: StyleSourceCandidate[], target: HTML
   const selector = winner.label
   if (!selector) return { ...base, action: 'unsupported', reason: 'winner-selector-unavailable' }
   const action = candidates.length === 1 && winner.property === cssPropertyName(key) ? 'delete' : 'write-unset'
-  const canSplitInlineShorthand = winner.inline && ['border-radius', 'margin', 'padding'].includes(winner.property) &&
+  // 清除 JSX 中的 style 要先找到源码位置；清除预览则用记录的选择器。
+  const sourceInline = isSourceInline(winner)
+  // JSX 只写了 margin、padding 或 border-radius 简写时，找到整条简写的可删除位置，也能拆开清除单边。
+  const canSplitInlineShorthand = sourceInline && ['border-radius', 'margin', 'padding'].includes(winner.property) &&
     readStaticInlineStyleInfo(target, stylePropertyKey(winner.property), true)
-  if (winner.inline && !readStaticInlineStyleInfo(target, key) && !canSplitInlineShorthand) {
+  // 单项找不到可修改的源码，简写也不能拆，就保留原来的限制，不允许清除。
+  if (sourceInline && !readStaticInlineStyleInfo(target, key) && !canSplitInlineShorthand) {
     return { ...base, action: 'unsupported', reason: 'dynamic-or-untracked-inline-style' }
   }
-  if (winner.inline && action === 'delete' && !readStaticInlineStyleInfo(target, key, true)) {
+  // 直接删除 JSX 属性时，还要知道整段该删到哪里。
+  if (sourceInline && action === 'delete' && !readStaticInlineStyleInfo(target, key, true)) {
     return { ...base, action: 'unsupported', reason: 'inline-delete-range-unavailable' }
   }
-  if (winner.inline && action === 'write-unset' && winner.important) {
+  // JSX style 不能写带 !important 的 unset，仍按原来的规则拦住；预览不受这个限制。
+  if (sourceInline && action === 'write-unset' && winner.important) {
     return { ...base, action: 'unsupported', reason: 'inline-important-cannot-be-written-by-jsx-style' }
   }
   return { ...base, action, selector, value: action === 'delete' ? null : winner.important ? 'unset !important' : 'unset' }
@@ -116,6 +127,8 @@ function planClear(key: string, candidates: StyleSourceCandidate[], target: HTML
 
 /** 一个 Tab 共用一份稀疏索引。控件查询不扫描 CSSOM。 */
 export function createStyleResolution(tab: ZoneTab, target: HTMLElement | null = tab.target as HTMLElement || null) {
+  // 读取预览属性对应的选择器；元素上的样式没有预览记录时，仍按 JSX 中的 style 处理。
+  const previewSources: Record<string, string> = JSON.parse(target?.dataset?.mybricksStylePreviewSources || '{}')
   const index = new Map<string, StyleSourceCandidate[]>()
   const cache = new Map<string, StyleProperty>()
   // 源码/CSSOM 更新晚于连续编辑，不能把已清除的 background 再从旧文本恢复回来。
@@ -185,13 +198,25 @@ export function createStyleResolution(tab: ZoneTab, target: HTMLElement | null =
       }
       if (!value) return
       // 记住分项来自哪条简写，供后续编辑和清空判断；不要把补值当成独立声明。
-      const shorthand = fallback?.property || contributingShorthands.find(name => STYLE_SHORTHANDS[name].includes(key))
+      let shorthand = fallback?.property || contributingShorthands.find(name => STYLE_SHORTHANDS[name].includes(key))
+      // 没有样式表规则来源，说明正在读元素的 style；只在这里查预览记录，不改变样式表的解析。
+      if (!source) {
+        // 简写既要有预览记录，也要包含当前属性；例如上边宽度应找到 border-top，而不是已删掉的 border。
+        const previewShorthand = contributingShorthands.find(name =>
+          previewSources[name] && STYLE_SHORTHANDS[name].includes(key)
+        )
+        // 属性自己有记录就用自己，否则用有记录的简写；都没有就保留原来的判断。
+        if (previewSources[key]) shorthand = undefined
+        else if (previewShorthand) shorthand = previewShorthand
+      }
+      // 预览继续用原选择器，避免再次编辑时被误当成 JSX 中的 style。
+      const previewSelector = !source && (previewSources[key] || previewSources[shorthand || ''])
       const candidate: StyleSourceCandidate = {
         property: shorthand || key,
         value,
         // 补出的分项沿用原简写的 !important；直接读到的分项仍读取自身优先级。
         important: style.getPropertyPriority(fallback?.property || key) === 'important',
-        label: source?.sourceSelector || (source ? '' : 'inline'),
+        label: previewSelector || source?.sourceSelector || (source ? '' : 'inline'),
         source,
         specificity,
         sourceOrder: source?.sourceOrder ?? Number.MAX_SAFE_INTEGER,
@@ -381,9 +406,11 @@ export function createBatchStyleClearPlans(
       const family = getShorthandFamily(property)
       for (const source of sources) {
         if (!source.label) return
-        const properties = source.inline
+        // JSX 中的 style 只删除源码里写过的属性；预览可以清除这一整组属性。
+        const properties = isSourceInline(source)
           ? family.filter(name => readInlineStyleProperties(target).has(name)) : family
-        if (source.inline && (!properties.length || properties.some(name =>
+        // JSX 中找不到要删的属性，或其中一项没有可删除的源码位置，就放弃这次整组删除。
+        if (isSourceInline(source) && (!properties.length || properties.some(name =>
           !readStaticInlineStyleInfo(target, stylePropertyKey(name), true)
         ))) return
         properties.forEach(name => groupPlans.push({
@@ -415,9 +442,9 @@ export function createBatchStyleClearPlans(
     if (!sameSource || !winner.label) return
 
     let deleteProperties = family
-    if (winner.inline) {
-      // JSX 的源码范围才是原始声明信息，不能要求 CSSOM 展开的每个 longhand
-      // 都有独立源码范围；但组内任意动态属性仍必须阻止整个动作。
+    if (isSourceInline(winner)) {
+      // 源码可能只写了一条 border-radius，不会给四个角分别记录位置，所以只检查实际写过的属性。
+      // 仍按原来的限制处理：有属性不能安全删除，或不能覆盖整组时，就不做整组删除。
       const inlineProperties = readInlineStyleProperties(target)
       deleteProperties = family.filter(name => inlineProperties.has(name))
       if (
