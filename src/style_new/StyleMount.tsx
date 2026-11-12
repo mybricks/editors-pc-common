@@ -105,6 +105,12 @@ export function StyleMount({
             const selectors = Array.from(new Set([
               zoneTab.baseSelector,
               ...collectSubjectClassSelectors(target),
+              // .ant-btn 与 .ant-btn-primary 合并后，刷新可能因 ant-* 过滤丢失后者。
+              // 补回初始化已确认的选择器，再读取最新 CSSOM；不全局放行 ant-*，
+              // 避免把 antd 运行时样式误当作可写源码，破坏 hover 回显和切换。
+              ...(zoneOptions.originTabs ?? [])
+                .filter((tab: ZoneTab) => !tab.pseudo)
+                .map((tab: ZoneTab) => tab.baseSelector),
             ]))
             // 本次刷新只读取一次样式表；普通和联动仍分别筛选，避免改变其他 Tab 的来源。
             const cssomRules = collectZoneStyleRules()
