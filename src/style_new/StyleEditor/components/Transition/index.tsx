@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useApplyStyleMutations, useStyleEditorContext } from '../../context'
 import type { ChangeEvent } from '../../type'
 import { INTERACTIVE_PSEUDO_STATES, onStatePreviewChange } from '../../../core/state-preview'
+import { resolveEffectiveStyleSource } from '../../../core/style-property'
 import { SketchPopup, SketchCloseIcon } from '../SketchPopup'
 import { Dropdown } from '../DropDown'
 import { DownOutlined } from '../Icon/DownOutlined'
@@ -22,7 +23,16 @@ export function useTransitionController(fallbackOnChange: ChangeEvent) {
   const enabled = !!tab?.pseudo && INTERACTIVE_PSEUDO_STATES.has(tab.pseudo)
   const target = context?.targetDom
   const selector = tab?.selector
-  const values = TRANSITION_KEYS.map(key => context?.effectiveStyle?.[key]?.value || '')
+  const values = TRANSITION_KEYS.map(key => {
+    // Tab 缓存的 effectiveStyle 可能缺少新写入的过渡，按当前态 CSS 来源读取。
+    const property = enabled ? context?.getStyleProperty?.(key) : undefined
+    if (property) {
+      return resolveEffectiveStyleSource(
+        property.candidates.filter(candidate => candidate.currentState)
+      )?.value || ''
+    }
+    return context?.effectiveStyle?.[key]?.value || ''
+  })
   const signature = JSON.stringify(values)
   const source = useMemo(() => {
     const declaration = document.createElement('div').style

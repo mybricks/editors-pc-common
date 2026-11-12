@@ -36,6 +36,7 @@ import type { CssVarColorOption } from "../../../core/resolve-css-var-color";
 import { formatCssVarTitle } from "../../../core/css-var";
 import { normalizeCssValue } from "../../helper/normalize-css-value";
 import { stylePropertyKey } from "../../../core/style-shorthand-groups";
+import { resolveEffectiveStyleSource } from "../../../core/style-property";
 import { getBackgroundColorMigration } from "../../../core/background-color-migration";
 import { getMotionFillSignature, isMotionFillProperty, MOTION_FILL_PREFIX, readMotionFillLayers, writeMotionFillLayers } from "./transition-adapter";
 
@@ -434,21 +435,12 @@ export function Background({
   const lastOwnershipRef = useRef(ownershipFingerprint);
 
   const readMotionValue = (name: string) => context?.getStyleProperty?.(name).winner?.value;
-  const readBackgroundStyle = useCallback(() => {
-    const style = { ...(value as Record<string, any>) };
-    const options = context?.editConfig.options;
-    const isStateTab = !Array.isArray(options) && !!options?.zoneTab?.pseudo;
-    if (!context?.getStyleProperty) return style;
-    BACKGROUND_CLEAR_KEYS.forEach(key => {
-      const winner = context.getStyleProperty!(key).winner;
-      if (winner) style[key] = winner.value;
-      else if (isStateTab) delete style[key];
-    });
-    return style;
-  }, [context?.editConfig.options, context?.getStyleProperty, value]);
-  const readLayers = (...args: Parameters<typeof parseLayers>) =>
-    readMotionFillLayers(parseLayers(...args), readMotionValue);
-  const motionSignature = getMotionFillSignature(readBackgroundStyle().backgroundImage || '', readMotionValue);
+  const readLayers = (...args: Parameters<typeof parseLayers>) => {
+    const parsed = parseLayers(...args);
+    if (!args[0]?.includes(MOTION_FILL_PREFIX)) return parsed;
+    return readMotionFillLayers(parsed, readMotionValue);
+  };
+  const motionSignature = getMotionFillSignature(value.backgroundImage || '', readMotionValue);
 
   const buildContentFingerprint = (style: Record<string, any>) => {
     const meta = getContentBackgroundMeta(style);
@@ -482,15 +474,26 @@ export function Background({
 
   // 仅动画填充使用 CSS 原文参与操作；UI 图层只负责展示，不保存变量身份。
   const readEditingLayers = useCallback(() => {
+    const image = context?.getStyleProperty?.('backgroundImage').winner?.value;
+    if (!image?.includes(MOTION_FILL_PREFIX)) return layersRef.current;
+    const options = context?.editConfig.options;
+    const isStateTab = !Array.isArray(options) && !!options?.zoneTab?.pseudo;
     const style = Object.fromEntries([
       ...BACKGROUND_CLEAR_KEYS, 'backgroundClip', 'WebkitBackgroundClip', 'backgroundOrigin',
-    ].map(key => [key, context?.getStyleProperty?.(key).winner?.value]));
+    ].map(key => {
+      const property = context!.getStyleProperty!(key);
+      // 与公共状态回显一致，编辑动效层时不把常规态背景带入当前态。
+      const source = isStateTab
+        ? resolveEffectiveStyleSource(property.candidates.filter(candidate => candidate.currentState))
+        : property.winner;
+      return [key, source?.value];
+    }));
     const meta = getContentBackgroundMeta(style);
     if (!meta.backgroundImage?.includes(MOTION_FILL_PREFIX)) return layersRef.current;
     return parseLayers(meta.backgroundImage, meta.backgroundColor, meta.backgroundSize,
       meta.backgroundRepeat, meta.backgroundPosition, ownership, showTransparentColor)
       .map((layer, index) => ({ ...layer, id: layersRef.current[index]?.id || layer.id }));
-  }, [context?.getStyleProperty, ownershipFingerprint, showTransparentColor]);
+  }, [context?.getStyleProperty, context?.editConfig.options, ownershipFingerprint, showTransparentColor]);
 
   // Guard: skip re-parsing when the value change came from our own emit.
   // Fingerprint 含 content image + 并行属性 + color，避免角色层干扰且能同步外部 color 变更。
@@ -500,7 +503,8 @@ export function Background({
   const localEmitPendingRef = useRef<string | null>(null);
 
   useEffect(() => {
-    const style = readBackgroundStyle();
+    // 沿用公共面板值的状态范围；动效只解包内部颜色，不用级联 winner 覆盖回显。
+    const style = value as Record<string, any>;
     const fingerprint = buildContentFingerprint(style);
 
     // 之前先拦截旧样式回显，连已变化的删除权限也一起跳过，导致刚换图没有「−」。
@@ -550,7 +554,6 @@ export function Background({
     ownershipFingerprint,
     showTransparentColor,
     motionSignature,
-    readBackgroundStyle,
   ]);
 
   // ── Emit helper ──────────────────────────────────────────────────────────

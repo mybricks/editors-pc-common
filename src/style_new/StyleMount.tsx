@@ -4,6 +4,7 @@ import { deepCopy } from '../utils'
 import StyleEditor, { StyleEditorProvider } from './StyleEditor'
 import { buildStyleMutationChange } from './StyleEditor/helper/style-mutations'
 import { initLiveStyle } from './StyleEditor/helper/gradient-border'
+import { MOTION_FILL_PREFIX } from './StyleEditor/plugins/Background/transition-adapter'
 import type { ChangeEvent, StyleMutation } from './StyleEditor/type'
 import type { EditorProps } from './type'
 import { applyStyleChange, createStyleRemovalPlan } from './core/apply-style-change'
@@ -117,6 +118,14 @@ export function StyleMount({
               zoneTab.baseRules = current.baseRules
             }
             refreshZoneTabSources(zoneTab, current)
+          } else if (!current && sourceChangePending && zoneTab.pseudo &&
+            zoneTab.sourceRules.some(({ rule }) => rule.style.getPropertyValue('background-image').includes(MOTION_FILL_PREFIX))) {
+            // 仅清理本功能生成的动画填充来源；删除后从旧 CSS 规则识别，普通规则沿用原流程。
+            refreshZoneTabSources(zoneTab, {
+              ...zoneTab,
+              sourceRules: [],
+              baseRules: tabs.find(tab => !tab.pseudo)?.sourceRules ?? [],
+            })
           }
           // 第一次记录初始变体数组
           // 后续对比signature，如果数组变了且变化来自 CSS 写入，通知变体onChange
