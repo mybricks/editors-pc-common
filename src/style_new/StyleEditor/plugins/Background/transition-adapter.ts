@@ -12,7 +12,7 @@ import { ParseGradient } from '../../components/GradientEditor/GradientParser'
 import { parseLayers, serializeLayers } from './layers'
 import type { BgLayer } from './layers'
 
-// 与宿主 styleProxy 的 @property 注册约定一致，只接管这个命名空间。
+// 编辑器只管理这个命名空间；注册和清理由动画文件计划统一生成。
 export const MOTION_FILL_PREFIX = '--mybricks-motion-fill-'
 export const isMotionFillProperty = (name: string) => name.startsWith(MOTION_FILL_PREFIX)
 
@@ -153,6 +153,8 @@ export function appendMotionFillRemoval(
       : group.deletions.includes('backgroundColor') ? '' : source('backgroundColor')?.value
     if (!parseLayers('', color).length) delete rules['background-color']
   }
+  // 图层已移除，内部变量不再需要 unset 屏蔽基础态；删除本地声明即可。
+  removedNames.forEach(name => { delete group.style[name] })
   group.deletions.push(...removedNames, ...TRANSITION_KEYS.filter(key => !group.deletions.includes(key)))
   TRANSITION_KEYS.forEach(key => { delete group.style[key] })
   if (Object.keys(rules).length) {

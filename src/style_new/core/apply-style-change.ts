@@ -31,8 +31,10 @@ import { createFlexLonghandWritePlans } from './flex-write'
 import { getTextBackgroundShorthandWrite } from './text-background-write'
 import { createBackgroundColorMigrationPlan } from './background-color-migration'
 import { backgroundCore } from './background-core'
-import { appendMotionFillRemoval, createMotionFillPlan } from '../StyleEditor/plugins/Background/transition-adapter'
+import { appendMotionFillRemoval, createMotionFillPlan, isMotionFillProperty } from '../StyleEditor/plugins/Background/transition-adapter'
+import { applyMotionFillStylePlan, hasMotionFillChanges } from '../StyleEditor/plugins/Background/motion-fill-plan'
 import { shouldUseAIForThirdPartyStyle } from './ai-style/third-party-style-ai'
+import { createTransitionRemovalPlan } from './transition-removal'
 
 export type StyleChangeItem = {
   key: string
@@ -291,14 +293,50 @@ export function createStyleRemovalPlan(
   return { groups: Array.from(groups.values()), canClear: groups.size > 0 }
 }
 
+/** 动画一次提交完整文件计划；注册块不进入元素来源索引和面板值。 */
+function applyMotionFillGroups(
+  groups: StyleRemovalPlan['groups'], liveStyle: Record<string, any>, resolution: StyleResolution,
+  target: HTMLElement, tab: ZoneTab, baseResolution?: StyleResolution,
+): Record<string, any> {
+  const plan = applyMotionFillStylePlan(groups, target)
+  const nextLiveStyle = { ...liveStyle }
+  const currentSelectors = new Set([tab.selector, ...tab.sourceRules.map(source => source.sourceSelector)])
+  const touched = new Set<string>()
+  plan.changes.forEach(({ selector, style }) => {
+    if (selector.startsWith('@property ')) return
+    if (currentSelectors.has(selector)) {
+      Object.entries(style).forEach(([key, value]) => {
+        resolution.record(key, value, selector)
+        getShorthandFamily(cssPropertyName(key)).forEach(property => touched.add(stylePropertyKey(property)))
+      })
+    } else if (baseResolution && tab.baseRules.some(source => source.sourceSelector === selector)) {
+      // 基础态只记入基础态索引，不把起点当作当前态的显式声明。
+      Object.entries(style).forEach(([key, value]) => baseResolution.record(key, value, selector))
+    }
+  })
+  touched.forEach(key => {
+    const winner = resolution.get(key).winner
+    if (winner?.currentState) nextLiveStyle[key] = `${winner.value}${winner.important ? ' !important' : ''}`
+    else delete nextLiveStyle[key]
+  })
+  return nextLiveStyle
+}
+
 function applyStyleRemoval(
   plan: StyleRemovalPlan, liveStyle: Record<string, any>, resolution: StyleResolution,
   target: HTMLElement | null, editConfig: any, zoneWriteTargets?: Map<string, ZoneWriteTarget>
 ): ApplyStyleChangeResult {
   if (plan.disabledReason) return { nextLiveStyle: liveStyle, applied: false, clearApplied: false, clearUnsupported: true }
-  const nextLiveStyle = { ...liveStyle }
+  let nextLiveStyle = { ...liveStyle }
   const touched = new Set<string>()
+  const motionGroups = plan.groups.filter(group => hasMotionFillChanges(group, resolution))
+  if (motionGroups.length) {
+    motionGroups.forEach(group => appendMotionFillRemoval(group, resolution, target))
+    nextLiveStyle = applyMotionFillGroups(motionGroups, nextLiveStyle, resolution, target!, editConfig.options.zoneTab)
+    motionGroups.forEach(group => [...group.deletions, ...Object.keys(group.style)].forEach(key => zoneWriteTargets?.delete(key)))
+  }
   plan.groups.forEach(group => {
+    if (motionGroups.includes(group)) return
     appendMotionFillRemoval(group, resolution, target)
     const { selector, style, deletions } = group
     try {
@@ -643,11 +681,11 @@ function applyEffectiveStyleChanges(
   if (motion && tab.pseudo) {
     const plan = createMotionFillPlan(motion.value, tab, resolution, target)
     if (plan) {
-      // 起点与终点分别更新自己的来源索引，基础态不能被记成当前状态声明。
-      if (plan.base.groups.length) applyStyleRemoval(plan.base, {}, plan.baseResolution, target, editConfig)
-      const result = applyStyleRemoval(plan.current, liveStyle, resolution, target, editConfig)
-      if (result.applied) onBatchMetaChange?.()
-      return { ...result, clearApplied: false }
+      // 起点、终点和注册一次落盘；本地回显仍分别记录两个状态的声明。
+      const nextLiveStyle = applyMotionFillGroups([...plan.base.groups, ...plan.current.groups],
+        liveStyle, resolution, target!, tab, plan.baseResolution)
+      onBatchMetaChange?.()
+      return { nextLiveStyle, applied: true, clearApplied: false, clearUnsupported: false }
     }
   }
   // .demo { background-color: red; } 点 + 后，应变成（仅列颜色）：
@@ -786,11 +824,33 @@ function applyEffectiveStyleChanges(
         ? `${value} !important` : value, borderMode, target,
         ...(paintRole ? { paintRole } : {}) }
     })
-  const normal = writes.length
-    ? applyStyleChangeInternal({ value: writes, liveStyle, editConfig }, true)
-    : { nextLiveStyle: liveStyle, applied: false }
+  // 受管图层把本次写入与清空放入同一计划，其他属性继续原执行器。
+  let motionLiveStyle = liveStyle
+  let managedGroups: StyleRemovalPlan['groups'] = []
+  if (changes.some(item => isMotionFillProperty(item.key) || item.key === 'backgroundImage' || item.key === 'background')) {
+    const motionGroups = new Map<string, StyleRemovalPlan['groups'][number]>()
+    const groupFor = (selector: string) => {
+      if (!motionGroups.has(selector)) motionGroups.set(selector, { selector, style: {}, deletions: [] })
+      return motionGroups.get(selector)!
+    }
+    writes.forEach(({ key, value }) => { groupFor(writeTargets.get(key)!.selector!).style[key] = value })
+    plans.forEach(plan => {
+      if (plan.action === 'delete') groupFor(plan.selector).deletions.push(plan.key)
+      else if (plan.action === 'write-unset') groupFor(plan.selector).style[plan.key] = plan.value
+    })
+    managedGroups = Array.from(motionGroups.values()).filter(group => hasMotionFillChanges(group, resolution))
+    if (managedGroups.length) {
+      managedGroups.forEach(group => appendMotionFillRemoval(group, resolution, target))
+      motionLiveStyle = applyMotionFillGroups(managedGroups, liveStyle, resolution, target!, tab)
+    }
+  }
+  const pendingWrites = managedGroups.length ? writes.filter(item =>
+    !managedGroups.some(group => group.selector === writeTargets.get(item.key)?.selector)) : writes
+  const normal = pendingWrites.length
+    ? applyStyleChangeInternal({ value: pendingWrites, liveStyle: motionLiveStyle, editConfig }, true)
+    : { nextLiveStyle: motionLiveStyle, applied: managedGroups.length > 0 }
   if ('clearUnsupported' in normal && normal.clearUnsupported) return normal
-  const nextLiveStyle = { ...normal.nextLiveStyle }
+  let nextLiveStyle = { ...normal.nextLiveStyle }
   propertyPlans.forEach(plan => {
     const { selector, style, deletions, clearedKeys } = plan
     clearedKeys.forEach(key => logStyleOperation({
@@ -871,10 +931,12 @@ function applyEffectiveStyleChanges(
     })
   }
   const groups = new Map<string, Record<string, any>>()
-  let clearApplied = propertyPlans.some(plan => plan.clearedKeys.length > 0)
+  let clearApplied = propertyPlans.some(plan => plan.clearedKeys.length > 0) ||
+    managedGroups.some(group => group.deletions.length > 0)
   plans.forEach(plan => {
     logStyleClearPlan(plan)
     if (plan.action === 'noop' || plan.action === 'unsupported') return
+    if (managedGroups.some(group => group.selector === plan.selector)) return
     const patch = groups.get(plan.selector) || {}
     patch[plan.key] = plan.value
     groups.set(plan.selector, patch)
@@ -907,6 +969,15 @@ function applyEffectiveStyleChanges(
     })
     clearApplied = true
   })
+  // 样式清空成功后统一移除对应动效；不影响背景已有的内部变量清理。
+  if (tab.pseudo) {
+    const transitionPlan = createTransitionRemovalPlan(changes, resolution, target)
+    if (transitionPlan) {
+      const result = applyStyleRemoval(transitionPlan, nextLiveStyle, resolution, target, editConfig)
+      nextLiveStyle = result.nextLiveStyle
+      clearApplied = clearApplied || result.clearApplied
+    }
+  }
   const applied = normal.applied || propertyPlans.length > 0 || clearApplied
   if (applied) onBatchMetaChange?.()
   return { nextLiveStyle, applied, clearApplied, clearUnsupported: false }
@@ -1100,6 +1171,14 @@ function applyStyleChangeInternal({
     if (!activeZoneTab) return { nextLiveStyle: liveStyle, applied: false, clearApplied: false, clearUnsupported: true }
     const resolution = getStyleResolution(activeZoneTab, realTargetDom)
     const plan = createStyleRemovalPlan(removeKeys, resolution, realTargetDom, liveStyle)
+    if (activeZoneTab.pseudo && !plan.disabledReason) {
+      const transitionPlan = createTransitionRemovalPlan(
+        removeKeys.map(key => ({ key, value: null })), resolution, realTargetDom)
+      if (transitionPlan) {
+        plan.groups.push(...transitionPlan.groups)
+        plan.canClear = true
+      }
+    }
     const result = applyStyleRemoval(plan, liveStyle, resolution, realTargetDom, editConfig, zoneWriteTargets)
     if (result.applied) {
       importantPriorityCache?.clear()
@@ -1492,11 +1571,18 @@ function applyStyleChangeInternal({
       }
     }
 
+    const motionResolution = getStyleResolution(activeZoneTab, realTargetDom)
+    const motionGroups = Array.from(groups, ([selector, group]) => ({ ...group, selector }))
+      .filter(group => hasMotionFillChanges(group, motionResolution))
+    if (motionGroups.length) {
+      motionGroups.forEach(group => appendMotionFillRemoval(group, motionResolution, realTargetDom))
+      const next = applyMotionFillGroups(motionGroups, finalCssProperties, motionResolution, realTargetDom!, activeZoneTab)
+      Object.keys(finalCssProperties).forEach(key => { if (!(key in next)) delete finalCssProperties[key] })
+      Object.assign(finalCssProperties, next)
+      motionGroups.forEach(group => groups.delete(group.selector))
+    }
     try {
       groups.forEach((group, sourceSelector) => {
-        const motionGroup = { ...group, selector: sourceSelector }
-        const motionRemoval = appendMotionFillRemoval(motionGroup, getStyleResolution(activeZoneTab, realTargetDom), realTargetDom)
-        if (motionRemoval) group.deletions = motionGroup.deletions
         ;(window as any).__mybricks_style_deletions =
           group.deletions.length > 0 ? group.deletions : null
         const groupOptions = { selector: sourceSelector }
@@ -1511,13 +1597,6 @@ function applyStyleChangeInternal({
           withExplicitStyleSelector(sourceSelector, () => write(group.style, groupOptions))
         } else {
           write(group.style, groupOptions)
-        }
-        if (motionRemoval) {
-          group.deletions.forEach(key => {
-            getStyleResolution(activeZoneTab, realTargetDom).record(key, null, sourceSelector)
-            delete finalCssProperties[key]
-          })
-          Object.assign(finalCssProperties, group.style)
         }
         Object.entries(group.style).forEach(([key, value]) => {
           getStyleResolution(activeZoneTab, realTargetDom).record(key, value, sourceSelector)

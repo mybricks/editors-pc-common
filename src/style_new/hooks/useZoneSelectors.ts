@@ -14,6 +14,8 @@ import {
 import type { ZoneTab } from '../core/zone-tab'
 import { collectAncestorStateLinkTab, createAncestorStateLink, hasAncestorStateLinkRule } from '../core/ancestor-state-link'
 import { withExplicitStyleSelector } from '../core/apply-style-change'
+import { isMotionFillProperty } from '../StyleEditor/plugins/Background/transition-adapter'
+import { applyMotionFillStylePlan } from '../StyleEditor/plugins/Background/motion-fill-plan'
 import { uniqBy } from 'lodash'
 
 const INIT_TABS: ZoneTab[] = [];
@@ -256,7 +258,13 @@ export function useZoneSelectors(editConfig: any, targetDom: any, _open: boolean
       if (properties.length) propertiesBySelector.set(writeSelector, properties)
     })
 
+    const motionSelectors = Array.from(propertiesBySelector).filter(([, properties]) => properties.some(isMotionFillProperty))
+    if (motionSelectors.length) {
+      applyMotionFillStylePlan(motionSelectors.map(([selector, deletions]) => ({ selector, deletions, style: {} })),
+        toElementArray(targetDom)[0] as HTMLElement)
+    }
     propertiesBySelector.forEach((properties, sourceSelector) => {
+      if (motionSelectors.some(([selector]) => selector === sourceSelector)) return
       try {
         // 宿主通过 side-channel 区分「删除声明」和「写入空对象」。
         ;(window as any).__mybricks_style_deletions = properties
