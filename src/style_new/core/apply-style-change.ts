@@ -17,7 +17,7 @@ import { buildSoloSelector } from './build-solo-selector'
 import type { ZoneTab } from './zone-tab'
 import {
   collectStyleSourceCandidates, createBatchStyleClearPlans, createStyleClearPlan,
-  cssPropertyName, getStyleResolution,
+  cssPropertyName, getStyleResolution, isSourceInline,
   hasFallbackStyleCandidate, readInlineStyleProperties, readStaticInlineStyleInfo, resolveEffectiveStyleSource,
 } from './style-property'
 import type { StyleClearPlan, StyleResolution } from './style-property'
@@ -660,8 +660,9 @@ function applyEffectiveStyleChanges(
   const replacingFlex = flexKeys.every(key => changes.some(item => item.key === key)) &&
     changes.some(item => flexKeys.includes(item.key) && item.value != null)
   const sideClearKeys = getBoxSpacingSideClearKeys(changes)
+  // 属性属于 margin 或 padding、且当前值按 JSX style 处理时，才走内联源码的清除方式；预览不算。
   const isInlineSpacing = (item: StyleChangeItem) =>
-    !!getBoxSpacingProperty(item.key) && resolution.get(item.key).winner?.inline
+    !!getBoxSpacingProperty(item.key) && isSourceInline(resolution.get(item.key).winner)
   // 内联四方向属性由专用规划器一起处理 unset 和简写拆分。
   const shouldUseCascadeClearPlan = (item: StyleChangeItem) =>
     item.value === null &&
@@ -719,18 +720,6 @@ function applyEffectiveStyleChanges(
     ...createOverflowWritePlans(changes.filter(item => item.value != null), resolution, target,
       change => writeTargets.get(change.key)?.selector || null),
   ]
-  propertyPlans.filter(plan => plan.property === 'borderRadius' && plan.selector === INLINE_STYLE_LABEL)
-    .forEach(plan => plan.clearedKeys.forEach(key => console.log('[圆角清空诊断]', JSON.stringify({
-      属性: key,
-      当前class: target?.className || '',
-      目标仍在画布: target?.isConnected,
-      规则数量: tab.sourceRules.length,
-      单角来源: resolution.get(key).candidates.map(candidate => `${candidate.label}: ${candidate.value}`).join(' | '),
-      简写来源: resolution.get('borderRadius').candidates.map(candidate => `${candidate.label}: ${candidate.value}`).join(' | '),
-      计划写入: Object.entries(plan.style).map(([name, value]) => `${name}: ${value}`).join('; '),
-      删除属性: plan.deletions.join(', '),
-      可执行: !plan.unsupported,
-    }))))
   if (shouldUseAIForThirdPartyStyle(target, tab, writeTargets)) {
     // 整次操作通过已有 set 通道交给宿主，包含同批的样式写入和清除。
     const style = Object.fromEntries(changes.map(({ key, value }) => [key, value]))
