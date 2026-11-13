@@ -287,6 +287,7 @@ function ColorSketch({
     }
     return value || defaultColor
   })
+  const [sketchKey, setSketchKey] = useState(0)
   const [gradientValue, setGradientValue] = useState<string>(() => {
     if (isGradientValue(value) && !value?.includes?.("url(")) {
       // 历史双白占位换成默认可见渐变
@@ -296,10 +297,10 @@ function ColorSketch({
   })
   
   // 使用 colorValue 计算 Sketch 的颜色
-  const sketchColor = useCallback(() => {
+  const sketchColor = useCallback((currentValue = colorValue) => {
     try {
       // @ts-ignore
-      const { color, valpha } = ColorUtil.rgb(colorValue);
+      const { color, valpha } = ColorUtil.rgb(currentValue);
       return `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${valpha.toFixed(
         2
       )})`;
@@ -317,6 +318,10 @@ function ColorSketch({
         setGradientValue(value);
       }
     } else if (value && !value.includes("url(")) {
+      // Sketch 只在挂载时读取 color；外部改色时重建，自身回写保留实例以维持连续拖动。
+      if (sketchColor(value) !== sketchColor()) {
+        setSketchKey((key) => key + 1)
+      }
       setColorValue(value)
     }
   }, [value])
@@ -421,7 +426,7 @@ function ColorSketch({
             </div>
           )}
           <div className={css.subContent}>
-            {subTab === "background" && <Sketch color={sketchColor()} onChange={handleSolidChange} />}
+            {subTab === "background" && <Sketch key={sketchKey} color={sketchColor()} onChange={handleSolidChange} />}
             {open && subTab === "gradient" && (
               <GradientEditor
                 defaultValue={gradientValue}
