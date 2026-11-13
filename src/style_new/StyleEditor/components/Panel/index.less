@@ -163,6 +163,16 @@
       align-items: center;
       margin-left: auto;
     }
+
+    .transitionEntry {
+      margin-left: auto;
+      flex-shrink: 0;
+    }
+
+    // 有新增按钮时保留其最右位置，否则菱形贴齐右侧操作列。
+    &.withTransition { padding-right: 0; }
+    &.withTransition:has(.addBtn) { padding-right: 26px; }
+    &.withTransition .headerRight { margin-left: 4px; }
   }
 
   .wrapContainer {

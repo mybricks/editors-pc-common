@@ -38,6 +38,8 @@ export type StyleChangeItem = {
   borderMode?: 'all' | 'split';
   /** Font 修改共用的 backgroundColor 时保留文字填充角色。 */
   paintRole?: 'text';
+  /** 填充动效入口要求准备多层纯色的起点/终点。 */
+  motionFill?: boolean;
 };
 
 export type StyleChangeResult = {
@@ -55,6 +57,7 @@ export type StyleMutation =
       target?: 'current-rule';
       borderMode?: 'all' | 'split';
       paintRole?: 'text';
+      motionFill?: boolean;
     }
   | {
       type: 'clear';

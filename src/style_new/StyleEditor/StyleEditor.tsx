@@ -24,6 +24,9 @@ import {
 
 import type { StyleEditorProps, Option } from "./type";
 import { useStyleDisplayValue } from "./hooks/useStyleDisplayValue";
+import { TransitionTrigger, useTransitionController } from './components/Transition';
+import { TransitionHeaderContext } from './components/Transition/context';
+import { getTransitionProperties } from './components/Transition/value';
 
 import css from "./StyleEditor.less";
 
@@ -77,6 +80,8 @@ export default function ({
     },
     [onChange, positionField.computedPreview]
   );
+
+  const transition = useTransitionController(handleValueChange);
 
   const fixedOrderKeys = useMemo(() => {
     const keys = Object.keys(PLUGINS_MAP); // 获取 PLUGINS_MAP 的键并用作固定顺序
@@ -141,15 +146,19 @@ export default function ({
         }
       }
 
+      const transitionProperties = getTransitionProperties(pluginKey, config);
       return JSX ? (
-        <JSX
-          key={pluginKey}
-          value={defaultValue}
-          onChange={handleValueChange}
-          config={config}
-          collapse={panelCollapse}
-          showTitle={showTitle}
-        />
+        <TransitionHeaderContext.Provider key={pluginKey} value={transition.enabled && transitionProperties.length ? (
+          <TransitionTrigger controller={transition} properties={transitionProperties} />
+        ) : null}>
+          <JSX
+            value={defaultValue}
+            onChange={handleValueChange}
+            config={config}
+            collapse={panelCollapse}
+            showTitle={showTitle}
+          />
+        </TransitionHeaderContext.Provider>
       ) : null;
     });
 
@@ -204,7 +213,7 @@ export default function ({
     //     )
     //   );
     // });
-  }, [options, finnalExcludeOptions, defaultValue, handleValueChange, collapsedOptions, readonlyExpandedOptions, positionForOrder]);
+  }, [options, finnalExcludeOptions, defaultValue, handleValueChange, collapsedOptions, readonlyExpandedOptions, positionForOrder, transition]);
 
   return <div className={css.style}>{editors}</div>;
 }
