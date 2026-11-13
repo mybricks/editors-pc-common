@@ -4,13 +4,14 @@ import AlignItems from "./AlignItems";
 import JustifyContent from "./JustifyContent";
 import Padding, { PaddingProps } from "./Padding";
 import Gap, { GapProps } from "./Gap";
+import { applyInlineGapChange } from "./core/inline-gap";
 import Grid from "./Grid";
 import type { Layout } from "./types";
 import { Panel } from "../../components";
 import type { ChangeEvent, PanelBaseProps } from "../../type";
 import { useEffectiveStyleValue, useStyleChange, useStyleEditorContext } from "../../context";
 import { useStyleDisplayValue } from "../../hooks/useStyleDisplayValue";
-import { createStyleResolution } from "../../../core/style-property";
+import { createStyleResolution, isSourceInline, resolveEffectiveStyleSource } from "../../../core/style-property";
 import { excludeSoloSources } from "../../../core/zone-tab";
 import type { ZoneTab } from "../../../core/zone-tab";
 import { buildFreedomPlan } from '../../../core/freedom-plan';
@@ -280,6 +281,16 @@ export function Layout({ value: panelValue, onChange: fallbackOnChange, showTitl
               (window as any).__mybricks_applyStylePlan(plan);
               setFreeformMode(undefined);
               return;
+            }
+            const target = context?.targetDom;
+            const changes = Object.entries(nextValue);
+            const getStyleProperty = context?.getStyleProperty;
+            const isInlineGapChange = zoneTab && !zoneTab.pseudo && getStyleProperty && target && changes.length &&
+              changes.every(([key]) => GAP_KEYS.includes(key as GapKey)) &&
+              changes.every(([key]) => !getStyleProperty(key).winner || isSourceInline(getStyleProperty(key).winner)) &&
+              changes.some(([key]) => isSourceInline(getStyleProperty(key).winner));
+            if (isInlineGapChange && target && zoneTab) {
+              if (applyInlineGapChange(target, zoneTab, changes)) return;
             }
             const result = onChange(
               Object.entries(nextValue)
