@@ -1,8 +1,8 @@
 import React, { CSSProperties, useCallback, useRef } from "react";
-import { InputNumber } from "../../../components";
+import { VariableNumberInput, withApplyVariableOption, APPLY_VARIABLE_ACTION, buildDetachMenuOptions } from "../../../components";
 import { useStyleEditorContext } from "../../../context";
 import Icon from "../Icon";
-import { useDragNumber, useLengthInputDrag, useStyleDisplayValue } from "../../../hooks";
+import { useDragNumber, useLengthInputDrag, useStyleDisplayValue, useLengthVarBinding, isCssVarValue } from "../../../hooks";
 import styles from "./index.less";
 import lang from '../../../../index.i18n'
 
@@ -62,18 +62,34 @@ export default ({ value, cleared, onChange, flexDirection }: GapProps) => {
   const isPseudoState = !!pseudo && !pseudo.startsWith("::");
   const rowGapField = useStyleDisplayValue("rowGap");
   const columnGapField = useStyleDisplayValue("columnGap");
+  const getInputValue = (name: GapKey) => {
+    const field = name === "rowGap" ? rowGapField : columnGapField;
+    const inputValue = isPseudoState ? field.configuredValue : cleared?.[name] ? null : value[name];
+    const winner = context?.getStyleProperty?.(name).winner;
+    // 变量简写的 computed 已变成像素；胶囊从当前声明读取原始绑定。
+    // 伪类只读自己的声明，不把基础态变量当成当前状态的配置。
+    if (winner?.currentState && (isCssVarValue(winner.value) || isPseudoState)) {
+      return /^unset$/i.test(winner.value.trim()) ? undefined : winner.value;
+    }
+    return inputValue;
+  };
+  const rowInputValue = getInputValue("rowGap");
+  const columnInputValue = getInputValue("columnGap");
   // 失焦提交和点击清除可能连续发生在同一轮渲染中，不能让清除回调
   // 捕获上一次 render 的 value，否则会把刚提交的间距再次写回。
   const valueRef = useRef(value);
-  valueRef.current = value;
+  valueRef.current = { ...value, rowGap: rowInputValue, columnGap: columnInputValue };
 
   const handleGapChange = useCallback((name: GapKey, next: string | null) => {
+    const hasVariable = isCssVarValue(next) || isCssVarValue(valueRef.current.rowGap) || isCssVarValue(valueRef.current.columnGap);
     const nextValue = getGapChange(valueRef.current, name, next);
     valueRef.current = nextValue;
-    // 伪类只提交本次编辑的轴，避免把另一轴的常规态预览写成配置。
-    onChange(isPseudoState ? { [name]: next } : nextValue);
+    // 变量与伪类只提交本次编辑的轴，另一轴由原声明保留，不能写回计算值。
+    onChange(isPseudoState || hasVariable ? { [name]: next } : nextValue);
   }, [onChange, isPseudoState]);
 
+  const rowBinding = useLengthVarBinding({ value: rowInputValue, computedProp: "rowGap", onChange: next => handleGapChange("rowGap", next) });
+  const columnBinding = useLengthVarBinding({ value: columnInputValue, computedProp: "columnGap", onChange: next => handleGapChange("columnGap", next) });
   const getRowPreviewDragProps = useLengthInputDrag(rowGapField.computedPreview, next => handleGapChange("rowGap", next));
   const getColumnPreviewDragProps = useLengthInputDrag(columnGapField.computedPreview, next => handleGapChange("columnGap", next));
 
@@ -84,8 +100,8 @@ export default ({ value, cleared, onChange, flexDirection }: GapProps) => {
     title: string,
   ) => {
     const field = name === "rowGap" ? rowGapField : columnGapField;
-    // 当前态声明和只读预览直接随 Context 更新，不受旧 model/cleared 标记影响。
-    inputValue = isPseudoState ? field.configuredValue : cleared?.[name] ? null : inputValue;
+    const binding = name === "rowGap" ? rowBinding : columnBinding;
+    inputValue = name === "rowGap" ? rowInputValue : columnInputValue;
     // 未设置间距时浏览器返回 normal，沿用常规态的空白显示。
     const previewValue = isPseudoState && field.computedPreview !== "normal" ? field.computedPreview : undefined;
     const dragProps = previewValue != null
@@ -94,25 +110,33 @@ export default ({ value, cleared, onChange, flexDirection }: GapProps) => {
 
     return (
       <div className={styles.input}>
-        <InputNumber
-          type="number"
-          prefix={
-            <div {...dragProps(inputValue ?? previewValue, `${lang.dragGap} ${title}`)}>
-              <Icon name={iconName} />
-            </div>
-          }
-          tip={title}
-          placeholder=""
-          style={{ padding: "0 8px" }}
-          value={toInputValue(inputValue)}
-          defaultValue={toInputValue(inputValue)}
-          previewValue={previewValue}
-          defaultUnitValue="px"
-          unitOptions={PX_UNIT_OPTIONS}
-          // 0 也是有效回显值，需要保留“默认”入口；空值时公共组件会自动隐藏入口。
-          clearable
-          onClear={() => handleGapChange(name, null)}
-          onChange={(next) => handleGapChange(name, next == null ? null : next)}
+        <VariableNumberInput
+          binding={binding}
+          compact
+          chipStyle={{ width: "100%", minWidth: 0, marginLeft: 0, padding: "0 8px" }}
+          chipPrefix={<div ref={binding.varRef ? binding.anchorRef : undefined} {...binding.dragProps(`${lang.dragGap} ${title}`)}><Icon name={iconName} /></div>}
+          menuOptions={[{ label: lang.defaultLabel, value: "default" }, ...buildDetachMenuOptions(binding.fallbackValue)]}
+          inputProps={{
+            type: "number",
+            prefix: <div ref={!binding.varRef ? binding.anchorRef : undefined} {...dragProps(inputValue ?? previewValue, `${lang.dragGap} ${title}`)}><Icon name={iconName} /></div>,
+            tip: title,
+            placeholder: "",
+            style: { padding: "0 8px" },
+            value: toInputValue(inputValue),
+            defaultValue: toInputValue(inputValue),
+            previewValue,
+            defaultUnitValue: "px",
+            unitOptions: withApplyVariableOption(PX_UNIT_OPTIONS, binding.hasVariables),
+            // 空值也保留应用变量入口；箭头容器与绑定后的胶囊保持一致。
+            showIcon: true,
+            unitSelectStyle: { width: 16 },
+            unitIconClassName: styles.unitIcon,
+            // 0 也是有效回显值，需要保留“默认”入口。
+            clearable: true,
+            onClear: () => handleGapChange(name, null),
+            onChange: next => handleGapChange(name, next == null ? null : next),
+            onAction: action => { if (action === APPLY_VARIABLE_ACTION) binding.openPicker(); },
+          }}
         />
       </div>
     );
