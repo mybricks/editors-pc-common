@@ -161,10 +161,10 @@ export function createStyleResolution(tab: ZoneTab, target: HTMLElement | null =
     })
     // 之前margin: var(...)会导致读不到margin-left这些单侧值
     // 现在从整条简写拆出单侧值，并记住来自哪条简写，这样就知道清除哪条边，单侧就能展示default选项
-    ;['margin', 'padding', 'border-radius'].forEach(property => {
+    ;['margin', 'padding', 'border-radius', 'gap'].forEach(property => {
       const raw = style.getPropertyValue(property)
       if (!raw.includes('var(')) return
-      const values = expandFourShorthand(raw)
+      const values = property === 'gap' ? expandTwoShorthand(raw) : expandFourShorthand(raw)
       if (!values) return
       STYLE_SHORTHANDS[property].forEach((longhand, index) => {
         if (!style.getPropertyValue(longhand)) {
@@ -291,13 +291,13 @@ export function createStyleResolution(tab: ZoneTab, target: HTMLElement | null =
       const parsedShorthand = value != null && (property === 'flex' || property === 'border-radius')
         ? target?.ownerDocument?.createElement('div').style : undefined
       if (parsedShorthand) parsedShorthand.setProperty(property, String(value).replace(/\s*!important\s*$/i, '').trim())
-      if (value != null && (parsedShorthand || property === 'margin' || property === 'padding' || property === 'overflow' || (border && STYLE_SHORTHANDS[property]))) {
+      if (value != null && (parsedShorthand || property === 'margin' || property === 'padding' || property === 'overflow' || property === 'gap' || (border && STYLE_SHORTHANDS[property]))) {
         let expanded: string[] | null
         if (parsedShorthand) {
           expanded = STYLE_SHORTHANDS[property].map(key => parsedShorthand.getPropertyValue(key))
         } else if (border) {
           expanded = STYLE_SHORTHANDS[property].map(key => border[stylePropertyKey(key)])
-        } else if (property === 'overflow') {
+        } else if (property === 'overflow' || property === 'gap') {
           expanded = expandTwoShorthand(value)
         } else {
           expanded = expandFourShorthand(value)

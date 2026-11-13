@@ -18,6 +18,9 @@ export function cssRuleStyleToBag (style: CSSStyleDeclaration): Record<string, a
     const val = style.getPropertyValue(kebab)
     if (val) bag[camel] = val
   }
+  // gap 含变量时两个 longhand 可能为空，仍需保留已声明的简写供布局判断。
+  const gap = style.getPropertyValue('gap').trim()
+  if (gap.includes('var(')) bag.gap = gap
   // Chrome：background 简写含 var() 时 longhand 值为空，但 style.length 仍列出子属性。
   // 从简写回填，避免「有渐变却不展开背景面板 / 回显丢失」。
   const bgShorthand = (style.getPropertyValue('background') || '').trim()

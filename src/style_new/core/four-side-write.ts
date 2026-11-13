@@ -6,7 +6,7 @@ import { STYLE_SHORTHANDS, stylePropertyKey } from './style-shorthand-groups'
 import { splitAncestorState, splitZoneSelectorState } from './zone-tab'
 
 /** 方向属性在同一来源内拆写，保留未编辑方向及后备来源。 */
-export function createDirectionalWritePlans<Property extends 'borderRadius' | 'margin' | 'padding' | 'overflow'>(
+export function createDirectionalWritePlans<Property extends 'borderRadius' | 'margin' | 'padding' | 'overflow' | 'gap'>(
   property: Property,
   changes: StyleChangeItem[],
   resolution: Pick<StyleResolution, 'get'>,
@@ -71,7 +71,23 @@ export function createDirectionalWritePlans<Property extends 'borderRadius' | 'm
       style[change.key] = value
       return { ...change, value }
     })
-    const normalized = normalizeStyleShorthands(style, nextChanges, new Set(clearedKeys), { changedGroupsOnly: true })
+    let normalized
+    if (property === 'gap') {
+      // 变量间距按同来源的两轴落盘，清空一轴时不能补零或固化另一轴的变量。
+      // 整组设置/清空仍覆盖两轴；显式长写优先于同批的简写操作。
+      const shorthandChange = nextChanges.find(change => change.key === property)
+      if (shorthandChange) {
+        const expanded = expandTwoShorthand(shorthandChange.value)
+        keys.forEach((key, index) => {
+          if (!nextChanges.some(change => change.key === key)) style[key] = expanded?.[index] ?? null
+        })
+      }
+      delete style.gap
+      const output = Object.fromEntries(Object.entries(style).filter(([, value]) => value != null))
+      normalized = { style: output, deletions: [property, ...keys].filter(key => !(key in output)) }
+    } else {
+      normalized = normalizeStyleShorthands(style, nextChanges, new Set(clearedKeys), { changedGroupsOnly: true })
+    }
     let output = normalized.style
     let deletions = normalized.deletions.filter(key => sourceKeys.has(key) && !(key in output))
     let unsupported = !selector
@@ -86,7 +102,7 @@ export function createDirectionalWritePlans<Property extends 'borderRadius' | 'm
         keys.some(key => inlineProperties.has(cssPropertyName(key)))
       // JSX 只有静态简写时，单独配置会先被展开成各方向长写。
       // 长写没有独立源码范围，重新压回原简写才能安全更新这条 inline style。
-      if (readStaticInlineStyleInfo(target, property) &&
+      if (property !== 'gap' && readStaticInlineStyleInfo(target, property) &&
         keys.every(key => Object.prototype.hasOwnProperty.call(output, key))) {
         const inlineNormalized = normalizeStyleShorthands(
           output,
@@ -99,7 +115,7 @@ export function createDirectionalWritePlans<Property extends 'borderRadius' | 'm
       }
       output = Object.fromEntries(Object.entries(output).flatMap(([key, value]) => {
         if (key !== property || readStaticInlineStyleInfo(target, key) || unifyingInlineSides) return [[key, value]]
-        const expanded = property === 'overflow' ? expandTwoShorthand(value) : expandFourShorthand(value)
+        const expanded = property === 'overflow' || property === 'gap' ? expandTwoShorthand(value) : expandFourShorthand(value)
         return expanded ? keys.map((name, index) => [name, expanded[index]]) : [[key, value]]
       }))
       const requiredDeletions = deletions.filter(key => inlineProperties.has(cssPropertyName(key)) && !(key in output))

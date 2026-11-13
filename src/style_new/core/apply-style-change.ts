@@ -28,6 +28,7 @@ import type { StyleWriteTarget } from './style-write-target'
 import { BORDER_DETAIL_KEYS, BORDER_RADIUS_KEYS, createBorderRadiusWritePlans, createBorderWritePlans, isBorderProperty, isBorderRadiusProperty } from './border-write'
 import { createOverflowWritePlans, isOverflowProperty } from './overflow'
 import { createFlexLonghandWritePlans } from './flex-write'
+import { createDirectionalWritePlans } from './four-side-write'
 import { getTextBackgroundShorthandWrite } from './text-background-write'
 import { createBackgroundColorMigrationPlan } from './background-color-migration'
 import { backgroundCore } from './background-core'
@@ -659,12 +660,23 @@ function applyEffectiveStyleChanges(
   // Flex 面板提交的是整组替换；其中的 null 只是清理冲突写法，不是屏蔽级联。
   const replacingFlex = flexKeys.every(key => changes.some(item => item.key === key)) &&
     changes.some(item => flexKeys.includes(item.key) && item.value != null)
+  // 仅变量 gap 的绑定、解绑和清空需要保留同来源另一轴；普通数字沿用原写入。
+  const gapKeys = ['gap', 'rowGap', 'columnGap']
+  const gapChanges = changes.some(item => gapKeys.includes(item.key)) && (
+    changes.some(item => gapKeys.includes(item.key) && String(item.value).includes('var(')) ||
+    gapKeys.some(key => {
+      const winner = resolution.get(key).winner
+      return winner?.currentState && winner.value.includes('var(')
+    })
+  ) ? changes.filter(item => gapKeys.includes(item.key)) : []
+  const gapChangeKeys = new Set(gapChanges.map(item => item.key))
   const sideClearKeys = getBoxSpacingSideClearKeys(changes)
   const isInlineSpacing = (item: StyleChangeItem) =>
     !!getBoxSpacingProperty(item.key) && resolution.get(item.key).winner?.inline
   // 内联四方向属性由专用规划器一起处理 unset 和简写拆分。
   const shouldUseCascadeClearPlan = (item: StyleChangeItem) =>
     item.value === null &&
+    !gapChangeKeys.has(item.key) &&
     !(replacingFlex && flexKeys.includes(item.key)) &&
     !isBorderProperty(item.key) &&
     !(isBorderRadiusProperty(item.key) && resolution.get(item.key).winner?.inline) &&
@@ -673,7 +685,7 @@ function applyEffectiveStyleChanges(
   const specializedChanges = changes.filter(item => !shouldUseCascadeClearPlan(item))
   // 先预检整个用户动作，避免清空不可执行却先修改了共享图层。
   const plans = createBatchStyleClearPlans(
-    changes.filter(item => item.value === null && (shouldUseCascadeClearPlan(item) || (
+    changes.filter(item => item.value === null && !gapChangeKeys.has(item.key) && (shouldUseCascadeClearPlan(item) || (
       !sideClearKeys.has(item.key) && !isInlineSpacing(item) && !isBorderProperty(item.key) && !isBorderRadiusProperty(item.key) &&
       !(replacingFlex && flexKeys.includes(item.key))
     ))).map(item => item.key),
@@ -710,6 +722,8 @@ function applyEffectiveStyleChanges(
         change => writeTargets.get(change.key)?.selector || null)
   const propertyPlans = [
     ...flexPlans,
+    ...(gapChanges.length ? createDirectionalWritePlans('gap', gapChanges, resolution, target,
+      change => writeTargets.get(change.key)?.selector || null) : []),
     ...createSpacingWritePlans(specializedChanges, resolution, tab.selector, target,
       change => writeTargets.get(change.key)?.selector || null),
     ...createBorderRadiusWritePlans(specializedChanges, resolution, target,
@@ -758,7 +772,7 @@ function applyEffectiveStyleChanges(
     plans.forEach(plan => logStyleClearPlan(plan, false))
     return { nextLiveStyle: liveStyle, applied: false, clearApplied: false, clearUnsupported: true }
   }
-  const writes = changes.filter(item => item.value != null && !getBoxSpacingProperty(item.key) && !isBorderProperty(item.key) && !isBorderRadiusProperty(item.key) &&
+  const writes = changes.filter(item => item.value != null && !gapChangeKeys.has(item.key) && !getBoxSpacingProperty(item.key) && !isBorderProperty(item.key) && !isBorderRadiusProperty(item.key) &&
     !isOverflowProperty(item.key) &&
     !(replacingFlex && flexKeys.includes(item.key)))
     .map(({ key, value, borderMode, target, paintRole }) => {
@@ -788,6 +802,7 @@ function applyEffectiveStyleChanges(
       if (plan.property === 'border') return isBorderProperty(item.key)
       if (plan.property === 'borderRadius') return isBorderRadiusProperty(item.key)
       if (plan.property === 'overflow') return isOverflowProperty(item.key)
+      if (plan.property === 'gap') return gapKeys.includes(item.key)
       return getBoxSpacingProperty(item.key) === plan.property
     })
       .forEach(item => {
@@ -835,6 +850,8 @@ function applyEffectiveStyleChanges(
         keys = BORDER_DETAIL_KEYS
       } else if (plan.property === 'borderRadius') {
         keys = BORDER_RADIUS_KEYS
+      } else if (plan.property === 'gap') {
+        keys = ['rowGap', 'columnGap']
       } else {
         keys = BOX_SPACING_KEYS[plan.property]
       }
