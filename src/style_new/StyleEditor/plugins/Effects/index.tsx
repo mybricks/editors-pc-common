@@ -316,8 +316,16 @@ export function Effects({ value: _value, onChange: fallbackOnChange, showTitle, 
   const textShadowValue = serializeEffects(layers).find(item => item.key === 'textShadow')!.value
   const empty = isStyleValueEmpty('textShadow', textShadowValue) && !layers.some(layer => !isTextShadowLayer(layer))
   const effectiveCollapse = textShadowState && empty ? true : collapse === 'inherited' ? collapse : layers.length === 0
-  const canRemoveLayer = (layer: EffectLayer) => isTextShadowLayer(layer) && textShadowState
-    ? textShadowState.clearPlan.canClear : collapse !== 'inherited'
+  const canRemoveLayer = (layer: EffectLayer) => {
+    if (isTextShadowLayer(layer)) {
+      return textShadowState ? textShadowState.clearPlan.canClear : collapse !== 'inherited'
+    }
+    if (collapse !== 'inherited') return true
+    // collapse 仍可能是选中时的只读状态；新增写入后按该属性的当前删除状态显示减号。
+    const keys = isBoxShadowLayer(layer) ? ['boxShadow']
+      : layer.type === 'layerBlur' ? ['filter'] : ['backdropFilter', 'WebkitBackdropFilter']
+    return context?.getStyleRemovalState?.(keys).canClear ?? false
+  }
   const activeLayer = activeIndex != null ? layers[activeIndex] : null
 
   const typeOptionsForActive = useMemo(() => {
@@ -343,7 +351,7 @@ export function Effects({ value: _value, onChange: fallbackOnChange, showTitle, 
       addOptions={addOptions}
       onAddOption={handleAddOption}
       rightColumn={
-        // 文字阴影先接入 Effects 的清空判定，其他效果保留原删除条件。
+        // 每层独立判断是否可删除，只读层保留等高占位，避免减号错位。
         layers.some(canRemoveLayer) ? (
           <div className={css.deleteColumn}>
             {layers.map((layer, index) => (
