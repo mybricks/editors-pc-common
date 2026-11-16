@@ -1,9 +1,9 @@
-import { resolveStateLinkAncestor } from '../../../../core/ancestor-state-link'
-import { calculateSafeSpecificity, splitTopLevelSelectors } from '../../../../core/selector-utils'
-import { cssPropertyName } from '../../../../core/style-property'
-import type { StyleSourceCandidate } from '../../../../core/style-property'
-import { collectZoneStyleRules, splitAncestorState, splitZoneSelectorState } from '../../../../core/zone-tab'
-import type { ZoneTab } from '../../../../core/zone-tab'
+import { resolveStateLinkAncestor } from '../ancestor-state-link'
+import { calculateSafeSpecificity, splitTopLevelSelectors } from '../selector-utils'
+import { cssPropertyName } from '../style-property'
+import type { StyleSourceCandidate } from '../style-property'
+import { collectZoneStyleRules, splitAncestorState, splitZoneSelectorState } from '../zone-tab'
+import type { ZoneTab } from '../zone-tab'
 
 /**
  * 补齐 Tab 来源索引之外的匹配规则，例如 Antd 的 .ant-btn-primary。

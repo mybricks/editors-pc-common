@@ -1,8 +1,8 @@
-import { serializeEffects } from '../layers'
+import { serializeEffects } from '../../StyleEditor/plugins/Effects/layers'
 import type { EffectsCore } from './type'
 import { getStyleEmptyState } from './style-empty-state'
-import { getStyleResolution } from '../../../../core/style-property'
-import { createStyleWriteTargetResolver } from '../../../../core/style-write-target'
+import { getStyleResolution } from '../style-property'
+import { createStyleWriteTargetResolver } from '../style-write-target'
 
 /**
  * 仅在 Effects 提交前补齐文字阴影的清空值和优先级，后续仍通过原 onChange 写入。

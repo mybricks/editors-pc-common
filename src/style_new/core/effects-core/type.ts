@@ -1,8 +1,8 @@
-import type { StyleChangeItem } from '../../../type'
-import type { StyleRemovalPlan } from '../../../../core/apply-style-change'
-import type { StyleResolution } from '../../../../core/style-property'
-import type { ZoneTab } from '../../../../core/zone-tab'
-import type { EffectLayer, CssEffectsBundle } from '../layers'
+import type { StyleChangeItem } from '../../StyleEditor/type'
+import type { StyleRemovalPlan } from '../apply-style-change'
+import type { StyleResolution } from '../style-property'
+import type { ZoneTab } from '../zone-tab'
+import type { EffectLayer, CssEffectsBundle } from '../../StyleEditor/plugins/Effects/layers'
 
 /** Effects 的空态与清空结果，目前仅用于文字阴影。 */
 export interface StyleEmptyState {

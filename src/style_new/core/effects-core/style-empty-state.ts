@@ -1,12 +1,12 @@
 import type { EffectsCore, StyleEmptyState, StyleEmptyStrategy } from './type'
 import { collectReadonlyCandidates } from './readonly-candidates'
-import { calculateSafeSpecificity } from '../../../../core/selector-utils'
+import { calculateSafeSpecificity } from '../selector-utils'
 import {
   cssPropertyName, getStyleResolution, readInlineStyleProperties,
   readStaticInlineStyleInfo, resolveEffectiveStyleSource,
-} from '../../../../core/style-property'
-import type { StyleSourceCandidate } from '../../../../core/style-property'
-import { createStyleWriteTargetResolver } from '../../../../core/style-write-target'
+} from '../style-property'
+import type { StyleSourceCandidate } from '../style-property'
+import { createStyleWriteTargetResolver } from '../style-write-target'
 
 // 先接入独立长写属性；简写需要保留其他分项，不在这里按一个值清空。
 const strategies: Record<string, StyleEmptyStrategy> = {

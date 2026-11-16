@@ -30,7 +30,7 @@ import type { LengthVarBinding } from '../../hooks'
 import { resolveCssVarColor } from '../../../core/resolve-css-var-color'
 import type { CssVarColorOption } from '../../../core/resolve-css-var-color'
 import { resolveCssVarLength } from '../../../core/resolve-css-var-length'
-import { getStyleEmptyState, isStyleValueEmpty, prepareEffectChanges } from './core'
+import { getStyleEmptyState, isStyleValueEmpty, prepareEffectChanges } from '../../../core/effects-core'
 import { Blur as BlurIcon } from '../../icons/Blur'
 import { BackgroundBlur as BackgroundBlurIcon } from '../../icons/BackgroundBlur'
 
