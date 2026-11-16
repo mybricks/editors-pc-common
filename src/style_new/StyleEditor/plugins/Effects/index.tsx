@@ -24,12 +24,13 @@ import {
   APPLY_VARIABLE_ACTION,
 } from '../../components'
 import { useDragNumber, useCanvasColorVariables, useLengthVarBinding } from '../../hooks'
-import { useEffectiveStyleValue, useStyleChange } from '../../context'
+import { useEffectiveStyleValue, useStyleChange, useStyleEditorContext } from '../../context'
 import type { UnitOption } from '../../components/InputNumber'
 import type { LengthVarBinding } from '../../hooks'
 import { resolveCssVarColor } from '../../../core/resolve-css-var-color'
 import type { CssVarColorOption } from '../../../core/resolve-css-var-color'
 import { resolveCssVarLength } from '../../../core/resolve-css-var-length'
+import { getStyleEmptyState, isStyleValueEmpty, prepareEffectChanges } from './core'
 import { Blur as BlurIcon } from '../../icons/Blur'
 import { BackgroundBlur as BackgroundBlurIcon } from '../../icons/BackgroundBlur'
 
@@ -44,7 +45,6 @@ import {
   parseEffects,
   serializeEffects,
   fingerprintEffects,
-  fingerprintFromChanges,
   hasEffectType,
   isShadowType,
   isBlurType,
@@ -54,6 +54,9 @@ import {
 } from './layers'
 import type { CssEffectsBundle } from './layers'
 import { getShadowPresets, getPresetPatch, findMatchingPreset } from './presets'
+// Temporary style-instrument-debug: remove after the issue is confirmed fixed.
+import { collectZoneStyleRules } from '../../../core/zone-tab'
+import { createStyleWriteTargetResolver } from '../../../core/style-write-target'
 
 interface EffectsProps extends PanelBaseProps {
   value: CSSProperties
@@ -97,6 +100,10 @@ export function Effects({ value: _value, onChange: fallbackOnChange, showTitle, 
   const { targetDom, variableOptions } = useCanvasColorVariables()
   const value = useEffectiveStyleValue() as CSSProperties
   const onChange = useStyleChange(fallbackOnChange)
+  const context = useStyleEditorContext()
+  const editOptions = context?.editConfig.options
+  const zoneTab = editOptions && !Array.isArray(editOptions) && !editOptions.soloEdit ? editOptions.zoneTab : undefined
+  const textShadowState = zoneTab ? getStyleEmptyState('textShadow', zoneTab, targetDom) : undefined
   const parseBundle = useCallback(
     (bundle: CssEffectsBundle) => parseEffects(bundle, {
       classifyColorToken: (token) => {
@@ -113,7 +120,6 @@ export function Effects({ value: _value, onChange: fallbackOnChange, showTitle, 
   const lastEmittedRef = useRef(fingerprintEffects(readCssBundle(value)))
   const lastParsedTargetRef = useRef(targetDom)
   const valueRef = useRef(value)
-  valueRef.current = value
 
   const [activeIndex, setActiveIndex] = useState<number | null>(null)
   const [popupOpen, setPopupOpen] = useState(false)
@@ -121,9 +127,78 @@ export function Effects({ value: _value, onChange: fallbackOnChange, showTitle, 
   const triggerRefs = useRef<Array<HTMLDivElement | null>>([])
   const activeTriggerRef = useRef<HTMLDivElement | null>(null)
 
+  // Temporary style-instrument-debug: distinguish inherited shadows from direct !important rules.
+  useEffect(() => {
+    if (!targetDom) return
+    try {
+      const editOptions = context?.editConfig.options as any
+      const tab = editOptions?.zoneTab
+      const property = context?.getStyleProperty?.('textShadow')
+      const summarizeCandidate = (candidate: NonNullable<typeof property>['winner'] | undefined) => candidate ? {
+        selector: candidate.label,
+        selectorPart: candidate.source?.selectorPart,
+        value: candidate.value,
+        important: candidate.important,
+        inline: candidate.inline,
+        currentState: candidate.currentState,
+        runtime: !!candidate.source?.isRuntimeStyle,
+      } : null
+      const nodes = [targetDom, targetDom.parentElement].filter(Boolean) as HTMLElement[]
+      const rules = collectZoneStyleRules().filter(({ rule }) => rule.style.getPropertyValue('text-shadow'))
+      const plan = property?.clearPlan
+      const writeTarget = tab ? createStyleWriteTargetResolver(tab, targetDom)('textShadow') : undefined
+      void fetch('http://127.0.0.1:4318/logs', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          sessionId: 'antd-text-shadow-20261112',
+          event: 'text-shadow-state-display',
+          time: new Date().toISOString(),
+          data: {
+            selector: editOptions?.selector,
+            soloEdit: !!editOptions?.soloEdit,
+            collapse,
+            showDelete: layers.some(layer => isTextShadowLayer(layer) && textShadowState
+              ? textShadowState.clearPlan.canClear : collapse !== 'inherited'),
+            layers: layers.map(({ type }) => type),
+            panelTextShadow: _value.textShadow,
+            effectiveTextShadow: value.textShadow,
+            authoredTextShadow: context?.authoredStyle?.textShadow,
+            source: context?.effectiveStyle?.textShadow,
+            emptyState: textShadowState,
+            winner: summarizeCandidate(property?.winner),
+            candidates: property?.candidates.map(summarizeCandidate),
+            clearPlan: plan && { action: plan.action, ...('reason' in plan
+              ? { reason: plan.reason } : { selector: plan.selector, value: plan.value }) },
+            proposedWriteTarget: writeTarget && { selector: writeTarget.selector, source: writeTarget.source, reason: writeTarget.reason },
+            nodes: nodes.map((node, depth) => ({
+              depth,
+              tag: node.tagName,
+              className: node.className,
+              zoneSelector: node.getAttribute('data-zone-selector'),
+              computed: node.ownerDocument.defaultView!.getComputedStyle(node).textShadow,
+              inline: node.style.getPropertyValue('text-shadow'),
+              inlinePriority: node.style.getPropertyPriority('text-shadow'),
+              rules: rules.filter(({ rule }) => {
+                try { return node.matches(rule.selectorText) } catch { return false }
+              }).map(({ rule, sourceOrder }) => ({
+                selector: rule.selectorText,
+                value: rule.style.getPropertyValue('text-shadow'),
+                priority: rule.style.getPropertyPriority('text-shadow'),
+                sourceOrder,
+              })),
+            })),
+          },
+        }),
+        keepalive: true,
+      }).catch(() => {})
+    } catch {}
+  }, [targetDom, collapse, value.textShadow, context?.effectiveStyle?.textShadow, layers])
+
   // 外部 CSS → 本地
   useEffect(() => {
     const bundle = readCssBundle(value)
+    valueRef.current = value
     const fp = fingerprintEffects(bundle)
     const targetChanged = lastParsedTargetRef.current !== targetDom
     if (!targetChanged && fp === lastEmittedRef.current) return
@@ -136,11 +211,33 @@ export function Effects({ value: _value, onChange: fallbackOnChange, showTitle, 
   const emitLayers = useCallback((next: EffectLayer[]) => {
     // 会话内保持用户排序，不 normalize（模糊可夹在阴影中间）
     const prev = readCssBundle(valueRef.current)
-    const changes = serializeEffects(next, prev)
-    lastEmittedRef.current = fingerprintFromChanges(changes)
+    const changes = prepareEffectChanges(next, layersRef.current, prev, zoneTab, targetDom)
+    if (!changes) return
+    const result = onChange(changes)
+    // Temporary style-instrument-debug: record the existing write result without changing it.
+    try {
+      void fetch('http://127.0.0.1:4318/logs', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          sessionId: 'antd-text-shadow-20261112',
+          event: 'text-shadow-write-result',
+          time: new Date().toISOString(),
+          data: { previous: prev, changes, nextLayers: next.map(({ type }) => type),
+            applied: result && result.applied, clearApplied: result && result.clearApplied,
+            clearUnsupported: result && result.clearUnsupported },
+        }),
+        keepalive: true,
+      }).catch(() => {})
+    } catch {}
+    if (zoneTab && changes.some(item => item.key === 'textShadow') && result && !result.applied) return
+    const nextBundle = { ...prev, ...Object.fromEntries(changes.map(({ key, value }) => [key, value])) }
+    // 指纹保留未提交的字段；连续编辑使用完整本地快照，不等待外部 CSSOM 更新。
+    valueRef.current = nextBundle as CSSProperties
+    lastEmittedRef.current = fingerprintEffects(nextBundle)
+    layersRef.current = next
     setLayers(next)
-    onChange(changes)
-  }, [onChange])
+  }, [onChange, zoneTab, targetDom])
 
   const handleAddOption = useCallback((type: string) => {
     const effectType = type as EffectType
@@ -286,7 +383,11 @@ export function Effects({ value: _value, onChange: fallbackOnChange, showTitle, 
   }, [])
 
   // collapse 可能一直保留初始的 true；按层数切换，确保删空时触发 Panel 收起。
-  const effectiveCollapse = collapse === 'inherited' ? collapse : layers.length === 0
+  const textShadowValue = serializeEffects(layers).find(item => item.key === 'textShadow')!.value
+  const empty = isStyleValueEmpty('textShadow', textShadowValue) && !layers.some(layer => !isTextShadowLayer(layer))
+  const effectiveCollapse = textShadowState && empty ? true : collapse === 'inherited' ? collapse : layers.length === 0
+  const canRemoveLayer = (layer: EffectLayer) => isTextShadowLayer(layer) && textShadowState
+    ? textShadowState.clearPlan.canClear : collapse !== 'inherited'
   const activeLayer = activeIndex != null ? layers[activeIndex] : null
 
   const typeOptionsForActive = useMemo(() => {
@@ -312,14 +413,15 @@ export function Effects({ value: _value, onChange: fallbackOnChange, showTitle, 
       addOptions={addOptions}
       onAddOption={handleAddOption}
       rightColumn={
-        // 继承/只读回显时不渲染层删除列，避免 rightColumn 绕过 Panel 的减号隐藏
-        layers.length > 0 && collapse !== 'inherited' ? (
+        // 文字阴影先接入 Effects 的清空判定，其他效果保留原删除条件。
+        layers.some(canRemoveLayer) ? (
           <div className={css.deleteColumn}>
             {layers.map((layer, index) => (
               <div
                 key={layer.id}
                 className={css.deleteBtn}
-                onClick={() => handleLayerRemove(index)}
+                style={canRemoveLayer(layer) ? undefined : { visibility: 'hidden' }}
+                onClick={canRemoveLayer(layer) ? () => handleLayerRemove(index) : undefined}
               >
                 <MinusOutlined />
               </div>
