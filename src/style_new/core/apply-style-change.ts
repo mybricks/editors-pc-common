@@ -1434,6 +1434,10 @@ function applyStyleChangeInternal({
         return
       }
       const group = addStyleWriteGroup(groups, deletionTarget.selector)
+      // 例如内联 style="gap: 23px"，把列间距改为 30px 后，应写成 style="gap: 23px 30px"。
+      // 合并时清理 row-gap / column-gap，但它们的原始声明都是 gap，删除目标也会变成 gap。
+      // 此时同一 inline 分组已包含新 gap，跳过这条删除，避免刚写入的间距又被清掉。
+      if (deletionTarget.selector === INLINE_STYLE_LABEL && deletionTarget.property === 'gap' && 'gap' in group.style) return
       if (!group.deletions.includes(deletionTarget.property)) {
         group.deletions.push(deletionTarget.property)
       }
