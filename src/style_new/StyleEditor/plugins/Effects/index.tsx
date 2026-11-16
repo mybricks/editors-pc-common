@@ -54,9 +54,6 @@ import {
 } from './layers'
 import type { CssEffectsBundle } from './layers'
 import { getShadowPresets, getPresetPatch, findMatchingPreset } from './presets'
-// Temporary style-instrument-debug: remove after the issue is confirmed fixed.
-import { collectZoneStyleRules } from '../../../core/zone-tab'
-import { createStyleWriteTargetResolver } from '../../../core/style-write-target'
 
 interface EffectsProps extends PanelBaseProps {
   value: CSSProperties
@@ -127,74 +124,6 @@ export function Effects({ value: _value, onChange: fallbackOnChange, showTitle, 
   const triggerRefs = useRef<Array<HTMLDivElement | null>>([])
   const activeTriggerRef = useRef<HTMLDivElement | null>(null)
 
-  // Temporary style-instrument-debug: distinguish inherited shadows from direct !important rules.
-  useEffect(() => {
-    if (!targetDom) return
-    try {
-      const editOptions = context?.editConfig.options as any
-      const tab = editOptions?.zoneTab
-      const property = context?.getStyleProperty?.('textShadow')
-      const summarizeCandidate = (candidate: NonNullable<typeof property>['winner'] | undefined) => candidate ? {
-        selector: candidate.label,
-        selectorPart: candidate.source?.selectorPart,
-        value: candidate.value,
-        important: candidate.important,
-        inline: candidate.inline,
-        currentState: candidate.currentState,
-        runtime: !!candidate.source?.isRuntimeStyle,
-      } : null
-      const nodes = [targetDom, targetDom.parentElement].filter(Boolean) as HTMLElement[]
-      const rules = collectZoneStyleRules().filter(({ rule }) => rule.style.getPropertyValue('text-shadow'))
-      const plan = property?.clearPlan
-      const writeTarget = tab ? createStyleWriteTargetResolver(tab, targetDom)('textShadow') : undefined
-      void fetch('http://127.0.0.1:4318/logs', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          sessionId: 'antd-text-shadow-20261112',
-          event: 'text-shadow-state-display',
-          time: new Date().toISOString(),
-          data: {
-            selector: editOptions?.selector,
-            soloEdit: !!editOptions?.soloEdit,
-            collapse,
-            showDelete: layers.some(layer => isTextShadowLayer(layer) && textShadowState
-              ? textShadowState.clearPlan.canClear : collapse !== 'inherited'),
-            layers: layers.map(({ type }) => type),
-            panelTextShadow: _value.textShadow,
-            effectiveTextShadow: value.textShadow,
-            authoredTextShadow: context?.authoredStyle?.textShadow,
-            source: context?.effectiveStyle?.textShadow,
-            emptyState: textShadowState,
-            winner: summarizeCandidate(property?.winner),
-            candidates: property?.candidates.map(summarizeCandidate),
-            clearPlan: plan && { action: plan.action, ...('reason' in plan
-              ? { reason: plan.reason } : { selector: plan.selector, value: plan.value }) },
-            proposedWriteTarget: writeTarget && { selector: writeTarget.selector, source: writeTarget.source, reason: writeTarget.reason },
-            nodes: nodes.map((node, depth) => ({
-              depth,
-              tag: node.tagName,
-              className: node.className,
-              zoneSelector: node.getAttribute('data-zone-selector'),
-              computed: node.ownerDocument.defaultView!.getComputedStyle(node).textShadow,
-              inline: node.style.getPropertyValue('text-shadow'),
-              inlinePriority: node.style.getPropertyPriority('text-shadow'),
-              rules: rules.filter(({ rule }) => {
-                try { return node.matches(rule.selectorText) } catch { return false }
-              }).map(({ rule, sourceOrder }) => ({
-                selector: rule.selectorText,
-                value: rule.style.getPropertyValue('text-shadow'),
-                priority: rule.style.getPropertyPriority('text-shadow'),
-                sourceOrder,
-              })),
-            })),
-          },
-        }),
-        keepalive: true,
-      }).catch(() => {})
-    } catch {}
-  }, [targetDom, collapse, value.textShadow, context?.effectiveStyle?.textShadow, layers])
-
   // 外部 CSS → 本地
   useEffect(() => {
     const bundle = readCssBundle(value)
@@ -214,22 +143,6 @@ export function Effects({ value: _value, onChange: fallbackOnChange, showTitle, 
     const changes = prepareEffectChanges(next, layersRef.current, prev, zoneTab, targetDom)
     if (!changes) return
     const result = onChange(changes)
-    // Temporary style-instrument-debug: record the existing write result without changing it.
-    try {
-      void fetch('http://127.0.0.1:4318/logs', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          sessionId: 'antd-text-shadow-20261112',
-          event: 'text-shadow-write-result',
-          time: new Date().toISOString(),
-          data: { previous: prev, changes, nextLayers: next.map(({ type }) => type),
-            applied: result && result.applied, clearApplied: result && result.clearApplied,
-            clearUnsupported: result && result.clearUnsupported },
-        }),
-        keepalive: true,
-      }).catch(() => {})
-    } catch {}
     if (zoneTab && changes.some(item => item.key === 'textShadow') && result && !result.applied) return
     const nextBundle = { ...prev, ...Object.fromEntries(changes.map(({ key, value }) => [key, value])) }
     // 指纹保留未提交的字段；连续编辑使用完整本地快照，不等待外部 CSSOM 更新。
