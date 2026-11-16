@@ -9,7 +9,7 @@ import {
 import type { ZoneSourceRule, ZoneTab } from './zone-tab'
 import { expandBorderShorthand, expandFourShorthand, expandTwoShorthand } from './shorthand-normalizer'
 import { normalizeBackgroundLonghandValue } from '../StyleEditor/helper/background-longhand'
-import { canDeleteMarginTogether } from '../StyleEditor/plugins/Margin/core'
+import { createMarginClearPlans } from './margin-core'
 
 export const cssPropertyName = (key: string) => key.startsWith('--')
   ? key
@@ -371,7 +371,7 @@ export type StyleResolution = ReturnType<typeof createStyleResolution>
 
 /**
  * 整组恢复默认时，无后备来源才删除 winning source 内的整个属性族；
- * margin 的后备来源也被本次删除覆盖时，同样可以整组删除。
+ * margin 有后备来源时交给 margin-core 生成整组计划。
  * 其余有后备来源的情况保留逐属性 clearPlan，用 unset 阻止低优先级样式重新生效。
  * CSSOM 会合成/拆开简写，不能用 item() 判断源码究竟写了 margin 还是四条长写，
  * 因此同时清理该组所有写法；部分清空仍保留 unset，避免删除未选中的配置。
@@ -396,8 +396,19 @@ export function createBatchStyleClearPlans(
     const longhandProperties = longhands.map(longhand => resolution.get(longhand))
     const hasFallbackSource = longhandProperties.some(hasFallbackStyleCandidate)
     if (hasFallbackSource) {
-      if (property !== 'margin') return
-      if (!canDeleteMarginTogether({ properties: longhandProperties })) return
+      if (property === 'margin') {
+        const marginPlans = createMarginClearPlans({
+          properties: longhandProperties.map(property => ({
+            ...property, hasFallback: hasFallbackStyleCandidate(property),
+          })),
+          shorthand: resolution.get('margin'),
+        })
+        if (marginPlans !== null) {
+          plannedKeys = plannedKeys.filter(key => !longhands.includes(key))
+          deletes.push(...marginPlans)
+        }
+      }
+      return
     }
     if (property === 'margin' || property === 'padding') {
       // 后备来源已处理，间距整组清空仍支持稀疏长写和各方向不同来源。

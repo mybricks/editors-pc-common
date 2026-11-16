@@ -155,13 +155,14 @@ export function useBoxSpacingEditor({ property, value, onChange: fallbackOnChang
   }, [commit, keys, refresh])
 
   const handleExpand = useCallback(() => {
-    if (!hasConfiguredSide) {
+    // 清空后的外部回显可能仍是旧配置，按当前本地输入判断是否需要补齐 0px。
+    if (!keys.some(key => valueRef.current[key] != null)) {
       const next = Object.fromEntries(keys.map(key => [key, '0px']))
       valueRef.current = next
       setSpacingValue(next)
     }
     setToggle(true)
-  }, [hasConfiguredSide, keys])
+  }, [keys])
 
   const handleSwitchToUnified = useCallback(() => {
     const winners = getConfiguredWinners()

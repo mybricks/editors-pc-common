@@ -20,6 +20,9 @@ import {
   APPLY_VARIABLE_ACTION
 } from '../../components'
 import { useDragNumber, useLengthVarBinding, useBoxSpacingEditor } from '../../hooks'
+import { useStyleEditorContext } from '../../context'
+import { BOX_SPACING_KEYS } from '../../../core/box-spacing'
+import { shouldCollapseEmptyMargin } from '../../../core/margin-core'
 
 import type { ChangeEvent, PanelBaseProps } from '../../type'
 import type { LengthVarBinding } from '../../hooks/useLengthVarBinding'
@@ -131,6 +134,14 @@ export function Margin ({value, onChange: fallbackOnChange, config, showTitle, c
     handleChange, handleUnifiedChange, handleExpand, handleSwitchToUnified, refresh,
     canResetSide, unifiedCanClear, canReset,
   } = useBoxSpacingEditor({ property: 'margin', value, onChange: fallbackOnChange })
+  const context = useStyleEditorContext()
+  const getStyleProperty = context?.getStyleProperty
+  const collapseEmpty = getStyleProperty && shouldCollapseEmptyMargin({
+    sides: BOX_SPACING_KEYS.margin.map(key => ({
+      winner: getStyleProperty(key).winner,
+      computedValue: context?.getStylePreview?.(key) || context?.effectiveStyle?.[key]?.computedValue,
+    })),
+  })
   const [splitMarginIcon, setSplitMarginIcon] = useState(<MarginTopOutlined />)
   const getDragProps = useDragNumber({ continuous: true, min: -Infinity })
   const cfg = useMemo(() => ({ ...DEFAULT_CONFIG, ...(config ?? {}) }), [config]);
@@ -424,7 +435,7 @@ export function Margin ({value, onChange: fallbackOnChange, config, showTitle, c
       showReset={canReset}
       showDelete={canReset}
       resetFunction={refresh}
-      collapse={collapse}
+      collapse={collapseEmpty ? true : collapse}
       onExpand={handleExpand}
     >
       <React.Fragment key={forceRenderKey}>
