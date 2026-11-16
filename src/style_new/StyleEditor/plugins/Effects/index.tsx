@@ -142,22 +142,23 @@ export function Effects({ value: _value, onChange: fallbackOnChange, showTitle, 
     // 会话内保持用户排序，不 normalize（模糊可夹在阴影中间）
     const prev = readCssBundle(valueRef.current)
     const changes = serializeEffects(next, prev)
-    if (zoneTab) {
-      const textShadowIndex = changes.findIndex(item => item.key === 'textShadow')
-      const previousTextShadow = serializeEffects(layersRef.current, prev).find(item => item.key === 'textShadow')!
-      // 本次只接入文字阴影：删层或切换为其他类型时选择 null/unset/none，重新添加时保留优先级。
-      if (changes[textShadowIndex].value !== previousTextShadow.value) {
-        const shadowChanges = prepareEffectChanges(next, layersRef.current, prev, zoneTab, targetDom)
-        if (!shadowChanges) return
-        const result = onChange(shadowChanges)
-        if (result && !result.applied) return
-        // 写入成功后再更新图层及快照，连续操作无需等待外部 CSS 回显。
-        valueRef.current = { ...prev, ...Object.fromEntries(shadowChanges.map(({ key, value }) => [key, value])) }
-        lastEmittedRef.current = fingerprintFromChanges(shadowChanges)
-        layersRef.current = next
-        setLayers(next)
-        return
-      }
+    const textShadowIndex = changes.findIndex(item => item.key === 'textShadow')
+    const previousTextShadow = serializeEffects(layersRef.current, prev).find(item => item.key === 'textShadow')!
+    const textShadowChanged = changes[textShadowIndex].value !== previousTextShadow.value
+    // 本次只接入文字阴影：删层或切换为其他类型时选择 null/unset/none，重新添加时保留优先级。
+    if (textShadowChanged && zoneTab) {
+      const shadowChanges = prepareEffectChanges(next, layersRef.current, prev, zoneTab, targetDom)
+      if (!shadowChanges) return
+      const result = onChange(shadowChanges)
+      if (result && !result.applied) return
+      // 写入成功后再更新图层及快照，连续操作无需等待外部 CSS 回显。
+      valueRef.current = { ...prev, ...Object.fromEntries(shadowChanges.map(({ key, value }) => [key, value])) }
+      lastEmittedRef.current = fingerprintFromChanges(shadowChanges)
+      layersRef.current = next
+      setLayers(next)
+      return
+    }
+    if (!textShadowChanged && zoneTab) {
       // 编辑其他效果沿用下方旧链路，仅剔除未变化的文字阴影，避免 null 误删已有覆盖值。
       changes.splice(textShadowIndex, 1)
     }
