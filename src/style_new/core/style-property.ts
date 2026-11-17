@@ -393,7 +393,28 @@ export function createBatchStyleClearPlans(
 
     const longhandProperties = longhands.map(longhand => resolution.get(longhand))
     const hasFallbackSource = longhandProperties.some(hasFallbackStyleCandidate)
-    if (hasFallbackSource) return
+    
+    if (hasFallbackSource) {
+      // 收集四个方向当前生效、可编辑的 class 来源。
+      // 例如上/右/下来自 .payLeft，左来自 .test，这两个来源都会被后续删除。
+      if (property === 'margin' || property === 'padding') {
+        const sources = new Set(longhandProperties.flatMap(({ winner }) =>
+          winner?.currentState && winner.source && !winner.source.isRuntimeStyle
+            ? [winner.source] : []
+        ))
+
+        // 检查后备来源是否也在本次删除范围内。
+        // 例如 .test 左边下面的 .payLeft 也会被删除，就不需要写 unset。
+        // 如果还有范围外的来源，删除后它会重新生效，因此继续沿用原来的 unset 处理。
+        const canDeleteTogether = longhandProperties.every(({ candidates }) =>
+          candidates.every(({ source }) => source && sources.has(source))
+        )
+        if (!canDeleteTogether) return
+      } else {
+        return
+      }
+    }
+
     if (property === 'margin' || property === 'padding') {
       // 没有后备来源时，间距整组清空仍支持稀疏长写和各方向不同来源。
       const winners = longhandProperties.map(item => item.winner).filter((item): item is StyleSourceCandidate =>
