@@ -418,6 +418,17 @@ export function getDefaultConfiguration ({value, options}: GetDefaultConfigurati
     const newReadonly = uaFilledPanels.filter(p => !ownEffectedSet.has(p) && !readonlyExpandedOptions.includes(p));
     readonlyExpandedOptions = [...readonlyExpandedOptions, ...newReadonly];
   }
+
+  // 已有 margin 声明全被 unset 清空时，不再由原始声明或被覆盖的规则撑开面板。
+  const marginDeclarations = ['marginTop', 'marginRight', 'marginBottom', 'marginLeft']
+    .map(key => effectiveStyle[key])
+    .filter(item => item && item.type !== 'computed')
+    
+  // 如果margin全部都是unset，则margin面板应该折叠
+  if (marginDeclarations.length > 0 && marginDeclarations.every(item => item.value === 'unset')) {
+    collapsedOptions = Array.from(new Set([...collapsedOptions, 'margin']))
+  }
+
   // CSSOM 会把 flex:1 / 长写都序列化成 flex: 1 11 0%，无法区分简写与单独配置。
   // Less/value.get 有源码简写时以其为准；只有部分长写时仍保留规则中其余字段的贡献。
   // 第四阶段：合并当前源码样式和 CSSOM/规则样式。
