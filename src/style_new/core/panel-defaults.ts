@@ -153,7 +153,7 @@ export const getDefaultValueFunctionMap = {
       zIndex: values.zIndex
     }
   },
-  rotation(values: CSSProperties, config: any) {
+  transform(values: CSSProperties, config: any) {
     return {
       transform: values.transform,
       translate: values.translate,
@@ -345,7 +345,7 @@ export const getDefaultValueFunctionMap2 = {
       zIndex: ''
     }
   },
-  rotation() {
+  transform() {
     return {
       transform: 'none',
       translate: 'none',

@@ -16,7 +16,7 @@ import type { ChangeEvent, PanelBaseProps } from '../../type'
 import css from './index.less'
 import lang from '../../../index.i18n'
 
-interface RotationProps extends PanelBaseProps {
+interface TransformProps extends PanelBaseProps {
   value: CSSProperties
   onChange: ChangeEvent
 }
@@ -64,7 +64,7 @@ function TransformAxisInput({ type, axis, field, onChange }: {
   )
 }
 
-export function Rotation({ value, onChange: fallbackOnChange, showTitle, collapse }: RotationProps) {
+export function Transform({ value, onChange: fallbackOnChange, showTitle, collapse }: TransformProps) {
   const context = useStyleEditorContext()
   const onChange = useStyleChange(fallbackOnChange)
   const source = context?.effectiveStyle?.transform
@@ -295,22 +295,22 @@ export function Rotation({ value, onChange: fallbackOnChange, showTitle, collaps
 
   return (
     <Panel
-      title={lang.rotationPanelTitle}
+      title={lang.transformPanelTitle}
       showTitle={showTitle}
       showReset={true}
       resetFunction={handleReset}
       onExpand={handleExpand}
       collapse={effectiveCollapse}
     >
-      <Panel.Content className={css.rotationPanelContent}>
+      <Panel.Content className={css.transformPanelContent}>
         <TransformAxisInput type='translate' axis='x' field={translateX} onChange={handleAxisChange} />
         <TransformAxisInput type='translate' axis='y' field={translateY} onChange={handleAxisChange} />
       </Panel.Content>
-      <Panel.Content className={css.rotationPanelContent}>
+      <Panel.Content className={css.transformPanelContent}>
         <TransformAxisInput type='scale' axis='x' field={scaleX} onChange={handleAxisChange} />
         <TransformAxisInput type='scale' axis='y' field={scaleY} onChange={handleAxisChange} />
       </Panel.Content>
-      <Panel.Content className={css.rotationPanelContent}>
+      <Panel.Content className={css.transformPanelContent}>
         {/* Angle input with drag-on-icon */}
         <Panel.Item
           style={{

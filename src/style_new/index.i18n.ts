@@ -870,8 +870,8 @@ export default i18n({
   positionLeftTip: { zh: '相对左侧定位', en: 'Position relative to left' },
   dragPosition: { zh: '拖拽调整', en: 'Drag to adjust' },
 
-  // Transform（沿用 rotation 插件配置）
-  rotationPanelTitle: { zh: '变换', en: 'Transform' },
+  // Transform
+  transformPanelTitle: { zh: '变换', en: 'Transform' },
   transformTranslateXTip: { zh: '水平平移', en: 'Horizontal translation' },
   transformTranslateYTip: { zh: '垂直平移', en: 'Vertical translation' },
   transformScaleXTip: { zh: '水平缩放', en: 'Horizontal scale' },
