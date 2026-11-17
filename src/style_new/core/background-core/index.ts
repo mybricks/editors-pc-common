@@ -49,15 +49,17 @@ function createBackgroundReplacementPlan(
 ): StyleRemovalPlan | null {
   const imageKeys = ['backgroundImage', 'backgroundSize', 'backgroundRepeat', 'backgroundPosition']
   // 仅匹配序列化后的五项替换：清除颜色 + 写入 image/size/repeat/position。
-  // 普通改色、保留底色的加图和减号不匹配，继续原流程。
+  // 旧 background 只有渐变时，点加号也在这里清理旧 background；普通改色、保留底色的加图和减号仍走原流程。
   if (changes.length !== 5 || !changes.some(item => item.key === 'backgroundColor' && item.value === null) ||
     !imageKeys.every(key => changes.some(item => item.key === key && item.value != null))) return null
 
   // 只处理当前状态的样式规则；内联样式及其他状态的颜色继续原链路。
-  const source = resolution.get('backgroundColor').winner
+  const color = resolution.get('backgroundColor')
+  const source = color.winner
   if (!source?.currentState || source.inline || !source.source) return null
-  // 透明色/unset 上的普通加图、调图也可能提交颜色清空，此处排除，保留原有屏蔽声明。
-  if (!parseLayers(undefined, source.value).length) return null
+  // 之前没有纯色底色就直接退出，导致只有渐变时，点加号后旧 background 留了下来。
+  // 现在先记住有没有纯色底色；没有时继续判断旧背景是否有图片或渐变，有纯色时仍按原来的方式处理。
+  const hasColorLayer = parseLayers(undefined, source.value).length > 0
   const imageChanges = changes.filter(item => item.key !== 'backgroundColor')
   const resolveWriteTarget = createStyleWriteTargetResolver(tab, target, resolution)
   // 删颜色和写图片必须落在同一 selector，例如只改 .test:hover，不删除 .test 的底色。
@@ -69,8 +71,15 @@ function createBackgroundReplacementPlan(
   if (declarations.length !== 1) return null
   const authored = declarations[0]
   if (!authored.background && !authored['background-color']) return null
+  if (!hasColorLayer) {
+    // 另外写了 background-color 的，保留原处理；只有旧背景确实有图片或渐变时，才放宽原来的条件。
+    const image = resolution.get('backgroundImage').winner
+    if (authored['background-color'] || !parseLayers(image?.value).length) return null
+  }
 
   const style: Record<string, any> = {}
+  // 原来清空颜色会写 unset 的，这里也保留；否则删掉 background 后，其他规则的底色可能重新显示。
+  if (!hasColorLayer && color.clearPlan.action === 'write-unset') style.backgroundColor = color.clearPlan.value
   // .test { background-color: #fff; } 只删颜色；源码存在 background 时才额外删除简写。
   const deletions = ['backgroundColor']
   const sourceStyle = source.source.rule.style
