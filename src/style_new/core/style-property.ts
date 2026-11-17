@@ -393,12 +393,24 @@ export function createBatchStyleClearPlans(
 
     const longhandProperties = longhands.map(longhand => resolution.get(longhand))
     const hasFallbackSource = longhandProperties.some(hasFallbackStyleCandidate)
-    if (hasFallbackSource) return
+
     if (property === 'margin' || property === 'padding') {
-      // 没有后备来源时，间距整组清空仍支持稀疏长写和各方向不同来源。
+      // 间距整组清空支持稀疏长写和各方向不同来源。
       const winners = longhandProperties.map(item => item.winner).filter((item): item is StyleSourceCandidate =>
         !!item?.currentState && !item.source?.isRuntimeStyle
       )
+      if (hasFallbackSource) {
+        // 例如元素同时使用这两个 class：
+        // .payLeft { margin: 12px; }
+        // .test { margin-left: 20px; }
+        // 点「−」会把这两处间距一起删除，12px、20px 都清掉，canDeleteTogether 为 true。
+        // 如果前面还有 .base { margin: 8px; }，且元素也使用它：
+        // 删掉上面两处后，.base 的 8px 又会生效，所以 canDeleteTogether 为 false，继续用 unset 屏蔽它。
+        const canDeleteTogether = longhandProperties.every(({ candidates }) =>
+          candidates.every(({ source }) => source && winners.some(winner => winner.source === source))
+        )
+        if (!canDeleteTogether) return
+      }
       const sources = winners.filter((item, index) => winners.findIndex(other =>
         other.label === item.label && other.inline === item.inline
       ) === index)
@@ -425,6 +437,7 @@ export function createBatchStyleClearPlans(
       }
       return
     }
+    if (hasFallbackSource) return
     // background: var(...) 在 CSSOM 中可能无法展开；允许未声明的长写为空。
     const winner = property === 'background'
       ? longhandProperties.find(item => item.winner)?.winner
