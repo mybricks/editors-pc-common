@@ -1050,7 +1050,7 @@ function applyStyleChangeInternal({
   ;(window as any).__mybricks_style_deletions = null
   const deletedKeys: string[] = []
   const nextSetValue: Record<string, any> = deepCopy(liveStyle || {})
-  const rawItems = Array.isArray(value) ? value : [value]
+  let rawItems = Array.isArray(value) ? value : [value]
   const selector =
     options?.selector ??
     (!Array.isArray(editConfig.options) && editConfig.options
@@ -1081,6 +1081,30 @@ function applyStyleChangeInternal({
     }
     return result
   }
+  // 文字阴影清除：需要屏蔽后备来源时转成普通 set，复用现有选址和写入。
+  rawItems = rawItems.map(item => {
+    //  只针对文字阴影的清空操作
+    if (item.key === 'textShadow' && item.intent === 'clear-effective-style') {
+      const sourceTab: ZoneTab | undefined = editOptions?.zoneTab ?? zoneTabs.find(tab => !tab.pseudo)
+      if (sourceTab && realTargetDom) {
+        const property = getStyleResolution(sourceTab, realTargetDom).get('textShadow')
+        const { winner } = property
+        const parent = realTargetDom.parentElement
+        const parentShadow = parent ? window.getComputedStyle(parent).getPropertyValue('text-shadow').trim() : ''
+        const hasInheritedShadow = !!parentShadow && parentShadow !== 'none'
+        // less文件没有本地声明样式 且 这个text-shadow是继承来的
+        if(hasInheritedShadow) {
+            return {
+              ...item,
+              intent: 'set-effective-style',
+               value: winner?.important ? 'none !important' : 'none',
+          }
+        }
+      }
+    }
+
+    return item
+  })
   if (activeZoneTab && rawItems.length && rawItems.every(item => item.intent)) {
     return applyEffectiveStyleChanges(rawItems, liveStyle, activeZoneTab, realTargetDom, editConfig, onBatchMetaChange)
   }
