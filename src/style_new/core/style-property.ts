@@ -400,9 +400,12 @@ export function createBatchStyleClearPlans(
         !!item?.currentState && !item.source?.isRuntimeStyle
       )
       if (hasFallbackSource) {
-        // 检查后备来源是否也在本次删除范围内。
-        // 例如 .test 左边下面的 .payLeft 也会被删除，就不需要写 unset。
-        // 如果还有范围外的来源，删除后它会重新生效，因此继续沿用原来的 unset 处理。
+        // 例如元素同时使用这两个 class：
+        // .payLeft { margin: 12px; }
+        // .test { margin-left: 20px; }
+        // 点「−」会把这两处间距一起删除，12px、20px 都清掉，canDeleteTogether 为 true。
+        // 如果前面还有 .base { margin: 8px; }，且元素也使用它：
+        // 删掉上面两处后，.base 的 8px 又会生效，所以 canDeleteTogether 为 false，继续用 unset 屏蔽它。
         const canDeleteTogether = longhandProperties.every(({ candidates }) =>
           candidates.every(({ source }) => source && winners.some(winner => winner.source === source))
         )
