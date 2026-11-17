@@ -51,7 +51,7 @@ function TransformAxisInput({ type, axis, field, onChange }: {
       previewValue={editable ? defaultValue : String(field.value ?? '—')}
       defaultUnitValue={unit}
       unitOptions={[{ label: unit, value: unit }]}
-      suffix={<span className={css.axisLabel}>{unit}</span>}
+      suffix={unit !== 'px' ? <span className={css.axisLabel}>{unit}</span> : undefined}
       showIconOnHover
       allowNegative={!isScale}
       disabled={!editable}
@@ -241,17 +241,14 @@ export function Rotation({ value, onChange: fallbackOnChange, showTitle, collaps
       onExpand={handleExpand}
       collapse={effectiveCollapse}
     >
-      <div className={css.sectionTitle}>{lang.transformTranslateTitle}</div>
       <Panel.Content className={css.rotationPanelContent}>
         <TransformAxisInput type='translate' axis='x' field={translateX} onChange={handleAxisChange} />
         <TransformAxisInput type='translate' axis='y' field={translateY} onChange={handleAxisChange} />
       </Panel.Content>
-      <div className={css.sectionTitle}>{lang.transformScaleTitle}</div>
       <Panel.Content className={css.rotationPanelContent}>
         <TransformAxisInput type='scale' axis='x' field={scaleX} onChange={handleAxisChange} />
         <TransformAxisInput type='scale' axis='y' field={scaleY} onChange={handleAxisChange} />
       </Panel.Content>
-      <div className={css.sectionTitle}>{lang.transformRotationTitle}</div>
       <Panel.Content className={css.rotationPanelContent}>
         {/* Angle input with drag-on-icon */}
         <Panel.Item

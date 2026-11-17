@@ -872,9 +872,6 @@ export default i18n({
 
   // Transform（沿用 rotation 插件配置）
   rotationPanelTitle: { zh: '变换', en: 'Transform' },
-  transformTranslateTitle: { zh: '平移', en: 'Translation' },
-  transformScaleTitle: { zh: '缩放', en: 'Scale' },
-  transformRotationTitle: { zh: '旋转', en: 'Rotation' },
   transformTranslateXTip: { zh: '水平平移', en: 'Horizontal translation' },
   transformTranslateYTip: { zh: '垂直平移', en: 'Vertical translation' },
   transformScaleXTip: { zh: '水平缩放', en: 'Horizontal scale' },
