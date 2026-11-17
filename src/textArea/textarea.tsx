@@ -40,7 +40,24 @@ export default function ({editConfig}: EditorProps): JSX.Element {
   const localeEnable = !!locales && !!locale
 
   const styles = useMemo(() => {
-    return Object.assign({}, style, {
+    const textStyle: React.CSSProperties = {}
+    if (vCenter && dom) {
+      // 双击编辑沿用原文字的排版，避免字体和字间距变化导致回显折行。
+      const computedStyle = getComputedStyle(dom)
+      textStyle.fontSize = computedStyle.fontSize
+      textStyle.fontFamily = computedStyle.fontFamily
+      textStyle.fontWeight = computedStyle.fontWeight
+      textStyle.fontStyle = computedStyle.fontStyle
+      textStyle.letterSpacing = computedStyle.letterSpacing
+      textStyle.lineHeight = computedStyle.lineHeight
+      textStyle.textAlign = computedStyle.textAlign as React.CSSProperties['textAlign']
+
+      // 原文字不自动换行时，编辑框也不折行，但仍保留 Enter 输入的换行。
+      if (computedStyle.whiteSpace === 'nowrap') {
+        textStyle.whiteSpace = 'pre'
+      }
+    }
+    return Object.assign({}, style, textStyle, {
       height: height || style.height || 100
     })
   }, [])
@@ -101,7 +118,11 @@ export default function ({editConfig}: EditorProps): JSX.Element {
       changedRef.current = el;
 
       if (vCenter) {
-        el.scrollTop = el.scrollHeight / 2; //滚动
+        // 补上编辑框内边距和滚动条占宽，避免挤掉原文字的可用空间。
+        const computedStyle = getComputedStyle(el);
+        const horizontalPadding = parseFloat(computedStyle.paddingLeft) + parseFloat(computedStyle.paddingRight);
+        const scrollbarAndBorderWidth = el.offsetWidth - el.clientWidth;
+        el.style.width = `${Math.max(width, 80) + horizontalPadding + scrollbarAndBorderWidth}px`;
       }
 
       if (focusNow) {
