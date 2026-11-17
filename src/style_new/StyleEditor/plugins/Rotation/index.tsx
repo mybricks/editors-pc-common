@@ -1,13 +1,16 @@
 import React, { CSSProperties, useCallback, useEffect, useRef, useState } from 'react'
 
-import { Panel, ClearButton } from '../../components'
+import { Panel, ClearButton, InputNumber } from '../../components'
 import { useDragNumber } from '../../hooks/useDragNumber'
+import { useLengthInputDrag } from '../../hooks/useLengthInputDrag'
 import { useStyleEditorContext, useStyleChange } from '../../context'
 import { Ratation } from '../../icons/Rotation'
 import { Rotation90R } from '../../icons/Rotation90R'
 import { RotationFlipHorizontal } from '../../icons/RotationFlipHorizontal'
 import { RotationFlipVertical } from '../../icons/RotationFlipVertical'
-import { readRotation, readFlips, setRotation, toggleFlip, clearRotationAndFlips } from './transform-value'
+import { TranslateX, TranslateY, ScaleX, ScaleY } from '../../icons/TransformAxes'
+import { readRotation, readFlips, readTransformAxis, setRotation, setTransformAxis, toggleFlip, clearTransform } from './transform-value'
+import type { TransformAxisType } from './transform-value'
 
 import type { ChangeEvent, PanelBaseProps } from '../../type'
 import css from './index.less'
@@ -16,6 +19,49 @@ import lang from '../../../index.i18n'
 interface RotationProps extends PanelBaseProps {
   value: CSSProperties
   onChange: ChangeEvent
+}
+
+function TransformAxisInput({ type, axis, field, onChange }: {
+  type: TransformAxisType
+  axis: 'x' | 'y'
+  field: ReturnType<typeof readTransformAxis>
+  onChange: (type: TransformAxisType, axis: 'x' | 'y', value: string | null) => void
+}) {
+  const isScale = type === 'scale'
+  const Icon = isScale ? axis === 'x' ? ScaleX : ScaleY : axis === 'x' ? TranslateX : TranslateY
+  const numeric = String(field.value ?? '').match(/^([-+]?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?)([a-z%]*)$/i)
+  const editable = !field.hasValue || !!numeric
+  const unit = isScale ? '%' : numeric?.[2] || 'px'
+  const displayValue = numeric
+    ? isScale ? `${Number((Math.abs(Number(field.value)) * 100).toFixed(6))}%` : `${numeric[1]}${unit}`
+    : null
+  const defaultValue = isScale ? '100%' : '0px'
+  const tip = isScale
+    ? axis === 'x' ? lang.transformScaleXTip : lang.transformScaleYTip
+    : axis === 'x' ? lang.transformTranslateXTip : lang.transformTranslateYTip
+  const handleChange = (next: string | null) => onChange(type, axis, next)
+  const getDragProps = useLengthInputDrag(displayValue ?? defaultValue, handleChange, { min: isScale ? 0 : -Infinity })
+
+  return (
+    <InputNumber
+      className={css.transformInput}
+      style={{ flex: 1, minWidth: 0, paddingLeft: 0, paddingRight: 6 }}
+      prefix={<span className={`${css.axisIcon}${isScale ? ` ${css.scaleIcon}` : ''}`} {...(editable ? getDragProps(displayValue ?? defaultValue, tip) : {})}><Icon /></span>}
+      value={displayValue}
+      previewValue={editable ? defaultValue : String(field.value ?? '—')}
+      defaultUnitValue={unit}
+      unitOptions={[{ label: unit, value: unit }]}
+      suffix={<span className={css.axisLabel}>{unit}</span>}
+      showIconOnHover
+      allowNegative={!isScale}
+      disabled={!editable}
+      clearable={editable && field.hasValue}
+      tip={tip}
+      type='number'
+      onClear={() => handleChange(null)}
+      onChange={handleChange}
+    />
+  )
 }
 
 export function Rotation({ value, onChange: fallbackOnChange, showTitle, collapse }: RotationProps) {
@@ -34,8 +80,11 @@ export function Rotation({ value, onChange: fallbackOnChange, showTitle, collaps
   const zoneSelector = (context?.editConfig.options as { zoneTab?: { selector: string } })?.zoneTab?.selector
   const { angle: parsedAngle, hasRotation } = readRotation(transformStr)
   const { flipX, flipY } = readFlips(transformStr)
-  // 位移、正向缩放等 transform 不属于旋转面板的配置。
-  const effectiveCollapse = hasRotation || flipX || flipY ? collapse : true
+  const translateX = readTransformAxis(transformStr, 'translate', 'x')
+  const translateY = readTransformAxis(transformStr, 'translate', 'y')
+  const scaleX = readTransformAxis(transformStr, 'scale', 'x')
+  const scaleY = readTransformAxis(transformStr, 'scale', 'y')
+  const effectiveCollapse = hasRotation || flipX || flipY || translateX.hasValue || translateY.hasValue || scaleX.hasValue || scaleY.hasValue ? collapse : true
   const angleDisplay = parsedAngle == null ? '' : String(parsedAngle)
   const [angleDraft, setAngleDraft] = useState<string | null>(null)
   const localAngle = angleDraft ?? angleDisplay
@@ -74,6 +123,11 @@ export function Rotation({ value, onChange: fallbackOnChange, showTitle, collaps
 
   const commitAngle = useCallback((angle: number | null) =>
     commitTransform(setRotation(liveTransformRef.current, angle)), [commitTransform])
+
+  const handleAxisChange = useCallback((type: TransformAxisType, axis: 'x' | 'y', next: string | null) => {
+    const value = next != null && type === 'scale' ? String(parseFloat(next) / 100) : next
+    commitTransform(setTransformAxis(liveTransformRef.current, type, axis, value))
+  }, [commitTransform])
 
   const handleFocus = useCallback(() => {
     isEditingRef.current = true
@@ -162,7 +216,7 @@ export function Rotation({ value, onChange: fallbackOnChange, showTitle, collaps
   const handleReset = useCallback(() => {
     inputChangedRef.current = false
     isEditingRef.current = false
-    setAngleDraft(commitTransform(clearRotationAndFlips(liveTransformRef.current)) ? '' : null)
+    setAngleDraft(commitTransform(clearTransform(liveTransformRef.current)) ? '' : null)
   }, [commitTransform])
 
   const handleClear = useCallback(() => {
@@ -187,6 +241,17 @@ export function Rotation({ value, onChange: fallbackOnChange, showTitle, collaps
       onExpand={handleExpand}
       collapse={effectiveCollapse}
     >
+      <div className={css.sectionTitle}>{lang.transformTranslateTitle}</div>
+      <Panel.Content className={css.rotationPanelContent}>
+        <TransformAxisInput type='translate' axis='x' field={translateX} onChange={handleAxisChange} />
+        <TransformAxisInput type='translate' axis='y' field={translateY} onChange={handleAxisChange} />
+      </Panel.Content>
+      <div className={css.sectionTitle}>{lang.transformScaleTitle}</div>
+      <Panel.Content className={css.rotationPanelContent}>
+        <TransformAxisInput type='scale' axis='x' field={scaleX} onChange={handleAxisChange} />
+        <TransformAxisInput type='scale' axis='y' field={scaleY} onChange={handleAxisChange} />
+      </Panel.Content>
+      <div className={css.sectionTitle}>{lang.transformRotationTitle}</div>
       <Panel.Content className={css.rotationPanelContent}>
         {/* Angle input with drag-on-icon */}
         <Panel.Item

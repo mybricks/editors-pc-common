@@ -1,8 +1,9 @@
-import { findCssFunctionCalls } from '../../../core/css-functions'
+import { findCssClosingParenthesis, findCssFunctionCalls } from '../../../core/css-functions'
 import type { CssFunctionCall } from '../../../core/css-functions'
 
 type Edit = { start: number; end: number; value: string }
 type Axis = 'x' | 'y'
+export type TransformAxisType = 'translate' | 'scale'
 
 function readTransform(value?: string | null) {
   const raw = value?.trim() || ''
@@ -66,9 +67,68 @@ function readScale(call: CssFunctionCall): number[] | null {
 
 function axisIndex(call: CssFunctionCall, axis: Axis): number | null {
   const name = call.name.toLowerCase()
-  if (name === 'scalex') return axis === 'x' ? 0 : null
-  if (name === 'scaley') return axis === 'y' ? 0 : null
+  if (name === 'scalex' || name === 'translatex') return axis === 'x' ? 0 : null
+  if (name === 'scaley' || name === 'translatey') return axis === 'y' ? 0 : null
   return axis === 'x' ? 0 : 1
+}
+
+function readTranslate(call: CssFunctionCall): string[] {
+  const args: string[] = []
+  let start = 0
+  // 只拆外层逗号，另一轴的 var()/calc() 参数必须原样保留。
+  for (let i = 0; i < call.arguments.length; i++) {
+    if (call.arguments[i] === '(') {
+      i = findCssClosingParenthesis(call.arguments, i)
+    } else if (call.arguments[i] === ',') {
+      args.push(call.arguments.slice(start, i).trim())
+      start = i + 1
+    }
+  }
+  args.push(call.arguments.slice(start).trim())
+  if (call.name.toLowerCase() === 'translate' && args.length === 1) args.push('0px')
+  return args
+}
+
+function getAxisCalls(value: string | null | undefined, type: TransformAxisType, axis: Axis) {
+  const names = type === 'translate' ? /^(translate|translatex|translatey|translate3d)$/i : /^(scale|scalex|scaley|scale3d)$/i
+  return readTransform(value).calls.filter(call => names.test(call.name) && axisIndex(call, axis) != null)
+}
+
+/** 与角度一样读取首个对应分量，不把夹有旋转的多段变换合并成总位移或总缩放。 */
+export function readTransformAxis(value: string | null | undefined, type: TransformAxisType, axis: Axis) {
+  const call = getAxisCalls(value, type, axis)[0]
+  const values = call ? type === 'translate' ? readTranslate(call) : readScale(call) : null
+  return { hasValue: !!call, value: call ? values?.[axisIndex(call, axis)!] ?? null : null }
+}
+
+/** 修改对应轴，保留另一轴、翻转符号及函数所在位置；清空时恢复该轴的默认值。 */
+export function setTransformAxis(value: string | null | undefined, type: TransformAxisType, axis: Axis, next: string | null): string | null {
+  const calls = getAxisCalls(value, type, axis)
+  if (!calls.length) {
+    if (next == null) return value || null
+    const added = `${type}${axis.toUpperCase()}(${next})`
+    // 新位移放在最前，避免被已有旋转/缩放改变方向和距离；新缩放放在末尾。
+    return type === 'translate'
+      ? applyEdits(value, [{ start: 0, end: 0, value: `${added} ` }])
+      : applyEdits(value, [], added)
+  }
+  const edits: Edit[] = []
+  for (const call of next == null ? calls : calls.slice(0, 1)) {
+    const index = axisIndex(call, axis)!
+    if (type === 'translate') {
+      const values = readTranslate(call)
+      values[index] = next ?? '0px'
+      const text = values.every(part => /^[-+]?0(?:\.0+)?(?:[a-z%]+)?$/i.test(part))
+        ? '' : `${call.name}(${values.join(', ')})`
+      edits.push({ ...call, value: text })
+    } else {
+      const values = readScale(call)
+      if (!values) continue
+      values[index] = (values[index] < 0 ? -1 : 1) * (next == null ? 1 : Number(next))
+      edits.push({ ...call, value: scaleText(call, values) })
+    }
+  }
+  return edits.length ? applyEdits(value, edits) : value || null
 }
 
 export function readFlips(value?: string | null) {
@@ -99,20 +159,21 @@ export function toggleFlip(value: string | null | undefined, axis: Axis): string
   return applyEdits(value, [], axis === 'x' ? 'scaleX(-1)' : 'scaleY(-1)')
 }
 
-/** 面板减号重置旋转/翻转，但保留位移、缩放幅度、矩阵和其他变换。 */
-export function clearRotationAndFlips(value?: string | null): string | null {
+/** 面板减号清理二维变换；3D 函数只恢复 x/y，保留 z 轴、矩阵和其他变换。 */
+export function clearTransform(value?: string | null): string | null {
   const edits: Edit[] = []
   for (const call of readTransform(value).calls) {
-    if (isRotation(call)) edits.push({ ...call, value: '' })
-    else {
+    if (isRotation(call) || /^(translate|translatex|translatey)$/i.test(call.name)) {
+      edits.push({ ...call, value: '' })
+    } else if (/^translate3d$/i.test(call.name)) {
+      const values = readTranslate(call)
+      // 只留下 Z，避免重新选中时把已经清除的 X/Y 再识别成面板配置。
+      edits.push({ ...call, value: /^[-+]?0(?:\.0+)?(?:[a-z]+)?$/i.test(values[2]) ? '' : `translateZ(${values[2]})` })
+    } else {
       const scale = readScale(call)
       if (!scale) continue
-      // scale3d 的 z 轴不属于本面板的水平/垂直翻转。
-      const planar = call.name.toLowerCase() === 'scale3d' ? scale.slice(0, 2) : scale
-      if (planar.some(number => number < 0)) {
-        const positive = scale.map((number, index) => index < planar.length ? Math.abs(number) : number)
-        edits.push({ ...call, value: scaleText(call, positive) })
-      }
+      const remaining = call.name.toLowerCase() === 'scale3d' && scale[2] !== 1 ? `scaleZ(${scale[2]})` : ''
+      edits.push({ ...call, value: remaining })
     }
   }
   return edits.length ? applyEdits(value, edits) : value || null

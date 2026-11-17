@@ -1,11 +1,55 @@
 @import "../../../../theme";
 
+.sectionTitle {
+  margin: 6px 3px 2px;
+  font-size: 11px;
+  line-height: 16px;
+  color: @font-color-content;
+  opacity: 0.6;
+}
+
 .rotationPanelContent {
   display: flex;
   align-items: center;
   flex-wrap: nowrap;
   gap: 4px;
   min-width: 0;
+}
+
+.axisLabel {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: @font-color-content;
+  user-select: none;
+}
+
+.transformInput {
+  .axisIcon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    color: @font-color-content;
+
+    svg {
+      max-width: none;
+      width: 24px;
+      height: 24px;
+      opacity: 0.65;
+      --fpl-icon-color: currentColor;
+    }
+  }
+
+  .scaleIcon svg {
+    width: 21px;
+    height: 21px;
+    opacity: 0.72;
+  }
+
+  input {
+    min-width: 0;
+  }
 }
 
 .angleIconWrap {
@@ -20,6 +64,7 @@
   svg {
     width: 26px;
     height: 26px;
+    opacity: 0.65;
     --fpl-icon-color: currentColor;
   }
 }
@@ -62,6 +107,7 @@
   svg {
     width: 20px;
     height: 20px;
+    opacity: 0.65;
     --fpl-icon-color: currentColor;
   }
 
@@ -71,5 +117,9 @@
 
   &.actionBtnActive {
     color: @color-primary;
+
+    svg {
+      opacity: 1;
+    }
   }
 }
