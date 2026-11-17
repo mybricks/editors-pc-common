@@ -684,16 +684,9 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
   const popoverBtnRef = useRef<HTMLDivElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
 
-  const throttleTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const lastUpdateTimeRef = useRef<number>(0);
-
   const onFontSizeChange = useCallback(
     (nextFontSize: string | number | null) => {
       setFontSizeDraftConfigured(false);
-      if (throttleTimerRef.current) {
-        clearTimeout(throttleTimerRef.current);
-        throttleTimerRef.current = null;
-      }
       if (nextFontSize == null || nextFontSize === '') {
         const result = onChange({ key: "fontSize", value: null });
         if (result?.clearUnsupported && !result.clearApplied) return;
@@ -710,7 +703,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
       }
 
       setFontSizeDefaultPreviewPx(null);
-      // 变量值无法参与数值计算，直接落盘并跳过行高联动
+      // 变量值原样落盘
       if (isCssVarValue(nextFontSize)) {
         setFontSize(nextFontSize as string);
         onChange({ key: "fontSize", value: nextFontSize });
@@ -718,66 +711,9 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
       }
 
       setFontSize(nextFontSize);
-
-      const [fontSizeValue, fontSizeUnit] = splitValueAndUnit(nextFontSize);
-      const [, lineHeightUnit] = splitValueAndUnit(lineHeight as any);
-
-      if (fontSizeUnit === "px") {
-        // 行高已清空或绑定了变量时只改字号：前者避免 Number(null)===0 误写回，
-        // 后者避免联动把用户绑定的行高变量覆盖成数值
-        if (lineHeight == null || lineHeight === '' || isCssVarValue(lineHeight)) {
-          onChange({ key: "fontSize", value: nextFontSize });
-          return;
-        }
-
-        const fontSizeNumber = Number(fontSizeValue);
-        const lineHeightNumber = fontSizeNumber + 8; // 根据fontSizeNumber需设置的行高
-        
-        const executeUpdate = () => {
-          if (lineHeightUnit === "px") {
-            onLineHeightChange(`${lineHeightNumber}px`, nextFontSize);
-          } else if (lineHeightUnit === "%") {
-            onLineHeightChange(
-              `${parseFloat(
-                ((lineHeightNumber * 100) / fontSizeNumber).toFixed(4)
-              )}%`,
-              nextFontSize
-            );
-          } else if (!isNaN(Number(lineHeight))) {
-            // 计算倍数并保留一位小数，避免拖拽时出现过多小数位
-            const ratio = lineHeightNumber / fontSizeNumber;
-            const roundedRatio = Math.round(ratio * 10) / 10;
-            onLineHeightChange(`${roundedRatio}`, nextFontSize);
-          } else {
-            // 计算倍数并保留一位小数，避免拖拽时出现过多小数位
-            const ratio = lineHeightNumber / fontSizeNumber;
-            const roundedRatio = Math.round(ratio * 10) / 10;
-            onLineHeightChange(`${roundedRatio}`, nextFontSize);
-          }
-        };
-        
-        // 使用节流控制更新频率，每200ms最多更新一次
-        const now = Date.now();
-        if (now - lastUpdateTimeRef.current < 200) {
-          // 设置新的定时器，确保最后一次更新能执行
-          throttleTimerRef.current = setTimeout(() => {
-            throttleTimerRef.current = null;
-            lastUpdateTimeRef.current = Date.now();
-            executeUpdate();
-          }, 200);
-          // 先只更新字体大小
-          onChange({ key: "fontSize", value: nextFontSize });
-          return;
-        }
-        
-        lastUpdateTimeRef.current = now;
-        executeUpdate();
-      } else {
-        // 需要修改lineHeight就合并，不需要就单独修改
-        onChange({ key: "fontSize", value: nextFontSize });
-      }
+      onChange({ key: "fontSize", value: nextFontSize });
     },
-    [lineHeight, onChange, context?.getStylePreview]
+    [onChange, context?.getStylePreview]
   );
 
   const fontSizeVar = useLengthVarBinding({
