@@ -1,11 +1,19 @@
 @import "../../../../theme";
 
 .rotationPanelContent {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   align-items: center;
-  flex-wrap: nowrap;
   gap: 4px;
   min-width: 0;
+
+  > div {
+    width: auto;
+
+    &:not(:first-child) {
+      margin-left: 0;
+    }
+  }
 }
 
 .axisLabel {
@@ -86,9 +94,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
   height: 26px;
-  flex-shrink: 0;
+  flex: 1;
   border-radius: @border-radius;
   background-color: @bg-color-main-secondary;
   color: @font-color-content;
