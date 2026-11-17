@@ -9,8 +9,8 @@ import { Rotation90R } from '../../icons/Rotation90R'
 import { RotationFlipHorizontal } from '../../icons/RotationFlipHorizontal'
 import { RotationFlipVertical } from '../../icons/RotationFlipVertical'
 import { TranslateX, TranslateY, ScaleX, ScaleY } from '../../icons/TransformAxes'
-import { readRotation, readFlips, readTransformAxis, setRotation, setTransformAxis, toggleFlip, clearTransform } from './transform-value'
-import type { TransformAxisType } from './transform-value'
+import { readRotation, readFlips, readTransformAxis, setRotation, setTransformAxis, toggleFlip, clearTransform, readIndividualTransform, serializeIndividualTransform } from './transform-value'
+import type { TransformAxisType, IndividualTransformKey } from './transform-value'
 
 import type { ChangeEvent, PanelBaseProps } from '../../type'
 import css from './index.less'
@@ -24,12 +24,12 @@ interface RotationProps extends PanelBaseProps {
 function TransformAxisInput({ type, axis, field, onChange }: {
   type: TransformAxisType
   axis: 'x' | 'y'
-  field: ReturnType<typeof readTransformAxis>
+  field: ReturnType<typeof readTransformAxis> & { readOnly?: boolean }
   onChange: (type: TransformAxisType, axis: 'x' | 'y', value: string | null) => void
 }) {
   const isScale = type === 'scale'
   const Icon = isScale ? axis === 'x' ? ScaleX : ScaleY : axis === 'x' ? TranslateX : TranslateY
-  const numeric = String(field.value ?? '').match(/^([-+]?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?)([a-z%]*)$/i)
+  const numeric = field.readOnly ? null : String(field.value ?? '').match(/^([-+]?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?)([a-z%]*)$/i)
   const editable = !field.hasValue || !!numeric
   const unit = isScale ? '%' : numeric?.[2] || 'px'
   const displayValue = numeric
@@ -76,15 +76,42 @@ export function Rotation({ value, onChange: fallbackOnChange, showTitle, collaps
       : context?.authoredStyle ? context.authoredStyle.transform : value?.transform
   const transformStr = typeof declaredTransform === 'string' && !/^unset$/i.test(declaredTransform.trim())
     ? declaredTransform : null
+  const readIndividualValue = (key: IndividualTransformKey): string | null => {
+    const source = context?.effectiveStyle?.[key]
+    const winner = context?.getStyleProperty?.(key).winner
+    const raw = context?.getStyleProperty
+      ? (winner?.currentState ? winner.value : undefined)
+      : context?.effectiveStyle
+        ? (source?.type !== 'computed' ? source?.value : undefined)
+        : context?.authoredStyle ? context.authoredStyle[key] : value?.[key]
+    return raw == null ? null : String(raw) + (winner?.important ? ' !important' : '')
+  }
+  const individual = {
+    translate: readIndividualValue('translate'),
+    rotate: readIndividualValue('rotate'),
+    scale: readIndividualValue('scale'),
+  }
+  // 按声明来源选择编辑对象；none/0 仍属于独立属性，不能退回去改 transform。
+  const rotationTransform = individual.rotate != null ? readIndividualTransform('rotate', individual.rotate) : transformStr
+  const scaleTransform = individual.scale != null ? readIndividualTransform('scale', individual.scale) : transformStr
+  const translateTransform = individual.translate != null ? readIndividualTransform('translate', individual.translate) : transformStr
+  const angleEditable = individual.rotate == null || rotationTransform !== null
+  const scaleEditable = individual.scale == null || scaleTransform !== null
+  const readAxis = (type: TransformAxisType, axis: 'x' | 'y') => {
+    const source = type === 'scale' ? scaleTransform : translateTransform
+    return individual[type] != null && source === null
+      ? { hasValue: true, value: individual[type], readOnly: true }
+      : readTransformAxis(source, type, axis)
+  }
   const targetDom = context?.targetDom
   const zoneSelector = (context?.editConfig.options as { zoneTab?: { selector: string } })?.zoneTab?.selector
-  const { angle: parsedAngle, hasRotation } = readRotation(transformStr)
-  const { flipX, flipY } = readFlips(transformStr)
-  const translateX = readTransformAxis(transformStr, 'translate', 'x')
-  const translateY = readTransformAxis(transformStr, 'translate', 'y')
-  const scaleX = readTransformAxis(transformStr, 'scale', 'x')
-  const scaleY = readTransformAxis(transformStr, 'scale', 'y')
-  const effectiveCollapse = hasRotation || flipX || flipY || translateX.hasValue || translateY.hasValue || scaleX.hasValue || scaleY.hasValue ? collapse : true
+  const { angle: parsedAngle, hasRotation } = readRotation(rotationTransform)
+  const { flipX, flipY } = readFlips(scaleTransform)
+  const translateX = readAxis('translate', 'x')
+  const translateY = readAxis('translate', 'y')
+  const scaleX = readAxis('scale', 'x')
+  const scaleY = readAxis('scale', 'y')
+  const effectiveCollapse = hasRotation || !angleEditable || flipX || flipY || translateX.hasValue || translateY.hasValue || scaleX.hasValue || scaleY.hasValue || clearTransform(transformStr) !== transformStr ? collapse : true
   const angleDisplay = parsedAngle == null ? '' : String(parsedAngle)
   const [angleDraft, setAngleDraft] = useState<string | null>(null)
   const localAngle = angleDraft ?? angleDisplay
@@ -95,16 +122,19 @@ export function Rotation({ value, onChange: fallbackOnChange, showTitle, collaps
   } | null>(null)
   // 连续拖拽、快捷按钮都从最近一次写入继续，避免父组件回传前丢掉其他变换。
   const liveTransformRef = useRef(transformStr)
-  const sourceRef = useRef({ transformStr, targetDom, zoneSelector })
+  const liveIndividualRef = useRef(individual)
+  const sourceRef = useRef({ transformStr, targetDom, zoneSelector, ...individual })
   if (sourceRef.current.transformStr !== transformStr || sourceRef.current.targetDom !== targetDom ||
-    sourceRef.current.zoneSelector !== zoneSelector) {
+    sourceRef.current.zoneSelector !== zoneSelector || sourceRef.current.translate !== individual.translate ||
+    sourceRef.current.rotate !== individual.rotate || sourceRef.current.scale !== individual.scale) {
     liveTransformRef.current = transformStr
-    sourceRef.current = { transformStr, targetDom, zoneSelector }
+    liveIndividualRef.current = individual
+    sourceRef.current = { transformStr, targetDom, zoneSelector, ...individual }
   }
 
   useEffect(() => {
     if (!isEditingRef.current && !dragRef.current) setAngleDraft(null)
-  }, [transformStr])
+  }, [transformStr, individual.rotate])
 
   useEffect(() => {
     isEditingRef.current = false
@@ -113,21 +143,32 @@ export function Rotation({ value, onChange: fallbackOnChange, showTitle, collaps
     setAngleDraft(null)
   }, [targetDom, zoneSelector])
 
-  const commitTransform = useCallback((next: string | null) => {
-    if (next === liveTransformRef.current) return true
-    const result = onChange({ key: 'transform', value: next })
+  const commitTransform = useCallback((next: string | null, key: IndividualTransformKey | 'transform' = 'transform') => {
+    const current = key === 'transform' ? liveTransformRef.current : liveIndividualRef.current[key]
+    if (next === current) return true
+    const result = onChange({ key, value: next })
     if (result && !result.applied) return false
-    liveTransformRef.current = next
+    if (key === 'transform') liveTransformRef.current = next
+    // 源码回传前用 none 表示已清空，继续保留本次编辑来源，避免带回旧的另一轴。
+    else liveIndividualRef.current[key] = next ?? `none${current?.match(/\s*!important\s*$/i)?.[0] || ''}`
     return true
   }, [onChange])
 
+  const editTransform = useCallback((key: IndividualTransformKey, edit: (value: string | null) => string | null) => {
+    const raw = liveIndividualRef.current[key]
+    if (raw == null) return commitTransform(edit(liveTransformRef.current))
+    const parsed = readIndividualTransform(key, raw)
+    if (parsed === null) return false
+    return commitTransform(serializeIndividualTransform(key, edit(parsed)), key)
+  }, [commitTransform])
+
   const commitAngle = useCallback((angle: number | null) =>
-    commitTransform(setRotation(liveTransformRef.current, angle)), [commitTransform])
+    editTransform('rotate', current => setRotation(current, angle)), [editTransform])
 
   const handleAxisChange = useCallback((type: TransformAxisType, axis: 'x' | 'y', next: string | null) => {
     const value = next != null && type === 'scale' ? String(parseFloat(next) / 100) : next
-    commitTransform(setTransformAxis(liveTransformRef.current, type, axis, value))
-  }, [commitTransform])
+    editTransform(type, current => setTransformAxis(current, type, axis, value))
+  }, [editTransform])
 
   const handleFocus = useCallback(() => {
     isEditingRef.current = true
@@ -199,25 +240,45 @@ export function Rotation({ value, onChange: fallbackOnChange, showTitle, collaps
   })
 
   const handleRotate90R = useCallback(() => {
-    const current = readRotation(liveTransformRef.current).angle ?? 0
+    const raw = liveIndividualRef.current.rotate
+    const current = readRotation(raw != null ? readIndividualTransform('rotate', raw) : liveTransformRef.current).angle ?? 0
     const next = (current + 90) % 360
     inputChangedRef.current = false
     setAngleDraft(commitAngle(next) ? String(next) : null)
   }, [commitAngle])
 
   const handleFlipH = useCallback(() => {
-    commitTransform(toggleFlip(liveTransformRef.current, 'x'))
-  }, [commitTransform])
+    editTransform('scale', current => toggleFlip(current, 'x'))
+  }, [editTransform])
 
   const handleFlipV = useCallback(() => {
-    commitTransform(toggleFlip(liveTransformRef.current, 'y'))
-  }, [commitTransform])
+    editTransform('scale', current => toggleFlip(current, 'y'))
+  }, [editTransform])
 
   const handleReset = useCallback(() => {
     inputChangedRef.current = false
     isEditingRef.current = false
+    // 独立声明与 transform 一起提交；未支持的表达式/三维独立值保留。
+    const changes: Array<{ key: IndividualTransformKey | 'transform'; value: string | null }> = []
+    ;(['translate', 'rotate', 'scale'] as const).forEach(key => {
+      const raw = liveIndividualRef.current[key]
+      const parsed = raw != null ? readIndividualTransform(key, raw) : null
+      if (parsed !== null && clearTransform(parsed) === null) changes.push({ key, value: null })
+    })
+    if (changes.length) {
+      const next = clearTransform(liveTransformRef.current)
+      if (next !== liveTransformRef.current) changes.push({ key: 'transform', value: next })
+      const result = onChange(changes)
+      if (result && !result.applied) { setAngleDraft(null); return }
+      changes.forEach(({ key, value }) => {
+        if (key === 'transform') liveTransformRef.current = value
+        else liveIndividualRef.current[key] = `none${liveIndividualRef.current[key]?.match(/\s*!important\s*$/i)?.[0] || ''}`
+      })
+      setAngleDraft('')
+      return
+    }
     setAngleDraft(commitTransform(clearTransform(liveTransformRef.current)) ? '' : null)
-  }, [commitTransform])
+  }, [commitTransform, onChange])
 
   const handleClear = useCallback(() => {
     inputChangedRef.current = false
@@ -261,7 +322,7 @@ export function Rotation({ value, onChange: fallbackOnChange, showTitle, collaps
           }}
         >
           <div
-            {...getDragAngle(localAngle, lang.dragRotation)}
+            {...(angleEditable ? getDragAngle(localAngle, lang.dragRotation) : {})}
             className={css.angleIconWrap}
           >
             <Ratation />
@@ -269,6 +330,8 @@ export function Rotation({ value, onChange: fallbackOnChange, showTitle, collaps
           <input
             type="number"
             value={localAngle}
+            disabled={!angleEditable}
+            placeholder={angleEditable ? undefined : individual.rotate || undefined}
             data-mybricks-tip={lang.rotationAngleTip}
             onChange={handleChange}
             onFocus={handleFocus}
@@ -287,7 +350,7 @@ export function Rotation({ value, onChange: fallbackOnChange, showTitle, collaps
               cursor: 'text',
             }}
           />
-          {(hasRotation || localAngle !== '') && <ClearButton onClick={handleClear} />}
+          {angleEditable && (hasRotation || localAngle !== '') && <ClearButton onClick={handleClear} />}
           {localAngle !== '' && <span className={css.degUnit}>°</span>}
         </Panel.Item>
 
@@ -295,21 +358,27 @@ export function Rotation({ value, onChange: fallbackOnChange, showTitle, collaps
         <div className={css.actionButtons}>
           <div
             className={css.actionBtn}
-            onClick={handleRotate90R}
+            onClick={angleEditable ? handleRotate90R : undefined}
+            aria-disabled={!angleEditable}
+            style={angleEditable ? undefined : { opacity: 0.35, cursor: 'default' }}
             data-mybricks-tip={lang.rotateCW90Tip}
           >
             <Rotation90R />
           </div>
           <div
             className={`${css.actionBtn} ${flipX ? css.actionBtnActive : ''}`}
-            onClick={handleFlipH}
+            onClick={scaleEditable ? handleFlipH : undefined}
+            aria-disabled={!scaleEditable}
+            style={scaleEditable ? undefined : { opacity: 0.35, cursor: 'default' }}
             data-mybricks-tip={lang.flipHorizontalTip}
           >
             <RotationFlipHorizontal />
           </div>
           <div
             className={`${css.actionBtn} ${flipY ? css.actionBtnActive : ''}`}
-            onClick={handleFlipV}
+            onClick={scaleEditable ? handleFlipV : undefined}
+            aria-disabled={!scaleEditable}
+            style={scaleEditable ? undefined : { opacity: 0.35, cursor: 'default' }}
             data-mybricks-tip={lang.flipVerticalTip}
           >
             <RotationFlipVertical />

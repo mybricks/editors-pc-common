@@ -155,7 +155,10 @@ export const getDefaultValueFunctionMap = {
   },
   rotation(values: CSSProperties, config: any) {
     return {
-      transform: values.transform
+      transform: values.transform,
+      translate: values.translate,
+      rotate: values.rotate,
+      scale: values.scale,
     }
   },
   position(values: CSSProperties, config: any) {
@@ -344,7 +347,10 @@ export const getDefaultValueFunctionMap2 = {
   },
   rotation() {
     return {
-      transform: 'none'
+      transform: 'none',
+      translate: 'none',
+      rotate: 'none',
+      scale: 'none',
     }
   },
   position() {

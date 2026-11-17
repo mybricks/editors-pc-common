@@ -265,6 +265,9 @@ export function buildExportBag(acc: ValuesAcc): Record<string, any> {
     zIndex: acc.zIndex,
 
     transform: acc.transform,
+    translate: acc.translate,
+    rotate: acc.rotate,
+    scale: acc.scale,
 
     display: acc.display,
     // 向布局面板透传 Grid 原始声明（如 repeat(4, 1fr)），供专用解析层回显；只增加字段，原 flex 等导出值不变。

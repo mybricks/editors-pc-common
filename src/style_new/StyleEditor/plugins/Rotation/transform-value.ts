@@ -4,6 +4,7 @@ import type { CssFunctionCall } from '../../../core/css-functions'
 type Edit = { start: number; end: number; value: string }
 type Axis = 'x' | 'y'
 export type TransformAxisType = 'translate' | 'scale'
+export type IndividualTransformKey = TransformAxisType | 'rotate'
 
 function readTransform(value?: string | null) {
   const raw = value?.trim() || ''
@@ -177,4 +178,32 @@ export function clearTransform(value?: string | null): string | null {
     }
   }
   return edits.length ? applyEdits(value, edits) : value || null
+}
+
+/** 独立属性仅适配二维数值，借用现有函数编辑；null 表示第一期不支持的表达式或三维值。 */
+export function readIndividualTransform(key: IndividualTransformKey, value: string): string | null {
+  const raw = value.replace(/\s*!important\s*$/i, '').trim()
+  const priority = value.match(/\s*!important\s*$/i)?.[0] || ''
+  if (/^(none|unset|initial)$/i.test(raw)) return `none${priority}`
+  const parts = raw.split(/\s+/)
+  if (key === 'rotate') {
+    const transform = `rotate(${raw})${priority}`
+    return readRotation(transform).angle == null ? null : transform
+  }
+  if (parts.length > 2) return null
+  const transform = `${key}(${parts.join(', ')})${priority}`
+  if (key === 'scale') return readScale(readTransform(transform).calls[0]) ? transform : null
+  return parts.every(part => /^[-+]?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?(?:[a-z]+|%)?$/i.test(part))
+    ? transform : null
+}
+
+/** 编辑结果仍写回独立属性；缺少的轴补默认值，避免 scaleX(-1) 被写成双轴 scale: -1。 */
+export function serializeIndividualTransform(key: IndividualTransformKey, value: string | null): string | null {
+  if (value == null) return null
+  const { priority } = readTransform(value)
+  if (key === 'rotate') return `${readRotation(value).angle}deg${priority}`
+  const fallback = key === 'scale' ? 1 : '0px'
+  const x = readTransformAxis(value, key, 'x').value ?? fallback
+  const y = readTransformAxis(value, key, 'y').value ?? fallback
+  return `${x} ${y}${priority}`
 }
