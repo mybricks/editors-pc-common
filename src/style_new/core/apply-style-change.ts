@@ -709,9 +709,16 @@ function applyEffectiveStyleChanges(
         deletions: flexDeletions, clearedKeys: [] as string[], unsupported: flexUnsupported }]
     : createFlexLonghandWritePlans(changes, resolution, target,
         change => writeTargets.get(change.key)?.selector || null)
+  // 整组删除已接管 margin；过滤后的三边不能再被当作局部清空，拆出 margin-left。
+  const hasMarginGroupDelete = plans.some(plan =>
+    plan.key === 'margin' && plan.action === 'delete' && !plan.winner?.inline
+  )
+  const spacingChanges = hasMarginGroupDelete
+    ? specializedChanges.filter(item => !(item.value === null && getBoxSpacingProperty(item.key) === 'margin'))
+    : specializedChanges
   const propertyPlans = [
     ...flexPlans,
-    ...createSpacingWritePlans(specializedChanges, resolution, tab.selector, target,
+    ...createSpacingWritePlans(spacingChanges, resolution, tab.selector, target,
       change => writeTargets.get(change.key)?.selector || null),
     ...createBorderRadiusWritePlans(specializedChanges, resolution, target,
       change => writeTargets.get(change.key)?.selector || null),
