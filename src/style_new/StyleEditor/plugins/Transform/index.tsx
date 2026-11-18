@@ -286,12 +286,12 @@ export function Transform({ value, onChange: fallbackOnChange, showTitle, collap
     setAngleDraft(commitAngle(null) ? '' : null)
   }, [commitAngle])
 
-  // 新增零度旋转，沿用角度写入入口以保留其他 transform 函数。
+  // 展开面板只改变面板状态，不提前写入零度旋转。
   const handleExpand = useCallback(() => {
     inputChangedRef.current = false
     isEditingRef.current = false
-    setAngleDraft(commitAngle(0) ? '0' : null)
-  }, [commitAngle])
+    setAngleDraft('0')
+  }, [])
 
   return (
     <Panel
