@@ -16,6 +16,8 @@ export interface FlexItemProps
     "flexDirection" | "justifyContent" | "alignItems"
   > {
   flexItem: FlexItem;
+  pointIndex: number;
+  activePointIndex?: number;
   onSelected: (p: FlexItem) => void;
 }
 
@@ -32,7 +34,9 @@ const getTitle = ({ flexItem, flexDirection }: Params) => {
       if (alignItems === "flex-end") return "right";
     }
   }
-  if (justifyContent !== "center") {
+  if (justifyContent === undefined) {
+    justifyContent = "unset";
+  } else if (justifyContent !== "center") {
     justifyContent =
       flexDirection === "row"
         ? justifyContent?.split("-")[1] === "start"
@@ -42,7 +46,9 @@ const getTitle = ({ flexItem, flexDirection }: Params) => {
         ? "top"
         : "bottom";
   }
-  if (alignItems !== "center") {
+  if (alignItems === undefined) {
+    alignItems = "unset";
+  } else if (alignItems !== "center") {
     alignItems =
       flexDirection === "row"
         ? alignItems?.split("-")[1] === "start"
@@ -52,7 +58,7 @@ const getTitle = ({ flexItem, flexDirection }: Params) => {
         ? "left"
         : "right";
   }
-  return `${justifyContent} ${alignItems}`;
+  return flexDirection === "row" ? `${alignItems} ${justifyContent}` : `${justifyContent} ${alignItems}`;
 };
 
 export default ({
@@ -60,19 +66,33 @@ export default ({
   justifyContent,
   alignItems,
   flexItem,
+  pointIndex,
+  activePointIndex,
   onSelected,
 }: FlexItemProps) => {
   const [hover, setHover] = useState<boolean>(false);
+  const isNineGrid = !extraJustifyContent.includes(flexItem.justifyContent as string);
+  const verticalKey = flexDirection === "row" ? "alignItems" : "justifyContent";
+  const horizontalKey = flexDirection === "row" ? "justifyContent" : "alignItems";
+  const currentItem = { justifyContent, alignItems };
+  const vertical = currentItem[verticalKey];
+  const horizontal = currentItem[horizontalKey];
+  const isPartial = isNineGrid && (
+    (vertical === flexItem[verticalKey] && horizontal === undefined) ||
+    (vertical === undefined && horizontal === flexItem[horizontalKey])
+  );
+  const showPartial = isPartial && (activePointIndex === undefined || activePointIndex === pointIndex);
   const isActive = useMemo(() => {
-    return (
+    return (isPartial && activePointIndex === pointIndex) || (
       flexItem.justifyContent === justifyContent &&
       flexItem.alignItems === alignItems
     );
-  }, [flexItem, justifyContent, alignItems]);
+  }, [flexItem, justifyContent, alignItems, isPartial, activePointIndex, pointIndex]);
+  const title = getTitle({ flexItem: showPartial ? currentItem : flexItem, flexDirection });
 
 
   const dot = useMemo(() => {
-    if (justifyContent == "normal" || justifyContent == "center" || justifyContent == "flex-start" || justifyContent == "flex-end" ) {
+    if (justifyContent === undefined || justifyContent == "normal" || justifyContent == "center" || justifyContent == "flex-start" || justifyContent == "flex-end" ) {
       return <Point />
     }
 
@@ -108,23 +128,38 @@ export default ({
   }
 
   return (
-    <FlexContext.Provider value={{ flexDirection, hover, active: isActive }}>
+    <FlexContext.Provider value={{ flexDirection, hover, active: isActive || showPartial }}>
       <div
+        key={isNineGrid ? title : undefined}
+        ref={isNineGrid ? node => {
+          // 宿主按 mouseover 目标缓存提示；状态变化后从新节点读取文案。
+          if (node && hover) node.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+        } : undefined}
         style={{
           display: "flex",
           justifyContent: "center",
           alignItems: "center",
+          opacity: showPartial ? 0.5 : undefined,
           cursor: "pointer"
         }}
-        data-mybricks-tip={getTitle({ flexItem, flexDirection })}
+        data-mybricks-tip={title}
         onMouseEnter={() => handleMouseEnter()}
         onMouseLeave={() => handleMouseLeave()}
         onClick={() => {
+          if (isNineGrid) {
+            // 同一点按物理方向循环：纵 横 → 纵 unset → unset 横 → 纵 横；换点先完整赋值。
+            const nextItem = { ...flexItem };
+            if (isActive && vertical !== undefined) {
+              nextItem[horizontal === undefined ? verticalKey : horizontalKey] = undefined;
+            }
+            onSelected(nextItem);
+            return;
+          }
           if (isActive) return;
           onSelected(flexItem);
         }}
       >
-        {isActive ? (
+        {isActive || showPartial ? (
           <Bar flexItem={flexItem} flexDirection={flexDirection} />
         ) : hover ? (
           <Bar flexItem={flexItem} flexDirection={flexDirection} />
