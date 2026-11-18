@@ -174,6 +174,8 @@ export function InputNumber ({
       }
     }
     onFocus?.()
+    // 单个零在聚焦时全选，直接输入即可替换；其他数值保留原光标行为。
+    if (e.currentTarget.value === '0') e.currentTarget.select()
   }, [onFocus, showPreview, previewIsNumeric, previewNumber, previewUnit, number, unit, handleNumberChange])
 
   const handleInputChange = useCallback((nextValue: string) => {
@@ -539,6 +541,7 @@ export function InputNumber ({
       suffix={suffix}
       disabled={isDisabledUnit()}
       autoFocus={autoFocus}
+      onMouseDown={handleZeroMouseDown}
       onFocus={handleFocus}
       onKeyDown={onKeyDown}
       onBlur={onBlur}
@@ -550,6 +553,15 @@ export function InputNumber ({
       type={showPreview && !previewIsNumeric ? undefined : type} // 关键字计算值也需要可见
     />
   )
+}
+
+// 首次点击零时先触发聚焦全选，避免鼠标默认动作取消选区；已聚焦后可正常定位。
+function handleZeroMouseDown(event: React.MouseEvent<HTMLInputElement>) {
+  const input = event.currentTarget
+  if (event.button === 0 && input.ownerDocument.activeElement !== input && input.value === '0') {
+    event.preventDefault()
+    input.focus()
+  }
 }
 
 function getUnit (value: any, defaultUnitValue: string | undefined = void 0, unitOptions: Array<UnitOption> = []) {

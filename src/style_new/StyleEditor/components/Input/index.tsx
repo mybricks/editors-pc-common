@@ -23,6 +23,7 @@ export interface InputProps {
   onChange?: (value: string) => void;
   disabled?: boolean;
   autoFocus?: boolean;
+  onMouseDown?: React.MouseEventHandler<HTMLInputElement>;
   onBlur?: React.FocusEventHandler<HTMLInputElement>;
   onFocus?: React.FocusEventHandler<HTMLInputElement>;
   onKeyDown?: React.KeyboardEventHandler<HTMLInputElement>;
@@ -46,6 +47,7 @@ export function Input({
   style = {},
   disabled = false,
   autoFocus = false,
+  onMouseDown,
   placeholder,
   onFocus = () => {},
   onKeyDown = () => {},
@@ -92,6 +94,7 @@ export function Input({
               autoFocus={autoFocus}
               placeholder={placeholder}
               onFocus={onFocus}
+              onMouseDown={onMouseDown}
               onBlur={onBlur}
               onKeyDown={onKeyDown}
               data-mybricks-tip={numberTip}
@@ -117,6 +120,7 @@ export function Input({
               autoFocus={autoFocus}
               placeholder={placeholder}
               onFocus={onFocus}
+              onMouseDown={onMouseDown}
               onBlur={onBlur}
               onKeyDown={onKeyDown}
               data-mybricks-tip={numberTip}
