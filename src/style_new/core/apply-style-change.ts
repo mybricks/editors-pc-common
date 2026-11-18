@@ -709,9 +709,22 @@ function applyEffectiveStyleChanges(
         deletions: flexDeletions, clearedKeys: [] as string[], unsupported: flexUnsupported }]
     : createFlexLonghandWritePlans(changes, resolution, target,
         change => writeTargets.get(change.key)?.selector || null)
+  // 例如同一元素同时使用：
+  // .payLeft { margin: 22px; }
+  // .test { margin-left: 12px; }
+  // 点 margin 的整组「−」时，plans 已负责删除这两处声明。
+  // 左边有后备来源，被前面的级联分流过滤，specializedChanges 只剩上、右、下。
+  // 若再交给单边处理器，会把 .payLeft 拆成 { margin-left: 22px; }。
+  // 因此这里排除 margin 清空项，只执行整组删除，普通值修改仍照常处理。
+  const hasMarginGroupDelete = plans.some(plan =>
+    plan.key === 'margin' && plan.action === 'delete' && !plan.winner?.inline
+  )
+  const spacingChanges = hasMarginGroupDelete
+    ? specializedChanges.filter(item => !(item.value === null && getBoxSpacingProperty(item.key) === 'margin'))
+    : specializedChanges
   const propertyPlans = [
     ...flexPlans,
-    ...createSpacingWritePlans(specializedChanges, resolution, tab.selector, target,
+    ...createSpacingWritePlans(spacingChanges, resolution, tab.selector, target,
       change => writeTargets.get(change.key)?.selector || null),
     ...createBorderRadiusWritePlans(specializedChanges, resolution, target,
       change => writeTargets.get(change.key)?.selector || null),

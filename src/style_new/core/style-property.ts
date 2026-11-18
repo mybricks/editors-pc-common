@@ -370,7 +370,7 @@ export type StyleResolution = ReturnType<typeof createStyleResolution>
 
 /**
  * 整组恢复默认时，无后备来源才删除 winning source 内的整个属性族。
- * 有后备来源时保留逐属性 clearPlan，用 unset 阻止低优先级样式重新生效。
+ * 有后备来源时用 unset 阻止低优先级样式重新生效；同源且同优先级的 Margin 四边可合并为简写。
  * CSSOM 会合成/拆开简写，不能用 item() 判断源码究竟写了 margin 还是四条长写，
  * 因此同时清理该组所有写法；部分清空仍保留 unset，避免删除未选中的配置。
  */
@@ -409,7 +409,36 @@ export function createBatchStyleClearPlans(
         const canDeleteTogether = longhandProperties.every(({ candidates }) =>
           candidates.every(({ source }) => source && winners.some(winner => winner.source === source))
         )
-        if (!canDeleteTogether) return
+        if (!canDeleteTogether) {
+          const winner = winners[0]
+          // 例如元素同时命中两条规则：
+          // .payLeft { margin: 22px; }
+          // .test { margin: 12px; }
+          // 四个方向当前都由 .test 生效，但删除 .test 后 .payLeft 的 22px 会重新出现。
+          // 因此整组清空的结果应是：
+          // .payLeft { margin: 22px; }
+          // .test { margin: unset; }
+          // 这里只处理这种完整的 Margin 简写；单边清除、混合来源和 JSX 仍沿用原计划。
+          if (property === 'margin' && winner && !winner.inline && longhandProperties.every(item =>
+            item.clearPlan.action === 'write-unset' && hasFallbackStyleCandidate(item) &&
+            item.winner?.source === winner.source && item.winner?.label === winner.label &&
+            item.winner?.important === winner.important
+          )) {
+            // CSSOM 可能把上面的 margin 展开成四条长写。先删除旧的
+            // margin-top/right/bottom/left，再写入 margin: unset，避免清理旧声明时
+            // 把这次新写入的 unset 一起删掉。
+            longhands.forEach(key => deletes.push({
+              key, winner, candidates: resolution.get(key).candidates,
+              action: 'delete', selector: winner.label, value: null,
+            }))
+            deletes.push({
+              key: property, winner, candidates: resolution.get(property).candidates,
+              action: 'write-unset', selector: winner.label, value: winner.important ? 'unset !important' : 'unset',
+            })
+            plannedKeys = plannedKeys.filter(key => !longhands.includes(key))
+          }
+          return
+        }
       }
       const sources = winners.filter((item, index) => winners.findIndex(other =>
         other.label === item.label && other.inline === item.inline
