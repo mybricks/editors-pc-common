@@ -29,6 +29,7 @@ import { BORDER_DETAIL_KEYS, BORDER_RADIUS_KEYS, createBorderRadiusWritePlans, c
 import { createOverflowWritePlans, isOverflowProperty } from './overflow'
 import { createFlexLonghandWritePlans } from './flex-write'
 import { getTextBackgroundShorthandWrite } from './text-background-write'
+import { readAuthoredBackgroundDeclarations } from './get-values-background'
 import { createBackgroundColorMigrationPlan } from './background-color-migration'
 import { backgroundCore } from './background-core'
 import { shouldUseAIForThirdPartyStyle } from './ai-style/third-party-style-ai'
@@ -252,16 +253,24 @@ export function createStyleRemovalPlan(
       }
     }
     // 纯色简写/最后一层图片没有剩余图片时，不留下简写自动补出的默认配套声明。
-    const hasImage = preserved.backgroundImage && !/^none(?:\s*!important)?$/i.test(preserved.backgroundImage)
-    if (!hasImage) Object.keys(preserved).forEach(name => {
-      const raw = preserved[name].replace(IMPORTANT_SUFFIX_RE, '').trim().toLowerCase()
-      if (BACKGROUND_INITIAL_VALUES[name]?.includes(raw)) delete preserved[name]
-      // 删除最后一层图片时，只清理不再需要屏蔽后备颜色来源的 unset。
-      if (name === 'backgroundColor' && raw === 'unset' && requested.has('backgroundImage') &&
-        !hasFallbackStyleCandidate(resolution.get(name))) {
-        delete preserved[name]
-      }
-    })
+    const hasImage = preserved.backgroundImage && !/^(none|initial)(?:\s*!important)?$/i.test(preserved.backgroundImage)
+    if (!hasImage) {
+      // CSSOM 会把 background: #078F59 的省略项读成 initial，不能把它们写成新声明。
+      // 从源码区分隐式默认值与显式长写；background: initial 本身也保留原有重置语义。
+      const declarations = winner.source ? readAuthoredBackgroundDeclarations(winner.source.rule) : []
+      const authored = declarations.length === 1 ? declarations[0] : undefined
+      Object.keys(preserved).forEach(name => {
+        const raw = preserved[name].replace(IMPORTANT_SUFFIX_RE, '').trim().toLowerCase()
+        const implicitInitial = raw === 'initial' && authored?.background &&
+          authored.background.toLowerCase() !== 'initial' && !authored[cssPropertyName(name)]
+        if (implicitInitial || BACKGROUND_INITIAL_VALUES[name]?.includes(raw)) delete preserved[name]
+        // 删除最后一层图片时，只清理不再需要屏蔽后备颜色来源的 unset。
+        if (name === 'backgroundColor' && raw === 'unset' && requested.has('backgroundImage') &&
+          !hasFallbackStyleCandidate(resolution.get(name))) {
+          delete preserved[name]
+        }
+      })
+    }
     Object.assign(group.style, preserved)
     group.deletions.push('background', ...backgroundKeys)
   }

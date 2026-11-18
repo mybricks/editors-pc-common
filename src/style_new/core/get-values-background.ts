@@ -19,6 +19,7 @@ const BACKGROUND_EXPORT_PROPS = [
   'background-repeat',
   'background-attachment',
   'background-origin',
+  'background-clip',
   'background-color',
 ] as const
 
