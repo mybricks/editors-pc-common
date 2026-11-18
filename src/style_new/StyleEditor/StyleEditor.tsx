@@ -17,7 +17,7 @@ import {
   Layout,
   Flex,
   ZIndex,
-  Rotation,
+  Transform,
   Position,
   ImageFit,
 } from "./plugins";
@@ -45,7 +45,7 @@ const PLUGINS_MAP: Record<string, (value: any) => React.ReactNode> = {
   OPACITY: Opacity,
   APPEARANCE: Appearance,
   EFFECTS: Effects,
-  ROTATION: Rotation,
+  TRANSFORM: Transform,
   CURSOR: Cursor,
   ZINDEX: ZIndex,
 };

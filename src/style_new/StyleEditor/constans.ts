@@ -16,6 +16,6 @@ export const DEFAULT_OPTIONS = [
   'overflow',
   'opacity',
   'zindex',
-  'rotation',
+  'transform',
   'csspaste'
 ] as const

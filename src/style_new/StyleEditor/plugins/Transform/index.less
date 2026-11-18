@@ -1,25 +1,69 @@
 @import "../../../../theme";
 
-.rotationPanelContent {
-  display: flex;
+.transformPanelContent {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   align-items: center;
-  flex-wrap: nowrap;
   gap: 4px;
   min-width: 0;
+
+  > div {
+    width: auto;
+
+    &:not(:first-child) {
+      margin-left: 0;
+    }
+  }
+}
+
+.axisLabel {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: @font-color-content;
+  user-select: none;
+}
+
+.transformInput {
+  .axisIcon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    color: @font-color-content;
+
+    svg {
+      max-width: none;
+      width: 24px;
+      height: 24px;
+      opacity: 0.65;
+    }
+  }
+
+  .scaleIcon svg {
+    width: 21px;
+    height: 21px;
+    opacity: 0.72;
+  }
+
+  input {
+    min-width: 0;
+  }
 }
 
 .angleIconWrap {
   display: flex;
   align-items: center;
-  padding-left: 4px;
-  padding-right: 2px;
+  padding-left: 2px;
+  padding-right: 4px;
   flex-shrink: 0;
   cursor: ew-resize;
   color: @font-color-content;
 
   svg {
-    width: 26px;
-    height: 26px;
+    width: 24px;
+    height: 24px;
+    opacity: 0.65;
     --fpl-icon-color: currentColor;
   }
 }
@@ -32,8 +76,8 @@
   user-select: none;
 }
 
-.rotationPanelContent:hover [data-input-clear],
-.rotationPanelContent:focus-within [data-input-clear] {
+.transformPanelContent:hover [data-input-clear],
+.transformPanelContent:focus-within [data-input-clear] {
   opacity: 1;
   pointer-events: auto;
 }
@@ -49,9 +93,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
   height: 26px;
-  flex-shrink: 0;
+  flex: 1;
   border-radius: @border-radius;
   background-color: @bg-color-main-secondary;
   color: @font-color-content;
@@ -62,6 +105,7 @@
   svg {
     width: 20px;
     height: 20px;
+    opacity: 0.65;
     --fpl-icon-color: currentColor;
   }
 
@@ -71,5 +115,9 @@
 
   &.actionBtnActive {
     color: @color-primary;
+
+    svg {
+      opacity: 1;
+    }
   }
 }

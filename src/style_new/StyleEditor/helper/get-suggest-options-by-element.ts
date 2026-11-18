@@ -97,7 +97,7 @@ export function getSuggestOptionsByElement(selectDom: HTMLElement): { type: stri
         type: 'zindex'
       },
       {
-        type: 'rotation'
+        type: 'transform'
       },
       {
         type: 'position'

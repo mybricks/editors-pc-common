@@ -165,6 +165,9 @@ export const PROP_SPECS: PropSpec[] = [
   { camel: 'opacity', inherit: false, fallback: 'static', staticValue: 1 },
   { camel: 'zIndex', inherit: false, fallback: 'none' },
   { camel: 'transform', inherit: false, fallback: 'none' },
+  { camel: 'translate', inherit: false, fallback: 'none' },
+  { camel: 'rotate', inherit: false, fallback: 'none' },
+  { camel: 'scale', inherit: false, fallback: 'none' },
 
   // layout
   { camel: 'display', inherit: false, fallback: 'computed' },
