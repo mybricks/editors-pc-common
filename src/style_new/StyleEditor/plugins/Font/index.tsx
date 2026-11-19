@@ -1250,6 +1250,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
                 labelStyle={{
                   textAlign:"left",
                   marginLeft: '4px',
+                  fontWeight: fontWeightVar ? 500 : undefined,
                 }}
                 value={fontWeight}
                 displayValue={fontWeightField.displaySource === 'normal-computed'
