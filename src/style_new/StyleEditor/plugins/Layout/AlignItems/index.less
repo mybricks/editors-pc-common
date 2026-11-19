@@ -22,3 +22,41 @@
     cursor: pointer;
   }
 }
+
+.partialLine {
+  position: relative;
+
+  > * {
+    visibility: hidden;
+  }
+
+  &::after {
+    content: "";
+    position: absolute;
+    border-radius: 2px;
+    background-color: @font-color-content;
+    opacity: 0.18;
+    pointer-events: none;
+  }
+
+  &.horizontalLine::after {
+    left: 5px;
+    right: 5px;
+    top: 50%;
+    height: 4px;
+    transform: translateY(-50%);
+  }
+
+  &.verticalLine::after {
+    top: 5px;
+    bottom: 5px;
+    left: 50%;
+    width: 4px;
+    transform: translateX(-50%);
+  }
+
+  &.selectedLine::after {
+    background-color: @color-primary;
+    opacity: 1;
+  }
+}

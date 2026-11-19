@@ -18,6 +18,9 @@ export interface FlexItemProps
   flexItem: FlexItem;
   pointIndex: number;
   activePointIndex?: number;
+  lineItem?: FlexItem;
+  className?: string;
+  style?: CSSProperties;
   onSelected: (p: FlexItem) => void;
 }
 
@@ -58,7 +61,7 @@ const getTitle = ({ flexItem, flexDirection }: Params) => {
         ? "left"
         : "right";
   }
-  return flexDirection === "row" ? `${alignItems} ${justifyContent}` : `${justifyContent} ${alignItems}`;
+  return `${justifyContent} ${alignItems}`;
 };
 
 export default ({
@@ -68,6 +71,9 @@ export default ({
   flexItem,
   pointIndex,
   activePointIndex,
+  lineItem,
+  className,
+  style,
   onSelected,
 }: FlexItemProps) => {
   const [hover, setHover] = useState<boolean>(false);
@@ -86,12 +92,14 @@ export default ({
     ? flexItem[vertical === undefined ? verticalKey : horizontalKey] === "center"
     : activePointIndex === pointIndex);
   const isActive = useMemo(() => {
-    return (isPartial && activePointIndex === pointIndex) || (
+    // 两项都未配置时沿用左上角默认高亮，保留实际空值供点击时写入。
+    return (justifyContent === undefined && alignItems === undefined && pointIndex === 0) ||
+      (isPartial && activePointIndex === pointIndex) || (
       flexItem.justifyContent === justifyContent &&
       flexItem.alignItems === alignItems
     );
   }, [flexItem, justifyContent, alignItems, isPartial, activePointIndex, pointIndex]);
-  const title = getTitle({ flexItem: showPartial ? currentItem : flexItem, flexDirection });
+  const title = getTitle({ flexItem: lineItem || (showPartial ? currentItem : flexItem), flexDirection });
 
 
   const dot = useMemo(() => {
@@ -134,6 +142,7 @@ export default ({
     <FlexContext.Provider value={{ flexDirection, hover, active: isActive || showPartial }}>
       <div
         key={isNineGrid ? title : undefined}
+        className={className}
         ref={isNineGrid ? node => {
           // 宿主按 mouseover 目标缓存提示；状态变化后从新节点读取文案。
           if (node && hover) node.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
@@ -142,17 +151,26 @@ export default ({
           display: "flex",
           justifyContent: "center",
           alignItems: "center",
-          cursor: "pointer"
+          cursor: "pointer",
+          ...style,
         }}
         data-mybricks-tip={title}
         onMouseEnter={() => handleMouseEnter()}
         onMouseLeave={() => handleMouseLeave()}
         onClick={() => {
           if (isNineGrid) {
-            // 同一点按物理方向循环：纵 横 → 纵 unset → unset 横 → 纵 横；换点先完整赋值。
+            // 切换灰线只改变已设置的轴；当前线继续复用原来的点击循环。
+            if (lineItem && !isPartial) {
+              onSelected(lineItem);
+              return;
+            }
+            // 与提示文案保持同序：justify align → justify unset → unset align → justify align；换点先完整赋值。
             const nextItem = { ...flexItem };
-            if (isActive && vertical !== undefined) {
-              nextItem[horizontal === undefined ? verticalKey : horizontalKey] = undefined;
+            if (isActive && justifyContent === undefined && alignItems === undefined) {
+              // 默认高亮已显示完整对齐，首次点击直接进入下一态。
+              nextItem.alignItems = undefined;
+            } else if (isActive && justifyContent !== undefined) {
+              nextItem[alignItems === undefined ? "justifyContent" : "alignItems"] = undefined;
             }
             onSelected(nextItem);
             return;
