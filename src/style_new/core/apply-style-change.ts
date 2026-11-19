@@ -28,7 +28,6 @@ import type { StyleWriteTarget } from './style-write-target'
 import { BORDER_DETAIL_KEYS, BORDER_RADIUS_KEYS, createBorderRadiusWritePlans, createBorderWritePlans, isBorderProperty, isBorderRadiusProperty } from './border-write'
 import { createOverflowWritePlans, isOverflowProperty } from './overflow'
 import { createFlexLonghandWritePlans } from './flex-write'
-import { createDirectionalWritePlans } from './four-side-write'
 import { getTextBackgroundShorthandWrite } from './text-background-write'
 import { readAuthoredBackgroundDeclarations } from './get-values-background'
 import { createBackgroundColorMigrationPlan } from './background-color-migration'
@@ -670,16 +669,6 @@ function applyEffectiveStyleChanges(
   const replacingFlex = flexKeys.every(key => changes.some(item => item.key === key)) &&
     changes.some(item => flexKeys.includes(item.key) && item.value != null)
   const sideClearKeys = getBoxSpacingSideClearKeys(changes)
-  const gapKeys = ['rowGap', 'columnGap']
-  // 例如 gap: var(--spacing-sm); column-gap: 34px，清空列间距后应只剩行间距变量。
-  // 两轴必须一起规划，否则只删 column-gap 会让 gap 的变量重新作用到列间距。
-  // 仅接入样式表的间距编辑；数字间距、内联及其他布局操作仍走原链路。
-  const useVariableGapPlan = changes.every(item => gapKeys.includes(item.key)) &&
-    gapKeys.every(key => !resolution.get(key).winner?.inline) &&
-    ['gap', ...gapKeys].some(key => {
-      const winner = resolution.get(key).winner
-      return winner && !winner.inline && winner.value.includes('var(')
-    })
   // 属性属于 margin 或 padding、且当前值按 JSX style 处理时，才走内联源码的清除方式；预览不算。
   const isInlineSpacing = (item: StyleChangeItem) =>
     !!getBoxSpacingProperty(item.key) && isSourceInline(resolution.get(item.key).winner)
@@ -693,9 +682,8 @@ function applyEffectiveStyleChanges(
     hasFallbackStyleCandidate(resolution.get(item.key))
   const specializedChanges = changes.filter(item => !shouldUseCascadeClearPlan(item))
   // 先预检整个用户动作，避免清空不可执行却先修改了共享图层。
-  // 变量间距的删除交给下方按轴规划：让“删旧 gap”和“保留另一轴”成为同一次写入。
   const plans = createBatchStyleClearPlans(
-    changes.filter(item => !useVariableGapPlan && item.value === null && (shouldUseCascadeClearPlan(item) || (
+    changes.filter(item => item.value === null && (shouldUseCascadeClearPlan(item) || (
       !sideClearKeys.has(item.key) && !isInlineSpacing(item) && !isBorderProperty(item.key) && !isBorderRadiusProperty(item.key) &&
       !(replacingFlex && flexKeys.includes(item.key))
     ))).map(item => item.key),
@@ -745,9 +733,6 @@ function applyEffectiveStyleChanges(
     : specializedChanges
   const propertyPlans = [
     ...flexPlans,
-    // 复用已有的按方向拆写能力；例如清空列时生成 row-gap: var(--spacing-sm)，并删除旧 gap/column-gap。
-    ...(useVariableGapPlan ? createDirectionalWritePlans('gap', changes, resolution, target,
-      change => writeTargets.get(change.key)?.selector || null) : []),
     ...createSpacingWritePlans(spacingChanges, resolution, tab.selector, target,
       change => writeTargets.get(change.key)?.selector || null),
     ...createBorderRadiusWritePlans(specializedChanges, resolution, target,
@@ -784,8 +769,7 @@ function applyEffectiveStyleChanges(
     plans.forEach(plan => logStyleClearPlan(plan, false))
     return { nextLiveStyle: liveStyle, applied: false, clearApplied: false, clearUnsupported: true }
   }
-  // 变量间距已进入 propertyPlans，不再走普通写入，避免先把旧列值合进 gap，随后清空又遗漏它。
-  const writes = changes.filter(item => !useVariableGapPlan && item.value != null && !getBoxSpacingProperty(item.key) && !isBorderProperty(item.key) && !isBorderRadiusProperty(item.key) &&
+  const writes = changes.filter(item => item.value != null && !getBoxSpacingProperty(item.key) && !isBorderProperty(item.key) && !isBorderRadiusProperty(item.key) &&
     !isOverflowProperty(item.key) &&
     !(replacingFlex && flexKeys.includes(item.key)))
     .map(({ key, value, borderMode, target, paintRole }) => {
@@ -815,8 +799,6 @@ function applyEffectiveStyleChanges(
       if (plan.property === 'border') return isBorderProperty(item.key)
       if (plan.property === 'borderRadius') return isBorderRadiusProperty(item.key)
       if (plan.property === 'overflow') return isOverflowProperty(item.key)
-      // gap 计划包含行、列两个输入，把它们的写入目标一起记入原有操作日志。
-      if (plan.property === 'gap') return gapKeys.includes(item.key)
       return getBoxSpacingProperty(item.key) === plan.property
     })
       .forEach(item => {
@@ -864,9 +846,6 @@ function applyEffectiveStyleChanges(
         keys = BORDER_DETAIL_KEYS
       } else if (plan.property === 'borderRadius') {
         keys = BORDER_RADIUS_KEYS
-      } else if (plan.property === 'gap') {
-        // 清空列后，快照只保留实际还存在的行间距；下次编辑不能再带回旧的整条 gap。
-        keys = gapKeys
       } else {
         keys = BOX_SPACING_KEYS[plan.property]
       }
