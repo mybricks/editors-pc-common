@@ -18,7 +18,7 @@ export function ImageFit({ onChange: fallbackOnChange, showTitle, collapse }:
     let objectPosition = effectiveValue.objectPosition || ''
     const fitSource = context?.effectiveStyle?.objectFit
     const positionSource = context?.effectiveStyle?.objectPosition
-    // 保留生效值回显，仅把 unset 和未声明时的浏览器初始值显示为默认。
+    // 保留生效值，仅把 unset 和未声明时的浏览器初始值按未配置处理。
     if (/^unset$/i.test(String(fitSource?.value).trim()) ||
       (fitSource?.type === 'computed' && objectFit === 'fill')) {
       objectFit = ''
@@ -32,6 +32,8 @@ export function ImageFit({ onChange: fallbackOnChange, showTitle, collapse }:
   const [imageStyle, setImageStyle] = useState(() => ({
     objectFit, objectPosition
   }))
+  // 未配置时仅回显浏览器初始模式，不写入样式，也不影响折叠状态。
+  const displayObjectFit = imageStyle.objectFit || 'fill'
   // 点击加号的临时展开仍由 Panel 自己维护。
   const effectiveCollapse = !imageStyle.objectFit && !imageStyle.objectPosition
     ? true
@@ -43,7 +45,6 @@ export function ImageFit({ onChange: fallbackOnChange, showTitle, collapse }:
 
   const langType = (window as any).__lang_type__
   const fitOptions = useMemo(() => [
-    { value: '', label: lang.imageStyleDefault },
     { value: 'fill', label: lang.imageFitFill },
     { value: 'contain', label: lang.imageFitContain },
     { value: 'cover', label: lang.imageFitCover },
@@ -72,7 +73,7 @@ export function ImageFit({ onChange: fallbackOnChange, showTitle, collapse }:
 
   if (targetDom?.tagName !== 'IMG') return null
 
-  // 单项默认和整组清空都交给公共链路决定删除声明或写入 unset。
+  // 对齐默认和整组清空都交给公共链路决定删除声明或写入 unset。
   return (
     <Panel title={lang.imageFitPanelTitle} showTitle={showTitle} collapse={effectiveCollapse} showDelete={!!clear}
       resetFunction={() => {
@@ -80,13 +81,13 @@ export function ImageFit({ onChange: fallbackOnChange, showTitle, collapse }:
         setImageStyle({ objectFit: '', objectPosition: '' })
       }}>
       <Panel.Content style={{ display: 'grid', gridTemplateColumns: 'max-content minmax(0, 1fr)', alignItems: 'center', rowGap: 10, columnGap: 8 }}>
-        {fields.filter(field => field.key !== 'objectPosition' || imageStyle.objectFit !== 'fill').map(field => (
+        {fields.filter(field => field.key !== 'objectPosition' || displayObjectFit !== 'fill').map(field => (
           <React.Fragment key={field.key}>
             <span style={{ padding: '0 4px', whiteSpace: 'nowrap', fontSize: 11, color: 'var(--mybricks-text-color-main, #333)' }}>{field.label}</span>
             <div style={{ minWidth: 0 }}>
               <Select
                 style={{ padding: '0 8px 0 0' }}
-                value={imageStyle[field.key]}
+                value={field.key === 'objectFit' ? displayObjectFit : imageStyle[field.key]}
                 options={field.options}
                 onChange={value => {
                   onChange({ key: field.key, value: value === '' ? null : value })
