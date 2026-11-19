@@ -183,7 +183,6 @@ export default i18n({
   imageFitPanelTitle: { zh: '图片适配', en: 'Image fit' },
   imageFitLabel: { zh: '模式', en: 'Mode' },
   imageFitAlignLabel: { zh: '对齐', en: 'Alignment' },
-  imageStyleDefault: { zh: '默认', en: 'Default' },
   imageFitFill: { zh: '拉伸填满', en: 'Stretch' },
   imageFitContain: { zh: '完整显示', en: 'Contain' },
   imageFitCover: { zh: '铺满裁切', en: 'Cover' },

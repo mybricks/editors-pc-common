@@ -32,8 +32,9 @@ export function ImageFit({ onChange: fallbackOnChange, showTitle, collapse }:
   const [imageStyle, setImageStyle] = useState(() => ({
     objectFit, objectPosition
   }))
-  // 未配置时仅回显浏览器初始模式，不写入样式，也不影响折叠状态。
+  // 未配置时仅回显浏览器初始值，不写入样式，也不影响折叠状态。
   const displayObjectFit = imageStyle.objectFit || 'fill'
+  const displayObjectPosition = imageStyle.objectPosition || '50% 50%'
   // 点击加号的临时展开仍由 Panel 自己维护。
   const effectiveCollapse = !imageStyle.objectFit && !imageStyle.objectPosition
     ? true
@@ -52,7 +53,6 @@ export function ImageFit({ onChange: fallbackOnChange, showTitle, collapse }:
     { value: 'scale-down', label: lang.imageFitScaleDown },
   ], [langType])
   const positionOptions = useMemo(() => [
-    { value: '', label: lang.imageStyleDefault },
     { value: '0% 0%', label: lang.imagePositionTopLeft },
     { value: '50% 0%', label: lang.imagePositionTop },
     { value: '100% 0%', label: lang.imagePositionTopRight },
@@ -66,14 +66,14 @@ export function ImageFit({ onChange: fallbackOnChange, showTitle, collapse }:
   const fields = useMemo(() => [
     { key: 'objectFit' as const, label: lang.imageFitLabel, options: fitOptions },
     { key: 'objectPosition' as const, label: lang.imageFitAlignLabel,
-      options: positionOptions.some(({ value }) => value === imageStyle.objectPosition)
+      options: positionOptions.some(({ value }) => value === displayObjectPosition)
         ? positionOptions
-        : [...positionOptions, { value: imageStyle.objectPosition, label: imageStyle.objectPosition }] },
-  ], [fitOptions, positionOptions, imageStyle.objectPosition])
+        : [...positionOptions, { value: displayObjectPosition, label: displayObjectPosition }] },
+  ], [fitOptions, positionOptions, displayObjectPosition])
 
   if (targetDom?.tagName !== 'IMG') return null
 
-  // 对齐默认和整组清空都交给公共链路决定删除声明或写入 unset。
+  // 整组清空交给公共链路决定删除声明或写入 unset。
   return (
     <Panel title={lang.imageFitPanelTitle} showTitle={showTitle} collapse={effectiveCollapse} showDelete={!!clear}
       resetFunction={() => {
@@ -87,10 +87,10 @@ export function ImageFit({ onChange: fallbackOnChange, showTitle, collapse }:
             <div style={{ minWidth: 0 }}>
               <Select
                 style={{ padding: '0 8px 0 0' }}
-                value={field.key === 'objectFit' ? displayObjectFit : imageStyle[field.key]}
+                value={field.key === 'objectFit' ? displayObjectFit : displayObjectPosition}
                 options={field.options}
                 onChange={value => {
-                  onChange({ key: field.key, value: value === '' ? null : value })
+                  onChange({ key: field.key, value })
                   setImageStyle(previous => ({ ...previous, [field.key]: value }))
                 }}
               />
