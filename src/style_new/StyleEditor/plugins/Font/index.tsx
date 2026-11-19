@@ -21,13 +21,16 @@ import {
   Dropdown,
   DownOutlined,
   VariableNumberInput,
+  VariableList,
+  SketchPopup,
   buildDetachMenuOptions,
   getApplyVariableOption,
   APPLY_VARIABLE_ACTION,
+  DETACH_VARIABLE_ACTION,
 } from "../../components";
 import { splitValueAndUnit } from "../../utils";
 import { PanelBaseProps, StyleChangeItem, StyleChangeResult } from "../../type";
-import { useDragNumber, useLengthInputDrag, useCanvasColorVariables, useLengthVarBinding, useStyleDisplayValue, isCssVarValue, useThemeVars } from "../../hooks";
+import { useDragNumber, useLengthInputDrag, useCanvasColorVariables, useCanvasCssVariables, useLengthVarBinding, useStyleDisplayValue, isCssVarValue, useThemeVars } from "../../hooks";
 import { Variable } from "../../icons/Variable";
 import { FontSetting } from "../../icons/FontSetting";
 import { FontSettingTruncation } from "../../icons/FontSettingTruncation";
@@ -44,7 +47,7 @@ import {
 import { getColorEditorValue } from "../../helper/get-color-editor-value";
 import { normalizeCssValue } from "../../helper/normalize-css-value";
 import { createStyleResolution } from "../../../core/style-property";
-import { formatCssVarTitle, parseCssVar } from "../../../core/css-var";
+import { collectCssVarOptions, formatCssVarTitle, parseCssVar, resolveCssVar } from "../../../core/css-var";
 import type { EffectiveStyleValue } from "../../../core/zone-tab";
 import css from "./index.less";
 import lang from '../../../index.i18n'
@@ -54,6 +57,17 @@ const FONT_SIZE_PRESETS = [10, 11, 12, 13, 14, 15, 16, 20, 24, 32, 36, 40, 48, 6
 
 /** 档位全展开，宽度不被长文案撑开（超出走省略号） */
 const FONT_SIZE_MENU_STYLE: CSSProperties = { maxHeight: 'none', maxWidth: 132 };
+
+// 按实际值判断能否用作字重：600、45、bold 可用，16px、red 不可用；不判断是否为 var(...)。
+function isFontWeightValue(value: string): boolean {
+  return /^(normal|bold|bolder|lighter)$/i.test(value) ||
+    (/^(?:\d+\.?\d*|\.\d+)$/.test(value) && Number(value) >= 1 && Number(value) <= 1000);
+}
+
+// 收集当前画布元素可用的 CSS 变量，只保留值符合字重要求的项，供变量列表展示。
+function getFontWeightVariables(scopeEl?: Element | null) {
+  return collectCssVarOptions(scopeEl, isFontWeightValue);
+}
 
 interface FontProps extends PanelBaseProps {
   value: CSSProperties;
@@ -336,6 +350,42 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
     'soloEdit' in editConfig.options && editConfig.options.soloEdit
   );
   const { targetDom, variableOptions: canvasColorVariables } = useCanvasColorVariables();
+  // 变量列表按当前画布元素取值，例如 --weight-bold: 700 会进入列表。
+  const { variableOptions: fontWeightVariables } = useCanvasCssVariables(getFontWeightVariables);
+  // 保存控件正在显示的值，让选变量、换档位后立即回显，不必等待外部样式回传。
+  const [fontWeight, setFontWeight] = useState<string | number | undefined>(value.fontWeight);
+  // 变量弹层的开关和定位锚点；弹层从字重字段旁边打开。
+  const [fontWeightPickerOpen, setFontWeightPickerOpen] = useState(false);
+  const fontWeightAnchorRef = useRef<HTMLDivElement>(null);
+  // 区分变量与普通值：var(--weight-bold) 能解析出变量名，700 等普通值返回 null。
+  const fontWeightVar = parseCssVar(String(fontWeight));
+  // 解绑时需要一个固定字重：优先解析变量值，例如 var(--weight-bold) → 700。
+  // 解析不到时读取元素实际生效的字重；不是变量时无需计算解绑值。
+  // 这里只读取，供“固定值 (700)”菜单展示和点击解绑时写入，不会主动改样式。
+  const resolvedFontWeight = fontWeightVar
+    ? resolveCssVar(String(fontWeight), targetDom, isFontWeightValue)
+      ?? (targetDom ? window.getComputedStyle(targetDom).fontWeight : undefined)
+    : undefined;
+
+  // 切换元素或外部字重值变化后，让本地回显跟随当前元素的样式。
+  useEffect(() => {
+    setFontWeight(value.fontWeight);
+  }, [targetDom, value.fontWeight]);
+
+  // 选择变量、普通档位和解绑共用此入口：先更新回显，再沿用原有样式写入链路。
+  const onFontWeightChange = (next: string) => {
+    setFontWeight(next);
+    onChange({ key: 'fontWeight', value: next });
+  };
+  // 关闭变量列表，不改变已选中的字重。
+  const closeFontWeightPicker = useCallback(() => setFontWeightPickerOpen(false), []);
+  // 清空仍由公共逻辑决定删除声明还是写 unset；成功后读取清空后的值更新回显。
+  const handleFontWeightClear = () => {
+    const result = weightField.clear?.();
+    // 公共层未执行清空时保留原值，避免控件显示已清空而样式仍然生效。
+    if (result && !result.clearApplied) return;
+    setFontWeight(context?.getStylePreview?.('fontWeight', true) || undefined);
+  };
   const options = editConfig?.options;
   const zoneTab = options && !Array.isArray(options) && 'zoneTab' in options ? options.zoneTab : null;
   const normalFontResolution = useMemo(() => {
@@ -1188,28 +1238,70 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
         <Panel.Content style={truncateBtnInWeightRow ? { position: 'relative' } : undefined}>
 
           {cfg.disableFontWeight ? null : (
-            <Select
-              tip={lang.fontWeight700}
-              prefix={<FontWeightOutlined />}
-              style={{
-                flex: 1,
-                padding: "0 8px",
-                overflow: "hidden",
-              }}
-              labelStyle={{
-                textAlign:"left",
-                marginLeft: '4px',
-              }}
-              value={value.fontWeight}
-              displayValue={fontWeightField.displaySource === 'normal-computed'
-                ? FONT_WEIGHT_OPTIONS.find(option => option.value === fontWeightField.computedPreview)?.label
-                  ?? fontWeightField.computedPreview
-                : undefined}
-              clearable={!!weightField.clear}
-              onClear={weightField.clear}
-              options={FONT_WEIGHT_OPTIONS}
-              onChange={(value) => onChange({ key: "fontWeight", value })}
-            />
+            <>
+              <Select
+                tip={lang.fontWeight700}
+                prefix={<FontWeightOutlined />}
+                style={{
+                  flex: 1,
+                  padding: "0 8px",
+                  overflow: "hidden",
+                }}
+                labelStyle={{
+                  textAlign:"left",
+                  marginLeft: '4px',
+                  fontWeight: fontWeightVar ? 500 : undefined,
+                }}
+                value={fontWeight}
+                displayValue={fontWeightField.displaySource === 'normal-computed'
+                  ? isCssVarValue(fontWeightField.computedPreview)
+                    ? formatCssVarTitle(parseCssVar(fontWeightField.computedPreview)?.varName ?? '', themeVars)
+                    : FONT_WEIGHT_OPTIONS.find(option => option.value === fontWeightField.computedPreview)?.label
+                    ?? fontWeightField.computedPreview
+                  : undefined}
+                clearable={!!weightField.clear}
+                onClear={handleFontWeightClear}
+                options={[
+                  ...(fontWeightVar ? [
+                    { label: formatCssVarTitle(fontWeightVar.varName, themeVars), value: fontWeight },
+                    { label: '', value: '__fontWeightVariableDivider__', type: 'divider' as const },
+                  ] : []),
+                  ...FONT_WEIGHT_OPTIONS,
+                  { label: '', value: '__fontWeightActionsDivider__', type: 'divider' },
+                  ...(fontWeightVar && resolvedFontWeight ? buildDetachMenuOptions(resolvedFontWeight) : []),
+                  {
+                    ...getApplyVariableOption(fontWeightVariables.length > 0),
+                    label: fontWeightVar ? lang.replaceVariable : lang.applyVariableTip,
+                    tip: fontWeightVariables.length ? undefined : lang.noVariables,
+                  },
+                ]}
+                onChange={onFontWeightChange}
+                onAction={(action) => {
+                  if (action === APPLY_VARIABLE_ACTION) setFontWeightPickerOpen(true);
+                  else if (action === DETACH_VARIABLE_ACTION) onFontWeightChange(resolvedFontWeight!);
+                }}
+              />
+              {/* 锚点放在控件后，避免字重控件因不再是首个子元素而多出左边距。 */}
+              <div ref={fontWeightAnchorRef} style={{ position: 'absolute', pointerEvents: 'none' }} />
+              <SketchPopup
+                open={fontWeightPickerOpen}
+                mounted={fontWeightPickerOpen}
+                anchorRef={fontWeightAnchorRef}
+                onClose={closeFontWeightPicker}
+                className={css.variablePopup}
+              >
+                <VariableList
+                  list={fontWeightVariables}
+                  open={fontWeightPickerOpen}
+                  selectedName={fontWeightVar ? String(fontWeight) : undefined}
+                  onClose={closeFontWeightPicker}
+                  onSelect={(item) => {
+                    onFontWeightChange(`var(${item.name})`);
+                    closeFontWeightPicker();
+                  }}
+                />
+              </SketchPopup>
+            </>
           )}
 
           {cfg.disableFontSize ? null : (
