@@ -1239,7 +1239,6 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
 
           {cfg.disableFontWeight ? null : (
             <>
-              <div ref={fontWeightAnchorRef} style={{ position: 'absolute', pointerEvents: 'none' }} />
               <Select
                 tip={lang.fontWeight700}
                 prefix={<FontWeightOutlined />}
@@ -1281,6 +1280,8 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
                   else if (action === DETACH_VARIABLE_ACTION) onFontWeightChange(resolvedFontWeight!);
                 }}
               />
+              {/* 锚点放在控件后，避免字重控件因不再是首个子元素而多出左边距。 */}
+              <div ref={fontWeightAnchorRef} style={{ position: 'absolute', pointerEvents: 'none' }} />
               <SketchPopup
                 open={fontWeightPickerOpen}
                 mounted={fontWeightPickerOpen}
