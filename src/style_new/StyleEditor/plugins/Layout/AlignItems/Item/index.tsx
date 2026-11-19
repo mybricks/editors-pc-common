@@ -16,6 +16,11 @@ export interface FlexItemProps
     "flexDirection" | "justifyContent" | "alignItems"
   > {
   flexItem: FlexItem;
+  pointIndex: number;
+  activePointIndex?: number;
+  lineItem?: FlexItem;
+  className?: string;
+  style?: CSSProperties;
   onSelected: (p: FlexItem) => void;
 }
 
@@ -32,7 +37,9 @@ const getTitle = ({ flexItem, flexDirection }: Params) => {
       if (alignItems === "flex-end") return "right";
     }
   }
-  if (justifyContent !== "center") {
+  if (justifyContent === undefined) {
+    justifyContent = "unset";
+  } else if (justifyContent !== "center") {
     justifyContent =
       flexDirection === "row"
         ? justifyContent?.split("-")[1] === "start"
@@ -42,7 +49,9 @@ const getTitle = ({ flexItem, flexDirection }: Params) => {
         ? "top"
         : "bottom";
   }
-  if (alignItems !== "center") {
+  if (alignItems === undefined) {
+    alignItems = "unset";
+  } else if (alignItems !== "center") {
     alignItems =
       flexDirection === "row"
         ? alignItems?.split("-")[1] === "start"
@@ -60,19 +69,41 @@ export default ({
   justifyContent,
   alignItems,
   flexItem,
+  pointIndex,
+  activePointIndex,
+  lineItem,
+  className,
+  style,
   onSelected,
 }: FlexItemProps) => {
   const [hover, setHover] = useState<boolean>(false);
+  const isNineGrid = !extraJustifyContent.includes(flexItem.justifyContent as string);
+  const verticalKey = flexDirection === "row" ? "alignItems" : "justifyContent";
+  const horizontalKey = flexDirection === "row" ? "justifyContent" : "alignItems";
+  const currentItem = { justifyContent, alignItems };
+  const vertical = currentItem[verticalKey];
+  const horizontal = currentItem[horizontalKey];
+  const isPartial = isNineGrid && (
+    (vertical === flexItem[verticalKey] && horizontal === undefined) ||
+    (vertical === undefined && horizontal === flexItem[horizontalKey])
+  );
+  // 重新选中后没有操作点记录，未设置轴只显示在中点，避免整行/列同时高亮。
+  const showPartial = isPartial && (activePointIndex === undefined
+    ? flexItem[vertical === undefined ? verticalKey : horizontalKey] === "center"
+    : activePointIndex === pointIndex);
   const isActive = useMemo(() => {
-    return (
+    // 两项都未配置时沿用左上角默认高亮，保留实际空值供点击时写入。
+    return (justifyContent === undefined && alignItems === undefined && pointIndex === 0) ||
+      (isPartial && activePointIndex === pointIndex) || (
       flexItem.justifyContent === justifyContent &&
       flexItem.alignItems === alignItems
     );
-  }, [flexItem, justifyContent, alignItems]);
+  }, [flexItem, justifyContent, alignItems, isPartial, activePointIndex, pointIndex]);
+  const title = getTitle({ flexItem: lineItem || (showPartial ? currentItem : flexItem), flexDirection });
 
 
   const dot = useMemo(() => {
-    if (justifyContent == "normal" || justifyContent == "center" || justifyContent == "flex-start" || justifyContent == "flex-end" ) {
+    if (justifyContent === undefined || justifyContent == "normal" || justifyContent == "center" || justifyContent == "flex-start" || justifyContent == "flex-end" ) {
       return <Point />
     }
 
@@ -108,23 +139,47 @@ export default ({
   }
 
   return (
-    <FlexContext.Provider value={{ flexDirection, hover, active: isActive }}>
+    <FlexContext.Provider value={{ flexDirection, hover, active: isActive || showPartial }}>
       <div
+        key={isNineGrid ? title : undefined}
+        className={className}
+        ref={isNineGrid ? node => {
+          // 宿主按 mouseover 目标缓存提示；状态变化后从新节点读取文案。
+          if (node && hover) node.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+        } : undefined}
         style={{
           display: "flex",
           justifyContent: "center",
           alignItems: "center",
-          cursor: "pointer"
+          cursor: "pointer",
+          ...style,
         }}
-        data-mybricks-tip={getTitle({ flexItem, flexDirection })}
+        data-mybricks-tip={title}
         onMouseEnter={() => handleMouseEnter()}
         onMouseLeave={() => handleMouseLeave()}
         onClick={() => {
+          if (isNineGrid) {
+            // 切换灰线只改变已设置的轴；当前线继续复用原来的点击循环。
+            if (lineItem && !isPartial) {
+              onSelected(lineItem);
+              return;
+            }
+            // 与提示文案保持同序：justify align → justify unset → unset align → justify align；换点先完整赋值。
+            const nextItem = { ...flexItem };
+            if (isActive && justifyContent === undefined && alignItems === undefined) {
+              // 默认高亮已显示完整对齐，首次点击直接进入下一态。
+              nextItem.alignItems = undefined;
+            } else if (isActive && justifyContent !== undefined) {
+              nextItem[alignItems === undefined ? "justifyContent" : "alignItems"] = undefined;
+            }
+            onSelected(nextItem);
+            return;
+          }
           if (isActive) return;
           onSelected(flexItem);
         }}
       >
-        {isActive ? (
+        {isActive || showPartial ? (
           <Bar flexItem={flexItem} flexDirection={flexDirection} />
         ) : hover ? (
           <Bar flexItem={flexItem} flexDirection={flexDirection} />
