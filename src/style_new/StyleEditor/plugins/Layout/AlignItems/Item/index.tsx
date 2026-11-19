@@ -138,7 +138,7 @@ export default ({
           justifyContent: "center",
           alignItems: "center",
           cursor: "pointer",
-          opacity: isPartial ? 0.4 : undefined,
+          opacity: isPartial ? 0.6 : undefined,
         }}
         data-mybricks-tip={title}
         onMouseEnter={() => handleMouseEnter()}
