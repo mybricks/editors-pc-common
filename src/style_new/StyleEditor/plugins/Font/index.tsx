@@ -21,13 +21,16 @@ import {
   Dropdown,
   DownOutlined,
   VariableNumberInput,
+  VariableList,
+  SketchPopup,
   buildDetachMenuOptions,
   getApplyVariableOption,
   APPLY_VARIABLE_ACTION,
+  DETACH_VARIABLE_ACTION,
 } from "../../components";
 import { splitValueAndUnit } from "../../utils";
 import { PanelBaseProps, StyleChangeItem, StyleChangeResult } from "../../type";
-import { useDragNumber, useLengthInputDrag, useCanvasColorVariables, useLengthVarBinding, useStyleDisplayValue, isCssVarValue, useThemeVars } from "../../hooks";
+import { useDragNumber, useLengthInputDrag, useCanvasColorVariables, useCanvasCssVariables, useLengthVarBinding, useStyleDisplayValue, isCssVarValue, useThemeVars } from "../../hooks";
 import { Variable } from "../../icons/Variable";
 import { FontSetting } from "../../icons/FontSetting";
 import { FontSettingTruncation } from "../../icons/FontSettingTruncation";
@@ -44,7 +47,7 @@ import {
 import { getColorEditorValue } from "../../helper/get-color-editor-value";
 import { normalizeCssValue } from "../../helper/normalize-css-value";
 import { createStyleResolution } from "../../../core/style-property";
-import { formatCssVarTitle, parseCssVar } from "../../../core/css-var";
+import { collectCssVarOptions, formatCssVarTitle, parseCssVar, resolveCssVar } from "../../../core/css-var";
 import type { EffectiveStyleValue } from "../../../core/zone-tab";
 import css from "./index.less";
 import lang from '../../../index.i18n'
@@ -54,6 +57,16 @@ const FONT_SIZE_PRESETS = [10, 11, 12, 13, 14, 15, 16, 20, 24, 32, 36, 40, 48, 6
 
 /** 档位全展开，宽度不被长文案撑开（超出走省略号） */
 const FONT_SIZE_MENU_STYLE: CSSProperties = { maxHeight: 'none', maxWidth: 132 };
+
+// 字重使用无单位数值或字重关键字，不能复用尺寸变量的筛选。
+function isFontWeightValue(value: string): boolean {
+  return /^(normal|bold|bolder|lighter)$/i.test(value) ||
+    (/^(?:\d+\.?\d*|\.\d+)$/.test(value) && Number(value) >= 1 && Number(value) <= 1000);
+}
+
+function getFontWeightVariables(scopeEl?: Element | null) {
+  return collectCssVarOptions(scopeEl, isFontWeightValue);
+}
 
 interface FontProps extends PanelBaseProps {
   value: CSSProperties;
@@ -336,6 +349,30 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
     'soloEdit' in editConfig.options && editConfig.options.soloEdit
   );
   const { targetDom, variableOptions: canvasColorVariables } = useCanvasColorVariables();
+  const { variableOptions: fontWeightVariables } = useCanvasCssVariables(getFontWeightVariables);
+  const [fontWeight, setFontWeight] = useState<string | number | undefined>(value.fontWeight);
+  const [fontWeightPickerOpen, setFontWeightPickerOpen] = useState(false);
+  const fontWeightAnchorRef = useRef<HTMLDivElement>(null);
+  const fontWeightVar = parseCssVar(String(fontWeight));
+  const resolvedFontWeight = fontWeightVar
+    ? resolveCssVar(String(fontWeight), targetDom, isFontWeightValue)
+      ?? (targetDom ? window.getComputedStyle(targetDom).fontWeight : undefined)
+    : undefined;
+
+  useEffect(() => {
+    setFontWeight(value.fontWeight);
+  }, [targetDom, value.fontWeight]);
+
+  const onFontWeightChange = (next: string) => {
+    setFontWeight(next);
+    onChange({ key: 'fontWeight', value: next });
+  };
+  const closeFontWeightPicker = useCallback(() => setFontWeightPickerOpen(false), []);
+  const handleFontWeightClear = () => {
+    const result = weightField.clear?.();
+    if (result && !result.clearApplied) return;
+    setFontWeight(context?.getStylePreview?.('fontWeight', true) || undefined);
+  };
   const options = editConfig?.options;
   const zoneTab = options && !Array.isArray(options) && 'zoneTab' in options ? options.zoneTab : null;
   const normalFontResolution = useMemo(() => {
@@ -1188,28 +1225,68 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
         <Panel.Content style={truncateBtnInWeightRow ? { position: 'relative' } : undefined}>
 
           {cfg.disableFontWeight ? null : (
-            <Select
-              tip={lang.fontWeight700}
-              prefix={<FontWeightOutlined />}
-              style={{
-                flex: 1,
-                padding: "0 8px",
-                overflow: "hidden",
-              }}
-              labelStyle={{
-                textAlign:"left",
-                marginLeft: '4px',
-              }}
-              value={value.fontWeight}
-              displayValue={fontWeightField.displaySource === 'normal-computed'
-                ? FONT_WEIGHT_OPTIONS.find(option => option.value === fontWeightField.computedPreview)?.label
-                  ?? fontWeightField.computedPreview
-                : undefined}
-              clearable={!!weightField.clear}
-              onClear={weightField.clear}
-              options={FONT_WEIGHT_OPTIONS}
-              onChange={(value) => onChange({ key: "fontWeight", value })}
-            />
+            <>
+              <div ref={fontWeightAnchorRef} style={{ position: 'absolute', pointerEvents: 'none' }} />
+              <Select
+                tip={lang.fontWeight700}
+                prefix={<FontWeightOutlined />}
+                style={{
+                  flex: 1,
+                  padding: "0 8px",
+                  overflow: "hidden",
+                }}
+                labelStyle={{
+                  textAlign:"left",
+                  marginLeft: '4px',
+                }}
+                value={fontWeight}
+                displayValue={fontWeightField.displaySource === 'normal-computed'
+                  ? isCssVarValue(fontWeightField.computedPreview)
+                    ? formatCssVarTitle(parseCssVar(fontWeightField.computedPreview)?.varName ?? '', themeVars)
+                    : FONT_WEIGHT_OPTIONS.find(option => option.value === fontWeightField.computedPreview)?.label
+                    ?? fontWeightField.computedPreview
+                  : undefined}
+                clearable={!!weightField.clear}
+                onClear={handleFontWeightClear}
+                options={[
+                  ...(fontWeightVar ? [
+                    { label: formatCssVarTitle(fontWeightVar.varName, themeVars), value: fontWeight },
+                    { label: '', value: '__fontWeightVariableDivider__', type: 'divider' as const },
+                  ] : []),
+                  ...FONT_WEIGHT_OPTIONS,
+                  { label: '', value: '__fontWeightActionsDivider__', type: 'divider' },
+                  ...(fontWeightVar && resolvedFontWeight ? buildDetachMenuOptions(resolvedFontWeight) : []),
+                  {
+                    ...getApplyVariableOption(fontWeightVariables.length > 0),
+                    label: fontWeightVar ? lang.replaceVariable : lang.applyVariableTip,
+                    tip: fontWeightVariables.length ? undefined : lang.noVariables,
+                  },
+                ]}
+                onChange={onFontWeightChange}
+                onAction={(action) => {
+                  if (action === APPLY_VARIABLE_ACTION) setFontWeightPickerOpen(true);
+                  else if (action === DETACH_VARIABLE_ACTION) onFontWeightChange(resolvedFontWeight!);
+                }}
+              />
+              <SketchPopup
+                open={fontWeightPickerOpen}
+                mounted={fontWeightPickerOpen}
+                anchorRef={fontWeightAnchorRef}
+                onClose={closeFontWeightPicker}
+                className={css.variablePopup}
+              >
+                <VariableList
+                  list={fontWeightVariables}
+                  open={fontWeightPickerOpen}
+                  selectedName={fontWeightVar ? String(fontWeight) : undefined}
+                  onClose={closeFontWeightPicker}
+                  onSelect={(item) => {
+                    onFontWeightChange(`var(${item.name})`);
+                    closeFontWeightPicker();
+                  }}
+                />
+              </SketchPopup>
+            </>
           )}
 
           {cfg.disableFontSize ? null : (
