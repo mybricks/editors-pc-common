@@ -223,6 +223,11 @@ export function Layout({ value: panelValue, onChange: fallbackOnChange, showTitl
   const editValue = Object.fromEntries(
     Object.entries(currentValue).filter(([key, v]) => v != null && LAYOUT_KEYS.has(key))
   );
+  // 对齐回显读取配置值，避免 unset 的计算值被当作已设置的方向。
+  if (hasZoneTab && !isReset) {
+    editValue.alignItems = alignField.configuredValue;
+    editValue.justifyContent = justifyField.configuredValue;
+  }
 
   const refresh = useCallback(() => {
     const keys = Object.keys(value ?? {}).filter(key => LAYOUT_KEYS.has(key));
@@ -335,6 +340,8 @@ function LayoutEditor({ editValue, previewValue, overflowHidden, clearedGapKeys,
   const initialModel: LayoutModel = {
     ...defaultValue,
     ..._value,
+    alignItems: _value.alignItems === "unset" ? undefined : _value.alignItems as CSSProperties["alignItems"],
+    justifyContent: _value.justifyContent === "unset" ? undefined : _value.justifyContent as CSSProperties["justifyContent"],
     flexDirection: ((_value as any).flexDirection ?? defaultValue.flexDirection) as CSSProperties["flexDirection"],
     position: _position as any,
   };
@@ -418,8 +425,8 @@ function LayoutEditor({ editValue, previewValue, overflowHidden, clearedGapKeys,
       display: undefined,
       position: "default",
       flexWrap: defaultValue.flexWrap,
-      alignItems: defaultValue.alignItems,
-      justifyContent: defaultValue.justifyContent,
+      alignItems: undefined,
+      justifyContent: undefined,
       rowGap: null,
       columnGap: null,
     }));
@@ -502,7 +509,10 @@ function LayoutEditor({ editValue, previewValue, overflowHidden, clearedGapKeys,
       }
 
       if (isInline) {
-        setModel(prev => ({ ...prev, ...clearGrid, display: "inline", flexDirection, position: "inherit" }));
+        setModel(prev => ({
+          ...prev, ...clearGrid, display: "inline", flexDirection, position: "inherit",
+          alignItems: undefined, justifyContent: undefined,
+        }));
         emitValue({
           display: "inline",
           flexDirection: null,
