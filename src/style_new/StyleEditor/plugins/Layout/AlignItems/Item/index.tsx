@@ -81,7 +81,10 @@ export default ({
     (vertical === flexItem[verticalKey] && horizontal === undefined) ||
     (vertical === undefined && horizontal === flexItem[horizontalKey])
   );
-  const showPartial = isPartial && (activePointIndex === undefined || activePointIndex === pointIndex);
+  // 重新选中后没有操作点记录，未设置轴只显示在中点，避免整行/列同时高亮。
+  const showPartial = isPartial && (activePointIndex === undefined
+    ? flexItem[vertical === undefined ? verticalKey : horizontalKey] === "center"
+    : activePointIndex === pointIndex);
   const isActive = useMemo(() => {
     return (isPartial && activePointIndex === pointIndex) || (
       flexItem.justifyContent === justifyContent &&
@@ -139,7 +142,6 @@ export default ({
           display: "flex",
           justifyContent: "center",
           alignItems: "center",
-          opacity: showPartial ? 0.5 : undefined,
           cursor: "pointer"
         }}
         data-mybricks-tip={title}
