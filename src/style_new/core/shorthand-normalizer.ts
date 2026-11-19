@@ -215,6 +215,8 @@ function splitTopLevelComponents(value: string): string[] | null {
       if (depth < 1) return null
       depth -= 1
       current += char
+      // CSSOM 可能返回 var(--spacing-xxl)0 var(--spacing-md)；最外层函数结束后拆开，避免把变量和下一边的数值合并。
+      if (depth === 0) flush()
       continue
     }
 
