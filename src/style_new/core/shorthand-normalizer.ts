@@ -301,13 +301,15 @@ function expandShorthandForLonghandChange(
   changedKeys: Set<string>,
   deletions: string[]
 ) {
+  // gap 只有两个方向，也需要先拆再改：删列时，不能把 gap 中尚未修改的行间距一起删掉。
   if (
-    (longhands.length !== 4 && shorthand !== 'overflow') ||
+    (longhands.length !== 4 && shorthand !== 'overflow' && shorthand !== 'gap') ||
     !hasValue(style, shorthand) ||
     !longhands.some((key) => changedKeys.has(key))
   ) return
 
-  const expanded = shorthand === 'overflow' ? expandTwoShorthand(style[shorthand]) : expandFourShorthand(style[shorthand])
+  // gap: var(--spacing-sm) 34px 按“行、列”拆开；只有一个值时，两轴都使用该值。
+  const expanded = shorthand === 'overflow' || shorthand === 'gap' ? expandTwoShorthand(style[shorthand]) : expandFourShorthand(style[shorthand])
   if (!expanded || expanded.length !== longhands.length) return
 
   longhands.forEach((key, index) => {

@@ -2,7 +2,7 @@
 import { compare } from 'specificity'
 import { toLine } from './css-code-codec'
 import { calculateSafeSpecificity } from './selector-utils'
-import { readAuthoredBackgroundDeclarations } from './get-values-background'
+import { readAuthoredBackgroundDeclarations, readAuthoredStyleDeclarations } from './get-values-background'
 import {
   BATCH_CLEAR_SHORTHANDS, getShorthandFamily, STYLE_SHORTHANDS, stylePropertyKey,
 } from './style-shorthand-groups'
@@ -174,10 +174,12 @@ export function createStyleResolution(tab: ZoneTab, target: HTMLElement | null =
     })
     // 之前margin: var(...)会导致读不到margin-left这些单侧值
     // 现在从整条简写拆出单侧值，并记住来自哪条简写，这样就知道清除哪条边，单侧就能展示default选项
-    ;['margin', 'padding', 'border-radius'].forEach(property => {
+    // gap: var(--spacing-sm) 也会读不到两轴；先从可读的 gap 展开，让重新选中后仍能回显和清空。
+    ;['margin', 'padding', 'border-radius', 'gap'].forEach(property => {
       const raw = style.getPropertyValue(property)
       if (!raw.includes('var(')) return
-      const values = expandFourShorthand(raw)
+      // gap 的两个值分别属于行、列；margin/padding/圆角继续按原来的四方向规则展开。
+      const values = property === 'gap' ? expandTwoShorthand(raw) : expandFourShorthand(raw)
       if (!values) return
       STYLE_SHORTHANDS[property].forEach((longhand, index) => {
         if (!style.getPropertyValue(longhand)) {
@@ -185,6 +187,21 @@ export function createStyleResolution(tab: ZoneTab, target: HTMLElement | null =
         }
       })
     })
+    // gap: var(--spacing-sm); column-gap: 34px 会使 CSSOM 的 gap 和 row-gap 都为空，上一段无法展开。
+    // 此时回读原始样式文本，只补缺失的行间距变量；可读的 column-gap: 34px 不被原 gap 覆盖。
+    // base 与 index 同名时，只统计包含 gap 的声明；基础规则里的定位、字体不会挡住间距回显。
+    if (source && !style.getPropertyValue('gap') && STYLE_SHORTHANDS.gap.some(key =>
+      declared.includes(key) && !style.getPropertyValue(key)
+    )) {
+      const declarations = readAuthoredStyleDeclarations(source.rule).filter(declaration => declaration.gap)
+      const gap = declarations.length === 1 ? declarations[0].gap : undefined
+      const values = typeof gap === 'string' && gap.includes('var(') ? expandTwoShorthand(gap) : null
+      if (values) STYLE_SHORTHANDS.gap.forEach((key, position) => {
+        if (declared.includes(key) && !style.getPropertyValue(key)) {
+          borderFallbacks.set(key, { value: values[position].replace(/\s*!important\s*$/i, ''), property: 'gap' })
+        }
+      })
+    }
     const specificity = source && calculateSafeSpecificity(source.selectorPart, target)
     // 2. 将属性值和来源存入索引；优先直接读取，简写分项为空时才用上面拆出的值。
     expanded.forEach(key => {
@@ -214,8 +231,9 @@ export function createStyleResolution(tab: ZoneTab, target: HTMLElement | null =
       const candidate: StyleSourceCandidate = {
         property: shorthand || key,
         value,
-        // 补出的分项沿用原简写的 !important；直接读到的分项仍读取自身优先级。
-        important: style.getPropertyPriority(fallback?.property || key) === 'important',
+        // gap 整体读不出来时，直接查 gap 的优先级也会丢信息，但 row-gap/column-gap 仍保留各自的 !important。
+        // 所以 gap 补值读取对应轴的优先级；其他简写补值继续沿用原来的取值方式。
+        important: style.getPropertyPriority(fallback?.property === 'gap' ? key : fallback?.property || key) === 'important',
         label: previewSelector || source?.sourceSelector || (source ? '' : 'inline'),
         source,
         specificity,
@@ -316,13 +334,15 @@ export function createStyleResolution(tab: ZoneTab, target: HTMLElement | null =
       const parsedShorthand = value != null && (property === 'flex' || property === 'border-radius')
         ? target?.ownerDocument?.createElement('div').style : undefined
       if (parsedShorthand) parsedShorthand.setProperty(property, String(value).replace(/\s*!important\s*$/i, '').trim())
-      if (value != null && (parsedShorthand || property === 'margin' || property === 'padding' || property === 'overflow' || (border && STYLE_SHORTHANDS[property]))) {
+      // 列间距改为 40px 后可能写成 gap: var(--spacing-sm) 40px；同步两轴缓存，下一次编辑立即读到 40px。
+      if (value != null && (parsedShorthand || property === 'margin' || property === 'padding' || property === 'overflow' || property === 'gap' || (border && STYLE_SHORTHANDS[property]))) {
         let expanded: string[] | null
         if (parsedShorthand) {
           expanded = STYLE_SHORTHANDS[property].map(key => parsedShorthand.getPropertyValue(key))
         } else if (border) {
           expanded = STYLE_SHORTHANDS[property].map(key => border[stylePropertyKey(key)])
-        } else if (property === 'overflow') {
+        } else if (property === 'overflow' || property === 'gap') {
+          // 这里只拆原声明，保留 var()；不能用计算后的像素值替换行间距绑定。
           expanded = expandTwoShorthand(value)
         } else {
           expanded = expandFourShorthand(value)

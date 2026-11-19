@@ -5,8 +5,11 @@ import type { StyleChangeItem } from './apply-style-change'
 import { STYLE_SHORTHANDS, stylePropertyKey } from './style-shorthand-groups'
 import { splitAncestorState, splitZoneSelectorState } from './zone-tab'
 
-/** 方向属性在同一来源内拆写，保留未编辑方向及后备来源。 */
-export function createDirectionalWritePlans<Property extends 'borderRadius' | 'margin' | 'padding' | 'overflow'>(
+/**
+ * 方向属性在同一来源内拆写，保留未编辑方向及后备来源。
+ * gap 也按两个方向处理：修改列间距时，行间距仍保留该规则自己的值或变量。
+ */
+export function createDirectionalWritePlans<Property extends 'borderRadius' | 'margin' | 'padding' | 'overflow' | 'gap'>(
   property: Property,
   changes: StyleChangeItem[],
   resolution: Pick<StyleResolution, 'get'>,
@@ -71,7 +74,10 @@ export function createDirectionalWritePlans<Property extends 'borderRadius' | 'm
       style[change.key] = value
       return { ...change, value }
     })
-    const normalized = normalizeStyleShorthands(style, nextChanges, new Set(clearedKeys), { changedGroupsOnly: true })
+    // Gap 清空一轴时，上方已经决定删除（null）还是屏蔽后备样式（unset）。
+    // 这里不再传 clearedKeys 触发补零，否则“取消列配置”会变成显式配置 gap: var(--spacing-sm) 0px。
+    // 原 clearedKeys 仍随计划返回，供提交后清理面板快照；其他方向属性继续沿用原参数。
+    const normalized = normalizeStyleShorthands(style, nextChanges, new Set(property === 'gap' ? [] : clearedKeys), { changedGroupsOnly: true })
     let output = normalized.style
     let deletions = normalized.deletions.filter(key => sourceKeys.has(key) && !(key in output))
     let unsupported = !selector
