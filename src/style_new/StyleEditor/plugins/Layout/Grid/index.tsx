@@ -1,3 +1,4 @@
+import { highlightZeroOnFocus, highlightZeroOnMouseDown } from '../../../utils';
 import React, { useRef, useState } from 'react';
 import {
   buildDetachMenuOptions,
@@ -98,6 +99,8 @@ function TrackValueInput({ track, variableSource, variableValue, actualSize, onC
       className={display.mode === 'hug' ? styles.hugValue : undefined}
       value={draft ?? inputText}
       onChange={setDraft}
+      onFocus={highlightZeroOnFocus}
+      onMouseDown={highlightZeroOnMouseDown}
       onBlur={(event) => commitValue(event.currentTarget.value)}
       onKeyDown={(event) => {
         if (event.key === 'Enter') {

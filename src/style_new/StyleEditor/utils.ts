@@ -1,3 +1,19 @@
+import type { FocusEvent, MouseEvent } from 'react'
+
+/** 只选中输入框里的单个零，单位、关键字和其他数值不处理。 */
+export function highlightZeroOnFocus(event: FocusEvent<HTMLInputElement>) {
+  if (event.currentTarget.value === '0') event.currentTarget.select()
+}
+
+/** 首次点击先聚焦全选，阻止默认动作取消选区；再次点击可正常定位光标。 */
+export function highlightZeroOnMouseDown(event: MouseEvent<HTMLInputElement>) {
+  const input = event.currentTarget
+  if (event.button === 0 && input.ownerDocument.activeElement !== input && input.value === '0') {
+    event.preventDefault()
+    input.focus()
+  }
+}
+
 /**
  * 将字符串拆分为数值和单位。
  *

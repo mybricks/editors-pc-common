@@ -15,7 +15,7 @@ import {
 } from "../../components";
 import { Panel, Colorpicker, UnbindingOutlined, BindingOutlined, UnBindLinkIcon } from "../";
 import { ClearButton } from "../ClearButton";
-import { color2rgba, getRealKey } from "../../utils";
+import { color2rgba, getRealKey, highlightZeroOnFocus, highlightZeroOnMouseDown } from "../../utils";
 import {
   CssVarColorOption,
   parseCssVar,
@@ -833,6 +833,8 @@ export function ColorEditor({
           ref={inputRef}
           type="inputNumber"
           value={Math.round((previewColor?.alpha() ?? opacityNumber) * 100)}
+          onFocus={highlightZeroOnFocus}
+          onMouseDown={highlightZeroOnMouseDown}
           onChange={(e) => handleOpacityChange(e.target.value)}
           onBlur={handleInputBlur}
           onKeyDown={handleOpacityKeyDown}

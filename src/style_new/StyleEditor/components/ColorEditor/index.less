@@ -175,6 +175,11 @@
         font-weight: 500;
         color: @font-color-content;
 
+        &::selection {
+          background-color: var(--mybricks-color-primary, #FA6400);
+          color: #fff;
+        }
+
         &:disabled {
           cursor: not-allowed;
         }

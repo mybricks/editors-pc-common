@@ -1,3 +1,4 @@
+import { highlightZeroOnFocus, highlightZeroOnMouseDown } from '../../utils'
 import React, {
   CSSProperties,
   useCallback,
@@ -370,6 +371,8 @@ function LayerItem({
               min={0}
               max={100}
               value={Math.round(opacity)}
+              onFocus={highlightZeroOnFocus}
+              onMouseDown={highlightZeroOnMouseDown}
               onChange={handleOpacityChange}
             />
           ) : (

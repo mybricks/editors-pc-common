@@ -7,7 +7,7 @@ import React, {
 } from 'react'
 
 import { Input, Select } from '..'
-import { splitValueAndUnit } from '../../utils'
+import { splitValueAndUnit, highlightZeroOnFocus, highlightZeroOnMouseDown } from '../../utils'
 import { useInputNumber, useUpdateEffect } from '../../hooks'
 import lang from '../../../index.i18n'
 
@@ -42,6 +42,10 @@ export interface InputNumberProps extends Omit<InputProps, 'onChange' | 'value'>
   type?: string
   align?: 'left' | 'right'
   onFocus?: () => void;
+  /** 自行处理失焦提交时，沿用调用方的原始回显值，不走内部规范化提交。 */
+  onBlur?: React.FocusEventHandler<HTMLInputElement>;
+  /** 传入时替代内部方向键和回车处理，保留调用方原来的键盘行为。 */
+  onKeyDown?: React.KeyboardEventHandler<HTMLInputElement>;
   /** 输入过程中的原始展示值变化；不代表已经通过回车或失焦提交。 */
   onInputValueChange?: (value: string) => void;
   onAction?: (value: any) => void;
@@ -88,6 +92,8 @@ export function InputNumber ({
   defaultUnitValue,
   onFocus,
   onInputValueChange,
+  onBlur: customOnBlur,
+  onKeyDown: customOnKeyDown,
   tip,
   allowNegative = false,
   showIcon = false,
@@ -175,7 +181,7 @@ export function InputNumber ({
     }
     onFocus?.()
     // 单个零在聚焦时全选，直接输入即可替换；其他数值保留原光标行为。
-    if (e.currentTarget.value === '0') e.currentTarget.select()
+    highlightZeroOnFocus(e)
   }, [onFocus, showPreview, previewIsNumeric, previewNumber, previewUnit, number, unit, handleNumberChange])
 
   const handleInputChange = useCallback((nextValue: string) => {
@@ -531,20 +537,20 @@ export function InputNumber ({
 
   return (
     <Input
-      className={css.inputNumber}
       style={style}
       prefix={prefix}
       prefixTip={prefixTip}
-      value={renderedValue}
+      // 调用方自行提交时保留原始草稿，避免内部数值规范化提前改变整数输入。
+      value={customOnBlur ? (externalValue ?? '') : renderedValue}
       placeholder={placeholder}
       onChange={handleInputChange}
       suffix={suffix}
       disabled={isDisabledUnit()}
       autoFocus={autoFocus}
-      onMouseDown={handleZeroMouseDown}
+      onMouseDown={highlightZeroOnMouseDown}
       onFocus={handleFocus}
-      onKeyDown={onKeyDown}
-      onBlur={onBlur}
+      onKeyDown={customOnKeyDown || onKeyDown}
+      onBlur={customOnBlur || onBlur}
       align={align}
       tip={tip}
       className={`${css.inputNumber}${className ? ` ${className}` : ''}`}
@@ -553,15 +559,6 @@ export function InputNumber ({
       type={showPreview && !previewIsNumeric ? undefined : type} // 关键字计算值也需要可见
     />
   )
-}
-
-// 首次点击零时先触发聚焦全选，避免鼠标默认动作取消选区；已聚焦后可正常定位。
-function handleZeroMouseDown(event: React.MouseEvent<HTMLInputElement>) {
-  const input = event.currentTarget
-  if (event.button === 0 && input.ownerDocument.activeElement !== input && input.value === '0') {
-    event.preventDefault()
-    input.focus()
-  }
 }
 
 function getUnit (value: any, defaultUnitValue: string | undefined = void 0, unitOptions: Array<UnitOption> = []) {

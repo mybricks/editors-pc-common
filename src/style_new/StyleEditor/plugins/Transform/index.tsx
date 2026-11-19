@@ -13,6 +13,7 @@ import { readRotation, readFlips, readTransformAxis, setRotation, setTransformAx
 import type { TransformAxisType, IndividualTransformKey } from './transform-value'
 
 import type { ChangeEvent, PanelBaseProps } from '../../type'
+import { highlightZeroOnFocus, highlightZeroOnMouseDown } from '../../utils'
 import css from './index.less'
 import lang from '../../../index.i18n'
 
@@ -170,8 +171,9 @@ export function Transform({ value, onChange: fallbackOnChange, showTitle, collap
     editTransform(type, current => setTransformAxis(current, type, axis, value))
   }, [editTransform])
 
-  const handleFocus = useCallback(() => {
+  const handleFocus = useCallback((event: React.FocusEvent<HTMLInputElement>) => {
     isEditingRef.current = true
+    highlightZeroOnFocus(event)
   }, [])
 
   const handleBlur = useCallback((e: React.FocusEvent<HTMLInputElement>) => {
@@ -335,6 +337,8 @@ export function Transform({ value, onChange: fallbackOnChange, showTitle, collap
             data-mybricks-tip={lang.rotationAngleTip}
             onChange={handleChange}
             onFocus={handleFocus}
+            onMouseDown={highlightZeroOnMouseDown}
+            className={css.angleInput}
             onBlur={handleBlur}
             onKeyDown={handleKeyDown}
             style={{
