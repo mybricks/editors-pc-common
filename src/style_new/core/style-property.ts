@@ -186,16 +186,21 @@ export function createStyleResolution(tab: ZoneTab, target: HTMLElement | null =
       })
     })
     // gap: var(--spacing-sm); column-gap: 34px 会使 CSSOM 的 gap 和 row-gap 都为空；需要从原始 CSS 补回缺失值。
-    // 此时回读原始样式文本，只补缺失的行间距变量；可读的 column-gap: 34px 不被原 gap 覆盖。
-    // base 与 index 同名时，只统计包含 gap 的声明；基础规则里的定位、字体不会挡住间距回显。
+    // 仅在 gap 读不到，且行或列间距已声明但读不到值时，从源码补值。
     if (source && !style.getPropertyValue('gap') && STYLE_SHORTHANDS.gap.some(key =>
       declared.includes(key) && !style.getPropertyValue(key)
     )) {
+      // 读取原始声明，只保留含 gap 的规则，排除 base 中只有定位、字体的同名规则。
       const declarations = readAuthoredStyleDeclarations(source.rule).filter(declaration => declaration.gap)
+      // 只有一条规则含 gap 时才取值，避免混用多条同名规则的间距。
       const gap = declarations.length === 1 ? declarations[0].gap : undefined
+      // 将含变量的 gap 拆成行、列两个值，保留 var()；只有一个值时两轴共用。
       const values = typeof gap === 'string' && gap.includes('var(') ? expandTwoShorthand(gap) : null
+      // 按 row-gap、column-gap 的顺序，将拆出的值对应到各轴。
       if (values) STYLE_SHORTHANDS.gap.forEach((key, position) => {
+        // 只补已声明但读不到的轴，保留可直接读到的覆盖值，例如 column-gap: 34px。
         if (declared.includes(key) && !style.getPropertyValue(key)) {
+          // 去掉值末尾的 !important 并记录来源为 gap，优先级由下方单独读取。
           borderFallbacks.set(key, { value: values[position].replace(/\s*!important\s*$/i, ''), property: 'gap' })
         }
       })
