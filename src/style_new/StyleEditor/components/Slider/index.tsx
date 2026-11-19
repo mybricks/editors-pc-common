@@ -1,3 +1,4 @@
+import { highlightZeroOnFocus, highlightZeroOnMouseDown } from '../../utils'
 import React, { useCallback, useState } from 'react'
 
 import type { CSSProperties } from 'react'
@@ -47,6 +48,8 @@ export function Slider ({
           max={1}
           step={0.01}
           type='number'
+          onFocus={highlightZeroOnFocus}
+          onMouseDown={highlightZeroOnMouseDown}
           value={value}
           onChange={onInputChange}
         />

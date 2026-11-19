@@ -7,6 +7,7 @@ import { useEffectiveStyleValue, useStyleChange, useStyleClear, useStyleEditorCo
 
 import type { ChangeEvent, PanelBaseProps } from '../../type'
 
+import { highlightZeroOnFocus, highlightZeroOnMouseDown } from '../../utils'
 import css from './index.less'
 import lang from '../../../index.i18n'
 
@@ -355,8 +356,9 @@ export function Flex({ value: fallbackValue, onChange: fallbackOnChange, showTit
     [onChange, refresh, localGrow, localShrink, localBasis, hasFlexValue, parts]
   )
 
-  const handleFocus = useCallback(() => {
+  const handleFocus = useCallback((event: React.FocusEvent<HTMLInputElement>) => {
     isEditingRef.current = true
+    highlightZeroOnFocus(event)
   }, [])
 
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -449,6 +451,7 @@ export function Flex({ value: fallbackValue, onChange: fallbackOnChange, showTit
                   value={localValue}
                   onChange={handleChange}
                   onFocus={handleFocus}
+                  onMouseDown={highlightZeroOnMouseDown}
                   onBlur={handleBlur}
                   onKeyDown={handleKeyDown}
                   className={`${css.input} ${css.darkPlaceholder}`}
@@ -467,10 +470,12 @@ export function Flex({ value: fallbackValue, onChange: fallbackOnChange, showTit
                     type="text"
                     value={localGrow}
                     onChange={(e) => setLocalGrow(e.target.value)}
-                    onFocus={() => {
+                    onFocus={(event) => {
                       isEditingGrowRef.current = true
                       focusGrowValueRef.current = localGrow.trim()
+                      highlightZeroOnFocus(event)
                     }}
+                    onMouseDown={highlightZeroOnMouseDown}
                     onBlur={handleGrowBlur}
                     onKeyDown={handleKeyDown}
                     className={`${css.input} ${css.darkPlaceholder}`}
@@ -487,10 +492,12 @@ export function Flex({ value: fallbackValue, onChange: fallbackOnChange, showTit
                     type="text"
                     value={localShrink}
                     onChange={(e) => setLocalShrink(e.target.value)}
-                    onFocus={() => {
+                    onFocus={(event) => {
                       isEditingShrinkRef.current = true
                       focusShrinkValueRef.current = localShrink.trim()
+                      highlightZeroOnFocus(event)
                     }}
+                    onMouseDown={highlightZeroOnMouseDown}
                     onBlur={handleShrinkBlur}
                     onKeyDown={handleKeyDown}
                     className={`${css.input} ${css.darkPlaceholder}`}

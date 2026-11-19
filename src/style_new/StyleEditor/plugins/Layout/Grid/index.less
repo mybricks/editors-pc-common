@@ -165,3 +165,8 @@
 .trackActionSpacer { width: 24px; flex-shrink: 0; }
 .cell:disabled { cursor: default; opacity: 0.4; }
 .cell.selected:disabled { opacity: 1; }
+
+.trackRow input::selection {
+  background-color: var(--mybricks-color-primary, #FA6400);
+  color: #fff;
+}

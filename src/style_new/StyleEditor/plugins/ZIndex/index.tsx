@@ -1,6 +1,6 @@
 import React, { CSSProperties, useCallback, useEffect, useRef, useState, KeyboardEvent } from 'react'
 
-import { Panel, ClearButton } from '../../components'
+import { Panel, ClearButton, InputNumber } from '../../components'
 import { useEffectiveStyleValue, useStyleChange } from '../../context'
 
 import type { ChangeEvent, PanelBaseProps } from '../../type'
@@ -52,9 +52,9 @@ export function ZIndex({ value: _value, onChange: fallbackOnChange, config, show
   }, [])
 
   // 只更新本地状态，失焦或 Enter 才提交
-  const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = useCallback((next: string) => {
     setOptimisticPreset(null)
-    setLocalValue(e.target.value)
+    setLocalValue(next)
   }, [])
 
   const commitValue = useCallback((val: string) => {
@@ -119,29 +119,18 @@ export function ZIndex({ value: _value, onChange: fallbackOnChange, config, show
     >
       <Panel.Content>
         <Panel.Item className={css.clearRow}>
-          <input
+          <InputNumber
             type="number"
             value={localValue}
-            onChange={handleChange}
+            onInputValueChange={handleChange}
             onFocus={handleFocus}
             onBlur={handleBlur}
             onKeyDown={handleKeyDown}
-            style={{
-              flex: '1 1 auto',
-              width: 'auto',
-              minWidth: 0,
-              height: '100%',
-              border: 'none',
-              background: 'transparent',
-              fontSize: 11,
-              fontWeight: 500,
-              color: 'var(--mybricks-text-color-main, #888)',
-              paddingLeft: 6,
-              paddingRight: 2,
-              boxSizing: 'border-box' as const,
-              cursor: 'text',
-              outline: 'none',
-            }}
+            allowNegative
+            clearable={false}
+            placeholder=""
+            className={css.zIndexInput}
+            style={{ flex: '1 1 auto', width: 'auto', minWidth: 0, marginLeft: 0, border: 0, height: '100%' }}
           />
           {localValue !== '' && <ClearButton onClick={refresh} />}
         </Panel.Item>
