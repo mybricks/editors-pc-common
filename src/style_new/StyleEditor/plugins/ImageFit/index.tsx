@@ -18,13 +18,13 @@ export function ImageFit({ onChange: fallbackOnChange, showTitle, collapse }:
     let objectPosition = effectiveValue.objectPosition || ''
     const fitSource = context?.effectiveStyle?.objectFit
     const positionSource = context?.effectiveStyle?.objectPosition
-    // 保留生效值，仅把 unset 和未声明时的浏览器初始值按未配置处理。
+    // 未声明或已清空时保持未配置，计算值不作为展开依据。
     if (/^unset$/i.test(String(fitSource?.value).trim()) ||
-      (fitSource?.type === 'computed' && objectFit === 'fill')) {
+      fitSource?.type === 'computed') {
       objectFit = ''
     }
     if (/^unset$/i.test(String(positionSource?.value).trim()) ||
-      (positionSource?.type === 'computed' && objectPosition === '50% 50%')) {
+      positionSource?.type === 'computed') {
       objectPosition = ''
     }
     return { objectFit, objectPosition }
@@ -32,10 +32,8 @@ export function ImageFit({ onChange: fallbackOnChange, showTitle, collapse }:
   const [imageStyle, setImageStyle] = useState(() => ({
     objectFit, objectPosition
   }))
-  // 未配置时仅回显浏览器初始值，不写入样式，也不影响折叠状态。
   const displayObjectFit = imageStyle.objectFit || 'fill'
   const displayObjectPosition = imageStyle.objectPosition || '50% 50%'
-  // 点击加号的临时展开仍由 Panel 自己维护。
   const effectiveCollapse = !imageStyle.objectFit && !imageStyle.objectPosition
     ? true
     : collapse === 'inherited' ? 'inherited' : false
@@ -76,6 +74,14 @@ export function ImageFit({ onChange: fallbackOnChange, showTitle, collapse }:
   // 整组清空交给公共链路决定删除声明或写入 unset。
   return (
     <Panel title={lang.imageFitPanelTitle} showTitle={showTitle} collapse={effectiveCollapse} showDelete={!!clear}
+      onExpand={() => {
+        // 点击加号即新增配置，两项初始值一起走现有样式写入链路。
+        onChange([
+          { key: 'objectFit', value: displayObjectFit },
+          { key: 'objectPosition', value: displayObjectPosition },
+        ])
+        setImageStyle({ objectFit: displayObjectFit, objectPosition: displayObjectPosition })
+      }}
       resetFunction={() => {
         clear?.()
         setImageStyle({ objectFit: '', objectPosition: '' })
