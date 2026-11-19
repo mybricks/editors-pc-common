@@ -90,12 +90,14 @@ function getSelectorCandidates(selector: string): string[] {
 }
 
 /**
- * 从 style 标签文本中找到当前规则的 background 声明。
+ * 从 style 标签文本中找到当前规则的原始声明，保留变量与优先级。
+ * 将原背景读取流程的查找、解析部分共用给 gap；不重新实现一套选择器匹配。
+ * 例如 gap: var(--spacing-sm); column-gap: 34px 在 CSSOM 中丢值后，仍能从这里读回原始 gap。
  *
  * selector 会先转义成正则字面量，空白则放宽为任意连续空白，以兼容压缩
  * CSS、格式化 CSS 以及 CSSOM 与源码之间的细微格式差异。
  */
-export function readAuthoredBackgroundDeclarations(rule: CSSStyleRule): Record<string, string>[] {
+export function readAuthoredStyleDeclarations(rule: CSSStyleRule): Record<string, string>[] {
   const sourceText = getSourceStyleText(rule)
   if (!sourceText) return []
 
@@ -122,23 +124,32 @@ export function readAuthoredBackgroundDeclarations(rule: CSSStyleRule): Record<s
           : declarationBody,
         selector
       )
-      const background = Object.keys(parsed).reduce<Record<string, string>>((result, key) => {
-        const kebab = key.replace(/[A-Z]/g, (char) => `-${char.toLowerCase()}`)
-        if (
-          BACKGROUND_EXPORT_PROPS.includes(kebab as typeof BACKGROUND_EXPORT_PROPS[number]) ||
-          key === 'background'
-        ) {
-          // 源码值需要保留 var()，只去除 CSS 声明末尾的 !important。
-          result[kebab] = String(parsed[key]).replace(/\s*!important\s*$/i, '').trim()
-        }
-        return result
-      }, {})
-
-      if (Object.keys(background).length > 0) declarations.push(background)
+      // 此处保留全部属性及 !important；由背景或 gap 调用方各自选取所需声明。
+      declarations.push(parsed)
     }
   })
 
   return declarations
+}
+
+/**
+ * 保留原背景读取入口与返回格式：只返回背景属性，属性名转为连字符形式，并去掉 !important。
+ * 因此新增 gap 源码读取不会让旧背景调用方拿到 gap、color 等无关字段。
+ */
+export function readAuthoredBackgroundDeclarations(rule: CSSStyleRule): Record<string, string>[] {
+  return readAuthoredStyleDeclarations(rule).map(parsed =>
+    Object.keys(parsed).reduce<Record<string, string>>((result, key) => {
+      const kebab = key.replace(/[A-Z]/g, (char) => `-${char.toLowerCase()}`)
+      if (
+        BACKGROUND_EXPORT_PROPS.includes(kebab as typeof BACKGROUND_EXPORT_PROPS[number]) ||
+        key === 'background'
+      ) {
+        // 源码值需要保留 var()，只去除 CSS 声明末尾的 !important。
+        result[kebab] = String(parsed[key]).replace(/\s*!important\s*$/i, '').trim()
+      }
+      return result
+    }, {})
+  ).filter(background => Object.keys(background).length > 0)
 }
 
 /**

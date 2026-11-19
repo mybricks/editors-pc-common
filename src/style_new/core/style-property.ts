@@ -2,7 +2,7 @@
 import { compare } from 'specificity'
 import { toLine } from './css-code-codec'
 import { calculateSafeSpecificity } from './selector-utils'
-import { readAuthoredBackgroundDeclarations } from './get-values-background'
+import { readAuthoredBackgroundDeclarations, readAuthoredStyleDeclarations } from './get-values-background'
 import {
   BATCH_CLEAR_SHORTHANDS, getShorthandFamily, STYLE_SHORTHANDS, stylePropertyKey,
 } from './style-shorthand-groups'
@@ -185,6 +185,26 @@ export function createStyleResolution(tab: ZoneTab, target: HTMLElement | null =
         }
       })
     })
+    // gap: var(--spacing-sm); column-gap: 34px 会使 CSSOM 的 gap 和 row-gap 都为空；需要从原始 CSS 补回缺失值。
+    // 仅在 gap 读不到，且行或列间距已声明但读不到值时，从源码补值。
+    if (source && !style.getPropertyValue('gap') && STYLE_SHORTHANDS.gap.some(key =>
+      declared.includes(key) && !style.getPropertyValue(key)
+    )) {
+      // 读取原始声明，只保留含 gap 的规则，排除 base 中只有定位、字体的同名规则。
+      const declarations = readAuthoredStyleDeclarations(source.rule).filter(declaration => declaration.gap)
+      // 只有一条规则含 gap 时才取值，避免混用多条同名规则的间距。
+      const gap = declarations.length === 1 ? declarations[0].gap : undefined
+      // 将含变量的 gap 拆成行、列两个值，保留 var()；只有一个值时两轴共用。
+      const values = typeof gap === 'string' && gap.includes('var(') ? expandTwoShorthand(gap) : null
+      // 按 row-gap、column-gap 的顺序，将拆出的值对应到各轴。
+      if (values) STYLE_SHORTHANDS.gap.forEach((key, position) => {
+        // 只补已声明但读不到的轴，保留可直接读到的覆盖值，例如 column-gap: 34px。
+        if (declared.includes(key) && !style.getPropertyValue(key)) {
+          // 去掉值末尾的 !important 并记录来源为 gap，优先级由下方单独读取。
+          borderFallbacks.set(key, { value: values[position].replace(/\s*!important\s*$/i, ''), property: 'gap' })
+        }
+      })
+    }
     const specificity = source && calculateSafeSpecificity(source.selectorPart, target)
     // 2. 将属性值和来源存入索引；优先直接读取，简写分项为空时才用上面拆出的值。
     expanded.forEach(key => {
@@ -214,8 +234,8 @@ export function createStyleResolution(tab: ZoneTab, target: HTMLElement | null =
       const candidate: StyleSourceCandidate = {
         property: shorthand || key,
         value,
-        // 补出的分项沿用原简写的 !important；直接读到的分项仍读取自身优先级。
-        important: style.getPropertyPriority(fallback?.property || key) === 'important',
+        // gap 整体不可读时，两轴仍保留自己的 !important；其他简写沿用原来的取法。
+        important: style.getPropertyPriority(fallback?.property === 'gap' ? key : fallback?.property || key) === 'important',
         label: previewSelector || source?.sourceSelector || (source ? '' : 'inline'),
         source,
         specificity,
