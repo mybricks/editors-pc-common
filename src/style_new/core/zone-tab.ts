@@ -305,6 +305,13 @@ export function buildZoneEffectiveStyle(
           if (cssProperty !== 'color') computedValue = undefined
         } else {
           computedValue = defaultWinner?.value
+          // 例如常规态写 background: var(--bg)，hover 写红色渐变；点击时红色可能被读进面板。
+          // 常规态这条来源规则的背景图已确定是 none，就把面板实际使用的值也改回 none，底色不动。
+          // 若 none 来自其他规则，不覆盖当前规则自己的图片或渐变，保持原有回显。
+          if (cssProperty === 'background-image' && defaultWinner?.value === 'none' &&
+            defaultWinner.rule === source?.rule) {
+            effectiveValue = defaultWinner.value
+          }
         }
       }
     }
