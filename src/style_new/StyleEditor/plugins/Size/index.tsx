@@ -100,11 +100,24 @@ function resolveViewportToPx(val: string | undefined, actualSize: number): strin
   return val;
 }
 
-/** svg 等非 HTMLElement 没有 offsetWidth/offsetHeight，用 getComputedStyle 计算 */
+/** svg 等非 HTMLElement 没有 offsetWidth/offsetHeight，按计算样式、属性和实际尺寸取值 */
 function measureElementSize(dom: HTMLElement): { width: number; height: number } {
   if (dom instanceof SVGElement) {
     const computedStyle = window.getComputedStyle(dom);
-    return { width: parseFloat(computedStyle.width), height: parseFloat(computedStyle.height) };
+    const computedWidth = parseFloat(computedStyle.width);
+    const computedHeight = parseFloat(computedStyle.height);
+    if (Number.isFinite(computedWidth) && Number.isFinite(computedHeight)) {
+      return { width: computedWidth, height: computedHeight };
+    }
+
+    const attrWidth = parseFloat(dom.getAttribute('width') || '');
+    const attrHeight = parseFloat(dom.getAttribute('height') || '');
+    if (Number.isFinite(attrWidth) && Number.isFinite(attrHeight)) {
+      return { width: attrWidth, height: attrHeight };
+    }
+
+    const rect = dom.getBoundingClientRect();
+    return { width: rect.width, height: rect.height };
   }
   return { width: dom.offsetWidth, height: dom.offsetHeight };
 }
