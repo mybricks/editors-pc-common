@@ -95,14 +95,28 @@ function getAxisCalls(value: string | null | undefined, type: TransformAxisType,
   return readTransform(value).calls.filter(call => names.test(call.name) && axisIndex(call, axis) != null)
 }
 
-/** 与角度一样读取首个对应分量，不把夹有旋转的多段变换合并成总位移或总缩放。 */
-export function readTransformAxis(value: string | null | undefined, type: TransformAxisType, axis: Axis) {
-  const call = getAxisCalls(value, type, axis)[0]
-  const values = call ? type === 'translate' ? readTranslate(call) : readScale(call) : null
-  return { hasValue: !!call, value: call ? values?.[axisIndex(call, axis)!] ?? null : null }
+function scaleAxisSign(calls: CssFunctionCall[], axis: Axis) {
+  let sign = 1
+  for (const call of calls) {
+    const index = axisIndex(call, axis)
+    if (index != null && (readScale(call)?.[index] ?? 0) < 0) sign = -sign
+  }
+  return sign
 }
 
-/** 修改对应轴，保留另一轴、翻转符号及函数所在位置；清空时恢复该轴的默认值。 */
+/** 百分比沿用首个缩放分量的幅度，符号包含后续同轴翻转，与翻转按钮一致。 */
+export function readTransformAxis(value: string | null | undefined, type: TransformAxisType, axis: Axis) {
+  const calls = getAxisCalls(value, type, axis)
+  const call = calls[0]
+  const values = call ? type === 'translate' ? readTranslate(call) : readScale(call) : null
+  const component = call ? values?.[axisIndex(call, axis)!] ?? null : null
+  return {
+    hasValue: !!call,
+    value: typeof component === 'number' ? component * scaleAxisSign(calls.slice(1), axis) : component,
+  }
+}
+
+/** 修改对应轴，保留另一轴及函数所在位置；清空时恢复默认幅度，保留原翻转。 */
 export function setTransformAxis(value: string | null | undefined, type: TransformAxisType, axis: Axis, next: string | null): string | null {
   const calls = getAxisCalls(value, type, axis)
   if (!calls.length) {
@@ -125,27 +139,32 @@ export function setTransformAxis(value: string | null | undefined, type: Transfo
     } else {
       const values = readScale(call)
       if (!values) continue
-      values[index] = (values[index] < 0 ? -1 : 1) * (next == null ? 1 : Number(next))
-      edits.push({ ...call, value: scaleText(call, values) })
+      // 输入的符号对应整个轴；改写第一段时抵消后续缩放的符号。
+      values[index] = next == null
+        ? (values[index] < 0 ? -1 : 1)
+        : Number(next) * scaleAxisSign(calls.slice(1), axis)
+      edits.push({ ...call, value: scaleText(call, values, next == null ? null : value) })
     }
   }
   return edits.length ? applyEdits(value, edits) : value || null
 }
 
 export function readFlips(value?: string | null) {
-  let flipX = false, flipY = false
-  for (const call of readTransform(value).calls) {
-    const scale = readScale(call)
-    if (!scale) continue
-    const x = axisIndex(call, 'x'), y = axisIndex(call, 'y')
-    if (x != null && scale[x] < 0) flipX = !flipX
-    if (y != null && scale[y] < 0) flipY = !flipY
-  }
-  return { flipX, flipY }
+  const calls = readTransform(value).calls
+  return { flipX: scaleAxisSign(calls, 'x') < 0, flipY: scaleAxisSign(calls, 'y') < 0 }
 }
 
-function scaleText(call: CssFunctionCall, values: number[]): string {
-  return values.every(value => value === 1) ? '' : `${call.name}(${values.join(', ')})`
+function scaleText(call: CssFunctionCall, values: number[], transform?: string | null): string {
+  if (values.every(value => value === 1)) {
+    // 删除首段 100% 会让面板改读后面的缩放，scale(x,y) 的两个轴都要核对。
+    const keepIdentity = transform && (['x', 'y'] as const).some(axis => {
+      if (axisIndex(call, axis) == null) return false
+      const calls = getAxisCalls(transform, 'scale', axis)
+      return calls.length > 1 && calls[0].start === call.start
+    })
+    if (!keepIdentity) return ''
+  }
+  return `${call.name}(${values.join(', ')})`
 }
 
 /** 只切换对应轴的符号，保留原有缩放幅度。 */
@@ -155,7 +174,7 @@ export function toggleFlip(value: string | null | undefined, axis: Axis): string
     const index = axisIndex(call, axis)
     if (!scale || index == null || scale[index] === 0) continue
     scale[index] *= -1
-    return applyEdits(value, [{ ...call, value: scaleText(call, scale) }])
+    return applyEdits(value, [{ ...call, value: scaleText(call, scale, value) }])
   }
   return applyEdits(value, [], axis === 'x' ? 'scaleX(-1)' : 'scaleY(-1)')
 }

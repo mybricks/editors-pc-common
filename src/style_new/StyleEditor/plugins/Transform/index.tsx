@@ -34,14 +34,14 @@ function TransformAxisInput({ type, axis, field, onChange }: {
   const editable = !field.hasValue || !!numeric
   const unit = isScale ? '%' : numeric?.[2] || 'px'
   const displayValue = numeric
-    ? isScale ? `${Number((Math.abs(Number(field.value)) * 100).toFixed(6))}%` : `${numeric[1]}${unit}`
+    ? isScale ? `${Number((Number(field.value) * 100).toFixed(6))}%` : `${numeric[1]}${unit}`
     : null
   const defaultValue = isScale ? '100%' : '0px'
   const tip = isScale
     ? axis === 'x' ? lang.transformScaleXTip : lang.transformScaleYTip
     : axis === 'x' ? lang.transformTranslateXTip : lang.transformTranslateYTip
   const handleChange = (next: string | null) => onChange(type, axis, next)
-  const getDragProps = useLengthInputDrag(displayValue ?? defaultValue, handleChange, { min: isScale ? 0 : -Infinity })
+  const getDragProps = useLengthInputDrag(displayValue ?? defaultValue, handleChange, { min: -Infinity })
 
   return (
     <InputNumber
@@ -54,7 +54,7 @@ function TransformAxisInput({ type, axis, field, onChange }: {
       unitOptions={[{ label: unit, value: unit }]}
       suffix={unit !== 'px' ? <span className={css.axisLabel}>{unit}</span> : undefined}
       showIconOnHover
-      allowNegative={!isScale}
+      allowNegative
       disabled={!editable}
       clearable={editable && field.hasValue}
       tip={tip}
