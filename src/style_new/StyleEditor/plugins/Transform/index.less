@@ -122,6 +122,17 @@
   }
 }
 
+.angleInput:enabled {
+  font-weight: 500;
+  color: @font-color-content;
+
+  &::placeholder {
+    font-weight: inherit;
+    color: inherit;
+    opacity: 1;
+  }
+}
+
 .angleInput::selection {
   background-color: var(--mybricks-color-primary, #FA6400);
   color: #fff;
