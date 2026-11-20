@@ -29,6 +29,7 @@ import { useDragNumber, useCanvasLengthVariables, isCssVarValue } from "../../ho
 import { useEffectiveStyleValue, useStyleChange, useStyleEditorContext } from "../../context";
 import { resolveCssVarLength } from "../../../core/resolve-css-var-length";
 import { formatLengthDisplay } from "../../utils";
+import { resolveNativeTableColumnWidth } from "./native-table-column-width";
 
 import type {ChangeEvent, PanelBaseProps} from "../../type";
 import css from './index.less'
@@ -324,8 +325,12 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
     maxHeight: lang.removeMaxHeight,
   }), []);
   const editorContext = useStyleEditorContext();
+  const targetDom = editorContext?.targetDom ?? null;
+  const editOptions = editorContext?.editConfig.options;
+  const columnWidth = useMemo(() => resolveNativeTableColumnWidth(targetDom, editOptions), [targetDom, editOptions]);
   // rawValue 保留源码里的 100vh、calc(...) 或 var(...)；value 只作为面板显示副本，避免把 900px 回写成源码。
-  const rawValue = useEffectiveStyleValue() as CSSProperties & Record<string, any>;
+  const effectiveValue = useEffectiveStyleValue();
+  const rawValue = (columnWidth ? { ...effectiveValue, width: columnWidth.width } : effectiveValue) as CSSProperties & Record<string, any>;
   // 每个字段同时记住源码值和初始回显值：例如 minHeight 从 100vh 回显为 900px 后，用户改成 600px 时应立即显示 600px。
   const [initialSizeValues, setInitialSizeValues] = useState<Record<string, { source: any; display: any }>>({});
 
@@ -394,8 +399,6 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
   const getLockedInput = (ref: React.RefObject<HTMLDivElement>) =>
     ref.current?.querySelector<HTMLInputElement>('input') ?? null;
 
-  const targetDom = editorContext?.targetDom ?? null;
-
   // 有「弹性」面板时（父为 flex 子项），尺寸恢复顶部分割线；否则与布局合并视觉分组
   const hideSizeTopBorder = useMemo(() => {
     if (!targetDom) return true;
@@ -442,7 +445,7 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
     }
 
     // 2. flex 相关样式清除成功后，不再因为原来的 flex 配置显示 Fill
-    const result = rawOnChange(submittedChange);
+    const result = columnWidth?.apply(submittedChange) ?? rawOnChange(submittedChange);
     const clearsFlex = ['flex', 'flexGrow', 'flexShrink', 'flexBasis'].every(
       key => changes.some(item => item.key === key && item.value === null),
     );
@@ -450,7 +453,7 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
       setCfg(previous => ({...previous, disableWidth: false, disableHeight: false}));
     }
     return result;
-  }, [rawOnChange, targetDom]);
+  }, [rawOnChange, targetDom, columnWidth]);
 
   const [actualWidth, setActualWidth] = useState<number>(0);
   const [actualHeight, setActualHeight] = useState<number>(0);
