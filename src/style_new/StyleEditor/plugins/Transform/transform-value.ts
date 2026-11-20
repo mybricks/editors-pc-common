@@ -151,12 +151,13 @@ export function setTransformAxis(value: string | null | undefined, type: Transfo
 
 export function readFlips(value?: string | null) {
   const calls = readTransform(value).calls
+  // 同轴翻转两次会抵消，合并后的符号为负才算翻转。
   return { flipX: scaleAxisSign(calls, 'x') < 0, flipY: scaleAxisSign(calls, 'y') < 0 }
 }
 
 function scaleText(call: CssFunctionCall, values: number[], transform?: string | null): string {
   if (values.every(value => value === 1)) {
-    // 删除首段 100% 会让面板改读后面的缩放，scale(x,y) 的两个轴都要核对。
+    // 后面还有同轴缩放时，保留首段 100%，避免面板改读后面的值。
     const keepIdentity = transform && (['x', 'y'] as const).some(axis => {
       if (axisIndex(call, axis) == null) return false
       const calls = getAxisCalls(transform, 'scale', axis)
