@@ -114,6 +114,7 @@ export function Transform({ value, onChange: fallbackOnChange, showTitle, collap
   const scaleY = readAxis('scale', 'y')
   const effectiveCollapse = hasRotation || !angleEditable || flipX || flipY || translateX.hasValue || translateY.hasValue || scaleX.hasValue || scaleY.hasValue || clearTransform(transformStr) !== transformStr ? collapse : true
   const angleDisplay = parsedAngle == null ? '' : String(parsedAngle)
+  const anglePlaceholder = angleEditable ? (hasRotation ? undefined : '0') : individual.rotate || undefined
   const [angleDraft, setAngleDraft] = useState<string | null>(null)
   const localAngle = angleDraft ?? angleDisplay
   const isEditingRef = useRef(false)
@@ -288,20 +289,12 @@ export function Transform({ value, onChange: fallbackOnChange, showTitle, collap
     setAngleDraft(commitAngle(null) ? '' : null)
   }, [commitAngle])
 
-  // 展开面板只改变面板状态，不提前写入零度旋转。
-  const handleExpand = useCallback(() => {
-    inputChangedRef.current = false
-    isEditingRef.current = false
-    setAngleDraft('0')
-  }, [])
-
   return (
     <Panel
       title={lang.transformPanelTitle}
       showTitle={showTitle}
       showReset={true}
       resetFunction={handleReset}
-      onExpand={handleExpand}
       collapse={effectiveCollapse}
     >
       <Panel.Content className={css.transformPanelContent}>
@@ -333,7 +326,7 @@ export function Transform({ value, onChange: fallbackOnChange, showTitle, collap
             type="number"
             value={localAngle}
             disabled={!angleEditable}
-            placeholder={angleEditable ? undefined : individual.rotate || undefined}
+            placeholder={anglePlaceholder}
             data-mybricks-tip={lang.rotationAngleTip}
             onChange={handleChange}
             onFocus={handleFocus}
@@ -348,14 +341,12 @@ export function Transform({ value, onChange: fallbackOnChange, showTitle, collap
               border: 'none',
               background: 'transparent',
               fontSize: 11,
-              fontWeight: 400,
-              color: 'var(--mybricks-text-color-main, #888)',
               outline: 'none',
               cursor: 'text',
             }}
           />
           {angleEditable && (hasRotation || localAngle !== '') && <ClearButton onClick={handleClear} />}
-          {localAngle !== '' && <span className={css.degUnit}>°</span>}
+          {(localAngle !== '' || anglePlaceholder === '0') && <span className={css.degUnit}>°</span>}
         </Panel.Item>
 
         {/* Action buttons: rotate 90R / flip H / flip V */}
