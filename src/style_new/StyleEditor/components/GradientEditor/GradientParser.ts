@@ -11,7 +11,7 @@ export const ParseGradient = (
   stops: GradientStop[];
 } => {
   let type: GradientType = "linear-gradient";
-  let direction = "90";
+  let direction = "";
   let stops: GradientStop[] = [];
   if (gradientString && gradientString !== "none") {
     const gradientData = gradient(gradientString)?.[0];

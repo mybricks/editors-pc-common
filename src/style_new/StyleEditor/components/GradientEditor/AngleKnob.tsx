@@ -2,7 +2,7 @@ import React, { useRef, useState, useEffect } from "react";
 import css from "./AngleKnob.less";
 
 interface AngleKnobProps {
-    value: number;
+    value: number | null;
     onChange: (value: number) => void;
     size?: number;
 }
@@ -12,15 +12,17 @@ export const AngleKnob: React.FC<AngleKnobProps> = ({
     onChange,
     size = 70,
 }) => {
+    // CSS 未指定角度时朝下（180°），仅用于指针计算，不回填配置或显示数值。
+    const resolvedValue = value ?? 180;
     const [isDragging, setIsDragging] = useState(false);
-    const [displayAngle, setDisplayAngle] = useState(value);
+    const [displayAngle, setDisplayAngle] = useState(resolvedValue);
     const [shouldTransition, setShouldTransition] = useState(true);
     const knobRef = useRef<HTMLDivElement>(null);
-    const lastAngleRef = useRef(value);
+    const lastAngleRef = useRef(resolvedValue);
     const rotationCountRef = useRef(0);
     const mouseDownPosRef = useRef<{ x: number; y: number } | null>(null);
     const hasDraggedRef = useRef(false);
-    const displayAngleRef = useRef(value);
+    const displayAngleRef = useRef(resolvedValue);
 
     const calculateAngleFromPosition = (clientX: number, clientY: number) => {
         if (!knobRef.current) return null;
@@ -126,7 +128,7 @@ export const AngleKnob: React.FC<AngleKnobProps> = ({
                 if (!hasDraggedRef.current) {
                     handleClick(e);
                 } else {
-                    const targetAngle = rotationCountRef.current * 360 + value;
+                    const targetAngle = rotationCountRef.current * 360 + resolvedValue;
                     setDisplayAngle(targetAngle);
                     displayAngleRef.current = targetAngle;
                 }
@@ -145,12 +147,12 @@ export const AngleKnob: React.FC<AngleKnobProps> = ({
             document.removeEventListener("mousemove", handleMouseMove);
             document.removeEventListener("mouseup", handleMouseUp);
         };
-    }, [isDragging, value]);
+    }, [isDragging, resolvedValue]);
 
     useEffect(() => {
         if (!isDragging) {
             const currentNormalized = ((displayAngle % 360) + 360) % 360;
-            const diff = value - currentNormalized;
+            const diff = resolvedValue - currentNormalized;
 
             let shortestDiff = diff;
             if (diff > 180) {
@@ -164,11 +166,11 @@ export const AngleKnob: React.FC<AngleKnobProps> = ({
             setShouldTransition(true);
             setDisplayAngle(newDisplayAngle);
             displayAngleRef.current = newDisplayAngle;
-            lastAngleRef.current = value;
+            lastAngleRef.current = resolvedValue;
 
             rotationCountRef.current = Math.floor(newDisplayAngle / 360);
         }
-    }, [value, isDragging]);
+    }, [resolvedValue, isDragging]);
 
     useEffect(() => {
         displayAngleRef.current = displayAngle;
@@ -253,7 +255,7 @@ export const AngleKnob: React.FC<AngleKnobProps> = ({
                 </div>
 
                 {/* 中心显示角度值 */}
-                <div className={css.valueDisplay}>{value}°</div>
+                <div className={css.valueDisplay}>{value === null ? "" : `${value}°`}</div>
             </div>
         </div>
     );
