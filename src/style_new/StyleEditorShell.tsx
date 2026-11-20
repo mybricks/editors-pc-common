@@ -23,6 +23,7 @@ import { CssEditor } from './CssEditor'
 import type { CssEditorHandle } from './CssEditor'
 import { useUpdateEffect } from './StyleEditor/hooks'
 import { StyleMount } from './StyleMount'
+import { getColumnSoloWidthRules, getNativeTableColumnWidth, withColumnFocus } from './StyleEditor/plugins/Size/native-table-column-width'
 import type { EditorProps } from './type'
 import { useAffectedCount } from './hooks/useAffectedCount'
 import { useBatchMeta } from './hooks/useBatchMeta'
@@ -486,12 +487,20 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
     return { resolvedEditConfig, activeSelector }
   }, [editConfig, zoneSelectorList, zoneTabs, mergedTabs, originTabs, activeZoneIdx, activeZoneTab, finalSelector, isSoloEdit, soloSelector])
 
+  // 进入和退出“当前”时都按同一个 th/col 生成专属 selector，这样才能找回上次备份的列宽。
+  const getSoloColumn = useCallback(() => {
+    const options = editConfig.options
+    if (!editConfig.edtContext || selectedTarget?.localName !== 'td' || !options || Array.isArray(options)) return
+    return getNativeTableColumnWidth(selectedTarget, { ...options, zoneTab: activeZoneTab, soloEdit: true })
+  }, [editConfig, selectedTarget, activeZoneTab])
+
   // 进入单独编辑模式
   const onEnterSoloEdit = useCallback(() => {
     useBatchStyleSourcesRef.current = false
     if (!expectedSoloSelector) return
-    const savedBackup = soloStyleBackupRef.current.get(expectedSoloSelector)
-    if (savedBackup) {
+    const restore = (selector: string) => {
+      const savedBackup = soloStyleBackupRef.current.get(selector)
+      if (!savedBackup) return
       // 清除上次切换遗留的删除信号，确保恢复的单独样式不会被再次删掉。
       ;(window as any).__mybricks_style_deletions = null
       let restored = false
@@ -516,6 +525,10 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
         refreshBatchMeta()
       }
     }
+    // 切回“当前”时，先恢复所选元素自己的样式（如 td 的 height），再恢复 th/col 的 width。
+    restore(expectedSoloSelector)
+    const column = getSoloColumn()
+    if (column) withColumnFocus(editConfig.edtContext!, column.targetDom, () => restore(column.selector + '/width'))
     pendingBatchStyleRefreshRef.current = false
     skipSoloRehydrateRef.current = true
     setSoloSelector(expectedSoloSelector)
@@ -524,7 +537,7 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
     const preview = getStatePreviewContext(selectedTarget)
     if (selectedTarget && preview) applyStatePreview(selectedTarget, preview.tab)
     setKey((k) => k + 1)
-  }, [editConfig, expectedSoloSelector, refreshBatchMeta, selectedTarget, activeZoneTab?.linkedSelector])
+  }, [editConfig, expectedSoloSelector, refreshBatchMeta, selectedTarget, getSoloColumn])
 
   // 切回批量时，完整路径规则会备份并移除；手写短规则保留，仅切换后续编辑的写入目标。
   const onExitSoloEdit = useCallback(() => {
@@ -532,13 +545,9 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
     if (soloSelector && selectedTarget && baseSelector) {
       // 子面板写入不一定触发 Shell 渲染，退出前读取最新规则再备份和删除。
       const savedSoloStyle = getSavedSoloStyle(selectedTarget, soloBaseSelector || baseSelector, componentRoot, getDocument(), stateAncestor, activeZoneTab?.linkedSelector)
-      if (savedSoloStyle) {
-        // 只备份和删除当前元素的完整规则；共用的手写短规则保持不动。
-        const soloRules = savedSoloStyle.rules.filter(rule => rule.selector === expectedSoloSelector)
+      const backupAndRemove = (backupKey: string, soloRules: SavedSoloStyle['rules']) => {
         if (soloRules.length) {
-          soloStyleBackupRef.current.set(expectedSoloSelector || soloSelector, {
-            ...soloRules[0], rules: soloRules,
-          })
+          soloStyleBackupRef.current.set(backupKey, { ...soloRules[0], rules: soloRules })
           let removed = false
           try {
             soloRules.forEach((savedRule) => {
@@ -567,9 +576,22 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
           if (removed) {
             refreshBatchMeta()
             // 宿主异步重编译时才等待源码通知；同步删除已经由本次切换刷新。
-            pendingBatchStyleRefreshRef.current = !!savedSoloStyle
+            pendingBatchStyleRefreshRef.current = true
           }
         }
+      }
+      // 例如 .cell 是共享规则。切回“全部”时，只移除能完整匹配当前元素专属路径的规则。
+      if (savedSoloStyle) {
+        backupAndRemove(expectedSoloSelector || soloSelector, savedSoloStyle.rules.filter(rule => rule.selector === expectedSoloSelector))
+      }
+      const column = getSoloColumn()
+      if (column) {
+        const rules = getColumnSoloWidthRules(column, componentRoot)
+        // /width 后缀区分两份备份。通过 td 调列宽只备份 width，直接编辑 th 时可以备份整条规则。
+        const backupKey = column.selector + '/width'
+        // 这次如果已清空 W，就丢掉上次的 240px，避免再切回“当前”时把旧宽度恢复出来。
+        soloStyleBackupRef.current.delete(backupKey)
+        withColumnFocus(editConfig.edtContext!, column.targetDom, () => backupAndRemove(backupKey, rules))
       }
       // 只供紧接着的批量渲染使用，包含没有规则的 null；删除失败时不会记录。
       batchSwitchSoloStyleRef.current = {
@@ -592,6 +614,7 @@ export default function StyleEditorShell({ editConfig }: EditorProps) {
     soloBaseSelector,
     stateAncestor,
     activeZoneTab?.linkedSelector,
+    getSoloColumn,
     expectedSoloSelector,
     refreshBatchMeta,
     shellComId,

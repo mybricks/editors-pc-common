@@ -15,6 +15,8 @@ import type { getEffectedCssPropertyAndOptions } from './get-effected-css'
 
 export type ZoneSourceRule = {
   rule: CSSStyleRule
+  /** 映射来源只提供指定声明，例如单元格借用表头的 width。 */
+  declarationKeys?: string[]
   /** CSSOM 中的运行时 selector，用于 matches 和特指度计算。 */
   selectorPart: string
   /** 剥除平台作用域并还原 CSS Modules 后的 selector，用于 Less 写回。 */
@@ -67,7 +69,9 @@ export type ZoneTab = {
 /** 合并这些来源的声明字段及简写相关字段，供规则删除和回显排除共用。 */
 export function collectZoneSourceStyleKeys(sources: readonly ZoneSourceRule[]): string[] {
   return Array.from(new Set(sources.flatMap(source =>
-    mergeObjectKeys(
+    // 例如专属规则里有 { width: 240px; color: red; }。传入 ['width'] 后，切到“全部”时只清理 width，保留 color。
+    // 普通来源省略 declarationKeys，沿用原逻辑收集整条规则的属性。
+    source.declarationKeys ?? mergeObjectKeys(
       parseToStyleData(source.rule.style.cssText || '', 'element'),
       Array.from({ length: source.rule.style.length }, (_, index) =>
         stylePropertyKey(source.rule.style.item(index))
