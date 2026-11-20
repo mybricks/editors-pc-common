@@ -3,6 +3,8 @@ import type { ZoneTab } from './core/zone-tab'
 
 export interface EditorProps {
   editConfig: {
+    /** 设计器的 value.set 从这里读目标 DOM 和源码位置。映射列宽时，ele 和 dataset 都取自控制宽度的 th/col。 */
+    edtContext?: { focusArea: { ele: Element; dataset: DOMStringMap } }
     options: Options
     | {
      targetDom?: HTMLDivElement[]

@@ -21,6 +21,7 @@ import { notifyVariationsChange } from './core/variations'
 import { collectAncestorStateLinkTab, getNearestStateAncestor } from './core/ancestor-state-link'
 import { INTERACTIVE_PSEUDO_STATES } from './core/state-preview'
 import { STATE_PREVIEW_ATTR } from './core/state-preview-tag'
+import { getNativeTableColumnWidth, withColumnFocus } from './StyleEditor/plugins/Size/native-table-column-width'
 
 const BOX_MODEL_KEYS = {
   margin: ['marginTop', 'marginRight', 'marginBottom', 'marginLeft'],
@@ -85,6 +86,10 @@ export function StyleMount({
   const zoneTab: ZoneTab | undefined = zoneOptions?.zoneTab
   const isSoloEdit = !!zoneOptions?.soloEdit
   const target = (toElementArray(zoneOptions?.targetDom)[0] ?? null) as HTMLElement | null
+  // 面板保留选中的 td，只有列宽用映射到的 th/col。编辑范围或样式来源变化后重新定位。
+  const column = useMemo(() => editConfig.edtContext && target?.localName === 'td'
+    ? getNativeTableColumnWidth(target, editConfig.options) : undefined,
+    [target, editConfig.edtContext, zoneTab, zoneTab?.sourceRules, isSoloEdit])
 
   useEffect(() => {
     if (!zoneTab || !target) return
@@ -250,11 +255,33 @@ export function StyleMount({
     [editConfig, options, collapsedOptions, preserveImportantPriority, onBatchMetaChange, isSoloEdit]
   )
 
-  const applyStyleMutations = useCallback(
-    (mutations: StyleMutation[]) =>
-      handleChange(buildStyleMutationChange(mutations)),
-    [handleChange]
-  )
+  const applyStyleMutations = useCallback((mutations: StyleMutation[]) => {
+    const changes = buildStyleMutationChange(mutations)
+    if (!column) return handleChange(changes)
+    const width = changes.find(change => change.key === 'width')
+    if (!width) return handleChange(changes)
+
+    // 例如 td 上有 background: blue，th 上有 width: 240px。写列宽时只带 th 的 width，避免把背景也写过去。
+    const { targetDom, zoneTab, selector } = column
+    const currentWidth = getStyleResolution(zoneTab, targetDom).get('width').winner?.value
+    const result = withColumnFocus(editConfig.edtContext!, targetDom, () => applyStyleChange({
+      value: width,
+      liveStyle: currentWidth == null ? {} : { width: currentWidth },
+      editConfig: { ...editConfig, options: { ...zoneOptions, targetDom: [targetDom], zoneTab, zoneTabs: [zoneTab], selector } },
+      preserveImportantPriority,
+      onBatchMetaChange,
+    }))
+    if (result.applied) setStyleRevision(revision => revision + 1)
+    // 锁定宽高时一次操作会同时改 width 和 height。列宽写完后焦点已恢复，height 交回原来的 td。
+    const remaining = changes.filter(change => change.key !== 'width')
+    if (!remaining.length) return result
+    const cellResult = handleChange(remaining)
+    return {
+      applied: result.applied || cellResult.applied,
+      clearApplied: result.clearApplied || cellResult.clearApplied,
+      clearUnsupported: result.clearUnsupported || cellResult.clearUnsupported,
+    }
+  }, [column, editConfig, zoneOptions, handleChange, preserveImportantPriority, onBatchMetaChange])
 
   const removeStyleProperties = useCallback(
     (keys: readonly string[]) => handleChange([], keys),
