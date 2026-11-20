@@ -30,6 +30,12 @@ export type PropSpec = {
 }
 
 export const PROP_SPECS: PropSpec[] = [
+  // 过渡只读取显式声明，computed 的 all 0s 不代表用户已配置。
+  { camel: 'transition', inherit: false, fallback: 'none' },
+  { camel: 'transitionProperty', inherit: false, fallback: 'none' },
+  { camel: 'transitionDuration', inherit: false, fallback: 'none' },
+  { camel: 'transitionTimingFunction', inherit: false, fallback: 'none' },
+  { camel: 'transitionDelay', inherit: false, fallback: 'none' },
   // font（可继承）
   { camel: 'color', inherit: true, fallback: 'computedIfInvalid', unsetMode: 'notSet' },
   { camel: 'fontSize', inherit: true, fallback: 'computed', unsetMode: 'notSet' },

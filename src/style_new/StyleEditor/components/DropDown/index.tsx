@@ -29,6 +29,8 @@ interface DropdownProps {
   options: Array<DropdownOption>;
   children: ReactNode;
   multiple?: boolean;
+  /** 多选项是否显示独立移除按钮，默认保持已有入口 */
+  showRemove?: boolean;
   disabled?: boolean;
   onClick: (value: any) => void;
   onAction?: (value: any) => void;
@@ -52,7 +54,7 @@ function DragHandleIcon() {
   );
 }
 
-export function Dropdown({ value, options, children, onClick, onAction, onReorder, className, multiple, disabled = false, footer, menuStyle }: DropdownProps) {
+export function Dropdown({ value, options, children, onClick, onAction, onReorder, className, multiple, showRemove = true, disabled = false, footer, menuStyle }: DropdownProps) {
   const positionRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const [show, setShow] = useState(false);
@@ -120,6 +122,7 @@ export function Dropdown({ value, options, children, onClick, onAction, onReorde
             open={open}
             onClick={handleItemClick}
             multiple={multiple}
+            showRemove={showRemove}
             onReorder={onReorder}
             footer={footer}
             menuStyle={menuStyle}
@@ -137,13 +140,14 @@ interface ItemsProps {
   open: boolean;
   positionElement: HTMLDivElement;
   multiple?: boolean;
+  showRemove: boolean;
   onReorder?: (newOrder: any[]) => void;
   footer?: ReactNode;
   menuStyle?: CSSProperties;
 }
 
 const Items = React.forwardRef<HTMLDivElement, ItemsProps>((props, forwardRef) => {
-  const { open, options, positionElement, onClick, value: currentValue, multiple, onReorder, footer, menuStyle } = props;
+  const { open, options, positionElement, onClick, value: currentValue, multiple, showRemove, onReorder, footer, menuStyle } = props;
   const ref = useRef<HTMLDivElement>(null);
   const dragValueRef = useRef<any>(null);
 
@@ -268,7 +272,7 @@ const Items = React.forwardRef<HTMLDivElement, ItemsProps>((props, forwardRef) =
             )}
           </span>
         )}
-        {multiple && isChecked && !isAction && (
+        {multiple && showRemove && isChecked && !isAction && (
           <span
             className={css.itemRemove}
             data-mybricks-tip={lang.removeFontTip}

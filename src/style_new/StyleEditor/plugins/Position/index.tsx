@@ -1,6 +1,7 @@
-import React, { CSSProperties, useCallback, useEffect, useMemo, useState } from 'react'
+import React, { CSSProperties, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 
 import { Panel, InputNumber } from '../../components'
+import { TransitionHeaderContext } from '../../components/Transition/context'
 import { useEffectiveStyleValue, useStyleChange, useStyleEditorContext } from '../../context'
 import { useDragNumber } from '../../hooks'
 import { useStyleDisplayValue } from '../../hooks/useStyleDisplayValue'
@@ -120,6 +121,7 @@ function PositionInput({
 }
 
 export function Position({ value: panelValue, onChange: fallbackOnChange, showTitle }: PositionProps) {
+  const transitionEntry = useContext(TransitionHeaderContext)
   const editorContext = useStyleEditorContext();
   const effectiveValue = useEffectiveStyleValue();
   const options = editorContext?.editConfig.options;
@@ -203,12 +205,14 @@ export function Position({ value: panelValue, onChange: fallbackOnChange, showTi
     ])
   }, [isPseudoState, onChange])
 
-  return (
+  // 动效入口放在位置行右侧，避免 Panel 另外渲染一行标题栏。
+  return <TransitionHeaderContext.Provider value={null}>
     <Panel
       title={lang.positionPanelTitle}
       showTitle={false}
       showDelete={false}
       collapse={false}
+      rightColumn={transitionEntry && <div className={css.transitionEntry}>{transitionEntry}</div>}
       // keepTopBorder={!isFreePosition}
     >
       <div className={css.headerRow}>
@@ -276,5 +280,5 @@ export function Position({ value: panelValue, onChange: fallbackOnChange, showTi
         </>
       )}
     </Panel>
-  )
+  </TransitionHeaderContext.Provider>
 }

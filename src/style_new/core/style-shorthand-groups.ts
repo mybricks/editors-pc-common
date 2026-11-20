@@ -2,6 +2,7 @@ const SIDES = ['top', 'right', 'bottom', 'left']
 
 /** 属性索引、整组清空和缓存清理共用的简写关系；值均为最终 longhand。 */
 export const STYLE_SHORTHANDS: Record<string, string[]> = {
+  transition: ['transition-property', 'transition-duration', 'transition-timing-function', 'transition-delay'],
   font: ['font-family', 'font-size', 'font-weight', 'font-style', 'font-stretch', 'font-variant', 'line-height'],
   background: ['background-color', 'background-image', 'background-size', 'background-position', 'background-repeat', 'background-origin', 'background-clip', 'background-attachment'],
   border: SIDES.flatMap(side => ['width', 'style', 'color'].map(key => `border-${side}-${key}`)),
