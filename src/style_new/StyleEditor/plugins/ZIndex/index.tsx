@@ -113,7 +113,6 @@ export function ZIndex({ value: _value, onChange: fallbackOnChange, config, show
       showTitle={showTitle}
       showReset={true}
       resetFunction={refresh}
-      onExpand={() => setPreset(0)}
       headerRight={modeSwitch}
       collapse={effectiveCollapse}
     >

@@ -136,12 +136,6 @@ export function Appearance({ value, onChange: fallbackOnChange, showTitle }: App
     },
   })
 
-  // 点击 + 是新增配置，显式写入完全不透明，而不是仅展开空输入框。
-  const handleExpand = useCallback(() => {
-    const result = onChange({ key: 'opacity', value: 1 })
-    if (result && !result.applied) return
-  }, [onChange])
-
   const openPicker = useCallback(() => {
     if (!hasVariables) return
     setPickerMounted(true)
@@ -186,7 +180,6 @@ export function Appearance({ value, onChange: fallbackOnChange, showTitle }: App
       showReset={true}
       showDelete={true}
       resetFunction={handleReset}
-      onExpand={handleExpand}
       collapse={effectiveCollapse}
     >
       <Panel.Content>
@@ -224,7 +217,7 @@ export function Appearance({ value, onChange: fallbackOnChange, showTitle }: App
           ) : (
             <InputNumber
               style={INPUT_STYLE}
-              value={hasConfiguredOpacity ? opacityPercent : undefined}
+              value={hasConfiguredOpacity ? opacityPercent : 100}
               defaultUnitValue='%'
               unitOptions={unitOptions}
               clearable={hasConfiguredOpacity}
