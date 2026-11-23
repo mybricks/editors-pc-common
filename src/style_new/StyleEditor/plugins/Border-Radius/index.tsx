@@ -146,8 +146,11 @@ export function BorderRadius({ value, onChange: fallbackOnChange, config, collap
     }
   }
   delete editorValue.borderRadius
+  const defaultPreview = Object.keys(configuredValue).length === 0 && previewCorners.every(item => item === undefined)
+    ? '0px'
+    : undefined
   // 例如只有右上角 8px，其余 0px 预览会留空；仍需比较四角，自动分角展示。
-  // 预览只用于模式判断，不放进编辑值，避免写回计算样式。
+  // 预览只用于模式判断，默认 0px 也不放进编辑值，避免写回计算样式。
   const modeValue = Object.keys(configuredValue).length === 0 && previewCorners.some(item => item !== undefined)
     ? radiusPreview
     : editorValue
@@ -261,19 +264,6 @@ export function BorderRadius({ value, onChange: fallbackOnChange, config, collap
     setToggleValue({ radiusToggleValue: 'all' })
   }, [clearRadius])
 
-  const handleExpand = useCallback(() => {
-    const winners = RADIUS_KEYS.map(key => context?.getStyleProperty?.(key).winner)
-      .filter(winner => winner?.currentState)
-    const target = winners.length && winners.every(winner => winner!.inline) ? undefined : 'current-rule'
-    const result = onChange({ key: 'borderRadius', value: '0px', target, borderMode: 'all' })
-    if (result?.clearUnsupported || (result && !result.applied)) return
-    const next = Object.fromEntries(RADIUS_KEYS.map(key => [key, '0px']))
-    radiusValueRef.current = next
-    setRadiusValue(next)
-    setEmptyAfterClear(false)
-    setToggleValue({ radiusToggleValue: 'all' })
-  }, [onChange, context?.getStyleProperty])
-
   const handleSwitchToUnified = useCallback(() => {
     let configuredValue = radiusValueRef.current
     let target: 'current-rule' | undefined = 'current-rule'
@@ -322,7 +312,7 @@ export function BorderRadius({ value, onChange: fallbackOnChange, config, collap
           style,
           defaultValue: rawValue,
           value: rawValue,
-          previewValue: radiusPreview[key],
+          previewValue: radiusPreview[key] ?? defaultPreview,
           placeholder: '',
           defaultUnitValue: 'px',
           hideUnitWhenEmpty: true,
@@ -357,7 +347,7 @@ export function BorderRadius({ value, onChange: fallbackOnChange, config, collap
             inputProps={{
               tip: '', style: DEFAULT_STYLE, defaultValue: radiusValue.borderTopLeftRadius,
               value: radiusValue.borderTopLeftRadius,
-              previewValue: unifiedPreview,
+              previewValue: unifiedPreview ?? defaultPreview,
               placeholder: mixedPreview ? lang.mixedPlaceholder : '', defaultUnitValue: 'px', hideUnitWhenEmpty: true,
               unitOptions: withDefaultUnitOption(unitOptions, !!clearRadius),
               unitDisabledList: UNIT_DISABLED_LIST,
@@ -405,7 +395,6 @@ export function BorderRadius({ value, onChange: fallbackOnChange, config, collap
       showReset={canReset}
       showDelete={canReset || (!disableBorderRadius && emptyAfterClear)}
       resetFunction={handleReset}
-      onExpand={handleExpand}
     >
       <div className={css.content}>
         <div className={css.values}>{content}</div>
