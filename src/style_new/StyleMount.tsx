@@ -4,7 +4,7 @@ import { deepCopy } from '../utils'
 import StyleEditor, { StyleEditorProvider } from './StyleEditor'
 import { buildStyleMutationChange } from './StyleEditor/helper/style-mutations'
 import { initLiveStyle } from './StyleEditor/helper/gradient-border'
-import type { ChangeEvent, StyleChangeTarget, StyleMutation } from './StyleEditor/type'
+import type { ChangeEvent, StyleMutation } from './StyleEditor/type'
 import type { EditorProps } from './type'
 import { applyStyleChange, createStyleRemovalPlan } from './core/apply-style-change'
 import type { ZoneWriteTarget } from './core/apply-style-change'
@@ -221,7 +221,7 @@ export function StyleMount({
   }, [setValue, authoredStyle, isSoloEdit])
 
   const handleChange = useCallback(
-    (value: Parameters<ChangeEvent>[0], removeKeys?: readonly string[], target?: StyleChangeTarget) => {
+    (value: Parameters<ChangeEvent>[0], removeKeys?: readonly string[]) => {
       const previousLiveStyle = liveStyleRef.current
       const result = applyStyleChange({
         value: value as any,
@@ -234,15 +234,17 @@ export function StyleMount({
         zoneWriteTargets: zoneWriteTargetsRef.current,
         onBatchMetaChange,
         removeKeys,
-        target,
       })
       const { nextLiveStyle, applied } = result
       if (applied) {
         liveStyleRef.current = nextLiveStyle
-        // 写向其它元素的修改不属于当前元素的单独配置，不能记成待回写值。
-        if (isSoloEdit && !target?.targetDom) {
+        if (isSoloEdit) {
           const changes = Array.isArray(value) ? value : [value]
-          recordPendingSoloValues(pendingSoloValuesRef.current, changes, previousLiveStyle, nextLiveStyle)
+          // 写向其它元素的项不属于当前元素的单独配置，不能记成待回写值。
+          const localChanges = changes.filter(item => !item.writeTo)
+          if (localChanges.length) {
+            recordPendingSoloValues(pendingSoloValuesRef.current, localChanges, previousLiveStyle, nextLiveStyle)
+          }
           removeKeys?.forEach(key => pendingSoloValuesRef.current.delete(key))
         }
         setStyleRevision(revision => revision + 1)
@@ -253,9 +255,7 @@ export function StyleMount({
   )
 
   const applyStyleMutations = useCallback(
-    (mutations: StyleMutation[], target?: StyleChangeTarget) =>
-      // 第二参是 removeKeys（兼容删除通道），set/clear 不经过它；占位以便 target 落在第三参。
-      handleChange(buildStyleMutationChange(mutations), undefined, target),
+    (mutations: StyleMutation[]) => handleChange(buildStyleMutationChange(mutations)),
     [handleChange]
   )
 

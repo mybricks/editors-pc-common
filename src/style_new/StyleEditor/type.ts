@@ -29,6 +29,13 @@ export interface StyleEditorProps {
   onChange: ChangeEvent;
 }
 
+/** 把这一项修改写到另一个元素（例如用单元格改表头列宽）；省略时写当前选中元素。 */
+export type StyleChangeTarget = {
+  targetDom?: Element | null;
+  zoneTab?: ZoneTab;
+  selector?: string;
+};
+
 export type StyleChangeItem = {
   key: string;
   value: any;
@@ -39,6 +46,8 @@ export type StyleChangeItem = {
   borderMode?: 'all' | 'split';
   /** Font 修改共用的 backgroundColor 时保留文字填充角色。 */
   paintRole?: 'text';
+  /** 写到另一个元素；同一批里可以有写本元素的项和被重定向的项。 */
+  writeTo?: StyleChangeTarget;
 };
 
 export type StyleChangeResult = {
@@ -56,28 +65,21 @@ export type StyleMutation =
       target?: 'current-rule';
       borderMode?: 'all' | 'split';
       paintRole?: 'text';
+      writeTo?: StyleChangeTarget;
     }
   | {
       type: 'clear';
       key: string;
       borderMode?: 'all' | 'split';
+      writeTo?: StyleChangeTarget;
     };
 
-/** 把一次修改整体写到另一个元素（例如用单元格改表头列宽）；省略时写当前选中元素。 */
-export type StyleChangeTarget = {
-  targetDom?: Element | null;
-  zoneTab?: ZoneTab;
-  selector?: string;
-};
-
 export type ApplyStyleMutations = (
-  mutations: StyleMutation[],
-  target?: StyleChangeTarget
+  mutations: StyleMutation[]
 ) => StyleChangeResult | void;
 
 export type ChangeEvent = (
-  arg: StyleChangeItem | StyleChangeItem[],
-  target?: StyleChangeTarget
+  arg: StyleChangeItem | StyleChangeItem[]
 ) => StyleChangeResult | void;
 
 

@@ -42,6 +42,8 @@ export type StyleChangeItem = {
   target?: 'current-rule'
   borderMode?: 'all' | 'split'
   paintRole?: 'text'
+  /** 写到另一个元素（如用单元格改表头列宽）；同批里可以只标记其中几项。 */
+  writeTo?: StyleChangeTarget
 }
 
 type StyleWriteGroup = {
@@ -921,8 +923,6 @@ export type ApplyStyleChangeParams = {
   onBatchMetaChange?: () => void
   /** 由 useStyleClear 的兼容删除模式提交；公共层仍根据后备来源决定 delete/unset。 */
   removeKeys?: readonly string[]
-  /** 本次修改整体写向另一个元素（如用单元格改表头列宽）；省略时写当前选中元素。 */
-  target?: StyleChangeTarget
 }
 
 export type ApplyStyleChangeResult = {
@@ -955,18 +955,51 @@ function withStyleWriteFocus<T>(editConfig: any, targetDom: HTMLElement, run: ()
   }
 }
 
+/** 同一批里的项按写入目标归组；没标 writeTo 的仍写当前元素。 */
+function groupByWriteTo(items: StyleChangeItem[]) {
+  const groups: { target: StyleChangeTarget; items: StyleChangeItem[] }[] = []
+  const local: StyleChangeItem[] = []
+  items.forEach(item => {
+    const writeTo = item.writeTo
+    if (!writeTo?.targetDom) { local.push(item); return }
+    const group = groups.find(entry =>
+      entry.target === writeTo ||
+      (entry.target.targetDom === writeTo.targetDom &&
+        entry.target.zoneTab === writeTo.zoneTab &&
+        entry.target.selector === writeTo.selector))
+    if (group) group.items.push(item)
+    else groups.push({ target: writeTo, items: [item] })
+  })
+  return { groups, local }
+}
+
 /**
  * 处理 StyleEditor onChange 的统一入口。
  *
- * 未传 target（既有调用方全都是这种情况）时直接进 applyStyleChangeSingle，
+ * 没有任何一项标 writeTo（既有调用方全都是这种情况）时直接进 applyStyleChangeSingle，
  * 那就是改动前 applyStyleChange 的原函数体——只改了函数名，内部一行未动。
- * 只有调用方显式指定了另一个写入目标（目前仅 Size 插件映射表格列宽）时才走旁路。
+ * 只有面板显式把某一项标成写到别的元素（目前仅 Size 插件映射表格列宽）时才分组旁路。
  */
 export function applyStyleChange(params: ApplyStyleChangeParams): ApplyStyleChangeResult {
-  const target = params.target
-  return target?.targetDom
-    ? applyStyleChangeToTarget(params, target)
-    : applyStyleChangeSingle(params)
+  const items = Array.isArray(params.value) ? params.value : [params.value]
+  const { groups, local } = groupByWriteTo(items as StyleChangeItem[])
+  if (!groups.length) return applyStyleChangeSingle(params)
+
+  const localResult = local.length ? applyStyleChangeSingle({ ...params, value: local }) : undefined
+  let result: ApplyStyleChangeResult = localResult || {
+    nextLiveStyle: params.liveStyle, applied: false, clearApplied: false, clearUnsupported: false,
+  }
+  groups.forEach(({ target, items: groupItems }) => {
+    const written = applyStyleChangeToTarget({ ...params, value: groupItems }, target)
+    result = {
+      ...result,
+      applied: result.applied || written.applied,
+      clearApplied: result.clearApplied || written.clearApplied,
+      clearUnsupported: result.clearUnsupported || written.clearUnsupported,
+    }
+  })
+  // 目标元素的写入不更新当前元素的 liveStyle，避免面板出现不属于它的回显值。
+  return { ...result, nextLiveStyle: localResult ? localResult.nextLiveStyle : params.liveStyle }
 }
 
 /**

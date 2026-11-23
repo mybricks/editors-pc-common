@@ -30,18 +30,14 @@ export type ColumnWidthTarget = {
 
 type EditOptions = Extract<EditorProps['editConfig']['options'], { selector: string }>
 
-/* ------------------------------------------------------------------ 批量拆分 */
+/* ------------------------------------------------------------------ 单条判定 */
 
 /** 填满 / 适应内容暂不映射到表头；undefined 表示清除，仍要映射到表头。 */
 const shouldMapWidth = (value: unknown) => value !== 'fit-content' && value !== '100%'
 
-/** 从一批修改里拆出要写表头的宽度项；rest 保持原有顺序，其余属性仍写当前元素。 */
-export function splitColumnWidthChange<T extends { key: string; value: unknown }>(
-  items: T[],
-): { width?: T; rest: T[] } {
-  const index = items.findIndex(item => item.key === 'width' && shouldMapWidth(item.value))
-  if (index < 0) return { rest: items }
-  return { width: items[index], rest: items.filter((_, itemIndex) => itemIndex !== index) }
+/** 这一项是否要写表头：宽度，且不是填满 / 适应内容。 */
+export function isColumnWidthChange(item: { key: string; value: unknown }): boolean {
+  return item.key === 'width' && shouldMapWidth(item.value)
 }
 
 /* ------------------------------------------------------------------ 结构判定 */

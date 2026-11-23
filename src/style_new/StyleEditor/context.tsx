@@ -2,8 +2,8 @@ import React, { useCallback, useContext, createContext, useMemo, CSSProperties }
 import type { EditorProps } from '../type'
 import type { EffectiveStyleValue } from '../core/zone-tab'
 import type { StyleClearPlan, StyleProperty } from '../core/style-property'
-import { buildStyleMutationChange } from './helper/style-mutations'
-import type { ApplyStyleMutations, ChangeEvent, StyleChangeResult, StyleChangeTarget, StyleMutation } from './type'
+import { buildStyleMutationChange, buildStyleMutations } from './helper/style-mutations'
+import type { ApplyStyleMutations, ChangeEvent, StyleChangeResult, StyleMutation } from './type'
 
 interface StyleEditorContextValue {
   editConfig: {
@@ -93,14 +93,11 @@ export function useEffectiveStyleValue(): CSSProperties {
 export function useApplyStyleMutations(fallbackOnChange?: ChangeEvent): ApplyStyleMutations {
   const context = useStyleEditorContext()
   return useCallback(
-    (mutations: StyleMutation[], target?: StyleChangeTarget) => {
+    (mutations: StyleMutation[]) => {
       if (context?.applyStyleMutations) {
-        return context.applyStyleMutations(mutations, target)
+        return context.applyStyleMutations(mutations)
       }
-      return fallbackOnChange?.(
-        buildStyleMutationChange(mutations),
-        target,
-      )
+      return fallbackOnChange?.(buildStyleMutationChange(mutations))
     },
     [context?.applyStyleMutations, fallbackOnChange]
   )
@@ -109,13 +106,9 @@ export function useApplyStyleMutations(fallbackOnChange?: ChangeEvent): ApplySty
 /** 将属性编辑器原有的 onChange 输入适配为统一的 set/clear mutation。 */
 export function useStyleChange(fallbackOnChange?: ChangeEvent): ChangeEvent {
   const applyStyleMutations = useApplyStyleMutations(fallbackOnChange)
-  return useCallback((input, target) => {
+  return useCallback((input) => {
     const items = Array.isArray(input) ? input : [input]
-    return applyStyleMutations(items.map((item) => item.value == null
-      ? { type: 'clear', key: item.key, borderMode: item.borderMode }
-      : { type: 'set', key: item.key, value: item.value, target: item.target, borderMode: item.borderMode,
-          ...(item.paintRole ? { paintRole: item.paintRole } : {}) }
-    ), target)
+    return applyStyleMutations(buildStyleMutations(items))
   }, [applyStyleMutations])
 }
 

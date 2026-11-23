@@ -30,8 +30,8 @@ import { useEffectiveStyleValue, useStyleChange, useStyleEditorContext } from ".
 import { resolveCssVarLength } from "../../../core/resolve-css-var-length";
 import { formatLengthDisplay } from "../../utils";
 
-import type {ChangeEvent, PanelBaseProps, StyleChangeItem, StyleChangeResult} from "../../type";
-import { resolveColumnWidthTarget, splitColumnWidthChange } from './table-column-width'
+import type {ChangeEvent, PanelBaseProps, StyleChangeItem} from "../../type";
+import { isColumnWidthChange, resolveColumnWidthTarget } from './table-column-width'
 import type { ColumnWidthTarget } from './table-column-width'
 import css from './index.less'
 import lang from '../../../index.i18n'
@@ -308,23 +308,11 @@ function getUnitKey(val: any): string {
 }
 
 /**
- * 两次提交的结果合成一个（onChange 只能返回一个，调用方靠它判断这次编辑成没成）。
- *
- * 例：锁定等比后在单元格输入宽 200，实际提交 [宽 200, 高 120]：
- *   宽 → 表头，applied: true；高 → 单元格，applied: false（高度本来就是 120，无差异）
- * 只透传任一路，调用方都会误判；所以三个字段都取 OR：任一路写进去/清掉了，这次编辑就算数。
+ * 把宽度项标记为写向表头，其余项仍写当前元素；同一次提交，由公共层分组写入并合并结果。
+ * 例：[宽 200, 高 120] → 宽带 writeTo 写表头，高留在单元格。
  */
-function mergeChangeResults(
-  first?: StyleChangeResult | void,
-  second?: StyleChangeResult | void,
-): StyleChangeResult | void {
-  if (!first) return second; // 上游可能返回 void，无可合并时透传
-  if (!second) return first;
-  return {
-    applied: first.applied || second.applied,
-    clearApplied: !!(first.clearApplied || second.clearApplied),
-    clearUnsupported: !!(first.clearUnsupported || second.clearUnsupported),
-  };
+function markColumnWidth(items: StyleChangeItem[], target: ColumnWidthTarget): StyleChangeItem[] {
+  return items.map(item => isColumnWidthChange(item) ? { ...item, writeTo: target } : item);
 }
 
 interface SizeProps extends PanelBaseProps {
@@ -479,15 +467,10 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
     return target;
   }, [targetDom, editorContext, cfg.disableWidth]);
 
-  // 宽写表头，其余（高、display、flex 等）照旧写当前元素；两次结果需合并，见 mergeChangeResults。
+  // 宽写表头，其余（高、display、flex 等）照旧写当前元素。
   const writeSizeChanges = useCallback((items: StyleChangeItem[]) => {
-    const { width, rest } = splitColumnWidthChange(items);
-    const columnTarget = width ? getColumnWidthTarget() : undefined;
-    if (!columnTarget) return rawOnChange(items);
-    return mergeChangeResults(
-      rawOnChange(width, columnTarget),
-      rest.length ? rawOnChange(rest) : undefined,
-    );
+    const columnTarget = items.some(isColumnWidthChange) ? getColumnWidthTarget() : undefined;
+    return rawOnChange(columnTarget ? markColumnWidth(items, columnTarget) : items);
   }, [getColumnWidthTarget, rawOnChange]);
 
   const onChange: ChangeEvent = useCallback((change) => {
