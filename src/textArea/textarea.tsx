@@ -50,11 +50,10 @@ export default function ({editConfig}: EditorProps): JSX.Element {
       textStyle.fontStyle = computedStyle.fontStyle
       textStyle.letterSpacing = computedStyle.letterSpacing
       textStyle.lineHeight = computedStyle.lineHeight
-      textStyle.textAlign = computedStyle.textAlign as React.CSSProperties['textAlign']
 
       // 原文字不自动换行时，编辑框也不折行，但仍保留 Enter 输入的换行。
       if (computedStyle.whiteSpace === 'nowrap') {
-        textStyle.whiteSpace = 'pre'
+      textStyle.whiteSpace = 'pre'
       }
     }
     return Object.assign({}, style, textStyle, {
@@ -117,14 +116,6 @@ export default function ({editConfig}: EditorProps): JSX.Element {
     if (el) {
       changedRef.current = el;
 
-      if (vCenter) {
-        // 补上编辑框内边距和滚动条占宽，避免挤掉原文字的可用空间。
-        const computedStyle = getComputedStyle(el);
-        const horizontalPadding = parseFloat(computedStyle.paddingLeft) + parseFloat(computedStyle.paddingRight);
-        const scrollbarAndBorderWidth = el.offsetWidth - el.clientWidth;
-        el.style.width = `${Math.max(width, 80) + horizontalPadding + scrollbarAndBorderWidth}px`;
-      }
-
       if (focusNow) {
         el.focus();
 
@@ -144,7 +135,7 @@ export default function ({editConfig}: EditorProps): JSX.Element {
 
   // 引擎双击编辑文案链路：Enter 使用原生换行，失焦时保存。
   if (vCenter) {
-    const nowWidth = Math.max(width, 80)
+    const nowWidth = width + 10
     const nowHeight = Math.max(styles.height, 26)
     const editorStyle = { ...styles, width: nowWidth, height: nowHeight }
 
