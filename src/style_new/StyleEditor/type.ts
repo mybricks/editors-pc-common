@@ -1,6 +1,7 @@
 import { CSSProperties } from "react";
 
 import { DEFAULT_OPTIONS } from "./constans";
+import type { ZoneTab } from "../core/zone-tab";
 
 export type Style = {
   [key: string]: any;
@@ -62,12 +63,21 @@ export type StyleMutation =
       borderMode?: 'all' | 'split';
     };
 
+/** 把一次修改整体写到另一个元素（例如用单元格改表头列宽）；省略时写当前选中元素。 */
+export type StyleChangeTarget = {
+  targetDom?: Element | null;
+  zoneTab?: ZoneTab;
+  selector?: string;
+};
+
 export type ApplyStyleMutations = (
-  mutations: StyleMutation[]
+  mutations: StyleMutation[],
+  target?: StyleChangeTarget
 ) => StyleChangeResult | void;
 
 export type ChangeEvent = (
-  arg: StyleChangeItem | StyleChangeItem[]
+  arg: StyleChangeItem | StyleChangeItem[],
+  target?: StyleChangeTarget
 ) => StyleChangeResult | void;
 
 

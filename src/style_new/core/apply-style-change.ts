@@ -33,6 +33,7 @@ import { readAuthoredBackgroundDeclarations } from './get-values-background'
 import { createBackgroundColorMigrationPlan } from './background-color-migration'
 import { backgroundCore } from './background-core'
 import { shouldUseAIForThirdPartyStyle } from './ai-style/third-party-style-ai'
+import type { StyleChangeTarget } from '../StyleEditor/type'
 
 export type StyleChangeItem = {
   key: string
@@ -920,6 +921,8 @@ export type ApplyStyleChangeParams = {
   onBatchMetaChange?: () => void
   /** 由 useStyleClear 的兼容删除模式提交；公共层仍根据后备来源决定 delete/unset。 */
   removeKeys?: readonly string[]
+  /** 本次修改整体写向另一个元素（如用单元格改表头列宽）；省略时写当前选中元素。 */
+  target?: StyleChangeTarget
 }
 
 export type ApplyStyleChangeResult = {
@@ -930,10 +933,92 @@ export type ApplyStyleChangeResult = {
 }
 
 /**
- * 处理 StyleEditor onChange：删除守卫、paint roles、merge、batch preview / value.set。
- * 返回更新后的 liveStyle；未实际变更时 applied=false。
+ * 映射写入期间把设计器焦点临时切到实际写入元素，结束后恢复。
+ *
+ * 影响面：只有 applyStyleChangeToTarget 会调用它；未指定 target 的普通样式写入不经过这里，老链路无感。
+ * 做法：函数内不读写任何样式选项，唯一副作用是临时替换 edtContext.focusArea，
+ * 并在 finally 中还原（run 抛异常也还原），不会把焦点状态泄漏到后续流程。
+ */
+function withStyleWriteFocus<T>(editConfig: any, targetDom: HTMLElement, run: () => T): T {
+  const context = editConfig?.edtContext
+  const previous = context?.focusArea
+  if (!context || !previous) return run()
+  try {
+    context.focusArea = { ele: targetDom, dataset: targetDom.dataset }
+  } catch {
+    return run()
+  }
+  try {
+    return run()
+  } finally {
+    try { context.focusArea = previous } catch {}
+  }
+}
+
+/**
+ * 处理 StyleEditor onChange 的统一入口。
+ *
+ * 未传 target（既有调用方全都是这种情况）时直接进 applyStyleChangeSingle，
+ * 那就是改动前 applyStyleChange 的原函数体——只改了函数名，内部一行未动。
+ * 只有调用方显式指定了另一个写入目标（目前仅 Size 插件映射表格列宽）时才走旁路。
  */
 export function applyStyleChange(params: ApplyStyleChangeParams): ApplyStyleChangeResult {
+  const target = params.target
+  return target?.targetDom
+    ? applyStyleChangeToTarget(params, target)
+    : applyStyleChangeSingle(params)
+}
+
+/**
+ * 把本次修改整体写向 target（如用单元格改表头列宽）：只换写入目标，继续复用原有执行链路。
+ * 缺少目标 Tab 或目标就是当前元素时，退回原逻辑。
+ *
+ * 这里是纯包装，只做三件事：守卫 → 用展开运算符复制出指向 target 的 options/editConfig → 临时切 focusArea。
+ * 不修改传入的 params/editConfig/options 对象，也不新增任何写入逻辑，实际写入仍是 applyStyleChangeSingle。
+ */
+function applyStyleChangeToTarget(
+  params: ApplyStyleChangeParams,
+  target: StyleChangeTarget,
+): ApplyStyleChangeResult {
+  const targetDom = toElementArray(target.targetDom)[0] as HTMLElement | null
+  const editOptions = params.editConfig?.options
+  if (!targetDom || !target.zoneTab || !editOptions || Array.isArray(editOptions) || params.removeKeys) {
+    return applyStyleChangeSingle(params)
+  }
+  const defaultDom = toElementArray(editOptions.targetDom)[0] as HTMLElement | null
+  // 目标就是当前元素时没必要换目标，保持原有 liveStyle diff。
+  if (targetDom === defaultDom) return applyStyleChangeSingle(params)
+
+  const result = withStyleWriteFocus(params.editConfig, targetDom, () => applyStyleChangeSingle({
+    ...params,
+    // 不拿当前元素的 liveStyle 去和另一个元素做 diff，否则会少写或选中错误来源。
+    liveStyle: {},
+    options: { ...(params.options || {}), selector: target.selector },
+    editConfig: {
+      ...params.editConfig,
+      options: {
+        ...editOptions,
+        targetDom: [targetDom],
+        zoneTab: target.zoneTab,
+        zoneTabs: [target.zoneTab],
+      },
+    },
+    // 这两个缓存按属性名绑定当前元素，映射写入不能复用。
+    zoneWriteTargets: undefined,
+    importantPriorityCache: undefined,
+  }))
+  // 目标元素的写入不更新当前元素的 liveStyle，避免面板出现不属于它的回显值。
+  return { ...result, nextLiveStyle: params.liveStyle }
+}
+
+/**
+ * 处理 StyleEditor onChange：删除守卫、paint roles、merge、batch preview / value.set。
+ * 返回更新后的 liveStyle；未实际变更时 applied=false。
+ *
+ * 注意：本函数是改动前 applyStyleChange 的原样搬移（仅去掉 export 并改名为 applyStyleChangeSingle），
+ * 函数体未做任何修改；本次新增的逻辑全在上面的分发与旁路里。
+ */
+function applyStyleChangeSingle(params: ApplyStyleChangeParams): ApplyStyleChangeResult {
   const editOptions = params.editConfig.options
   const tab: ZoneTab | undefined = editOptions?.zoneTab
   if (tab?.ancestorStateLink && !editOptions.soloEdit) {
