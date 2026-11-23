@@ -8,8 +8,8 @@ import { Ratation } from '../../icons/Rotation'
 import { Rotation90R } from '../../icons/Rotation90R'
 import { RotationFlipHorizontal } from '../../icons/RotationFlipHorizontal'
 import { RotationFlipVertical } from '../../icons/RotationFlipVertical'
-import { TranslateX, TranslateY, ScaleX, ScaleY } from '../../icons/TransformAxes'
-import { readRotation, readFlips, readTransformAxis, readTransformMatrix, setRotation, setTransformAxis, toggleFlip, clearTransform, readIndividualTransform, serializeIndividualTransform } from './transform-value'
+import { TranslateX, TranslateY, ScaleX, ScaleY, SkewX, SkewY } from '../../icons/TransformAxes'
+import { readRotation, readFlips, readTransformAxis, readTransformMatrix, setRotation, setTransformAxis, toggleFlip, clearTransform, readIndividualTransform, serializeIndividualTransform, readSkewAxis, setSkewAxis } from './transform-value'
 import type { TransformAxisType, IndividualTransformKey } from './transform-value'
 
 import type { ChangeEvent, PanelBaseProps } from '../../type'
@@ -59,6 +59,44 @@ function TransformAxisInput({ type, axis, field, previewValue, onChange }: {
       allowNegative
       disabled={!editable}
       clearable={editable && field.hasValue}
+      tip={tip}
+      type='number'
+      onClear={() => handleChange(null)}
+      onChange={handleChange}
+    />
+  )
+}
+
+/** 倾斜没有独立属性，也没有 3D 版本，写入固定落在 transform 上；单位固定度。 */
+function SkewAxisInput({ axis, field, previewValue, onChange }: {
+  axis: 'x' | 'y'
+  field: ReturnType<typeof readSkewAxis>
+  previewValue?: number
+  onChange: (axis: 'x' | 'y', value: number | null) => void
+}) {
+  const Icon = axis === 'x' ? SkewX : SkewY
+  const tip = axis === 'x' ? lang.transformSkewXTip : lang.transformSkewYTip
+  const displayValue = field.value == null ? null : `${field.value}°`
+  const handleChange = (next: string | null) => {
+    const parsed = next == null ? null : parseFloat(next)
+    onChange(axis, parsed != null && Number.isFinite(parsed) ? parsed : null)
+  }
+  const dragValue = displayValue ?? `${previewValue ?? 0}°`
+  const getDragProps = useLengthInputDrag(dragValue, handleChange, { min: -Infinity })
+
+  return (
+    <InputNumber
+      className={css.transformInput}
+      style={{ flex: 1, minWidth: 0, paddingLeft: 0, paddingRight: 6 }}
+      prefix={<span className={css.axisIcon} {...getDragProps(dragValue, tip)}><Icon /></span>}
+      value={displayValue}
+      previewValue={previewValue ?? '0'}
+      defaultUnitValue='°'
+      unitOptions={[{ label: '°', value: '°' }]}
+      suffix={<span className={css.axisLabel}>°</span>}
+      showIconOnHover
+      allowNegative
+      clearable={field.hasValue}
       tip={tip}
       type='number'
       onClear={() => handleChange(null)}
@@ -125,6 +163,8 @@ export function Transform({ value, onChange: fallbackOnChange, showTitle, collap
   const inheritedAngle = individual.rotate == null ? inheritedMatrix?.rotate : undefined
   const inheritedTranslate = individual.translate == null ? inheritedMatrix : null
   const inheritedScale = individual.scale == null ? inheritedMatrix : null
+  // 矩阵分解只能得出 skewX，skewY 不存在，所以继承态只回显 X。
+  const inheritedSkewX = inheritedMatrix?.skewX
 
   const { angle: parsedAngle, hasRotation } = readRotation(rotationTransform)
   const { flipX, flipY } = readFlips(scaleTransform)
@@ -132,7 +172,9 @@ export function Transform({ value, onChange: fallbackOnChange, showTitle, collap
   const translateY = readAxis('translate', 'y')
   const scaleX = readAxis('scale', 'x')
   const scaleY = readAxis('scale', 'y')
-  const effectiveCollapse = inheritedMatrix || hasRotation || !angleEditable || flipX || flipY || translateX.hasValue || translateY.hasValue || scaleX.hasValue || scaleY.hasValue || clearTransform(transformStr) !== transformStr ? collapse : true
+  const skewX = readSkewAxis(transformStr, 'x')
+  const skewY = readSkewAxis(transformStr, 'y')
+  const effectiveCollapse = inheritedMatrix || hasRotation || !angleEditable || flipX || flipY || translateX.hasValue || translateY.hasValue || scaleX.hasValue || scaleY.hasValue || skewX.hasValue || skewY.hasValue || clearTransform(transformStr) !== transformStr ? collapse : true
   const angleDisplay = parsedAngle == null ? '' : String(parsedAngle)
   const anglePlaceholder = angleEditable ? (hasRotation ? undefined : String(inheritedAngle ?? 0)) : individual.rotate || undefined
   const [angleDraft, setAngleDraft] = useState<string | null>(null)
@@ -191,6 +233,10 @@ export function Transform({ value, onChange: fallbackOnChange, showTitle, collap
     const value = next != null && type === 'scale' ? String(parseFloat(next) / 100) : next
     editTransform(type, current => setTransformAxis(current, type, axis, value))
   }, [editTransform])
+
+  const handleSkewChange = useCallback((axis: 'x' | 'y', next: number | null) => {
+    commitTransform(setSkewAxis(liveTransformRef.current, axis, next))
+  }, [commitTransform])
 
   const handleFocus = useCallback((event: React.FocusEvent<HTMLInputElement>) => {
     isEditingRef.current = true
@@ -324,6 +370,10 @@ export function Transform({ value, onChange: fallbackOnChange, showTitle, collap
       <Panel.Content className={css.transformPanelContent}>
         <TransformAxisInput type='scale' axis='x' field={scaleX} previewValue={inheritedScale ? `${inheritedScale.scaleX}%` : undefined} onChange={handleAxisChange} />
         <TransformAxisInput type='scale' axis='y' field={scaleY} previewValue={inheritedScale ? `${inheritedScale.scaleY}%` : undefined} onChange={handleAxisChange} />
+      </Panel.Content>
+      <Panel.Content className={css.transformPanelContent}>
+        <SkewAxisInput axis='x' field={skewX} previewValue={inheritedSkewX} onChange={handleSkewChange} />
+        <SkewAxisInput axis='y' field={skewY} onChange={handleSkewChange} />
       </Panel.Content>
       <Panel.Content className={css.transformPanelContent}>
         {/* Angle input with drag-on-icon */}

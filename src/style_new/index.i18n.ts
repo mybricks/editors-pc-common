@@ -875,6 +875,8 @@ export default i18n({
   transformTranslateYTip: { zh: '垂直平移', en: 'Vertical translation' },
   transformScaleXTip: { zh: '水平缩放', en: 'Horizontal scale' },
   transformScaleYTip: { zh: '垂直缩放', en: 'Vertical scale' },
+  transformSkewXTip: { zh: '水平倾斜', en: 'Horizontal skew' },
+  transformSkewYTip: { zh: '垂直倾斜', en: 'Vertical skew' },
   rotationAngleTip: { zh: '旋转角度', en: 'Rotation angle' },
   dragRotation: { zh: '拖拽调整旋转角度', en: 'Drag to adjust rotation' },
   rotateCW90Tip: { zh: '顺时针旋转90°', en: 'Rotate 90° clockwise' },
