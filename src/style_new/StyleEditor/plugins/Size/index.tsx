@@ -307,12 +307,18 @@ function getUnitKey(val: any): string {
   return str.replace(String(num), '') || 'none';
 }
 
-/** 宽度拆到表头后，两次提交的 applied 合并成一个面板结果。 */
+/**
+ * 两次提交的结果合成一个（onChange 只能返回一个，调用方靠它判断这次编辑成没成）。
+ *
+ * 例：锁定等比后在单元格输入宽 200，实际提交 [宽 200, 高 120]：
+ *   宽 → 表头，applied: true；高 → 单元格，applied: false（高度本来就是 120，无差异）
+ * 只透传任一路，调用方都会误判；所以三个字段都取 OR：任一路写进去/清掉了，这次编辑就算数。
+ */
 function mergeChangeResults(
   first?: StyleChangeResult | void,
   second?: StyleChangeResult | void,
 ): StyleChangeResult | void {
-  if (!first) return second;
+  if (!first) return second; // 上游可能返回 void，无可合并时透传
   if (!second) return first;
   return {
     applied: first.applied || second.applied,
@@ -473,7 +479,7 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
     return target;
   }, [targetDom, editorContext, cfg.disableWidth]);
 
-  // 表格列宽单独提交到表头，其余属性仍按原链路写当前元素。
+  // 宽写表头，其余（高、display、flex 等）照旧写当前元素；两次结果需合并，见 mergeChangeResults。
   const writeSizeChanges = useCallback((items: StyleChangeItem[]) => {
     const { width, rest } = splitColumnWidthChange(items);
     const columnTarget = width ? getColumnWidthTarget() : undefined;
