@@ -8,9 +8,9 @@ import { Ratation } from '../../icons/Rotation'
 import { Rotation90R } from '../../icons/Rotation90R'
 import { RotationFlipHorizontal } from '../../icons/RotationFlipHorizontal'
 import { RotationFlipVertical } from '../../icons/RotationFlipVertical'
-import { TranslateX, TranslateY, ScaleX, ScaleY } from '../../icons/TransformAxes'
-import { readRotation, readFlips, readTransformAxis, setRotation, setTransformAxis, toggleFlip, clearTransform, readIndividualTransform, serializeIndividualTransform } from './transform-value'
-import type { TransformAxisType, IndividualTransformKey } from './transform-value'
+import { TranslateX, TranslateY, TranslateZ, ScaleX, ScaleY } from '../../icons/TransformAxes'
+import { readRotation, readFlips, readTransformAxis, readPerspective, setRotation, setTransformAxis, setPerspective, toggleFlip, clearTransform, readIndividualTransform, serializeIndividualTransform } from './transform-value'
+import type { Axis, TransformAxisType, IndividualTransformKey } from './transform-value'
 
 import type { ChangeEvent, PanelBaseProps } from '../../type'
 import { highlightZeroOnFocus, highlightZeroOnMouseDown } from '../../utils'
@@ -24,13 +24,16 @@ interface TransformProps extends PanelBaseProps {
 
 function TransformAxisInput({ type, axis, field, onChange }: {
   type: TransformAxisType
-  axis: 'x' | 'y'
+  axis: Axis
   field: ReturnType<typeof readTransformAxis> & { readOnly?: boolean }
-  onChange: (type: TransformAxisType, axis: 'x' | 'y', value: string | null) => void
+  onChange: (type: TransformAxisType, axis: Axis, value: string | null) => void
 }) {
   const isScale = type === 'scale'
-  const Icon = isScale ? axis === 'x' ? ScaleX : ScaleY : axis === 'x' ? TranslateX : TranslateY
-  const numeric = field.readOnly ? null : String(field.value ?? '').match(/^([-+]?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?)([a-z%]*)$/i)
+  const Icon = isScale
+    ? axis === 'x' ? ScaleX : ScaleY
+    : axis === 'z' ? TranslateZ : axis === 'x' ? TranslateX : TranslateY
+  const numeric = field.readOnly || (!isScale && axis === 'z' && String(field.value).includes('%'))
+    ? null : String(field.value ?? '').match(/^([-+]?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?)([a-z%]*)$/i)
   const editable = !field.hasValue || !!numeric
   const unit = isScale ? '%' : numeric?.[2] || 'px'
   const displayValue = numeric
@@ -39,7 +42,7 @@ function TransformAxisInput({ type, axis, field, onChange }: {
   const defaultValue = isScale ? '100%' : '0px'
   const tip = isScale
     ? axis === 'x' ? lang.transformScaleXTip : lang.transformScaleYTip
-    : axis === 'x' ? lang.transformTranslateXTip : lang.transformTranslateYTip
+    : axis === 'z' ? lang.transformTranslateZTip : axis === 'x' ? lang.transformTranslateXTip : lang.transformTranslateYTip
   const handleChange = (next: string | null) => onChange(type, axis, next)
   const getDragProps = useLengthInputDrag(displayValue ?? defaultValue, handleChange, { min: -Infinity })
 
@@ -98,7 +101,7 @@ export function Transform({ value, onChange: fallbackOnChange, showTitle, collap
   const translateTransform = individual.translate != null ? readIndividualTransform('translate', individual.translate) : transformStr
   const angleEditable = individual.rotate == null || rotationTransform !== null
   const scaleEditable = individual.scale == null || scaleTransform !== null
-  const readAxis = (type: TransformAxisType, axis: 'x' | 'y') => {
+  const readAxis = (type: TransformAxisType, axis: Axis) => {
     const source = type === 'scale' ? scaleTransform : translateTransform
     return individual[type] != null && source === null
       ? { hasValue: true, value: individual[type], readOnly: true }
@@ -110,9 +113,15 @@ export function Transform({ value, onChange: fallbackOnChange, showTitle, collap
   const { flipX, flipY } = readFlips(scaleTransform)
   const translateX = readAxis('translate', 'x')
   const translateY = readAxis('translate', 'y')
+  const translateZ = readAxis('translate', 'z')
   const scaleX = readAxis('scale', 'x')
   const scaleY = readAxis('scale', 'y')
-  const effectiveCollapse = hasRotation || !angleEditable || flipX || flipY || translateX.hasValue || translateY.hasValue || scaleX.hasValue || scaleY.hasValue || clearTransform(transformStr) !== transformStr ? collapse : true
+  const perspective = readPerspective(transformStr)
+  const perspectiveNumeric = perspective.value?.match(/^([-+]?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?)([a-z]*)$/i)
+  const perspectiveUnit = perspectiveNumeric?.[2] || 'px'
+  const perspectiveEditable = individual.translate == null && (!perspective.hasValue || !!perspectiveNumeric)
+  const showPerspective = translateZ.hasValue && parseFloat(String(translateZ.value)) !== 0
+  const effectiveCollapse = hasRotation || !angleEditable || flipX || flipY || translateX.hasValue || translateY.hasValue || translateZ.hasValue || scaleX.hasValue || scaleY.hasValue || perspective.hasValue || clearTransform(transformStr) !== transformStr ? collapse : true
   const angleDisplay = parsedAngle == null ? '' : String(parsedAngle)
   const anglePlaceholder = angleEditable ? (hasRotation ? undefined : '0') : individual.rotate || undefined
   const [angleDraft, setAngleDraft] = useState<string | null>(null)
@@ -167,10 +176,24 @@ export function Transform({ value, onChange: fallbackOnChange, showTitle, collap
   const commitAngle = useCallback((angle: number | null) =>
     editTransform('rotate', current => setRotation(current, angle)), [editTransform])
 
-  const handleAxisChange = useCallback((type: TransformAxisType, axis: 'x' | 'y', next: string | null) => {
+  const handleAxisChange = useCallback((type: TransformAxisType, axis: Axis, next: string | null) => {
+    if (type === 'translate' && axis === 'z' && next?.includes('%')) return
     const value = next != null && type === 'scale' ? String(parseFloat(next) / 100) : next
-    editTransform(type, current => setTransformAxis(current, type, axis, value))
+    editTransform(type, current => {
+      const updated = setTransformAxis(current, type, axis, value)
+      if (type === 'translate' && axis === 'z' && liveIndividualRef.current.translate == null) {
+        // Z 位移和透视一次提交；归零/默认一起退出，连续修改保留用户设置的透视距离。
+        return setPerspective(updated, value == null || parseFloat(value) === 0
+          ? null : readPerspective(current).value ?? '500px')
+      }
+      return updated
+    })
   }, [editTransform])
+
+  const handlePerspectiveChange = useCallback((next: string | null) => {
+    if (next != null && (!perspectiveEditable || !Number.isFinite(parseFloat(next)) || parseFloat(next) <= 0 || next.includes('%'))) return
+    commitTransform(setPerspective(liveTransformRef.current, next))
+  }, [commitTransform, perspectiveEditable])
 
   const handleFocus = useCallback((event: React.FocusEvent<HTMLInputElement>) => {
     isEditingRef.current = true
@@ -261,7 +284,7 @@ export function Transform({ value, onChange: fallbackOnChange, showTitle, collap
   const handleReset = useCallback(() => {
     inputChangedRef.current = false
     isEditingRef.current = false
-    // 独立声明与 transform 一起提交；未支持的表达式/三维独立值保留。
+    // 独立声明与 transform 一起提交；未支持的表达式及旋转形式保留。
     const changes: Array<{ key: IndividualTransformKey | 'transform'; value: string | null }> = []
     ;(['translate', 'rotate', 'scale'] as const).forEach(key => {
       const raw = liveIndividualRef.current[key]
@@ -297,10 +320,30 @@ export function Transform({ value, onChange: fallbackOnChange, showTitle, collap
       resetFunction={handleReset}
       collapse={effectiveCollapse}
     >
-      <Panel.Content className={css.transformPanelContent}>
+      <Panel.Content className={`${css.transformPanelContent} ${css.threeAxes}`}>
         <TransformAxisInput type='translate' axis='x' field={translateX} onChange={handleAxisChange} />
         <TransformAxisInput type='translate' axis='y' field={translateY} onChange={handleAxisChange} />
+        <TransformAxisInput type='translate' axis='z' field={translateZ} onChange={handleAxisChange} />
       </Panel.Content>
+      {showPerspective && <Panel.Content className={`${css.transformPanelContent} ${css.perspectiveControls}`}>
+        <span className={css.axisLabel}>{lang.transformPerspectiveLabel}</span>
+        <InputNumber
+          style={{ minWidth: 0 }}
+          value={perspectiveNumeric ? `${perspectiveNumeric[1]}${perspectiveUnit}` : null}
+          previewValue={perspective.hasValue && !perspectiveNumeric ? perspective.value || '—' : undefined}
+          placeholder={lang.notConfiguredPlaceholder}
+          defaultUnitValue={perspectiveUnit}
+          unitOptions={[{ label: perspectiveUnit, value: perspectiveUnit }]}
+          suffix={<span className={css.axisLabel}>{perspectiveUnit}</span>}
+          showIconOnHover
+          disabled={!perspectiveEditable}
+          clearable={perspective.hasValue}
+          tip={individual.translate != null ? lang.transformPerspectiveIndividualTip : lang.transformPerspectiveTip}
+          type='number'
+          onClear={() => handlePerspectiveChange(null)}
+          onChange={handlePerspectiveChange}
+        />
+      </Panel.Content>}
       <Panel.Content className={css.transformPanelContent}>
         <TransformAxisInput type='scale' axis='x' field={scaleX} onChange={handleAxisChange} />
         <TransformAxisInput type='scale' axis='y' field={scaleY} onChange={handleAxisChange} />

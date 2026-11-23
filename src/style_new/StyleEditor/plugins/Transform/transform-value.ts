@@ -2,7 +2,7 @@ import { findCssClosingParenthesis, findCssFunctionCalls } from '../../../core/c
 import type { CssFunctionCall } from '../../../core/css-functions'
 
 type Edit = { start: number; end: number; value: string }
-type Axis = 'x' | 'y'
+export type Axis = 'x' | 'y' | 'z'
 export type TransformAxisType = 'translate' | 'scale'
 export type IndividualTransformKey = TransformAxisType | 'rotate'
 
@@ -53,6 +53,24 @@ export function setRotation(value: string | null | undefined, angle: number | nu
     : applyEdits(value, [], rotation)
 }
 
+export function readPerspective(value?: string | null) {
+  const call = readTransform(value).calls.find(call => /^perspective$/i.test(call.name))
+  return { hasValue: !!call, value: call?.arguments.trim() ?? null }
+}
+
+/** 新透视放在位移前面；清空只删除透视，保留其他变换和顺序。 */
+export function setPerspective(value: string | null | undefined, distance: string | null): string | null {
+  const calls = readTransform(value).calls.filter(call => /^perspective$/i.test(call.name))
+  if (distance == null) {
+    if (!calls.length) return value || null
+    return applyEdits(value, calls.map(call => ({ ...call, value: '' })))
+  }
+  const perspective = `perspective(${distance})`
+  return calls.length
+    ? applyEdits(value, [{ ...calls[0], value: perspective }])
+    : applyEdits(value, [{ start: 0, end: 0, value: `${perspective} ` }])
+}
+
 function readScale(call: CssFunctionCall): number[] | null {
   const name = call.name.toLowerCase()
   if (!['scale', 'scalex', 'scaley', 'scale3d'].includes(name)) return null
@@ -70,6 +88,9 @@ function axisIndex(call: CssFunctionCall, axis: Axis): number | null {
   const name = call.name.toLowerCase()
   if (name === 'scalex' || name === 'translatex') return axis === 'x' ? 0 : null
   if (name === 'scaley' || name === 'translatey') return axis === 'y' ? 0 : null
+  if (name === 'translatez') return axis === 'z' ? 0 : null
+  // 二维函数没有 Z 分量，不能把 Y 的参数当作 Z 修改。
+  if (axis === 'z') return name === 'translate3d' ? 2 : null
   return axis === 'x' ? 0 : 1
 }
 
@@ -91,7 +112,7 @@ function readTranslate(call: CssFunctionCall): string[] {
 }
 
 function getAxisCalls(value: string | null | undefined, type: TransformAxisType, axis: Axis) {
-  const names = type === 'translate' ? /^(translate|translatex|translatey|translate3d)$/i : /^(scale|scalex|scaley|scale3d)$/i
+  const names = type === 'translate' ? /^(translate|translatex|translatey|translatez|translate3d)$/i : /^(scale|scalex|scaley|scale3d)$/i
   return readTransform(value).calls.filter(call => names.test(call.name) && axisIndex(call, axis) != null)
 }
 
@@ -122,9 +143,11 @@ export function setTransformAxis(value: string | null | undefined, type: Transfo
   if (!calls.length) {
     if (next == null) return value || null
     const added = `${type}${axis.toUpperCase()}(${next})`
-    // 新位移放在最前，避免被已有旋转/缩放改变方向和距离；新缩放放在末尾。
+    // 新位移放在旋转/缩放前，但保留开头的透视对位移的投影；新缩放放在末尾。
+    const first = readTransform(value).calls[0]
+    const start = first && /^perspective$/i.test(first.name) ? first.end : 0
     return type === 'translate'
-      ? applyEdits(value, [{ start: 0, end: 0, value: `${added} ` }])
+      ? applyEdits(value, [{ start, end: start, value: start ? ` ${added}` : `${added} ` }])
       : applyEdits(value, [], added)
   }
   const edits: Edit[] = []
@@ -169,7 +192,7 @@ function scaleText(call: CssFunctionCall, values: number[], transform?: string |
 }
 
 /** 只切换对应轴的符号，保留原有缩放幅度。 */
-export function toggleFlip(value: string | null | undefined, axis: Axis): string | null {
+export function toggleFlip(value: string | null | undefined, axis: 'x' | 'y'): string | null {
   for (const call of readTransform(value).calls.reverse()) {
     const scale = readScale(call)
     const index = axisIndex(call, axis)
@@ -180,16 +203,12 @@ export function toggleFlip(value: string | null | undefined, axis: Axis): string
   return applyEdits(value, [], axis === 'x' ? 'scaleX(-1)' : 'scaleY(-1)')
 }
 
-/** 面板减号清理二维变换；3D 函数只恢复 x/y，保留 z 轴、矩阵和其他变换。 */
+/** 面板减号清理 XYZ 平移、透视和二维变换，保留 Z 缩放、矩阵及其他变换。 */
 export function clearTransform(value?: string | null): string | null {
   const edits: Edit[] = []
   for (const call of readTransform(value).calls) {
-    if (isRotation(call) || /^(translate|translatex|translatey)$/i.test(call.name)) {
+    if (isRotation(call) || /^(translate|translatex|translatey|translatez|translate3d|perspective)$/i.test(call.name)) {
       edits.push({ ...call, value: '' })
-    } else if (/^translate3d$/i.test(call.name)) {
-      const values = readTranslate(call)
-      // 只留下 Z，避免重新选中时把已经清除的 X/Y 再识别成面板配置。
-      edits.push({ ...call, value: /^[-+]?0(?:\.0+)?(?:[a-z]+)?$/i.test(values[2]) ? '' : `translateZ(${values[2]})` })
     } else {
       const scale = readScale(call)
       if (!scale) continue
@@ -200,7 +219,7 @@ export function clearTransform(value?: string | null): string | null {
   return edits.length ? applyEdits(value, edits) : value || null
 }
 
-/** 独立属性仅适配二维数值，借用现有函数编辑；null 表示第一期不支持的表达式或三维值。 */
+/** 独立属性借用现有函数编辑；null 表示不支持的表达式或旋转形式。 */
 export function readIndividualTransform(key: IndividualTransformKey, value: string): string | null {
   const raw = value.replace(/\s*!important\s*$/i, '').trim()
   const priority = value.match(/\s*!important\s*$/i)?.[0] || ''
@@ -210,8 +229,10 @@ export function readIndividualTransform(key: IndividualTransformKey, value: stri
     const transform = `rotate(${raw})${priority}`
     return readRotation(transform).angle == null ? null : transform
   }
-  if (parts.length > 2) return null
-  const transform = `${key}(${parts.join(', ')})${priority}`
+  if (parts.length > (key === 'translate' ? 3 : 2)) return null
+  if (key === 'translate' && parts[2]?.includes('%')) return null
+  const name = parts.length === 3 ? `${key}3d` : key
+  const transform = `${name}(${parts.join(', ')})${priority}`
   if (key === 'scale') return readScale(readTransform(transform).calls[0]) ? transform : null
   return parts.every(part => /^[-+]?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?(?:[a-z]+|%)?$/i.test(part))
     ? transform : null
@@ -225,5 +246,6 @@ export function serializeIndividualTransform(key: IndividualTransformKey, value:
   const fallback = key === 'scale' ? 1 : '0px'
   const x = readTransformAxis(value, key, 'x').value ?? fallback
   const y = readTransformAxis(value, key, 'y').value ?? fallback
-  return `${x} ${y}${priority}`
+  const z = key === 'translate' ? readTransformAxis(value, key, 'z') : null
+  return z?.hasValue ? `${x} ${y} ${z.value ?? fallback}${priority}` : `${x} ${y}${priority}`
 }
