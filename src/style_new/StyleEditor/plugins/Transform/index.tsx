@@ -1,4 +1,4 @@
-import React, { CSSProperties, useCallback, useEffect, useRef, useState } from 'react'
+import React, { CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { Panel, ClearButton, InputNumber } from '../../components'
 import { useDragNumber } from '../../hooks/useDragNumber'
@@ -9,7 +9,7 @@ import { Rotation90R } from '../../icons/Rotation90R'
 import { RotationFlipHorizontal } from '../../icons/RotationFlipHorizontal'
 import { RotationFlipVertical } from '../../icons/RotationFlipVertical'
 import { TranslateX, TranslateY, ScaleX, ScaleY } from '../../icons/TransformAxes'
-import { readRotation, readFlips, readTransformAxis, setRotation, setTransformAxis, toggleFlip, clearTransform, readIndividualTransform, serializeIndividualTransform } from './transform-value'
+import { readRotation, readFlips, readTransformAxis, readTransformMatrix, setRotation, setTransformAxis, toggleFlip, clearTransform, readIndividualTransform, serializeIndividualTransform } from './transform-value'
 import type { TransformAxisType, IndividualTransformKey } from './transform-value'
 
 import type { ChangeEvent, PanelBaseProps } from '../../type'
@@ -22,10 +22,11 @@ interface TransformProps extends PanelBaseProps {
   onChange: ChangeEvent
 }
 
-function TransformAxisInput({ type, axis, field, onChange }: {
+function TransformAxisInput({ type, axis, field, previewValue, onChange }: {
   type: TransformAxisType
   axis: 'x' | 'y'
   field: ReturnType<typeof readTransformAxis> & { readOnly?: boolean }
+  previewValue?: string
   onChange: (type: TransformAxisType, axis: 'x' | 'y', value: string | null) => void
 }) {
   const isScale = type === 'scale'
@@ -41,15 +42,16 @@ function TransformAxisInput({ type, axis, field, onChange }: {
     ? axis === 'x' ? lang.transformScaleXTip : lang.transformScaleYTip
     : axis === 'x' ? lang.transformTranslateXTip : lang.transformTranslateYTip
   const handleChange = (next: string | null) => onChange(type, axis, next)
-  const getDragProps = useLengthInputDrag(displayValue ?? defaultValue, handleChange, { min: -Infinity })
+  const dragValue = displayValue ?? previewValue ?? defaultValue
+  const getDragProps = useLengthInputDrag(dragValue, handleChange, { min: -Infinity })
 
   return (
     <InputNumber
       className={css.transformInput}
       style={{ flex: 1, minWidth: 0, paddingLeft: 0, paddingRight: 6 }}
-      prefix={<span className={`${css.axisIcon}${isScale ? ` ${css.scaleIcon}` : ''}`} {...(editable ? getDragProps(displayValue ?? defaultValue, tip) : {})}><Icon /></span>}
+      prefix={<span className={`${css.axisIcon}${isScale ? ` ${css.scaleIcon}` : ''}`} {...(editable ? getDragProps(dragValue, tip) : {})}><Icon /></span>}
       value={displayValue}
-      previewValue={editable ? defaultValue : String(field.value ?? '—')}
+      previewValue={previewValue ?? (editable ? defaultValue : String(field.value ?? '—'))}
       defaultUnitValue={unit}
       unitOptions={[{ label: unit, value: unit }]}
       suffix={unit !== 'px' ? <span className={css.axisLabel}>{unit}</span> : undefined}
@@ -106,15 +108,33 @@ export function Transform({ value, onChange: fallbackOnChange, showTitle, collap
   }
   const targetDom = context?.targetDom
   const zoneSelector = (context?.editConfig.options as { zoneTab?: { selector: string } })?.zoneTab?.selector
+  // 继承值只用于预览，编辑来源仍保留原声明。
+  const inheritedValues = useMemo(() => {
+    const values: Record<string, string | null> = {}
+    // skew/skewX/skewY 的继承结果已包含在 transform 的计算矩阵中，没有独立的 skew 属性。
+    const keys = ['transform', 'translate', 'rotate', 'scale']
+    keys.forEach(key => {
+      const style = context?.effectiveStyle?.[key]
+      if (style?.value === 'inherit') {
+        values[key] = style.computedValue || context?.getStylePreview?.(key) || null
+      }
+    })
+    return values
+  }, [context?.effectiveStyle, context?.getStylePreview, targetDom, zoneSelector])
+  const inheritedMatrix = useMemo(() => readTransformMatrix(inheritedValues.transform), [inheritedValues.transform])
+  const inheritedAngle = individual.rotate == null ? inheritedMatrix?.rotate : undefined
+  const inheritedTranslate = individual.translate == null ? inheritedMatrix : null
+  const inheritedScale = individual.scale == null ? inheritedMatrix : null
+
   const { angle: parsedAngle, hasRotation } = readRotation(rotationTransform)
   const { flipX, flipY } = readFlips(scaleTransform)
   const translateX = readAxis('translate', 'x')
   const translateY = readAxis('translate', 'y')
   const scaleX = readAxis('scale', 'x')
   const scaleY = readAxis('scale', 'y')
-  const effectiveCollapse = hasRotation || !angleEditable || flipX || flipY || translateX.hasValue || translateY.hasValue || scaleX.hasValue || scaleY.hasValue || clearTransform(transformStr) !== transformStr ? collapse : true
+  const effectiveCollapse = inheritedMatrix || hasRotation || !angleEditable || flipX || flipY || translateX.hasValue || translateY.hasValue || scaleX.hasValue || scaleY.hasValue || clearTransform(transformStr) !== transformStr ? collapse : true
   const angleDisplay = parsedAngle == null ? '' : String(parsedAngle)
-  const anglePlaceholder = angleEditable ? (hasRotation ? undefined : '0') : individual.rotate || undefined
+  const anglePlaceholder = angleEditable ? (hasRotation ? undefined : String(inheritedAngle ?? 0)) : individual.rotate || undefined
   const [angleDraft, setAngleDraft] = useState<string | null>(null)
   const localAngle = angleDraft ?? angleDisplay
   const isEditingRef = useRef(false)
@@ -298,12 +318,12 @@ export function Transform({ value, onChange: fallbackOnChange, showTitle, collap
       collapse={effectiveCollapse}
     >
       <Panel.Content className={css.transformPanelContent}>
-        <TransformAxisInput type='translate' axis='x' field={translateX} onChange={handleAxisChange} />
-        <TransformAxisInput type='translate' axis='y' field={translateY} onChange={handleAxisChange} />
+        <TransformAxisInput type='translate' axis='x' field={translateX} previewValue={inheritedTranslate ? `${inheritedTranslate.translateX}px` : undefined} onChange={handleAxisChange} />
+        <TransformAxisInput type='translate' axis='y' field={translateY} previewValue={inheritedTranslate ? `${inheritedTranslate.translateY}px` : undefined} onChange={handleAxisChange} />
       </Panel.Content>
       <Panel.Content className={css.transformPanelContent}>
-        <TransformAxisInput type='scale' axis='x' field={scaleX} onChange={handleAxisChange} />
-        <TransformAxisInput type='scale' axis='y' field={scaleY} onChange={handleAxisChange} />
+        <TransformAxisInput type='scale' axis='x' field={scaleX} previewValue={inheritedScale ? `${inheritedScale.scaleX}%` : undefined} onChange={handleAxisChange} />
+        <TransformAxisInput type='scale' axis='y' field={scaleY} previewValue={inheritedScale ? `${inheritedScale.scaleY}%` : undefined} onChange={handleAxisChange} />
       </Panel.Content>
       <Panel.Content className={css.transformPanelContent}>
         {/* Angle input with drag-on-icon */}
@@ -346,7 +366,7 @@ export function Transform({ value, onChange: fallbackOnChange, showTitle, collap
             }}
           />
           {angleEditable && (hasRotation || localAngle !== '') && <ClearButton onClick={handleClear} />}
-          {(localAngle !== '' || anglePlaceholder === '0') && <span className={css.degUnit}>°</span>}
+          {(localAngle !== '' || anglePlaceholder === '0' || inheritedAngle != null) && <span className={css.degUnit}>°</span>}
         </Panel.Item>
 
         {/* Action buttons: rotate 90R / flip H / flip V */}

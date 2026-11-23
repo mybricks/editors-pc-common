@@ -40,6 +40,29 @@ export function readRotation(value?: string | null) {
   return { hasRotation: !!call, angle }
 }
 
+/** 二维矩阵按 translate → rotate → scale → skewX 拆解；回显值最多一位小数，位移为 px、角度为度、缩放为百分比。 */
+export function readTransformMatrix(value?: string | null) {
+  const raw = value?.trim() || ''
+  if (!raw.startsWith('matrix(') || !raw.endsWith(')')) return null
+  const args = raw.slice(7, -1).split(',')
+  if (args.length !== 6 || args.some(arg => !arg.trim() || !Number.isFinite(Number(arg)))) return null
+
+  const [a, b, c, d, translateX, translateY] = args.map(Number)
+  const scaleX = Math.hypot(a, b)
+  const scaleY = scaleX === 0 ? Math.hypot(c, d) : (a * d - b * c) / scaleX
+  const rotate = (scaleX === 0 ? Math.atan2(-c, d) : Math.atan2(b, a)) * 180 / Math.PI
+  const skewX = scaleX === 0 ? 0 : Math.atan((a * c + b * d) / (scaleX * scaleX)) * 180 / Math.PI
+
+  return {
+    translateX: Number(translateX.toFixed(1)),
+    translateY: Number(translateY.toFixed(1)),
+    rotate: Number(rotate.toFixed(1)),
+    scaleX: Number((scaleX * 100).toFixed(1)),
+    scaleY: Number((scaleY * 100).toFixed(1)),
+    skewX: Number(skewX.toFixed(1)),
+  }
+}
+
 /** 原位替换旋转；清空时只移除平面旋转，其他函数及顺序原样保留。 */
 export function setRotation(value: string | null | undefined, angle: number | null): string | null {
   const calls = readTransform(value).calls.filter(isRotation)
