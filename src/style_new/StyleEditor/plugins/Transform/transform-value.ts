@@ -40,7 +40,7 @@ export function readRotation(value?: string | null) {
   return { hasRotation: !!call, angle }
 }
 
-/** 二维矩阵按 translate → rotate → scale → skewX 拆解；角度单位为度，缩放为倍数。 */
+/** 二维矩阵按 translate → rotate → scale → skewX 拆解；回显值最多一位小数，位移为 px、角度为度、缩放为百分比。 */
 export function readTransformMatrix(value?: string | null) {
   const raw = value?.trim() || ''
   if (!raw.startsWith('matrix(') || !raw.endsWith(')')) return null
@@ -54,12 +54,12 @@ export function readTransformMatrix(value?: string | null) {
   const skewX = scaleX === 0 ? 0 : Math.atan((a * c + b * d) / (scaleX * scaleX)) * 180 / Math.PI
 
   return {
-    translateX,
-    translateY,
-    rotate: Number(rotate.toFixed(6)),
-    scaleX: Number(scaleX.toFixed(6)),
-    scaleY: Number(scaleY.toFixed(6)),
-    skewX: Number(skewX.toFixed(6)),
+    translateX: Number(translateX.toFixed(1)),
+    translateY: Number(translateY.toFixed(1)),
+    rotate: Number(rotate.toFixed(1)),
+    scaleX: Number((scaleX * 100).toFixed(1)),
+    scaleY: Number((scaleY * 100).toFixed(1)),
+    skewX: Number(skewX.toFixed(1)),
   }
 }
 

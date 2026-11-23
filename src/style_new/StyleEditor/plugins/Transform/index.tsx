@@ -134,7 +134,7 @@ export function Transform({ value, onChange: fallbackOnChange, showTitle, collap
   const scaleY = readAxis('scale', 'y')
   const effectiveCollapse = inheritedMatrix || hasRotation || !angleEditable || flipX || flipY || translateX.hasValue || translateY.hasValue || scaleX.hasValue || scaleY.hasValue || clearTransform(transformStr) !== transformStr ? collapse : true
   const angleDisplay = parsedAngle == null ? '' : String(parsedAngle)
-  const anglePlaceholder = angleEditable ? (hasRotation ? undefined : String(Number((inheritedAngle ?? 0).toFixed(1)))) : individual.rotate || undefined
+  const anglePlaceholder = angleEditable ? (hasRotation ? undefined : String(inheritedAngle ?? 0)) : individual.rotate || undefined
   const [angleDraft, setAngleDraft] = useState<string | null>(null)
   const localAngle = angleDraft ?? angleDisplay
   const isEditingRef = useRef(false)
@@ -322,8 +322,8 @@ export function Transform({ value, onChange: fallbackOnChange, showTitle, collap
         <TransformAxisInput type='translate' axis='y' field={translateY} previewValue={inheritedTranslate ? `${inheritedTranslate.translateY}px` : undefined} onChange={handleAxisChange} />
       </Panel.Content>
       <Panel.Content className={css.transformPanelContent}>
-        <TransformAxisInput type='scale' axis='x' field={scaleX} previewValue={inheritedScale ? `${Number((inheritedScale.scaleX * 100).toFixed(1))}%` : undefined} onChange={handleAxisChange} />
-        <TransformAxisInput type='scale' axis='y' field={scaleY} previewValue={inheritedScale ? `${Number((inheritedScale.scaleY * 100).toFixed(1))}%` : undefined} onChange={handleAxisChange} />
+        <TransformAxisInput type='scale' axis='x' field={scaleX} previewValue={inheritedScale ? `${inheritedScale.scaleX}%` : undefined} onChange={handleAxisChange} />
+        <TransformAxisInput type='scale' axis='y' field={scaleY} previewValue={inheritedScale ? `${inheritedScale.scaleY}%` : undefined} onChange={handleAxisChange} />
       </Panel.Content>
       <Panel.Content className={css.transformPanelContent}>
         {/* Angle input with drag-on-icon */}
