@@ -27,17 +27,20 @@ function applyEdits(value: string | null | undefined, edits: Edit[], append = ''
 }
 
 const isRotation = (call: CssFunctionCall) => /^(rotate|rotatez)$/i.test(call.name)
+const isSkew = (call: CssFunctionCall) => /^(skew|skewx|skewy)$/i.test(call.name)
+const ANGLE_TO_DEG: Record<string, number> = { deg: 1, rad: 180 / Math.PI, grad: 0.9, turn: 360 }
+
+/** 只认数值 + 角度单位，var()/calc() 返回 null，由调用方决定覆盖还是忽略。 */
+function parseAngle(text: string): number | null {
+  const match = text.trim().match(/^([-+]?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?)(deg|rad|grad|turn)?$/i)
+  if (!match) return null
+  const degrees = Number(match[1]) * ANGLE_TO_DEG[match[2]?.toLowerCase() || 'deg']
+  return Number.isFinite(degrees) ? Number(degrees.toFixed(6)) : null
+}
 
 export function readRotation(value?: string | null) {
   const call = readTransform(value).calls.find(isRotation)
-  const match = call?.arguments.trim().match(/^([-+]?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?)(deg|rad|grad|turn)?$/i)
-  let angle: number | null = null
-  if (match) {
-    const factors: Record<string, number> = { deg: 1, rad: 180 / Math.PI, grad: 0.9, turn: 360 }
-    const degrees = Number(match[1]) * factors[match[2]?.toLowerCase() || 'deg']
-    if (Number.isFinite(degrees)) angle = Number(degrees.toFixed(6))
-  }
-  return { hasRotation: !!call, angle }
+  return { hasRotation: !!call, angle: call ? parseAngle(call.arguments) : null }
 }
 
 /** 二维矩阵按 translate → rotate → scale → skewX 拆解；回显值最多一位小数，位移为 px、角度为度、缩放为百分比。 */
@@ -74,6 +77,91 @@ export function setRotation(value: string | null | undefined, angle: number | nu
   return calls.length
     ? applyEdits(value, [{ ...calls[0], value: rotation }])
     : applyEdits(value, [], rotation)
+}
+
+function splitArguments(text: string): string[] {
+  return text.trim().split(/\s*,\s*|\s+/).filter(Boolean)
+}
+
+/** skew(a) 只斜 X，skew(a,b) 两轴独立；skewX/skewY 只提供本轴。 */
+function readSkew(call: CssFunctionCall) {
+  const name = call.name.toLowerCase()
+  const raw = splitArguments(call.arguments)
+  if (name === 'skewx' || name === 'skewy') {
+    const angle = raw.length === 1 ? parseAngle(raw[0]) : null
+    return angle == null ? null : { x: name === 'skewx' ? angle : null, y: name === 'skewy' ? angle : null, raw }
+  }
+  if (!raw.length || raw.length > 2) return null
+  const x = parseAngle(raw[0])
+  const y = raw.length === 2 ? parseAngle(raw[1]) : 0
+  return x == null || y == null ? null : { x, y, raw }
+}
+
+/** skewX() 与 skewY() 会同时存在，同一轴靠后的函数优先，读和写用同一套定位。 */
+function findSkewForAxis(calls: CssFunctionCall[], axis: Axis) {
+  for (let i = calls.length - 1; i >= 0; i--) {
+    const call = calls[i]
+    if (!isSkew(call)) continue
+    const skew = readSkew(call)
+    if (skew && skew[axis] != null) return { call, skew }
+  }
+  return null
+}
+
+/** skew 没有独立属性，只从 transform 的函数列表读；skewX 的 Y 为空，skew(a) 的 Y 视为 0。 */
+export function readSkewAxis(value: string | null | undefined, axis: Axis) {
+  const target = findSkewForAxis(readTransform(value).calls, axis)
+  const component = target ? target.skew[axis] : null
+  return { hasValue: component != null, value: component }
+}
+
+/** tan 周期 180°，先折回 (-90, 90)；±90 处无界，收到邻近可渲染值。 */
+function normalizeSkewAngle(angle: number) {
+  let next = angle % 180
+  if (next > 90) next -= 180
+  else if (next < -90) next += 180
+  if (next > 89.9) next = 89.9
+  else if (next < -89.9) next = -89.9
+  return Number(next.toFixed(3))
+}
+
+const angleText = (angle: number | string) => typeof angle === 'number' ? `${angle}deg` : angle
+const skewText = (axis: Axis, angle: number | string) => `skew${axis.toUpperCase()}(${angleText(angle)})`
+
+/** 原位改写倾斜，另一轴沿用原文；新增追加单轴函数，清空一轴后另一轴退化为单轴形式。 */
+export function setSkewAxis(value: string | null | undefined, axis: Axis, next: number | null): string | null {
+  const angle = next == null || !Number.isFinite(next) ? null : normalizeSkewAngle(next)
+  const calls = readTransform(value).calls
+  const target = findSkewForAxis(calls, axis)
+  if (!target) {
+    // 只替换无法解析且可能属于本轴的函数；skewY(var()) 与拖拽 X 无关，保留它并追加新函数。
+    const sameAxis = `skew${axis}`
+    const unparsed = calls.filter(isSkew).find(call =>
+      readSkew(call) == null && [sameAxis, 'skew'].includes(call.name.toLowerCase()))
+    if (angle == null) return value || null
+    // var()/calc() 参数无法局部改写，整体替换成本轴函数，与旋转输入一致。
+    return unparsed
+      ? applyEdits(value, [{ ...unparsed, value: skewText(axis, angle) }])
+      : applyEdits(value, [], skewText(axis, angle))
+  }
+  const { call, skew } = target
+  const other: Axis = axis === 'x' ? 'y' : 'x'
+  // skewX/skewY 的 raw 只有本轴一个参数，不能按 skew(a, b) 的下标去取另一轴。
+  const otherRaw = call.name.toLowerCase() === 'skew' ? skew.raw[axis === 'x' ? 1 : 0] : null
+  if (angle == null) {
+    // 清空单轴函数直接整段删掉；skew(a) 的 Y 是隐含 0：清 X 删整段，清 Y 退化为 skewX。
+    const text = call.name.toLowerCase() !== 'skew'
+      ? ''
+      : skew.raw.length === 1
+        ? (axis === 'x' ? '' : skewText('x', skew.raw[0]))
+        : (otherRaw == null ? '' : skewText(other, otherRaw))
+    return applyEdits(value, [{ ...call, value: text }])
+  }
+  if (call.name.toLowerCase() !== 'skew') return applyEdits(value, [{ ...call, value: skewText(axis, angle) }])
+  const x = angleText(axis === 'x' ? angle : skew.raw[0])
+  const y = angleText(axis === 'y' ? angle : (otherRaw ?? '0deg'))
+  // 单参 skew() 只在写 X 时保持单参写法。
+  return applyEdits(value, [{ ...call, value: skew.raw.length === 1 && axis === 'x' ? `skew(${x})` : `skew(${x}, ${y})` }])
 }
 
 function readScale(call: CssFunctionCall): number[] | null {
@@ -207,7 +295,7 @@ export function toggleFlip(value: string | null | undefined, axis: Axis): string
 export function clearTransform(value?: string | null): string | null {
   const edits: Edit[] = []
   for (const call of readTransform(value).calls) {
-    if (isRotation(call) || /^(translate|translatex|translatey)$/i.test(call.name)) {
+    if (isRotation(call) || isSkew(call) || /^(translate|translatex|translatey)$/i.test(call.name)) {
       edits.push({ ...call, value: '' })
     } else if (/^translate3d$/i.test(call.name)) {
       const values = readTranslate(call)
