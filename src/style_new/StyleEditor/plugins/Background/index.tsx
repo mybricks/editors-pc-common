@@ -13,6 +13,8 @@ import { useApplyStyleMutations, useEffectiveStyleValue, useStyleClear, useStyle
 import { PanelBaseProps, StyleChangeResult, StyleMutation } from "./../../type";
 import { Panel, Colorpicker, UnBindLinkIcon } from "../../components";
 import { MinusOutlined, TransparentColorOutlined } from "../../components/Icon";
+import { ParseGradient } from "../../components/GradientEditor/GradientParser";
+import { splitBackgroundLayers } from "../../helper/gradient-border";
 import { useDragNumber, useCanvasColorVariables, useThemeVars } from "../../hooks";
 import css from "./index.less";
 import lang from "../../../index.i18n";
@@ -146,6 +148,7 @@ function getLayerLabel(layer: BgLayer): string {
 interface LayerItemProps {
   layer: BgLayer;
   onLayerChange: (partial: Partial<BgLayer>) => void;
+  onLabelPaste: React.ClipboardEventHandler<HTMLInputElement>;
   upload?: (files: File[], args: any) => Promise<string[]>;
   disableBackgroundColor?: boolean;
   disableBackgroundImage?: boolean;
@@ -158,6 +161,7 @@ interface LayerItemProps {
 function LayerItem({
   layer,
   onLayerChange,
+  onLabelPaste,
   upload,
   disableBackgroundColor,
   disableBackgroundImage,
@@ -170,6 +174,7 @@ function LayerItem({
   const [editing, setEditing] = useState(false);
   const [editText, setEditText] = useState("");
   const labelInputRef = useRef<HTMLInputElement>(null);
+  const labelPasteHandledRef = useRef(false);
 
   const handlePickerChange = useCallback(
     (change: any) => {
@@ -335,7 +340,17 @@ function LayerItem({
           className={css.layerLabelInput}
           value={editText}
           onChange={(e) => setEditText(e.target.value)}
-          onBlur={commitEdit}
+          onPaste={(event) => {
+            onLabelPaste(event);
+            if (event.defaultPrevented) {
+              // 粘贴已替换当前图层，旧输入框失焦时不能再提交原来的颜色。
+              labelPasteHandledRef.current = true;
+              setEditing(false);
+            }
+          }}
+          onBlur={() => {
+            if (!labelPasteHandledRef.current) commitEdit();
+          }}
           onKeyDown={handleLabelKeyDown}
           spellCheck={false}
         />
@@ -623,6 +638,40 @@ export function Background({
     [emitLayers]
   );
 
+  // 粘贴使用独立入口，专用校验不会进入原有的图层编辑路径。
+  const handleLabelPaste = (index: number, event: React.ClipboardEvent<HTMLInputElement>) => {
+    // 读取剪贴板纯文本并去掉首尾空白，保留渐变中的原始角度和色标。
+    const text = event.clipboardData.getData('text/plain').trim();
+    // 仅接管已启用的线性渐变粘贴，其他文本沿用输入框原有行为。
+    if (disableGradient || !text.startsWith('linear-gradient(')) return;
+    // 由浏览器检查 CSS 合法性，自定义渐变解析器不能完全替代这项校验。
+    if (!CSS.supports('background-image', text)) return;
+
+    // 解析器可能抛错，只在粘贴入口捕获，不改变旧编辑路径的异常处理。
+    try {
+      // 复用括号感知的分层方法逐层检查，避免误拆 rgba(...) 内部的逗号。
+      if (!splitBackgroundLayers(text).every(value => {
+        // 复用渐变编辑器的解析器，确认该层能读出渐变类型和色标。
+        const { type, stops } = ParseGradient(value);
+        // 每一层都必须是线性渐变，且至少包含两个色标。
+        return type === 'linear-gradient' && stops.length >= 2;
+      })) return; // 任一层不符合要求时退出，保留输入框原有的粘贴行为。
+    } catch {
+      return; // 解析失败时不接管粘贴，也不写入任何填充样式。
+    }
+
+    // 复用已有图层解析接口，同色渐变等情况沿用原来的图层分类规则。
+    const pastedLayers = parseLayers(text);
+    // 从最新图层列表复制一份，避免直接修改当前状态。
+    const nextLayers = layersRef.current.slice();
+    // 在当前行的位置用粘贴的多层替换这一层，保留其余图层的顺序。
+    nextLayers.splice(index, 1, ...pastedLayers);
+    // 已成功接管渐变粘贴，阻止浏览器再把原始文本插入输入框。
+    event.preventDefault();
+    // 复用已有写入入口，统一完成图层序列化、样式提交和本地状态更新。
+    emitLayers(nextLayers);
+  };
+
   const handleLayerRemove = useCallback(
     (index: number) => {
       const currentLayers = layersRef.current;
@@ -796,6 +845,7 @@ export function Background({
               <LayerItem
                 layer={layer}
                 onLayerChange={(partial) => handleLayerChange(index, partial)}
+                onLabelPaste={(event) => handleLabelPaste(index, event)}
                 upload={context?.editConfig?.upload as any}
                 disableBackgroundColor={disableBackgroundColor}
                 disableBackgroundImage={disableBackgroundImage}
