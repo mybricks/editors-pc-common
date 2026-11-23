@@ -34,8 +34,11 @@ const ANGLE_TO_DEG: Record<string, number> = { deg: 1, rad: 180 / Math.PI, grad:
 function parseAngle(text: string): number | null {
   const match = text.trim().match(/^([-+]?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?)(deg|rad|grad|turn)?$/i)
   if (!match) return null
-  const degrees = Number(match[1]) * ANGLE_TO_DEG[match[2]?.toLowerCase() || 'deg']
-  return Number.isFinite(degrees) ? Number(degrees.toFixed(6)) : null
+  const unit = match[2]?.toLowerCase() || 'deg'
+  const degrees = Number(match[1]) * ANGLE_TO_DEG[unit]
+  if (!Number.isFinite(degrees)) return null
+  // 只有换算单位才收敛小数；deg 是作者原样写的，保留其精度，less 里的两位小数不会被吃掉。
+  return unit === 'deg' ? degrees : Number(degrees.toFixed(1))
 }
 
 export function readRotation(value?: string | null) {
