@@ -19,8 +19,10 @@ export function isSimpleVarComponent(value?: string | null): value is string {
 const ANGLE_VALUE_RE = /^[-+]?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?(?:deg|rad|grad|turn)$/i
 /** 缩放变量：无单位数字或百分比。 */
 const SCALE_VALUE_RE = /^[-+]?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?%?$/i
+/** 纯数字字面量（无单位），用于区分「数值」与「变量引用」 */
+const NUMERIC_RE = /^[-+]?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?$/i
 
-export const isAngleValue = (value: string) => ANGLE_VALUE_RE.test(String(value).trim())
+const isAngleValue = (value: string) => ANGLE_VALUE_RE.test(String(value).trim())
 export const isScaleValue = (value: string) => SCALE_VALUE_RE.test(String(value).trim())
 
 export const getCssVarAngleOptions = (scopeEl?: Element | null): CssVarOption[] =>
@@ -242,7 +244,6 @@ export function setSkewAxis(value: string | null | undefined, axis: Axis, next: 
 }
 
 const SCALE_FUNCTIONS = ['scale', 'scalex', 'scaley', 'scale3d']
-const NUMERIC_RE = /^[-+]?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?$/i
 
 /** 缩放分量：数字转成 number，单个 var() 保留原文；其它表达式返回 null。 */
 function readScaleParts(call: CssFunctionCall): Component[] | null {
@@ -252,8 +253,12 @@ function readScaleParts(call: CssFunctionCall): Component[] | null {
   if (!args.length) return null
   const values: Component[] = []
   for (const arg of args) {
-    if (NUMERIC_RE.test(arg)) values.push(Number(arg))
-    else if (isSimpleVarComponent(arg)) values.push(arg.trim())
+    if (NUMERIC_RE.test(arg)) {
+      // 数字字面量仍要有限：1e999 能被正则放行，写回去会拼出 scale(Infinity)
+      const value = Number(arg)
+      if (!Number.isFinite(value)) return null
+      values.push(value)
+    } else if (isSimpleVarComponent(arg)) values.push(arg.trim())
     else return null
   }
   if (name === 'scale' && (values.length === 1 || values.length === 2)) return [values[0], values[1] ?? values[0]]

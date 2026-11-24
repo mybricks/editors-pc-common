@@ -47,15 +47,15 @@
   }
 }
 
-/* Dropdown 根节点是 width/height:100%，需外层限宽，否则会挤掉角度输入框。 */
+/* Dropdown 根节点是 width/height:100%，需外层限宽，否则会挤掉角度输入框。
+   Select 也一样，degUnitWrap 仅提供宽度约束。 */
 .degUnitWrap {
   display: flex;
   align-items: center;
   flex: 0 0 auto;
   height: 100%;
-  cursor: pointer;
 
-  > div {
+  > * {
     display: flex;
     align-items: center;
   }
@@ -75,49 +75,6 @@
     height: 24px;
     opacity: 0.65;
     --fpl-icon-color: currentColor;
-  }
-}
-
-.degUnit {
-  font-size: 11px;
-  color: @font-color-content;
-  padding-right: 6px;
-  flex-shrink: 0;
-  user-select: none;
-  transition: opacity 0.1s;
-}
-
-/* 单位与箭头叠放，宽度由单位撑开：hover 只换显示内容，位置不跳动 */
-.degUnitBox {
-  position: relative;
-  display: flex;
-  align-items: center;
-  height: 100%;
-}
-
-/* 与 Select 的 iconOnHover 一致：箭头绝对定位在单位原位。
-   右内边距与「°」相同，保证 hover 切换时箭头不会比单位更靠右（否则会跳到输入框右缘）。 */
-.degArrow {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  padding-right: 6px;
-  font-size: 10px;
-  color: @font-color-content;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.1s;
-}
-
-.degUnitWrap:hover {
-  .degUnit {
-    opacity: 0;
-  }
-
-  .degArrow {
-    opacity: 0.55;
   }
 }
 
@@ -179,6 +136,17 @@
 .angleInput:enabled {
   font-weight: 500;
   color: @font-color-content;
+
+  &::-webkit-inner-spin-button,
+  &::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    appearance: none;
+    margin: 0;
+  }
+
+  &[type='number'] {
+    -moz-appearance: textfield;
+  }
 
   &::placeholder {
     font-weight: inherit;

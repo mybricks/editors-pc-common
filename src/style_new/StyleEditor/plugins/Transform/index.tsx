@@ -1,7 +1,7 @@
 import React, { CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import {
-  Panel, VariableNumberInput, VariableChip, Dropdown, DownOutlined, SketchPopup, VariableList,
+  Panel, VariableNumberInput, VariableChip, Select, SketchPopup, VariableList,
   withApplyVariableOption, buildDetachMenuOptions,
   APPLY_VARIABLE_ACTION, DETACH_VARIABLE_ACTION,
 } from '../../components'
@@ -188,15 +188,14 @@ function SkewAxisInput({ axis, field, previewValue, binding, onChange }: {
 const ANGLE_DEFAULT_ACTION = '__angleDefault__'
 
 /**
- * 角度行的「°」兼作下拉入口：与其他单位菜单一致——「默认」、当前单位、换绑变量。
- * 只有一种单位，菜单里的「°」也保留，只是用来标明当前值。
+ * 角度行的「°」兼作下拉入口，直接复用输入框的单位下拉（Select + iconOnHover），
+ * 箭头大小、hover 位置与倾斜/缩放行完全一致。菜单：默认、当前单位、换绑变量。
  */
-function AngleUnitDropdown({ editable, hasVariables, onApplyVariable, onClear, children }: {
+function AngleUnitDropdown({ editable, hasVariables, onApplyVariable, onClear }: {
   editable: boolean
   hasVariables: boolean
   onApplyVariable: () => void
   onClear: () => void
-  children: React.ReactNode
 }) {
   // 文案「默认」：原先是行内的 × 负责清除，去掉后改由菜单兜底。
   const options = useMemo(
@@ -218,10 +217,16 @@ function AngleUnitDropdown({ editable, hasVariables, onApplyVariable, onClear, c
   )
 
   return (
-    <Dropdown
+    <Select
+      // 与 InputNumber 里的单位下拉同参：去掉默认内边距，只留单位文案
+      style={{ padding: 0, fontSize: 10 }}
       value='°'
       options={options}
-      onClick={() => {}}
+      showIcon
+      showIconOnHover
+      disabled={!editable}
+      // 只有一种单位，选中「°」不产生写入；清除与换绑都走 onAction
+      onChange={() => {}}
       onAction={action => {
         if (action === ANGLE_DEFAULT_ACTION) {
           onClear()
@@ -229,9 +234,7 @@ function AngleUnitDropdown({ editable, hasVariables, onApplyVariable, onClear, c
         }
         if (action === APPLY_VARIABLE_ACTION) onApplyVariable()
       }}
-    >
-      {children}
-    </Dropdown>
+    />
   )
 }
 
@@ -648,13 +651,7 @@ export function Transform({ value, onChange: fallbackOnChange, showTitle, collap
                     hasVariables={angleEditable && rotateBinding.hasVariables}
                     onApplyVariable={rotateBinding.openPicker}
                     onClear={handleClear}
-                  >
-                    {/* 单位与箭头叠在同一格：平时显示单位，hover 时单位淡出、原位换成箭头 */}
-                    <span className={css.degUnitBox}>
-                      <span className={css.degUnit}>°</span>
-                      <span className={css.degArrow}><DownOutlined /></span>
-                    </span>
-                  </AngleUnitDropdown>
+                  />
                 </div>
               )}
             </>
