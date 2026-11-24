@@ -174,7 +174,10 @@ export function Transform({ value, onChange: fallbackOnChange, showTitle, collap
   const scaleY = readAxis('scale', 'y')
   const skewX = readSkewAxis(transformStr, 'x')
   const skewY = readSkewAxis(transformStr, 'y')
-  const effectiveCollapse = inheritedMatrix || hasRotation || !angleEditable || flipX || flipY || translateX.hasValue || translateY.hasValue || scaleX.hasValue || scaleY.hasValue || skewX.hasValue || skewY.hasValue || clearTransform(transformStr) !== transformStr ? collapse : true
+  const hasTransform = inheritedMatrix || hasRotation || !angleEditable || flipX || flipY || translateX.hasValue || translateY.hasValue || scaleX.hasValue || scaleY.hasValue || skewX.hasValue || skewY.hasValue || clearTransform(transformStr) !== transformStr
+  // 只在挂载时按值决定是否折叠，之后编辑（含重置清空）不再联动折叠状态，避免面板突然收起。
+  const [initialHasTransform] = useState(() => !!hasTransform)
+  const effectiveCollapse = initialHasTransform ? collapse : true
   const angleDisplay = parsedAngle == null ? '' : String(parsedAngle)
   const anglePlaceholder = angleEditable ? (hasRotation ? undefined : String(inheritedAngle ?? 0)) : individual.rotate || undefined
   const [angleDraft, setAngleDraft] = useState<string | null>(null)
