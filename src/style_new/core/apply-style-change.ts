@@ -1440,17 +1440,17 @@ function applyStyleChangeInternal({
   // 只有这里才拆分本次变更；普通组件继续沿用原来的完整状态写回逻辑。
   if (activeZoneTab) {
     const groups = new Map<string, StyleWriteGroup>()
-    const backgroundShorthandWrites = new Map<string, any>()
+    const textBackgroundWrites = new Map<string, any>()
     const isTextBackgroundColorWrite = changeItems.length === 1 &&
       changeItems[0].key === 'backgroundColor' && changeItems[0].paintRole === 'text'
     pendingWrites.forEach(({ key, value, target }) => {
       const sourceSelector = target.selector!
       logStyleWriteTarget(key, value, target, activeZoneTab)
       const group = addStyleWriteGroup(groups, sourceSelector)
-      // 普通改色（无 paintRole）：整批只有这一个属性时，检测源码是否为纯色 background 简写。
-      // 例 .test { background: var(--riskPageBg); } 改成 blue → 写回 background: blue，不追加 background-color。
+      // 普通改色（无 paintRole）：整批只写颜色时也检测源码里是否为纯色 background 简写。
+      // 例 .test { background: var(--riskPageBg); } 改成 blue → 写 background: blue，不追加 background-color。
       // 同批还要写 background-image/size 等图层时不能改写简写，否则会重置刚写入的图层，继续用颜色长写。
-      const isBackgroundColorWrite = cssPropertyName(key) === 'background-color' &&
+      const isBackgroundColorWrite = key === 'backgroundColor' &&
         (isTextBackgroundColorWrite || pendingWrites.length === 1)
       const source = isBackgroundColorWrite
         ? resolveEffectiveStyleSource(getStyleResolution(activeZoneTab, realTargetDom).get(key).candidates
@@ -1458,17 +1458,12 @@ function applyStyleChangeInternal({
         : null
       const shorthand = getTextBackgroundShorthandWrite(source, realTargetDom)
       const writeKey = shorthand ? 'background' : key
-      // 原文 background: var(--x) !important 改色后仍是简写，必须保持同等优先级。
-      const writeValue = shorthand && (source?.important || shorthand.important) &&
-        !IMPORTANT_SUFFIX_RE.test(String(value))
-        ? `${value} !important`
-        : deepCopy(value)
-      group.style[writeKey] = writeValue
+      group.style[writeKey] = deepCopy(value)
       if (shorthand) {
         group.deletions.push(...shorthand.deletions)
-        backgroundShorthandWrites.set(sourceSelector, writeValue)
+        textBackgroundWrites.set(sourceSelector, value)
         // 面板继续按长写回显；同时同步简写快照，避免连续拖色时使用旧 background。
-        finalCssProperties.background = writeValue
+        finalCssProperties.background = value
       }
       zoneWriteTargets?.set(key, {
         selector: sourceSelector,
@@ -1546,9 +1541,9 @@ function applyStyleChangeInternal({
         Object.entries(group.style).forEach(([key, value]) => {
           getStyleResolution(activeZoneTab, realTargetDom).record(key, value, sourceSelector)
         })
-        if (backgroundShorthandWrites.has(sourceSelector)) {
+        if (textBackgroundWrites.has(sourceSelector)) {
           getStyleResolution(activeZoneTab, realTargetDom).record(
-            'backgroundColor', backgroundShorthandWrites.get(sourceSelector), sourceSelector, 'background'
+            'backgroundColor', textBackgroundWrites.get(sourceSelector), sourceSelector, 'background'
           )
         }
       })
