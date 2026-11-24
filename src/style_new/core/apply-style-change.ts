@@ -25,6 +25,7 @@ import { getShorthandFamily, STYLE_SHORTHANDS, stylePropertyKey } from './style-
 import { BOX_SPACING_KEYS, createSpacingWritePlans, getBoxSpacingProperty, getBoxSpacingSideClearKeys } from './box-spacing'
 import { createStyleWriteTargetResolver } from './style-write-target'
 import type { StyleWriteTarget } from './style-write-target'
+import { preserveWriteImportant } from './write-priority'
 import { BORDER_DETAIL_KEYS, BORDER_RADIUS_KEYS, createBorderRadiusWritePlans, createBorderWritePlans, isBorderProperty, isBorderRadiusProperty } from './border-write'
 import { createOverflowWritePlans, isOverflowProperty } from './overflow'
 import { createFlexLonghandWritePlans } from './flex-write'
@@ -782,13 +783,32 @@ function applyEffectiveStyleChanges(
         ? `${value} !important` : value, borderMode, target,
         ...(paintRole ? { paintRole } : {}) }
     })
+    // 【出口 1/2】普通属性：背景色、宽高、opacity、color、transform 等，经 writes 走通用管线。
+    // 沿用当前生效声明的优先级；文字填充已在上面处理，这里靠后缀判重跳过。
+    // 例：Ant 的 .ant-picker.xxx { background-color: transparent !important; } 正在生效
+    //（:where() 权重为零，压不住它），用户把业务规则 .rangePicker 的底色改成 #a43636：
+    //   改前 → .rangePicker { background-color: #a43636; }            浏览器仍显示透明
+    //   改后 → .rangePicker { background-color: #a43636 !important; }  正常生效
+    // 间距/边框/圆角/overflow/flex 不经过这里，它们在下方【出口 2/2】处理。
+    .map(item => ({ ...item, value: preserveWriteImportant(
+      resolution, item.key, item.value, writeTargets.get(item.key)) }))
   const normal = writes.length
     ? applyStyleChangeInternal({ value: writes, liveStyle, editConfig }, true)
     : { nextLiveStyle: liveStyle, applied: false }
   if ('clearUnsupported' in normal && normal.clearUnsupported) return normal
   const nextLiveStyle = { ...normal.nextLiveStyle }
   propertyPlans.forEach(plan => {
-    const { selector, style, deletions, clearedKeys } = plan
+    const { selector, deletions, clearedKeys } = plan
+    // 【出口 2/2】间距 / 边框 / 圆角 / overflow / flex：规划器先算好 style 再直接落盘，绕过上面的通用管线。
+    // 两个出口互斥（上方 writes 的 filter 已排除这五类属性），所以落盘前要按同一个判定再加工一次。
+    // 例：Ant 的 .ant-picker { padding-left: 0 !important; } 生效，业务规则是
+    // .rangePicker { padding: 8px; }，用户把左内边距改成 12px：
+    //   规划器写出 → padding: 8px 8px 8px 12px;            左侧仍被 Ant 的 0 压住
+    //   这里加工后 → padding: 8px 8px 8px 12px !important;  左侧生效
+    // 注意简写是整条提升的：改 paddingLeft 时其余三边也会带上 !important。
+    // 规划器只拿得到 selector、没有 source，host-fallback 的跳过暂只覆盖普通属性路径。
+    const style: Record<string, any> = Object.fromEntries(Object.entries(plan.style).map(([key, value]) =>
+      [key, preserveWriteImportant(resolution, key, value, { selector })]))
     clearedKeys.forEach(key => logStyleOperation({
       key, value: null, action: '清空', candidates: resolution.get(key).candidates,
       winner: resolution.get(key).winner, writeSelectors: [selector],
