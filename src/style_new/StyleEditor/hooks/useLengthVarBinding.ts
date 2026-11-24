@@ -1,11 +1,11 @@
 import { CSSProperties, useCallback, useMemo, useRef, useState } from 'react'
 
 import { useStyleEditorContext } from '../context'
-import { useCanvasLengthVariables } from './useCanvasLengthVariables'
+import { useCanvasCssVariables } from './useCanvasCssVariables'
 import { useDragNumber } from './useDragNumber'
-import { resolveCssVarLength } from '../../core/resolve-css-var-length'
+import { getCssVarLengthOptions, resolveCssVarLength } from '../../core/resolve-css-var-length'
 import { formatLengthDisplay, splitValueAndUnit } from '../utils'
-import type { CssVarLengthOption } from '../../core/resolve-css-var-length'
+import type { CssVarOption } from '../../core/css-var'
 
 /** 值是否为 CSS 变量引用，如 var(--spacing-lg) */
 export function isCssVarValue(val?: string | number | null): val is string {
@@ -23,6 +23,13 @@ export interface LengthVarBindingOptions {
   computedProp?: string
   /** 绑定态拖拽的下限，负值域字段（如阴影偏移）需传 -Infinity */
   min?: number
+  /**
+   * 覆盖变量域：变量列表的收集函数，默认按长度收集。
+   * 必须传模块级函数引用，内联函数会每帧重扫节点上的自定义属性。
+   */
+  collect?: (scopeEl?: Element | null) => CssVarOption[]
+  /** 覆盖变量域：解析函数，返回面板显示态的字符串（如角度 15deg、缩放 150%） */
+  resolve?: (value: string, scopeEl?: Element | null) => string | null
 }
 
 export interface LengthVarBinding {
@@ -74,10 +81,12 @@ export function useLengthVarBinding({
   fallback,
   computedProp,
   min,
+  collect = getCssVarLengthOptions,
+  resolve = resolveCssVarLength,
 }: LengthVarBindingOptions): LengthVarBinding {
   const context = useStyleEditorContext()
   const targetDom = context?.targetDom ?? null
-  const { variableOptions } = useCanvasLengthVariables()
+  const { variableOptions } = useCanvasCssVariables(collect)
 
   const [pickerOpen, setPickerOpen] = useState(false)
   // 首次打开后再挂载弹层，避免每个字段都常驻一份变量列表
@@ -86,8 +95,8 @@ export function useLengthVarBinding({
 
   const varRef = isCssVarValue(value) ? value : undefined
   const resolvedValue = useMemo(
-    () => (varRef ? resolveCssVarLength(varRef, targetDom) : null),
-    [varRef, targetDom]
+    () => (varRef ? resolve(varRef, targetDom) : null),
+    [varRef, targetDom, resolve]
   )
 
   // 解绑要落成用户当前看到的值，未显式给兜底时读画布节点的计算值

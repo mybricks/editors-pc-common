@@ -68,6 +68,8 @@ interface VariableNumberInputProps {
   chipStyle?: CSSProperties
   /** 绑定态胶囊左侧的图标，字段标识只画在输入框里时（如效果的 X/Y）需一并传入 */
   chipPrefix?: React.ReactNode
+  /** 绑定态胶囊的单位，如缩放的 %、角度的 °；放在行尾，与未绑定时的单位下拉同位同样式 */
+  chipUnitLabel?: string
   /** 变量弹层开在另一个弹层里，点它不应关掉外层 */
   nestedPicker?: boolean
   emptyText?: string
@@ -90,6 +92,7 @@ export function VariableNumberInput({
   onMenuAction,
   chipStyle = DEFAULT_FIELD_STYLE,
   chipPrefix,
+  chipUnitLabel,
   nestedPicker = false,
   emptyText = lang.noSizeVariables,
   compact = false,
@@ -138,6 +141,8 @@ export function VariableNumberInput({
           resolvedValue={binding.resolvedValue}
           display={binding.displayText}
           defaultUnit={binding.defaultUnit}
+          unitLabel={chipUnitLabel}
+          unitPlacement='end'
           onRequestPicker={binding.openPicker}
           menuOptions={chipMenuOptions}
           menuLayout={menuLayout}

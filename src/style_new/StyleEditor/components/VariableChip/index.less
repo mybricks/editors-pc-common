@@ -131,4 +131,54 @@
       margin-right: 0;
     }
   }
+
+  /* unitPlacement="end"：单位放在行尾下拉处，样式照搬 Select 的单位文案（iconOnHover），
+     平时显示单位，hover 时单位淡出、原位换成箭头，与未绑定的输入框一致。
+     放在 compact 之后，覆盖其固定 16px 宽度。 */
+  /* 宽度跟随单位文案，不保留纯箭头的 16px，否则窄单位（°）会被居中而左偏；
+     hover 时的箭头是绝对定位，超出部分向左溢出，与 Select 一致。 */
+  .arrowWrap.withUnit {
+    width: auto;
+    min-width: 0;
+  }
+
+  .unitArrow {
+    position: relative;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+
+  .endUnit {
+    padding: 0 2px;
+    font-size: 11px;
+    line-height: 1.4;
+    white-space: nowrap;
+    color: @font-color-content;
+    transition: opacity 0.1s;
+    user-select: none;
+  }
+
+  .unitArrow .arrow {
+    position: absolute;
+    inset: 0;
+    justify-content: flex-end;
+    margin-right: -3px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.1s;
+  }
+
+  /* 与 Select 的 iconOnHover 一致只看 hover；胶囊内输入时单位保持可见 */
+  &:hover .unitArrow {
+    .endUnit {
+      opacity: 0;
+    }
+
+    .arrow {
+      opacity: 1;
+    }
+  }
 }

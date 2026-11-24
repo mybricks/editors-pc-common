@@ -1,16 +1,27 @@
 import React, { CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
-import { Panel, ClearButton, InputNumber } from '../../components'
+import {
+  Panel, VariableNumberInput, VariableChip, Dropdown, DownOutlined, SketchPopup, VariableList,
+  withApplyVariableOption, buildDetachMenuOptions,
+  APPLY_VARIABLE_ACTION, DETACH_VARIABLE_ACTION,
+} from '../../components'
 import { useDragNumber } from '../../hooks/useDragNumber'
 import { useLengthInputDrag } from '../../hooks/useLengthInputDrag'
+import { useLengthVarBinding } from '../../hooks/useLengthVarBinding'
 import { useStyleEditorContext, useStyleChange } from '../../context'
 import { Ratation } from '../../icons/Rotation'
 import { Rotation90R } from '../../icons/Rotation90R'
 import { RotationFlipHorizontal } from '../../icons/RotationFlipHorizontal'
 import { RotationFlipVertical } from '../../icons/RotationFlipVertical'
 import { TranslateX, TranslateY, ScaleX, ScaleY, SkewX, SkewY } from '../../icons/TransformAxes'
-import { readRotation, readFlips, readTransformAxis, readTransformMatrix, setRotation, setTransformAxis, toggleFlip, clearTransform, readIndividualTransform, serializeIndividualTransform, readSkewAxis, setSkewAxis } from './transform-value'
+import {
+  readRotation, readFlips, readTransformAxis, readTransformMatrix, setRotation, setTransformAxis,
+  toggleFlip, clearTransform, readIndividualTransform, serializeIndividualTransform, readSkewAxis,
+  setSkewAxis, isSimpleVarComponent, isScaleValue, getCssVarAngleOptions, getCssVarScaleOptions,
+  resolveAngleVar, resolveScaleVar,
+} from './transform-value'
 import type { TransformAxisType, IndividualTransformKey } from './transform-value'
+import type { LengthVarBinding } from '../../hooks/useLengthVarBinding'
 
 import type { ChangeEvent, PanelBaseProps } from '../../type'
 import { highlightZeroOnFocus, highlightZeroOnMouseDown } from '../../utils'
@@ -22,16 +33,26 @@ interface TransformProps extends PanelBaseProps {
   onChange: ChangeEvent
 }
 
-function TransformAxisInput({ type, axis, field, previewValue, onChange }: {
+/** 胶囊里数值与单位分开显示，与输入框的「100 %」「15 °」写法一致；解析不到时交回默认文案。 */
+function chipNumber(resolved?: string | null): string | undefined {
+  const value = parseFloat(resolved ?? '')
+  return Number.isFinite(value) ? String(Number(value.toFixed(2))) : undefined
+}
+
+/** 位移/缩放的单个轴：字面量走数值输入，单个 var() 换成变量胶囊。 */
+function TransformAxisInput({ type, axis, field, previewValue, binding, onChange }: {
   type: TransformAxisType
   axis: 'x' | 'y'
   field: ReturnType<typeof readTransformAxis> & { readOnly?: boolean }
   previewValue?: string
+  binding: LengthVarBinding
   onChange: (type: TransformAxisType, axis: 'x' | 'y', value: string | null) => void
 }) {
   const isScale = type === 'scale'
   const Icon = isScale ? axis === 'x' ? ScaleX : ScaleY : axis === 'x' ? TranslateX : TranslateY
-  const numeric = field.readOnly ? null : String(field.value ?? '').match(/^([-+]?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?)([a-z%]*)$/i)
+  // 变量分量是字符串，不参与数值解析；表达式（calc 等）仍走只读回显。
+  const varComponent = typeof field.value === 'string' && isSimpleVarComponent(field.value) ? field.value : null
+  const numeric = field.readOnly || varComponent ? null : String(field.value ?? '').match(/^([-+]?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?)([a-z%]*)$/i)
   const editable = !field.hasValue || !!numeric
   const unit = isScale ? '%' : numeric?.[2] || 'px'
   const displayValue = numeric
@@ -44,64 +65,173 @@ function TransformAxisInput({ type, axis, field, previewValue, onChange }: {
   const handleChange = (next: string | null) => onChange(type, axis, next)
   const dragValue = displayValue ?? previewValue ?? defaultValue
   const getDragProps = useLengthInputDrag(dragValue, handleChange, { min: -Infinity })
+  const bound = !!binding.varRef
+  // 轴图标同时是拖拽手柄和变量弹层锚点，绑定态与未绑定态共用同一个节点。
+  const handle = (
+    <div
+      className={`${css.axisIcon}${isScale ? ` ${css.scaleIcon}` : ''}`}
+      ref={binding.anchorRef}
+      {...(bound
+        ? binding.dragProps(`${tip}${lang.dragUnbindSuffix}`)
+        : editable ? getDragProps(dragValue, tip) : {})}
+    >
+      <Icon />
+    </div>
+  )
 
   return (
-    <InputNumber
-      className={css.transformInput}
-      style={{ flex: 1, minWidth: 0, paddingLeft: 0, paddingRight: 6 }}
-      prefix={<span className={`${css.axisIcon}${isScale ? ` ${css.scaleIcon}` : ''}`} {...(editable ? getDragProps(dragValue, tip) : {})}><Icon /></span>}
-      value={displayValue}
-      previewValue={previewValue ?? (editable ? defaultValue : String(field.value ?? '—'))}
-      defaultUnitValue={unit}
-      unitOptions={[{ label: unit, value: unit }]}
-      suffix={unit !== 'px' ? <span className={css.axisLabel}>{unit}</span> : undefined}
-      showIconOnHover
-      allowNegative
-      disabled={!editable}
-      clearable={editable && field.hasValue}
-      tip={tip}
-      type='number'
-      onClear={() => handleChange(null)}
-      onChange={handleChange}
+    <VariableNumberInput
+      binding={isScale ? { ...binding, displayText: chipNumber(binding.resolvedValue) ?? binding.displayText } : binding}
+      chipUnitLabel={isScale ? '%' : undefined}
+      inputKey={`${type}-${axis}`}
+      chipPrefix={handle}
+      // 有单位时与未绑定输入框的 paddingRight: 6 对齐，单位落在同一位置；位移只有箭头，保持原样。
+      chipStyle={{ flex: '1 1 0', minWidth: 0, marginLeft: 0, ...(isScale ? { paddingRight: 6 } : {}) }}
+      compact
+      menuOptions={[
+        { label: lang.defaultLabel, value: 'default' },
+        ...buildDetachMenuOptions(binding.fallbackValue),
+      ]}
+      emptyText={lang.noSizeVariables}
+      inputProps={{
+        className: css.transformInput,
+        style: { flex: 1, minWidth: 0, paddingLeft: 0, paddingRight: 6 },
+        prefix: handle,
+        value: displayValue,
+        previewValue: previewValue ?? (editable ? defaultValue : String(field.value ?? '—')),
+        defaultUnitValue: unit,
+        unitOptions: withApplyVariableOption([{ label: unit, value: unit }], binding.hasVariables),
+        // 不传 suffix：自定义 suffix 会绕过 unitOptions，连带丢掉「应用变量...」入口，
+        // 单位文案交给单位下拉自己渲染（与行高、间距面板一致）。
+        showIcon: true,
+        showIconOnHover: true,
+        allowNegative: true,
+        disabled: !editable,
+        clearable: editable && field.hasValue,
+        tip,
+        type: 'number',
+        onClear: () => handleChange(null),
+        onChange: handleChange,
+        onAction: action => { if (action === APPLY_VARIABLE_ACTION) binding.openPicker() },
+      }}
     />
   )
 }
 
 /** 倾斜没有独立属性，也没有 3D 版本，写入固定落在 transform 上；单位固定度。 */
-function SkewAxisInput({ axis, field, previewValue, onChange }: {
+function SkewAxisInput({ axis, field, previewValue, binding, onChange }: {
   axis: 'x' | 'y'
   field: ReturnType<typeof readSkewAxis>
   previewValue?: number
-  onChange: (axis: 'x' | 'y', value: number | null) => void
+  binding: LengthVarBinding
+  onChange: (axis: 'x' | 'y', value: number | string | null) => void
 }) {
   const Icon = axis === 'x' ? SkewX : SkewY
   const tip = axis === 'x' ? lang.transformSkewXTip : lang.transformSkewYTip
-  const displayValue = field.value == null ? null : `${field.value}°`
+  const raw = typeof field.value === 'string' && isSimpleVarComponent(field.value) ? field.value : null
+  const displayValue = field.value == null || raw ? null : `${field.value}°`
   const handleChange = (next: string | null) => {
-    const parsed = next == null ? null : parseFloat(next)
-    onChange(axis, parsed != null && Number.isFinite(parsed) ? parsed : null)
+    if (next == null) return onChange(axis, null)
+    // 变量原样写入；只有字面量才换算成度数。
+    if (isSimpleVarComponent(next)) return onChange(axis, next)
+    const parsed = parseFloat(next)
+    onChange(axis, Number.isFinite(parsed) ? parsed : null)
   }
   const dragValue = displayValue ?? `${previewValue ?? 0}°`
   const getDragProps = useLengthInputDrag(dragValue, handleChange, { min: -Infinity })
+  const bound = !!binding.varRef
+  const handle = (
+    <div
+      className={css.axisIcon}
+      ref={binding.anchorRef}
+      {...(bound ? binding.dragProps(`${tip}${lang.dragUnbindSuffix}`) : getDragProps(dragValue, tip))}
+    >
+      <Icon />
+    </div>
+  )
 
   return (
-    <InputNumber
-      className={css.transformInput}
-      style={{ flex: 1, minWidth: 0, paddingLeft: 0, paddingRight: 6 }}
-      prefix={<span className={css.axisIcon} {...getDragProps(dragValue, tip)}><Icon /></span>}
-      value={displayValue}
-      previewValue={previewValue ?? '0'}
-      defaultUnitValue='°'
-      unitOptions={[{ label: '°', value: '°' }]}
-      suffix={<span className={css.axisLabel}>°</span>}
-      showIconOnHover
-      allowNegative
-      clearable={field.hasValue}
-      tip={tip}
-      type='number'
-      onClear={() => handleChange(null)}
-      onChange={handleChange}
+    <VariableNumberInput
+      binding={{ ...binding, displayText: chipNumber(binding.resolvedValue) ?? binding.displayText }}
+      chipUnitLabel='°'
+      inputKey={`skew-${axis}`}
+      chipPrefix={handle}
+      chipStyle={{ flex: '1 1 0', minWidth: 0, marginLeft: 0, paddingRight: 6 }}
+      compact
+      menuOptions={[
+        { label: lang.defaultLabel, value: 'default' },
+        ...buildDetachMenuOptions(binding.fallbackValue),
+      ]}
+      emptyText={lang.noAngleVariables}
+      inputProps={{
+        className: css.transformInput,
+        style: { flex: 1, minWidth: 0, paddingLeft: 0, paddingRight: 6 },
+        prefix: handle,
+        value: displayValue,
+        previewValue: previewValue ?? '0',
+        defaultUnitValue: '°',
+        unitOptions: withApplyVariableOption([{ label: '°', value: '°' }], binding.hasVariables),
+        showIcon: true,
+        showIconOnHover: true,
+        allowNegative: true,
+        clearable: field.hasValue,
+        tip,
+        type: 'number',
+        onClear: () => handleChange(null),
+        onChange: handleChange,
+        onAction: action => { if (action === APPLY_VARIABLE_ACTION) binding.openPicker() },
+      }}
     />
+  )
+}
+
+const ANGLE_DEFAULT_ACTION = '__angleDefault__'
+
+/**
+ * 角度行的「°」兼作下拉入口：与其他单位菜单一致——「默认」、当前单位、换绑变量。
+ * 只有一种单位，菜单里的「°」也保留，只是用来标明当前值。
+ */
+function AngleUnitDropdown({ editable, hasVariables, onApplyVariable, onClear, children }: {
+  editable: boolean
+  hasVariables: boolean
+  onApplyVariable: () => void
+  onClear: () => void
+  children: React.ReactNode
+}) {
+  // 文案「默认」：原先是行内的 × 负责清除，去掉后改由菜单兜底。
+  const options = useMemo(
+    () => [
+      { label: lang.defaultLabel, value: ANGLE_DEFAULT_ACTION, type: 'action' as const, disabled: !editable },
+      { label: '', value: '__angleUnitDivider__', type: 'divider' as const },
+      { label: '°', value: '°' },
+      { label: '', value: '__angleUnitDividerEnd__', type: 'divider' as const },
+      // 这里不挂变量图标：菜单里只有一项带图标会把两行文案的左边界错开。
+      {
+        label: lang.applyVariableTip,
+        value: APPLY_VARIABLE_ACTION,
+        type: 'action' as const,
+        disabled: !hasVariables,
+        tip: hasVariables ? undefined : lang.noAngleVariables,
+      },
+    ],
+    [editable, hasVariables]
+  )
+
+  return (
+    <Dropdown
+      value='°'
+      options={options}
+      onClick={() => {}}
+      onAction={action => {
+        if (action === ANGLE_DEFAULT_ACTION) {
+          onClear()
+          return
+        }
+        if (action === APPLY_VARIABLE_ACTION) onApplyVariable()
+      }}
+    >
+      {children}
+    </Dropdown>
   )
 }
 
@@ -166,7 +296,7 @@ export function Transform({ value, onChange: fallbackOnChange, showTitle, collap
   // 矩阵分解只能得出 skewX，skewY 不存在，所以继承态只回显 X。
   const inheritedSkewX = inheritedMatrix?.skewX
 
-  const { angle: parsedAngle, hasRotation } = readRotation(rotationTransform)
+  const { angle: parsedAngle, hasRotation, raw: rotationRaw } = readRotation(rotationTransform)
   const { flipX, flipY } = readFlips(scaleTransform)
   const translateX = readAxis('translate', 'x')
   const translateY = readAxis('translate', 'y')
@@ -229,17 +359,83 @@ export function Transform({ value, onChange: fallbackOnChange, showTitle, collap
     return commitTransform(serializeIndividualTransform(key, edit(parsed)), key)
   }, [commitTransform])
 
-  const commitAngle = useCallback((angle: number | null) =>
-    editTransform('rotate', current => setRotation(current, angle)), [editTransform])
+  const commitRotation = useCallback((next: number | string | null) =>
+    editTransform('rotate', current => setRotation(current, next)), [editTransform])
+
+  const commitAngle = useCallback((angle: number | null) => commitRotation(angle), [commitRotation])
 
   const handleAxisChange = useCallback((type: TransformAxisType, axis: 'x' | 'y', next: string | null) => {
-    const value = next != null && type === 'scale' ? String(parseFloat(next) / 100) : next
+    // 只有百分比字面量换算成 CSS 比例；变量原样落到对应分量。
+    const value = next != null && type === 'scale' && isScaleValue(next)
+      ? String(Number(parseFloat(next)) / 100)
+      : next
     editTransform(type, current => setTransformAxis(current, type, axis, value))
   }, [editTransform])
 
-  const handleSkewChange = useCallback((axis: 'x' | 'y', next: number | null) => {
+  const handleSkewChange = useCallback((axis: 'x' | 'y', next: number | string | null) => {
     commitTransform(setSkewAxis(liveTransformRef.current, axis, next))
   }, [commitTransform])
+
+  // ── 变量绑定 ──────────────────────────────────────────────
+  // 位移沿用长度域；角度、缩放各用自己的域。collect / resolve 必须是模块级引用，否则每帧重扫变量。
+  const translateXBinding = useLengthVarBinding({
+    value: translateX.value,
+    onChange: next => handleAxisChange('translate', 'x', next),
+    min: -Infinity,
+    fallback: inheritedTranslate ? `${inheritedTranslate.translateX}px` : '0px',
+  })
+  const translateYBinding = useLengthVarBinding({
+    value: translateY.value,
+    onChange: next => handleAxisChange('translate', 'y', next),
+    min: -Infinity,
+    fallback: inheritedTranslate ? `${inheritedTranslate.translateY}px` : '0px',
+  })
+  const scaleXBinding = useLengthVarBinding({
+    value: scaleX.value,
+    onChange: next => handleAxisChange('scale', 'x', next),
+    collect: getCssVarScaleOptions,
+    resolve: resolveScaleVar,
+    fallback: inheritedScale ? `${inheritedScale.scaleX}%` : '100%',
+  })
+  const scaleYBinding = useLengthVarBinding({
+    value: scaleY.value,
+    onChange: next => handleAxisChange('scale', 'y', next),
+    collect: getCssVarScaleOptions,
+    resolve: resolveScaleVar,
+    fallback: inheritedScale ? `${inheritedScale.scaleY}%` : '100%',
+  })
+  const skewXBinding = useLengthVarBinding({
+    value: skewX.value,
+    onChange: next => handleSkewChange('x', next),
+    collect: getCssVarAngleOptions,
+    resolve: resolveAngleVar,
+    fallback: inheritedSkewX != null ? `${inheritedSkewX}deg` : '0deg',
+  })
+  const skewYBinding = useLengthVarBinding({
+    value: skewY.value,
+    onChange: next => handleSkewChange('y', next),
+    collect: getCssVarAngleOptions,
+    resolve: resolveAngleVar,
+    fallback: '0deg',
+  })
+  const rotateBinding = useLengthVarBinding({
+    value: rotationRaw ?? angleDisplay,
+    onChange: next => {
+      inputChangedRef.current = false
+      // 绑定的变量原样写入，数字才走角度草稿与提交。
+      if (isSimpleVarComponent(next)) {
+        commitRotation(next)
+        setAngleDraft(null)
+        return
+      }
+      const parsed = parseFloat(next)
+      const angle = Number.isFinite(parsed) ? parsed : null
+      setAngleDraft(commitAngle(angle) ? (angle == null ? '' : String(angle)) : null)
+    },
+    collect: getCssVarAngleOptions,
+    resolve: resolveAngleVar,
+    fallback: inheritedAngle != null ? `${inheritedAngle}deg` : '0deg',
+  })
 
   const handleFocus = useCallback((event: React.FocusEvent<HTMLInputElement>) => {
     isEditingRef.current = true
@@ -367,19 +563,19 @@ export function Transform({ value, onChange: fallbackOnChange, showTitle, collap
       collapse={effectiveCollapse}
     >
       <Panel.Content className={css.transformPanelContent}>
-        <TransformAxisInput type='translate' axis='x' field={translateX} previewValue={inheritedTranslate ? `${inheritedTranslate.translateX}px` : undefined} onChange={handleAxisChange} />
-        <TransformAxisInput type='translate' axis='y' field={translateY} previewValue={inheritedTranslate ? `${inheritedTranslate.translateY}px` : undefined} onChange={handleAxisChange} />
+        <TransformAxisInput type='translate' axis='x' field={translateX} binding={translateXBinding} previewValue={inheritedTranslate ? `${inheritedTranslate.translateX}px` : undefined} onChange={handleAxisChange} />
+        <TransformAxisInput type='translate' axis='y' field={translateY} binding={translateYBinding} previewValue={inheritedTranslate ? `${inheritedTranslate.translateY}px` : undefined} onChange={handleAxisChange} />
       </Panel.Content>
       <Panel.Content className={css.transformPanelContent}>
-        <TransformAxisInput type='scale' axis='x' field={scaleX} previewValue={inheritedScale ? `${inheritedScale.scaleX}%` : undefined} onChange={handleAxisChange} />
-        <TransformAxisInput type='scale' axis='y' field={scaleY} previewValue={inheritedScale ? `${inheritedScale.scaleY}%` : undefined} onChange={handleAxisChange} />
+        <TransformAxisInput type='scale' axis='x' field={scaleX} binding={scaleXBinding} previewValue={inheritedScale ? `${inheritedScale.scaleX}%` : undefined} onChange={handleAxisChange} />
+        <TransformAxisInput type='scale' axis='y' field={scaleY} binding={scaleYBinding} previewValue={inheritedScale ? `${inheritedScale.scaleY}%` : undefined} onChange={handleAxisChange} />
       </Panel.Content>
       <Panel.Content className={css.transformPanelContent}>
-        <SkewAxisInput axis='x' field={skewX} previewValue={inheritedSkewX} onChange={handleSkewChange} />
-        <SkewAxisInput axis='y' field={skewY} onChange={handleSkewChange} />
+        <SkewAxisInput axis='x' field={skewX} binding={skewXBinding} previewValue={inheritedSkewX} onChange={handleSkewChange} />
+        <SkewAxisInput axis='y' field={skewY} binding={skewYBinding} onChange={handleSkewChange} />
       </Panel.Content>
       <Panel.Content className={css.transformPanelContent}>
-        {/* Angle input with drag-on-icon */}
+        {/* Angle input with drag-on-icon；绑定变量时换成胶囊 */}
         <Panel.Item
           style={{
             display: 'flex',
@@ -390,36 +586,97 @@ export function Transform({ value, onChange: fallbackOnChange, showTitle, collap
           }}
         >
           <div
-            {...(angleEditable ? getDragAngle(localAngle, lang.dragRotation) : {})}
+            ref={rotateBinding.anchorRef}
+            {...(rotateBinding.varRef
+              ? rotateBinding.dragProps(`${lang.dragRotation}${lang.dragUnbindSuffix}`)
+              : angleEditable ? getDragAngle(localAngle, lang.dragRotation) : {})}
             className={css.angleIconWrap}
           >
             <Ratation />
           </div>
-          <input
-            type="number"
-            value={localAngle}
-            disabled={!angleEditable}
-            placeholder={anglePlaceholder}
-            data-mybricks-tip={lang.rotationAngleTip}
-            onChange={handleChange}
-            onFocus={handleFocus}
-            onMouseDown={highlightZeroOnMouseDown}
-            className={css.angleInput}
-            onBlur={handleBlur}
-            onKeyDown={handleKeyDown}
-            style={{
-              flex: 1,
-              minWidth: 0,
-              height: '100%',
-              border: 'none',
-              background: 'transparent',
-              fontSize: 11,
-              outline: 'none',
-              cursor: 'text',
-            }}
-          />
-          {angleEditable && (hasRotation || localAngle !== '') && <ClearButton onClick={handleClear} />}
-          {(localAngle !== '' || anglePlaceholder === '0' || inheritedAngle != null) && <span className={css.degUnit}>°</span>}
+          {rotateBinding.varRef ? (
+            <VariableChip
+              value={rotateBinding.varRef}
+              resolvedValue={rotateBinding.resolvedValue}
+              display={chipNumber(rotateBinding.resolvedValue) ?? rotateBinding.displayText}
+              defaultUnit={rotateBinding.defaultUnit}
+              unitLabel='°'
+              unitPlacement='end'
+              compact
+              showIconOnHover
+              // 未绑定时「°」的 padding-right 为 6px，单位文案自带 2px 内边距
+              style={{ flex: '1 1 0', minWidth: 0, marginLeft: 0, paddingRight: 4 }}
+              onRequestPicker={rotateBinding.openPicker}
+              menuOptions={[
+                { label: lang.defaultLabel, value: 'default' },
+                ...buildDetachMenuOptions(rotateBinding.fallbackValue),
+              ]}
+              onMenuSelect={value => { if (value === 'default') handleClear() }}
+              onMenuAction={action => { if (action === DETACH_VARIABLE_ACTION) rotateBinding.detach() }}
+              onInputValue={value => rotateBinding.onChange(value)}
+              onDetach={() => rotateBinding.detach()}
+            />
+          ) : (
+            <>
+              <input
+                type="number"
+                value={localAngle}
+                disabled={!angleEditable}
+                placeholder={anglePlaceholder}
+                data-mybricks-tip={lang.rotationAngleTip}
+                onChange={handleChange}
+                onFocus={handleFocus}
+                onMouseDown={highlightZeroOnMouseDown}
+                className={css.angleInput}
+                onBlur={handleBlur}
+                onKeyDown={handleKeyDown}
+                style={{
+                  flex: 1,
+                  minWidth: 0,
+                  height: '100%',
+                  border: 'none',
+                  background: 'transparent',
+                  fontSize: 11,
+                  outline: 'none',
+                  cursor: 'text',
+                }}
+              />
+              {(localAngle !== '' || anglePlaceholder === '0' || inheritedAngle != null) && (
+                <div className={css.degUnitWrap}>
+                  <AngleUnitDropdown
+                    editable={angleEditable}
+                    hasVariables={angleEditable && rotateBinding.hasVariables}
+                    onApplyVariable={rotateBinding.openPicker}
+                    onClear={handleClear}
+                  >
+                    {/* 单位与箭头叠在同一格：平时显示单位，hover 时单位淡出、原位换成箭头 */}
+                    <span className={css.degUnitBox}>
+                      <span className={css.degUnit}>°</span>
+                      <span className={css.degArrow}><DownOutlined /></span>
+                    </span>
+                  </AngleUnitDropdown>
+                </div>
+              )}
+            </>
+          )}
+          {/* 旋转没有走 VariableNumberInput，变量选择弹层需要自己挂：锚点仍是行首的图标。
+              绑定前后都要在（胶囊的「替换变量...」也走同一个 openPicker）。 */}
+          <SketchPopup
+            open={rotateBinding.pickerOpen}
+            mounted={rotateBinding.pickerMounted}
+            anchorRef={rotateBinding.anchorRef}
+            onClose={rotateBinding.closePicker}
+            className={css.variablePopup}
+          >
+            <VariableList
+              list={rotateBinding.variables}
+              open={rotateBinding.pickerOpen}
+              selectedName={rotateBinding.varRef}
+              onClose={rotateBinding.closePicker}
+              onSelect={item => rotateBinding.selectVariable(item.name)}
+              emptyText={lang.noAngleVariables}
+            />
+          </SketchPopup>
         </Panel.Item>
 
         {/* Action buttons: rotate 90R / flip H / flip V */}

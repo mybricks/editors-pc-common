@@ -16,38 +16,48 @@
   }
 }
 
-.axisLabel {
-  flex-shrink: 0;
-  font-size: 11px;
-  color: @font-color-content;
-  user-select: none;
+.transformInput {
+  input {
+    min-width: 0;
+  }
 }
 
-.transformInput {
-  .axisIcon {
-    display: flex;
-    align-items: center;
-    justify-content: center;
+/* 轴图标同时出现在输入框和变量胶囊的 prefix 里，两者都把 svg 限到 14px，
+   需带上面板容器提高优先级才能保持原尺寸。 */
+.transformPanelContent .axisIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  color: @font-color-content;
+
+  svg {
+    max-width: none;
     width: 24px;
     height: 24px;
-    color: @font-color-content;
-
-    svg {
-      max-width: none;
-      width: 24px;
-      height: 24px;
-      opacity: 0.65;
-    }
+    opacity: 0.65;
   }
 
-  .scaleIcon svg {
+  &.scaleIcon svg {
     width: 21px;
     height: 21px;
     opacity: 0.72;
   }
+}
 
-  input {
-    min-width: 0;
+/* Dropdown 根节点是 width/height:100%，需外层限宽，否则会挤掉角度输入框。 */
+.degUnitWrap {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  height: 100%;
+  cursor: pointer;
+
+  > div {
+    display: flex;
+    align-items: center;
   }
 }
 
@@ -74,12 +84,56 @@
   padding-right: 6px;
   flex-shrink: 0;
   user-select: none;
+  transition: opacity 0.1s;
 }
 
-.transformPanelContent:hover [data-input-clear],
-.transformPanelContent:focus-within [data-input-clear] {
-  opacity: 1;
-  pointer-events: auto;
+/* 单位与箭头叠放，宽度由单位撑开：hover 只换显示内容，位置不跳动 */
+.degUnitBox {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: 100%;
+}
+
+/* 与 Select 的 iconOnHover 一致：箭头绝对定位在单位原位。
+   右内边距与「°」相同，保证 hover 切换时箭头不会比单位更靠右（否则会跳到输入框右缘）。 */
+.degArrow {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 6px;
+  font-size: 10px;
+  color: @font-color-content;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.1s;
+}
+
+.degUnitWrap:hover {
+  .degUnit {
+    opacity: 0;
+  }
+
+  .degArrow {
+    opacity: 0.55;
+  }
+}
+
+/* 旋转行的变量选择弹层，尺寸与 VariableNumberInput 内的弹层保持一致。 */
+.variablePopup {
+  z-index: 1000;
+  position: fixed;
+  visibility: hidden;
+  overflow: hidden;
+  width: 240px;
+  height: 300px;
+  border-radius: 13px;
+  color: @font-color-content;
+  background-color: @bg-color-main;
+  box-shadow: @shadow-main;
+  border: 0.3px solid @boder-color !important;
 }
 
 .actionButtons {
