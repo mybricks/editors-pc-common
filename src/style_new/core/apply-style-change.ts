@@ -28,7 +28,7 @@ import type { StyleWriteTarget } from './style-write-target'
 import { BORDER_DETAIL_KEYS, BORDER_RADIUS_KEYS, createBorderRadiusWritePlans, createBorderWritePlans, isBorderProperty, isBorderRadiusProperty } from './border-write'
 import { createOverflowWritePlans, isOverflowProperty } from './overflow'
 import { createFlexLonghandWritePlans } from './flex-write'
-import { getBackgroundShorthandWrite } from './background-shorthand-write'
+import { getTextBackgroundShorthandWrite } from './text-background-write'
 import { readAuthoredBackgroundDeclarations } from './get-values-background'
 import { createBackgroundColorMigrationPlan } from './background-color-migration'
 import { backgroundCore } from './background-core'
@@ -1456,7 +1456,7 @@ function applyStyleChangeInternal({
         ? resolveEffectiveStyleSource(getStyleResolution(activeZoneTab, realTargetDom).get(key).candidates
             .filter(candidate => candidate.currentState && candidate.label === sourceSelector))
         : null
-      const shorthand = getBackgroundShorthandWrite(source, realTargetDom)
+      const shorthand = getTextBackgroundShorthandWrite(source, realTargetDom)
       const writeKey = shorthand ? 'background' : key
       // 原文 background: var(--x) !important 改色后仍是简写，必须保持同等优先级。
       const writeValue = shorthand && (source?.important || shorthand.important) &&

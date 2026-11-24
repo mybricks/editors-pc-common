@@ -5,11 +5,12 @@ import type { StyleSourceCandidate } from './style-property'
 
 /**
  * 判断能否把颜色改动写回原 background 简写；不能时继续使用 background-color 长写。
+ * 文字填充和普通底色共用这套纯色判定，不要各写一份。
  *
  * 例：.test { background: var(--bg); } 只改颜色 → .test { background: blue; }
  * .test { background: url("a.png") red; } 无法确认只有纯色 → 仍写 background-color。
  */
-export function getBackgroundShorthandWrite(
+export function getTextBackgroundShorthandWrite(
   source: StyleSourceCandidate | null,
   target: HTMLElement | null
 ): { deletions: string[]; important: boolean } | null {
