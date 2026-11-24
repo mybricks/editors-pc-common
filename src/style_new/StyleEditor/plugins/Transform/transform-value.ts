@@ -1,10 +1,49 @@
 import { findCssClosingParenthesis, findCssFunctionCalls } from '../../../core/css-functions'
+import { collectCssVarOptions, parseCssVar, resolveCssVar } from '../../../core/css-var'
 import type { CssFunctionCall } from '../../../core/css-functions'
+import type { CssVarOption } from '../../../core/css-var'
 
 type Edit = { start: number; end: number; value: string }
 type Axis = 'x' | 'y'
+/** 轴分量：字面量解析成数字，单个 var() 保留原文，其它表达式不参与面板编辑。 */
+type Component = number | string
 export type TransformAxisType = 'translate' | 'scale'
 export type IndividualTransformKey = TransformAxisType | 'rotate'
+
+/** 单个变量引用（可带 fallback）才渲染胶囊；calc()/多值等表达式由 UI 走只读路径。 */
+export function isSimpleVarComponent(value?: string | null): value is string {
+  return typeof value === 'string' && parseCssVar(value) != null
+}
+
+/** 角度变量：必须带角度单位，避免 --z-modal: 1000 这类无单位数字进列表。 */
+const ANGLE_VALUE_RE = /^[-+]?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?(?:deg|rad|grad|turn)$/i
+/** 缩放变量：无单位数字或百分比。 */
+const SCALE_VALUE_RE = /^[-+]?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?%?$/i
+/** 纯数字字面量（无单位），用于区分「数值」与「变量引用」 */
+const NUMERIC_RE = /^[-+]?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?$/i
+
+const isAngleValue = (value: string) => ANGLE_VALUE_RE.test(String(value).trim())
+export const isScaleValue = (value: string) => SCALE_VALUE_RE.test(String(value).trim())
+
+export const getCssVarAngleOptions = (scopeEl?: Element | null): CssVarOption[] =>
+  collectCssVarOptions(scopeEl, isAngleValue)
+export const getCssVarScaleOptions = (scopeEl?: Element | null): CssVarOption[] =>
+  collectCssVarOptions(scopeEl, isScaleValue)
+
+/** 角度变量统一折算成面板使用的度；解析不到时返回 null。 */
+export function resolveAngleVar(value: string, scopeEl?: Element | null): string | null {
+  const resolved = resolveCssVar(value, scopeEl, isAngleValue)
+  const angle = resolved == null ? null : parseAngle(resolved)
+  return angle == null ? null : `${angle}deg`
+}
+
+/** 缩放变量统一折算成面板使用的百分比；解析不到时返回 null。 */
+export function resolveScaleVar(value: string, scopeEl?: Element | null): string | null {
+  const resolved = resolveCssVar(value, scopeEl, isScaleValue)
+  if (resolved == null) return null
+  const raw = resolved.trim()
+  return raw.endsWith('%') ? raw : `${Number((Number(raw) * 100).toFixed(6))}%`
+}
 
 function readTransform(value?: string | null) {
   const raw = value?.trim() || ''
@@ -43,7 +82,13 @@ function parseAngle(text: string): number | null {
 
 export function readRotation(value?: string | null) {
   const call = readTransform(value).calls.find(isRotation)
-  return { hasRotation: !!call, angle: call ? parseAngle(call.arguments) : null }
+  const angle = call ? parseAngle(call.arguments) : null
+  return {
+    hasRotation: !!call,
+    angle,
+    // 单个 var() 保留原文供胶囊回显；calc()/多值等表达式仍由 UI 走只读路径。
+    raw: call && angle == null && isSimpleVarComponent(call.arguments) ? call.arguments.trim() : null,
+  }
 }
 
 /** 二维矩阵按 translate → rotate → scale → skewX 拆解；回显值最多一位小数，位移为 px、角度为度、缩放为百分比。 */
@@ -70,33 +115,58 @@ export function readTransformMatrix(value?: string | null) {
 }
 
 /** 原位替换旋转；清空时只移除平面旋转，其他函数及顺序原样保留。 */
-export function setRotation(value: string | null | undefined, angle: number | null): string | null {
+export function setRotation(value: string | null | undefined, angle: number | string | null): string | null {
   const calls = readTransform(value).calls.filter(isRotation)
   if (angle == null) {
     if (!calls.length) return value || null
     return applyEdits(value, calls.map(call => ({ ...call, value: '' })))
   }
-  const rotation = `rotate(${angle}deg)`
+  // 变量按原文写入；数字（含数字字符串）补 deg，避免拼出 var(--r)deg 或 rotate(15)。
+  const text = typeof angle === 'number' || NUMERIC_RE.test(angle.trim())
+    ? `${Number(angle)}deg`
+    : angle.trim()
+  const rotation = `rotate(${text})`
   return calls.length
     ? applyEdits(value, [{ ...calls[0], value: rotation }])
     : applyEdits(value, [], rotation)
 }
 
-function splitArguments(text: string): string[] {
-  return text.trim().split(/\s*,\s*|\s+/).filter(Boolean)
+/** 只拆外层逗号/空白，var(--a, 4px) 这类带 fallback 的参数必须原样保留。 */
+function splitComponents(text: string): string[] {
+  const parts: string[] = []
+  let start = 0
+  let depth = 0
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i]
+    if (char === '(') depth++
+    else if (char === ')') depth--
+    else if (depth === 0 && (char === ',' || /\s/.test(char))) {
+      if (i > start) parts.push(text.slice(start, i).trim())
+      start = i + 1
+    }
+  }
+  if (start < text.length) parts.push(text.slice(start).trim())
+  return parts.filter(Boolean)
+}
+
+/** 角度分量：字面量折算成度，单个 var() 保留原文，其它表达式返回 null。 */
+function readAngleComponent(text: string): Component | null {
+  const angle = parseAngle(text)
+  if (angle != null) return angle
+  return isSimpleVarComponent(text) ? text.trim() : null
 }
 
 /** skew(a) 只斜 X，skew(a,b) 两轴独立；skewX/skewY 只提供本轴。 */
 function readSkew(call: CssFunctionCall) {
   const name = call.name.toLowerCase()
-  const raw = splitArguments(call.arguments)
+  const raw = splitComponents(call.arguments)
   if (name === 'skewx' || name === 'skewy') {
-    const angle = raw.length === 1 ? parseAngle(raw[0]) : null
+    const angle = raw.length === 1 ? readAngleComponent(raw[0]) : null
     return angle == null ? null : { x: name === 'skewx' ? angle : null, y: name === 'skewy' ? angle : null, raw }
   }
   if (!raw.length || raw.length > 2) return null
-  const x = parseAngle(raw[0])
-  const y = raw.length === 2 ? parseAngle(raw[1]) : 0
+  const x = readAngleComponent(raw[0])
+  const y = raw.length === 2 ? readAngleComponent(raw[1]) : 0
   return x == null || y == null ? null : { x, y, raw }
 }
 
@@ -132,8 +202,11 @@ const angleText = (angle: number | string) => typeof angle === 'number' ? `${ang
 const skewText = (axis: Axis, angle: number | string) => `skew${axis.toUpperCase()}(${angleText(angle)})`
 
 /** 原位改写倾斜，另一轴沿用原文；新增追加单轴函数，清空一轴后另一轴退化为单轴形式。 */
-export function setSkewAxis(value: string | null | undefined, axis: Axis, next: number | null): string | null {
-  const angle = next == null || !Number.isFinite(next) ? null : normalizeSkewAngle(next)
+export function setSkewAxis(value: string | null | undefined, axis: Axis, next: number | string | null): string | null {
+  // 变量按原文写入；只有数字（含数字字符串）才做 ±90° 归一化。
+  const angle = next == null
+    ? null
+    : typeof next === 'number' || NUMERIC_RE.test(next.trim()) ? normalizeSkewAngle(Number(next)) : next.trim()
   const calls = readTransform(value).calls
   const target = findSkewForAxis(calls, axis)
   if (!target) {
@@ -167,17 +240,34 @@ export function setSkewAxis(value: string | null | undefined, axis: Axis, next: 
   return applyEdits(value, [{ ...call, value: skew.raw.length === 1 && axis === 'x' ? `skew(${x})` : `skew(${x}, ${y})` }])
 }
 
-function readScale(call: CssFunctionCall): number[] | null {
+const SCALE_FUNCTIONS = ['scale', 'scalex', 'scaley', 'scale3d']
+
+/** 缩放分量：数字转成 number，单个 var() 保留原文；其它表达式返回 null。 */
+function readScaleParts(call: CssFunctionCall): Component[] | null {
   const name = call.name.toLowerCase()
-  if (!['scale', 'scalex', 'scaley', 'scale3d'].includes(name)) return null
-  const args = call.arguments.trim().split(/\s*,\s*|\s+/)
-  if (args.some(arg => !/^[-+]?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?$/i.test(arg))) return null
-  const values = args.map(Number)
-  if (!values.every(Number.isFinite)) return null
+  if (!SCALE_FUNCTIONS.includes(name)) return null
+  const args = splitComponents(call.arguments)
+  if (!args.length) return null
+  const values: Component[] = []
+  for (const arg of args) {
+    if (NUMERIC_RE.test(arg)) {
+      // 正则放行 1e999，但 Number 会溢出成 Infinity，写回去会拼出 scale(Infinity)
+      const value = Number(arg)
+      if (!Number.isFinite(value)) return null
+      values.push(value)
+    } else if (isSimpleVarComponent(arg)) values.push(arg.trim())
+    else return null
+  }
   if (name === 'scale' && (values.length === 1 || values.length === 2)) return [values[0], values[1] ?? values[0]]
   if (name === 'scale3d' && values.length === 3) return values
   if ((name === 'scalex' || name === 'scaley') && values.length === 1) return values
   return null
+}
+
+/** 只有全部是数字的缩放才能参与翻转/清空等数值运算。 */
+function readScale(call: CssFunctionCall): number[] | null {
+  const values = readScaleParts(call)
+  return values && values.every(value => typeof value === 'number') ? values as number[] : null
 }
 
 function axisIndex(call: CssFunctionCall, axis: Axis): number | null {
@@ -222,7 +312,7 @@ function scaleAxisSign(calls: CssFunctionCall[], axis: Axis) {
 export function readTransformAxis(value: string | null | undefined, type: TransformAxisType, axis: Axis) {
   const calls = getAxisCalls(value, type, axis)
   const call = calls[0]
-  const values = call ? type === 'translate' ? readTranslate(call) : readScale(call) : null
+  const values = call ? type === 'translate' ? readTranslate(call) : readScaleParts(call) : null
   const component = call ? values?.[axisIndex(call, axis)!] ?? null : null
   return {
     hasValue: !!call,
@@ -251,13 +341,21 @@ export function setTransformAxis(value: string | null | undefined, type: Transfo
         ? '' : `${call.name}(${values.join(', ')})`
       edits.push({ ...call, value: text })
     } else {
-      const values = readScale(call)
+      const values = readScaleParts(call)
       if (!values) continue
+      const component = values[index]
       // 输入的符号对应整个轴；改写第一段时抵消后续缩放的符号。
+      // 变量分量原样覆盖；清空时落成 1，原符号只在能读到数字时保留。
       values[index] = next == null
-        ? (values[index] < 0 ? -1 : 1)
-        : Number(next) * scaleAxisSign(calls.slice(1), axis)
-      edits.push({ ...call, value: scaleText(call, values, next == null ? null : value) })
+        ? (typeof component === 'number' && component < 0 ? -1 : 1)
+        : NUMERIC_RE.test(next) ? Number(next) * scaleAxisSign(calls.slice(1), axis) : next.trim()
+      const numeric = values.every(item => typeof item === 'number')
+      edits.push({
+        ...call,
+        value: numeric
+          ? scaleText(call, values as number[], next == null ? null : value)
+          : scalePartsText(call, values),
+      })
     }
   }
   return edits.length ? applyEdits(value, edits) : value || null
@@ -279,6 +377,11 @@ function scaleText(call: CssFunctionCall, values: number[], transform?: string |
     })
     if (!keepIdentity) return ''
   }
+  return `${call.name}(${values.join(', ')})`
+}
+
+/** 含变量分量的缩放无法走数值归一化，只做原文拼接。 */
+function scalePartsText(call: CssFunctionCall, values: Component[]): string {
   return `${call.name}(${values.join(', ')})`
 }
 
@@ -306,7 +409,11 @@ export function clearTransform(value?: string | null): string | null {
       edits.push({ ...call, value: /^[-+]?0(?:\.0+)?(?:[a-z]+)?$/i.test(values[2]) ? '' : `translateZ(${values[2]})` })
     } else {
       const scale = readScale(call)
-      if (!scale) continue
+      if (!scale) {
+        // 含变量分量的缩放无法做符号归一化，但重置同样要能清掉。
+        if (readScaleParts(call)) edits.push({ ...call, value: '' })
+        continue
+      }
       const remaining = call.name.toLowerCase() === 'scale3d' && scale[2] !== 1 ? `scaleZ(${scale[2]})` : ''
       edits.push({ ...call, value: remaining })
     }
@@ -314,20 +421,20 @@ export function clearTransform(value?: string | null): string | null {
   return edits.length ? applyEdits(value, edits) : value || null
 }
 
-/** 独立属性仅适配二维数值，借用现有函数编辑；null 表示第一期不支持的表达式或三维值。 */
+/** 独立属性仅适配二维值，借用现有函数编辑；变量分量原样保留，其它表达式返回 null。 */
 export function readIndividualTransform(key: IndividualTransformKey, value: string): string | null {
   const raw = value.replace(/\s*!important\s*$/i, '').trim()
   const priority = value.match(/\s*!important\s*$/i)?.[0] || ''
   if (/^(none|unset|initial)$/i.test(raw)) return `none${priority}`
-  const parts = raw.split(/\s+/)
   if (key === 'rotate') {
     const transform = `rotate(${raw})${priority}`
-    return readRotation(transform).angle == null ? null : transform
+    return readRotation(transform).angle == null && !isSimpleVarComponent(raw) ? null : transform
   }
+  const parts = raw.split(/\s+/)
   if (parts.length > 2) return null
   const transform = `${key}(${parts.join(', ')})${priority}`
-  if (key === 'scale') return readScale(readTransform(transform).calls[0]) ? transform : null
-  return parts.every(part => /^[-+]?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?(?:[a-z]+|%)?$/i.test(part))
+  if (key === 'scale') return readScaleParts(readTransform(transform).calls[0]) ? transform : null
+  return parts.every(part => /^[-+]?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?(?:[a-z]+|%)?$/i.test(part) || isSimpleVarComponent(part))
     ? transform : null
 }
 
@@ -335,7 +442,11 @@ export function readIndividualTransform(key: IndividualTransformKey, value: stri
 export function serializeIndividualTransform(key: IndividualTransformKey, value: string | null): string | null {
   if (value == null) return null
   const { priority } = readTransform(value)
-  if (key === 'rotate') return `${readRotation(value).angle}deg${priority}`
+  if (key === 'rotate') {
+    const rotation = readRotation(value)
+    // 变量绑定原样落盘，不拼成 var(--r)deg。
+    return `${rotation.raw ?? `${rotation.angle}deg`}${priority}`
+  }
   const fallback = key === 'scale' ? 1 : '0px'
   const x = readTransformAxis(value, key, 'x').value ?? fallback
   const y = readTransformAxis(value, key, 'y').value ?? fallback
