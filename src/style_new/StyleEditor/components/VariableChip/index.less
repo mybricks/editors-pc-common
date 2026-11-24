@@ -133,9 +133,9 @@
   }
 
   /* unitPlacement="end"：单位放在行尾下拉处，hover 时单位淡出换成箭头，与未绑定输入框的单位下拉一致 */
+  /* DownOutlined 固定 15×15，箭形只占中间约 8.7×4.9；min-width 确保箭头不被 chip 的 overflow:hidden 裁剪 */
   .arrowWrap.withUnit {
     width: auto;
-    /* 给放大后的行尾箭头留出位置，同时把 ° / % 居中在箭头落点上 */
     min-width: 20px;
   }
 
@@ -167,7 +167,7 @@
     pointer-events: none;
     transition: opacity 0.1s;
 
-    /* DownOutlined 固定 15×15，箭形只占中间约 8.7×4.9，默认尺寸在行尾显得过小 */
+    /* DownOutlined 固定 15×15，箭形只占中间约 8.7×4.9，放大到 20px 以匹配容器 */
     svg {
       width: 20px;
       height: 20px;
