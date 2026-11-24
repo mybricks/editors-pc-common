@@ -16,34 +16,38 @@
   }
 }
 
-.transformInput {
-  input {
-    min-width: 0;
-  }
+.axisLabel {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: @font-color-content;
+  user-select: none;
 }
 
-/* 轴图标同时出现在输入框和变量胶囊的 prefix 里，两者都把 svg 限到 14px，
-   需带上面板容器提高优先级才能保持原尺寸。 */
-.transformPanelContent .axisIcon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  flex-shrink: 0;
-  color: @font-color-content;
-
-  svg {
-    max-width: none;
+.transformInput {
+  .axisIcon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
     width: 24px;
     height: 24px;
-    opacity: 0.65;
+    color: @font-color-content;
+
+    svg {
+      max-width: none;
+      width: 24px;
+      height: 24px;
+      opacity: 0.65;
+    }
   }
 
-  &.scaleIcon svg {
+  .scaleIcon svg {
     width: 21px;
     height: 21px;
     opacity: 0.72;
+  }
+
+  input {
+    min-width: 0;
   }
 }
 
@@ -62,6 +66,20 @@
     opacity: 0.65;
     --fpl-icon-color: currentColor;
   }
+}
+
+.degUnit {
+  font-size: 11px;
+  color: @font-color-content;
+  padding-right: 6px;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.transformPanelContent:hover [data-input-clear],
+.transformPanelContent:focus-within [data-input-clear] {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .actionButtons {
@@ -102,4 +120,20 @@
       opacity: 1;
     }
   }
+}
+
+.angleInput:enabled {
+  font-weight: 500;
+  color: @font-color-content;
+
+  &::placeholder {
+    font-weight: inherit;
+    color: inherit;
+    opacity: 1;
+  }
+}
+
+.angleInput::selection {
+  background-color: var(--mybricks-color-primary, #FA6400);
+  color: #fff;
 }

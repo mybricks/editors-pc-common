@@ -49,11 +49,6 @@ interface VariableChipProps {
   defaultUnit?: string
   /** 与数值分开显示的单位文案，如不透明度的 % */
   unitLabel?: string
-  /**
-   * 单位位置：inline 紧跟数值（默认，如不透明度）；
-   * end 放到行尾下拉处，与未绑定时 InputNumber 的单位下拉同位同样式，hover 换成箭头
-   */
-  unitPlacement?: 'inline' | 'end'
   /** 光标处按删除键：变量退化为当前的固定数值 */
   onDetach?: () => void
   /** 胶囊左侧的图标，用于保留未绑定态输入框里的字段标识（如 X / Y） */
@@ -83,7 +78,6 @@ export function VariableChip({
   onInputValue,
   defaultUnit = 'px',
   unitLabel,
-  unitPlacement = 'inline',
   onDetach,
   prefix,
   style,
@@ -98,9 +92,6 @@ export function VariableChip({
   const displayText = display || resolvedValue || varName?.replace(/^--/, '') || value
 
   const isPresetList = menuLayout === 'presetList'
-  // 行尾单位与数值分开：数值框只放值，单位交给下拉位，hover 时换成箭头
-  const endUnit = !!unitLabel && unitPlacement === 'end'
-  const inlineUnit = !!unitLabel && !endUnit
 
   const options = useMemo<VariableChipMenuOption[]>(() => ([
     // 当前绑定的变量单列一行并勾选：与框内一致显示变量的值，变量名放在 hover 提示里
@@ -175,7 +166,7 @@ export function VariableChip({
           {!draft && (
             <>
               <span className={css.valueBox} onClick={onRequestPicker}>{displayText}</span>
-              {inlineUnit && <span className={css.unit}>{unitLabel}</span>}
+              {unitLabel && <span className={css.unit}>{unitLabel}</span>}
             </>
           )}
           {/* 与 Figma 一致：胶囊右侧仍可聚焦输入，输入数值即替换变量，删除键退化为固定值 */}
@@ -188,10 +179,10 @@ export function VariableChip({
             onKeyDown={handleKeyDown}
             onBlur={commitDraft}
           />
-          {draft && inlineUnit && <span className={css.unit}>{unitLabel}</span>}
+          {draft && unitLabel && <span className={css.unit}>{unitLabel}</span>}
         </div>
         {/* Dropdown 容器是 width:100%，需外层限宽，否则会挤掉左侧的胶囊与输入区 */}
-        <div className={`${css.arrowWrap}${endUnit ? ` ${css.withUnit}` : ''}`}>
+        <div className={css.arrowWrap}>
           <Dropdown
             value={varName}
             options={options}
@@ -199,18 +190,9 @@ export function VariableChip({
             onAction={handleAction}
             menuStyle={menuStyle}
           >
-            {endUnit ? (
-              <span className={css.unitArrow}>
-                <span className={css.endUnit}>{unitLabel}</span>
-                <span className={css.arrow}>
-                  <DownOutlined />
-                </span>
-              </span>
-            ) : (
-              <span className={css.arrow}>
-                <DownOutlined />
-              </span>
-            )}
+            <span className={css.arrow}>
+              <DownOutlined />
+            </span>
           </Dropdown>
         </div>
       </div>

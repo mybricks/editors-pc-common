@@ -365,10 +365,6 @@ export default i18n({
     zh: '当前画布没有可用的尺寸变量',
     en: 'No size variables available on this canvas',
   },
-  noAngleVariables: {
-    zh: '当前画布没有可用的角度变量',
-    en: 'No angle variables available on this canvas',
-  },
   noOpacityVariables: {
     zh: '当前画布没有可用的不透明度变量',
     en: 'No opacity variables available on this canvas',
