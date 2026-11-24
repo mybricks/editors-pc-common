@@ -47,13 +47,14 @@
   }
 }
 
-/* Dropdown 根节点是 width/height:100%，需外层限宽，否则会挤掉角度输入框。
-   Select 也一样，degUnitWrap 仅提供宽度约束。 */
+/* Select 根节点是 width/height:100%，需外层限宽，否则会挤掉角度输入框。
+   右内边距对齐倾斜/缩放行：它们的 InputNumber 外层是 paddingRight: 6。 */
 .degUnitWrap {
   display: flex;
   align-items: center;
   flex: 0 0 auto;
   height: 100%;
+  padding-right: 6px;
 
   > * {
     display: flex;
