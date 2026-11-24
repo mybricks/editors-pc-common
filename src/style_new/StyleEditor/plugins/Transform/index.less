@@ -20,14 +20,11 @@
   input {
     min-width: 0;
   }
-}
 
-/* 未绑定态的单位下拉箭头：DownOutlined 固定 15×15，箭形只占中间约 8.7×4.9，
-   在窄字段里偏小。data-select-icon 是 Select 自带的标记，这里只在本面板内放大，
-   与变量胶囊的行尾箭头保持一致。 */
-.transformPanelContent [data-select-icon] svg {
-  width: 20px;
-  height: 20px;
+  /* 给单位下拉留出箭头的原始宽度，避免 ° 等窄文案把箭头挤小。 */
+  :has(> [data-select-icon]) {
+    min-width: 15px;
+  }
 }
 
 /* 轴图标同时出现在输入框和变量胶囊的 prefix 里，两者都把 svg 限到 14px，
