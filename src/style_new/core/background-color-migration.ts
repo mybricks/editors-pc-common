@@ -1,7 +1,7 @@
 import { decomposeBackgroundStack } from '../StyleEditor/helper/paint-stack'
 import { hasFallbackStyleCandidate } from './style-property'
 import type { StyleResolution } from './style-property'
-import { getTextBackgroundShorthandWrite } from './text-background-write'
+import { getBackgroundShorthandWrite } from './background-shorthand-write'
 import { isComponentScopedSelector } from './build-zone-selectors-from-cssom'
 import { readAuthoredBackgroundDeclarations } from './get-values-background'
 import { resolveCssVarColor } from './resolve-css-var-color'
@@ -43,7 +43,7 @@ export function getBackgroundColorMigration(
     !isComponentScopedSelector(source.source.selectorPart, comId))) return null
   // .demo { background: red; } → 可以把 red 变成渐变，再删 background。
   // .demo { background: red url("old.png"); } → 不在这里拆这条简写，返回原有添加流程。
-  const shorthand = getTextBackgroundShorthandWrite(source, target)
+  const shorthand = getBackgroundShorthandWrite(source, target)
   if (!shorthand) {
     // .demo { background-color: red; }，但当前选中的是 .demo:hover：保留 .demo 的红色。
     if (!source.currentState || source.inline) return null

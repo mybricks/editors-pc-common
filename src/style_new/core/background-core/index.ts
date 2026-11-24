@@ -1,4 +1,4 @@
-import { getTextBackgroundShorthandWrite } from '../text-background-write'
+import { getBackgroundShorthandWrite } from '../background-shorthand-write'
 import { readAuthoredBackgroundDeclarations } from '../get-values-background'
 import { parseLayers } from '../../StyleEditor/plugins/Background/layers'
 import { cssPropertyName } from '../style-property'
@@ -30,7 +30,7 @@ function getBackgroundColorShorthandRemoval(
   const source = property.winner
   if (!source?.source) return null
   // 复用已有的源码读取和纯色判断；变量为图片、渐变或未解析时继续走原拆分流程。
-  const shorthand = getTextBackgroundShorthandWrite(source, target)
+  const shorthand = getBackgroundShorthandWrite(source, target)
   if (!shorthand) return null
   // 改色后 CSSOM 只暴露颜色长写，需要从源码识别被遮住的变量简写。
   const [authored] = readAuthoredBackgroundDeclarations(source.source.rule)
