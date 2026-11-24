@@ -1,11 +1,10 @@
-import React, { CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { CSSProperties, useCallback, useMemo, useRef, useState } from 'react'
 
 import {
-  Panel, VariableNumberInput, VariableChip, Select, SketchPopup, VariableList,
+  Panel, VariableNumberInput,
   withApplyVariableOption, buildDetachMenuOptions,
-  APPLY_VARIABLE_ACTION, DETACH_VARIABLE_ACTION,
+  APPLY_VARIABLE_ACTION,
 } from '../../components'
-import { useDragNumber } from '../../hooks/useDragNumber'
 import { useLengthInputDrag } from '../../hooks/useLengthInputDrag'
 import { useLengthVarBinding } from '../../hooks/useLengthVarBinding'
 import { useStyleEditorContext, useStyleChange } from '../../context'
@@ -22,9 +21,9 @@ import {
 } from './transform-value'
 import type { TransformAxisType, IndividualTransformKey } from './transform-value'
 import type { LengthVarBinding } from '../../hooks/useLengthVarBinding'
+import type { UnitOption } from '../../components'
 
 import type { ChangeEvent, PanelBaseProps } from '../../type'
-import { highlightZeroOnFocus, highlightZeroOnMouseDown } from '../../utils'
 import css from './index.less'
 import lang from '../../../index.i18n'
 
@@ -188,51 +187,90 @@ function SkewAxisInput({ axis, field, previewValue, binding, onChange }: {
 const ANGLE_DEFAULT_ACTION = '__angleDefault__'
 
 /**
- * 角度行的「°」兼作下拉入口，直接复用输入框的单位下拉（Select + iconOnHover），
- * 箭头大小、hover 位置与倾斜/缩放行完全一致。菜单：默认、当前单位、换绑变量。
+ * 角度单位菜单：只有度一种单位，所以单位本身只用来标明当前值；
+ * 清除由「默认」承担（原先的行内 ×），换绑变量接在末尾。
  */
-function AngleUnitDropdown({ editable, hasVariables, onApplyVariable, onClear }: {
+function getAngleUnitOptions(editable: boolean): UnitOption[] {
+  return [
+    { label: lang.defaultLabel, value: ANGLE_DEFAULT_ACTION, type: 'action', disabled: !editable },
+    { label: '', value: '__angleUnitDivider__', type: 'divider' },
+    { label: '°', value: '°' },
+  ]
+}
+
+/**
+ * 旋转行：与倾斜/缩放共用 VariableNumberInput，单位下拉、胶囊、变量弹层都由它提供，
+ * 箭头大小与 hover 行为因此和上面几行完全一致。
+ */
+function RotationInput({ field, previewValue, editable, binding, onChange, onClear }: {
+  field: ReturnType<typeof readRotation>
+  /** 无旋转时的回显：继承角度，或不可编辑时的原始声明 */
+  previewValue?: string
   editable: boolean
-  hasVariables: boolean
-  onApplyVariable: () => void
+  binding: LengthVarBinding
+  onChange: (next: number | string | null) => void
   onClear: () => void
 }) {
-  // 文案「默认」：原先是行内的 × 负责清除，去掉后改由菜单兜底。
-  const options = useMemo(
-    () => [
-      { label: lang.defaultLabel, value: ANGLE_DEFAULT_ACTION, type: 'action' as const, disabled: !editable },
-      { label: '', value: '__angleUnitDivider__', type: 'divider' as const },
-      { label: '°', value: '°' },
-      { label: '', value: '__angleUnitDividerEnd__', type: 'divider' as const },
-      // 这里不挂变量图标：菜单里只有一项带图标会把两行文案的左边界错开。
-      {
-        label: lang.applyVariableTip,
-        value: APPLY_VARIABLE_ACTION,
-        type: 'action' as const,
-        disabled: !hasVariables,
-        tip: hasVariables ? undefined : lang.noAngleVariables,
-      },
-    ],
-    [editable, hasVariables]
+  const tip = lang.dragRotation
+  // 变量引用交给胶囊，输入框只显示字面量
+  const displayValue = !field.raw && field.angle != null ? `${field.angle}°` : null
+  const handleChange = (next: string | null) => {
+    if (next == null) return onChange(null)
+    // 变量原样写入；只有字面量才换算成度数。
+    if (isSimpleVarComponent(next)) return onChange(next)
+    const parsed = parseFloat(next)
+    onChange(Number.isFinite(parsed) ? parsed : null)
+  }
+  const dragValue = displayValue ?? `${previewValue ?? 0}°`
+  const getDragProps = useLengthInputDrag(dragValue, handleChange, { min: -Infinity })
+  const bound = !!binding.varRef
+  // 旋转图标同时是拖拽手柄和变量弹层锚点，与倾斜行一致
+  const handle = (
+    <div
+      className={css.angleIconWrap}
+      ref={binding.anchorRef}
+      {...(bound ? binding.dragProps(`${tip}${lang.dragUnbindSuffix}`) : editable ? getDragProps(dragValue, tip) : {})}
+    >
+      <Ratation />
+    </div>
   )
 
   return (
-    <Select
-      // 与 InputNumber 里的单位下拉同参：去掉默认内边距，只留单位文案
-      style={{ padding: 0, fontSize: 10 }}
-      value='°'
-      options={options}
-      showIcon
-      showIconOnHover
-      disabled={!editable}
-      // 只有一种单位，选中「°」不产生写入；清除与换绑都走 onAction
-      onChange={() => {}}
-      onAction={action => {
-        if (action === ANGLE_DEFAULT_ACTION) {
-          onClear()
-          return
-        }
-        if (action === APPLY_VARIABLE_ACTION) onApplyVariable()
+    <VariableNumberInput
+      binding={{ ...binding, displayText: chipNumber(binding.resolvedValue) ?? binding.displayText }}
+      chipUnitLabel='°'
+      inputKey='rotate'
+      chipPrefix={handle}
+      chipStyle={{ flex: '1 1 0', minWidth: 0, marginLeft: 0, paddingRight: 6 }}
+      compact
+      menuOptions={[
+        { label: lang.defaultLabel, value: 'default' },
+        ...buildDetachMenuOptions(binding.fallbackValue),
+      ]}
+      emptyText={lang.noAngleVariables}
+      inputProps={{
+        className: css.transformInput,
+        style: { flex: '1 1 0', minWidth: 0, paddingLeft: 0, paddingRight: 6 },
+        prefix: handle,
+        value: displayValue,
+        previewValue,
+        defaultUnitValue: '°',
+        unitOptions: withApplyVariableOption(getAngleUnitOptions(editable), binding.hasVariables),
+        showIcon: true,
+        showIconOnHover: true,
+        allowNegative: true,
+        // 不传 clearable：清除走单位菜单的「默认」，行内不再出现 ×，省出输入宽度。
+        disabled: !editable,
+        tip: lang.rotationAngleTip,
+        type: 'number',
+        onChange: handleChange,
+        onAction: action => {
+          if (action === ANGLE_DEFAULT_ACTION) {
+            onClear()
+            return
+          }
+          if (action === APPLY_VARIABLE_ACTION) binding.openPicker()
+        },
       }}
     />
   )
@@ -312,14 +350,10 @@ export function Transform({ value, onChange: fallbackOnChange, showTitle, collap
   const [initialHasTransform] = useState(() => !!hasTransform)
   const effectiveCollapse = initialHasTransform ? collapse : true
   const angleDisplay = parsedAngle == null ? '' : String(parsedAngle)
-  const anglePlaceholder = angleEditable ? (hasRotation ? undefined : String(inheritedAngle ?? 0)) : individual.rotate || undefined
-  const [angleDraft, setAngleDraft] = useState<string | null>(null)
-  const localAngle = angleDraft ?? angleDisplay
-  const isEditingRef = useRef(false)
-  const inputChangedRef = useRef(false)
-  const dragRef = useRef<{
-    start: number; input: HTMLInputElement | null; initialText: string; changed: boolean
-  } | null>(null)
+  // 无旋转时回显继承角度；不可编辑（独立 rotate 无法解析）时回显原始声明
+  const anglePreview = angleEditable
+    ? (hasRotation ? undefined : String(inheritedAngle ?? 0))
+    : individual.rotate ?? undefined
   // 连续拖拽、快捷按钮都从最近一次写入继续，避免父组件回传前丢掉其他变换。
   const liveTransformRef = useRef(transformStr)
   const liveIndividualRef = useRef(individual)
@@ -331,17 +365,6 @@ export function Transform({ value, onChange: fallbackOnChange, showTitle, collap
     liveIndividualRef.current = individual
     sourceRef.current = { transformStr, targetDom, zoneSelector, ...individual }
   }
-
-  useEffect(() => {
-    if (!isEditingRef.current && !dragRef.current) setAngleDraft(null)
-  }, [transformStr, individual.rotate])
-
-  useEffect(() => {
-    isEditingRef.current = false
-    inputChangedRef.current = false
-    dragRef.current = null
-    setAngleDraft(null)
-  }, [targetDom, zoneSelector])
 
   const commitTransform = useCallback((next: string | null, key: IndividualTransformKey | 'transform' = 'transform') => {
     const current = key === 'transform' ? liveTransformRef.current : liveIndividualRef.current[key]
@@ -424,98 +447,23 @@ export function Transform({ value, onChange: fallbackOnChange, showTitle, collap
   const rotateBinding = useLengthVarBinding({
     value: rotationRaw ?? angleDisplay,
     onChange: next => {
-      inputChangedRef.current = false
-      // 绑定的变量原样写入，数字才走角度草稿与提交。
+      // 绑定的变量原样写入；数字/带单位字面量才换算成度数。
       if (isSimpleVarComponent(next)) {
         commitRotation(next)
-        setAngleDraft(null)
         return
       }
       const parsed = parseFloat(next)
-      const angle = Number.isFinite(parsed) ? parsed : null
-      setAngleDraft(commitAngle(angle) ? (angle == null ? '' : String(angle)) : null)
+      commitAngle(Number.isFinite(parsed) ? parsed : null)
     },
     collect: getCssVarAngleOptions,
     resolve: resolveAngleVar,
     fallback: inheritedAngle != null ? `${inheritedAngle}deg` : '0deg',
   })
 
-  const handleFocus = useCallback((event: React.FocusEvent<HTMLInputElement>) => {
-    isEditingRef.current = true
-    highlightZeroOnFocus(event)
-  }, [])
-
-  const handleBlur = useCallback((e: React.FocusEvent<HTMLInputElement>) => {
-    isEditingRef.current = false
-    if (!inputChangedRef.current) {
-      setAngleDraft(null)
-      return
-    }
-    inputChangedRef.current = false
-    const raw = e.currentTarget.value.trim()
-    if (e.currentTarget.validity?.badInput || (raw && !Number.isFinite(Number(raw)))) {
-      setAngleDraft(null)
-      return
-    }
-    const angle = raw ? Number(raw) : null
-    setAngleDraft(commitAngle(angle) ? (angle == null ? '' : String(angle)) : null)
-  }, [commitAngle])
-
-  const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.currentTarget.value
-    inputChangedRef.current = true
-    setAngleDraft(val)
-    if (val.trim() && Number.isFinite(Number(val))) commitAngle(Number(val))
-  }, [commitAngle])
-
-  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
-      e.preventDefault()
-      const delta = e.key === 'ArrowUp' ? 1 : -1
-      const current = parseFloat(e.currentTarget.value)
-      const next = (Number.isFinite(current) ? current : 0) + delta
-      inputChangedRef.current = false
-      setAngleDraft(commitAngle(next) ? String(next) : null)
-    } else if (e.key === 'Enter') {
-      e.currentTarget.blur()
-    }
-  }, [commitAngle])
-
-  const getDragAngle = useDragNumber({
-    min: -Infinity,
-    max: Infinity,
-    onDragStart: (_current, input) => {
-      const draft = parseFloat(input?.value ?? '')
-      const start = hasRotation ? (Number.isFinite(draft) ? draft : parsedAngle ?? 0) : 0
-      dragRef.current = { start, input, initialText: input?.value ?? '', changed: false }
-      return start
-    },
-    onDragChange: angle => {
-      const drag = dragRef.current
-      if (!drag || (!drag.changed && angle === drag.start)) return
-      drag.changed = true
-      inputChangedRef.current = false
-      setAngleDraft(commitAngle(angle) ? String(angle) : null)
-    },
-    onDragEnd: angle => {
-      const drag = dragRef.current
-      dragRef.current = null
-      if (!drag) return
-      if (!drag.changed && (angle === drag.start || (drag.input && drag.input.value === drag.initialText))) {
-        if (drag.input) drag.input.value = drag.initialText
-        return
-      }
-      inputChangedRef.current = false
-      setAngleDraft(commitAngle(angle) ? String(angle) : null)
-    },
-  })
-
   const handleRotate90R = useCallback(() => {
     const raw = liveIndividualRef.current.rotate
     const current = readRotation(raw != null ? readIndividualTransform('rotate', raw) : liveTransformRef.current).angle ?? 0
-    const next = (current + 90) % 360
-    inputChangedRef.current = false
-    setAngleDraft(commitAngle(next) ? String(next) : null)
+    commitAngle((current + 90) % 360)
   }, [commitAngle])
 
   const handleFlipH = useCallback(() => {
@@ -527,8 +475,6 @@ export function Transform({ value, onChange: fallbackOnChange, showTitle, collap
   }, [editTransform])
 
   const handleReset = useCallback(() => {
-    inputChangedRef.current = false
-    isEditingRef.current = false
     // 独立声明与 transform 一起提交；未支持的表达式/三维独立值保留。
     const changes: Array<{ key: IndividualTransformKey | 'transform'; value: string | null }> = []
     ;(['translate', 'rotate', 'scale'] as const).forEach(key => {
@@ -540,21 +486,18 @@ export function Transform({ value, onChange: fallbackOnChange, showTitle, collap
       const next = clearTransform(liveTransformRef.current)
       if (next !== liveTransformRef.current) changes.push({ key: 'transform', value: next })
       const result = onChange(changes)
-      if (result && !result.applied) { setAngleDraft(null); return }
+      if (result && !result.applied) return
       changes.forEach(({ key, value }) => {
         if (key === 'transform') liveTransformRef.current = value
         else liveIndividualRef.current[key] = `none${liveIndividualRef.current[key]?.match(/\s*!important\s*$/i)?.[0] || ''}`
       })
-      setAngleDraft('')
       return
     }
-    setAngleDraft(commitTransform(clearTransform(liveTransformRef.current)) ? '' : null)
+    commitTransform(clearTransform(liveTransformRef.current))
   }, [commitTransform, onChange])
 
   const handleClear = useCallback(() => {
-    inputChangedRef.current = false
-    isEditingRef.current = false
-    setAngleDraft(commitAngle(null) ? '' : null)
+    commitAngle(null)
   }, [commitAngle])
 
   return (
@@ -578,103 +521,15 @@ export function Transform({ value, onChange: fallbackOnChange, showTitle, collap
         <SkewAxisInput axis='y' field={skewY} binding={skewYBinding} onChange={handleSkewChange} />
       </Panel.Content>
       <Panel.Content className={css.transformPanelContent}>
-        {/* Angle input with drag-on-icon；绑定变量时换成胶囊 */}
-        <Panel.Item
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            flex: '1 1 0',
-            width: 'auto',
-            minWidth: 0,
-          }}
-        >
-          <div
-            ref={rotateBinding.anchorRef}
-            {...(rotateBinding.varRef
-              ? rotateBinding.dragProps(`${lang.dragRotation}${lang.dragUnbindSuffix}`)
-              : angleEditable ? getDragAngle(localAngle, lang.dragRotation) : {})}
-            className={css.angleIconWrap}
-          >
-            <Ratation />
-          </div>
-          {rotateBinding.varRef ? (
-            <VariableChip
-              value={rotateBinding.varRef}
-              resolvedValue={rotateBinding.resolvedValue}
-              display={chipNumber(rotateBinding.resolvedValue) ?? rotateBinding.displayText}
-              defaultUnit={rotateBinding.defaultUnit}
-              unitLabel='°'
-              unitPlacement='end'
-              compact
-              showIconOnHover
-              // 未绑定时「°」的 padding-right 为 6px，单位文案自带 2px 内边距
-              style={{ flex: '1 1 0', minWidth: 0, marginLeft: 0, paddingRight: 4 }}
-              onRequestPicker={rotateBinding.openPicker}
-              menuOptions={[
-                { label: lang.defaultLabel, value: 'default' },
-                ...buildDetachMenuOptions(rotateBinding.fallbackValue),
-              ]}
-              onMenuSelect={value => { if (value === 'default') handleClear() }}
-              onMenuAction={action => { if (action === DETACH_VARIABLE_ACTION) rotateBinding.detach() }}
-              onInputValue={value => rotateBinding.onChange(value)}
-              onDetach={() => rotateBinding.detach()}
-            />
-          ) : (
-            <>
-              <input
-                type="number"
-                value={localAngle}
-                disabled={!angleEditable}
-                placeholder={anglePlaceholder}
-                data-mybricks-tip={lang.rotationAngleTip}
-                onChange={handleChange}
-                onFocus={handleFocus}
-                onMouseDown={highlightZeroOnMouseDown}
-                className={css.angleInput}
-                onBlur={handleBlur}
-                onKeyDown={handleKeyDown}
-                style={{
-                  flex: 1,
-                  minWidth: 0,
-                  height: '100%',
-                  border: 'none',
-                  background: 'transparent',
-                  fontSize: 11,
-                  outline: 'none',
-                  cursor: 'text',
-                }}
-              />
-              {(localAngle !== '' || anglePlaceholder === '0' || inheritedAngle != null) && (
-                <div className={css.degUnitWrap}>
-                  <AngleUnitDropdown
-                    editable={angleEditable}
-                    hasVariables={angleEditable && rotateBinding.hasVariables}
-                    onApplyVariable={rotateBinding.openPicker}
-                    onClear={handleClear}
-                  />
-                </div>
-              )}
-            </>
-          )}
-          {/* 旋转没有走 VariableNumberInput，变量选择弹层需要自己挂：锚点仍是行首的图标。
-              绑定前后都要在（胶囊的「替换变量...」也走同一个 openPicker）。 */}
-          <SketchPopup
-            open={rotateBinding.pickerOpen}
-            mounted={rotateBinding.pickerMounted}
-            anchorRef={rotateBinding.anchorRef}
-            onClose={rotateBinding.closePicker}
-            className={css.variablePopup}
-          >
-            <VariableList
-              list={rotateBinding.variables}
-              open={rotateBinding.pickerOpen}
-              selectedName={rotateBinding.varRef}
-              onClose={rotateBinding.closePicker}
-              onSelect={item => rotateBinding.selectVariable(item.name)}
-              emptyText={lang.noAngleVariables}
-            />
-          </SketchPopup>
-        </Panel.Item>
+        {/* 旋转：与倾斜/缩放同一套 VariableNumberInput，单位下拉/胶囊/变量弹层都由它提供 */}
+        <RotationInput
+          field={{ hasRotation, angle: parsedAngle, raw: rotationRaw }}
+          previewValue={anglePreview}
+          editable={angleEditable}
+          binding={rotateBinding}
+          onChange={commitRotation}
+          onClear={handleClear}
+        />
 
         {/* Action buttons: rotate 90R / flip H / flip V */}
         <div className={css.actionButtons}>

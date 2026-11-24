@@ -47,21 +47,6 @@
   }
 }
 
-/* Select 根节点是 width/height:100%，需外层限宽，否则会挤掉角度输入框。
-   右内边距对齐倾斜/缩放行：它们的 InputNumber 外层是 paddingRight: 6。 */
-.degUnitWrap {
-  display: flex;
-  align-items: center;
-  flex: 0 0 auto;
-  height: 100%;
-  padding-right: 6px;
-
-  > * {
-    display: flex;
-    align-items: center;
-  }
-}
-
 .angleIconWrap {
   display: flex;
   align-items: center;
@@ -77,21 +62,6 @@
     opacity: 0.65;
     --fpl-icon-color: currentColor;
   }
-}
-
-/* 旋转行的变量选择弹层，尺寸与 VariableNumberInput 内的弹层保持一致。 */
-.variablePopup {
-  z-index: 1000;
-  position: fixed;
-  visibility: hidden;
-  overflow: hidden;
-  width: 240px;
-  height: 300px;
-  border-radius: 13px;
-  color: @font-color-content;
-  background-color: @bg-color-main;
-  box-shadow: @shadow-main;
-  border: 0.3px solid @boder-color !important;
 }
 
 .actionButtons {
@@ -132,31 +102,4 @@
       opacity: 1;
     }
   }
-}
-
-.angleInput:enabled {
-  font-weight: 500;
-  color: @font-color-content;
-
-  &::-webkit-inner-spin-button,
-  &::-webkit-outer-spin-button {
-    -webkit-appearance: none;
-    appearance: none;
-    margin: 0;
-  }
-
-  &[type='number'] {
-    -moz-appearance: textfield;
-  }
-
-  &::placeholder {
-    font-weight: inherit;
-    color: inherit;
-    opacity: 1;
-  }
-}
-
-.angleInput::selection {
-  background-color: var(--mybricks-color-primary, #FA6400);
-  color: #fff;
 }
