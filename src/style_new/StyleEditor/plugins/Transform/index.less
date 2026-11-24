@@ -22,6 +22,13 @@
   }
 }
 
+/* 行尾单位下拉的箭头：DownOutlined 固定 15×15，箭形只占中间约 8.7×4.9，
+   默认尺寸偏小，放大到与变量胶囊的行尾箭头一致。 */
+.unitArrowIcon svg {
+  width: 20px;
+  height: 20px;
+}
+
 /* 轴图标同时出现在输入框和变量胶囊的 prefix 里，两者都把 svg 限到 14px，
    需带上面板容器提高优先级才能保持原尺寸。 */
 .transformPanelContent .axisIcon {

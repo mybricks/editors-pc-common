@@ -99,6 +99,7 @@ function TransformAxisInput({ type, axis, field, previewValue, binding, onChange
         // 单位文案交给单位下拉自己渲染（与行高、间距面板一致）。
         showIcon: true,
         showIconOnHover: true,
+        unitIconClassName: css.unitArrowIcon,
         allowNegative: true,
         disabled: !editable,
         clearable: editable && field.hasValue,
@@ -167,6 +168,7 @@ function SkewAxisInput({ axis, field, previewValue, binding, onChange }: {
         unitOptions: withApplyVariableOption([{ label: '°', value: '°' }], binding.hasVariables),
         showIcon: true,
         showIconOnHover: true,
+        unitIconClassName: css.unitArrowIcon,
         allowNegative: true,
         clearable: field.hasValue,
         tip,
@@ -253,6 +255,7 @@ function RotationInput({ field, previewValue, editable, binding, onChange, onCle
         unitOptions: withApplyVariableOption(getAngleUnitOptions(editable), binding.hasVariables),
         showIcon: true,
         showIconOnHover: true,
+        unitIconClassName: css.unitArrowIcon,
         allowNegative: true,
         // 不传 clearable：清除走单位菜单的「默认」，行内不再出现 ×，省出输入宽度。
         disabled: !editable,
