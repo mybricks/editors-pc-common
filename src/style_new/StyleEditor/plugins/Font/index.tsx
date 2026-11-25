@@ -421,6 +421,13 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
 
   const [cfg] = useState({ ...DEFAULT_CONFIG, ...config });
 
+  const tipWeight = String(fontWeight || fontWeightField.computedPreview || '');
+  // 画布样式或主题更新后重读变量，单纯悬停时复用提示。
+  const fontWeightTip = useMemo(
+    () => cfg.disableFontWeight ? undefined : getFontWeightTip(tipWeight, targetDom),
+    [cfg.disableFontWeight, tipWeight, targetDom, effectiveStyle, themeVars, lang.fontWeightTip]
+  );
+
   useEffect(() => {
     const snapshot = Object.fromEntries(
       Object.entries(effectiveStyle || {}).map(([key, item]) => [key, { ...item }])
@@ -1251,7 +1258,7 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
           {cfg.disableFontWeight ? null : (
             <>
               <Select
-                tip={getFontWeightTip(String(fontWeight || fontWeightField.computedPreview || ''), targetDom)}
+                tip={fontWeightTip}
                 keepTipOnHover
                 prefix={<FontWeightOutlined />}
                 style={{
