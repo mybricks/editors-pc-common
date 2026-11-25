@@ -91,8 +91,8 @@ export function readRotation(value?: string | null) {
   }
 }
 
-/** 二维矩阵按 translate → rotate → scale → skewX 拆解；回显值最多一位小数，位移为 px、角度为度、缩放为百分比。 */
-export function readTransformMatrix(value?: string | null) {
+/** 二维矩阵按 translate → rotate → skewX → scale 拆解，保留完整精度供写回使用。 */
+function parseMatrix(value?: string | null) {
   const raw = value?.trim() || ''
   if (!raw.startsWith('matrix(') || !raw.endsWith(')')) return null
   const args = raw.slice(7, -1).split(',')
@@ -100,18 +100,42 @@ export function readTransformMatrix(value?: string | null) {
 
   const [a, b, c, d, translateX, translateY] = args.map(Number)
   const scaleX = Math.hypot(a, b)
-  const scaleY = scaleX === 0 ? Math.hypot(c, d) : (a * d - b * c) / scaleX
+  const det = a * d - b * c
+  const scaleY = scaleX === 0 ? Math.hypot(c, d) : det / scaleX
   const rotate = (scaleX === 0 ? Math.atan2(-c, d) : Math.atan2(b, a)) * 180 / Math.PI
-  const skewX = scaleX === 0 ? 0 : Math.atan((a * c + b * d) / (scaleX * scaleX)) * 180 / Math.PI
+  // tanθ = (a·c + b·d) / det；除以 scaleX² 只在等比缩放时成立。
+  const skewX = det === 0 ? 0 : Math.atan((a * c + b * d) / det) * 180 / Math.PI
+  return { translateX, translateY, rotate, scaleX, scaleY, skewX }
+}
 
+/** 矩阵回显：位移为 px、角度为度、缩放为百分比，最多一位小数。 */
+export function readTransformMatrix(value?: string | null) {
+  const matrix = parseMatrix(value)
+  if (!matrix) return null
   return {
-    translateX: Number(translateX.toFixed(1)),
-    translateY: Number(translateY.toFixed(1)),
-    rotate: Number(rotate.toFixed(1)),
-    scaleX: Number((scaleX * 100).toFixed(1)),
-    scaleY: Number((scaleY * 100).toFixed(1)),
-    skewX: Number(skewX.toFixed(1)),
+    translateX: Number(matrix.translateX.toFixed(1)),
+    translateY: Number(matrix.translateY.toFixed(1)),
+    rotate: Number(matrix.rotate.toFixed(1)),
+    scaleX: Number((matrix.scaleX * 100).toFixed(1)),
+    scaleY: Number((matrix.scaleY * 100).toFixed(1)),
+    skewX: Number(matrix.skewX.toFixed(1)),
   }
+}
+
+/** 手写 matrix() 展开成等价函数链，后续读写在函数链上进行；顺序必须是 translate → rotate → skewX → scale。 */
+export function matrixToFunctions(value?: string | null): string | null {
+  const matrix = parseMatrix(value)
+  if (!matrix) return null
+  // 保留一位小数：位移和角度直接取整；缩放按面板的百分比口径取整，1.732 保留为 173.2% 而不是 170%。
+  const round1 = (input: number) => Number(input.toFixed(1))
+  const roundPercent = (input: number) => round1(input * 100) / 100
+  const parts = [
+    round1(matrix.translateX) || round1(matrix.translateY) ? `translate(${round1(matrix.translateX)}px, ${round1(matrix.translateY)}px)` : '',
+    round1(matrix.rotate) ? `rotate(${round1(matrix.rotate)}deg)` : '',
+    round1(matrix.skewX) ? `skewX(${round1(matrix.skewX)}deg)` : '',
+    roundPercent(matrix.scaleX) !== 1 || roundPercent(matrix.scaleY) !== 1 ? `scale(${roundPercent(matrix.scaleX)}, ${roundPercent(matrix.scaleY)})` : '',
+  ]
+  return parts.filter(Boolean).join(' ') || 'none'
 }
 
 /** 原位替换旋转；清空时只移除平面旋转，其他函数及顺序原样保留。 */

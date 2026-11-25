@@ -1467,7 +1467,12 @@ function applyStyleChangeInternal({
       const sourceSelector = target.selector!
       logStyleWriteTarget(key, value, target, activeZoneTab)
       const group = addStyleWriteGroup(groups, sourceSelector)
-      const source = isTextBackgroundColorWrite && key === 'backgroundColor'
+      // 普通改色（无 paintRole）：整批只写颜色时也检测源码里是否为纯色 background 简写。
+      // 例 .test { background: var(--riskPageBg); } 改成 blue → 写 background: blue，不追加 background-color。
+      // 同批还要写 background-image/size 等图层时不能改写简写，否则会重置刚写入的图层，继续用颜色长写。
+      const isBackgroundColorWrite = key === 'backgroundColor' &&
+        (isTextBackgroundColorWrite || pendingWrites.length === 1)
+      const source = isBackgroundColorWrite
         ? resolveEffectiveStyleSource(getStyleResolution(activeZoneTab, realTargetDom).get(key).candidates
             .filter(candidate => candidate.currentState && candidate.label === sourceSelector))
         : null
