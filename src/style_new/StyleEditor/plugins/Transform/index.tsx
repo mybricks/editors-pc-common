@@ -9,7 +9,7 @@ import { Rotation90R } from '../../icons/Rotation90R'
 import { RotationFlipHorizontal } from '../../icons/RotationFlipHorizontal'
 import { RotationFlipVertical } from '../../icons/RotationFlipVertical'
 import { TranslateX, TranslateY, ScaleX, ScaleY, SkewX, SkewY } from '../../icons/TransformAxes'
-import { readRotation, readFlips, readTransformAxis, readTransformMatrix, setRotation, setTransformAxis, toggleFlip, clearTransform, readIndividualTransform, serializeIndividualTransform, readSkewAxis, setSkewAxis } from './transform-value'
+import { readRotation, readFlips, readTransformAxis, readTransformMatrix, setRotation, setTransformAxis, toggleFlip, clearTransform, readIndividualTransform, serializeIndividualTransform, readSkewAxis, setSkewAxis, matrixToFunctions } from './transform-value'
 import type { TransformAxisType, IndividualTransformKey } from './transform-value'
 
 import type { ChangeEvent, PanelBaseProps } from '../../type'
@@ -117,6 +117,8 @@ export function Transform({ value, onChange: fallbackOnChange, showTitle, collap
       : context?.authoredStyle ? context.authoredStyle.transform : value?.transform
   const transformStr = typeof declaredTransform === 'string' && !/^unset$/i.test(declaredTransform.trim())
     ? declaredTransform : null
+  // 手写 matrix() 展开成等价函数链，读和编辑都落在函数上；首次编辑即把矩阵写回成链。
+  const editableTransform = matrixToFunctions(transformStr) ?? transformStr
   const readIndividualValue = (key: IndividualTransformKey): string | null => {
     const source = context?.effectiveStyle?.[key]
     const winner = context?.getStyleProperty?.(key).winner
@@ -133,9 +135,9 @@ export function Transform({ value, onChange: fallbackOnChange, showTitle, collap
     scale: readIndividualValue('scale'),
   }
   // 按声明来源选择编辑对象；none/0 仍属于独立属性，不能退回去改 transform。
-  const rotationTransform = individual.rotate != null ? readIndividualTransform('rotate', individual.rotate) : transformStr
-  const scaleTransform = individual.scale != null ? readIndividualTransform('scale', individual.scale) : transformStr
-  const translateTransform = individual.translate != null ? readIndividualTransform('translate', individual.translate) : transformStr
+  const rotationTransform = individual.rotate != null ? readIndividualTransform('rotate', individual.rotate) : editableTransform
+  const scaleTransform = individual.scale != null ? readIndividualTransform('scale', individual.scale) : editableTransform
+  const translateTransform = individual.translate != null ? readIndividualTransform('translate', individual.translate) : editableTransform
   const angleEditable = individual.rotate == null || rotationTransform !== null
   const scaleEditable = individual.scale == null || scaleTransform !== null
   const readAxis = (type: TransformAxisType, axis: 'x' | 'y') => {
@@ -172,9 +174,9 @@ export function Transform({ value, onChange: fallbackOnChange, showTitle, collap
   const translateY = readAxis('translate', 'y')
   const scaleX = readAxis('scale', 'x')
   const scaleY = readAxis('scale', 'y')
-  const skewX = readSkewAxis(transformStr, 'x')
-  const skewY = readSkewAxis(transformStr, 'y')
-  const hasTransform = inheritedMatrix || hasRotation || !angleEditable || flipX || flipY || translateX.hasValue || translateY.hasValue || scaleX.hasValue || scaleY.hasValue || skewX.hasValue || skewY.hasValue || clearTransform(transformStr) !== transformStr
+  const skewX = readSkewAxis(editableTransform, 'x')
+  const skewY = readSkewAxis(editableTransform, 'y')
+  const hasTransform = inheritedMatrix || hasRotation || !angleEditable || flipX || flipY || translateX.hasValue || translateY.hasValue || scaleX.hasValue || scaleY.hasValue || skewX.hasValue || skewY.hasValue || clearTransform(editableTransform) !== editableTransform
   // 只在挂载时按值决定是否折叠，之后编辑（含重置清空）不再联动折叠状态，避免面板突然收起。
   const [initialHasTransform] = useState(() => !!hasTransform)
   const effectiveCollapse = initialHasTransform ? collapse : true
@@ -188,13 +190,13 @@ export function Transform({ value, onChange: fallbackOnChange, showTitle, collap
     start: number; input: HTMLInputElement | null; initialText: string; changed: boolean
   } | null>(null)
   // 连续拖拽、快捷按钮都从最近一次写入继续，避免父组件回传前丢掉其他变换。
-  const liveTransformRef = useRef(transformStr)
+  const liveTransformRef = useRef(editableTransform)
   const liveIndividualRef = useRef(individual)
   const sourceRef = useRef({ transformStr, targetDom, zoneSelector, ...individual })
   if (sourceRef.current.transformStr !== transformStr || sourceRef.current.targetDom !== targetDom ||
     sourceRef.current.zoneSelector !== zoneSelector || sourceRef.current.translate !== individual.translate ||
     sourceRef.current.rotate !== individual.rotate || sourceRef.current.scale !== individual.scale) {
-    liveTransformRef.current = transformStr
+    liveTransformRef.current = editableTransform
     liveIndividualRef.current = individual
     sourceRef.current = { transformStr, targetDom, zoneSelector, ...individual }
   }
