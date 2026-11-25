@@ -222,7 +222,7 @@ function RotationInput({ field, previewValue, editable, binding, onChange, onCle
   // 旋转图标同时是拖拽手柄和变量弹层锚点，与倾斜行一致
   const handle = (
     <div
-      className={css.angleIconWrap}
+      className={`${css.axisIcon} ${css.angleIconWrap}`}
       ref={binding.anchorRef}
       {...(bound ? binding.dragProps(`${tip}${lang.dragUnbindSuffix}`) : editable ? getDragProps(dragValue, tip) : {})}
     >

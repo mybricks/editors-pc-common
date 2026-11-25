@@ -135,11 +135,13 @@
   /* unitPlacement="end"：单位放在行尾下拉处，hover 时单位淡出换成箭头，与未绑定输入框的单位下拉一致 */
   .arrowWrap.withUnit {
     width: auto;
-    min-width: 20px;
+    /* 与数字输入框的单位下拉一样，两侧各占 1px 边框。 */
+    border-inline: 1px solid transparent;
   }
 
   .unitArrow {
     position: relative;
+    min-width: 15px;
     height: 100%;
     display: flex;
     align-items: center;
@@ -160,6 +162,7 @@
   .unitArrow .arrow {
     position: absolute;
     inset: 0;
+    width: auto;
     justify-content: flex-end;
     margin-right: -3px;
     opacity: 0;
