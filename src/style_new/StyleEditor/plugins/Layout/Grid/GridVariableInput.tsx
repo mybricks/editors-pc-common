@@ -35,9 +35,10 @@ export default function GridVariableInput(
       <div
         className={styles.variableInput}
         data-mybricks-tip={JSON.stringify({
-          content: `${lang.variablePrefix}${varName || value}${
-            resolvedValue && resolvedValue !== display ? `\n${resolvedValue}` : ''
-          }`,
+          content: [
+            `${lang.variablePrefix}${varName || value}`,
+            resolvedValue && `${lang.valuePrefix}${resolvedValue}`,
+          ].filter(Boolean).join('<br/>'),
           position: 'left',
         })}
       >
