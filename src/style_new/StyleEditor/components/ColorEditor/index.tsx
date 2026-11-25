@@ -700,14 +700,18 @@ export function ColorEditor({
       );
     }
 
+    const variableTip = varRef
+      ? [
+          `${lang.variablePrefix}${varName || varRef}`,
+          resolvedVarColor && `${lang.valuePrefix}${resolvedVarColor}`,
+        ].filter(Boolean).join("<br/>")
+      : undefined;
+
     // 主题色标题等仍走绑定展示；var() 回显走下方输入框
     if (nonColorValue && !isCssVarRef(value) && (finalValue || emptyValueLabel == null)) {
-      const varTip = isCssVarRef(finalValue)
-        ? `${lang.variablePrefix}${varName || finalValue}`
-        : undefined;
       return (
         <>
-          <div className={css.text} data-mybricks-tip={varTip} onClick={onPresetClick}>
+          <div className={css.text} data-mybricks-tip={variableTip} onClick={onPresetClick}>
             {value}
           </div>
           {finalValue && <div
@@ -721,7 +725,7 @@ export function ColorEditor({
     // 变量态与尺寸编辑器一致：框内显示解析出的色值并套描边衬底，右侧仍可聚焦输入
     if (nonColorValue && isCssVarRef(value)) {
       return (
-        <div className={css.variableMain} data-mybricks-tip={`${lang.variablePrefix}${varName || varRef}`}>
+        <div className={css.variableMain} data-mybricks-tip={variableTip}>
           {/* 开始输入后隐藏胶囊，避免「旧变量值 + 新输入」同时出现 */}
           {!varDraft && (
             <span className={css.variableValue} onClick={onPresetClick}>
@@ -770,7 +774,7 @@ export function ColorEditor({
         onPaste={handlePaste}
       />
     );
-  }, [userInput, state.value, state.nonColorValue, state.finalValue, inherited, showInheritedColor, hasInheritedDraft, inheritedTipColor, emptyValueLabel, paintPreviewValue, onPresetClick, handleReset, handleUnbind, handleInputChange, handleInputBlur, varDraft, varName, varRef, variableDisplayText, handleVarKeyDown, commitVarDraft]);
+  }, [userInput, state.value, state.nonColorValue, state.finalValue, inherited, showInheritedColor, hasInheritedDraft, inheritedTipColor, emptyValueLabel, paintPreviewValue, onPresetClick, handleReset, handleUnbind, handleInputChange, handleInputBlur, varDraft, varName, varRef, resolvedVarColor, variableDisplayText, handleVarKeyDown, commitVarDraft]);
 
   // 预览色共用现有透明度输入和写入链路，修改后使用本地色值。
   const previewColor = useMemo(() => {

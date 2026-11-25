@@ -69,6 +69,17 @@ function getFontWeightVariables(scopeEl?: Element | null) {
   return collectCssVarOptions(scopeEl, isFontWeightValue);
 }
 
+function getFontWeightTip(value: string, targetDom: Element | null) {
+  const variable = parseCssVar(value);
+  if (!variable) return lang.fontWeightTip;
+
+  const weight = resolveCssVar(value, targetDom, isFontWeightValue);
+  return [
+    `${lang.variablePrefix}${variable.varName}`,
+    weight && `${lang.valuePrefix}${weight}`,
+  ].filter(Boolean).join("<br/>");
+}
+
 interface FontProps extends PanelBaseProps {
   value: CSSProperties;
   onChange: (value: StyleChangeItem | StyleChangeItem[]) => StyleChangeResult | void;
@@ -409,6 +420,13 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
   const [textFillEditorRevision, setTextFillEditorRevision] = useState(0);
 
   const [cfg] = useState({ ...DEFAULT_CONFIG, ...config });
+
+  const tipWeight = String(fontWeight || fontWeightField.computedPreview || '');
+  // 画布样式或主题更新后重读变量，单纯悬停时复用提示。
+  const fontWeightTip = useMemo(
+    () => cfg.disableFontWeight ? undefined : getFontWeightTip(tipWeight, targetDom),
+    [cfg.disableFontWeight, tipWeight, targetDom, effectiveStyle, themeVars, lang.fontWeightTip]
+  );
 
   useEffect(() => {
     const snapshot = Object.fromEntries(
@@ -1240,7 +1258,8 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
           {cfg.disableFontWeight ? null : (
             <>
               <Select
-                tip={lang.fontWeight700}
+                tip={fontWeightTip}
+                keepTipOnHover
                 prefix={<FontWeightOutlined />}
                 style={{
                   flex: 1,
