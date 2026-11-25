@@ -16,7 +16,6 @@ import { TranslateX, TranslateY, ScaleX, ScaleY, SkewX, SkewY } from '../../icon
 import { readRotation, readFlips, readTransformAxis, readTransformMatrix, setRotation, setTransformAxis, toggleFlip, clearTransform, readIndividualTransform, serializeIndividualTransform, readSkewAxis, setSkewAxis, isSimpleVarComponent, isScaleValue, getCssVarAngleOptions, getCssVarScaleOptions, resolveAngleVar, resolveScaleVar, matrixToFunctions } from './transform-value'
 import type { TransformAxisType, IndividualTransformKey } from './transform-value'
 import type { LengthVarBinding } from '../../hooks/useLengthVarBinding'
-import type { UnitOption } from '../../components'
 
 import type { ChangeEvent, PanelBaseProps } from '../../type'
 import css from './index.less'
@@ -179,32 +178,17 @@ function SkewAxisInput({ axis, field, previewValue, binding, onChange }: {
   )
 }
 
-const ANGLE_DEFAULT_ACTION = '__angleDefault__'
-
-/**
- * 角度单位菜单：只有度一种单位，所以单位本身只用来标明当前值；
- * 清除由「默认」承担（原先的行内 ×），换绑变量接在末尾。
- */
-function getAngleUnitOptions(editable: boolean): UnitOption[] {
-  return [
-    { label: lang.defaultLabel, value: ANGLE_DEFAULT_ACTION, type: 'action', disabled: !editable },
-    { label: '', value: '__angleUnitDivider__', type: 'divider' },
-    { label: '°', value: '°' },
-  ]
-}
-
 /**
  * 旋转行：与倾斜/缩放共用 VariableNumberInput，单位下拉、胶囊、变量弹层都由它提供，
  * 箭头大小与 hover 行为因此和上面几行完全一致。
  */
-function RotationInput({ field, previewValue, editable, binding, onChange, onClear }: {
+function RotationInput({ field, previewValue, editable, binding, onChange }: {
   field: ReturnType<typeof readRotation>
   /** 无旋转时的回显：继承角度，或不可编辑时的原始声明 */
   previewValue?: string
   editable: boolean
   binding: LengthVarBinding
   onChange: (next: number | string | null) => void
-  onClear: () => void
 }) {
   const tip = lang.dragRotation
   // 变量引用交给胶囊，输入框只显示字面量
@@ -250,22 +234,17 @@ function RotationInput({ field, previewValue, editable, binding, onChange, onCle
         value: displayValue,
         previewValue,
         defaultUnitValue: '°',
-        unitOptions: withApplyVariableOption(getAngleUnitOptions(editable), binding.hasVariables),
+        unitOptions: withApplyVariableOption([{ label: '°', value: '°' }], binding.hasVariables),
         showIcon: true,
         showIconOnHover: true,
         allowNegative: true,
-        // 不传 clearable：清除走单位菜单的「默认」，行内不再出现 ×，省出输入宽度。
+        // 清除沿用 InputNumber 内置的「默认」项（clearable 默认 true）；
+        // 行内不出现 ×，省出输入宽度。
         disabled: !editable,
         tip: lang.rotationAngleTip,
         type: 'number',
         onChange: handleChange,
-        onAction: action => {
-          if (action === ANGLE_DEFAULT_ACTION) {
-            onClear()
-            return
-          }
-          if (action === APPLY_VARIABLE_ACTION) binding.openPicker()
-        },
+        onAction: action => { if (action === APPLY_VARIABLE_ACTION) binding.openPicker() },
       }}
     />
   )
@@ -492,10 +471,6 @@ export function Transform({ value, onChange: fallbackOnChange, showTitle, collap
     commitTransform(clearTransform(liveTransformRef.current))
   }, [commitTransform, onChange])
 
-  const handleClear = useCallback(() => {
-    commitAngle(null)
-  }, [commitAngle])
-
   return (
     <Panel
       title={lang.transformPanelTitle}
@@ -524,7 +499,6 @@ export function Transform({ value, onChange: fallbackOnChange, showTitle, collap
           editable={angleEditable}
           binding={rotateBinding}
           onChange={commitAngle}
-          onClear={handleClear}
         />
 
         {/* Action buttons: rotate 90R / flip H / flip V */}
