@@ -327,6 +327,10 @@ export default i18n({
     zh: '变量：',
     en: 'Variable: ',
   },
+  valuePrefix: {
+    zh: '值：',
+    en: 'Value: ',
+  },
   replaceVariable: {
     zh: '替换变量...',
     en: 'Replace variable...',

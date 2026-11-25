@@ -91,6 +91,8 @@ function TransformAxisInput({ type, axis, field, previewValue, binding, onChange
         style: { flex: 1, minWidth: 0, paddingLeft: 0, paddingRight: 6 },
         prefix: handle,
         value: displayValue,
+        // 清空后留空，不显示「默认」占位文案
+        placeholder: '',
         previewValue: previewValue ?? (editable ? defaultValue : String(field.value ?? '—')),
         defaultUnitValue: unit,
         unitOptions: withApplyVariableOption([{ label: unit, value: unit }], binding.hasVariables),
@@ -161,6 +163,7 @@ function SkewAxisInput({ axis, field, previewValue, binding, onChange }: {
         style: { flex: 1, minWidth: 0, paddingLeft: 0, paddingRight: 6 },
         prefix: handle,
         value: displayValue,
+        placeholder: '',
         previewValue: previewValue ?? '0',
         defaultUnitValue: '°',
         unitOptions: withApplyVariableOption([{ label: '°', value: '°' }], binding.hasVariables),
@@ -232,6 +235,7 @@ function RotationInput({ field, previewValue, editable, binding, onChange }: {
         style: { flex: '1 1 0', minWidth: 0, paddingLeft: 0, paddingRight: 6 },
         prefix: handle,
         value: displayValue,
+        placeholder: '',
         previewValue,
         defaultUnitValue: '°',
         unitOptions: withApplyVariableOption([{ label: '°', value: '°' }], binding.hasVariables),
@@ -260,10 +264,19 @@ export function Transform({ value, onChange: fallbackOnChange, showTitle, collap
     : context?.effectiveStyle
       ? (source?.type !== 'computed' ? source?.value : undefined)
       : context?.authoredStyle ? context.authoredStyle.transform : value?.transform
-  const transformStr = typeof declaredTransform === 'string' && !/^unset$/i.test(declaredTransform.trim())
+  const targetDom = context?.targetDom
+  const zoneSelector = (context?.editConfig.options as { zoneTab?: { selector: string } })?.zoneTab?.selector
+  const rule = property?.winner?.source?.rule
+  const ruleTransform = rule?.style.transform
+  // 旧节点断开后会读回绑定前的矩阵；换节点、Tab 或 CSS 规则更新时丢弃这次绑定记录。
+  const matrixBinding = useMemo<{ value?: string }>(() => ({}), [targetDom, zoneSelector, rule, ruleTransform])
+  const declaredStr = typeof declaredTransform === 'string' && !/^unset$/i.test(declaredTransform.trim())
     ? declaredTransform : null
+  const transformStr = matrixBinding.value && targetDom?.isConnected === false && declaredStr === ruleTransform
+    ? matrixBinding.value : declaredStr
   // 手写 matrix() 展开成等价函数链，读和编辑都落在函数上；首次编辑即把矩阵写回成链。
-  const editableTransform = matrixToFunctions(transformStr) ?? transformStr
+  const matrixFunctions = matrixToFunctions(transformStr)
+  const editableTransform = matrixFunctions ?? transformStr
   const readIndividualValue = (key: IndividualTransformKey): string | null => {
     const source = context?.effectiveStyle?.[key]
     const winner = context?.getStyleProperty?.(key).winner
@@ -291,8 +304,6 @@ export function Transform({ value, onChange: fallbackOnChange, showTitle, collap
       ? { hasValue: true, value: individual[type], readOnly: true }
       : readTransformAxis(source, type, axis)
   }
-  const targetDom = context?.targetDom
-  const zoneSelector = (context?.editConfig.options as { zoneTab?: { selector: string } })?.zoneTab?.selector
   // 继承值只用于预览，编辑来源仍保留原声明。
   const inheritedValues = useMemo(() => {
     const values: Record<string, string | null> = {}
@@ -347,11 +358,17 @@ export function Transform({ value, onChange: fallbackOnChange, showTitle, collap
     if (next === current) return true
     const result = onChange({ key, value: next })
     if (result && !result.applied) return false
-    if (key === 'transform') liveTransformRef.current = next
-    // 源码回传前用 none 表示已清空，继续保留本次编辑来源，避免带回旧的另一轴。
-    else liveIndividualRef.current[key] = next ?? `none${current?.match(/\s*!important\s*$/i)?.[0] || ''}`
+    if (key === 'transform') {
+      const fromMatrix = matrixFunctions !== null && current === matrixFunctions && ruleTransform === transformStr
+      // 连续选变量时，第二笔从上一笔的函数串继续，两次编辑仍对应同一条旧矩阵规则。
+      matrixBinding.value = (fromMatrix || current === matrixBinding.value) && next?.includes('var(') ? next : undefined
+      liveTransformRef.current = next
+    } else {
+      // 源码回传前用 none 表示已清空，继续保留本次编辑来源，避免带回旧的另一轴。
+      liveIndividualRef.current[key] = next ?? `none${current?.match(/\s*!important\s*$/i)?.[0] || ''}`
+    }
     return true
-  }, [onChange])
+  }, [onChange, matrixFunctions, transformStr, ruleTransform, matrixBinding])
 
   const editTransform = useCallback((key: IndividualTransformKey, edit: (value: string | null) => string | null) => {
     const raw = liveIndividualRef.current[key]
@@ -463,13 +480,15 @@ export function Transform({ value, onChange: fallbackOnChange, showTitle, collap
       const result = onChange(changes)
       if (result && !result.applied) return
       changes.forEach(({ key, value }) => {
-        if (key === 'transform') liveTransformRef.current = value
-        else liveIndividualRef.current[key] = `none${liveIndividualRef.current[key]?.match(/\s*!important\s*$/i)?.[0] || ''}`
+        if (key === 'transform') {
+          matrixBinding.value = undefined
+          liveTransformRef.current = value
+        } else liveIndividualRef.current[key] = `none${liveIndividualRef.current[key]?.match(/\s*!important\s*$/i)?.[0] || ''}`
       })
       return
     }
     commitTransform(clearTransform(liveTransformRef.current))
-  }, [commitTransform, onChange])
+  }, [commitTransform, onChange, matrixBinding])
 
   return (
     <Panel

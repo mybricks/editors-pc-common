@@ -163,9 +163,11 @@ export function VariableChip({
       <div
         className={`${css.chip}${compact ? ` ${css.compact}` : ''}${showIconOnHover ? ` ${css.iconOnHover}` : ''}`}
         data-mybricks-tip={JSON.stringify({
-          content: resolvedValue && resolvedValue !== displayText
-            ? `${lang.variablePrefix}${varName || value}\n${resolvedValue}`
-            : `${lang.variablePrefix}${varName || value}`,
+          // 变量名与解析值分两行，变量名在前，解析值在后
+          content: [
+            `${lang.variablePrefix}${varName || value}`,
+            resolvedValue && `${lang.valuePrefix}${resolvedValue}`,
+          ].filter(Boolean).join('<br/>'),
           position: 'left',
         })}
       >
@@ -174,7 +176,9 @@ export function VariableChip({
           {/* 开始输入后隐藏胶囊，避免「旧变量值 + 新输入」同时出现 */}
           {!draft && (
             <>
-              <span className={css.valueBox} onClick={onRequestPicker}>{displayText}</span>
+              <span className={css.valueBox} onClick={onRequestPicker}>
+                <span className={css.valueText}>{displayText}</span>
+              </span>
               {inlineUnit && <span className={css.unit}>{unitLabel}</span>}
             </>
           )}

@@ -57,14 +57,14 @@
     pointer-events: none;
   }
 
-  /* 绑定变量的标识：值外面套一层描边衬底。列窄时允许收缩并省略号，不撑破列宽 */
+  /* 绑定变量的标识：值外面套一层描边衬底。宽度按内容撑开，列不够宽时收缩并允许横向滑动查看 */
   .valueBox {
-    max-width: 72px;
-    min-width: 0;
+    /* 两位数 + 左右各 6px padding 约 26px，给 28px 保证不贴边 */
+    min-width: 24px;
     flex: 0 1 auto;
     cursor: pointer;
     height: 18px;
-    padding: 0 6px;
+    padding: 0 4px;
     box-sizing: border-box;
     border-radius: 4px;
     background: @bg-color-main;
@@ -76,8 +76,27 @@
     font-weight: 500;
     color: @font-color-content;
     white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+  }
+
+  /* 只滚动文字，让外框两侧的留白始终可见 */
+  .valueText {
+    /* 撑满外框内容区：宽度大于文字时 scrollWidth 就是 clientWidth，
+       不会因为文字宽是小数而被取整出 1px 可滚的余量 */
+    min-width: 100%;
+    display: flex;
+    align-items: center;
+    /* 放得下时居中；数字溢出时 safe 会退回左对齐，保证开头（如 100 里的 1）能滚回来 */
+    justify-content: safe center;
+    overflow-x: auto;
+    overflow-y: hidden;
+    /* 横滑到边界时不要把整栏一起带走 */
+    overscroll-behavior-x: contain;
+    /* 数值框只有一行高，滚动条会挡住数字，交给触控板横滑 */
+    scrollbar-width: none;
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
   }
 
   .arrowWrap {
@@ -123,7 +142,6 @@
   &.compact {
     .valueBox {
       padding: 0 5px;
-      max-width: 32px;
     }
 
     .arrowWrap {
