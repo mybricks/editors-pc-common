@@ -194,6 +194,12 @@ function LayerItem({
 
   const themeVars = useThemeVars();
   const isVariableReference = !!parseCssVar(layer.value);
+  const variableTip = isVariableReference
+    ? [
+        `${lang.variablePrefix}${getLayerLabel(layer)}`,
+        resolvedColor && `${lang.valuePrefix}${resolvedColor}`,
+      ].filter(Boolean).join("<br/>")
+    : undefined;
   const pickerValue = isVariableReference ? resolvedColor || layer.value : layer.value;
   const opacity = layer.type === "solid" && !isVariableReference
     ? getColorOpacity(layer.value)
@@ -358,7 +364,7 @@ function LayerItem({
         <div className={css.layerLabelArea}>
           <div
             className={css.layerLabel}
-            data-mybricks-tip={isVariableReference ? `${lang.variablePrefix}${getLayerLabel(layer)}` : undefined}
+            data-mybricks-tip={variableTip}
             onClick={startEditing}
           >
             {/* 变量层显示 title / xxx-xx 风格名，原始变量名收在 hover 提示里 */}
