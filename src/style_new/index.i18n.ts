@@ -690,6 +690,7 @@ export default i18n({
   lineHeightPlaceholder: { zh: '默认', en: 'Default' },
   letterSpacingPlaceholder: { zh: '默认', en: 'Default' },
   fontSizeTip: { zh: '字号', en: 'Font size' },
+  fontWeightTip: { zh: '字重', en: 'Font weight' },
   lineHeightTip: { zh: '行高', en: 'Line height' },
   letterSpacingTip: { zh: '字间距', en: 'Letter spacing' },
   fontSizeGradeTip: { zh: '字号档位', en: 'Font size preset' },

@@ -69,6 +69,17 @@ function getFontWeightVariables(scopeEl?: Element | null) {
   return collectCssVarOptions(scopeEl, isFontWeightValue);
 }
 
+function getFontWeightTip(value: string, targetDom: Element | null) {
+  const variable = parseCssVar(value);
+  if (!variable) return lang.fontWeightTip;
+
+  const weight = resolveCssVar(value, targetDom, isFontWeightValue);
+  return [
+    `${lang.variablePrefix}${variable.varName}`,
+    weight && `${lang.valuePrefix}${weight}`,
+  ].filter(Boolean).join("<br/>");
+}
+
 interface FontProps extends PanelBaseProps {
   value: CSSProperties;
   onChange: (value: StyleChangeItem | StyleChangeItem[]) => StyleChangeResult | void;
@@ -1240,7 +1251,8 @@ export function Font({ config, showTitle, onChange: fallbackOnChange }: FontProp
           {cfg.disableFontWeight ? null : (
             <>
               <Select
-                tip={lang.fontWeight700}
+                tip={getFontWeightTip(String(fontWeight || fontWeightField.computedPreview || ''), targetDom)}
+                keepTipOnHover
                 prefix={<FontWeightOutlined />}
                 style={{
                   flex: 1,

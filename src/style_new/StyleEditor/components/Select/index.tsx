@@ -33,6 +33,8 @@ interface SelectProps {
   labelClassName?: string;
   iconClassName?: string;
   tip?: string;
+  /** 清除按钮出现时，字段本身仍保留悬停提示。 */
+  keepTipOnHover?: boolean;
   disabled?: boolean;
   clearable?: boolean;
   onClear?: () => void;
@@ -60,6 +62,7 @@ export function Select({
   iconClassName,
   multiple = false,
   tip,
+  keepTipOnHover = false,
   disabled = false,
   clearable = false,
   onClear,
@@ -157,7 +160,7 @@ export function Select({
         footer={footer}
       >
         <div
-          data-mybricks-tip={clearable && hovered ? undefined : tip}
+          data-mybricks-tip={clearable && hovered && !keepTipOnHover ? undefined : tip}
           className={`${css.select}${disabled ? ` ${css.disabled}` : ''}${showIconOnHover && !hideLabel ? ` ${css.iconOnHover}` : ''}${showIconOnHover && hideLabel ? ` ${css.iconHoverOnly}` : ''}`}
           style={showIcon ? {} : { padding: 0 }}
           onMouseEnter={() => setHovered(true)}
