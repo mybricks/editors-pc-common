@@ -648,15 +648,18 @@ export function Background({
   const handleLabelPaste = (index: number, event: React.ClipboardEvent<HTMLInputElement>) => {
     // 读取剪贴板纯文本并去掉首尾空白，保留渐变中的原始角度和色标。
     const text = event.clipboardData.getData('text/plain').trim();
+    // 兼容 Figma "Copy as CSS" 格式：去掉 background: / background-image: 前缀及末尾分号，
+    // 若无前缀则原样保留，不影响直接粘贴裸渐变值的既有行为。
+    const gradientText = text.replace(/^background(?:-image)?\s*:\s*/i, '').replace(/;$/, '').trim();
     // 仅接管已启用的线性渐变粘贴，其他文本沿用输入框原有行为。
-    if (disableGradient || !text.startsWith('linear-gradient(')) return;
+    if (disableGradient || !gradientText.startsWith('linear-gradient(')) return;
     // 由浏览器检查 CSS 合法性，自定义渐变解析器不能完全替代这项校验。
-    if (!CSS.supports('background-image', text)) return;
+    if (!CSS.supports('background-image', gradientText)) return;
 
     // 解析器可能抛错，只在粘贴入口捕获，不改变旧编辑路径的异常处理。
     try {
       // 复用括号感知的分层方法逐层检查，避免误拆 rgba(...) 内部的逗号。
-      if (!splitBackgroundLayers(text).every(value => {
+      if (!splitBackgroundLayers(gradientText).every(value => {
         // 复用渐变编辑器的解析器，确认该层能读出渐变类型和色标。
         const { type, stops } = ParseGradient(value);
         // 每一层都必须是线性渐变，且至少包含两个色标。
@@ -667,7 +670,7 @@ export function Background({
     }
 
     // 复用已有图层解析接口，同色渐变等情况沿用原来的图层分类规则。
-    const pastedLayers = parseLayers(text);
+    const pastedLayers = parseLayers(gradientText);
     // 从最新图层列表复制一份，避免直接修改当前状态。
     const nextLayers = layersRef.current.slice();
     // 在当前行的位置用粘贴的多层替换这一层，保留其余图层的顺序。
