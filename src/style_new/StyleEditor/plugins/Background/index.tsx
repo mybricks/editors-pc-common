@@ -195,10 +195,14 @@ function LayerItem({
 
   const themeVars = useThemeVars();
   const isVariableReference = !!parseCssVar(layer.value);
+  // resolvedColor 只认颜色，渐变/图片变量要靠 paint 解析出实际值
+  const variableValue = isVariableReference
+    ? resolvedColor || resolveCssPaintPreview(layer.value, scopeEl)
+    : undefined;
   const variableTip = isVariableReference
     ? [
         `${lang.variablePrefix}${getLayerLabel(layer)}`,
-        resolvedColor && `${lang.valuePrefix}${resolvedColor}`,
+        variableValue && `${lang.valuePrefix}${variableValue}`,
       ].filter(Boolean).join("<br/>")
     : undefined;
   const pickerValue = isVariableReference ? resolvedColor || layer.value : layer.value;
