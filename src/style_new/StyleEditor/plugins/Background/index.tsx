@@ -24,6 +24,7 @@ import {
   getColorOpacity,
   setColorOpacity,
   parseLayers,
+  detectLayerType,
   serializeLayers,
   getLayerRemovalChanges,
   mergeResolvedLayersWithReadonly,
@@ -33,6 +34,7 @@ import { clipHasText, getBackgroundClip, getContentBackgroundMeta } from "../../
 import {
   parseCssVar,
   resolveCssVarColor,
+  resolveCssPaintPreview,
   resolveCssVarsInCssValue,
 } from "../../../core/resolve-css-var-color";
 import type { CssVarColorOption } from "../../../core/resolve-css-var-color";
@@ -92,8 +94,10 @@ function getSwatchStyle(
     };
   }
   if (layer.type === "gradient") {
-    // 编辑器面板不在画布作用域，需把 var() 解析成具体色才能预览
-    const resolved = resolveCssVarsInCssValue(layer.value, scopeEl);
+    // 编辑器面板不在画布作用域，需把变量解析成具体 paint 才能预览：
+    // background-image: var(--g-color); --g-color: linear-gradient(#d22525, #1890ff);
+    // paint 解析器认颜色/渐变/url，整段 var() 也能取到渐变；文末 computed 兜底保留。
+    const resolved = resolveCssPaintPreview(layer.value, scopeEl);
     if (!resolved.includes("var(")) {
       return { backgroundImage: resolved };
     }
@@ -194,10 +198,15 @@ function LayerItem({
 
   const themeVars = useThemeVars();
   const isVariableReference = !!parseCssVar(layer.value);
+  // resolvedColor 只认颜色，变量值为渐变/url 时解析不出，改用 paint 解析器取实际值：
+  // background-image: var(--g-color) → Value: linear-gradient(#d22525, #1890ff)
+  const variableValue = isVariableReference
+    ? resolvedColor || resolveCssPaintPreview(layer.value, scopeEl)
+    : undefined;
   const variableTip = isVariableReference
     ? [
         `${lang.variablePrefix}${getLayerLabel(layer)}`,
-        resolvedColor && `${lang.valuePrefix}${resolvedColor}`,
+        variableValue && `${lang.valuePrefix}${variableValue}`,
       ].filter(Boolean).join("<br/>")
     : undefined;
   const pickerValue = isVariableReference ? resolvedColor || layer.value : layer.value;
@@ -205,18 +214,21 @@ function LayerItem({
     ? getColorOpacity(layer.value)
     : 100;
 
-  // 解绑：把变量解析出的色值固化成纯色层
+  // 解绑：把变量解析出的值内联成字面量图层
+  // background-image: var(--g-color) → background-image: linear-gradient(#d22525, #1890ff)
+  // 纯色变量仍固化成 hex；解析后仍是 var(...) 说明取不到值，不动作。
   const handleUnbind = useCallback(() => {
-    const raw = resolvedColor || resolveCssVarColor(layer.value, scopeEl);
-    if (!raw) return;
+    const raw = resolveCssPaintPreview(layer.value, scopeEl);
+    if (parseCssVar(raw)) return;
     try {
       const color = new ColorUtil(raw);
       const hex = (color.alpha() === 1 ? color.hex() : color.hexa()).toUpperCase();
       onLayerChange({ type: "solid", value: hex });
     } catch {
-      // 变量值解析不成颜色时保持原样
+      // 渐变 / 图片：固化成同类型字面量
+      onLayerChange({ type: detectLayerType(raw), value: raw });
     }
-  }, [resolvedColor, layer.value, scopeEl, onLayerChange]);
+  }, [layer.value, scopeEl, onLayerChange]);
 
   // ── Opacity drag scrubbing (reuses useDragNumber hook) ──────────────────
   const getDragProps = useDragNumber({
@@ -468,9 +480,19 @@ export function Background({
     ].join("|");
   };
 
+  // 纯 var() 引用的图层要按变量解析出的值定性，否则会当作纯色：
+  // background-image: var(--g-color); --g-color: linear-gradient(#d22525, #1890ff);
+  // 1) 色块走 background-color 分支渲染渐变 → 无效，显示空白棋盘格；
+  // 2) serializeLayers 把纯色层包成 background-image: linear-gradient(var(--g-color), var(--g-color))
+  //    → 渐变嵌进渐变，整条声明失效、背景消失。
+  // 字面量（linear-gradient(...)、url(...)、颜色）不经过解析，保持不变。
+  const resolvePaintType = (layers: BgLayer[]) => layers.map(layer =>
+    layer.type !== 'solid' || !parseCssVar(layer.value) ? layer
+      : { ...layer, type: detectLayerType(resolveCssPaintPreview(layer.value, targetDom)) });
+
   const [layers, setLayers] = useState<BgLayer[]>(() => {
     const meta = getContentBackgroundMeta(value as Record<string, any>);
-    return parseLayers(
+    return resolvePaintType(parseLayers(
       meta.backgroundImage,
       meta.backgroundColor,
       meta.backgroundSize,
@@ -478,7 +500,7 @@ export function Background({
       meta.backgroundPosition,
       ownership,
       showTransparentColor,
-    );
+    ));
   });
 
   // Always-fresh ref — avoids stale closures in handlers (Colorpicker's inner
@@ -522,7 +544,7 @@ export function Background({
     lastEmittedRef.current = fingerprint;
     lastOwnershipRef.current = ownershipFingerprint;
     setLayers(
-      parseLayers(
+      resolvePaintType(parseLayers(
         meta.backgroundImage,
         meta.backgroundColor ?? "",
         meta.backgroundSize,
@@ -530,7 +552,7 @@ export function Background({
         meta.backgroundPosition,
         ownership,
         showTransparentColor,
-      )
+      ))
     );
   }, [
     value?.backgroundImage,
@@ -555,11 +577,13 @@ export function Background({
       if (remove && context?.getStyleProperty) {
         // 执行器已同步来源索引，立即展示剩余来源，避免先清空 UI 再吞掉级联回显。
         const remaining = Object.fromEntries(BACKGROUND_CLEAR_KEYS.map(key => [key, context.getStyleProperty!(key).winner?.value ?? '']));
-        const resolvedLayers = parseLayers(remaining.backgroundImage, remaining.backgroundColor,
+        // 与上面同源解析：删除后剩余值若仍是 var(--g-color)，类型需按渐变参与合并，
+        // 否则和界面里 gradient 类型的只读层对不上、被重复插入。
+        const resolvedLayers = resolvePaintType(parseLayers(remaining.backgroundImage, remaining.backgroundColor,
           remaining.backgroundSize, remaining.backgroundRepeat, remaining.backgroundPosition, {
             backgroundImage: !!context.getStyleProperty('backgroundImage').winner?.currentState && !!context.getStyleRemovalState?.(IMAGE_CLEAR_KEYS).canClear,
             backgroundColor: !!context.getStyleRemovalState?.(['backgroundColor']).canClear,
-          }, !!remaining.backgroundColor && !/^unset$/i.test(String(remaining.backgroundColor).trim()));
+          }, !!remaining.backgroundColor && !/^unset$/i.test(String(remaining.backgroundColor).trim())));
         // computed / 外部回显层没有 StyleProperty winner，不能因删除当前状态的新层而丢失。
         const nextLayers = mergeResolvedLayersWithReadonly(resolvedLayers, newLayers);
         const nextSnapshot = Object.fromEntries(
