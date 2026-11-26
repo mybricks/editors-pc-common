@@ -144,6 +144,7 @@
     width: 22px;
     height: 22px;
     flex-shrink: 0;
+    color: @font-color-content;
   }
 
   &:hover {
@@ -155,6 +156,10 @@
   border-color: color-mix(in srgb, @color-primary 20%, transparent);
   color: @color-primary;
   background-color: color-mix(in srgb, @color-primary 10%, transparent);
+
+  svg {
+    color: @color-primary;
+  }
 
   &:hover {
     background-color: color-mix(in srgb, @color-primary 15%, transparent);
