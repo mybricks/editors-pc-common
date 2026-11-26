@@ -1,5 +1,6 @@
 import ColorUtil from 'color';
 import { parseCssVar } from '../../../core/css-var';
+import { resolveCssPaintPreview } from '../../../core/resolve-css-var-color';
 import type { BackgroundLayerOwnership } from '../../../core/background-layer-ownership';
 import {
   splitBackgroundLayers,
@@ -35,6 +36,16 @@ export function detectLayerType(value: string): LayerType {
   // 用函数名匹配，避免 var(--color-gradient-*) 被误判为渐变
   if (isGradientValue(value)) return 'gradient';
   return 'solid';
+}
+
+/**
+ * 纯 var() 引用可能承载渐变或图片，按解析出的 paint 判定类型；
+ * 绑定值保持原样，写入时仍回写 var() 引用。
+ */
+export function detectLayerPaintType(value: string, scopeEl?: Element | null): LayerType {
+  const type = detectLayerType(value);
+  if (type !== 'solid' || !scopeEl || !parseCssVar(value)) return type;
+  return detectLayerType(resolveCssPaintPreview(value, scopeEl));
 }
 
 /** Extract opacity (0-100) from a color string */
@@ -78,6 +89,7 @@ export function parseLayers(
   backgroundPosition?: string,
   ownership?: BackgroundLayerOwnership,
   showTransparentColor = false,
+  scopeEl?: Element | null,
 ): BgLayer[] {
   const layers: BgLayer[] = [];
 
@@ -107,7 +119,7 @@ export function parseLayers(
         const color = (commaIdx >= 0 ? inner.slice(0, commaIdx) : inner).trim();
         layers.push({
           id: generateLayerId(),
-          type: 'solid',
+          type: detectLayerPaintType(color, scopeEl),
           value: color,
           visible: true,
           size: '',
@@ -119,7 +131,7 @@ export function parseLayers(
         return;
       }
 
-      const type = detectLayerType(trimmed);
+      const type = detectLayerPaintType(trimmed, scopeEl);
       layers.push({
         id: generateLayerId(),
         type,

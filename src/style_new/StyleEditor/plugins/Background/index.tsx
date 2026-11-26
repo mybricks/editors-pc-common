@@ -33,6 +33,7 @@ import { clipHasText, getBackgroundClip, getContentBackgroundMeta } from "../../
 import {
   parseCssVar,
   resolveCssVarColor,
+  resolveCssPaintPreview,
   resolveCssVarsInCssValue,
 } from "../../../core/resolve-css-var-color";
 import type { CssVarColorOption } from "../../../core/resolve-css-var-color";
@@ -93,7 +94,7 @@ function getSwatchStyle(
   }
   if (layer.type === "gradient") {
     // 编辑器面板不在画布作用域，需把 var() 解析成具体色才能预览
-    const resolved = resolveCssVarsInCssValue(layer.value, scopeEl);
+    const resolved = resolveCssPaintPreview(layer.value, scopeEl);
     if (!resolved.includes("var(")) {
       return { backgroundImage: resolved };
     }
@@ -478,6 +479,7 @@ export function Background({
       meta.backgroundPosition,
       ownership,
       showTransparentColor,
+      targetDom,
     );
   });
 
@@ -492,6 +494,8 @@ export function Background({
     buildContentFingerprint(value as Record<string, any>)
   );
   const localEmitPendingRef = useRef<string | null>(null);
+  // 变量类型取决于画布作用域：选中节点变化时，同样的 CSS 可能解析出不同的渐变/颜色。
+  const lastParseScopeRef = useRef<Element | null>(targetDom);
 
   useEffect(() => {
     const style = value as Record<string, any>;
@@ -516,11 +520,12 @@ export function Background({
     // 默认透明与显式透明可能色值相同，按现有颜色层是否存在决定是否重新解析。
     const transparentDisplayMatches = getColorOpacity(meta.backgroundColor || '') !== 0 ||
       layersRef.current.some(layer => layer.sourceProperty === 'backgroundColor') === showTransparentColor;
-    if (fingerprint === lastEmittedRef.current && transparentDisplayMatches) {
+    if (fingerprint === lastEmittedRef.current && transparentDisplayMatches && lastParseScopeRef.current === targetDom) {
       return;
     }
     lastEmittedRef.current = fingerprint;
     lastOwnershipRef.current = ownershipFingerprint;
+    lastParseScopeRef.current = targetDom;
     setLayers(
       parseLayers(
         meta.backgroundImage,
@@ -530,6 +535,7 @@ export function Background({
         meta.backgroundPosition,
         ownership,
         showTransparentColor,
+        targetDom,
       )
     );
   }, [
@@ -543,6 +549,7 @@ export function Background({
     value?.backgroundOrigin,
     ownershipFingerprint,
     showTransparentColor,
+    targetDom,
   ]);
 
   // ── Emit helper ──────────────────────────────────────────────────────────
@@ -559,7 +566,7 @@ export function Background({
           remaining.backgroundSize, remaining.backgroundRepeat, remaining.backgroundPosition, {
             backgroundImage: !!context.getStyleProperty('backgroundImage').winner?.currentState && !!context.getStyleRemovalState?.(IMAGE_CLEAR_KEYS).canClear,
             backgroundColor: !!context.getStyleRemovalState?.(['backgroundColor']).canClear,
-          }, !!remaining.backgroundColor && !/^unset$/i.test(String(remaining.backgroundColor).trim()));
+          }, !!remaining.backgroundColor && !/^unset$/i.test(String(remaining.backgroundColor).trim()), targetDom);
         // computed / 外部回显层没有 StyleProperty winner，不能因删除当前状态的新层而丢失。
         const nextLayers = mergeResolvedLayersWithReadonly(resolvedLayers, newLayers);
         const nextSnapshot = Object.fromEntries(
@@ -594,7 +601,7 @@ export function Background({
       layersRef.current = nextLayers;
       setLayers(nextLayers);
     },
-    [applyStyleMutations, context?.getStyleProperty, context?.getStyleRemovalState, value]
+    [applyStyleMutations, context?.getStyleProperty, context?.getStyleRemovalState, value, targetDom]
   );
 
   // ── Layer handlers ───────────────────────────────────────────────────────
