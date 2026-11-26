@@ -13,7 +13,7 @@ import { Rotation90R } from '../../icons/Rotation90R'
 import { RotationFlipHorizontal } from '../../icons/RotationFlipHorizontal'
 import { RotationFlipVertical } from '../../icons/RotationFlipVertical'
 import { TranslateX, TranslateY, ScaleX, ScaleY, SkewX, SkewY } from '../../icons/TransformAxes'
-import { readRotation, readFlips, readTransformAxis, readTransformMatrix, setRotation, setTransformAxis, toggleFlip, clearTransform, readIndividualTransform, serializeIndividualTransform, readSkewAxis, setSkewAxis, isSimpleVarComponent, isScaleValue, getCssVarAngleOptions, getCssVarScaleOptions, resolveAngleVar, resolveScaleVar, matrixToFunctions } from './transform-value'
+import { readRotation, readFlips, readTransformAxis, readTransformMatrix, setRotation, setTransformAxis, toggleFlip, clearTransform, readIndividualTransform, serializeIndividualTransform, readSkewAxis, setSkewAxis, isSimpleVarComponent, isScaleValue, getCssVarAngleOptions, getCssVarScaleOptions, resolveAngleVar, resolveScaleVar, matrixToFunctions, resolveTransformComponentPx, isTransformExpression } from './transform-value'
 import type { TransformAxisType, IndividualTransformKey } from './transform-value'
 import type { LengthVarBinding } from '../../hooks/useLengthVarBinding'
 
@@ -43,14 +43,20 @@ function TransformAxisInput({ type, axis, field, previewValue, binding, onChange
 }) {
   const isScale = type === 'scale'
   const Icon = isScale ? axis === 'x' ? ScaleX : ScaleY : axis === 'x' ? TranslateX : TranslateY
-  // 变量分量是字符串，不参与数值解析；表达式（calc 等）仍走只读回显。
+  const targetDom = useStyleEditorContext()?.targetDom
   const varComponent = typeof field.value === 'string' && isSimpleVarComponent(field.value) ? field.value : null
-  const numeric = field.readOnly || varComponent ? null : String(field.value ?? '').match(/^([-+]?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?)([a-z%]*)$/i)
-  const editable = !field.hasValue || !!numeric
+  const numeric = varComponent ? null : String(field.value ?? '').match(/^([-+]?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?)([a-z%]*)$/i)
+  // calc/clamp/vw 等表达式：字面量解析不到，向浏览器单独求值后得到实际 px，之后与字面量走相同编辑路径
+  const resolvedPx = useMemo(() => {
+    if (isScale || varComponent || numeric || !field.hasValue || !targetDom) return null
+    const expr = String(field.value ?? '')
+    return isTransformExpression(expr) ? resolveTransformComponentPx(expr, axis, targetDom) : null
+  },[field.value, field.hasValue, isScale, varComponent, numeric, axis, targetDom])
+  const editable = !field.hasValue || !!numeric || !!resolvedPx
   const unit = isScale ? '%' : numeric?.[2] || 'px'
   const displayValue = numeric
     ? isScale ? `${Number((Number(field.value) * 100).toFixed(6))}%` : `${numeric[1]}${unit}`
-    : null
+    : resolvedPx ?? null
   const defaultValue = isScale ? '100%' : '0px'
   const tip = isScale
     ? axis === 'x' ? lang.transformScaleXTip : lang.transformScaleYTip

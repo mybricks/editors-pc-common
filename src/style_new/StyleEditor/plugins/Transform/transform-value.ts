@@ -476,3 +476,54 @@ export function serializeIndividualTransform(key: IndividualTransformKey, value:
   const y = readTransformAxis(value, key, 'y').value ?? fallback
   return `${x} ${y}${priority}`
 }
+
+/** clamp/calc/min/max 表达式或裸视口单位：面板展示前需要向浏览器求值。 */
+// 不引用 StyleEditor/utils.ts 的 LENGTH_EXPR_RE：那个只判断「胶囊文案是否过长」，
+// 且未导出；这里还要覆盖裸 vw/vh（6vw 不是函数调用，但同样拿不到数值）。
+const EXPRESSION_RE = /^(?:calc|min|max|clamp)\(/i
+const VIEWPORT_UNIT_RE = /^-?[\d.]+(?:vw|vh|vmin|vmax|dvw|dvh|svw|svh|lvw|lvh)$/i
+
+export function isTransformExpression(value?: string | null): boolean {
+  const text = String(value ?? '').trim()
+  return EXPRESSION_RE.test(text) || VIEWPORT_UNIT_RE.test(text)
+}
+
+/**
+ * 位移分量表达式求值，例如 clamp(24px, 5vw, 64px) → 64px。
+ *
+ * 为什么不直接读元素自己的计算值（getComputedStyle(targetDom).transform /
+ * effectiveStyle.transform.computedValue）：
+ * 1. 面板读的是声明里该分量「那一个参数」（readTransformAxis 取第一个匹配函数），
+ *    而元素的计算矩阵是整条 transform 合并的结果。同一轴有多个 translate，或
+ *    translate 排在 rotate/scale 之后时（rotate(15deg) translateX(64px) 的矩阵
+ *    m41 = cos15°×64 ≈ 61.8），矩阵里的位移已经不等于该参数本身。
+ * 2. 元素处于 hover 等状态时，zone-tab 会把 computedValue 换回声明原文，
+ *    不保证拿到的是 matrix。
+ * 所以只能把该参数单独丢给探针求值；矩阵解析仍复用上面的 readTransformMatrix，
+ * 不重复实现一套 matrix 拆解。
+ */
+export function resolveTransformComponentPx(
+  expression: string,
+  axis: 'x' | 'y',
+  scopeEl: Element,
+): string | null {
+  try {
+    const doc = scopeEl.ownerDocument
+    const view = doc.defaultView
+    if (!view) return null
+    const probe = doc.createElement('div')
+    // 取目标元素尺寸，calc(50% - 10px) 这类百分比才按元素自身宽度换算，而不是按 0 算
+    const rect = scopeEl.getBoundingClientRect()
+    probe.style.cssText = 'position:absolute;left:0;top:0;visibility:hidden;pointer-events:none;'
+      + `width:${rect.width}px;height:${rect.height}px`
+    probe.style.transform = `translate${axis.toUpperCase()}(${expression})`
+    doc.body.appendChild(probe)
+    const computed = view.getComputedStyle(probe).transform
+    probe.remove()
+    const matrix = readTransformMatrix(computed)
+    if (!matrix) return null
+    return `${axis === 'x' ? matrix.translateX : matrix.translateY}px`
+  } catch {
+    return null
+  }
+}
