@@ -27,6 +27,12 @@
   }
 }
 
+/* 单位文案 hover 换成箭头时，箭头盒与下拉同宽、原地覆盖；
+   否则 Select 里 margin-right: -3px 会把箭头推出下拉右侧，看起来整体右偏。 */
+.transformPanelContent .transformInput [data-select-icon] {
+  margin-right: 0;
+}
+
 /* 轴图标同时出现在输入框和变量胶囊的 prefix 里，两者都把 svg 限到 14px，
    需带上面板容器提高优先级才能保持原尺寸。 */
 .transformPanelContent .axisIcon {
