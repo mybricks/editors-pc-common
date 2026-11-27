@@ -1229,6 +1229,7 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
       onMenuAction={(action) => handleVariableMenuAction(field, action)}
       onInputValue={(val) => writeSizeValue(field, val)}
       onDetach={() => detachVariable(field)}
+      arrowWrapperStyle={{ marginRight: 6, transform: 'translateY(-1px)' }}
       // flex-basis 显式为 0：胶囊与输入区都不能把列宽撑开，否则会挤掉相邻的高度列
       style={{ flex: '1 1 0', minWidth: 0, width: 0, marginLeft: 4 }}
     />
