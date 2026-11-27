@@ -30,7 +30,9 @@ import { useEffectiveStyleValue, useStyleChange, useStyleEditorContext } from ".
 import { resolveCssVarLength } from "../../../core/resolve-css-var-length";
 import { formatLengthDisplay } from "../../utils";
 
-import type {ChangeEvent, PanelBaseProps} from "../../type";
+import type {ChangeEvent, PanelBaseProps, StyleChangeItem} from "../../type";
+import { isColumnWidthChange, resolveColumnWidthTarget } from './table-column-width'
+import type { ColumnWidthTarget } from './table-column-width'
 import css from './index.less'
 import lang from '../../../index.i18n'
 
@@ -305,6 +307,14 @@ function getUnitKey(val: any): string {
   return str.replace(String(num), '') || 'none';
 }
 
+/**
+ * 把宽度项标记为写向表头，其余项仍写当前元素；同一次提交，由公共层分组写入并合并结果。
+ * 例：[宽 200, 高 120] → 宽带 writeTo 写表头，高留在单元格。
+ */
+function markColumnWidth(items: StyleChangeItem[], target: ColumnWidthTarget): StyleChangeItem[] {
+  return items.map(item => isColumnWidthChange(item) ? { ...item, writeTo: target } : item);
+}
+
 interface SizeProps extends PanelBaseProps {
   value: CSSProperties;
   onChange: ChangeEvent;
@@ -441,6 +451,28 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
   useEffect(() => {
     if (normalizeSizeValue(value.minHeight)) setShowMinHeight(true);
   }, [value.minHeight]);
+  // 选中单元格改宽度时映射到表头。解析结果按目标与规则来源缓存，输入过程中不必反复扫样式表。
+  const columnWidthTargetRef = useRef<{ key: unknown[]; target?: ColumnWidthTarget } | null>(null);
+  const getColumnWidthTarget = useCallback((): ColumnWidthTarget | undefined => {
+    const options = editorContext?.editConfig?.options;
+    const zoneTab = !Array.isArray(options) ? options?.zoneTab : undefined;
+    const key = [
+      targetDom, options, zoneTab, zoneTab?.sourceRules, zoneTab?.baseRules,
+      !Array.isArray(options) ? options?.soloEdit : undefined, cfg.disableWidth,
+    ];
+    const cached = columnWidthTargetRef.current;
+    if (cached && cached.key.every((item, index) => item === key[index])) return cached.target;
+    const target = cfg.disableWidth ? undefined : resolveColumnWidthTarget(targetDom, options);
+    columnWidthTargetRef.current = { key, target };
+    return target;
+  }, [targetDom, editorContext, cfg.disableWidth]);
+
+  // 宽写表头，其余（高、display、flex 等）照旧写当前元素。
+  const writeSizeChanges = useCallback((items: StyleChangeItem[]) => {
+    const columnTarget = items.some(isColumnWidthChange) ? getColumnWidthTarget() : undefined;
+    return rawOnChange(columnTarget ? markColumnWidth(items, columnTarget) : items);
+  }, [getColumnWidthTarget, rawOnChange]);
+
   const onChange: ChangeEvent = useCallback((change) => {
     // 1. 沿用 inline 元素的固定尺寸规则，合并到同一次提交。
     const changes = Array.isArray(change) ? change : [change];
@@ -449,13 +481,13 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
     );
     const isInline = targetDom && window.getComputedStyle(targetDom).display === 'inline';
 
-    let submittedChange = change;
+    let submittedChange = changes;
     if (changesToFixedSize && isInline && !changes.some(({ key }) => key === 'display')) {
       submittedChange = [...changes, { key: 'display', value: 'block' }];
     }
 
     // 2. flex 相关样式清除成功后，不再因为原来的 flex 配置显示 Fill
-    const result = rawOnChange(submittedChange);
+    const result = writeSizeChanges(submittedChange);
     const clearsFlex = ['flex', 'flexGrow', 'flexShrink', 'flexBasis'].every(
       key => changes.some(item => item.key === key && item.value === null),
     );
@@ -463,7 +495,7 @@ export function Size({onChange: fallbackOnChange, config, showTitle, collapse}: 
       setCfg(previous => ({...previous, disableWidth: false, disableHeight: false}));
     }
     return result;
-  }, [rawOnChange, targetDom]);
+  }, [writeSizeChanges, targetDom]);
 
   const [actualWidth, setActualWidth] = useState<number>(0);
   const [actualHeight, setActualHeight] = useState<number>(0);

@@ -240,7 +240,11 @@ export function StyleMount({
         liveStyleRef.current = nextLiveStyle
         if (isSoloEdit) {
           const changes = Array.isArray(value) ? value : [value]
-          recordPendingSoloValues(pendingSoloValuesRef.current, changes, previousLiveStyle, nextLiveStyle)
+          // 写向其它元素的项不属于当前元素的单独配置，不能记成待回写值。
+          const localChanges = changes.filter(item => !item.writeTo)
+          if (localChanges.length) {
+            recordPendingSoloValues(pendingSoloValuesRef.current, localChanges, previousLiveStyle, nextLiveStyle)
+          }
           removeKeys?.forEach(key => pendingSoloValuesRef.current.delete(key))
         }
         setStyleRevision(revision => revision + 1)
@@ -251,8 +255,7 @@ export function StyleMount({
   )
 
   const applyStyleMutations = useCallback(
-    (mutations: StyleMutation[]) =>
-      handleChange(buildStyleMutationChange(mutations)),
+    (mutations: StyleMutation[]) => handleChange(buildStyleMutationChange(mutations)),
     [handleChange]
   )
 
