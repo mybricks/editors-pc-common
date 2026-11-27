@@ -54,6 +54,8 @@ interface VariableChipProps {
   /** 胶囊左侧的图标，用于保留未绑定态输入框里的字段标识（如 X / Y） */
   prefix?: ReactNode
   style?: CSSProperties
+  arrowMarginRight?: number
+  arrowStyle?: CSSProperties
   /** 窄列（如边框四边宽度）收紧胶囊内边距和箭头，避免数字和箭头之间空一截 */
   compact?: boolean
   /** 与 InputNumber 对齐：默认隐藏下拉箭头，hover / 聚焦时再显示 */
@@ -81,6 +83,8 @@ export function VariableChip({
   onDetach,
   prefix,
   style,
+  arrowMarginRight = 0,
+  arrowStyle,
   compact = false,
   showIconOnHover = false,
 }: VariableChipProps) {
@@ -182,7 +186,7 @@ export function VariableChip({
           {draft && unitLabel && <span className={css.unit}>{unitLabel}</span>}
         </div>
         {/* Dropdown 容器是 width:100%，需外层限宽，否则会挤掉左侧的胶囊与输入区 */}
-        <div className={css.arrowWrap}>
+        <div className={css.arrowWrap} style={{ marginRight: arrowMarginRight }}>
           <Dropdown
             value={varName}
             options={options}
@@ -190,7 +194,7 @@ export function VariableChip({
             onAction={handleAction}
             menuStyle={menuStyle}
           >
-            <span className={css.arrow}>
+            <span className={css.arrow} style={arrowStyle}>
               <DownOutlined />
             </span>
           </Dropdown>
