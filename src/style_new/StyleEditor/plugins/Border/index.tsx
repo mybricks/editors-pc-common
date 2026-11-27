@@ -444,7 +444,7 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
     return onlyNone ? true : collapse;
   }, [collapse, defaultBorderValue, effectiveStyle]);
 
-  const finalCollapse = useMemo(() => {
+  const computedCollapse = useMemo(() => {
     // 最后补充处理 outline: rgb(...) none 3px：线型为 none，非零宽度也不应单独撑开面板。
     // 先去掉 !important，再匹配独立的 none 关键字，兼容它在简写中的不同位置。
     const outlineValue = String(stripImportant(value.outline) || '');
@@ -468,6 +468,12 @@ export function Border({ value, onChange: fallbackOnChange, config, showTitle, c
     // 四边检查也通过才收起；border-top: 3px solid red 会阻止收起。
     return allSidesInvisible ? true : effectiveCollapse;
   }, [effectiveCollapse, value]);
+  // 折叠态只在该元素首次渲染时确定，之后改值保持原值，避免面板跳动；切换元素时按新元素重新判定。
+  const collapseRef = useRef({ target: targetDom, value: computedCollapse });
+  if (collapseRef.current.target !== targetDom) {
+    collapseRef.current = { target: targetDom, value: computedCollapse };
+  }
+  const finalCollapse = collapseRef.current.value;
   const [borderToggleValue, setBorderToggleValue] = useState<'all' | 'split'>(
     getBorderToggleDefaultValue(defaultBorderValue, effectiveValue)
   );
