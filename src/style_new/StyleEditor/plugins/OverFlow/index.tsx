@@ -1,11 +1,10 @@
 import React, { CSSProperties, useCallback, useLayoutEffect, useMemo, useState } from 'react';
 
 import {Panel, Select} from '../../components';
-import { QuestionCircleOutlined } from '../../components/Icon/QuestionCircleOutlined';
 import { OverflowHorizontal } from '../../icons/OverflowHorizontal';
 import { OverflowVertical } from '../../icons/OverflowVertical';
 import { useEffectiveStyleValue, useStyleChange, useStyleClear, useStyleEditorContext } from '../../context';
-import { getOverflowAdjustment, OVERFLOW_AXIS_KEYS } from '../../../core/overflow';
+import { OVERFLOW_AXIS_KEYS } from '../../../core/overflow';
 
 import type {ChangeEvent, PanelBaseProps} from '../../type';
 import css from './index.less'
@@ -72,27 +71,6 @@ export const OverFlow = ({ value: fallbackValue, onChange: fallbackOnChange, sho
     setOverflowValue(current => ({ ...current, [key]: next }))
   }
 
-  const readNoticeValue = (key: keyof OverFlowValueType) => {
-    const declared = overflowValue[key] || editorContext?.getStyleProperty?.(key).winner?.value || 'visible'
-    if (/^(initial|unset)$/.test(declared)) return 'visible'
-    return declared
-  }
-  const axisTips = OVERFLOW_AXIS_KEYS.map((key, index) => {
-    const otherKey = OVERFLOW_AXIS_KEYS[1 - index]
-    const current = readNoticeValue(key)
-    let other = readNoticeValue(otherKey)
-    if (!['visible', 'clip', 'auto', 'scroll', 'hidden'].includes(other)) {
-      other = editorContext?.getStylePreview?.(otherKey) || editorContext?.effectiveStyle?.[otherKey]?.computedValue || ''
-    }
-    const adjusted = getOverflowAdjustment(current, other)
-    if (!adjusted) return undefined
-    const direction = index === 0 ? lang.horizontal : lang.vertical
-    const selected = current === 'clip' ? lang.overflowClip : lang.overflowVisible
-    const actual = adjusted === 'auto' ? lang.overflowAuto : lang.overflowHidden
-    const configured = overflowValue[key] == null ? lang.overflowCurrentIs : lang.overflowSetTo
-    return `${direction} ${configured} "${selected}" — affected by the other axis, browser treats as "${actual}".`
-  })
-
   const refresh = useCallback(() => {
     if (!clear) return
     const result = clear()
@@ -115,9 +93,8 @@ export const OverFlow = ({ value: fallbackValue, onChange: fallbackOnChange, sho
               key={key}
               style={{ flex: 1, minWidth: 0, padding: '0 8px' }}
               prefix={
-                <span className={css.tip} data-mybricks-tip={axisTips[index] ?? (index === 0 ? lang.horizontal : lang.vertical)}>
+                <span className={css.tip}>
                   {index === 0 ? <OverflowHorizontal /> : <OverflowVertical />}
-                  {axisTips[index] && <span className={css.tipIcon}><QuestionCircleOutlined /></span>}
                 </span>
               }
               value={overflowValue[key]}

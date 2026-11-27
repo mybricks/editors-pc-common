@@ -856,11 +856,6 @@ export default i18n({
   overflowScroll: { zh: '显示滚动条', en: 'Scroll' },
   overflowHidden: { zh: '隐藏', en: 'Hidden' },
   overflowVisible: { zh: '显示', en: 'Visible' },
-  overflowClip: { zh: '裁剪', en: 'Clip' },
-  horizontal: { zh: '水平', en: 'Horizontal' },
-  vertical: { zh: '垂直', en: 'Vertical' },
-  overflowCurrentIs: { zh: '当前为', en: 'Current:' },
-  overflowSetTo: { zh: '设置为', en: 'Set to:' },
   overflowPanelTitle: { zh: '内容溢出', en: 'Overflow' },
 
   // Position
